@@ -47,6 +47,7 @@ from docling_core.types.doc.base import ImageRefMode
 from docling_core.types.doc.document import (
     BaseMeta,
     CodeItem,
+    CodeMetaField,
     ContentLayer,
     DescriptionAnnotation,
     DescriptionMetaField,
@@ -607,8 +608,7 @@ class HTMLPictureSerializer(BasePictureSerializer):
         if item.meta:
             meta_res = doc_serializer.serialize_meta(item=item, **kwargs)
             if meta_res.text:
-                details_html = f"<details><summary>Meta</summary>{meta_res.text}</details>"
-                res_parts.append(create_ser_result(text=details_html, span_source=[meta_res]))
+                res_parts.append(meta_res)
 
         text_res = "".join([r.text for r in res_parts])
         if text_res:
@@ -917,20 +917,26 @@ class HTMLMetaSerializer(BaseModel, BaseMetaSerializer):
     ) -> SerializationResult:
         """Serialize the item's meta."""
         params = HTMLParams(**kwargs)
+        field_parts = (
+            [
+                tmp
+                for key in (list(item.meta.__class__.model_fields) + list(item.meta.get_custom_part()))
+                if (
+                    (params.allowed_meta_names is None or key in params.allowed_meta_names)
+                    and (key not in params.blocked_meta_names)
+                    and (tmp := self._serialize_meta_field(item.meta, key))
+                )
+            ]
+            if item.meta
+            else []
+        )
+        if not field_parts:
+            text = ""
+        else:
+            inner = "".join(field_parts)
+            text = f'<details class="docling-meta"><summary>Meta</summary>{inner}</details>'
         return create_ser_result(
-            text="\n".join(
-                [
-                    tmp
-                    for key in (list(item.meta.__class__.model_fields) + list(item.meta.get_custom_part()))
-                    if (
-                        (params.allowed_meta_names is None or key in params.allowed_meta_names)
-                        and (key not in params.blocked_meta_names)
-                        and (tmp := self._serialize_meta_field(item.meta, key))
-                    )
-                ]
-                if item.meta
-                else []
-            ),
+            text=text,
             span_source=item if isinstance(item, DocItem) else [],
             # NOTE for now using an empty span source for GroupItems
         )
@@ -953,11 +959,20 @@ class HTMLMetaSerializer(BaseModel, BaseMetaSerializer):
                     txt = table_content
                 else:
                     return None
+            elif isinstance(field_val, CodeMetaField):
+                lang = field_val.language.value.lower() if field_val.language else ""
+                code_class = f' class="language-{html.escape(lang)}"' if lang else ""
+                txt = f'<pre class="docling-meta-code"><code{code_class}>{html.escape(field_val.text)}</code></pre>'
             elif tmp := str(field_val or ""):
                 txt = tmp
             else:
                 return None
-            return f"<div data-meta-{name}>{txt}</div>"
+            return (
+                f'<div class="docling-meta-field" data-meta-{name}>'
+                f'<span class="docling-meta-field-label">{name}:</span> '
+                f'<span class="docling-meta-field-value">{txt}</span>'
+                f"</div>"
+            )
         else:
             return None
 

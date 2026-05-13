@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,7 @@ from ouroboros.mcp.tools.evaluation_handlers import LateralThinkHandler
 from ouroboros.mcp.tools.execution_handlers import StartExecuteSeedHandler
 from ouroboros.mcp.tools.qa import QAHandler
 from ouroboros.mcp.tools.ralph_handlers import RalphHandler
+from ouroboros.mcp.tools.subagent import should_dispatch_via_plugin
 from ouroboros.mcp.types import MCPToolResult
 from ouroboros.resilience.lateral import ThinkingPersona
 
@@ -29,6 +31,13 @@ _WINDOWS_RESERVED_FILENAME_STEMS = frozenset(
     {"CON", "PRN", "AUX", "NUL"}
     | {f"COM{index}" for index in range(1, 10)}
     | {f"LPT{index}" for index in range(1, 10)}
+)
+_SEED_FILENAME_SUFFIX = ".yaml"
+_SEED_FILENAME_COMPONENT_MAX_BYTES = 255
+_SEED_FILENAME_DIGEST_HEX_LENGTH = 24
+_SEED_FILENAME_TRUNCATION_MARKER = "--%TRUNC%"
+_SEED_FILENAME_STEM_MAX_BYTES = _SEED_FILENAME_COMPONENT_MAX_BYTES - len(
+    _SEED_FILENAME_SUFFIX.encode("utf-8")
 )
 
 
@@ -192,6 +201,12 @@ class HandlerRalphStarter:
     def __init__(self, handler: RalphHandler) -> None:
         self.handler = handler
 
+    @property
+    def job_event_store(self) -> Any:
+        """Expose Ralph's JobManager event store for the auto status mirror."""
+        job_manager = getattr(self.handler, "_job_manager", None)
+        return getattr(job_manager, "_event_store", None)
+
     async def __call__(
         self,
         seed: Seed,
@@ -199,7 +214,11 @@ class HandlerRalphStarter:
         lineage_id: str,
         max_total_seconds: float | None = None,
         per_iteration_timeout_seconds: float | None = None,
+        existing_job_id: str | None = None,
         on_dispatched: Callable[[dict[str, Any]], None] | None = None,
+        on_started: Callable[[dict[str, Any]], None] | None = None,
+        reattach_terminal: bool = True,
+        reuse_existing: bool = True,
     ) -> dict[str, Any]:
         """Dispatch the Ralph loop and wait for terminal completion.
 
@@ -213,6 +232,41 @@ class HandlerRalphStarter:
         only ``ralph_lineage_id`` — and resume could not poll the
         still-running job (Q00/ouroboros#773 review-6).
         """
+        dispatch_callback = on_dispatched or on_started
+        job_manager = self.handler._job_manager  # noqa: SLF001
+        if reuse_existing and not existing_job_id and lineage_id:
+            find_by_lineage = getattr(job_manager, "find_active_job_by_lineage", None)
+            if find_by_lineage is not None:
+                recovered = await find_by_lineage(
+                    lineage_id, job_type="ralph", include_terminal=reattach_terminal
+                )
+                if recovered is not None:
+                    existing_job_id = recovered.job_id
+        if existing_job_id:
+            if dispatch_callback is not None:
+                dispatch_callback(
+                    {
+                        "job_id": existing_job_id,
+                        "lineage_id": lineage_id,
+                        "dispatch_mode": "job",
+                        "status": "reattaching",
+                    }
+                )
+            terminal_meta = await _wait_for_job_terminal(
+                job_manager,
+                existing_job_id,
+                timeout_seconds=max_total_seconds,
+            )
+            terminal_status = _optional_str(terminal_meta.get("status")) or "failed"
+            stop_reason = _optional_str(terminal_meta.get("stop_reason"))
+            return {
+                "job_id": existing_job_id,
+                "lineage_id": lineage_id,
+                "dispatch_mode": "job",
+                "terminal_status": terminal_status,
+                "stop_reason": stop_reason,
+            }
+
         seed_yaml = yaml.dump(
             seed.to_dict(), default_flow_style=False, allow_unicode=True, sort_keys=False
         )
@@ -224,6 +278,32 @@ class HandlerRalphStarter:
             arguments["max_total_seconds"] = max_total_seconds
         if per_iteration_timeout_seconds is not None:
             arguments["per_iteration_timeout_seconds"] = per_iteration_timeout_seconds
+        # Q00/ouroboros#782 review-5 BLOCKING #2 + review-12 BLOCKING #2:
+        # the plugin ``ouroboros_ralph`` call commits an externally observable
+        # side effect (``mcp.subagent.dispatched`` event + the bridge's child
+        # session). If the process dies between that side effect and the
+        # post-call save, resume must detect the dispatch already happened
+        # and transition to COMPLETE instead of dispatching a duplicate.
+        # However, the pre-call checkpoint MUST distinguish "dispatch attempted"
+        # from "dispatch succeeded" — otherwise a crash *before* the handler
+        # actually emits the subagent event leaves persisted state that looks
+        # like a completed plugin dispatch even though no child session was
+        # ever started, and resume falsely transitions to COMPLETE. We
+        # therefore use ``"plugin_pending"`` for the pre-call checkpoint and
+        # ``"plugin"`` for the post-call confirmation envelope below;
+        # :meth:`AutoPipeline._resume_ralph_handoff` retries dispatch when it
+        # observes the unconfirmed marker.
+        runtime_backend = _optional_runtime_attr(self.handler, "agent_runtime_backend")
+        opencode_mode = _optional_runtime_attr(self.handler, "opencode_mode")
+        plugin_dispatch = should_dispatch_via_plugin(runtime_backend, opencode_mode)
+        if plugin_dispatch and on_dispatched is not None:
+            on_dispatched(
+                {
+                    "job_id": None,
+                    "lineage_id": lineage_id,
+                    "dispatch_mode": "plugin_pending",
+                }
+            )
         result = _unwrap(
             await self.handler.handle(arguments),
             tool_name="ouroboros_ralph",
@@ -235,15 +315,19 @@ class HandlerRalphStarter:
         # ``delegated_to_plugin`` status. The auto pipeline records this and
         # transitions straight to COMPLETE — there is nothing to wait for.
         if status == "delegated_to_plugin" or dispatch_mode == "plugin":
+            ralph_subagent = (
+                meta.get("_subagent") if isinstance(meta.get("_subagent"), dict) else None
+            )
             envelope = {
                 "job_id": None,
                 "lineage_id": _optional_str(meta.get("lineage_id")) or lineage_id,
                 "dispatch_mode": "plugin",
                 "terminal_status": "delegated_to_plugin",
                 "stop_reason": None,
+                "_subagent": ralph_subagent,
             }
-            if on_dispatched is not None:
-                on_dispatched(envelope)
+            if dispatch_callback is not None:
+                dispatch_callback(envelope)
             return envelope
         # Job mode: wait for the background job to terminate, then map the
         # final job snapshot back into the structured terminal status the
@@ -251,28 +335,39 @@ class HandlerRalphStarter:
         job_id = _optional_str(meta.get("job_id"))
         if not job_id:
             raise HandlerError("ouroboros_ralph did not return a job_id")
-        if on_dispatched is not None:
+        if dispatch_callback is not None:
             # Fire BEFORE we block on the terminal poll so callers can
             # persist ``ralph_job_id`` immediately. The terminal_status /
             # stop_reason are intentionally omitted here — they are not
             # known until the poll returns.
-            on_dispatched(
+            dispatch_callback(
                 {
                     "job_id": job_id,
                     "lineage_id": _optional_str(meta.get("lineage_id")) or lineage_id,
                     "dispatch_mode": "job",
                 }
             )
-        job_manager = self.handler._job_manager  # noqa: SLF001
-        terminal_meta = await _wait_for_job_terminal(job_manager, job_id)
+        if max_total_seconds is None:
+            terminal_meta = await _wait_for_job_terminal(job_manager, job_id)
+        else:
+            terminal_meta = await _wait_for_job_terminal(
+                job_manager,
+                job_id,
+                timeout_seconds=max_total_seconds,
+            )
         terminal_status = _optional_str(terminal_meta.get("status")) or "failed"
         stop_reason = _optional_str(terminal_meta.get("stop_reason"))
-        return {
+        current_generation = _current_generation_from_meta(terminal_meta)
+        terminal_result: dict[str, Any] = {
             "job_id": job_id,
             "lineage_id": _optional_str(meta.get("lineage_id")) or lineage_id,
             "dispatch_mode": "job",
             "terminal_status": terminal_status,
             "stop_reason": stop_reason,
+            "current_generation": current_generation,
+        }
+        artifact_text = _artifact_text(terminal_meta.get("__result_text__"))
+        if artifact_text is not None:
             # RFC #809 Phase 2.1: surface the Ralph job's result_text so
             # ``AutoPipeline._evaluate_or_complete`` can grade it against
             # the Seed AC via ``HandlerEvaluator``. ``""`` is a VALID graded
@@ -280,8 +375,8 @@ class HandlerRalphStarter:
             # still be graded), so route through ``_artifact_text`` —
             # ``_optional_str`` would collapse the empty string to None and
             # silently skip EVALUATE.
-            "result_text": _artifact_text(terminal_meta.get("__result_text__")),
-        }
+            terminal_result["result_text"] = artifact_text
+        return terminal_result
 
 
 class HandlerRalphPoller:
@@ -302,24 +397,44 @@ class HandlerRalphPoller:
     def __init__(self, handler: RalphHandler) -> None:
         self.handler = handler
 
-    async def __call__(self, *, job_id: str) -> dict[str, Any]:
+    @property
+    def job_event_store(self) -> Any:
+        """Expose Ralph's JobManager event store for the auto status mirror."""
+        job_manager = getattr(self.handler, "_job_manager", None)
+        return getattr(job_manager, "_event_store", None)
+
+    async def __call__(
+        self, *, job_id: str, max_total_seconds: float | None = None
+    ) -> dict[str, Any]:
         job_manager = self.handler._job_manager  # noqa: SLF001
-        terminal_meta = await _wait_for_job_terminal(job_manager, job_id)
+        if max_total_seconds is None:
+            terminal_meta = await _wait_for_job_terminal(job_manager, job_id)
+        else:
+            terminal_meta = await _wait_for_job_terminal(
+                job_manager,
+                job_id,
+                timeout_seconds=max_total_seconds,
+            )
         terminal_status = _optional_str(terminal_meta.get("status")) or "failed"
         stop_reason = _optional_str(terminal_meta.get("stop_reason"))
-        return {
+        current_generation = _current_generation_from_meta(terminal_meta)
+        result = {
             "job_id": job_id,
             "lineage_id": _optional_str(terminal_meta.get("lineage_id")),
             "dispatch_mode": "job",
             "terminal_status": terminal_status,
             "stop_reason": stop_reason,
+            "current_generation": current_generation,
+        }
+        artifact_text = _artifact_text(terminal_meta.get("__result_text__"))
+        if artifact_text is not None:
             # RFC #809 Phase 2.1: surface the Ralph job's result_text so a
             # resumed RALPH_HANDOFF checkpoint can still grade the artifact
             # via EVALUATE — same contract as the starter path. ``""`` is a
             # VALID graded artifact, so use ``_artifact_text`` rather than
             # ``_optional_str``.
-            "result_text": _artifact_text(terminal_meta.get("__result_text__")),
-        }
+            result["result_text"] = artifact_text
+        return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -562,7 +677,11 @@ def _build_lateral_current_approach(run_artifact: str) -> str:
 
 
 async def _wait_for_job_terminal(
-    job_manager: JobManager, job_id: str, *, poll_interval: float = 0.05
+    job_manager: JobManager,
+    job_id: str,
+    *,
+    poll_interval: float = 0.05,
+    timeout_seconds: float | None = None,
 ) -> dict[str, Any]:
     """Poll the job manager until ``job_id`` reaches a terminal state.
 
@@ -579,18 +698,37 @@ async def _wait_for_job_terminal(
     leading/trailing underscores to avoid colliding with any
     Ralph-supplied meta key.
     """
+    loop = asyncio.get_running_loop()
+    deadline = None
+    if timeout_seconds is not None:
+        deadline = loop.time() + max(0.0, timeout_seconds)
     while True:
         snapshot = await job_manager.get_snapshot(job_id)
         if snapshot.is_terminal:
             meta = dict(snapshot.result_meta or {})
-            meta.setdefault(
-                "status",
-                "completed" if snapshot.status is JobStatus.COMPLETED else "failed",
-            )
+            meta.setdefault("status", snapshot.status.value)
             if snapshot.result_text is not None:
                 meta["__result_text__"] = snapshot.result_text
             return meta
+        if deadline is not None:
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                return {
+                    "job_id": job_id,
+                    "status": "failed",
+                    "stop_reason": "wall_clock_exhausted",
+                }
+            await asyncio.sleep(min(poll_interval, remaining))
+            continue
         await asyncio.sleep(poll_interval)
+
+
+def _terminal_job_status(status: JobStatus) -> str:
+    if status is JobStatus.COMPLETED:
+        return "completed"
+    if status is JobStatus.CANCELLED:
+        return "cancelled"
+    return "failed"
 
 
 def load_seed(path: str | Path) -> Seed:
@@ -606,7 +744,7 @@ def save_seed(seed: Seed, *, seeds_dir: Path | None = None) -> str:
     directory = seeds_dir or (Path.home() / ".ouroboros" / "seeds")
     directory.mkdir(parents=True, exist_ok=True)
     seed_id = _safe_seed_id_for_filename(seed.metadata.seed_id)
-    path = directory / f"{seed_id}.yaml"
+    path = directory / f"{seed_id}{_SEED_FILENAME_SUFFIX}"
     _require_path_inside_directory(path, directory)
     path.write_text(
         yaml.dump(seed.to_dict(), default_flow_style=False, allow_unicode=True, sort_keys=False),
@@ -635,7 +773,25 @@ def _safe_seed_id_for_filename(seed_id: str) -> str:
     if stem.upper() in _WINDOWS_RESERVED_FILENAME_STEMS:
         first_byte = stem[0].encode("utf-8")[0]
         stem = f"%{first_byte:02X}{stem[1:]}"
-    return stem
+    return _bound_seed_filename_stem(stem, seed_id)
+
+
+def _bound_seed_filename_stem(stem: str, seed_id: str) -> str:
+    """Keep the encoded Seed filename stem under common component limits.
+
+    The encoded stem is ASCII-only, so character count equals byte count.  When
+    percent-encoding would inflate a valid semantic Seed id beyond common
+    255-byte filename component limits, preserve a readable prefix and append a
+    digest of the original semantic id.
+    """
+    if len(stem.encode("utf-8")) <= _SEED_FILENAME_STEM_MAX_BYTES:
+        return stem
+
+    digest = hashlib.sha256(seed_id.encode("utf-8")).hexdigest()[:_SEED_FILENAME_DIGEST_HEX_LENGTH]
+    suffix = f"{_SEED_FILENAME_TRUNCATION_MARKER}{digest}"
+    prefix_budget = _SEED_FILENAME_STEM_MAX_BYTES - len(suffix.encode("utf-8"))
+    prefix = stem[:prefix_budget]
+    return f"{prefix}{suffix}"
 
 
 def _require_path_inside_directory(path: Path, directory: Path) -> None:
@@ -655,11 +811,18 @@ def _turn_from_result(
     if not session_id:
         raise HandlerError("ouroboros_interview did not return a session_id")
     text = result.content[0].text if result.content else ""
+    raw_ambiguity = meta.get("ambiguity_score")
+    ambiguity_score: float | None
+    if isinstance(raw_ambiguity, (int, float)):
+        ambiguity_score = float(raw_ambiguity)
+    else:
+        ambiguity_score = None
     return InterviewTurn(
         question=_extract_interview_question(text, session_id=session_id),
         session_id=session_id,
         seed_ready=bool(meta.get("seed_ready")),
         completed=bool(meta.get("completed")),
+        ambiguity_score=ambiguity_score,
     )
 
 
@@ -687,6 +850,35 @@ def _extract_seed_yaml(text: str) -> str:
 
 def _optional_str(value: object) -> str | None:
     return value if isinstance(value, str) and value else None
+
+
+def _optional_runtime_attr(handler: object, name: str) -> str | None:
+    value = getattr(handler, name, None)
+    return value if isinstance(value, str) else None
+
+
+def _optional_int(value: object) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _last_int(value: object) -> int | None:
+    if not isinstance(value, list):
+        return None
+    for item in reversed(value):
+        found = _optional_int(item)
+        if found is not None:
+            return found
+    return None
+
+
+def _current_generation_from_meta(meta: dict[str, Any]) -> int | None:
+    current_generation = _optional_int(meta.get("current_generation"))
+    if current_generation is not None:
+        return current_generation
+    generations_generation = _last_int(meta.get("generations"))
+    if generations_generation is not None:
+        return generations_generation
+    return _optional_int(meta.get("iterations"))
 
 
 def _artifact_text(value: object) -> str | None:

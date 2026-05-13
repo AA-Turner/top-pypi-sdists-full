@@ -21,6 +21,7 @@ import seaborn as sns  # Moved to module level
 from tqdm.rich import tqdm
 
 from geocif import utils
+from geocif.progress import pbar as _pbar
 from geocif.ml import embedding
 from geocif.ml import stages as stages_module  # Renamed to avoid shadowing
 
@@ -108,7 +109,7 @@ def most_correlated_feature_by_time(df_train: pd.DataFrame,
         for idx in range(len(simulation_stages))
     ]
 
-    for stage_list in tqdm(cumulative_stages, leave=False, 
+    for stage_list in _pbar(cumulative_stages, leave=False,
                            desc="Compute most correlated feature"):
         current_stage = stage_list[-1]
         current_feature_set = [
@@ -378,7 +379,7 @@ def _all_correlated_feature_by_time(df: pd.DataFrame, **kwargs) -> pd.DataFrame:
 
     frames = []
     
-    for stage in tqdm(stages_features, leave=False, desc="Calculating correlations"):
+    for stage in _pbar(stages_features, leave=False, desc="Calculating correlations"):
         stage_name = stage_info_cache[stage]["Stage Name"]
         current_feature_set = [
             col for col in df_clean.columns if stage_name in col
@@ -535,7 +536,7 @@ def all_correlated_feature_by_time(df: pd.DataFrame, **kwargs) -> tuple:
     if not national_correlation:
         groups = df.groupby(group_by)
 
-        for region_id, group in tqdm(
+        for region_id, group in _pbar(
             groups,
             desc=f"Compute all correlated feature by {group_by}",
             leave=False

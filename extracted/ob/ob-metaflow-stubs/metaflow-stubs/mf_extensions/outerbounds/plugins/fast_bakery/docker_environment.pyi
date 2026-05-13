@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.825936                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.071872                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.metaflow_environment
     import metaflow.exception
+    import metaflow.metaflow_environment
 
 from .....exception import MetaflowException as MetaflowException
 from .....metaflow_config import get_pinned_conda_libs as get_pinned_conda_libs
@@ -18,6 +18,7 @@ from .....plugins.aws.batch.batch_decorator import BatchDecorator as BatchDecora
 from .....plugins.kubernetes.kubernetes_decorator import KubernetesDecorator as KubernetesDecorator
 from .....plugins.pypi.conda_decorator import CondaStepDecorator as CondaStepDecorator
 from .....plugins.pypi.conda_environment import CondaEnvironment as CondaEnvironment
+from .....plugins.pypi.anaconda_environment import AnacondaEnvironment as AnacondaEnvironment
 from .....plugins.pypi.pypi_decorator import PyPIStepDecorator as PyPIStepDecorator
 from .fast_bakery import FastBakery as FastBakery
 from .fast_bakery import FastBakeryApiResponse as FastBakeryApiResponse

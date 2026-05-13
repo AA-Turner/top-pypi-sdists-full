@@ -224,6 +224,15 @@ class AgentLoop:
         self._empty_responses: int = 0
         self._successful_test_runs: int = 0
 
+        # Mid-turn user injections (the Claude Code "type while busy" feature).
+        # The TUI calls `queue_user_injection()` whenever the user submits a
+        # message while the agent is mid-task. The per-turn loop drains this
+        # at the top of each iteration and folds the text into context as a
+        # SYSTEM note attached to the last tool result (the only ordering that
+        # vLLM/Mistral accept after a tool turn). No locking needed — Textual's
+        # event loop is single-threaded asyncio, same loop the agent runs on.
+        self._pending_user_injections: list[str] = []
+
         # Shared read-file state — used by write_file / search_replace to
         # enforce Read-before-Write (per Claude Code's tool contract) and
         # by read_file to dedup unchanged-mtime re-reads. Keyed by resolved
@@ -305,6 +314,38 @@ class AgentLoop:
     def auto_approve(self) -> bool:
         return self.config.auto_approve
 
+    def queue_user_injection(self, text: str) -> None:
+        """Queue a user message to be folded into context at the next turn boundary.
+
+        Called by the TUI when the user submits a message while the agent is
+        already running. The injection is drained at the top of the next
+        per-turn iteration in `act()` and surfaced to the model as a SYSTEM
+        note on the last tool result so message ordering stays valid for
+        vLLM/Mistral.
+        """
+        cleaned = (text or "").strip()
+        if cleaned:
+            self._pending_user_injections.append(cleaned)
+
+    def _drain_user_injections(self) -> None:
+        """Pull any queued user messages into the current turn's context.
+
+        Folds them onto the last tool result via the same safe path as
+        `_inject_system_note` — never appends a fresh user-after-tool
+        message, which vLLM/Mistral reject.
+        """
+        if not self._pending_user_injections:
+            return
+        # Snapshot + clear so a concurrent queue append doesn't double-fire.
+        injections = self._pending_user_injections
+        self._pending_user_injections = []
+        for text in injections:
+            note = (
+                f"USER (typed while you were working — fold this into "
+                f"the current task; do not start over):\n{text}"
+            )
+            self._inject_system_note(note)
+
     def set_tool_permission(
         self, tool_name: str, permission: ToolPermission, save_permanently: bool = False
     ) -> None:
@@ -376,6 +417,12 @@ class AgentLoop:
         # without it the model loops on ls/bash instead of using subagents.
         if self.stats.steps <= 1:
             self._ensure_agents_md()
+            # Skip DRYDOCK.md auto-create under pytest so tmp_path-based
+            # tests don't get unexpected files appearing in their fixture
+            # dirs. Unit tests for the auto-create function call it
+            # directly (bypassing this gate).
+            if "PYTEST_CURRENT_TEST" not in os.environ:
+                self._ensure_drydock_md()
 
         # Load project state for cross-session context
         try:
@@ -706,14 +753,39 @@ class AgentLoop:
         # as a system note BEFORE the first LLM call. Zero behavior change
         # when the index has nothing relevant; pure lift when it does.
         #
-        # Env-gated via DRYDOCK_AUTO_RETRIEVE so existing workflows are
-        # unaffected. Set to "1" or "true" to enable.
-        if os.environ.get("DRYDOCK_AUTO_RETRIEVE", "").strip().lower() in ("1", "true", "yes"):
+        # Disable both hooks under pytest. They'd otherwise inject noise
+        # into the agent's message stream — a synthetic retrieve tool call
+        # for auto-retrieve, and queue writes for curiosity — which breaks
+        # tests that pin the exact event order or count messages.
+        # Set DRYDOCK_AUTO_RETRIEVE=1 / DRYDOCK_CURIOSITY=1 explicitly in a
+        # test if you want to exercise them.
+        _under_pytest = "PYTEST_CURRENT_TEST" in os.environ
+
+        # SOVEREIGN_PRD §5.7 acceptance #1: "retrieve called on ≥80% of HLE
+        # questions before any content token". Default ON in production —
+        # the prefetch is a no-op when no GraphRAG db exists (early return),
+        # so users without a corpus are unaffected. Opt out with
+        # DRYDOCK_AUTO_RETRIEVE=0.
+        _auto_retrieve_default = "0" if _under_pytest else "1"
+        if os.environ.get("DRYDOCK_AUTO_RETRIEVE", _auto_retrieve_default).strip().lower() not in ("0", "false", "no"):
             logger.warning("[AUTO-RETRIEVE] hook entry, query=%r", (user_msg or "")[:80])
             try:
                 self._auto_prefetch_retrieve(user_msg)
             except Exception as _e:
                 logger.warning("auto-prefetch retrieve failed (skipped): %s", _e, exc_info=True)
+
+        # === CURIOSITY GAP LOGGING ===
+        # SOVEREIGN_PRD §5.7 tier-2: extract candidate unfamiliar terms from
+        # the user message and enqueue UNKNOWN_TERM curiosity items. The
+        # queue is dedup'd by fingerprint over 7 days so the same recurring
+        # term doesn't flood it. Disabled by setting DRYDOCK_CURIOSITY=0.
+        # Off by default under pytest (see auto-retrieve note above).
+        _curiosity_default = "0" if _under_pytest else "1"
+        if os.environ.get("DRYDOCK_CURIOSITY", _curiosity_default).strip().lower() not in ("0", "false", "no"):
+            try:
+                self._log_curiosity_gaps(user_msg)
+            except Exception as _e:
+                logger.warning("curiosity gap logging failed (skipped): %s", _e)
 
         try:
             should_break_loop = False
@@ -738,6 +810,10 @@ class AgentLoop:
             _prompt_start = time.perf_counter()
             logger.warning("[TIMING] entering conversation while loop")
             while not should_break_loop:
+                # Drain any user messages typed while the agent was working.
+                # Done BEFORE the turn counter increments and BEFORE middleware
+                # runs so the new context is visible to both.
+                self._drain_user_injections()
                 # Loop protection: prevent infinite tool-call loops
                 tool_turns += 1
                 _wt0 = time.perf_counter()
@@ -1920,6 +1996,65 @@ class AgentLoop:
             result=result,
         )
 
+        # === CURIOSITY: SURPRISE-ON-TOOL-RESULT ===
+        # SOVEREIGN_PRD §5.7: when a tool result contradicts a confident
+        # assertion the model just made (e.g., "All tests pass" right before
+        # a Traceback), score the surprise and enqueue an EVIDENCE_CONFLICT
+        # item for autonomous_review. Gated by DRYDOCK_CURIOSITY=1 (default).
+        if status == "failure" and os.environ.get(
+            "DRYDOCK_CURIOSITY", "1"
+        ).strip().lower() not in ("0", "false", "no"):
+            try:
+                self._maybe_log_surprise(tool_call, text)
+            except Exception as _e:
+                logger.debug("surprise scoring skipped: %s", _e)
+
+    def _maybe_log_surprise(self, tool_call: Any, tool_text: str) -> None:
+        """Score the last assistant assertion against this tool result;
+        enqueue an EVIDENCE_CONFLICT curiosity item if surprise is high."""
+        try:
+            from drydock.curiosity import (
+                CuriosityItem, CuriosityKind, enqueue, score_surprise,
+            )
+            from drydock.curiosity.surprise import SURPRISE_THRESHOLD
+        except Exception:
+            return
+
+        # Walk backward to find the most recent assistant CONTENT (not a
+        # bare tool-call message). That's the assertion to compare against.
+        prior_assertion = ""
+        for msg in reversed(self.messages):
+            if msg.role == Role.assistant and (msg.content or "").strip():
+                prior_assertion = (msg.content or "").strip()
+                break
+        if not prior_assertion:
+            return
+
+        score = score_surprise(prior_assertion, tool_text, kind="tool_result")
+        if score < SURPRISE_THRESHOLD:
+            return
+
+        tool_name = ""
+        try:
+            tool_name = getattr(tool_call.function, "name", "") or ""
+        except Exception:
+            pass
+
+        enqueue(CuriosityItem(
+            kind=CuriosityKind.EVIDENCE_CONFLICT,
+            term=f"{tool_name} contradicted assistant claim",
+            context=(
+                f"Assistant said: {prior_assertion[:200]}\n"
+                f"Tool {tool_name} returned: {tool_text[:200]}"
+            ),
+            source=f"session:{getattr(self, 'session_id', '?')}",
+            suggested_action=(
+                "Investigate whether this is a recurring model bias; "
+                "consider a one-line AGENTS.md hint or sharpened prompt rule."
+            ),
+            confidence=float(score),
+        ))
+
     # _build_repetition_nudge REMOVED (2026-04-13): advisory nudges had
     # 0% effect on Gemma 4 — fired 4 times while model made 8 identical
     # calls. Replaced by token-level sampling bumps (see agent_loop's
@@ -2999,12 +3134,16 @@ class AgentLoop:
         # appear many times in sequence when building multi-file projects.
         # Record a hot-combo on the stuck tool with an empty-path marker
         # so the per-tool mute in _chat will remove it for 1 turn.
-        _productive_tools = {"write_file", "search_replace", "bash", "run_command"}
-        _check_1a_threshold = 8 if (tool_names and tool_names[-1] in _productive_tools) else 4
-        if len(tool_names) >= _check_1a_threshold:
-            last_n = tool_names[-_check_1a_threshold:]
-            if all(n == last_n[-1] for n in last_n):
-                self._hot_tool_path = (last_n[-1], "<stuck>")
+        # Uniform threshold=8. The autonomous_review fix that lowered this to
+        # 4 for exploration tools (grep/read_file/glob) addressed a misattributed
+        # `harness:thinking_stall` signal — that pattern is about post-thinking
+        # empty messages, handled by the empty-message nudge elsewhere — and the
+        # lowered threshold broke loop_detection regression tests (4 different
+        # greps or read_files is legitimate investigation, not a stuck loop).
+        if len(tool_names) >= 8:
+            last8 = tool_names[-8:]
+            if all(n == last8[-1] for n in last8):
+                self._hot_tool_path = (last8[-1], "<stuck>")
                 return "FORCE_STOP"
 
         # Check 1c: High recent-error fraction. If ≥6 of last 10 tool
@@ -3159,6 +3298,38 @@ class AgentLoop:
                     return f"WARNING|{last_tool}"
 
         return None
+
+    def _log_curiosity_gaps(self, user_msg: str) -> None:
+        """Detect unfamiliar-term candidates in the user message and enqueue
+        them as UNKNOWN_TERM curiosity items.
+
+        Best-effort: any exception is caught at the call site so a curiosity
+        failure never breaks a real user turn. Dedup is handled inside the
+        queue (7-day fingerprint window), so calling this on every user
+        message is safe.
+        """
+        try:
+            from drydock.curiosity import (
+                CuriosityItem, CuriosityKind, detect_gaps, enqueue,
+            )
+        except Exception:
+            return  # module not installed (e.g. minimal test env)
+        gaps = detect_gaps(user_msg or "")
+        if not gaps:
+            return
+        session_src = f"session:{getattr(self, 'session_id', '?')}"
+        for term in gaps:
+            enqueue(CuriosityItem(
+                kind=CuriosityKind.UNKNOWN_TERM,
+                term=term,
+                context=(user_msg or "")[:300],
+                source=session_src,
+                suggested_action=(
+                    "Check whether the project's GraphRAG corpus covers "
+                    f"`{term[:80]}`; if not, ingest the relevant path."
+                ),
+                confidence=0.7,
+            ))
 
     def _auto_prefetch_retrieve(self, user_msg: str) -> None:
         """Auto-fetch relevant chunks from GraphRAG and inject as system note.
@@ -3429,6 +3600,123 @@ class AgentLoop:
 
         if parts:
             self._inject_system_note("\n".join(parts))
+
+    def _ensure_drydock_md(self) -> None:
+        """Auto-create DRYDOCK.md in the project root if absent.
+
+        This file is the drydock equivalent of CLAUDE.md / AGENTS.md: a
+        per-project instructions file the model loads on every session
+        (see system_prompt._load_project_instructions, 16 KB cap).
+
+        We write a LEAN starter (~2 KB) telling the model what tools the
+        harness ships with and a few stub sections the user can fill in
+        for project-specific guidance. The point is to give the agent
+        signal about its own capabilities — especially the math / count /
+        memory / verify built-ins it might otherwise overlook — without
+        burning context budget on every turn.
+
+        Best practices baked in:
+        - Detect the language from manifest files (pyproject / package.json /
+          Cargo.toml / go.mod) so the overview line is meaningful.
+        - Tool inventory is one bullet line per category, not a treatise.
+        - Stub sections (Coding Standards, Workflow) marked TODO so the
+          user knows where to add their own rules.
+        """
+        cwd = Path.cwd()
+        if (cwd / "DRYDOCK.md").exists() or (cwd / "drydock.md").exists():
+            return
+
+        # Detect language from manifest presence — single short line.
+        lang = "Unknown stack"
+        for marker, name in (
+            ("pyproject.toml", "Python"),
+            ("setup.py", "Python"),
+            ("requirements.txt", "Python"),
+            ("package.json", "JavaScript / TypeScript"),
+            ("Cargo.toml", "Rust"),
+            ("go.mod", "Go"),
+            ("Gemfile", "Ruby"),
+            ("pom.xml", "Java (Maven)"),
+            ("build.gradle", "Java/Kotlin (Gradle)"),
+        ):
+            if (cwd / marker).exists():
+                lang = name
+                break
+
+        try:
+            (cwd / "DRYDOCK.md").write_text(
+                f"""# DRYDOCK.md — project instructions for the agent
+
+Auto-loaded into the system prompt every session (16 KB cap). Keep it
+lean — every byte costs context budget on every turn. Edit freely; this
+is a living document.
+
+## Project overview
+
+- **Stack:** {lang} _(detected from manifest)_
+- **Purpose:** _(TODO: one sentence on what this project does)_
+- **Entry point:** _(TODO: e.g., `python -m mypkg`, `npm start`, `cargo run`)_
+
+## What the harness can do for you
+
+DryDock ships these direct built-in tools (one entry each in the model's
+tool list — no MCP overhead):
+
+- **Reads / search:** `read_file`, `glob`, `grep`, `retrieve` (GraphRAG
+  semantic search if the project is indexed), `web_search`, `web_fetch`.
+- **Writes:** `write_file`, `search_replace` (preferred for edits),
+  `bash`, `notebook_edit`.
+- **Exact computation (don't compute in your head):**
+  - `math(expression="...")` — sandboxed Python: `math.factorial(20)`,
+    `Fraction(1,3)+Fraction(1,6)`, `statistics.mean([...])`.
+  - `count(pattern="...", text=... OR path=..., mode=...)` —
+    substring / regex / lines / words / chars / bytes.
+- **Persistent memory across sessions:** `memory(op="save"|"recall"|...)`
+  — store and recall key/value notes at `~/.drydock/agent_memory/`.
+- **Verify before claiming done:**
+  `verify(criterion="...", command="...", expect="...", expect_mode="contains")`
+  — runs a check, returns pass/fail. Operationalizes "Loop until
+  verified."
+- **Delegation:** `task(agent="builder"|"explore"|"diagnostic"|"planner",
+  task="...")` — only for genuinely large work (9+ files); inline for
+  smaller.
+
+## Behavioral rules (defaults)
+
+1. Don't assume. Don't hide confusion. Surface tradeoffs.
+2. Minimum code that solves the problem. Nothing speculative.
+3. Touch only what you must. Clean up only your own mess.
+4. Define success criteria. Loop until verified (call `verify`).
+
+When you see an unfamiliar named entity (paper title, library, API,
+identifier), your FIRST tool call is `retrieve(query="<the term>")` —
+not text, not web_search. Investigate before asserting (Curiosity Layer
+default).
+
+## Coding standards
+
+- _(TODO: e.g., "prefer named exports", "tabs not spaces", "no `any` in
+  TypeScript", "snake_case for Python", language-specific rules here)_
+
+## Workflow
+
+- **Build:** _(TODO: e.g., `npm run build`, `cargo build --release`)_
+- **Test:** _(TODO: e.g., `pytest -q`, `npm test`, `cargo test`)_
+- **Run:** _(TODO: e.g., `python -m mypkg`, `npm start`)_
+- **Format/lint:** _(TODO: e.g., `ruff check . && ruff format .`)_
+
+## External references
+
+- _(TODO: link to the project README, design docs, style guide if any)_
+
+---
+_Auto-generated by drydock on first session in this directory. Customize
+or replace freely; future sessions will respect your edits._
+"""
+            )
+            logger.info("Auto-created DRYDOCK.md in %s", cwd)
+        except (OSError, PermissionError):
+            pass  # Non-critical — read-only filesystem
 
     def _ensure_agents_md(self) -> None:
         """Auto-create AGENTS.md if no project instructions file exists.

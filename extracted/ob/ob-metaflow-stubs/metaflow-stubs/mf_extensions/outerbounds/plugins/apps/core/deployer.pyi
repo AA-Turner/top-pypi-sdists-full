@@ -1,21 +1,21 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.801078                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.038594                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import datetime
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
+    import datetime
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.deployer
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
     import typing
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
 
 from .config.typed_configs import TypedCoreConfig as TypedCoreConfig
 from .perimeters import PerimeterExtractor as PerimeterExtractor
@@ -51,7 +51,7 @@ CODE_PACKAGE_PREFIX: str
 
 UNASSIGNED_PROJECT_BRANCH: str
 
-def bake_image(pypi: typing.Optional[typing.Dict[str, str]] = None, conda: typing.Optional[typing.Dict[str, str]] = None, requirements_file: typing.Optional[str] = None, pyproject_toml: typing.Optional[str] = None, base_image: typing.Optional[str] = None, python: typing.Optional[str] = None, logger: typing.Optional[typing.Callable[[str], typing.Any]] = None, cache_name: typing.Optional[str] = None) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config.BakedImage:
+def bake_image(pypi: typing.Union[typing.Dict[str, str], None] = None, conda: typing.Union[typing.Dict[str, str], None] = None, requirements_file: typing.Union[str, None] = None, pyproject_toml: typing.Union[str, None] = None, base_image: typing.Union[str, None] = None, python: typing.Union[str, None] = None, logger: typing.Union[typing.Callable[[str], typing.Any], None] = None, cache_name: typing.Union[str, None] = None) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config.BakedImage:
     """
     Bake a Docker image with the specified dependencies.
     
@@ -127,7 +127,7 @@ def bake_image(pypi: typing.Optional[typing.Dict[str, str]] = None, conda: typin
     """
     ...
 
-def package_code(src_paths: typing.List[str], suffixes: typing.Optional[typing.List[str]] = None, logger: typing.Optional[typing.Callable[[str], typing.Any]] = None) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config.PackagedCode:
+def package_code(src_paths: typing.List[str], suffixes: typing.Union[typing.List[str], None] = None, logger: typing.Union[typing.Callable[[str], typing.Any], None] = None) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config.PackagedCode:
     """
     Package code for deployment to the Outerbounds Platform.
     
@@ -184,7 +184,7 @@ def package_code(src_paths: typing.List[str], suffixes: typing.Optional[typing.L
     """
     ...
 
-def load_code_package(package: metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config.PackagedCode, target_dir: str, logger: typing.Optional[typing.Callable[[str], typing.Any]] = None) -> str:
+def load_code_package(package: metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config.PackagedCode, target_dir: str, logger: typing.Union[typing.Callable[[str], typing.Any], None] = None) -> str:
     """
     Load and extract a previously packaged code package.
     
@@ -409,7 +409,7 @@ class AppDeployer(metaflow.mf_extensions.outerbounds.plugins.apps.core.config.ty
     deployed.delete()
     ```
     """
-    def __init__(self, name: typing.Optional[str] = None, port: typing.Optional[int] = None, description: typing.Optional[str] = None, app_type: typing.Optional[str] = None, image: typing.Optional[str] = None, tags: typing.Optional[list] = None, secrets: typing.Optional[list] = None, compute_pools: typing.Optional[list] = None, environment: typing.Optional[dict] = None, commands: typing.Optional[list] = None, resources: typing.Optional[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ResourceConfigDict] = None, auth: typing.Optional[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.AuthConfigDict] = None, replicas: typing.Optional[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ReplicaConfigDict] = None, code_package: typing.Optional[tuple] = None, force_upgrade: typing.Optional[bool] = None, use_base_image_command: typing.Optional[bool] = None, skip_code_package: typing.Optional[bool] = None, persistence: typing.Optional[str] = None, project: typing.Optional[str] = None, branch: typing.Optional[str] = None, models: typing.Optional[list] = None, data: typing.Optional[list] = None, generate_static_url: typing.Optional[bool] = None, **kwargs):
+    def __init__(self, name: typing.Union[str, None] = None, port: typing.Union[int, None] = None, description: typing.Union[str, None] = None, app_type: typing.Union[str, None] = None, image: typing.Union[str, None] = None, tags: typing.Union[list, None] = None, secrets: typing.Union[list, None] = None, compute_pools: typing.Union[list, None] = None, environment: typing.Union[dict, None] = None, commands: typing.Union[list, None] = None, resources: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ResourceConfigDict, None] = None, auth: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.AuthConfigDict, None] = None, replicas: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ReplicaConfigDict, None] = None, code_package: typing.Union[tuple, None] = None, force_upgrade: typing.Union[bool, None] = None, use_base_image_command: typing.Union[bool, None] = None, skip_code_package: typing.Union[bool, None] = None, persistence: typing.Union[str, None] = None, project: typing.Union[str, None] = None, branch: typing.Union[str, None] = None, models: typing.Union[list, None] = None, data: typing.Union[list, None] = None, generate_static_url: typing.Union[bool, None] = None, **kwargs):
         ...
     @property
     def _deploy_config(self) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config.AppConfig:

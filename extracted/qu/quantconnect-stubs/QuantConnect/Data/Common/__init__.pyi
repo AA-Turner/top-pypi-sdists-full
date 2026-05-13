@@ -24,7 +24,7 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         The consolidation period requested
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -34,7 +34,7 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         The consolidator instance
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -44,7 +44,7 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         The associated security exchange hours instance
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -58,7 +58,7 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         The associated data time zone
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -114,7 +114,7 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         Determines a bar start time and period
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -127,7 +127,7 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         Will forward the underlying consolidated bar to consumers on this object
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -136,7 +136,7 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         Perform late initialization based on the datas symbol
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -165,7 +165,7 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         Useful for testing
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Return output from single show cmd using Netmiko."""
+
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -32,6 +33,7 @@ def main(args):
         cmd_arg = True
     device_or_group = cli_args.devices.strip()
     hide_failed = cli_args.hide_failed
+    hide_empty = cli_args.hide_empty
 
     # DEVICE LOADING #####
     devices = obtain_devices(device_or_group)
@@ -88,7 +90,7 @@ def main(args):
         out_format = "raw"
     # elif output_yaml:
     #    out_format = "yaml"
-    output_dispatcher(out_format, valid_results)
+    output_dispatcher(out_format, valid_results, hide_empty=hide_empty)
 
     if cli_args.display_runtime:
         print("Total time: {0}".format(datetime.now() - start_time))

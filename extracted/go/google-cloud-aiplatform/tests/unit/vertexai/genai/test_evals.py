@@ -1835,6 +1835,89 @@ class TestResolveEvalRunLossConfigs:
         assert result[0].candidate == "agent-1"
 
 
+class TestRedTeamingTypes:
+    """Unit tests for red teaming type definitions."""
+
+    def test_red_teaming_analysis_config_construction(self):
+        config = common_types.RedTeamingAnalysisConfig(
+            attack_categories=["FINANCIAL_OR_CREDENTIAL_PHISHING"],
+            vulnerable_tools=[
+                common_types.VulnerableTool(
+                    tool_name="search_flights",
+                    json_paths=["$.flights[0].description"],
+                ),
+            ],
+        )
+        assert len(config.attack_categories) == 1
+        assert config.vulnerable_tools[0].tool_name == "search_flights"
+
+    def test_red_teaming_analysis_config_optional_fields(self):
+        config = common_types.RedTeamingAnalysisConfig()
+        assert config.attack_categories is None
+        assert config.vulnerable_tools is None
+
+    def test_evaluation_run_results_has_red_teaming_results(self):
+        results = common_types.EvaluationRunResults(
+            red_teaming_analysis_results=[
+                common_types.RedTeamingAnalysisResult(
+                    category_results=[
+                        common_types.AttackCategoryResult(
+                            attack_category="FINANCIAL_OR_CREDENTIAL_PHISHING",
+                            attack_success_rate=0.9,
+                        ),
+                    ],
+                )
+            ],
+        )
+        assert len(results.red_teaming_analysis_results) == 1
+        assert (
+            results.red_teaming_analysis_results[0]
+            .category_results[0]
+            .attack_success_rate
+            == 0.9
+        )
+
+    def test_create_params_accepts_analysis_configs(self):
+        params = common_types._CreateEvaluationRunParameters(
+            name="test-run",
+            analysis_configs=[
+                common_types.AnalysisConfig(
+                    red_teaming_analysis_config=common_types.RedTeamingAnalysisConfig(
+                        attack_categories=["FINANCIAL_OR_CREDENTIAL_PHISHING"],
+                    ),
+                ),
+            ],
+        )
+        assert len(params.analysis_configs) == 1
+
+
+class TestResolveRedTeamingConfig:
+    """Unit tests for _resolve_red_teaming_config."""
+
+    def test_none_when_no_config(self):
+        result = _evals_utils._resolve_red_teaming_config()
+        assert result is None
+
+    def test_wraps_config_in_analysis_configs(self):
+        config = common_types.RedTeamingAnalysisConfig(
+            attack_categories=["FINANCIAL_OR_CREDENTIAL_PHISHING"],
+        )
+        result = _evals_utils._resolve_red_teaming_config(config)
+        assert len(result) == 1
+        assert isinstance(result[0], common_types.AnalysisConfig)
+        assert (
+            result[0].red_teaming_analysis_config.attack_categories[0]
+            == "FINANCIAL_OR_CREDENTIAL_PHISHING"
+        )
+
+    def test_accepts_dict_input(self):
+        result = _evals_utils._resolve_red_teaming_config(
+            {"attack_categories": ["INJECTED_HOSTILITY_AND_HARASSMENT"]}
+        )
+        assert len(result) == 1
+        assert isinstance(result[0], common_types.AnalysisConfig)
+
+
 class TestResolveMetricName:
     """Unit tests for _resolve_metric_name."""
 
@@ -9136,3 +9219,104 @@ class TestComputationMetricRetry:
         summary_metric = result.summary_metrics[0]
         assert summary_metric.metric_name == "bleu"
         assert summary_metric.mean_score == 0.85
+
+
+class TestAllowCrossRegionModel:
+    """Tests for allow_cross_region_model flag for create_evaluation_run."""
+
+    def setup_method(self, method):
+        self.mock_api_client = mock.MagicMock()
+        self.mock_api_client.vertexai = True
+
+        self.mock_response = mock.MagicMock()
+        self.mock_response.body = json.dumps(
+            {
+                "name": "projects/123/locations/us-central1/evaluationRuns/456",
+                "displayName": "test_run",
+                "state": "PENDING",
+            }
+        )
+        self.mock_api_client.request.return_value = self.mock_response
+
+    def test_create_evaluation_run_config_has_allow_cross_region_model(self):
+        """Verifies allow_cross_region_model field exists on CreateEvaluationRunConfig."""
+        config = vertexai_genai_types.CreateEvaluationRunConfig(
+            allow_cross_region_model=True,
+        )
+        assert config.allow_cross_region_model is True
+
+    def test_create_evaluation_run_config_from_dict(self):
+        """Verifies allow_cross_region_model can be set via dict on CreateEvaluationRunConfig."""
+        config = vertexai_genai_types.CreateEvaluationRunConfig.model_validate(
+            {"allow_cross_region_model": True}
+        )
+        assert config.allow_cross_region_model is True
+
+    def test_create_evaluation_run_config_default_is_none(self):
+        """Verifies the default value of allow_cross_region_model is None."""
+        config = vertexai_genai_types.CreateEvaluationRunConfig()
+        assert config.allow_cross_region_model is None
+
+    def test_create_evaluation_run_passes_allow_cross_region_model(self):
+        """Verifies allow_cross_region_model is sent inside evaluationConfig in the API request."""
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.create_evaluation_run(
+            dataset=vertexai_genai_types.EvaluationRunDataSource(
+                evaluation_set="projects/123/locations/us-central1/evaluationSets/789"
+            ),
+            metrics=[
+                vertexai_genai_types.EvaluationRunMetric(
+                    metric="general_quality_v1",
+                    metric_config=vertexai_genai_types.UnifiedMetric(
+                        predefined_metric_spec=genai_types.PredefinedMetricSpec(
+                            metric_spec_name="general_quality_v1",
+                        )
+                    ),
+                )
+            ],
+            dest="gs://test-bucket/output",
+            config={"allow_cross_region_model": True},
+        )
+
+        self.mock_api_client.request.assert_called_once()
+        call_args = self.mock_api_client.request.call_args
+        request_body = call_args[0][2]  # Third positional arg is the request dict
+        assert (
+            request_body.get("evaluationConfig", {}).get("allowCrossRegionModel")
+            is True
+        )
+
+    @pytest.mark.asyncio
+    async def test_create_evaluation_run_async_passes_allow_cross_region_model(self):
+        """Verifies allow_cross_region_model is sent inside evaluationConfig in the async API request."""
+        self.mock_api_client.async_request = mock.AsyncMock(
+            return_value=self.mock_response
+        )
+        async_evals_module = evals.AsyncEvals(api_client_=self.mock_api_client)
+
+        await async_evals_module.create_evaluation_run(
+            dataset=vertexai_genai_types.EvaluationRunDataSource(
+                evaluation_set="projects/123/locations/us-central1/evaluationSets/789"
+            ),
+            metrics=[
+                vertexai_genai_types.EvaluationRunMetric(
+                    metric="general_quality_v1",
+                    metric_config=vertexai_genai_types.UnifiedMetric(
+                        predefined_metric_spec=genai_types.PredefinedMetricSpec(
+                            metric_spec_name="general_quality_v1",
+                        )
+                    ),
+                )
+            ],
+            dest="gs://test-bucket/output",
+            config={"allow_cross_region_model": True},
+        )
+
+        self.mock_api_client.async_request.assert_called_once()
+        call_args = self.mock_api_client.async_request.call_args
+        request_body = call_args[0][2]  # Third positional arg is the request dict
+        assert (
+            request_body.get("evaluationConfig", {}).get("allowCrossRegionModel")
+            is True
+        )

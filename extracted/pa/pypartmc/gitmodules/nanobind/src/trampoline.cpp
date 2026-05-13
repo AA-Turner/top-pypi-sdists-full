@@ -45,7 +45,15 @@ static void trampoline_enter_internal(void **data, size_t size,
     PyTypeObject *value_tp = nullptr;
     size_t offset = 0;
 
-    // First, perform a quick sweep without lock
+    // First, perform a quick sweep without holding the GIL. This is safe
+    // because pointer-sized reads are atomic on all architectures and
+    // compilers targeted by nanobind (x86, x86_64, ARM, AArch64). Slots are
+    // only written under the GIL or an object critical section, transitioning
+    // from (nullptr, nullptr) to (name, value) exactly once, so the worst case
+    // of a racy read is that we miss an already-populated entry and fall through
+    // to the locked sweep, which is correct. The stored values are either
+    // Py_None or interned strings, both of which are immortal, so the
+    // reference read here cannot become dangling.
     for (size_t i = 0; i < size; i++) {
         void *d_name  = data[2*i + 1],
              *d_value = data[2*i + 2];

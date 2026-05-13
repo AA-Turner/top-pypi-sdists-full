@@ -12,7 +12,6 @@ class MemberPerformanceRowsStatsResponse(UncheckedBaseModel):
     page: typing.Optional[int] = None
     page_size: typing.Optional[int] = None
     results: typing.Optional[typing.List[typing.Dict[str, typing.Any]]] = None
-    summary: typing.Optional[typing.Dict[str, typing.Any]] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

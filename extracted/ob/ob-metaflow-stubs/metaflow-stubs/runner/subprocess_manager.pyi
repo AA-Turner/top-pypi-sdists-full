@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.812274                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.053309                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ class SubprocessManager(object, metaclass=type):
         ...
     def __aexit__(self, exc_type, exc_value, traceback):
         ...
-    def run_command(self, command: typing.List[str], env: typing.Optional[typing.Dict[str, str]] = None, cwd: typing.Optional[str] = None, show_output: bool = False) -> int:
+    def run_command(self, command: typing.List[str], env: typing.Union[typing.Dict[str, str], None] = None, cwd: typing.Union[str, None] = None, show_output: bool = False) -> int:
         """
         Run a command synchronously and return its process ID.
         
@@ -63,7 +63,7 @@ class SubprocessManager(object, metaclass=type):
             The process ID of the subprocess.
         """
         ...
-    def async_run_command(self, command: typing.List[str], env: typing.Optional[typing.Dict[str, str]] = None, cwd: typing.Optional[str] = None) -> int:
+    def async_run_command(self, command: typing.List[str], env: typing.Union[typing.Dict[str, str], None] = None, cwd: typing.Union[str, None] = None) -> int:
         """
         Run a command asynchronously and return its process ID.
         
@@ -84,7 +84,7 @@ class SubprocessManager(object, metaclass=type):
             The process ID of the subprocess.
         """
         ...
-    def get(self, pid: int) -> typing.Optional["CommandManager"]:
+    def get(self, pid: int) -> typing.Union["CommandManager", None]:
         """
         Get one of the CommandManager managed by this SubprocessManager.
         
@@ -110,7 +110,7 @@ class CommandManager(object, metaclass=type):
     """
     A manager for an individual subprocess.
     """
-    def __init__(self, command: typing.List[str], env: typing.Optional[typing.Dict[str, str]] = None, cwd: typing.Optional[str] = None):
+    def __init__(self, command: typing.List[str], env: typing.Union[typing.Dict[str, str], None] = None, cwd: typing.Union[str, None] = None):
         """
         Create a new CommandManager object.
         This does not run the process itself but sets it up.
@@ -131,7 +131,7 @@ class CommandManager(object, metaclass=type):
         ...
     def __aexit__(self, exc_type, exc_value, traceback):
         ...
-    def wait(self, timeout: typing.Optional[float] = None, stream: typing.Optional[str] = None):
+    def wait(self, timeout: typing.Union[float, None] = None, stream: typing.Union[str, None] = None):
         """
         Wait for the subprocess to finish, optionally with a timeout
         and optionally streaming its output.
@@ -173,7 +173,7 @@ class CommandManager(object, metaclass=type):
         logs (using `stream_logs`) or kill it (using `kill`).
         """
         ...
-    def stream_log(self, stream: str, position: typing.Optional[int] = None, timeout_per_line: typing.Optional[float] = None, log_write_delay: float = 0.01) -> typing.Iterator[typing.Tuple[int, str]]:
+    def stream_log(self, stream: str, position: typing.Union[int, None] = None, timeout_per_line: typing.Union[float, None] = None, log_write_delay: float = 0.01) -> typing.Iterator[typing.Tuple[int, str]]:
         """
         Stream logs from the subprocess line by line.
         

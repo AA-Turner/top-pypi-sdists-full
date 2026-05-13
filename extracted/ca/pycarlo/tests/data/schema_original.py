@@ -4696,6 +4696,20 @@ class MonitorTrainingStatusType(sgqlc.types.Enum):
     __choices__ = ("INSUFFICIENT_DATA", "IN_TRAINING", "NO_STATUS", "SUCCESS")
 
 
+class MonitorTuningAgentRunStatus(sgqlc.types.Enum):
+    """Lifecycle of a single monitor tuning row.
+
+    Enumeration Choices:
+
+    * `COMPLETED`None
+    * `ERROR`None
+    * `PENDING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COMPLETED", "ERROR", "PENDING")
+
+
 class MonitoredRuleType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -7744,7 +7758,7 @@ class AgentCapabilityInput(sgqlc.types.Input):
     """
 
     __schema__ = schema
-    __field_names__ = ("enabled", "rate_seconds")
+    __field_names__ = ("enabled", "rate_seconds", "credit_budget")
     enabled = sgqlc.types.Field(Boolean, graphql_name="enabled")
     """Pause (false) or resume (true) the capability. Omit to leave
     unchanged.
@@ -7754,6 +7768,30 @@ class AgentCapabilityInput(sgqlc.types.Input):
     """New cadence in seconds. Must be positive when provided. Omit to
     leave unchanged.
     """
+
+    credit_budget = sgqlc.types.Field("AgentCreditBudgetInput", graphql_name="creditBudget")
+    """Set the per-day credit cap for this capability. Omit to leave the
+    existing budget untouched. Only the monitoring capability supports
+    a credit budget in v1.1.1.
+    """
+
+
+class AgentCreditBudgetInput(sgqlc.types.Input):
+    """Credit-budget patch nested under an ``AgentCapabilityInput``.
+    Used to set or update the credit budget on a capability. Absence
+    of this field on the parent ``AgentCapabilityInput`` leaves the
+    existing budget untouched. Clearing a configured budget is not
+    exposed in v1.1.1 — once a budget is set, callers can only update
+    it to another positive value.  Only the monitoring capability has
+    credit-budget semantics in v1.1.1; passing this field on
+    ``triage`` or ``monitorTuning`` is rejected with a validation
+    error.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("credits",)
+    credits = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="credits")
+    """Per-day credit cap for the capability's agent. Must be positive."""
 
 
 class AgentFilterInput(sgqlc.types.Input):
@@ -8138,6 +8176,19 @@ class ApiCallReference(sgqlc.types.Input):
         sgqlc.types.list_of(String), graphql_name="parameterValues"
     )
     """List of values for the parameter"""
+
+
+class ApplyMonitorTuningRunInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("monitor_uuid", "recommendations")
+    monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
+    """UUID of the monitor to apply recommendations to."""
+
+    recommendations = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("MonitorTuningRecInput"))),
+        graphql_name="recommendations",
+    )
+    """User-selected subset of recommendations to apply."""
 
 
 class AssetCollectionRuleConditionInput(sgqlc.types.Input):
@@ -8857,6 +8908,13 @@ class ConversationFiltersInput(sgqlc.types.Input):
 
     max_duration = sgqlc.types.Field(Float, graphql_name="maxDuration")
     """Maximum conversation duration in seconds"""
+
+
+class CreateMonitorTuningRunInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("monitor_uuid",)
+    monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
+    """UUID of the monitor to tune."""
 
 
 class CreateOrUpdateAgentTraceTableInput(sgqlc.types.Input):
@@ -11338,6 +11396,18 @@ class MonitorSelectExpressionInput(sgqlc.types.Input):
     """Data type of expression. Required if expression is a complex
     expression and not a raw column name
     """
+
+
+class MonitorTuningRecInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("title", "reasoning", "change_summary", "is_split")
+    title = sgqlc.types.Field(String, graphql_name="title")
+
+    reasoning = sgqlc.types.Field(String, graphql_name="reasoning")
+
+    change_summary = sgqlc.types.Field(String, graphql_name="changeSummary")
+
+    is_split = sgqlc.types.Field(Boolean, graphql_name="isSplit")
 
 
 class MonitoredTableRuleInput(sgqlc.types.Input):
@@ -16853,12 +16923,12 @@ class AgentCapabilities(sgqlc.types.Type):
 
 
 class AgentCapability(sgqlc.types.Type):
-    """Resolved enabled-flag and cadence for one agent-assistance
-    capability (monitoring, triage, monitor tuning).
+    """Resolved enabled-flag, cadence, and credit budget for one agent-
+    assistance capability (monitoring, triage, monitor tuning).
     """
 
     __schema__ = schema
-    __field_names__ = ("enabled", "rate_seconds")
+    __field_names__ = ("enabled", "rate_seconds", "credit_budget")
     enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="enabled")
     """True when the capability is currently active for the domain."""
 
@@ -16867,6 +16937,24 @@ class AgentCapability(sgqlc.types.Type):
     from a per-capability default when assistance is first enabled and
     preserves customer overrides on subsequent re-enables.
     """
+
+    credit_budget = sgqlc.types.Field("AgentCapabilityCreditBudget", graphql_name="creditBudget")
+    """The configured per-day credit budget for this capability, or null
+    when no budget is configured. Only the monitoring capability
+    supports a credit budget in v1.1.1.
+    """
+
+
+class AgentCapabilityCreditBudget(sgqlc.types.Type):
+    """Per-day credit cap configured for one agent-capability pipeline.
+    Customer-authored monitors in the same domain are not gated by
+    this value.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("credits",)
+    credits = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="credits")
+    """The configured per-day credit cap for this capability's agent."""
 
 
 class AgentCustomConnectors(sgqlc.types.Type):
@@ -21266,12 +21354,14 @@ class ConditionMatches(sgqlc.types.Type):
 
 
 class ConfigureAgentAssistance(sgqlc.types.Type):
-    """Atomic patch over the three agent-assistance capabilities.
-    Capabilities omitted from the input are left unchanged. Within
-    each capability, ``enabled`` and ``rateSeconds`` are independently
-    optional — pass only the field you want to update. Rejected when
-    assistance is not enabled for the domain (call
-    ``enableAgentAssistance`` first).
+    """Atomic patch over the three agent-assistance capabilities and the
+    agent budget.  Capabilities omitted from the input are left
+    unchanged. Within each capability, ``enabled``, ``rateSeconds``,
+    and ``creditBudget`` are independently optional — pass only the
+    fields you want to update. Rejected when assistance is not enabled
+    for the domain (call ``enableAgentAssistance`` first). The
+    capability and budget writes apply atomically — if either fails,
+    neither is persisted.
     """
 
     __schema__ = schema
@@ -34229,6 +34319,93 @@ class MonitorTable(sgqlc.types.Type):
     """List of MCONs for the tables with this identifier"""
 
 
+class MonitorTuningRec(sgqlc.types.Type):
+    """One recommendation produced by the monitor_tuning agent."""
+
+    __schema__ = schema
+    __field_names__ = ("title", "reasoning", "change_summary", "is_split")
+    title = sgqlc.types.Field(String, graphql_name="title")
+
+    reasoning = sgqlc.types.Field(String, graphql_name="reasoning")
+
+    change_summary = sgqlc.types.Field(String, graphql_name="changeSummary")
+
+    is_split = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isSplit")
+
+
+class MonitorTuningRunConnection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges", "total_count")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("MonitorTuningRunEdge")), graphql_name="edges"
+    )
+    """Contains the nodes in this connection."""
+
+    total_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalCount")
+    """Total number of tuning rows matching the query."""
+
+
+class MonitorTuningRunEdge(sgqlc.types.Type):
+    """A Relay edge containing a `MonitorTuningRun` and its cursor."""
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field("MonitorTuningRunResult", graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
+
+
+class MonitorTuningRunResult(sgqlc.types.Type):
+    """A single monitor tuning run row."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "monitor_uuid",
+        "status",
+        "dry_run",
+        "monitor_type",
+        "recommendations",
+        "error_message",
+        "triggered_at",
+        "triggered_by_user",
+        "triggered_by_execution_id",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+
+    monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
+
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(MonitorTuningAgentRunStatus), graphql_name="status"
+    )
+
+    dry_run = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="dryRun")
+
+    monitor_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="monitorType")
+
+    recommendations = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(MonitorTuningRec))),
+        graphql_name="recommendations",
+    )
+
+    error_message = sgqlc.types.Field(String, graphql_name="errorMessage")
+
+    triggered_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="triggeredAt")
+
+    triggered_by_user = sgqlc.types.Field(
+        sgqlc.types.non_null("UserOutput"), graphql_name="triggeredByUser"
+    )
+
+    triggered_by_execution_id = sgqlc.types.Field(
+        sgqlc.types.non_null(UUID), graphql_name="triggeredByExecutionId"
+    )
+
+
 class MonitorTypeCount(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("monitor_type", "count")
@@ -34809,6 +34986,8 @@ class Mutation(sgqlc.types.Type):
         "delete_monte_carlo_config_template",
         "convert_ui_monitors_to_config_template",
         "convert_config_template_to_ui_monitors",
+        "create_monitor_tuning_run",
+        "apply_monitor_tuning_run",
         "triage_alerts",
         "set_sensitivity",
         "add_to_collection_block_list",
@@ -35069,6 +35248,7 @@ class Mutation(sgqlc.types.Type):
         "merge_alerts",
         "request_alert_access",
         "create_or_update_collibra_integration",
+        "set_collibra_mc_domain_mapping",
         "delete_collibra_integration",
         "sync_monitors_to_collibra",
         "create_or_update_alation_integration",
@@ -44830,6 +45010,52 @@ class Mutation(sgqlc.types.Type):
     * `namespace` (`String!`): Namespace of config template
     """
 
+    create_monitor_tuning_run = sgqlc.types.Field(
+        MonitorTuningRunResult,
+        graphql_name="createMonitorTuningRun",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(CreateMonitorTuningRunInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Kick off a dry-run monitor tuning analysis.
+
+    Arguments:
+
+    * `input` (`CreateMonitorTuningRunInput!`)None
+    """
+
+    apply_monitor_tuning_run = sgqlc.types.Field(
+        MonitorTuningRunResult,
+        graphql_name="applyMonitorTuningRun",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ApplyMonitorTuningRunInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Apply selected recommendations to a monitor.
+
+    Arguments:
+
+    * `input` (`ApplyMonitorTuningRunInput!`)None
+    """
+
     triage_alerts = sgqlc.types.Field(
         "TriageAlertsOutput",
         graphql_name="triageAlerts",
@@ -49615,14 +49841,16 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Update per-capability enabled-flag and cadence for
-    an agent-assisted domain. Capabilities omitted from the input are
-    left unchanged. Rejected when assistance has not been enabled.
+    """(experimental) Update per-capability enabled-flag, cadence, and
+    credit budget for an agent-assisted domain. Fields omitted from
+    the input are left unchanged. Rejected when assistance has not
+    been enabled.
 
     Arguments:
 
-    * `capabilities` (`AgentCapabilitiesInput!`): Per-capability
-      patch. Capabilities omitted are left untouched.
+    * `capabilities` (`AgentCapabilitiesInput!`): Per-capability patch
+      including optional per-capability credit budget. Fields omitted
+      are left untouched.
     * `domain_uuid` (`UUID!`): UUID of the agent-assisted metadata
       domain to configure.
     """
@@ -55729,6 +55957,43 @@ class Mutation(sgqlc.types.Type):
       UUID is the value
     """
 
+    set_collibra_mc_domain_mapping = sgqlc.types.Field(
+        "SetCollibraMcDomainMapping",
+        graphql_name="setCollibraMcDomainMapping",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "integration_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="integrationUuid", default=None
+                    ),
+                ),
+                (
+                    "mc_domain_mapping",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(JSONString),
+                        graphql_name="mcDomainMapping",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Replace the MC domain → Collibra domain mappings
+    for a Collibra integration. All existing mappings for the
+    integration are deleted and replaced with the provided set.
+
+    Arguments:
+
+    * `integration_uuid` (`UUID!`): The Collibra integration whose MC
+      domain mappings to replace
+    * `mc_domain_mapping` (`JSONString!`): Mapping of MC domain UUIDs
+      (keys) to Collibra domain UUIDs (values). Replace-all: every
+      existing mapping for the integration is deleted and replaced
+      with this set. Pass an empty object to clear all mappings. MC
+      domain UUIDs must belong to the caller's account.
+    """
+
     delete_collibra_integration = sgqlc.types.Field(
         DeleteCollibraIntegration,
         graphql_name="deleteCollibraIntegration",
@@ -58809,6 +59074,7 @@ class Query(sgqlc.types.Type):
         "get_incident_tables",
         "get_incident_warehouse_tables",
         "get_alert_warehouse_tables",
+        "get_monitor_tuning_runs",
         "agentic_notification_routes",
         "findings",
         "finding",
@@ -72041,6 +72307,60 @@ class Query(sgqlc.types.Type):
     * `alert_id` (`UUID!`): The alert UUID
     """
 
+    get_monitor_tuning_runs = sgqlc.types.Field(
+        MonitorTuningRunConnection,
+        graphql_name="getMonitorTuningRuns",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "first",
+                    sgqlc.types.Arg(sgqlc.types.non_null(Int), graphql_name="first", default=None),
+                ),
+                (
+                    "monitor_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
+                    ),
+                ),
+                (
+                    "monitor_tuning_run_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="monitorTuningRunUuid", default=None),
+                ),
+                ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=None)),
+                (
+                    "created_after",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdAfter", default=None),
+                ),
+                (
+                    "created_before",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
+                ),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """(experimental) List monitor tuning runs for a single monitor,
+    newest first.
+
+    Arguments:
+
+    * `first` (`Int!`): Number of items to return (page size)
+    * `monitor_uuid` (`UUID!`): Monitor to list tuning runs for.
+    * `monitor_tuning_run_uuid` (`UUID`): When set, narrow to a single
+      tuning row by its UUID.
+    * `dry_run` (`Boolean`): When set, filter to dry-run rows (true)
+      or apply rows (false).
+    * `created_after` (`DateTime`): Inclusive lower bound on the row's
+      creation timestamp.
+    * `created_before` (`DateTime`): Exclusive upper bound on the
+      row's creation timestamp.
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `last` (`Int`)None
+    """
+
     agentic_notification_routes = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(AgenticNotificationRoute)),
         graphql_name="agenticNotificationRoutes",
@@ -82129,6 +82449,14 @@ class SetAzureDevopsSourceSelections(sgqlc.types.Type):
     """Always true. Response will contain errors on failure."""
 
 
+class SetCollibraMcDomainMapping(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("collibra_integration",)
+    collibra_integration = sgqlc.types.Field(
+        sgqlc.types.non_null("CollibraIntegration"), graphql_name="collibraIntegration"
+    )
+
+
 class SetConnectionCtpConfig(sgqlc.types.Type):
     """Set (create or replace) the custom CTP config for a connection."""
 
@@ -88247,7 +88575,7 @@ class UseCaseOutput(sgqlc.types.Type):
     """A business use case scoped to a warehouse."""
 
     __schema__ = schema
-    __field_names__ = ("id", "name", "description", "criticality", "table_count")
+    __field_names__ = ("id", "name", "description", "criticality", "table_count", "tag_key")
     id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
     """Stable use case identifier"""
 
@@ -88262,6 +88590,12 @@ class UseCaseOutput(sgqlc.types.Type):
 
     table_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="tableCount")
     """Total number of tables assigned to this use case"""
+
+    tag_key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="tagKey")
+    """Tag identifier for this use case, used as the
+    ObjectPropertyModel.property_name on tagged tables (e.g. 'use-
+    case-revenue_reporting-ab12cd').
+    """
 
 
 class UseCaseTableConnection(sgqlc.types.relay.Connection):
@@ -92639,6 +92973,7 @@ class CollibraIntegration(sgqlc.types.Type, Node):
         "domain_uuid",
         "created_by",
         "warehouse_domain_mapping",
+        "mc_domain_mapping",
     )
     last_update_user = sgqlc.types.Field("User", graphql_name="lastUpdateUser")
     """Last updated by"""
@@ -92654,7 +92989,7 @@ class CollibraIntegration(sgqlc.types.Type, Node):
     server_url = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="serverUrl")
     """Collibra server URL"""
 
-    username = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="username")
+    username = sgqlc.types.Field(String, graphql_name="username")
     """Collibra username"""
 
     created_time = sgqlc.types.Field(DateTime, graphql_name="createdTime")
@@ -92668,6 +93003,18 @@ class CollibraIntegration(sgqlc.types.Type, Node):
 
     warehouse_domain_mapping = sgqlc.types.Field(JSONString, graphql_name="warehouseDomainMapping")
     """Optional mapping of warehouse uuids to Collibra domain uuids"""
+
+    mc_domain_mapping = sgqlc.types.Field(
+        sgqlc.types.non_null(JSONString), graphql_name="mcDomainMapping"
+    )
+    """Mapping of MC domain UUIDs to Collibra domain UUIDs. Resolves
+    table assets at sync time per the MC domain a table belongs to,
+    falling back to warehouse_domain_mapping when no MC domain is
+    mapped. When a table belongs to multiple mapped MC domains, the
+    mapping with the lowest MC domain UUID (lexicographic) wins — pick
+    a single MC domain per table to make routing deterministic.
+    Returns an empty object when no mappings are configured.
+    """
 
 
 class ComparisonMonitorResponse(sgqlc.types.Type, Node):
@@ -97396,11 +97743,16 @@ class Monitor(
     IComparisonMonitor,
 ):
     __schema__ = schema
-    __field_names__ = ("supports_sensitivity_update",)
+    __field_names__ = ("supports_sensitivity_update", "is_tunable")
     supports_sensitivity_update = sgqlc.types.Field(
         Boolean, graphql_name="supportsSensitivityUpdate"
     )
     """Whether this monitor supports sensitivity tuning"""
+
+    is_tunable = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isTunable")
+    """Whether the in-product monitor tuning agent supports this monitor.
+    Used by the UI as a pre-click gate for the 'Tune monitor' action.
+    """
 
 
 class MonteCarloConfigTemplate(sgqlc.types.Type, Node):

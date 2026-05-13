@@ -1,14 +1,14 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Functions that deal with offsets.
 
 "Being an offset" is a characteristic of an operand. This means that operand or its part represent offset from some address in the program. This linear address is called "offset base". Some operands may have 2 offsets simultaneously. Generally, IDA doesn't handle this except for Motorola outer offsets. Thus there may be two offset values in an operand: simple offset and outer offset.
 Outer offsets are handled by specifying special operand number: it should be ORed with OPND_OUTER value.
-See bytes.hpp for further explanation of operand numbers. 
-    
+See bytes.hpp for further explanation of operand numbers.
+
 """
 
-def add_refinfo_dref(insn: insn_t, _from: ida_idaapi.ea_t, ri: refinfo_t, opval: adiff_t, type: dref_t, opoff: int) -> ida_idaapi.ea_t:
+def add_refinfo_dref(insn: insn_t, _from: ida_idaapi.ea_t, ri: refinfo_t, opval: int, type: dref_t, opoff: int) -> ida_idaapi.ea_t:
     r"""Add xrefs for a reference from the given instruction ( insn_t::ea). This function creates a cross references to the target and the base. insn_t::add_off_drefs() calls this function to create xrefs for 'offset' operand. 
             
     :param insn: the referencing instruction
@@ -45,7 +45,7 @@ def calc_probable_base_by_value(ea: ida_idaapi.ea_t, off: int) -> ida_idaapi.ea_
     """
     ...
 
-def calc_reference_data(target: ea_t, base: ea_t, _from: ida_idaapi.ea_t, ri: refinfo_t, opval: adiff_t) -> bool:
+def calc_reference_data(target: int, base: int, _from: ida_idaapi.ea_t, ri: refinfo_t, opval: int) -> bool:
     r"""Calculate the target and base addresses of an offset expression. The calculated target and base addresses are returned in the locations pointed by 'base' and 'target'. In case 'ri.base' is BADADDR, the function calculates the offset base address from the referencing instruction/data address. The target address is copied from ri.target. If ri.target is BADADDR then the target is calculated using the base address and 'opval'. This function also checks if 'opval' matches the full value of the reference and takes in account the memory-mapping. 
             
     :param target: output target address
@@ -56,23 +56,13 @@ def calc_reference_data(target: ea_t, base: ea_t, _from: ida_idaapi.ea_t, ri: re
     """
     ...
 
-def calc_target(args: Any) -> ida_idaapi.ea_t:
-    r"""This function has the following signatures:
-    
-        0. calc_target(from: ida_idaapi.ea_t, opval: adiff_t, ri: const refinfo_t &) -> ida_idaapi.ea_t
-        1. calc_target(from: ida_idaapi.ea_t, ea: ida_idaapi.ea_t, n: int, opval: adiff_t) -> ida_idaapi.ea_t
-    
-    # 0: calc_target(from: ida_idaapi.ea_t, opval: adiff_t, ri: const refinfo_t &) -> ida_idaapi.ea_t
-    
-    Calculate the target using the provided refinfo_t.
-    
-    
-    # 1: calc_target(from: ida_idaapi.ea_t, ea: ida_idaapi.ea_t, n: int, opval: adiff_t) -> ida_idaapi.ea_t
-    
-    Retrieve refinfo_t structure and calculate the target.
-    
-    
-    """
+@overload
+def calc_target(from_: ida_idaapi.ea_t, opval: int, ri: refinfo_t) -> ida_idaapi.ea_t:
+    r"""Calculate the target using the provided refinfo_t."""
+    ...
+@overload
+def calc_target(from_: ida_idaapi.ea_t, ea: ida_idaapi.ea_t, n: int, opval: int) -> ida_idaapi.ea_t:
+    r"""Retrieve refinfo_t structure and calculate the target."""
     ...
 
 def can_be_off32(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
@@ -97,13 +87,13 @@ def get_offbase(ea: ida_idaapi.ea_t, n: int) -> ida_idaapi.ea_t:
     """
     ...
 
-def get_offset_expr(ea: ida_idaapi.ea_t, n: int, ri: refinfo_t, _from: ida_idaapi.ea_t, offset: adiff_t, getn_flags: int = 0) -> str:
+def get_offset_expr(ea: ida_idaapi.ea_t, n: int, ri: refinfo_t, _from: ida_idaapi.ea_t, offset: int, getn_flags: int = 0) -> str:
     r"""See get_offset_expression()
     
     """
     ...
 
-def get_offset_expression(ea: ida_idaapi.ea_t, n: int, _from: ida_idaapi.ea_t, offset: adiff_t, getn_flags: int = 0) -> str:
+def get_offset_expression(ea: ida_idaapi.ea_t, n: int, _from: ida_idaapi.ea_t, offset: int, getn_flags: int = 0) -> str:
     r"""Get offset expression (in the form "offset name+displ"). This function uses offset translation function ( processor_t::translate) if your IDP module has such a function. Translation function is used to map linear addresses in the program (only for offsets).
     Example: suppose we have instruction at linear address 0x00011000: `mov     ax, [bx+7422h] ` and at ds:7422h: `array   dw      ... ` We want to represent the second operand with an offset expression, so then we call: `get_offset_expresion(0x001100, 1, 0x001102, 0x7422, buf);
                          |         |  |         |       |
@@ -129,7 +119,7 @@ def get_offset_expression(ea: ida_idaapi.ea_t, n: int, _from: ida_idaapi.ea_t, o
     """
     ...
 
-def op_offset(args: Any) -> bool:
+def op_offset(*args: Any) -> bool:
     r"""See op_offset_ex()
     
     """
@@ -162,6 +152,6 @@ def op_plain_offset(ea: ida_idaapi.ea_t, n: int, base: ida_idaapi.ea_t) -> bool:
     ...
 
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ida_idaapi: module
 weakref: module

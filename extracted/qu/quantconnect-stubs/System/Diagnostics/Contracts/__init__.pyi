@@ -4,11 +4,19 @@ import typing
 import warnings
 
 import System
+import System.Collections.Generic
 import System.Diagnostics.Contracts
 import System.Runtime.Serialization
 
 System_Diagnostics_Contracts__EventContainer_Callable = typing.TypeVar("System_Diagnostics_Contracts__EventContainer_Callable")
 System_Diagnostics_Contracts__EventContainer_ReturnType = typing.TypeVar("System_Diagnostics_Contracts__EventContainer_ReturnType")
+System_Diagnostics_Contracts_Contract_Requires_TException = typing.TypeVar("System_Diagnostics_Contracts_Contract_Requires_TException")
+System_Diagnostics_Contracts_Contract_EnsuresOnThrow_TException = typing.TypeVar("System_Diagnostics_Contracts_Contract_EnsuresOnThrow_TException")
+System_Diagnostics_Contracts_Contract_Result_T = typing.TypeVar("System_Diagnostics_Contracts_Contract_Result_T")
+System_Diagnostics_Contracts_Contract_ValueAtReturn_T = typing.TypeVar("System_Diagnostics_Contracts_Contract_ValueAtReturn_T")
+System_Diagnostics_Contracts_Contract_OldValue_T = typing.TypeVar("System_Diagnostics_Contracts_Contract_OldValue_T")
+System_Diagnostics_Contracts_Contract_ForAll_T = typing.TypeVar("System_Diagnostics_Contracts_Contract_ForAll_T")
+System_Diagnostics_Contracts_Contract_Exists_T = typing.TypeVar("System_Diagnostics_Contracts_Contract_Exists_T")
 
 
 class ContractFailureKind(IntEnum):
@@ -186,10 +194,153 @@ class ContractOptionAttribute(System.Attribute):
         ...
 
 
+class _Typed_Contract_Requires(typing.Generic[System_Diagnostics_Contracts_Contract_Requires_TException]):
+    """"""
+
+    @overload
+    def __call__(self, condition: bool) -> None:
+        ...
+
+    @overload
+    def __call__(self, condition: bool, user_message: str) -> None:
+        ...
+
+
+class _Contract_Requires:
+    """"""
+
+    @overload
+    def __call__(self, condition: bool) -> None:
+        ...
+
+    @overload
+    def __call__(self, condition: bool, user_message: str) -> None:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Diagnostics_Contracts_Contract_Requires_TException]) -> System.Diagnostics.Contracts._Typed_Contract_Requires[System_Diagnostics_Contracts_Contract_Requires_TException]:
+        ...
+
+
+class _Typed_Contract_EnsuresOnThrow(typing.Generic[System_Diagnostics_Contracts_Contract_EnsuresOnThrow_TException]):
+    """"""
+
+    @overload
+    def __call__(self, condition: bool) -> None:
+        ...
+
+    @overload
+    def __call__(self, condition: bool, user_message: str) -> None:
+        ...
+
+
+class _Contract_EnsuresOnThrow:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Diagnostics_Contracts_Contract_EnsuresOnThrow_TException]) -> System.Diagnostics.Contracts._Typed_Contract_EnsuresOnThrow[System_Diagnostics_Contracts_Contract_EnsuresOnThrow_TException]:
+        ...
+
+
+class _Typed_Contract_Result(typing.Generic[System_Diagnostics_Contracts_Contract_Result_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> System_Diagnostics_Contracts_Contract_Result_T:
+        ...
+
+
+class _Contract_Result:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Diagnostics_Contracts_Contract_Result_T]) -> System.Diagnostics.Contracts._Typed_Contract_Result[System_Diagnostics_Contracts_Contract_Result_T]:
+        ...
+
+
+class _Typed_Contract_ValueAtReturn(typing.Generic[System_Diagnostics_Contracts_Contract_ValueAtReturn_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: typing.Optional[System_Diagnostics_Contracts_Contract_ValueAtReturn_T]) -> typing.Tuple[System_Diagnostics_Contracts_Contract_ValueAtReturn_T, System_Diagnostics_Contracts_Contract_ValueAtReturn_T]:
+        ...
+
+
+class _Contract_ValueAtReturn:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Diagnostics_Contracts_Contract_ValueAtReturn_T]) -> System.Diagnostics.Contracts._Typed_Contract_ValueAtReturn[System_Diagnostics_Contracts_Contract_ValueAtReturn_T]:
+        ...
+
+
+class _Typed_Contract_OldValue(typing.Generic[System_Diagnostics_Contracts_Contract_OldValue_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Diagnostics_Contracts_Contract_OldValue_T) -> System_Diagnostics_Contracts_Contract_OldValue_T:
+        ...
+
+
+class _Contract_OldValue:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Diagnostics_Contracts_Contract_OldValue_T]) -> System.Diagnostics.Contracts._Typed_Contract_OldValue[System_Diagnostics_Contracts_Contract_OldValue_T]:
+        ...
+
+
+class _Typed_Contract_ForAll(typing.Generic[System_Diagnostics_Contracts_Contract_ForAll_T]):
+    """"""
+
+    @overload
+    def __call__(self, collection: System.Collections.Generic.IEnumerable[System_Diagnostics_Contracts_Contract_ForAll_T], predicate: typing.Callable[[System_Diagnostics_Contracts_Contract_ForAll_T], bool]) -> bool:
+        ...
+
+
+class _Contract_ForAll:
+    """"""
+
+    @overload
+    def __call__(self, from_inclusive: int, to_exclusive: int, predicate: typing.Callable[[int], bool]) -> bool:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Diagnostics_Contracts_Contract_ForAll_T]) -> System.Diagnostics.Contracts._Typed_Contract_ForAll[System_Diagnostics_Contracts_Contract_ForAll_T]:
+        ...
+
+
+class _Typed_Contract_Exists(typing.Generic[System_Diagnostics_Contracts_Contract_Exists_T]):
+    """"""
+
+    @overload
+    def __call__(self, collection: System.Collections.Generic.IEnumerable[System_Diagnostics_Contracts_Contract_Exists_T], predicate: typing.Callable[[System_Diagnostics_Contracts_Contract_Exists_T], bool]) -> bool:
+        ...
+
+
+class _Contract_Exists:
+    """"""
+
+    @overload
+    def __call__(self, from_inclusive: int, to_exclusive: int, predicate: typing.Callable[[int], bool]) -> bool:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Diagnostics_Contracts_Contract_Exists_T]) -> System.Diagnostics.Contracts._Typed_Contract_Exists[System_Diagnostics_Contracts_Contract_Exists_T]:
+        ...
+
+
 class Contract(System.Object):
     """This class has no documentation."""
 
     contract_failed: _EventContainer[typing.Callable[[System.Object, System.Diagnostics.Contracts.ContractFailedEventArgs], typing.Any], typing.Any]
+
+    requires: System.Diagnostics.Contracts._Contract_Requires
+
+    ensures_on_throw: System.Diagnostics.Contracts._Contract_EnsuresOnThrow
+
+    result: System.Diagnostics.Contracts._Contract_Result
+
+    value_at_return: System.Diagnostics.Contracts._Contract_ValueAtReturn
+
+    old_value: System.Diagnostics.Contracts._Contract_OldValue
+
+    for_all: System.Diagnostics.Contracts._Contract_ForAll
+
+    exists: System.Diagnostics.Contracts._Contract_Exists
 
     @staticmethod
     @overload
@@ -226,14 +377,6 @@ class Contract(System.Object):
         ...
 
     @staticmethod
-    def exists(from_inclusive: int, to_exclusive: int, predicate: typing.Callable[[int], bool]) -> bool:
-        ...
-
-    @staticmethod
-    def for_all(from_inclusive: int, to_exclusive: int, predicate: typing.Callable[[int], bool]) -> bool:
-        ...
-
-    @staticmethod
     @overload
     def invariant(condition: bool) -> None:
         ...
@@ -241,16 +384,6 @@ class Contract(System.Object):
     @staticmethod
     @overload
     def invariant(condition: bool, user_message: str) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def requires(condition: bool) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def requires(condition: bool, user_message: str) -> None:
         ...
 
 

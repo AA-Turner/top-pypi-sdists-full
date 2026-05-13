@@ -25,6 +25,9 @@ class IPAddressCollection(System.Object, System.Collections.Generic.ICollection[
     def __iter__(self) -> typing.Iterator[System.Net.IPAddress]:
         ...
 
+    def __len__(self) -> int:
+        ...
+
     def add(self, address: System.Net.IPAddress) -> None:
         ...
 

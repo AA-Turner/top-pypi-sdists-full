@@ -338,3 +338,44 @@ class TestHMM(unittest.TestCase):
         self.assertTrue(hmm_pickled.cutoffs.noise_available())
         self.assertTrue(hmm_pickled.cutoffs.trusted_available())
         self.assertEqual(hmm_pickled.cutoffs, hmm.cutoffs)
+
+    def test_emit_sequence_randomness(self):
+        dna = Alphabet.dna()
+        hmm = HMM.sample(dna, 100, randomness=1)
+
+        rng = Randomness(42, fast=True)
+        s1 = hmm.emit_sequence(rng)
+        self.assertEqual(
+            dna.decode(s1.sequence), 
+            'GCCCGCACGTAAGAAGTGTCAAAAAGGTAACAGTAGACAATATAGCCATTAGTATCCCCTGTCACC'
+            'AAACCGCAAAAAAGCAACAGCGACAACGTTAAACTGTGTGTGGATAATAAGGTCGTCTATGCGCGG'
+            'CGGGCCACGGGTACCACACACACGAAACAGCCCAAAACAATCGTCGTCAGCAACTACTGCGCCAAC'
+            'CCCTTAAACCAACAACAACTGTGGTA'
+        )
+    
+    def test_emit_sequence_seed(self):
+        dna = Alphabet.dna()
+        hmm = HMM.sample(dna, 100, randomness=1)
+        
+        s1 = hmm.emit_sequence(42)
+        self.assertEqual(
+            dna.decode(s1.sequence), 
+            'GCCCGCACGTAAGAAGTGTCAAAAAGGTAACAGTAGACAATATAGCCATTAGTATCCCCTGTCACC'
+            'AAACCGCAAAAAAGCAACAGCGACAACGTTAAACTGTGTGTGGATAATAAGGTCGTCTATGCGCGG'
+            'CGGGCCACGGGTACCACACACACGAAACAGCCCAAAACAATCGTCGTCAGCAACTACTGCGCCAAC'
+            'CCCTTAAACCAACAACAACTGTGGTA'
+        )
+
+    def test_emit_alignment(self):
+        dna = Alphabet.dna()
+        hmm = HMM.sample(dna, 100, randomness=1)
+        
+        a1 = hmm.emit_alignment(10, randomness=42)
+        self.assertEqual(len(a1.sequences), 10)
+
+        # ensure the sequence can be accessed without issue
+        for i in range(len(a1.sequences)):
+            s = [x for x in a1.sequences[i].sequence]
+            r = [x for x in a1.alignment[i] if x != dna.gap_index]
+            self.assertEqual(s, r)
+    

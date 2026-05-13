@@ -8,7 +8,7 @@ the user with the option to defer to the development interview phase.
 Decide-later questions are returned to the user with the option to defer
 rather than being automatically skipped.
 
-Uses a Sonnet-grade model for accurate judgment and reframing.
+Uses the configured clarification model for accurate judgment and reframing.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ import re
 
 import structlog
 
+from ouroboros.config import get_clarification_model
 from ouroboros.core.errors import ProviderError
 from ouroboros.core.types import Result
 from ouroboros.providers.base import (
@@ -30,9 +31,6 @@ from ouroboros.providers.base import (
 )
 
 log = structlog.get_logger()
-
-# Sonnet-grade model for classification judgment
-_CLASSIFIER_MODEL = "claude-sonnet-4-20250514"
 _CLASSIFIER_TEMPERATURE = 0.2
 
 # Default placeholder when LLM doesn't provide one for decide-later
@@ -190,20 +188,21 @@ Marking as a decision point for later."
 class QuestionClassifier:
     """Classifies interview questions as PM-answerable, DEV-only, or decide-later.
 
-    Uses a Sonnet-grade LLM to judge whether questions are appropriate
-    for a PM audience, reframes technical questions when possible, and
-    identifies premature questions that should be returned to the user
+    Uses the configured clarification model to judge whether questions are
+    appropriate for a PM audience, reframes technical questions when possible,
+    and identifies premature questions that should be returned to the user
     with the option to defer.
 
     Attributes:
         llm_adapter: LLM adapter for classification calls.
-        model: Model to use (Sonnet-grade for judgment quality).
+        model: Explicit model override for classification calls.
         temperature: Low temperature for consistent classification.
         codebase_context: Shared codebase exploration context for informed classification.
     """
 
     llm_adapter: LLMAdapter
     model: str | None = None
+    implicit_model: str | None = None
     model_is_explicit: bool = field(default=False, init=False)
     temperature: float = _CLASSIFIER_TEMPERATURE
     codebase_context: str = ""
@@ -212,7 +211,7 @@ class QuestionClassifier:
         """Resolve implicit default model while preserving explicit caller pins."""
         self.model_is_explicit = self.model is not None
         if self.model is None:
-            self.model = _CLASSIFIER_MODEL
+            self.model = self.implicit_model or get_clarification_model()
 
     async def classify(
         self,

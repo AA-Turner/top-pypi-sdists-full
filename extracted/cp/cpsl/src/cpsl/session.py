@@ -24,6 +24,7 @@ from .integration import (
     IntegrationCredentials,
     IntegrationLike,
     KNOWN_SECRET_INTEGRATIONS,
+    MODE_PIPEDREAM,
     integration_type as normalize_integration_type,
 )
 from .clients.capsule import CompleteOnboardingRequest
@@ -1704,14 +1705,15 @@ class Session:
 
         # Secret-based integrations pack field values as JSON in access_token.
         secret_fields: dict[str, str] = {}
-        if is_secret and resp.credential.access_token:
+        is_field_payload = is_secret or resp.credential.token_type in {"fields", MODE_PIPEDREAM}
+        if is_field_payload and resp.credential.access_token:
             try:
                 secret_fields = json.loads(resp.credential.access_token)
             except (json.JSONDecodeError, TypeError):
                 pass
 
         cred = IntegrationCredentials(
-            access_token="" if is_secret else resp.credential.access_token,
+            access_token="" if secret_fields else resp.credential.access_token,
             token_type=resp.credential.token_type or "Bearer",
             scopes=list(resp.credential.scopes),
             expires_at=resp.credential.expires_at,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: capsule-sdk
-Version: 0.4.11
+Version: 0.4.13
 Summary: Python SDK for Capsule
 License-Expression: Apache-2.0
 Requires-Python: >=3.10

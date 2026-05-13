@@ -23,6 +23,7 @@ from ouroboros.auto.pipeline import (
 )
 from ouroboros.auto.state import (
     DEFAULT_PIPELINE_TIMEOUT_SECONDS,
+    DEFAULT_TIMEOUT_SECONDS_BY_PHASE,
     AutoPhase,
     AutoPipelineState,
     AutoStore,
@@ -68,6 +69,16 @@ class _NeverInterviewDriver:
 
 async def _unused_seed_generator(_session_id: str):  # pragma: no cover
     raise AssertionError("seed generator should not be invoked when deadline trips")
+
+
+def test_seed_generation_timeout_uses_state_default_policy() -> None:
+    """AutoPipeline's live seed-generation timeout must track state policy."""
+    pipeline = AutoPipeline(_NeverInterviewDriver(), _unused_seed_generator)
+
+    assert pipeline.seed_timeout_seconds == float(
+        DEFAULT_TIMEOUT_SECONDS_BY_PHASE[AutoPhase.SEED_GENERATION.value]
+    )
+    assert pipeline.seed_timeout_seconds == 300.0
 
 
 @pytest.mark.asyncio
@@ -322,6 +333,21 @@ async def test_legacy_blocked_session_arms_deadline_on_recovery(tmp_path) -> Non
     assert armed.deadline_at_epoch is not None
     assert armed.deadline_at > time.monotonic()
     assert armed.deadline_at_epoch > time.time()
+
+
+def test_legacy_nonterminal_state_load_arms_deadline() -> None:
+    """Legacy resumed sessions without deadline fields still get a top-level timeout."""
+    state = AutoPipelineState(goal="Build a CLI", cwd="/tmp/project")
+    state.transition(AutoPhase.INTERVIEW, "starting interview")
+    payload = state.to_dict()
+    payload.pop("deadline_at", None)
+    payload.pop("deadline_at_epoch", None)
+
+    loaded = AutoPipelineState.from_dict(payload)
+
+    assert loaded.deadline_at is not None
+    assert loaded.deadline_at_epoch is not None
+    assert not loaded.is_deadline_expired()
 
 
 @pytest.mark.asyncio

@@ -324,6 +324,23 @@ class MachineConfig(_common.CaseInSensitiveEnum):
     """The default value: milligcu 4000, memory 4 Gib"""
 
 
+class SandboxState(_common.CaseInSensitiveEnum):
+    """Output only. The runtime state of the SandboxEnvironment."""
+
+    STATE_UNSPECIFIED = "STATE_UNSPECIFIED"
+    """The default value. This value is unused."""
+    STATE_PROVISIONING = "STATE_PROVISIONING"
+    """Runtime resources are being allocated for the sandbox environment."""
+    STATE_RUNNING = "STATE_RUNNING"
+    """Sandbox runtime is ready for serving."""
+    STATE_DEPROVISIONING = "STATE_DEPROVISIONING"
+    """Sandbox runtime is halted, performing tear down tasks."""
+    STATE_TERMINATED = "STATE_TERMINATED"
+    """Sandbox has terminated with underlying runtime failure."""
+    STATE_DELETED = "STATE_DELETED"
+    """Sandbox runtime has been deleted."""
+
+
 class Protocol(_common.CaseInSensitiveEnum):
     """Protocol for port. Defaults to TCP if not specified."""
 
@@ -2401,6 +2418,15 @@ class EvaluationRunConfig(_common.BaseModel):
         default=None,
         description="""Specifications for loss analysis. Each config specifies a metric and candidate to analyze for loss patterns.""",
     )
+    allow_cross_region_model: Optional[bool] = Field(
+        default=None,
+        description="""Allows the evaluation run to use cross region models. When this
+            flag is set, the service may route traffic to other regions if a model is
+            unavailable in the current region (e.g., to a `global`endpoint). If a
+            fully-qualified model endpoint resource name with a different region than
+            the run location is provided elsewhere in the run config, this flag must
+            be set to true or the request will fail.""",
+    )
 
 
 class EvaluationRunConfigDict(TypedDict, total=False):
@@ -2420,6 +2446,14 @@ class EvaluationRunConfigDict(TypedDict, total=False):
 
     loss_analysis_config: Optional[list[LossAnalysisConfigDict]]
     """Specifications for loss analysis. Each config specifies a metric and candidate to analyze for loss patterns."""
+
+    allow_cross_region_model: Optional[bool]
+    """Allows the evaluation run to use cross region models. When this
+            flag is set, the service may route traffic to other regions if a model is
+            unavailable in the current region (e.g., to a `global`endpoint). If a
+            fully-qualified model endpoint resource name with a different region than
+            the run location is provided elsewhere in the run config, this flag must
+            be set to true or the request will fail."""
 
 
 EvaluationRunConfigOrDict = Union[EvaluationRunConfig, EvaluationRunConfigDict]
@@ -2545,11 +2579,99 @@ EvaluationRunInferenceConfigOrDict = Union[
 ]
 
 
+class VulnerableTool(_common.BaseModel):
+    """A tool considered high risk for prompt injection."""
+
+    tool_name: Optional[str] = Field(
+        default=None,
+        description="""Optional. The name of the vulnerable function/tool (e.g., "search_flights").""",
+    )
+    json_paths: Optional[list[str]] = Field(
+        default=None,
+        description="""Optional. JSON Paths within the tool's FunctionResponse where malicious content could be injected.""",
+    )
+
+
+class VulnerableToolDict(TypedDict, total=False):
+    """A tool considered high risk for prompt injection."""
+
+    tool_name: Optional[str]
+    """Optional. The name of the vulnerable function/tool (e.g., "search_flights")."""
+
+    json_paths: Optional[list[str]]
+    """Optional. JSON Paths within the tool's FunctionResponse where malicious content could be injected."""
+
+
+VulnerableToolOrDict = Union[VulnerableTool, VulnerableToolDict]
+
+
+class RedTeamingAnalysisConfig(_common.BaseModel):
+    """Configuration for the automated Agent Red Teaming analysis."""
+
+    attack_categories: Optional[list[str]] = Field(
+        default=None,
+        description="""Optional. Specific attack categories to test against.""",
+    )
+    vulnerable_tools: Optional[list[VulnerableTool]] = Field(
+        default=None,
+        description="""Optional. Manually defined vulnerable tools and their injection paths.""",
+    )
+
+
+class RedTeamingAnalysisConfigDict(TypedDict, total=False):
+    """Configuration for the automated Agent Red Teaming analysis."""
+
+    attack_categories: Optional[list[str]]
+    """Optional. Specific attack categories to test against."""
+
+    vulnerable_tools: Optional[list[VulnerableToolDict]]
+    """Optional. Manually defined vulnerable tools and their injection paths."""
+
+
+RedTeamingAnalysisConfigOrDict = Union[
+    RedTeamingAnalysisConfig, RedTeamingAnalysisConfigDict
+]
+
+
+class AnalysisConfig(_common.BaseModel):
+    """Configuration for an analysis to be performed on an evaluation run."""
+
+    analysis_name: Optional[str] = Field(
+        default=None, description="""Optional. A name for this analysis."""
+    )
+    red_teaming_analysis_config: Optional[RedTeamingAnalysisConfig] = Field(
+        default=None,
+        description="""Configuration for the automated Agent Red Teaming analysis.""",
+    )
+
+
+class AnalysisConfigDict(TypedDict, total=False):
+    """Configuration for an analysis to be performed on an evaluation run."""
+
+    analysis_name: Optional[str]
+    """Optional. A name for this analysis."""
+
+    red_teaming_analysis_config: Optional[RedTeamingAnalysisConfigDict]
+    """Configuration for the automated Agent Red Teaming analysis."""
+
+
+AnalysisConfigOrDict = Union[AnalysisConfig, AnalysisConfigDict]
+
+
 class CreateEvaluationRunConfig(_common.BaseModel):
     """Config to create an evaluation run."""
 
     http_options: Optional[genai_types.HttpOptions] = Field(
         default=None, description="""Used to override HTTP request options."""
+    )
+    allow_cross_region_model: Optional[bool] = Field(
+        default=None,
+        description="""Allows the evaluation run to use cross region models. When this
+      flag is set, the service may route traffic to other regions if a model is
+      unavailable in the current region (e.g., to a `global`endpoint). If a
+      fully-qualified model endpoint resource name with a different region than
+      the run location is provided elsewhere in the run config, this flag must
+      be set to true or the request will fail.""",
     )
 
 
@@ -2558,6 +2680,14 @@ class CreateEvaluationRunConfigDict(TypedDict, total=False):
 
     http_options: Optional[genai_types.HttpOptionsDict]
     """Used to override HTTP request options."""
+
+    allow_cross_region_model: Optional[bool]
+    """Allows the evaluation run to use cross region models. When this
+      flag is set, the service may route traffic to other regions if a model is
+      unavailable in the current region (e.g., to a `global`endpoint). If a
+      fully-qualified model endpoint resource name with a different region than
+      the run location is provided elsewhere in the run config, this flag must
+      be set to true or the request will fail."""
 
 
 CreateEvaluationRunConfigOrDict = Union[
@@ -2581,6 +2711,9 @@ class _CreateEvaluationRunParameters(_common.BaseModel):
         default=None, description=""""""
     )
     config: Optional[CreateEvaluationRunConfig] = Field(
+        default=None, description=""""""
+    )
+    analysis_configs: Optional[list[AnalysisConfig]] = Field(
         default=None, description=""""""
     )
 
@@ -2607,6 +2740,9 @@ class _CreateEvaluationRunParametersDict(TypedDict, total=False):
     """"""
 
     config: Optional[CreateEvaluationRunConfigDict]
+    """"""
+
+    analysis_configs: Optional[list[AnalysisConfigDict]]
     """"""
 
 
@@ -2643,6 +2779,70 @@ class SummaryMetricDict(TypedDict, total=False):
 
 
 SummaryMetricOrDict = Union[SummaryMetric, SummaryMetricDict]
+
+
+class AttackCategoryResult(_common.BaseModel):
+    """The red teaming outcome for a specific attack category."""
+
+    attack_category: Optional[str] = Field(
+        default=None, description="""The category of the attack evaluated."""
+    )
+    attack_success_rate: Optional[float] = Field(
+        default=None,
+        description="""The ratio of successful attacks given a fixed budget.""",
+    )
+    vulnerability_insight: Optional[str] = Field(
+        default=None, description="""Insights into why an attack succeeded or failed."""
+    )
+
+
+class AttackCategoryResultDict(TypedDict, total=False):
+    """The red teaming outcome for a specific attack category."""
+
+    attack_category: Optional[str]
+    """The category of the attack evaluated."""
+
+    attack_success_rate: Optional[float]
+    """The ratio of successful attacks given a fixed budget."""
+
+    vulnerability_insight: Optional[str]
+    """Insights into why an attack succeeded or failed."""
+
+
+AttackCategoryResultOrDict = Union[AttackCategoryResult, AttackCategoryResultDict]
+
+
+class RedTeamingAnalysisResult(_common.BaseModel):
+    """The top-level result for Red Teaming analysis."""
+
+    config: Optional[RedTeamingAnalysisConfig] = Field(
+        default=None,
+        description="""The configuration used to generate this analysis.""",
+    )
+    analysis_time: Optional[str] = Field(
+        default=None, description="""The timestamp when this analysis was performed."""
+    )
+    category_results: Optional[list[AttackCategoryResult]] = Field(
+        default=None, description="""Detailed results by attack category."""
+    )
+
+
+class RedTeamingAnalysisResultDict(TypedDict, total=False):
+    """The top-level result for Red Teaming analysis."""
+
+    config: Optional[RedTeamingAnalysisConfigDict]
+    """The configuration used to generate this analysis."""
+
+    analysis_time: Optional[str]
+    """The timestamp when this analysis was performed."""
+
+    category_results: Optional[list[AttackCategoryResultDict]]
+    """Detailed results by attack category."""
+
+
+RedTeamingAnalysisResultOrDict = Union[
+    RedTeamingAnalysisResult, RedTeamingAnalysisResultDict
+]
 
 
 class LossTaxonomyEntry(_common.BaseModel):
@@ -2828,6 +3028,9 @@ class EvaluationRunResults(_common.BaseModel):
         default=None,
         description="""The loss analysis results for the evaluation run.""",
     )
+    red_teaming_analysis_results: Optional[list[RedTeamingAnalysisResult]] = Field(
+        default=None, description="""The Red Teaming analysis results."""
+    )
 
 
 class EvaluationRunResultsDict(TypedDict, total=False):
@@ -2841,6 +3044,9 @@ class EvaluationRunResultsDict(TypedDict, total=False):
 
     loss_analysis_results: Optional[list[LossAnalysisResultDict]]
     """The loss analysis results for the evaluation run."""
+
+    red_teaming_analysis_results: Optional[list[RedTeamingAnalysisResultDict]]
+    """The Red Teaming analysis results."""
 
 
 EvaluationRunResultsOrDict = Union[EvaluationRunResults, EvaluationRunResultsDict]
@@ -3386,6 +3592,10 @@ class EvaluationRun(_common.BaseModel):
         description="""This field is experimental and may change in future versions. The inference configs for the evaluation run.""",
     )
     labels: Optional[dict[str, str]] = Field(default=None, description="""""")
+    analysis_configs: Optional[list[AnalysisConfig]] = Field(
+        default=None,
+        description="""The analysis configurations for the evaluation run.""",
+    )
 
     # TODO(b/448806531): Remove all the overridden _from_response methods once the
     # ticket is resolved and published.
@@ -3485,6 +3695,9 @@ class EvaluationRunDict(TypedDict, total=False):
 
     labels: Optional[dict[str, str]]
     """"""
+
+    analysis_configs: Optional[list[AnalysisConfigDict]]
+    """The analysis configurations for the evaluation run."""
 
 
 EvaluationRunOrDict = Union[EvaluationRun, EvaluationRunDict]
@@ -12322,7 +12535,7 @@ class SandboxEnvironment(_common.BaseModel):
         default=None,
         description="""Optional. The configuration of the SandboxEnvironment.""",
     )
-    state: Optional[State] = Field(
+    state: Optional[SandboxState] = Field(
         default=None,
         description="""Output only. The runtime state of the SandboxEnvironment.""",
     )
@@ -12374,7 +12587,7 @@ class SandboxEnvironmentDict(TypedDict, total=False):
     spec: Optional[SandboxEnvironmentSpecDict]
     """Optional. The configuration of the SandboxEnvironment."""
 
-    state: Optional[State]
+    state: Optional[SandboxState]
     """Output only. The runtime state of the SandboxEnvironment."""
 
     ttl: Optional[str]
@@ -18159,6 +18372,259 @@ class SkillOperationDict(TypedDict, total=False):
 SkillOperationOrDict = Union[SkillOperation, SkillOperationDict]
 
 
+class UpdateSkillConfig(_common.BaseModel):
+    """Config for updating a skill."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    wait_for_completion: Optional[bool] = Field(
+        default=True,
+        description="""Whether to wait for the long running operation to complete.""",
+    )
+    local_path: Optional[str] = Field(
+        default=None,
+        description="""Optional. The local path to the directory containing the Skill to
+      be zipped and uploaded.
+      """,
+    )
+    display_name: Optional[str] = Field(
+        default=None, description="""Optional. The display name of the Skill."""
+    )
+    description: Optional[str] = Field(
+        default=None, description="""Optional. The description of the Skill."""
+    )
+    zipped_filesystem: Optional[Any] = Field(
+        default=None, description="""Optional. The zipped filesystem of the Skill."""
+    )
+    update_mask: Optional[str] = Field(
+        default=None, description="""Optional. The update mask to apply."""
+    )
+
+
+class UpdateSkillConfigDict(TypedDict, total=False):
+    """Config for updating a skill."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+    wait_for_completion: Optional[bool]
+    """Whether to wait for the long running operation to complete."""
+
+    local_path: Optional[str]
+    """Optional. The local path to the directory containing the Skill to
+      be zipped and uploaded.
+      """
+
+    display_name: Optional[str]
+    """Optional. The display name of the Skill."""
+
+    description: Optional[str]
+    """Optional. The description of the Skill."""
+
+    zipped_filesystem: Optional[Any]
+    """Optional. The zipped filesystem of the Skill."""
+
+    update_mask: Optional[str]
+    """Optional. The update mask to apply."""
+
+
+UpdateSkillConfigOrDict = Union[UpdateSkillConfig, UpdateSkillConfigDict]
+
+
+class _UpdateSkillRequestParameters(_common.BaseModel):
+    """Parameters for updating a skill."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""Required. The resource name of the Skill to update.""",
+    )
+    config: Optional[UpdateSkillConfig] = Field(default=None, description="""""")
+
+
+class _UpdateSkillRequestParametersDict(TypedDict, total=False):
+    """Parameters for updating a skill."""
+
+    name: Optional[str]
+    """Required. The resource name of the Skill to update."""
+
+    config: Optional[UpdateSkillConfigDict]
+    """"""
+
+
+_UpdateSkillRequestParametersOrDict = Union[
+    _UpdateSkillRequestParameters, _UpdateSkillRequestParametersDict
+]
+
+
+class ListSkillsConfig(_common.BaseModel):
+    """Config for listing skills."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    page_size: Optional[int] = Field(default=None, description="""""")
+    page_token: Optional[str] = Field(default=None, description="""""")
+    filter: Optional[str] = Field(
+        default=None, description="""Optional. The standard list filter."""
+    )
+
+
+class ListSkillsConfigDict(TypedDict, total=False):
+    """Config for listing skills."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+    page_size: Optional[int]
+    """"""
+
+    page_token: Optional[str]
+    """"""
+
+    filter: Optional[str]
+    """Optional. The standard list filter."""
+
+
+ListSkillsConfigOrDict = Union[ListSkillsConfig, ListSkillsConfigDict]
+
+
+class _ListSkillsRequestParameters(_common.BaseModel):
+    """Parameters for listing skills."""
+
+    config: Optional[ListSkillsConfig] = Field(default=None, description="""""")
+
+
+class _ListSkillsRequestParametersDict(TypedDict, total=False):
+    """Parameters for listing skills."""
+
+    config: Optional[ListSkillsConfigDict]
+    """"""
+
+
+_ListSkillsRequestParametersOrDict = Union[
+    _ListSkillsRequestParameters, _ListSkillsRequestParametersDict
+]
+
+
+class ListSkillsResponse(_common.BaseModel):
+    """Response for listing skills."""
+
+    sdk_http_response: Optional[genai_types.HttpResponse] = Field(
+        default=None, description="""Used to retain the full HTTP response."""
+    )
+    next_page_token: Optional[str] = Field(default=None, description="""""")
+    skills: Optional[list[Skill]] = Field(
+        default=None, description="""List of Skills."""
+    )
+
+
+class ListSkillsResponseDict(TypedDict, total=False):
+    """Response for listing skills."""
+
+    sdk_http_response: Optional[genai_types.HttpResponseDict]
+    """Used to retain the full HTTP response."""
+
+    next_page_token: Optional[str]
+    """"""
+
+    skills: Optional[list[SkillDict]]
+    """List of Skills."""
+
+
+ListSkillsResponseOrDict = Union[ListSkillsResponse, ListSkillsResponseDict]
+
+
+class DeleteSkillConfig(_common.BaseModel):
+    """Config for deleting a skill."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    wait_for_completion: Optional[bool] = Field(
+        default=True,
+        description="""Whether to wait for the long running operation to complete.""",
+    )
+
+
+class DeleteSkillConfigDict(TypedDict, total=False):
+    """Config for deleting a skill."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+    wait_for_completion: Optional[bool]
+    """Whether to wait for the long running operation to complete."""
+
+
+DeleteSkillConfigOrDict = Union[DeleteSkillConfig, DeleteSkillConfigDict]
+
+
+class _DeleteSkillRequestParameters(_common.BaseModel):
+    """Parameters for deleting a skill."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""Required. The resource name of the Skill to delete.""",
+    )
+    config: Optional[DeleteSkillConfig] = Field(default=None, description="""""")
+
+
+class _DeleteSkillRequestParametersDict(TypedDict, total=False):
+    """Parameters for deleting a skill."""
+
+    name: Optional[str]
+    """Required. The resource name of the Skill to delete."""
+
+    config: Optional[DeleteSkillConfigDict]
+    """"""
+
+
+_DeleteSkillRequestParametersOrDict = Union[
+    _DeleteSkillRequestParameters, _DeleteSkillRequestParametersDict
+]
+
+
+class DeleteSkillOperation(_common.BaseModel):
+    """Operation for deleting a skill."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any.""",
+    )
+    done: Optional[bool] = Field(
+        default=None,
+        description="""If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available.""",
+    )
+    error: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""The error result of the operation in case of failure or cancellation.""",
+    )
+
+
+class DeleteSkillOperationDict(TypedDict, total=False):
+    """Operation for deleting a skill."""
+
+    name: Optional[str]
+    """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""
+
+    metadata: Optional[dict[str, Any]]
+    """Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any."""
+
+    done: Optional[bool]
+    """If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available."""
+
+    error: Optional[dict[str, Any]]
+    """The error result of the operation in case of failure or cancellation."""
+
+
+DeleteSkillOperationOrDict = Union[DeleteSkillOperation, DeleteSkillOperationDict]
+
+
 class GetSkillOperationConfig(_common.BaseModel):
 
     http_options: Optional[genai_types.HttpOptions] = Field(
@@ -18200,6 +18666,161 @@ class _GetSkillOperationParametersDict(TypedDict, total=False):
 
 _GetSkillOperationParametersOrDict = Union[
     _GetSkillOperationParameters, _GetSkillOperationParametersDict
+]
+
+
+class GetSkillRevisionConfig(_common.BaseModel):
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class GetSkillRevisionConfigDict(TypedDict, total=False):
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+GetSkillRevisionConfigOrDict = Union[GetSkillRevisionConfig, GetSkillRevisionConfigDict]
+
+
+class _GetSkillRevisionRequestParameters(_common.BaseModel):
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The resource name of the Skill Revision to retrieve. Format: projects/{project}/locations/{location}/skills/{skill}/revisions/{revision}""",
+    )
+    config: Optional[GetSkillRevisionConfig] = Field(default=None, description="""""")
+
+
+class _GetSkillRevisionRequestParametersDict(TypedDict, total=False):
+
+    name: Optional[str]
+    """The resource name of the Skill Revision to retrieve. Format: projects/{project}/locations/{location}/skills/{skill}/revisions/{revision}"""
+
+    config: Optional[GetSkillRevisionConfigDict]
+    """"""
+
+
+_GetSkillRevisionRequestParametersOrDict = Union[
+    _GetSkillRevisionRequestParameters, _GetSkillRevisionRequestParametersDict
+]
+
+
+class SkillRevision(_common.BaseModel):
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""Identifier. The resource name of the Skill Revision. Format: `projects/{project}/locations/{location}/skills/{skill}/revisions/{revision}`""",
+    )
+    create_time: Optional[datetime.datetime] = Field(
+        default=None,
+        description="""Output only. Timestamp when this Skill Revision was created.""",
+    )
+    skill: Optional[Skill] = Field(
+        default=None,
+        description="""Output only. The state of the Skill at this revision. TODO(b/503772996) Use a different proto for skill data included in skill revision""",
+    )
+    state: Optional[SkillState] = Field(
+        default=None, description="""Output only. The state of the Skill Revision."""
+    )
+
+
+class SkillRevisionDict(TypedDict, total=False):
+
+    name: Optional[str]
+    """Identifier. The resource name of the Skill Revision. Format: `projects/{project}/locations/{location}/skills/{skill}/revisions/{revision}`"""
+
+    create_time: Optional[datetime.datetime]
+    """Output only. Timestamp when this Skill Revision was created."""
+
+    skill: Optional[SkillDict]
+    """Output only. The state of the Skill at this revision. TODO(b/503772996) Use a different proto for skill data included in skill revision"""
+
+    state: Optional[SkillState]
+    """Output only. The state of the Skill Revision."""
+
+
+SkillRevisionOrDict = Union[SkillRevision, SkillRevisionDict]
+
+
+class ListSkillRevisionsConfig(_common.BaseModel):
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    page_size: Optional[int] = Field(default=None, description="""""")
+    page_token: Optional[str] = Field(default=None, description="""""")
+
+
+class ListSkillRevisionsConfigDict(TypedDict, total=False):
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+    page_size: Optional[int]
+    """"""
+
+    page_token: Optional[str]
+    """"""
+
+
+ListSkillRevisionsConfigOrDict = Union[
+    ListSkillRevisionsConfig, ListSkillRevisionsConfigDict
+]
+
+
+class _ListSkillRevisionsRequestParameters(_common.BaseModel):
+    """Parameters for ListSkillRevisionsRequest."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""Required. The name of the Skill to list revisions for.""",
+    )
+    config: Optional[ListSkillRevisionsConfig] = Field(default=None, description="""""")
+
+
+class _ListSkillRevisionsRequestParametersDict(TypedDict, total=False):
+    """Parameters for ListSkillRevisionsRequest."""
+
+    name: Optional[str]
+    """Required. The name of the Skill to list revisions for."""
+
+    config: Optional[ListSkillRevisionsConfigDict]
+    """"""
+
+
+_ListSkillRevisionsRequestParametersOrDict = Union[
+    _ListSkillRevisionsRequestParameters, _ListSkillRevisionsRequestParametersDict
+]
+
+
+class ListSkillRevisionsResponse(_common.BaseModel):
+
+    sdk_http_response: Optional[genai_types.HttpResponse] = Field(
+        default=None, description="""Used to retain the full HTTP response."""
+    )
+    next_page_token: Optional[str] = Field(default=None, description="""""")
+    skill_revisions: Optional[list[SkillRevision]] = Field(
+        default=None, description="""List of Skill Revisions."""
+    )
+
+
+class ListSkillRevisionsResponseDict(TypedDict, total=False):
+
+    sdk_http_response: Optional[genai_types.HttpResponseDict]
+    """Used to retain the full HTTP response."""
+
+    next_page_token: Optional[str]
+    """"""
+
+    skill_revisions: Optional[list[SkillRevisionDict]]
+    """List of Skill Revisions."""
+
+
+ListSkillRevisionsResponseOrDict = Union[
+    ListSkillRevisionsResponse, ListSkillRevisionsResponseDict
 ]
 
 

@@ -169,7 +169,7 @@ class AsyncHttpClient:
         request_id = request_id or str(uuid.uuid4())
         headers = {"X-Request-Id": request_id}
         if self._signer:
-            sig, ts = await self._signer.sign_request(self._config.tenant_id, b"")
+            sig, ts = await self._signer.sign_request(self._config.tenant_id, request_id)
             headers["X-KMS-Signature"] = sig
             headers["X-KMS-Timestamp"] = ts
         if extra_headers:
@@ -207,7 +207,7 @@ class AsyncHttpClient:
         request_id = request_id or str(uuid.uuid4())
         headers = {"X-Request-Id": request_id, "Content-Type": "application/octet-stream"}
         if self._signer:
-            sig, ts = await self._signer.sign_request(self._config.tenant_id, b"")
+            sig, ts = await self._signer.sign_request(self._config.tenant_id, request_id)
             headers["X-KMS-Signature"] = sig
             headers["X-KMS-Timestamp"] = ts
         if extra_headers:
@@ -243,7 +243,7 @@ class AsyncHttpClient:
         request_id = request_id or str(uuid.uuid4())
         headers = {"X-Request-Id": request_id}
         if self._signer:
-            sig, ts = await self._signer.sign_request(self._config.tenant_id, b"")
+            sig, ts = await self._signer.sign_request(self._config.tenant_id, request_id)
             headers["X-KMS-Signature"] = sig
             headers["X-KMS-Timestamp"] = ts
         if extra_headers:
@@ -279,7 +279,7 @@ class AsyncHttpClient:
         request_id = request_id or str(uuid.uuid4())
         headers = {"X-Request-Id": request_id, "Accept": "application/x-ndjson"}
         if self._signer:
-            sig, ts = await self._signer.sign_request(self._config.tenant_id, b"")
+            sig, ts = await self._signer.sign_request(self._config.tenant_id, request_id)
             headers["X-KMS-Signature"] = sig
             headers["X-KMS-Timestamp"] = ts
         if extra_headers:
@@ -330,7 +330,7 @@ class AsyncHttpClient:
 
         req_headers: dict[str, str] = {"X-Request-Id": request_id}
         if self._signer:
-            sig, ts = await self._signer.sign_request(self._config.tenant_id, body_bytes)
+            sig, ts = await self._signer.sign_request(self._config.tenant_id, request_id)
             req_headers["X-KMS-Signature"] = sig
             req_headers["X-KMS-Timestamp"] = ts
 

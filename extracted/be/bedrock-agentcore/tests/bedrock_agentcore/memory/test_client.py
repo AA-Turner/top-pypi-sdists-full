@@ -1,11 +1,13 @@
 """Unit tests for Memory Client - no external connections."""
 
+import logging
 import time
 import uuid
 import warnings
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
+import pytest
 from botocore.exceptions import ClientError
 
 from bedrock_agentcore.memory import MemoryClient
@@ -113,7 +115,7 @@ def test_namespace_defaults():
         strategies = [{StrategyType.SEMANTIC.value: {"name": "TestStrategy"}}]
         processed = client._add_default_namespaces(strategies)
 
-        assert "namespaces" in processed[0][StrategyType.SEMANTIC.value]
+        assert "namespaceTemplates" in processed[0][StrategyType.SEMANTIC.value]
 
 
 def test_create_memory():
@@ -872,7 +874,7 @@ def test_add_user_preference_strategy():
             user_pref_config = strategy["userPreferenceMemoryStrategy"]
             assert user_pref_config["name"] == "Test User Preference Strategy"
             assert user_pref_config["description"] == "User preference test description"
-            assert user_pref_config["namespaces"] == ["preferences/{actorId}/"]
+            assert user_pref_config["namespaceTemplates"] == ["preferences/{actorId}/"]
 
             # Verify client token and memory ID
             assert kwargs["memoryId"] == "mem-456"
@@ -928,7 +930,7 @@ def test_add_custom_semantic_strategy():
             custom_config = strategy["customMemoryStrategy"]
             assert custom_config["name"] == "Test Custom Semantic Strategy"
             assert custom_config["description"] == "Custom semantic strategy test description"
-            assert custom_config["namespaces"] == ["custom/{actorId}/{sessionId}/"]
+            assert custom_config["namespaceTemplates"] == ["custom/{actorId}/{sessionId}/"]
 
             # Verify the semantic override configuration
             assert "configuration" in custom_config
@@ -1496,7 +1498,7 @@ def test_modify_strategy():
             modified_strategy = kwargs["memoryStrategies"]["modifyMemoryStrategies"][0]
             assert modified_strategy["memoryStrategyId"] == "strat-789"
             assert modified_strategy["description"] == "Modified description"
-            assert modified_strategy["namespaces"] == ["custom/namespace/"]
+            assert modified_strategy["namespaceTemplates"] == ["custom/namespace/"]
 
 
 def test_retrieve_memories_resource_not_found_error():
@@ -1625,6 +1627,68 @@ def test_retrieve_memories_wildcard_namespace():
 
         # Should not make API call due to wildcard rejection
         assert not mock_gmdp.retrieve_memory_records.called
+
+
+def test_retrieve_memories_with_namespace_path():
+    """Test retrieve_memories uses namespacePath for hierarchical retrieval."""
+    with patch("boto3.Session"):
+        client = MemoryClient()
+
+        mock_gmdp = MagicMock()
+        mock_gmdp.retrieve_memory_records.return_value = {"memoryRecordSummaries": [{"memoryRecordId": "rec-1"}]}
+        client.gmdp_client = mock_gmdp
+
+        result = client.retrieve_memories(memory_id="mem-123", namespace_path="/org/team/", query="test", top_k=3)
+
+        assert len(result) == 1
+        call_kwargs = mock_gmdp.retrieve_memory_records.call_args[1]
+        assert "namespacePath" in call_kwargs
+        assert call_kwargs["namespacePath"] == "/org/team/"
+        assert "namespace" not in call_kwargs
+
+
+def test_retrieve_memories_mutual_exclusivity(caplog):
+    """Test retrieve_memories soft-fails when both namespace and namespace_path are passed."""
+    with patch("boto3.Session"):
+        client = MemoryClient()
+
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        with caplog.at_level(logging.ERROR):
+            result = client.retrieve_memories(memory_id="mem-123", namespace="/a/", namespace_path="/b/", query="test")
+
+        # Should log the error and return [] without calling the service
+        assert result == []
+        assert not mock_gmdp.retrieve_memory_records.called
+        assert any(
+            "mutually exclusive" in record.message and record.levelno == logging.ERROR for record in caplog.records
+        )
+
+
+def test_retrieve_memories_missing_namespace_and_path(caplog):
+    """Test retrieve_memories soft-fails when neither namespace nor namespace_path is passed."""
+    with patch("boto3.Session"):
+        client = MemoryClient()
+
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        with caplog.at_level(logging.ERROR):
+            result = client.retrieve_memories(memory_id="mem-123", query="test")
+
+        assert result == []
+        assert not mock_gmdp.retrieve_memory_records.called
+        assert any("At least one" in record.message and record.levelno == logging.ERROR for record in caplog.records)
+
+
+def test_retrieve_memories_missing_query_raises():
+    """Test retrieve_memories raises TypeError when query is omitted."""
+    with patch("boto3.Session"):
+        client = MemoryClient()
+
+        with pytest.raises(TypeError, match="query"):
+            client.retrieve_memories(memory_id="mem-123", namespace="/actor/Jane/")
 
 
 def test_add_semantic_strategy_and_wait():
@@ -3143,8 +3207,8 @@ def test_add_episodic_strategy():
             episodic_config = strategy["episodicMemoryStrategy"]
             assert episodic_config["name"] == "Test Episodic Strategy"
             assert episodic_config["description"] == "Episodic test description"
-            assert episodic_config["namespaces"] == ["episodes/{actorId}/{sessionId}/"]
-            assert episodic_config["reflectionConfiguration"] == {"namespaces": ["reflections/{actorId}/"]}
+            assert episodic_config["namespaceTemplates"] == ["episodes/{actorId}/{sessionId}/"]
+            assert episodic_config["reflectionConfiguration"] == {"namespaceTemplates": ["reflections/{actorId}/"]}
 
             assert kwargs["memoryId"] == "mem-123"
 
@@ -3198,7 +3262,7 @@ def test_add_custom_episodic_strategy():
             assert episodic_override["extraction"]["appendToPrompt"] == "Extract episodes from conversation"
             assert episodic_override["consolidation"]["appendToPrompt"] == "Consolidate episodes"
             assert episodic_override["reflection"]["appendToPrompt"] == "Generate reflections from episodes"
-            assert episodic_override["reflection"]["namespaces"] == ["reflections/{actorId}/"]
+            assert episodic_override["reflection"]["namespaceTemplates"] == ["reflections/{actorId}/"]
 
 
 def test_add_episodic_strategy_and_wait():

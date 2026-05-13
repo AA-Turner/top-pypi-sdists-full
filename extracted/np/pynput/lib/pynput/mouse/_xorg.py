@@ -42,9 +42,7 @@ import Xlib.ext.xtest
 import Xlib.X
 import Xlib.protocol
 
-from pynput._util.xorg import (
-    display_manager,
-    ListenerMixin)
+from pynput._util.xorg import display_manager, ListenerMixin
 from . import _base
 
 
@@ -60,9 +58,10 @@ Button = enum.Enum(
         ('scroll_up', 4),
         ('scroll_down', 5),
         ('scroll_left', 6),
-        ('scroll_right', 7)] + [
-            ('button%d' % i, i)
-            for i in range(8, 31)])
+        ('scroll_right', 7),
+    ]
+    + [('button%d' % i, i) for i in range(8, 31)],
+)
 # pylint: enable=C0103
 
 
@@ -90,12 +89,14 @@ class Controller(_base.Controller):
         if dy:
             self.click(
                 button=Button.scroll_up if dy > 0 else Button.scroll_down,
-                count=abs(dy))
+                count=abs(dy),
+            )
 
         if dx:
             self.click(
                 button=Button.scroll_right if dx > 0 else Button.scroll_left,
-                count=abs(dx))
+                count=abs(dx),
+            )
 
     def _press(self, button):
         with display_manager(self._display) as dm:
@@ -111,9 +112,7 @@ class Controller(_base.Controller):
 
         :param args: The values to verify.
         """
-        if not all(
-                (-0x7fff - 1) <= number <= 0x7fff
-                for number in args):
+        if not all((-0x7FFF - 1) <= number <= 0x7FFF for number in args):
             raise ValueError(args)
         else:
             return tuple(int(p) for p in args)
@@ -125,11 +124,10 @@ class Listener(ListenerMixin, _base.Listener):
         Button.scroll_up.value: (0, 1),
         Button.scroll_down.value: (0, -1),
         Button.scroll_right.value: (1, 0),
-        Button.scroll_left.value: (-1, 0)}
+        Button.scroll_left.value: (-1, 0),
+    }
 
-    _EVENTS = (
-        Xlib.X.ButtonPressMask,
-        Xlib.X.ButtonReleaseMask)
+    _EVENTS = (Xlib.X.ButtonPressMask, Xlib.X.ButtonReleaseMask)
 
     def __init__(self, *args, **kwargs):
         super(Listener, self).__init__(*args, **kwargs)
@@ -143,26 +141,32 @@ class Listener(ListenerMixin, _base.Listener):
             # button codes
             scroll = self._SCROLL_BUTTONS.get(event.detail, None)
             if scroll:
-                self.on_scroll(
-                    px, py, scroll[0], scroll[1], injected)
+                self.on_scroll(px, py, scroll[0], scroll[1], injected)
             else:
                 self.on_click(
-                    px, py, self._button(event.detail), True, injected)
+                    px, py, self._button(event.detail), True, injected
+                )
 
         elif event.type == Xlib.X.ButtonRelease:
             # Send an event only if this was not a scroll event
             if event.detail not in self._SCROLL_BUTTONS:
                 self.on_click(
-                    px, py, self._button(event.detail), False, injected)
+                    px, py, self._button(event.detail), False, injected
+                )
 
         else:
             self.on_move(px, py, injected)
 
-
     def _suppress_start(self, display):
         display.screen().root.grab_pointer(
-            True, self._event_mask, Xlib.X.GrabModeAsync, Xlib.X.GrabModeAsync,
-            0, 0, Xlib.X.CurrentTime)
+            True,
+            self._event_mask,
+            Xlib.X.GrabModeAsync,
+            Xlib.X.GrabModeAsync,
+            0,
+            0,
+            Xlib.X.CurrentTime,
+        )
 
     def _suppress_stop(self, display):
         display.ungrab_pointer(Xlib.X.CurrentTime)
@@ -181,4 +185,5 @@ class Listener(ListenerMixin, _base.Listener):
             return Button(detail)
         except ValueError:
             return Button.unknown
+
     # pylint: enable=R0201

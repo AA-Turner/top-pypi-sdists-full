@@ -290,7 +290,8 @@ def _extract_answer(messages: list[dict]) -> str:
             continue
         for line in reversed(content.splitlines()):
             ls = line.strip()
-            if ls.upper().startswith("FINAL ANSWER:"):
+            ls_up = ls.upper()
+            if ls_up.startswith("FINAL ANSWER:") or ls_up.startswith("ANSWER:"):
                 return ls.split(":", 1)[1].strip()
         return content[-500:].strip()
     return ""
@@ -393,10 +394,19 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--resume", type=Path,
                     help="resume from existing run dir (skip already-done IDs)")
+    ap.add_argument(
+        "--category", default="",
+        help=(
+            "Filter to questions in this HLE category (case-insensitive "
+            "substring match against q['category']). Examples: 'math', "
+            "'chemistry', 'physics'. Use this to measure tool-impact on a "
+            "specific axis."
+        ),
+    )
     args = ap.parse_args()
 
     print(f"[hle_eval] source={args.source} limit={args.limit} "
-          f"shuffle={args.shuffle}")
+          f"shuffle={args.shuffle} category={args.category or '(any)'}")
 
     if args.source == "seed":
         questions = load_seed()
@@ -404,6 +414,13 @@ def main() -> int:
         questions = load_hle()
 
     print(f"[hle_eval] loaded {len(questions)} questions")
+
+    if args.category:
+        cat = args.category.lower().strip()
+        before = len(questions)
+        questions = [q for q in questions if cat in (q.get("category", "") or "").lower()]
+        print(f"[hle_eval] category filter '{args.category}': {before} → {len(questions)} questions")
+
     if args.shuffle:
         random.Random(args.seed).shuffle(questions)
     questions = questions[: args.limit]
@@ -488,6 +505,46 @@ def main() -> int:
             completed += 1
             if outcome.get("correct"):
                 running_correct += 1
+            else:
+                # Curiosity feedback loop (SOVEREIGN_PRD §5.7 acceptance #4):
+                # every HLE failure becomes a learning signal for the next
+                # autonomous_review tick. We care most about "empty" failures
+                # (model produced no answer at all — typically a retrieve
+                # gap) and judge-marked NO with explicit reasoning.
+                try:
+                    sys.path.insert(0, str(REPO))
+                    from drydock.curiosity import (
+                        CuriosityItem, CuriosityKind, enqueue,
+                    )
+                    method = outcome.get("method", "")
+                    judge_r = outcome.get("judge_reasoning", "")
+                    kind = CuriosityKind.HLE_FAILURE
+                    qid = outcome.get("id", "?")
+                    enqueue(CuriosityItem(
+                        kind=kind,
+                        term=q.get("question", "")[:200],
+                        context=(
+                            f"Predicted: {outcome.get('predicted', '')[:200]}\n"
+                            f"Gold: {q.get('answer', '')[:200]}\n"
+                            f"Judge: {judge_r[:200]}"
+                        ),
+                        source=f"hle:{qid}",
+                        suggested_action=(
+                            "Investigate retrieval coverage for this topic; "
+                            "consider GraphRAG ingest of relevant corpus or "
+                            "a prompt rule to force retrieve before answering."
+                            if method == "empty"
+                            else "Compare predicted vs gold; surface to "
+                                 "autonomous_review as a prompt/AGENTS.md "
+                                 "candidate."
+                        ),
+                        confidence=0.9 if method == "empty" else 0.6,
+                        extra={"category": q.get("category", ""),
+                               "method": method},
+                    ))
+                except Exception:
+                    # Curiosity is best-effort; never let it interrupt eval.
+                    pass
             # Milestone ping every MILESTONE_EVERY completions
             if completed >= last_milestone + MILESTONE_EVERY:
                 last_milestone = (completed // MILESTONE_EVERY) * MILESTONE_EVERY

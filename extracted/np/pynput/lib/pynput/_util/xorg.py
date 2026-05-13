@@ -41,6 +41,8 @@ def _check_and_initialize():
 
     for group in Xlib.keysymdef.__all__:
         Xlib.XK.load_keysym_group(group)
+
+
 _check_and_initialize()
 del _check_and_initialize
 
@@ -49,6 +51,7 @@ class X11Error(Exception):
     """An error that is thrown at the end of a code block managed by a
     :func:`display_manager` if an *X11* error occurred.
     """
+
     pass
 
 
@@ -68,8 +71,7 @@ def display_manager(display):
     errors = []
 
     def handler(*args):
-        """The *Xlib* error handler.
-        """
+        """The *Xlib* error handler."""
         errors.append(args)
 
     old_handler = display.set_error_handler(handler)
@@ -93,7 +95,8 @@ def _find_mask(display, symbol):
     """
     # Get the key code for the symbol
     modifier_keycode = display.keysym_to_keycode(
-        Xlib.XK.string_to_keysym(symbol))
+        Xlib.XK.string_to_keysym(symbol)
+    )
 
     for index, keycodes in enumerate(display.get_modifier_mapping()):
         for keycode in keycodes:
@@ -228,10 +231,15 @@ def keysym_normalize(keysym):
     :return: the tuple ``(group_1, group_2)`` or ``None``
     """
     # Remove trailing NoSymbol
-    stripped = list(reversed(list(
-        itertools.dropwhile(
-            lambda n: n == Xlib.XK.NoSymbol,
-            reversed(keysym)))))
+    stripped = list(
+        reversed(
+            list(
+                itertools.dropwhile(
+                    lambda n: n == Xlib.XK.NoSymbol, reversed(keysym)
+                )
+            )
+        )
+    )
 
     if not stripped:
         return
@@ -239,29 +247,34 @@ def keysym_normalize(keysym):
     elif len(stripped) == 1:
         return (
             keysym_group(stripped[0], Xlib.XK.NoSymbol),
-            keysym_group(stripped[0], Xlib.XK.NoSymbol))
+            keysym_group(stripped[0], Xlib.XK.NoSymbol),
+        )
 
     elif len(stripped) == 2:
         return (
             keysym_group(stripped[0], stripped[1]),
-            keysym_group(stripped[0], stripped[1]))
+            keysym_group(stripped[0], stripped[1]),
+        )
 
     elif len(stripped) == 3:
         return (
             keysym_group(stripped[0], stripped[1]),
-            keysym_group(stripped[2], Xlib.XK.NoSymbol))
+            keysym_group(stripped[2], Xlib.XK.NoSymbol),
+        )
 
     elif len(stripped) >= 6:
         # TODO: Find out why this is necessary; using only the documented
         # behaviour may lead to only a US layout being used?
         return (
             keysym_group(stripped[0], stripped[1]),
-            keysym_group(stripped[4], stripped[5]))
+            keysym_group(stripped[4], stripped[5]),
+        )
 
     else:
         return (
             keysym_group(stripped[0], stripped[1]),
-            keysym_group(stripped[2], stripped[3]))
+            keysym_group(stripped[2], stripped[3]),
+        )
 
 
 def index_to_shift(display, index):
@@ -274,9 +287,9 @@ def index_to_shift(display, index):
 
     :return: a shift mask
     """
-    return (
-        (1 << 0 if index & 1 else 0) |
-        (alt_gr_mask(display) if index & 2 else 0))
+    return (1 << 0 if index & 1 else 0) | (
+        alt_gr_mask(display) if index & 2 else 0
+    )
 
 
 def shift_to_index(display, shift):
@@ -289,9 +302,7 @@ def shift_to_index(display, shift):
 
     :return: a shift mask
     """
-    return (
-        (1 if shift & 1 else 0) +
-        (2 if shift & alt_gr_mask(display) else 0))
+    return (1 if shift & 1 else 0) + (2 if shift & alt_gr_mask(display) else 0)
 
 
 def keyboard_mapping(display):
@@ -311,8 +322,9 @@ def keyboard_mapping(display):
     # Iterate over all keysym lists in the keyboard mapping
     min_keycode = display.display.info.min_keycode
     keycode_count = display.display.info.max_keycode - min_keycode + 1
-    for index, keysyms in enumerate(display.get_keyboard_mapping(
-            min_keycode, keycode_count)):
+    for index, keysyms in enumerate(
+        display.get_keyboard_mapping(min_keycode, keycode_count)
+    ):
         key_code = index + min_keycode
 
         # Normalise the keysym list to yield a tuple containing the two groups
@@ -325,9 +337,11 @@ def keyboard_mapping(display):
             for keysym, shift in zip(groups, (False, True)):
                 if not keysym:
                     continue
-                shift_state = 0 \
-                    | (shift_mask if shift else 0) \
+                shift_state = (
+                    0
+                    | (shift_mask if shift else 0)
                     | (group_mask if group else 0)
+                )
 
                 # Prefer already known lesser shift states
                 if keysym in mapping and mapping[keysym][1] < shift_state:
@@ -360,10 +374,12 @@ def symbol_to_keysym(symbol):
     """
     # First try simple translation, the try a module attribute of
     # Xlib.keysymdef.xkb and fall back on our pre-generated table
-    return (0
+    return (
+        0
         or Xlib.XK.string_to_keysym(symbol)
-        or getattr(Xlib.keysymdef.xkb, "XK_" + symbol, 0)
-        or SYMBOLS.get(symbol, (0,))[0])
+        or getattr(Xlib.keysymdef.xkb, 'XK_' + symbol, 0)
+        or SYMBOLS.get(symbol, (0,))[0]
+    )
 
 
 class ListenerMixin(object):
@@ -372,6 +388,7 @@ class ListenerMixin(object):
     Subclasses should set a value for :attr:`_EVENTS` and implement
     :meth:`_handle_message`.
     """
+
     #: The events for which to listen
     _EVENTS = tuple()
 
@@ -386,16 +403,20 @@ class ListenerMixin(object):
             self._context = dm.record_create_context(
                 0,
                 [Xlib.ext.record.AllClients],
-                [{
-                    'core_requests': (0, 0),
-                    'core_replies': (0, 0),
-                    'ext_requests': (0, 0, 0, 0),
-                    'ext_replies': (0, 0, 0, 0),
-                    'delivered_events': (0, 0),
-                    'device_events': self._EVENTS,
-                    'errors': (0, 0),
-                    'client_started': False,
-                    'client_died': False}])
+                [
+                    {
+                        'core_requests': (0, 0),
+                        'core_replies': (0, 0),
+                        'ext_requests': (0, 0, 0, 0),
+                        'ext_replies': (0, 0, 0, 0),
+                        'delivered_events': (0, 0),
+                        'device_events': self._EVENTS,
+                        'errors': (0, 0),
+                        'client_started': False,
+                        'client_died': False,
+                    }
+                ],
+            )
 
         # pylint: disable=W0702; we want to silence errors
         try:
@@ -405,7 +426,8 @@ class ListenerMixin(object):
                 with display_manager(self._display_stop) as dm:
                     self._suppress_start(dm)
             self._display_record.record_enable_context(
-                self._context, self._handler)
+                self._context, self._handler
+            )
         except:
             # This exception will have been passed to the main thread
             pass
@@ -445,8 +467,7 @@ class ListenerMixin(object):
 
     @property
     def _event_mask(self):
-        """The event mask.
-        """
+        """The event mask."""
         return functools.reduce(operator.__or__, self._EVENTS, 0)
 
     @AbstractListener._emitter
@@ -466,7 +487,8 @@ class ListenerMixin(object):
 
         while data and len(data):
             event, data = self._EVENT_PARSER.parse_binary_value(
-                data, self._display_record.display, None, None)
+                data, self._display_record.display, None, None
+            )
 
             injected = event.send_event
             self._handle_message(self._display_stop, event, injected)

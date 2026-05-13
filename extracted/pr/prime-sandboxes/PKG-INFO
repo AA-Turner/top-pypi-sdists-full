@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prime-sandboxes
-Version: 0.2.25
+Version: 0.2.26
 Summary: Prime Intellect Sandboxes SDK - Manage remote code execution environments
 Project-URL: Homepage, https://github.com/PrimeIntellect-ai/prime-cli
 Project-URL: Documentation, https://github.com/PrimeIntellect-ai/prime-cli/tree/main/packages/prime-sandboxes
@@ -17,6 +17,8 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: aiofiles>=23.0.0

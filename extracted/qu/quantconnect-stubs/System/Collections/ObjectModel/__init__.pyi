@@ -21,6 +21,8 @@ System_Collections_ObjectModel_KeyedCollection_TItem = typing.TypeVar("System_Co
 System_Collections_ObjectModel_KeyedCollection_TKey = typing.TypeVar("System_Collections_ObjectModel_KeyedCollection_TKey")
 System_Collections_ObjectModel__EventContainer_Callable = typing.TypeVar("System_Collections_ObjectModel__EventContainer_Callable")
 System_Collections_ObjectModel__EventContainer_ReturnType = typing.TypeVar("System_Collections_ObjectModel__EventContainer_ReturnType")
+System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T")
+System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T")
 
 
 class Collection(typing.Generic[System_Collections_ObjectModel_Collection_T], System.Object, System.Collections.Generic.IList[System_Collections_ObjectModel_Collection_T], System.Collections.IList, System.Collections.Generic.IReadOnlyList[System_Collections_ObjectModel_Collection_T], typing.Iterable[System_Collections_ObjectModel_Collection_T]):
@@ -46,6 +48,9 @@ class Collection(typing.Generic[System_Collections_ObjectModel_Collection_T], Sy
         ...
 
     def __iter__(self) -> typing.Iterator[System_Collections_ObjectModel_Collection_T]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def __setitem__(self, index: int, value: System_Collections_ObjectModel_Collection_T) -> None:
@@ -110,6 +115,9 @@ class ReadOnlySet(typing.Generic[System_Collections_ObjectModel_ReadOnlySet_T], 
     def __iter__(self) -> typing.Iterator[System_Collections_ObjectModel_ReadOnlySet_T]:
         ...
 
+    def __len__(self) -> int:
+        ...
+
     def contains(self, item: System_Collections_ObjectModel_ReadOnlySet_T) -> bool:
         ...
 
@@ -135,6 +143,36 @@ class ReadOnlySet(typing.Generic[System_Collections_ObjectModel_ReadOnlySet_T], 
         ...
 
 
+class _Typed_ReadOnlyCollection_CreateCollection(typing.Generic[System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T]):
+    """"""
+
+    @overload
+    def __call__(self, *values: typing.Union[System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T, typing.Iterable[System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T]]) -> System.Collections.ObjectModel.ReadOnlyCollection[System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T]:
+        ...
+
+
+class _ReadOnlyCollection_CreateCollection:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T]) -> System.Collections.ObjectModel._Typed_ReadOnlyCollection_CreateCollection[System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T]:
+        ...
+
+
+class _Typed_ReadOnlyCollection_CreateSet(typing.Generic[System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T]):
+    """"""
+
+    @overload
+    def __call__(self, *values: typing.Union[System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T, typing.Iterable[System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T]]) -> System.Collections.ObjectModel.ReadOnlySet[System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T]:
+        ...
+
+
+class _ReadOnlyCollection_CreateSet:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T]) -> System.Collections.ObjectModel._Typed_ReadOnlyCollection_CreateSet[System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T]:
+        ...
+
+
 class ReadOnlyCollection(typing.Generic[System_Collections_ObjectModel_ReadOnlyCollection_T], System.Object, System.Collections.Generic.IList[System_Collections_ObjectModel_ReadOnlyCollection_T], System.Collections.IList, System.Collections.Generic.IReadOnlyList[System_Collections_ObjectModel_ReadOnlyCollection_T], typing.Iterable[System_Collections_ObjectModel_ReadOnlyCollection_T]):
     """This class has no documentation."""
 
@@ -148,6 +186,10 @@ class ReadOnlyCollection(typing.Generic[System_Collections_ObjectModel_ReadOnlyC
     def items(self) -> typing.List[System_Collections_ObjectModel_ReadOnlyCollection_T]:
         ...
 
+    create_collection: System.Collections.ObjectModel._ReadOnlyCollection_CreateCollection
+
+    create_set: System.Collections.ObjectModel._ReadOnlyCollection_CreateSet
+
     def __getitem__(self, index: int) -> System_Collections_ObjectModel_ReadOnlyCollection_T:
         ...
 
@@ -155,6 +197,9 @@ class ReadOnlyCollection(typing.Generic[System_Collections_ObjectModel_ReadOnlyC
         ...
 
     def __iter__(self) -> typing.Iterator[System_Collections_ObjectModel_ReadOnlyCollection_T]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def contains(self, value: System_Collections_ObjectModel_ReadOnlyCollection_T) -> bool:
@@ -183,6 +228,9 @@ class ReadOnlyDictionary(typing.Generic[System_Collections_ObjectModel_ReadOnlyD
         def __iter__(self) -> typing.Iterator[System_Collections_ObjectModel_ReadOnlyDictionary_TKey]:
             ...
 
+        def __len__(self) -> int:
+            ...
+
         def contains(self, item: System_Collections_ObjectModel_ReadOnlyDictionary_TKey) -> bool:
             ...
 
@@ -200,6 +248,9 @@ class ReadOnlyDictionary(typing.Generic[System_Collections_ObjectModel_ReadOnlyD
             ...
 
         def __iter__(self) -> typing.Iterator[System_Collections_ObjectModel_ReadOnlyDictionary_TValue]:
+            ...
+
+        def __len__(self) -> int:
             ...
 
         def copy_to(self, array: typing.List[System_Collections_ObjectModel_ReadOnlyDictionary_TValue], array_index: int) -> None:

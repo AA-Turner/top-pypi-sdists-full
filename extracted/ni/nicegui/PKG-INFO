@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nicegui
-Version: 3.11.1
+Version: 3.12.0
 Summary: Create web-based user interfaces with Python. The nice way.
 License-Expression: MIT
 License-File: LICENSE
@@ -8,12 +8,23 @@ Keywords: gui,ui,web,interface,live
 Author: Zauberzeug GmbH
 Author-email: info@zauberzeug.com
 Requires-Python: >=3.10,<4
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment
+Classifier: Framework :: AsyncIO
+Classifier: Framework :: FastAPI
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: User Interfaces
+Classifier: Topic :: Software Development :: Widget Sets
+Classifier: Typing :: Typed
 Provides-Extra: altair
 Provides-Extra: anywidget
 Provides-Extra: highcharts
@@ -46,7 +57,7 @@ Requires-Dist: plotly (>=5.13,<7.0) ; extra == "plotly"
 Requires-Dist: pydantic-core (>=2.35.0)
 Requires-Dist: python-dotenv (>=1.2.2)
 Requires-Dist: python-engineio (>=4.12.0)
-Requires-Dist: python-multipart (>=0.0.26)
+Requires-Dist: python-multipart (>=0.0.27)
 Requires-Dist: python-socketio[asyncio-client] (>=5.14.0)
 Requires-Dist: pywebview (>=5.0.1,<7) ; extra == "native"
 Requires-Dist: redis (>=4.0.0) ; extra == "redis"
@@ -55,6 +66,11 @@ Requires-Dist: tinycss2 (>=1.4.0,<2)
 Requires-Dist: typing-extensions (>=4.0.0)
 Requires-Dist: uvicorn[standard] (>=0.22.0)
 Requires-Dist: watchfiles (>=0.18.1)
+Project-URL: Changelog, https://github.com/zauberzeug/nicegui/releases
+Project-URL: Documentation, https://nicegui.io/documentation
+Project-URL: Funding, https://github.com/sponsors/zauberzeug
+Project-URL: Homepage, https://nicegui.io
+Project-URL: Issues, https://github.com/zauberzeug/nicegui/issues
 Project-URL: Repository, https://github.com/zauberzeug/nicegui
 Description-Content-Type: text/markdown
 
@@ -150,7 +166,8 @@ The whole content of [https://nicegui.io](https://nicegui.io) is [implemented wi
 and can be started locally with `docker run -p 8080:8080 zauberzeug/nicegui` or by executing `main.py` from this repository.
 
 You may also have a look at our [in-depth examples](https://github.com/zauberzeug/nicegui/tree/main/examples) of what you can do with NiceGUI.
-In our wiki we have a list of great [NiceGUI projects from the community](https://github.com/zauberzeug/nicegui/wiki#community-projects), a section with [Tutorials](https://github.com/zauberzeug/nicegui/wiki#tutorials), a growing list of [FAQs](https://github.com/zauberzeug/nicegui/wiki/FAQs) and [some strategies for using ChatGPT / LLMs to get help about NiceGUI](https://github.com/zauberzeug/nicegui/wiki#chatgpt).
+In our wiki we have a list of great [NiceGUI projects from the community](https://github.com/zauberzeug/nicegui/wiki#community-projects), a section with [Tutorials](https://github.com/zauberzeug/nicegui/wiki#tutorials) and a growing list of [FAQs](https://github.com/zauberzeug/nicegui/wiki/FAQs).
+When building NiceGUI projects with AI assistants, point them at [`nicegui/llms.md`](nicegui/llms.md) — a concise reference that ships with the package (also served at <https://nicegui.io/llms.txt>).
 
 ## Why?
 

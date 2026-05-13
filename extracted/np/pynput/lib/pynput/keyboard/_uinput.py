@@ -50,7 +50,7 @@ class KeyCode(_base.KeyCode):
     # Be explicit about fields
     _x_name = None
     _kernel_name = None
-# pylint: enable=W0212
+    # pylint: enable=W0212
 
     @classmethod
     def _from_name(cls, x_name, kernel_name, **kwargs):
@@ -67,7 +67,8 @@ class KeyCode(_base.KeyCode):
         except AttributeError:
             vk = None
         return cls.from_vk(
-            vk, _x_name=x_name, _kernel_name=kernel_name, **kwargs)
+            vk, _x_name=x_name, _kernel_name=kernel_name, **kwargs
+        )
 
 
 # pylint: disable=W0212
@@ -134,35 +135,33 @@ class Key(enum.Enum):
     pause = KeyCode._from_name('Pause', 'KEY_PAUSE')
     print_screen = KeyCode._from_name('Print', 'KEY_SYSRQ')
     scroll_lock = KeyCode._from_name('Scroll_Lock', 'KEY_SCROLLLOCK')
+
+
 # pylint: enable=W0212
 
 
 class Layout(object):
-    """A description of the keyboard layout.
-    """
+    """A description of the keyboard layout."""
+
     #: A regular expression to parse keycodes in the dumpkeys output
     #:
     #: The groups are: keycode number, key names.
-    KEYCODE_RE = re.compile(
-        r'keycode\s+(\d+)\s+=(.*)')
+    KEYCODE_RE = re.compile(r'keycode\s+(\d+)\s+=(.*)')
 
     class Key(object):
-        """A key in a keyboard layout.
-        """
+        """A key in a keyboard layout."""
+
         def __init__(self, normal, shifted, alt, alt_shifted):
-            self._values = (
-                normal,
-                shifted,
-                alt,
-                alt_shifted)
+            self._values = (normal, shifted, alt, alt_shifted)
 
         def __str__(self):
-            return ('<'
+            return (
+                '<'
                 'normal: {}, '
                 'shifted: {}, '
                 'alternative: {}, '
-                'shifted alternative: {}>').format(
-                    self.normal, self.shifted, self.alt, self.alt_shifted)
+                'shifted alternative: {}>'
+            ).format(self.normal, self.shifted, self.alt, self.alt_shifted)
 
         __repr__ = __str__
 
@@ -174,41 +173,42 @@ class Layout(object):
 
         @property
         def normal(self):
-            """The normal key.
-            """
+            """The normal key."""
             return self._values[0]
 
         @property
         def shifted(self):
-            """The shifted key.
-            """
+            """The shifted key."""
             return self._values[1]
 
         @property
         def alt(self):
-            """The alternative key.
-            """
+            """The alternative key."""
             return self._values[2]
 
         @property
         def alt_shifted(self):
-            """The shifted alternative key.
-            """
+            """The shifted alternative key."""
             return self._values[3]
 
     def __init__(self):
         def as_char(k):
             return k.value.char if isinstance(k, Key) else k.char
+
         self._vk_table = self._load()
         self._char_table = {
             as_char(key): (
                 vk,
-                set()
-                    | {Key.shift} if i & 1 else set()
-                    | {Key.alt_gr} if i & 2 else set())
+                set() | {Key.shift}
+                if i & 1
+                else set() | {Key.alt_gr}
+                if i & 2
+                else set(),
+            )
             for vk, keys in self._vk_table.items()
             for i, key in enumerate(keys)
-            if key is not None and as_char(key) is not None}
+            if key is not None and as_char(key) is not None
+        }
 
     def for_vk(self, vk, modifiers):
         """Reads a key for a virtual key code and modifier state.
@@ -224,7 +224,8 @@ class Layout(object):
         return self._vk_table[vk][
             0
             | (1 if Key.shift in modifiers else 0)
-            | (2 if Key.alt_gr in modifiers else 0)]
+            | (2 if Key.alt_gr in modifiers else 0)
+        ]
 
     def for_char(self, char):
         """Reads a virtual key code and modifier state for a character.
@@ -246,12 +247,12 @@ class Layout(object):
         """
         result = {}
         for keycode, names in self.KEYCODE_RE.findall(
-                subprocess.check_output(
-                    ['dumpkeys', '--full-table', '--keys-only']).decode('utf-8')):
+            subprocess.check_output(
+                ['dumpkeys', '--full-table', '--keys-only']
+            ).decode('utf-8')
+        ):
             vk = int(keycode)
-            keys = tuple(
-                self._parse(vk, name)
-                for name in names.split()[:4])
+            keys = tuple(self._parse(vk, name) for name in names.split()[:4])
             if any(key is not None for key in keys):
                 result[vk] = self.Key(*keys)
         return result
@@ -267,10 +268,7 @@ class Layout(object):
         """
         try:
             # First try special keys...
-            return next(
-                key
-                for key in Key
-                if key.value._x_name == name)
+            return next(key for key in Key if key.value._x_name == name)
         except StopIteration:
             # ...then characters...
             try:
@@ -282,17 +280,20 @@ class Layout(object):
 
             # ...and finally special dumpkeys names
             try:
-                return KeyCode.from_char({
-                    'one': '1',
-                    'two': '2',
-                    'three': '3',
-                    'four': '4',
-                    'five': '5',
-                    'six': '6',
-                    'seven': '7',
-                    'eight': '8',
-                    'nine': '9',
-                    'zero': '0'}[name])
+                return KeyCode.from_char(
+                    {
+                        'one': '1',
+                        'two': '2',
+                        'three': '3',
+                        'four': '4',
+                        'five': '5',
+                        'six': '6',
+                        'seven': '7',
+                        'eight': '8',
+                        'nine': '9',
+                        'zero': '0',
+                    }[name]
+                )
             except KeyError:
                 pass
 
@@ -324,10 +325,12 @@ class Controller(_base.Controller):
                 vk, required_modifiers = self._layout.for_char(key.char)
                 to_press = {
                     getattr(evdev.ecodes, key.value._kernel_name)
-                    for key in (required_modifiers - modifiers)}
+                    for key in (required_modifiers - modifiers)
+                }
                 to_release = {
                     getattr(evdev.ecodes, key.value._kernel_name)
-                    for key in (modifiers - required_modifiers)}
+                    for key in (modifiers - required_modifiers)
+                }
         else:
             to_release = set()
             to_press = set()
@@ -384,8 +387,7 @@ class Controller(_base.Controller):
 
 
 class Listener(ListenerMixin, _base.Listener):
-    _EVENTS = (
-        evdev.ecodes.EV_KEY,)
+    _EVENTS = (evdev.ecodes.EV_KEY,)
 
     #: A
     _MODIFIERS = {
@@ -395,7 +397,8 @@ class Listener(ListenerMixin, _base.Listener):
         Key.alt_gr.value.vk: Key.alt_gr,
         Key.shift.value.vk: Key.shift,
         Key.shift_l.value.vk: Key.shift,
-        Key.shift_r.value.vk: Key.shift}
+        Key.shift_r.value.vk: Key.shift,
+    }
 
     def __init__(self, *args, **kwargs):
         super(Listener, self).__init__(*args, **kwargs)
@@ -419,10 +422,7 @@ class Listener(ListenerMixin, _base.Listener):
             key = self._layout.for_vk(vk, self._modifiers)
         except KeyError:
             try:
-                key = next(
-                    key
-                    for key in Key
-                    if key.value.vk == vk)
+                key = next(key for key in Key if key.value.vk == vk)
             except StopIteration:
                 key = KeyCode.from_vk(vk)
 
@@ -437,10 +437,14 @@ try:
     #: The keyboard layout.
     LAYOUT = Layout()
 except subprocess.CalledProcessError as e:
-    raise ImportError('failed to load keyboard layout: "' + str(e) + (
-        '"; please make sure you are root' if os.getuid() != 1 else '"'))
+    raise ImportError(
+        'failed to load keyboard layout: "'
+        + str(e)
+        + ('"; please make sure you are root' if os.getuid() != 1 else '"')
+    )
 except OSError as e:
-    raise ImportError({
-        errno.ENOENT: 'the binary dumpkeys is not installed'}.get(
-            e.args[0],
-            str(e)))
+    raise ImportError(
+        {errno.ENOENT: 'the binary dumpkeys is not installed'}.get(
+            e.args[0], str(e)
+        )
+    )

@@ -7,6 +7,8 @@ import warnings
 import Microsoft.Win32.SafeHandles
 import System
 import System.Collections
+import System.Collections.Generic
+import System.Collections.Immutable
 import System.Globalization
 import System.Numerics
 import System.Reflection
@@ -30,6 +32,66 @@ System_Runtime_InteropServices_PinnedGCHandle_T = typing.TypeVar("System_Runtime
 System_Runtime_InteropServices_TypeMapAssociationAttribute_TTypeMapGroup = typing.TypeVar("System_Runtime_InteropServices_TypeMapAssociationAttribute_TTypeMapGroup")
 System_Runtime_InteropServices_TypeMapAssemblyTargetAttribute_TTypeMapGroup = typing.TypeVar("System_Runtime_InteropServices_TypeMapAssemblyTargetAttribute_TTypeMapGroup")
 System_Runtime_InteropServices_WeakGCHandle_T = typing.TypeVar("System_Runtime_InteropServices_WeakGCHandle_T")
+System_Runtime_InteropServices_MemoryMarshal_AsBytes_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_AsBytes_T")
+System_Runtime_InteropServices_MemoryMarshal_AsMemory_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_AsMemory_T")
+System_Runtime_InteropServices_MemoryMarshal_GetReference_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_GetReference_T")
+System_Runtime_InteropServices_MemoryMarshal_Cast_TFrom = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_Cast_TFrom")
+System_Runtime_InteropServices_MemoryMarshal_Cast_TTo = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_Cast_TTo")
+System_Runtime_InteropServices_MemoryMarshal_CreateSpan_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_CreateSpan_T")
+System_Runtime_InteropServices_MemoryMarshal_CreateReadOnlySpan_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_CreateReadOnlySpan_T")
+System_Runtime_InteropServices_MemoryMarshal_TryGetArray_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_TryGetArray_T")
+System_Runtime_InteropServices_MemoryMarshal_TryGetMemoryManager_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_TryGetMemoryManager_T")
+System_Runtime_InteropServices_MemoryMarshal_TryGetMemoryManager_TManager = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_TryGetMemoryManager_TManager")
+System_Runtime_InteropServices_MemoryMarshal_ToEnumerable_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_ToEnumerable_T")
+System_Runtime_InteropServices_MemoryMarshal_Read_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_Read_T")
+System_Runtime_InteropServices_MemoryMarshal_TryRead_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_TryRead_T")
+System_Runtime_InteropServices_MemoryMarshal_Write_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_Write_T")
+System_Runtime_InteropServices_MemoryMarshal_TryWrite_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_TryWrite_T")
+System_Runtime_InteropServices_MemoryMarshal_AsRef_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_AsRef_T")
+System_Runtime_InteropServices_MemoryMarshal_CreateFromPinnedArray_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_CreateFromPinnedArray_T")
+System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T")
+System_Runtime_InteropServices_Marshal_CreateAggregatedObject_T = typing.TypeVar("System_Runtime_InteropServices_Marshal_CreateAggregatedObject_T")
+System_Runtime_InteropServices_Marshal_CreateWrapperOfType_T = typing.TypeVar("System_Runtime_InteropServices_Marshal_CreateWrapperOfType_T")
+System_Runtime_InteropServices_Marshal_CreateWrapperOfType_TWrapper = typing.TypeVar("System_Runtime_InteropServices_Marshal_CreateWrapperOfType_TWrapper")
+System_Runtime_InteropServices_Marshal_GetComInterfaceForObject_T = typing.TypeVar("System_Runtime_InteropServices_Marshal_GetComInterfaceForObject_T")
+System_Runtime_InteropServices_Marshal_GetNativeVariantForObject_T = typing.TypeVar("System_Runtime_InteropServices_Marshal_GetNativeVariantForObject_T")
+System_Runtime_InteropServices_Marshal_GetObjectForNativeVariant_T = typing.TypeVar("System_Runtime_InteropServices_Marshal_GetObjectForNativeVariant_T")
+System_Runtime_InteropServices_Marshal_GetObjectsForNativeVariants_T = typing.TypeVar("System_Runtime_InteropServices_Marshal_GetObjectsForNativeVariants_T")
+System_Runtime_InteropServices_Marshal_SizeOf_T = typing.TypeVar("System_Runtime_InteropServices_Marshal_SizeOf_T")
+System_Runtime_InteropServices_Marshal_UnsafeAddrOfPinnedArrayElement_T = typing.TypeVar("System_Runtime_InteropServices_Marshal_UnsafeAddrOfPinnedArrayElement_T")
+System_Runtime_InteropServices_Marshal_OffsetOf_T = typing.TypeVar("System_Runtime_InteropServices_Marshal_OffsetOf_T")
+System_Runtime_InteropServices_Marshal_StructureToPtr_T = typing.TypeVar("System_Runtime_InteropServices_Marshal_StructureToPtr_T")
+System_Runtime_InteropServices_Marshal_PtrToStructure_T = typing.TypeVar("System_Runtime_InteropServices_Marshal_PtrToStructure_T")
+System_Runtime_InteropServices_Marshal_DestroyStructure_T = typing.TypeVar("System_Runtime_InteropServices_Marshal_DestroyStructure_T")
+System_Runtime_InteropServices_Marshal_GetDelegateForFunctionPointer_TDelegate = typing.TypeVar("System_Runtime_InteropServices_Marshal_GetDelegateForFunctionPointer_TDelegate")
+System_Runtime_InteropServices_Marshal_GetFunctionPointerForDelegate_TDelegate = typing.TypeVar("System_Runtime_InteropServices_Marshal_GetFunctionPointerForDelegate_TDelegate")
+System_Runtime_InteropServices_GCHandleExtensions_GetAddressOfArrayData_T = typing.TypeVar("System_Runtime_InteropServices_GCHandleExtensions_GetAddressOfArrayData_T")
+System_Runtime_InteropServices_TypeMapping_GetOrCreateExternalTypeMapping_TTypeMapGroup = typing.TypeVar("System_Runtime_InteropServices_TypeMapping_GetOrCreateExternalTypeMapping_TTypeMapGroup")
+System_Runtime_InteropServices_TypeMapping_GetOrCreateProxyTypeMapping_TTypeMapGroup = typing.TypeVar("System_Runtime_InteropServices_TypeMapping_GetOrCreateProxyTypeMapping_TTypeMapGroup")
+System_Runtime_InteropServices_ComWrappers_GetInstance_ComInterfaceDispatch_T = typing.TypeVar("System_Runtime_InteropServices_ComWrappers_GetInstance_ComInterfaceDispatch_T")
+System_Runtime_InteropServices_SafeBuffer_Initialize_T = typing.TypeVar("System_Runtime_InteropServices_SafeBuffer_Initialize_T")
+System_Runtime_InteropServices_SafeBuffer_Read_T = typing.TypeVar("System_Runtime_InteropServices_SafeBuffer_Read_T")
+System_Runtime_InteropServices_SafeBuffer_ReadArray_T = typing.TypeVar("System_Runtime_InteropServices_SafeBuffer_ReadArray_T")
+System_Runtime_InteropServices_SafeBuffer_ReadSpan_T = typing.TypeVar("System_Runtime_InteropServices_SafeBuffer_ReadSpan_T")
+System_Runtime_InteropServices_SafeBuffer_Write_T = typing.TypeVar("System_Runtime_InteropServices_SafeBuffer_Write_T")
+System_Runtime_InteropServices_SafeBuffer_WriteArray_T = typing.TypeVar("System_Runtime_InteropServices_SafeBuffer_WriteArray_T")
+System_Runtime_InteropServices_SafeBuffer_WriteSpan_T = typing.TypeVar("System_Runtime_InteropServices_SafeBuffer_WriteSpan_T")
+System_Runtime_InteropServices_NFloat_ConvertToInteger_TInteger = typing.TypeVar("System_Runtime_InteropServices_NFloat_ConvertToInteger_TInteger")
+System_Runtime_InteropServices_NFloat_ConvertToIntegerNative_TInteger = typing.TypeVar("System_Runtime_InteropServices_NFloat_ConvertToIntegerNative_TInteger")
+System_Runtime_InteropServices_NFloat_CreateChecked_TOther = typing.TypeVar("System_Runtime_InteropServices_NFloat_CreateChecked_TOther")
+System_Runtime_InteropServices_NFloat_CreateSaturating_TOther = typing.TypeVar("System_Runtime_InteropServices_NFloat_CreateSaturating_TOther")
+System_Runtime_InteropServices_NFloat_CreateTruncating_TOther = typing.TypeVar("System_Runtime_InteropServices_NFloat_CreateTruncating_TOther")
+System_Runtime_InteropServices_CollectionsMarshal_AsSpan_T = typing.TypeVar("System_Runtime_InteropServices_CollectionsMarshal_AsSpan_T")
+System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrNullRef_TKey = typing.TypeVar("System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrNullRef_TKey")
+System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrNullRef_TAlternateKey = typing.TypeVar("System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrNullRef_TAlternateKey")
+System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrNullRef_TValue = typing.TypeVar("System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrNullRef_TValue")
+System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrAddDefault_TKey = typing.TypeVar("System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrAddDefault_TKey")
+System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrAddDefault_TAlternateKey = typing.TypeVar("System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrAddDefault_TAlternateKey")
+System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrAddDefault_TValue = typing.TypeVar("System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrAddDefault_TValue")
+System_Runtime_InteropServices_CollectionsMarshal_SetCount_T = typing.TypeVar("System_Runtime_InteropServices_CollectionsMarshal_SetCount_T")
+System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsImmutableArray_T = typing.TypeVar("System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsImmutableArray_T")
+System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsArray_T = typing.TypeVar("System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsArray_T")
+System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsMemory_T = typing.TypeVar("System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsMemory_T")
 
 
 class CriticalHandle(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable, metaclass=abc.ABCMeta):
@@ -76,15 +138,307 @@ class CriticalHandle(System.Runtime.ConstrainedExecution.CriticalFinalizerObject
         ...
 
 
+class _Typed_MemoryMarshal_AsBytes(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_AsBytes_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_Runtime_InteropServices_MemoryMarshal_AsBytes_T]) -> System.Span[int]:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_Runtime_InteropServices_MemoryMarshal_AsBytes_T]) -> System.ReadOnlySpan[int]:
+        ...
+
+
+class _MemoryMarshal_AsBytes:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_MemoryMarshal_AsBytes_T]) -> System.Runtime.InteropServices._Typed_MemoryMarshal_AsBytes[System_Runtime_InteropServices_MemoryMarshal_AsBytes_T]:
+        ...
+
+
+class _Typed_MemoryMarshal_AsMemory(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_AsMemory_T]):
+    """"""
+
+    @overload
+    def __call__(self, memory: System.ReadOnlyMemory[System_Runtime_InteropServices_MemoryMarshal_AsMemory_T]) -> System.Memory[System_Runtime_InteropServices_MemoryMarshal_AsMemory_T]:
+        ...
+
+
+class _MemoryMarshal_AsMemory:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_MemoryMarshal_AsMemory_T]) -> System.Runtime.InteropServices._Typed_MemoryMarshal_AsMemory[System_Runtime_InteropServices_MemoryMarshal_AsMemory_T]:
+        ...
+
+
+class _Typed_MemoryMarshal_GetReference(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_GetReference_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_Runtime_InteropServices_MemoryMarshal_GetReference_T]) -> typing.Any:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_Runtime_InteropServices_MemoryMarshal_GetReference_T]) -> typing.Any:
+        ...
+
+
+class _MemoryMarshal_GetReference:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_MemoryMarshal_GetReference_T]) -> System.Runtime.InteropServices._Typed_MemoryMarshal_GetReference[System_Runtime_InteropServices_MemoryMarshal_GetReference_T]:
+        ...
+
+
+class _Typed_MemoryMarshal_Cast(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_Cast_TFrom]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_Runtime_InteropServices_MemoryMarshal_Cast_TFrom]) -> System.Span[System_Runtime_InteropServices_MemoryMarshal_Cast_TTo]:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_Runtime_InteropServices_MemoryMarshal_Cast_TFrom]) -> System.ReadOnlySpan[System_Runtime_InteropServices_MemoryMarshal_Cast_TTo]:
+        ...
+
+
+class _MemoryMarshal_Cast:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_MemoryMarshal_Cast_TFrom]) -> System.Runtime.InteropServices._Typed_MemoryMarshal_Cast[System_Runtime_InteropServices_MemoryMarshal_Cast_TFrom]:
+        ...
+
+
+class _Typed_MemoryMarshal_CreateSpan(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_CreateSpan_T]):
+    """"""
+
+    @overload
+    def __call__(self, reference: System_Runtime_InteropServices_MemoryMarshal_CreateSpan_T, length: int) -> System.Span[System_Runtime_InteropServices_MemoryMarshal_CreateSpan_T]:
+        ...
+
+
+class _MemoryMarshal_CreateSpan:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_MemoryMarshal_CreateSpan_T]) -> System.Runtime.InteropServices._Typed_MemoryMarshal_CreateSpan[System_Runtime_InteropServices_MemoryMarshal_CreateSpan_T]:
+        ...
+
+
+class _Typed_MemoryMarshal_CreateReadOnlySpan(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_CreateReadOnlySpan_T]):
+    """"""
+
+    @overload
+    def __call__(self, reference: System_Runtime_InteropServices_MemoryMarshal_CreateReadOnlySpan_T, length: int) -> System.ReadOnlySpan[System_Runtime_InteropServices_MemoryMarshal_CreateReadOnlySpan_T]:
+        ...
+
+
+class _MemoryMarshal_CreateReadOnlySpan:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_MemoryMarshal_CreateReadOnlySpan_T]) -> System.Runtime.InteropServices._Typed_MemoryMarshal_CreateReadOnlySpan[System_Runtime_InteropServices_MemoryMarshal_CreateReadOnlySpan_T]:
+        ...
+
+
+class _Typed_MemoryMarshal_TryGetArray(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_TryGetArray_T]):
+    """"""
+
+    @overload
+    def __call__(self, memory: System.ReadOnlyMemory[System_Runtime_InteropServices_MemoryMarshal_TryGetArray_T], segment: typing.Optional[System.ArraySegment[System_Runtime_InteropServices_MemoryMarshal_TryGetArray_T]]) -> typing.Tuple[bool, System.ArraySegment[System_Runtime_InteropServices_MemoryMarshal_TryGetArray_T]]:
+        ...
+
+
+class _MemoryMarshal_TryGetArray:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_MemoryMarshal_TryGetArray_T]) -> System.Runtime.InteropServices._Typed_MemoryMarshal_TryGetArray[System_Runtime_InteropServices_MemoryMarshal_TryGetArray_T]:
+        ...
+
+
+class _Typed_MemoryMarshal_TryGetMemoryManager(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_TryGetMemoryManager_T]):
+    """"""
+
+    @overload
+    def __call__(self, memory: System.ReadOnlyMemory[System_Runtime_InteropServices_MemoryMarshal_TryGetMemoryManager_T], manager: typing.Optional[System_Runtime_InteropServices_MemoryMarshal_TryGetMemoryManager_TManager]) -> typing.Tuple[bool, System_Runtime_InteropServices_MemoryMarshal_TryGetMemoryManager_TManager]:
+        ...
+
+    @overload
+    def __call__(self, memory: System.ReadOnlyMemory[System_Runtime_InteropServices_MemoryMarshal_TryGetMemoryManager_T], manager: typing.Optional[System_Runtime_InteropServices_MemoryMarshal_TryGetMemoryManager_TManager], start: typing.Optional[int], length: typing.Optional[int]) -> typing.Tuple[bool, System_Runtime_InteropServices_MemoryMarshal_TryGetMemoryManager_TManager, int, int]:
+        ...
+
+
+class _MemoryMarshal_TryGetMemoryManager:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_MemoryMarshal_TryGetMemoryManager_T]) -> System.Runtime.InteropServices._Typed_MemoryMarshal_TryGetMemoryManager[System_Runtime_InteropServices_MemoryMarshal_TryGetMemoryManager_T]:
+        ...
+
+
+class _Typed_MemoryMarshal_ToEnumerable(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_ToEnumerable_T]):
+    """"""
+
+    @overload
+    def __call__(self, memory: System.ReadOnlyMemory[System_Runtime_InteropServices_MemoryMarshal_ToEnumerable_T]) -> System.Collections.Generic.IEnumerable[System_Runtime_InteropServices_MemoryMarshal_ToEnumerable_T]:
+        ...
+
+
+class _MemoryMarshal_ToEnumerable:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_MemoryMarshal_ToEnumerable_T]) -> System.Runtime.InteropServices._Typed_MemoryMarshal_ToEnumerable[System_Runtime_InteropServices_MemoryMarshal_ToEnumerable_T]:
+        ...
+
+
+class _Typed_MemoryMarshal_Read(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_Read_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.ReadOnlySpan[int]) -> System_Runtime_InteropServices_MemoryMarshal_Read_T:
+        ...
+
+
+class _MemoryMarshal_Read:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_MemoryMarshal_Read_T]) -> System.Runtime.InteropServices._Typed_MemoryMarshal_Read[System_Runtime_InteropServices_MemoryMarshal_Read_T]:
+        ...
+
+
+class _Typed_MemoryMarshal_TryRead(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_TryRead_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.ReadOnlySpan[int], value: typing.Optional[System_Runtime_InteropServices_MemoryMarshal_TryRead_T]) -> typing.Tuple[bool, System_Runtime_InteropServices_MemoryMarshal_TryRead_T]:
+        ...
+
+
+class _MemoryMarshal_TryRead:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_MemoryMarshal_TryRead_T]) -> System.Runtime.InteropServices._Typed_MemoryMarshal_TryRead[System_Runtime_InteropServices_MemoryMarshal_TryRead_T]:
+        ...
+
+
+class _Typed_MemoryMarshal_Write(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_Write_T]):
+    """"""
+
+    @overload
+    def __call__(self, destination: System.Span[int], value: System_Runtime_InteropServices_MemoryMarshal_Write_T) -> None:
+        ...
+
+
+class _MemoryMarshal_Write:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_MemoryMarshal_Write_T]) -> System.Runtime.InteropServices._Typed_MemoryMarshal_Write[System_Runtime_InteropServices_MemoryMarshal_Write_T]:
+        ...
+
+
+class _Typed_MemoryMarshal_TryWrite(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_TryWrite_T]):
+    """"""
+
+    @overload
+    def __call__(self, destination: System.Span[int], value: System_Runtime_InteropServices_MemoryMarshal_TryWrite_T) -> bool:
+        ...
+
+
+class _MemoryMarshal_TryWrite:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_MemoryMarshal_TryWrite_T]) -> System.Runtime.InteropServices._Typed_MemoryMarshal_TryWrite[System_Runtime_InteropServices_MemoryMarshal_TryWrite_T]:
+        ...
+
+
+class _Typed_MemoryMarshal_AsRef(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_AsRef_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[int]) -> typing.Any:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[int]) -> typing.Any:
+        ...
+
+
+class _MemoryMarshal_AsRef:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_MemoryMarshal_AsRef_T]) -> System.Runtime.InteropServices._Typed_MemoryMarshal_AsRef[System_Runtime_InteropServices_MemoryMarshal_AsRef_T]:
+        ...
+
+
+class _Typed_MemoryMarshal_CreateFromPinnedArray(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_CreateFromPinnedArray_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Runtime_InteropServices_MemoryMarshal_CreateFromPinnedArray_T], start: int, length: int) -> System.Memory[System_Runtime_InteropServices_MemoryMarshal_CreateFromPinnedArray_T]:
+        ...
+
+
+class _MemoryMarshal_CreateFromPinnedArray:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_MemoryMarshal_CreateFromPinnedArray_T]) -> System.Runtime.InteropServices._Typed_MemoryMarshal_CreateFromPinnedArray[System_Runtime_InteropServices_MemoryMarshal_CreateFromPinnedArray_T]:
+        ...
+
+
+class _Typed_MemoryMarshal_GetArrayDataReference(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T]) -> typing.Any:
+        ...
+
+
+class _MemoryMarshal_GetArrayDataReference:
+    """"""
+
+    @overload
+    def __call__(self, array: System.Array) -> typing.Any:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T]) -> System.Runtime.InteropServices._Typed_MemoryMarshal_GetArrayDataReference[System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T]:
+        ...
+
+
 class MemoryMarshal(System.Object):
     """This class has no documentation."""
 
-    @staticmethod
-    def create_read_only_span_from_null_terminated(value: typing.Any) -> System.ReadOnlySpan[str]:
-        ...
+    as_bytes: System.Runtime.InteropServices._MemoryMarshal_AsBytes
+
+    as_memory: System.Runtime.InteropServices._MemoryMarshal_AsMemory
+
+    get_reference: System.Runtime.InteropServices._MemoryMarshal_GetReference
+
+    cast: System.Runtime.InteropServices._MemoryMarshal_Cast
+
+    create_span: System.Runtime.InteropServices._MemoryMarshal_CreateSpan
+
+    create_read_only_span: System.Runtime.InteropServices._MemoryMarshal_CreateReadOnlySpan
+
+    try_get_array: System.Runtime.InteropServices._MemoryMarshal_TryGetArray
+
+    try_get_memory_manager: System.Runtime.InteropServices._MemoryMarshal_TryGetMemoryManager
+
+    to_enumerable: System.Runtime.InteropServices._MemoryMarshal_ToEnumerable
+
+    read: System.Runtime.InteropServices._MemoryMarshal_Read
+
+    try_read: System.Runtime.InteropServices._MemoryMarshal_TryRead
+
+    write: System.Runtime.InteropServices._MemoryMarshal_Write
+
+    try_write: System.Runtime.InteropServices._MemoryMarshal_TryWrite
+
+    as_ref: System.Runtime.InteropServices._MemoryMarshal_AsRef
+
+    create_from_pinned_array: System.Runtime.InteropServices._MemoryMarshal_CreateFromPinnedArray
+
+    get_array_data_reference: System.Runtime.InteropServices._MemoryMarshal_GetArrayDataReference
 
     @staticmethod
-    def get_array_data_reference(array: System.Array) -> typing.Any:
+    def create_read_only_span_from_null_terminated(value: typing.Any) -> System.ReadOnlySpan[str]:
         ...
 
     @staticmethod
@@ -110,12 +464,298 @@ class DispIdAttribute(System.Attribute):
         ...
 
 
+class _Typed_Marshal_CreateAggregatedObject(typing.Generic[System_Runtime_InteropServices_Marshal_CreateAggregatedObject_T]):
+    """"""
+
+    @overload
+    def __call__(self, p_outer: System.IntPtr, o: System_Runtime_InteropServices_Marshal_CreateAggregatedObject_T) -> System.IntPtr:
+        ...
+
+
+class _Marshal_CreateAggregatedObject:
+    """"""
+
+    @overload
+    def __call__(self, p_outer: System.IntPtr, o: typing.Any) -> System.IntPtr:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_Marshal_CreateAggregatedObject_T]) -> System.Runtime.InteropServices._Typed_Marshal_CreateAggregatedObject[System_Runtime_InteropServices_Marshal_CreateAggregatedObject_T]:
+        ...
+
+
+class _Typed_Marshal_CreateWrapperOfType(typing.Generic[System_Runtime_InteropServices_Marshal_CreateWrapperOfType_T]):
+    """"""
+
+    @overload
+    def __call__(self, o: System_Runtime_InteropServices_Marshal_CreateWrapperOfType_T) -> System_Runtime_InteropServices_Marshal_CreateWrapperOfType_TWrapper:
+        ...
+
+
+class _Marshal_CreateWrapperOfType:
+    """"""
+
+    @overload
+    def __call__(self, o: typing.Any, t: typing.Type) -> System.Object:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_Marshal_CreateWrapperOfType_T]) -> System.Runtime.InteropServices._Typed_Marshal_CreateWrapperOfType[System_Runtime_InteropServices_Marshal_CreateWrapperOfType_T]:
+        ...
+
+
 class CustomQueryInterfaceMode(IntEnum):
     """This class has no documentation."""
 
     IGNORE = 0
 
     ALLOW = 1
+
+
+class _Typed_Marshal_GetComInterfaceForObject(typing.Generic[System_Runtime_InteropServices_Marshal_GetComInterfaceForObject_T]):
+    """"""
+
+    @overload
+    def __call__(self, o: System_Runtime_InteropServices_Marshal_GetComInterfaceForObject_T) -> System.IntPtr:
+        ...
+
+
+class _Marshal_GetComInterfaceForObject:
+    """"""
+
+    @overload
+    def __call__(self, o: typing.Any, t: typing.Type) -> System.IntPtr:
+        ...
+
+    @overload
+    def __call__(self, o: typing.Any, t: typing.Type, mode: System.Runtime.InteropServices.CustomQueryInterfaceMode) -> System.IntPtr:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_Marshal_GetComInterfaceForObject_T]) -> System.Runtime.InteropServices._Typed_Marshal_GetComInterfaceForObject[System_Runtime_InteropServices_Marshal_GetComInterfaceForObject_T]:
+        ...
+
+
+class _Typed_Marshal_GetNativeVariantForObject(typing.Generic[System_Runtime_InteropServices_Marshal_GetNativeVariantForObject_T]):
+    """"""
+
+    @overload
+    def __call__(self, obj: System_Runtime_InteropServices_Marshal_GetNativeVariantForObject_T, p_dst_native_variant: System.IntPtr) -> None:
+        ...
+
+
+class _Marshal_GetNativeVariantForObject:
+    """"""
+
+    @overload
+    def __call__(self, obj: typing.Any, p_dst_native_variant: System.IntPtr) -> None:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_Marshal_GetNativeVariantForObject_T]) -> System.Runtime.InteropServices._Typed_Marshal_GetNativeVariantForObject[System_Runtime_InteropServices_Marshal_GetNativeVariantForObject_T]:
+        ...
+
+
+class _Typed_Marshal_GetObjectForNativeVariant(typing.Generic[System_Runtime_InteropServices_Marshal_GetObjectForNativeVariant_T]):
+    """"""
+
+    @overload
+    def __call__(self, p_src_native_variant: System.IntPtr) -> System_Runtime_InteropServices_Marshal_GetObjectForNativeVariant_T:
+        ...
+
+
+class _Marshal_GetObjectForNativeVariant:
+    """"""
+
+    @overload
+    def __call__(self, p_src_native_variant: System.IntPtr) -> System.Object:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_Marshal_GetObjectForNativeVariant_T]) -> System.Runtime.InteropServices._Typed_Marshal_GetObjectForNativeVariant[System_Runtime_InteropServices_Marshal_GetObjectForNativeVariant_T]:
+        ...
+
+
+class _Typed_Marshal_GetObjectsForNativeVariants(typing.Generic[System_Runtime_InteropServices_Marshal_GetObjectsForNativeVariants_T]):
+    """"""
+
+    @overload
+    def __call__(self, a_src_native_variant: System.IntPtr, c_vars: int) -> typing.List[System_Runtime_InteropServices_Marshal_GetObjectsForNativeVariants_T]:
+        ...
+
+
+class _Marshal_GetObjectsForNativeVariants:
+    """"""
+
+    @overload
+    def __call__(self, a_src_native_variant: System.IntPtr, c_vars: int) -> typing.List[System.Object]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_Marshal_GetObjectsForNativeVariants_T]) -> System.Runtime.InteropServices._Typed_Marshal_GetObjectsForNativeVariants[System_Runtime_InteropServices_Marshal_GetObjectsForNativeVariants_T]:
+        ...
+
+
+class _Typed_Marshal_SizeOf(typing.Generic[System_Runtime_InteropServices_Marshal_SizeOf_T]):
+    """"""
+
+    @overload
+    def __call__(self, structure: System_Runtime_InteropServices_Marshal_SizeOf_T) -> int:
+        ...
+
+    @overload
+    def __call__(self) -> int:
+        ...
+
+
+class _Marshal_SizeOf:
+    """"""
+
+    @overload
+    def __call__(self, structure: typing.Any) -> int:
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type) -> int:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_Marshal_SizeOf_T]) -> System.Runtime.InteropServices._Typed_Marshal_SizeOf[System_Runtime_InteropServices_Marshal_SizeOf_T]:
+        ...
+
+
+class _Typed_Marshal_UnsafeAddrOfPinnedArrayElement(typing.Generic[System_Runtime_InteropServices_Marshal_UnsafeAddrOfPinnedArrayElement_T]):
+    """"""
+
+    @overload
+    def __call__(self, arr: typing.List[System_Runtime_InteropServices_Marshal_UnsafeAddrOfPinnedArrayElement_T], index: int) -> System.IntPtr:
+        ...
+
+
+class _Marshal_UnsafeAddrOfPinnedArrayElement:
+    """"""
+
+    @overload
+    def __call__(self, arr: System.Array, index: int) -> System.IntPtr:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_Marshal_UnsafeAddrOfPinnedArrayElement_T]) -> System.Runtime.InteropServices._Typed_Marshal_UnsafeAddrOfPinnedArrayElement[System_Runtime_InteropServices_Marshal_UnsafeAddrOfPinnedArrayElement_T]:
+        ...
+
+
+class _Typed_Marshal_OffsetOf(typing.Generic[System_Runtime_InteropServices_Marshal_OffsetOf_T]):
+    """"""
+
+    @overload
+    def __call__(self, field_name: str) -> System.IntPtr:
+        ...
+
+
+class _Marshal_OffsetOf:
+    """"""
+
+    @overload
+    def __call__(self, t: typing.Type, field_name: str) -> System.IntPtr:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_Marshal_OffsetOf_T]) -> System.Runtime.InteropServices._Typed_Marshal_OffsetOf[System_Runtime_InteropServices_Marshal_OffsetOf_T]:
+        ...
+
+
+class _Typed_Marshal_StructureToPtr(typing.Generic[System_Runtime_InteropServices_Marshal_StructureToPtr_T]):
+    """"""
+
+    @overload
+    def __call__(self, structure: System_Runtime_InteropServices_Marshal_StructureToPtr_T, ptr: System.IntPtr, f_delete_old: bool) -> None:
+        ...
+
+
+class _Marshal_StructureToPtr:
+    """"""
+
+    @overload
+    def __call__(self, structure: typing.Any, ptr: System.IntPtr, f_delete_old: bool) -> None:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_Marshal_StructureToPtr_T]) -> System.Runtime.InteropServices._Typed_Marshal_StructureToPtr[System_Runtime_InteropServices_Marshal_StructureToPtr_T]:
+        ...
+
+
+class _Typed_Marshal_PtrToStructure(typing.Generic[System_Runtime_InteropServices_Marshal_PtrToStructure_T]):
+    """"""
+
+    @overload
+    def __call__(self, ptr: System.IntPtr, structure: System_Runtime_InteropServices_Marshal_PtrToStructure_T) -> None:
+        ...
+
+    @overload
+    def __call__(self, ptr: System.IntPtr) -> System_Runtime_InteropServices_Marshal_PtrToStructure_T:
+        ...
+
+
+class _Marshal_PtrToStructure:
+    """"""
+
+    @overload
+    def __call__(self, ptr: System.IntPtr, structure_type: typing.Type) -> System.Object:
+        ...
+
+    @overload
+    def __call__(self, ptr: System.IntPtr, structure: typing.Any) -> None:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_Marshal_PtrToStructure_T]) -> System.Runtime.InteropServices._Typed_Marshal_PtrToStructure[System_Runtime_InteropServices_Marshal_PtrToStructure_T]:
+        ...
+
+
+class _Typed_Marshal_DestroyStructure(typing.Generic[System_Runtime_InteropServices_Marshal_DestroyStructure_T]):
+    """"""
+
+    @overload
+    def __call__(self, ptr: System.IntPtr) -> None:
+        ...
+
+
+class _Marshal_DestroyStructure:
+    """"""
+
+    @overload
+    def __call__(self, ptr: System.IntPtr, structuretype: typing.Type) -> None:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_Marshal_DestroyStructure_T]) -> System.Runtime.InteropServices._Typed_Marshal_DestroyStructure[System_Runtime_InteropServices_Marshal_DestroyStructure_T]:
+        ...
+
+
+class _Typed_Marshal_GetDelegateForFunctionPointer(typing.Generic[System_Runtime_InteropServices_Marshal_GetDelegateForFunctionPointer_TDelegate]):
+    """"""
+
+    @overload
+    def __call__(self, ptr: System.IntPtr) -> System_Runtime_InteropServices_Marshal_GetDelegateForFunctionPointer_TDelegate:
+        ...
+
+
+class _Marshal_GetDelegateForFunctionPointer:
+    """"""
+
+    @overload
+    def __call__(self, ptr: System.IntPtr, t: typing.Type) -> System.Delegate:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_Marshal_GetDelegateForFunctionPointer_TDelegate]) -> System.Runtime.InteropServices._Typed_Marshal_GetDelegateForFunctionPointer[System_Runtime_InteropServices_Marshal_GetDelegateForFunctionPointer_TDelegate]:
+        ...
+
+
+class _Typed_Marshal_GetFunctionPointerForDelegate(typing.Generic[System_Runtime_InteropServices_Marshal_GetFunctionPointerForDelegate_TDelegate]):
+    """"""
+
+    @overload
+    def __call__(self, d: System_Runtime_InteropServices_Marshal_GetFunctionPointerForDelegate_TDelegate) -> System.IntPtr:
+        ...
+
+
+class _Marshal_GetFunctionPointerForDelegate:
+    """"""
+
+    @overload
+    def __call__(self, d: System.Delegate) -> System.IntPtr:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_Marshal_GetFunctionPointerForDelegate_TDelegate]) -> System.Runtime.InteropServices._Typed_Marshal_GetFunctionPointerForDelegate[System_Runtime_InteropServices_Marshal_GetFunctionPointerForDelegate_TDelegate]:
+        ...
 
 
 class SafeHandle(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable, metaclass=abc.ABCMeta):
@@ -174,6 +814,34 @@ class Marshal(System.Object):
     SYSTEM_DEFAULT_CHAR_SIZE: int = 2
 
     SYSTEM_MAX_DBCS_CHAR_SIZE: int = ...
+
+    create_aggregated_object: System.Runtime.InteropServices._Marshal_CreateAggregatedObject
+
+    create_wrapper_of_type: System.Runtime.InteropServices._Marshal_CreateWrapperOfType
+
+    get_com_interface_for_object: System.Runtime.InteropServices._Marshal_GetComInterfaceForObject
+
+    get_native_variant_for_object: System.Runtime.InteropServices._Marshal_GetNativeVariantForObject
+
+    get_object_for_native_variant: System.Runtime.InteropServices._Marshal_GetObjectForNativeVariant
+
+    get_objects_for_native_variants: System.Runtime.InteropServices._Marshal_GetObjectsForNativeVariants
+
+    size_of: System.Runtime.InteropServices._Marshal_SizeOf
+
+    unsafe_addr_of_pinned_array_element: System.Runtime.InteropServices._Marshal_UnsafeAddrOfPinnedArrayElement
+
+    offset_of: System.Runtime.InteropServices._Marshal_OffsetOf
+
+    structure_to_ptr: System.Runtime.InteropServices._Marshal_StructureToPtr
+
+    ptr_to_structure: System.Runtime.InteropServices._Marshal_PtrToStructure
+
+    destroy_structure: System.Runtime.InteropServices._Marshal_DestroyStructure
+
+    get_delegate_for_function_pointer: System.Runtime.InteropServices._Marshal_GetDelegateForFunctionPointer
+
+    get_function_pointer_for_delegate: System.Runtime.InteropServices._Marshal_GetFunctionPointerForDelegate
 
     @staticmethod
     def add_ref(p_unk: System.IntPtr) -> int:
@@ -250,18 +918,6 @@ class Marshal(System.Object):
         ...
 
     @staticmethod
-    def create_aggregated_object(p_outer: System.IntPtr, o: typing.Any) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def create_wrapper_of_type(o: typing.Any, t: typing.Type) -> System.Object:
-        ...
-
-    @staticmethod
-    def destroy_structure(ptr: System.IntPtr, structuretype: typing.Type) -> None:
-        ...
-
-    @staticmethod
     def final_release_com_object(o: typing.Any) -> int:
         ...
 
@@ -286,21 +942,7 @@ class Marshal(System.Object):
         ...
 
     @staticmethod
-    @overload
-    def get_com_interface_for_object(o: typing.Any, t: typing.Type) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def get_com_interface_for_object(o: typing.Any, t: typing.Type, mode: System.Runtime.InteropServices.CustomQueryInterfaceMode) -> System.IntPtr:
-        ...
-
-    @staticmethod
     def get_com_object_data(obj: typing.Any, key: typing.Any) -> System.Object:
-        ...
-
-    @staticmethod
-    def get_delegate_for_function_pointer(ptr: System.IntPtr, t: typing.Type) -> System.Delegate:
         ...
 
     @staticmethod
@@ -328,10 +970,6 @@ class Marshal(System.Object):
 
     @staticmethod
     def get_exception_pointers() -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def get_function_pointer_for_delegate(d: System.Delegate) -> System.IntPtr:
         ...
 
     @staticmethod
@@ -371,19 +1009,7 @@ class Marshal(System.Object):
         ...
 
     @staticmethod
-    def get_native_variant_for_object(obj: typing.Any, p_dst_native_variant: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
     def get_object_for_i_unknown(p_unk: System.IntPtr) -> System.Object:
-        ...
-
-    @staticmethod
-    def get_object_for_native_variant(p_src_native_variant: System.IntPtr) -> System.Object:
-        ...
-
-    @staticmethod
-    def get_objects_for_native_variants(a_src_native_variant: System.IntPtr, c_vars: int) -> typing.List[System.Object]:
         ...
 
     @staticmethod
@@ -420,10 +1046,6 @@ class Marshal(System.Object):
 
     @staticmethod
     def is_type_visible_from_com(t: typing.Type) -> bool:
-        ...
-
-    @staticmethod
-    def offset_of(t: typing.Type, field_name: str) -> System.IntPtr:
         ...
 
     @staticmethod
@@ -476,16 +1098,6 @@ class Marshal(System.Object):
     @staticmethod
     @overload
     def ptr_to_string_utf_8(ptr: System.IntPtr, byte_len: int) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def ptr_to_structure(ptr: System.IntPtr, structure_type: typing.Type) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
-    def ptr_to_structure(ptr: System.IntPtr, structure: typing.Any) -> None:
         ...
 
     @staticmethod
@@ -591,16 +1203,6 @@ class Marshal(System.Object):
         ...
 
     @staticmethod
-    @overload
-    def size_of(structure: typing.Any) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def size_of(t: typing.Type) -> int:
-        ...
-
-    @staticmethod
     def string_to_bstr(s: str) -> System.IntPtr:
         ...
 
@@ -633,10 +1235,6 @@ class Marshal(System.Object):
         ...
 
     @staticmethod
-    def structure_to_ptr(structure: typing.Any, ptr: System.IntPtr, f_delete_old: bool) -> None:
-        ...
-
-    @staticmethod
     @overload
     def throw_exception_for_hr(error_code: int) -> None:
         ...
@@ -649,10 +1247,6 @@ class Marshal(System.Object):
     @staticmethod
     @overload
     def throw_exception_for_hr(error_code: int, iid: System.Guid, p_unk: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    def unsafe_addr_of_pinned_array_element(arr: System.Array, index: int) -> System.IntPtr:
         ...
 
     @staticmethod
@@ -1355,8 +1949,25 @@ class ComEventInterfaceAttribute(System.Attribute):
         ...
 
 
+class _Typed_GCHandleExtensions_GetAddressOfArrayData(typing.Generic[System_Runtime_InteropServices_GCHandleExtensions_GetAddressOfArrayData_T]):
+    """"""
+
+    @overload
+    def __call__(self, handle: System.Runtime.InteropServices.PinnedGCHandle[typing.List[System_Runtime_InteropServices_GCHandleExtensions_GetAddressOfArrayData_T]]) -> typing.Any:
+        ...
+
+
+class _GCHandleExtensions_GetAddressOfArrayData:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_GCHandleExtensions_GetAddressOfArrayData_T]) -> System.Runtime.InteropServices._Typed_GCHandleExtensions_GetAddressOfArrayData[System_Runtime_InteropServices_GCHandleExtensions_GetAddressOfArrayData_T]:
+        ...
+
+
 class GCHandleExtensions(System.Object):
     """This class has no documentation."""
+
+    get_address_of_array_data: System.Runtime.InteropServices._GCHandleExtensions_GetAddressOfArrayData
 
     @staticmethod
     def get_address_of_string_data(handle: System.Runtime.InteropServices.PinnedGCHandle[str]) -> typing.Any:
@@ -1404,8 +2015,42 @@ class DefaultParameterValueAttribute(System.Attribute):
         ...
 
 
+class _Typed_TypeMapping_GetOrCreateExternalTypeMapping(typing.Generic[System_Runtime_InteropServices_TypeMapping_GetOrCreateExternalTypeMapping_TTypeMapGroup]):
+    """"""
+
+    @overload
+    def __call__(self) -> System.Collections.Generic.IReadOnlyDictionary[str, typing.Type]:
+        ...
+
+
+class _TypeMapping_GetOrCreateExternalTypeMapping:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_TypeMapping_GetOrCreateExternalTypeMapping_TTypeMapGroup]) -> System.Runtime.InteropServices._Typed_TypeMapping_GetOrCreateExternalTypeMapping[System_Runtime_InteropServices_TypeMapping_GetOrCreateExternalTypeMapping_TTypeMapGroup]:
+        ...
+
+
+class _Typed_TypeMapping_GetOrCreateProxyTypeMapping(typing.Generic[System_Runtime_InteropServices_TypeMapping_GetOrCreateProxyTypeMapping_TTypeMapGroup]):
+    """"""
+
+    @overload
+    def __call__(self) -> System.Collections.Generic.IReadOnlyDictionary[typing.Type, typing.Type]:
+        ...
+
+
+class _TypeMapping_GetOrCreateProxyTypeMapping:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_TypeMapping_GetOrCreateProxyTypeMapping_TTypeMapGroup]) -> System.Runtime.InteropServices._Typed_TypeMapping_GetOrCreateProxyTypeMapping[System_Runtime_InteropServices_TypeMapping_GetOrCreateProxyTypeMapping_TTypeMapGroup]:
+        ...
+
+
 class TypeMapping(System.Object):
     """This class has no documentation."""
+
+    get_or_create_external_type_mapping: System.Runtime.InteropServices._TypeMapping_GetOrCreateExternalTypeMapping
+
+    get_or_create_proxy_type_mapping: System.Runtime.InteropServices._TypeMapping_GetOrCreateProxyTypeMapping
 
 
 class UnmanagedType(IntEnum):
@@ -1965,6 +2610,8 @@ class ComWrappers(System.Object, metaclass=abc.ABCMeta):
         def vtable(self, value: System.IntPtr) -> None:
             ...
 
+        get_instance: System.Runtime.InteropServices._ComWrappers.ComInterfaceDispatch_GetInstance
+
     def compute_vtables(self, obj: typing.Any, flags: System.Runtime.InteropServices.CreateComInterfaceFlags, count: typing.Optional[int]) -> typing.Tuple[typing.Any, int]:
         ...
 
@@ -2069,6 +2716,119 @@ class ICustomMarshaler(metaclass=abc.ABCMeta):
         ...
 
 
+class _Typed_SafeBuffer_Initialize(typing.Generic[System_Runtime_InteropServices_SafeBuffer_Initialize_T]):
+    """"""
+
+    @overload
+    def __call__(self, num_elements: int) -> None:
+        ...
+
+
+class _SafeBuffer_Initialize:
+    """"""
+
+    @overload
+    def __call__(self, num_bytes: int) -> None:
+        ...
+
+    @overload
+    def __call__(self, num_elements: int, size_of_each_element: int) -> None:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_SafeBuffer_Initialize_T]) -> System.Runtime.InteropServices._Typed_SafeBuffer_Initialize[System_Runtime_InteropServices_SafeBuffer_Initialize_T]:
+        ...
+
+
+class _Typed_SafeBuffer_Read(typing.Generic[System_Runtime_InteropServices_SafeBuffer_Read_T]):
+    """"""
+
+    @overload
+    def __call__(self, byte_offset: int) -> System_Runtime_InteropServices_SafeBuffer_Read_T:
+        ...
+
+
+class _SafeBuffer_Read:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_SafeBuffer_Read_T]) -> System.Runtime.InteropServices._Typed_SafeBuffer_Read[System_Runtime_InteropServices_SafeBuffer_Read_T]:
+        ...
+
+
+class _Typed_SafeBuffer_ReadArray(typing.Generic[System_Runtime_InteropServices_SafeBuffer_ReadArray_T]):
+    """"""
+
+    @overload
+    def __call__(self, byte_offset: int, array: typing.List[System_Runtime_InteropServices_SafeBuffer_ReadArray_T], index: int, count: int) -> None:
+        ...
+
+
+class _SafeBuffer_ReadArray:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_SafeBuffer_ReadArray_T]) -> System.Runtime.InteropServices._Typed_SafeBuffer_ReadArray[System_Runtime_InteropServices_SafeBuffer_ReadArray_T]:
+        ...
+
+
+class _Typed_SafeBuffer_ReadSpan(typing.Generic[System_Runtime_InteropServices_SafeBuffer_ReadSpan_T]):
+    """"""
+
+    @overload
+    def __call__(self, byte_offset: int, buffer: System.Span[System_Runtime_InteropServices_SafeBuffer_ReadSpan_T]) -> None:
+        ...
+
+
+class _SafeBuffer_ReadSpan:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_SafeBuffer_ReadSpan_T]) -> System.Runtime.InteropServices._Typed_SafeBuffer_ReadSpan[System_Runtime_InteropServices_SafeBuffer_ReadSpan_T]:
+        ...
+
+
+class _Typed_SafeBuffer_Write(typing.Generic[System_Runtime_InteropServices_SafeBuffer_Write_T]):
+    """"""
+
+    @overload
+    def __call__(self, byte_offset: int, value: System_Runtime_InteropServices_SafeBuffer_Write_T) -> None:
+        ...
+
+
+class _SafeBuffer_Write:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_SafeBuffer_Write_T]) -> System.Runtime.InteropServices._Typed_SafeBuffer_Write[System_Runtime_InteropServices_SafeBuffer_Write_T]:
+        ...
+
+
+class _Typed_SafeBuffer_WriteArray(typing.Generic[System_Runtime_InteropServices_SafeBuffer_WriteArray_T]):
+    """"""
+
+    @overload
+    def __call__(self, byte_offset: int, array: typing.List[System_Runtime_InteropServices_SafeBuffer_WriteArray_T], index: int, count: int) -> None:
+        ...
+
+
+class _SafeBuffer_WriteArray:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_SafeBuffer_WriteArray_T]) -> System.Runtime.InteropServices._Typed_SafeBuffer_WriteArray[System_Runtime_InteropServices_SafeBuffer_WriteArray_T]:
+        ...
+
+
+class _Typed_SafeBuffer_WriteSpan(typing.Generic[System_Runtime_InteropServices_SafeBuffer_WriteSpan_T]):
+    """"""
+
+    @overload
+    def __call__(self, byte_offset: int, data: System.ReadOnlySpan[System_Runtime_InteropServices_SafeBuffer_WriteSpan_T]) -> None:
+        ...
+
+
+class _SafeBuffer_WriteSpan:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_SafeBuffer_WriteSpan_T]) -> System.Runtime.InteropServices._Typed_SafeBuffer_WriteSpan[System_Runtime_InteropServices_SafeBuffer_WriteSpan_T]:
+        ...
+
+
 class SafeBuffer(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -2076,18 +2836,38 @@ class SafeBuffer(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid, 
     def byte_length(self) -> int:
         ...
 
+    @property
+    def initialize(self) -> System.Runtime.InteropServices._SafeBuffer_Initialize:
+        ...
+
+    @property
+    def read(self) -> System.Runtime.InteropServices._SafeBuffer_Read:
+        ...
+
+    @property
+    def read_array(self) -> System.Runtime.InteropServices._SafeBuffer_ReadArray:
+        ...
+
+    @property
+    def read_span(self) -> System.Runtime.InteropServices._SafeBuffer_ReadSpan:
+        ...
+
+    @property
+    def write(self) -> System.Runtime.InteropServices._SafeBuffer_Write:
+        ...
+
+    @property
+    def write_array(self) -> System.Runtime.InteropServices._SafeBuffer_WriteArray:
+        ...
+
+    @property
+    def write_span(self) -> System.Runtime.InteropServices._SafeBuffer_WriteSpan:
+        ...
+
     def __init__(self, owns_handle: bool) -> None:
         ...
 
     def acquire_pointer(self, pointer: typing.Any) -> None:
-        ...
-
-    @overload
-    def initialize(self, num_bytes: int) -> None:
-        ...
-
-    @overload
-    def initialize(self, num_elements: int, size_of_each_element: int) -> None:
         ...
 
     def release_pointer(self) -> None:
@@ -2602,6 +3382,81 @@ class InterfaceTypeAttribute(System.Attribute):
         ...
 
 
+class _Typed_NFloat_ConvertToInteger(typing.Generic[System_Runtime_InteropServices_NFloat_ConvertToInteger_TInteger]):
+    """"""
+
+    @overload
+    def __call__(self, value: System.Runtime.InteropServices.NFloat) -> System_Runtime_InteropServices_NFloat_ConvertToInteger_TInteger:
+        ...
+
+
+class _NFloat_ConvertToInteger:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_NFloat_ConvertToInteger_TInteger]) -> System.Runtime.InteropServices._Typed_NFloat_ConvertToInteger[System_Runtime_InteropServices_NFloat_ConvertToInteger_TInteger]:
+        ...
+
+
+class _Typed_NFloat_ConvertToIntegerNative(typing.Generic[System_Runtime_InteropServices_NFloat_ConvertToIntegerNative_TInteger]):
+    """"""
+
+    @overload
+    def __call__(self, value: System.Runtime.InteropServices.NFloat) -> System_Runtime_InteropServices_NFloat_ConvertToIntegerNative_TInteger:
+        ...
+
+
+class _NFloat_ConvertToIntegerNative:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_NFloat_ConvertToIntegerNative_TInteger]) -> System.Runtime.InteropServices._Typed_NFloat_ConvertToIntegerNative[System_Runtime_InteropServices_NFloat_ConvertToIntegerNative_TInteger]:
+        ...
+
+
+class _Typed_NFloat_CreateChecked(typing.Generic[System_Runtime_InteropServices_NFloat_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Runtime_InteropServices_NFloat_CreateChecked_TOther) -> System.Runtime.InteropServices.NFloat:
+        ...
+
+
+class _NFloat_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_NFloat_CreateChecked_TOther]) -> System.Runtime.InteropServices._Typed_NFloat_CreateChecked[System_Runtime_InteropServices_NFloat_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_NFloat_CreateSaturating(typing.Generic[System_Runtime_InteropServices_NFloat_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Runtime_InteropServices_NFloat_CreateSaturating_TOther) -> System.Runtime.InteropServices.NFloat:
+        ...
+
+
+class _NFloat_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_NFloat_CreateSaturating_TOther]) -> System.Runtime.InteropServices._Typed_NFloat_CreateSaturating[System_Runtime_InteropServices_NFloat_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_NFloat_CreateTruncating(typing.Generic[System_Runtime_InteropServices_NFloat_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Runtime_InteropServices_NFloat_CreateTruncating_TOther) -> System.Runtime.InteropServices.NFloat:
+        ...
+
+
+class _NFloat_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_NFloat_CreateTruncating_TOther]) -> System.Runtime.InteropServices._Typed_NFloat_CreateTruncating[System_Runtime_InteropServices_NFloat_CreateTruncating_TOther]:
+        ...
+
+
 class NFloat(System.Numerics.IBinaryFloatingPointIeee754[System_Runtime_InteropServices_NFloat], System.Numerics.IMinMaxValue[System_Runtime_InteropServices_NFloat], System.IUtf8SpanFormattable):
     """This class has no documentation."""
 
@@ -2630,6 +3485,16 @@ class NFloat(System.Numerics.IBinaryFloatingPointIeee754[System_Runtime_InteropS
     TAU: System.Runtime.InteropServices.NFloat
 
     NEGATIVE_ZERO: System.Runtime.InteropServices.NFloat
+
+    convert_to_integer: System.Runtime.InteropServices._NFloat_ConvertToInteger
+
+    convert_to_integer_native: System.Runtime.InteropServices._NFloat_ConvertToIntegerNative
+
+    create_checked: System.Runtime.InteropServices._NFloat_CreateChecked
+
+    create_saturating: System.Runtime.InteropServices._NFloat_CreateSaturating
+
+    create_truncating: System.Runtime.InteropServices._NFloat_CreateTruncating
 
     def __add__(self, right: System.Runtime.InteropServices.NFloat) -> System.Runtime.InteropServices.NFloat:
         ...
@@ -3262,15 +4127,161 @@ class SEHException(System.Runtime.InteropServices.ExternalException):
         ...
 
 
+class _Typed_CollectionsMarshal_AsSpan(typing.Generic[System_Runtime_InteropServices_CollectionsMarshal_AsSpan_T]):
+    """"""
+
+    @overload
+    def __call__(self, list: System.Collections.Generic.List[System_Runtime_InteropServices_CollectionsMarshal_AsSpan_T]) -> System.Span[System_Runtime_InteropServices_CollectionsMarshal_AsSpan_T]:
+        ...
+
+
+class _CollectionsMarshal_AsSpan:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_CollectionsMarshal_AsSpan_T]) -> System.Runtime.InteropServices._Typed_CollectionsMarshal_AsSpan[System_Runtime_InteropServices_CollectionsMarshal_AsSpan_T]:
+        ...
+
+
+class _Typed_CollectionsMarshal_GetValueRefOrNullRef(typing.Generic[System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrNullRef_TKey]):
+    """"""
+
+    @overload
+    def __call__(self, dictionary: System.Collections.Generic.Dictionary[System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrNullRef_TKey, System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrNullRef_TValue], key: System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrNullRef_TKey) -> typing.Any:
+        ...
+
+    @overload
+    def __call__(self, dictionary: System.Collections.Generic.Dictionary.AlternateLookup[System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrNullRef_TAlternateKey], key: System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrNullRef_TAlternateKey) -> typing.Any:
+        ...
+
+
+class _CollectionsMarshal_GetValueRefOrNullRef:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrNullRef_TKey]) -> System.Runtime.InteropServices._Typed_CollectionsMarshal_GetValueRefOrNullRef[System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrNullRef_TKey]:
+        ...
+
+
+class _Typed_CollectionsMarshal_GetValueRefOrAddDefault(typing.Generic[System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrAddDefault_TKey]):
+    """"""
+
+    @overload
+    def __call__(self, dictionary: System.Collections.Generic.Dictionary[System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrAddDefault_TKey, System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrAddDefault_TValue], key: System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrAddDefault_TKey, exists: typing.Optional[bool]) -> typing.Tuple[typing.Any, bool]:
+        ...
+
+    @overload
+    def __call__(self, dictionary: System.Collections.Generic.Dictionary.AlternateLookup[System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrAddDefault_TAlternateKey], key: System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrAddDefault_TAlternateKey, exists: typing.Optional[bool]) -> typing.Tuple[typing.Any, bool]:
+        ...
+
+
+class _CollectionsMarshal_GetValueRefOrAddDefault:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrAddDefault_TKey]) -> System.Runtime.InteropServices._Typed_CollectionsMarshal_GetValueRefOrAddDefault[System_Runtime_InteropServices_CollectionsMarshal_GetValueRefOrAddDefault_TKey]:
+        ...
+
+
+class _Typed_CollectionsMarshal_SetCount(typing.Generic[System_Runtime_InteropServices_CollectionsMarshal_SetCount_T]):
+    """"""
+
+    @overload
+    def __call__(self, list: System.Collections.Generic.List[System_Runtime_InteropServices_CollectionsMarshal_SetCount_T], count: int) -> None:
+        ...
+
+
+class _CollectionsMarshal_SetCount:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_CollectionsMarshal_SetCount_T]) -> System.Runtime.InteropServices._Typed_CollectionsMarshal_SetCount[System_Runtime_InteropServices_CollectionsMarshal_SetCount_T]:
+        ...
+
+
 class CollectionsMarshal(System.Object):
     """This class has no documentation."""
+
+    as_span: System.Runtime.InteropServices._CollectionsMarshal_AsSpan
+
+    get_value_ref_or_null_ref: System.Runtime.InteropServices._CollectionsMarshal_GetValueRefOrNullRef
+
+    get_value_ref_or_add_default: System.Runtime.InteropServices._CollectionsMarshal_GetValueRefOrAddDefault
+
+    set_count: System.Runtime.InteropServices._CollectionsMarshal_SetCount
 
     @staticmethod
     def as_bytes(array: System.Collections.BitArray) -> System.Span[int]:
         ...
 
 
+class _Typed_ImmutableCollectionsMarshal_AsImmutableArray(typing.Generic[System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsImmutableArray_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsImmutableArray_T]) -> System.Collections.Immutable.ImmutableArray[System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsImmutableArray_T]:
+        ...
+
+
+class _ImmutableCollectionsMarshal_AsImmutableArray:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsImmutableArray_T]) -> System.Runtime.InteropServices._Typed_ImmutableCollectionsMarshal_AsImmutableArray[System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsImmutableArray_T]:
+        ...
+
+
+class _Typed_ImmutableCollectionsMarshal_AsArray(typing.Generic[System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsArray_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: System.Collections.Immutable.ImmutableArray[System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsArray_T]) -> typing.List[System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsArray_T]:
+        ...
+
+
+class _ImmutableCollectionsMarshal_AsArray:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsArray_T]) -> System.Runtime.InteropServices._Typed_ImmutableCollectionsMarshal_AsArray[System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsArray_T]:
+        ...
+
+
+class _Typed_ImmutableCollectionsMarshal_AsMemory(typing.Generic[System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsMemory_T]):
+    """"""
+
+    @overload
+    def __call__(self, builder: System.Collections.Immutable.ImmutableArray.Builder) -> System.Memory[System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsMemory_T]:
+        ...
+
+
+class _ImmutableCollectionsMarshal_AsMemory:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsMemory_T]) -> System.Runtime.InteropServices._Typed_ImmutableCollectionsMarshal_AsMemory[System_Runtime_InteropServices_ImmutableCollectionsMarshal_AsMemory_T]:
+        ...
+
+
 class ImmutableCollectionsMarshal(System.Object):
     """This class has no documentation."""
+
+    as_immutable_array: System.Runtime.InteropServices._ImmutableCollectionsMarshal_AsImmutableArray
+
+    as_array: System.Runtime.InteropServices._ImmutableCollectionsMarshal_AsArray
+
+    as_memory: System.Runtime.InteropServices._ImmutableCollectionsMarshal_AsMemory
+
+
+class ComInterfaceDispatch_GetInstance:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_ComWrappers_GetInstance_ComInterfaceDispatch_T]) -> System.Runtime.InteropServices._Typed_ComWrappers.ComInterfaceDispatch_GetInstance[System_Runtime_InteropServices_ComWrappers_GetInstance_ComInterfaceDispatch_T]:
+        ...
+
+
+class ComInterfaceDispatch_GetInstance(typing.Generic[System_Runtime_InteropServices_ComWrappers_GetInstance_ComInterfaceDispatch_T]):
+    """"""
+
+    @overload
+    def __call__(self, dispatch_ptr: typing.Any) -> System_Runtime_InteropServices_ComWrappers_GetInstance_ComInterfaceDispatch_T:
+        ...
+
+    @overload
+    def __call__(self, dispatch_ptr: typing.Any) -> System_Runtime_InteropServices_ComWrappers_GetInstance_ComInterfaceDispatch_T:
+        ...
 
 

@@ -28,11 +28,10 @@ async def tag_ls(ctx: Context, tag_name: Optional[str]) -> None:
         the_tag = [tag for tag in response["tags"] if tag["name"] == tag_name]
 
         columns = ["name", "id", "type"]
-        table = []
+        table: list[list] = []
 
         if len(the_tag) > 0:
-            for resource in the_tag[0]["resources"]:
-                table.append([resource["name"], resource["id"], resource["type"]])
+            table.extend([resource["name"], resource["id"], resource["type"]] for resource in the_tag[0]["resources"])
 
         click.echo(FeedbackManager.info_tag_resources(tag_name=tag_name))
         echo_safe_humanfriendly_tables_format_smart_table(table, column_names=columns)

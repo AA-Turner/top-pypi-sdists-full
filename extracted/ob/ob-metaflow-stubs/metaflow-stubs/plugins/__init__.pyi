@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.783865                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.016063                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,32 +9,32 @@ from __future__ import annotations
 
 from . import test_unbounded_foreach_decorator as test_unbounded_foreach_decorator
 from .test_unbounded_foreach_decorator import InternalTestUnboundedForeachInput as InternalTestUnboundedForeachInput
-from . import environment_decorator as environment_decorator
-from . import parallel_decorator as parallel_decorator
-from . import timeout_decorator as timeout_decorator
-from . import kubernetes as kubernetes
 from . import resources_decorator as resources_decorator
-from . import aws as aws
-from . import retry_decorator as retry_decorator
 from . import datatools as datatools
 from . import gcp as gcp
 from . import storage_executor as storage_executor
 from . import cards as cards
-from . import secrets as secrets
 from . import pypi as pypi
-from . import catch_decorator as catch_decorator
+from . import secrets as secrets
 from . import argo as argo
+from . import parallel_decorator as parallel_decorator
+from . import timeout_decorator as timeout_decorator
+from . import retry_decorator as retry_decorator
+from . import environment_decorator as environment_decorator
+from . import aws as aws
+from . import catch_decorator as catch_decorator
 from . import frameworks as frameworks
+from . import kubernetes as kubernetes
 from . import events_decorator as events_decorator
+from . import exit_hook as exit_hook
 from . import airflow as airflow
 from . import project_decorator as project_decorator
-from . import exit_hook as exit_hook
 from . import uv as uv
 from . import azure as azure
 from . import debug_logger as debug_logger
 from . import debug_monitor as debug_monitor
-from . import namespaced_events as namespaced_events
 from . import parsers as parsers
+from . import namespaced_events as namespaced_events
 from .cards.card_modules.basic import BlankCard as BlankCard
 from .cards.card_modules.basic import DefaultCard as DefaultCard
 from .cards.card_modules.basic import DefaultCardJSON as DefaultCardJSON
@@ -57,6 +57,8 @@ from . import optuna as optuna
 from . import perimeters as perimeters
 
 CLIS_DESC: list
+
+TRAMPOLINE_CLIS_DESC: list
 
 RUNNER_CLIS_DESC: list
 
@@ -91,6 +93,8 @@ AZURE_CLIENT_PROVIDERS_DESC: list
 DEPLOYER_IMPL_PROVIDERS_DESC: list
 
 TL_PLUGINS_DESC: list
+
+ARTIFACT_SERIALIZERS_DESC: list
 
 def get_plugin_cli():
     ...

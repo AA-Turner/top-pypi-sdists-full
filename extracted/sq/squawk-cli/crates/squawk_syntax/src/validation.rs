@@ -4,8 +4,11 @@
 //!
 //! A failed validation emits a diagnostic.
 
+use std::ops::Range;
+
 use crate::ast::AstNode;
-use crate::{SyntaxNode, ast, match_ast, syntax_error::SyntaxError};
+use crate::unescape::escape_unicode_esc_str;
+use crate::{SyntaxNode, SyntaxToken, ast, match_ast, syntax_error::SyntaxError};
 use rowan::{TextRange, TextSize};
 use squawk_parser::SyntaxKind::*;
 pub(crate) fn validate(root: &SyntaxNode, errors: &mut Vec<SyntaxError>) {
@@ -25,6 +28,13 @@ pub(crate) fn validate(root: &SyntaxNode, errors: &mut Vec<SyntaxError>) {
                 ast::SelectInto(it) => validate_select_into(it, errors),
                 _ => (),
             }
+        }
+    }
+    for element in root.descendants_with_tokens() {
+        if let Some(token) = element.into_token()
+            && token.kind() == IDENT
+        {
+            validate_unicode_esc_ident(&token, errors);
         }
     }
 }
@@ -128,7 +138,10 @@ fn validate_literal(lit: ast::Literal, acc: &mut Vec<SyntaxError>) {
             rowan::NodeOrToken::Token(token) => {
                 match state {
                     LookingFor::OpenString => {
-                        if token.kind() == STRING {
+                        if matches!(
+                            token.kind(),
+                            STRING | ESC_STRING | BIT_STRING | BYTE_STRING | UNICODE_ESC_STRING
+                        ) {
                             state = LookingFor::CloseString(token.text_range().end(), false);
                         }
                     }
@@ -163,6 +176,132 @@ fn validate_literal(lit: ast::Literal, acc: &mut Vec<SyntaxError>) {
             }
         }
     }
+
+    validate_unicode_esc_string(&lit, acc);
+}
+
+fn validate_unicode_esc_string(lit: &ast::Literal, acc: &mut Vec<SyntaxError>) {
+    let mut unicode_esc = None;
+    let mut seen_uescape = false;
+    let mut escape_char = '\\';
+    for e in lit.syntax().children_with_tokens() {
+        let Some(token) = e.into_token() else {
+            continue;
+        };
+        match token.kind() {
+            UNICODE_ESC_STRING => unicode_esc = Some(token),
+            UESCAPE_KW => seen_uescape = true,
+            STRING if seen_uescape => {
+                escape_char = match uescape_char(&token) {
+                    Some(ch) => ch,
+                    None => {
+                        acc.push(SyntaxError::new(
+                            "Invalid unicode escape character",
+                            token.text_range(),
+                        ));
+                        return;
+                    }
+                };
+                break;
+            }
+            _ => (),
+        }
+    }
+    let Some(token) = unicode_esc else {
+        return;
+    };
+    let text = token.text();
+    let Some(inside) = text
+        .strip_prefix("U&'")
+        .or_else(|| text.strip_prefix("u&'"))
+        .and_then(|s| s.strip_suffix('\''))
+    else {
+        return;
+    };
+    let inside_start = token.text_range().start() + TextSize::new(3);
+    escape_unicode_esc_str(inside, escape_char, |range, result| {
+        if let Err(err) = result {
+            acc.push(SyntaxError::new(
+                err.to_string(),
+                offset_range(inside_start, range),
+            ));
+        }
+    });
+}
+
+fn validate_unicode_esc_ident(token: &SyntaxToken, acc: &mut Vec<SyntaxError>) {
+    let text = token.text();
+    let Some(inside) = text
+        .strip_prefix("U&\"")
+        .or_else(|| text.strip_prefix("u&\""))
+        .and_then(|s| s.strip_suffix('"'))
+    else {
+        return;
+    };
+
+    let mut escape_char = '\\';
+    let mut seen_uescape = false;
+    let mut next = token.next_sibling_or_token();
+    while let Some(element) = next {
+        match element.kind() {
+            WHITESPACE | COMMENT => (),
+            UESCAPE_KW => seen_uescape = true,
+            STRING if seen_uescape => {
+                if let Some(string_token) = element.as_token() {
+                    escape_char = match uescape_char(string_token) {
+                        Some(ch) => ch,
+                        None => {
+                            acc.push(SyntaxError::new(
+                                "Invalid unicode escape character",
+                                string_token.text_range(),
+                            ));
+                            return;
+                        }
+                    };
+                }
+                break;
+            }
+            _ => break,
+        }
+        next = element.next_sibling_or_token();
+    }
+
+    let inside_start = token.text_range().start() + TextSize::new(3);
+    escape_unicode_esc_str(inside, escape_char, |range, result| {
+        if let Err(err) = result {
+            acc.push(SyntaxError::new(
+                err.to_string(),
+                offset_range(inside_start, range),
+            ));
+        }
+    });
+}
+
+fn offset_range(start: TextSize, range: Range<usize>) -> TextRange {
+    let begin = start + TextSize::new(range.start as u32);
+    let end = start + TextSize::new(range.end as u32);
+    TextRange::new(begin, end)
+}
+
+// https://github.com/postgres/postgres/blob/228a1f9542792c6533ef74c2e7aefad0da1d9a7a/src/backend/parser/parser.c#L350
+const fn is_valid_uescape_char(byte: u8) -> bool {
+    !byte.is_ascii_hexdigit()
+        && byte != b'+'
+        && byte != b'\''
+        && byte != b'"'
+        && !matches!(
+            byte,
+            b' ' | b'\t' | b'\n' | b'\r' | /* b'\v' */ 0x0B | /* b'\f' */ 0x0C
+        )
+}
+
+fn uescape_char(string_token: &SyntaxToken) -> Option<char> {
+    let text = string_token.text();
+    let inner = text.strip_prefix('\'')?.strip_suffix('\'')?;
+    let &[byte] = inner.as_bytes() else {
+        return None;
+    };
+    is_valid_uescape_char(byte).then(|| char::from(byte))
 }
 
 fn validate_join_expr(join_expr: ast::JoinExpr, acc: &mut Vec<SyntaxError>) {

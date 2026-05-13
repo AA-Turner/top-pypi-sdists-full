@@ -9,10 +9,18 @@ import re
 
 from collections.abc import Iterator
 
+from refinery.lib.scripts.ps1.deobfuscation.constants import PS1_ENV_CONSTANTS
+from refinery.lib.scripts.ps1.deobfuscation.data import (
+    COMPARISON_OPS,
+    ENCODING_MAP,
+)
 from refinery.lib.scripts.ps1.deobfuscation.helpers import (
     LocalFunctionAwareTransformer,
     StringMethodError,
+    apply_format_string,
     apply_string_method,
+    collect_byte_array,
+    collect_format_arguments,
     collect_int_arguments,
     collect_string_arguments,
     detect_encoding_chain,
@@ -21,17 +29,13 @@ from refinery.lib.scripts.ps1.deobfuscation.helpers import (
     get_member_name,
     is_array_reverse_call,
     is_static_type_call,
+    is_truthy,
     make_string_literal,
     string_value,
     unwrap_integer,
     unwrap_parens,
     unwrap_single_paren,
     unwrap_to_array_literal,
-)
-from refinery.lib.scripts.ps1.deobfuscation.names import (
-    COMPARISON_OPS,
-    ENCODING_MAP,
-    apply_format_string,
 )
 from refinery.lib.scripts.ps1.deobfuscation.typenames import (
     is_known_member,
@@ -46,11 +50,13 @@ from refinery.lib.scripts.ps1.model import (
     Ps1CommandInvocation,
     Ps1ExpandableString,
     Ps1ExpressionStatement,
+    Ps1HashLiteral,
     Ps1IndexExpression,
     Ps1IntegerLiteral,
     Ps1InvokeMember,
     Ps1MemberAccess,
     Ps1Pipeline,
+    Ps1RangeExpression,
     Ps1ScriptBlock,
     Ps1StringLiteral,
     Ps1UnaryExpression,
@@ -73,6 +79,8 @@ _REGEX_OPTION_INT: dict[int, int] = {
 }
 
 _RIGHT_TO_LEFT = 64
+_MAX_STRING_EXPAND = 0x1000
+_MAX_RANGES_EXPAND = 15
 
 
 def _is_static_regex_call(node: Ps1InvokeMember) -> bool:
@@ -236,27 +244,30 @@ def _variable_string_to_expandable(
 
 
 def _resolve_index_values(index: Expression) -> int | list[int] | None:
-    if isinstance(index, Ps1IntegerLiteral):
-        return index.value
+    n = unwrap_integer(index)
+    if n is not None:
+        return n.value
     array = unwrap_to_array_literal(index)
     if array is not None:
         result: list[int] = []
         for elem in array.elements:
-            if not isinstance(elem, Ps1IntegerLiteral):
+            n = unwrap_integer(elem)
+            if n is None:
                 return None
-            result.append(elem.value)
+            result.append(n.value)
         return result
     return None
 
 
 def _index_into_string(s: str, indices: int | list[int]) -> Expression | None:
+    n = len(s)
     if isinstance(indices, int):
-        if 0 <= indices < len(s):
+        if -n <= indices < n:
             return make_string_literal(s[indices])
         return None
     selected: list[Expression] = []
     for i in indices:
-        if i < 0 or i >= len(s):
+        if not (-n <= i < n):
             return None
         selected.append(make_string_literal(s[i]))
     return Ps1ArrayLiteral(elements=selected)
@@ -265,16 +276,29 @@ def _index_into_string(s: str, indices: int | list[int]) -> Expression | None:
 def _index_into_array(
     array: Ps1ArrayLiteral, indices: int | list[int],
 ) -> Expression | None:
+    n = len(array.elements)
     if isinstance(indices, int):
-        if 0 <= indices < len(array.elements):
+        if -n <= indices < n:
             return array.elements[indices]
         return None
     selected: list[Expression] = []
     for i in indices:
-        if i < 0 or i >= len(array.elements):
+        if not (-n <= i < n):
             return None
         selected.append(array.elements[i])
     return Ps1ArrayLiteral(elements=selected)
+
+
+def _lookup_hashtable(ht: Ps1HashLiteral, index: Expression) -> Expression | None:
+    key = string_value(index)
+    if key is None:
+        return None
+    lower = key.lower()
+    for pair_key, pair_value in ht.pairs:
+        k = string_value(pair_key)
+        if k is not None and k.lower() == lower:
+            return pair_value
+    return None
 
 
 class Ps1ConstantFolding(LocalFunctionAwareTransformer):
@@ -387,18 +411,35 @@ class Ps1ConstantFolding(LocalFunctionAwareTransformer):
 
     def visit_Ps1UnaryExpression(self, node: Ps1UnaryExpression):
         self.generic_visit(node)
-        if node.operator.lower() != '-join' or node.operand is None:
+        if node.operand is None:
             return None
-        scalar = string_value(node.operand)
+        op = node.operator.lower()
+        if op == '-join':
+            return self._handle_unary_join(node)
+        if op == '-bnot':
+            n = unwrap_integer(node.operand)
+            if n is not None:
+                return Ps1IntegerLiteral(value=~n.value, raw=str(~n.value))
+        if op in ('-not', '!'):
+            truth = is_truthy(node.operand)
+            if truth is not None:
+                return Ps1Variable(name='False' if truth else 'True')
+        return None
+
+    def _handle_unary_join(self, node: Ps1UnaryExpression) -> Expression | None:
+        operand = node.operand
+        if operand is None:
+            return None
+        scalar = string_value(operand)
         if scalar is not None:
             return make_string_literal(scalar)
-        result = self._try_join_regex_matches(node.operand)
+        result = self._try_join_regex_matches(operand)
         if result is not None:
             return result
-        array = unwrap_to_array_literal(node.operand)
+        array = unwrap_to_array_literal(operand)
         if array is None:
-            if isinstance(node.operand, Ps1ArrayExpression) and len(node.operand.body) == 1:
-                stmt = node.operand.body[0]
+            if isinstance(operand, Ps1ArrayExpression) and len(operand.body) == 1:
+                stmt = operand.body[0]
                 if isinstance(stmt, Ps1ExpressionStatement):
                     sv = string_value(stmt.expression) if stmt.expression else None
                     if sv is not None:
@@ -409,10 +450,27 @@ class Ps1ConstantFolding(LocalFunctionAwareTransformer):
             return None
         return make_string_literal(''.join(args))
 
+    def visit_Ps1RangeExpression(self, node: Ps1RangeExpression):
+        self.generic_visit(node)
+        if isinstance(node.parent, Ps1RangeExpression):
+            return None
+        lower = unwrap_integer(node.start)
+        upper = unwrap_integer(node.end)
+        if lower is None or upper is None:
+            return None
+        step = 1 if (b := upper.value) >= (a := lower.value) else -1
+        count = abs(b - a) + 1
+        if count > _MAX_RANGES_EXPAND:
+            return None
+        return Ps1ArrayLiteral(elements=[
+            Ps1IntegerLiteral(value=v, raw=str(v)) for v in range(a, b + step, step)])
+
     def visit_Ps1IndexExpression(self, node: Ps1IndexExpression):
         self.generic_visit(node)
         if node.index is None or node.object is None:
             return None
+        if isinstance(node.object, Ps1HashLiteral):
+            return _lookup_hashtable(node.object, node.index)
         indices = _resolve_index_values(node.index)
         if indices is None:
             return None
@@ -544,21 +602,8 @@ class Ps1ConstantFolding(LocalFunctionAwareTransformer):
     def _try_fold_static_method(
         self, node: Ps1InvokeMember, lower: str,
     ) -> Expression | None:
-        if is_static_type_call(node, 'system.convert') and lower == 'frombase64string':
-            if len(node.arguments) == 1:
-                b64_str = string_value(node.arguments[0])
-                if b64_str is not None:
-                    try:
-                        decoded = base64.b64decode(b64_str)
-                    except Exception:
-                        return None
-                    elements: list[Expression] = [
-                        Ps1IntegerLiteral(value=b, raw=F'0x{b:02X}')
-                        for b in decoded
-                    ]
-                    array = Ps1ArrayLiteral(elements=elements)
-                    return Ps1ArrayExpression(
-                        body=[Ps1ExpressionStatement(expression=array)])
+        if is_static_type_call(node, 'system.convert'):
+            return self._try_fold_convert(node, lower)
         encoding_name = detect_encoding_chain(node)
         if encoding_name is not None:
             if len(node.arguments) == 1:
@@ -588,27 +633,132 @@ class Ps1ConstantFolding(LocalFunctionAwareTransformer):
             if lower == 'concat' and len(node.arguments) >= 1:
                 parts: list[str] = []
                 for arg in node.arguments:
-                    sv = string_value(arg)
-                    if sv is None:
+                    if (sv := string_value(arg)) is None:
                         break
                     parts.append(sv)
                 else:
                     return make_string_literal(''.join(parts))
-            if lower == 'join' and len(node.arguments) == 2:
+            if lower == 'join' and len(node.arguments) >= 2:
                 separator = string_value(node.arguments[0])
                 if separator is not None:
-                    second = node.arguments[1]
-                    scalar = string_value(second)
-                    if scalar is not None:
-                        return make_string_literal(scalar)
-                    array = unwrap_to_array_literal(second)
-                    if array is not None:
-                        args = collect_string_arguments(array)
-                        if args is not None:
-                            return make_string_literal(separator.join(args))
+                    joined: list[str] = []
+                    for arg in node.arguments[1:]:
+                        if (sv := string_value(arg)) is None:
+                            break
+                        joined.append(sv)
+                    else:
+                        return make_string_literal(separator.join(joined))
+                    if len(node.arguments) == 2:
+                        array = unwrap_to_array_literal(node.arguments[1])
+                        if array is not None:
+                            args = collect_string_arguments(array)
+                            if args is not None:
+                                return make_string_literal(separator.join(args))
         if _is_static_regex_call(node) and lower == 'replace':
             return self._handle_regex_replace(node)
+        if is_static_type_call(node, 'system.bitconverter') and lower == 'tostring':
+            return self._try_fold_bitconverter_tostring(node)
+        if (
+            is_static_type_call(node, 'system.environment')
+            and lower == 'getenvironmentvariable'
+            and len(na := node.arguments) == 1
+            and (_en := string_value(na[0])) is not None
+            and (_ev := PS1_ENV_CONSTANTS.get(_en.lower())) is not None
+        ):
+            return make_string_literal(_ev)
         return None
+
+    _CONVERT_INT_METHODS = {
+        'tobyte'  : (0, 0xFF),
+        'toint16' : (-0x8000, 0x7FFF),
+        'toint32' : (-0x80000000, 0x7FFFFFFF),
+        'toint64' : (-0x8000000000000000, 0x7FFFFFFFFFFFFFFF),
+        'tosbyte' : (-0x80, 0x7F),
+        'touint16': (0, 0xFFFF),
+        'touint32': (0, 0xFFFFFFFF),
+        'touint64': (0, 0xFFFFFFFFFFFFFFFF),
+    }
+
+    def _try_fold_convert(
+        self, node: Ps1InvokeMember, lower: str,
+    ) -> Expression | None:
+        if lower == 'frombase64string' and len(node.arguments) == 1:
+            b64_str = string_value(node.arguments[0])
+            if b64_str is not None:
+                try:
+                    decoded = base64.b64decode(b64_str)
+                except Exception:
+                    return None
+                elements: list[Expression] = [
+                    Ps1IntegerLiteral(value=b, raw=F'0x{b:02X}') for b in decoded
+                ]
+                array = Ps1ArrayLiteral(elements=elements)
+                return Ps1ArrayExpression(
+                    body=[Ps1ExpressionStatement(expression=array)])
+        bounds = self._CONVERT_INT_METHODS.get(lower)
+        if bounds is not None:
+            return self._fold_convert_int(node, bounds)
+        if lower == 'tochar':
+            n = unwrap_integer(node.arguments[0]) if len(node.arguments) == 1 else None
+            if n is not None:
+                try:
+                    return make_string_literal(chr(n.value))
+                except (ValueError, OverflowError):
+                    pass
+        return None
+
+    def _fold_convert_int(
+        self, node: Ps1InvokeMember, bounds: tuple[int, int],
+    ) -> Expression | None:
+        lo, hi = bounds
+        if len(node.arguments) == 1:
+            n = unwrap_integer(node.arguments[0])
+            if n is not None and lo <= n.value <= hi:
+                return Ps1IntegerLiteral(value=n.value, raw=str(n.value))
+            sv = string_value(node.arguments[0])
+            if sv is not None:
+                sv = sv.strip()
+                try:
+                    value = int(sv, 0)
+                except (ValueError, OverflowError):
+                    return None
+                if lo <= value <= hi:
+                    return Ps1IntegerLiteral(value=value, raw=str(value))
+        elif len(node.arguments) == 2:
+            sv = string_value(node.arguments[0])
+            base_int = unwrap_integer(node.arguments[1])
+            if sv is not None and base_int is not None and base_int.value in (2, 8, 10, 16):
+                try:
+                    value = int(sv, base_int.value)
+                except (ValueError, OverflowError):
+                    return None
+                if lo <= value <= hi:
+                    return Ps1IntegerLiteral(value=value, raw=str(value))
+        return None
+
+    @staticmethod
+    def _try_fold_bitconverter_tostring(node: Ps1InvokeMember) -> Expression | None:
+        if not node.arguments:
+            return None
+        data = collect_byte_array(node.arguments[0])
+        if data is None:
+            return None
+        offset = 0
+        length = len(data)
+        if len(node.arguments) >= 2:
+            n = unwrap_integer(node.arguments[1])
+            if n is None:
+                return None
+            offset = n.value
+        if len(node.arguments) >= 3:
+            n = unwrap_integer(node.arguments[2])
+            if n is None:
+                return None
+            length = n.value
+        if offset < 0 or length < 0 or offset + length > len(data):
+            return None
+        segment = data[offset:offset + length]
+        return make_string_literal('-'.join(F'{b:02X}' for b in segment))
 
     def _handle_regex_replace(self, node: Ps1InvokeMember) -> Expression | None:
         if len(node.arguments) not in (3, 4):
@@ -657,6 +807,8 @@ class Ps1ConstantFolding(LocalFunctionAwareTransformer):
             return self._handle_format(node)
         if op == '+':
             return self._handle_concat(node) or self._handle_arithmetic(node, op)
+        if op == '*':
+            return self._handle_string_multiply(node) or self._handle_arithmetic(node, op)
         if op == '-join':
             return self._handle_binary_join(node)
         if op in ('-replace', '-creplace', '-ireplace'):
@@ -679,6 +831,22 @@ class Ps1ConstantFolding(LocalFunctionAwareTransformer):
             return None
         return Ps1IntegerLiteral(value=result, raw=str(result))
 
+    @staticmethod
+    def _handle_string_multiply(node: Ps1BinaryExpression) -> Expression | None:
+        s = string_value(node.left) if node.left else None
+        n = unwrap_integer(node.right)
+        if s is None or n is None:
+            s = string_value(node.right) if node.right else None
+            n = unwrap_integer(node.left)
+        if s is None or n is None:
+            return None
+        count = n.value
+        if count < 0:
+            count = 0
+        if len(s) * count > _MAX_STRING_EXPAND:
+            return None
+        return make_string_literal(s * count)
+
     def _handle_comparison(self, node: Ps1BinaryExpression, op: str) -> Expression | None:
         left = unwrap_integer(node.left)
         right = unwrap_integer(node.right)
@@ -694,7 +862,7 @@ class Ps1ConstantFolding(LocalFunctionAwareTransformer):
         fmt_str = string_value(node.left) if node.left else None
         if fmt_str is None or node.right is None:
             return None
-        args = collect_string_arguments(node.right)
+        args = collect_format_arguments(node.right)
         if args is None:
             return None
         result = apply_format_string(fmt_str, args)
@@ -711,7 +879,9 @@ class Ps1ConstantFolding(LocalFunctionAwareTransformer):
             if node.left.operator == '+':
                 inner_right_str = string_value(node.left.right) if node.left.right else None
                 if inner_right_str is not None:
-                    node.left.right = make_string_literal(inner_right_str + right_str)
+                    nl = make_string_literal(inner_right_str + right_str)
+                    nl.parent = node.left
+                    node.left.right = nl
                     return node.left
         if right_str is not None and isinstance(node.left, Ps1ArrayLiteral):
             elements = list(node.left.elements)

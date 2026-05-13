@@ -18,7 +18,7 @@ class A10SSH(CiscoSSHConnection):
         self.disable_paging(command="terminal length 0")
 
     def check_config_mode(
-        self, check_string: str = ")#", pattern: str = ")#", force_regex: bool = False
+        self, check_string: str = ")#", pattern: str = "", force_regex: bool = False
     ) -> bool:
         self.write_channel(self.RETURN)
 
@@ -32,14 +32,25 @@ class A10SSH(CiscoSSHConnection):
         # Example, config: LBR1_PROD-EXT_(config)(NOLICENSE)#
         # Example, outside of config LBR1_PROD-EXT_(NOLICENSE)#
         output = output.replace("(NOLICENSE)", "")
-
         if force_regex:
             return bool(re.search(check_string, output))
         else:
             return check_string in output
 
-    def save_config(
-        self, cmd: str = "", confirm: bool = False, confirm_response: str = ""
+    def config_mode(
+        self,
+        config_command: str = "configure terminal",
+        pattern: str = r"\(config\)",
+        re_flags: int = 0,
     ) -> str:
-        """Not Implemented"""
-        raise NotImplementedError
+        return super().config_mode(
+            config_command=config_command, pattern=pattern, re_flags=re_flags
+        )
+
+    def save_config(
+        self,
+        cmd: str = "write memory",
+        confirm: bool = False,
+        confirm_response: str = "",
+    ) -> str:
+        return super().save_config(cmd=cmd, confirm=confirm, confirm_response=confirm_response)

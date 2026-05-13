@@ -101,7 +101,7 @@ class SharpeRatioReportElement(QuantConnect.Report.ReportElements.ReportElement)
         Live result object
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -111,7 +111,7 @@ class SharpeRatioReportElement(QuantConnect.Report.ReportElements.ReportElement)
         Backtest result object
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 

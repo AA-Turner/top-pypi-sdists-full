@@ -242,6 +242,9 @@ class PermissionSet(System.Object, System.Collections.ICollection, System.Runtim
     def __init__(self, perm_set: System.Security.PermissionSet) -> None:
         ...
 
+    def __len__(self) -> int:
+        ...
+
     def add_permission(self, perm: System.Security.IPermission) -> System.Security.IPermission:
         ...
 

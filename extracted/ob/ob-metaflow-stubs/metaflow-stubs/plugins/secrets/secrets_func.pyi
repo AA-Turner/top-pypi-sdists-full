@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.841676                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.105283                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from .utils import get_secrets_backend_provider as get_secrets_backend_provider
 
 DEFAULT_SECRETS_ROLE: None
 
-def get_secret(source: typing.Union[str, typing.Dict[str, typing.Any]], role: typing.Optional[str] = None) -> typing.Dict[str, str]:
+def get_secret(source: typing.Union[str, typing.Dict[str, typing.Any]], role: typing.Union[str, None] = None) -> typing.Dict[str, str]:
     """
     Get secret from source
     

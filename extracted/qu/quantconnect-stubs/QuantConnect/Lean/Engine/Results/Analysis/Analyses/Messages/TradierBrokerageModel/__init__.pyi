@@ -20,11 +20,11 @@ class ExtendedMarketHoursTradingNotSupportedOutsideExtendedSessionAnalysis(Quant
 
     @property
     def expected_message_text(self) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
 
@@ -41,11 +41,11 @@ class SellShortOrderLastPriceBelow5Analysis(QuantConnect.Lean.Engine.Results.Ana
 
     @property
     def expected_message_text(self) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
 
@@ -62,11 +62,11 @@ class TradierUnsupportedSecurityTypeAnalysis(QuantConnect.Lean.Engine.Results.An
 
     @property
     def expected_message_text(self) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
 
@@ -83,11 +83,11 @@ class ShortOrderIsGtcAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses
 
     @property
     def expected_message_text(self) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
 
@@ -104,11 +104,11 @@ class UnsupportedTimeInForceTypeAnalysis(QuantConnect.Lean.Engine.Results.Analys
 
     @property
     def expected_message_text(self) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
 
@@ -125,11 +125,11 @@ class IncorrectOrderQuantityAnalysis(QuantConnect.Lean.Engine.Results.Analysis.A
 
     @property
     def expected_message_text(self) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
 

@@ -77,7 +77,7 @@ class BaseRealTimeHandler(System.Object, QuantConnect.Lean.Engine.RealTime.IReal
         The scheduled events container
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -87,7 +87,7 @@ class BaseRealTimeHandler(System.Object, QuantConnect.Lean.Engine.RealTime.IReal
         The isolator limit result provider instance
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -97,7 +97,7 @@ class BaseRealTimeHandler(System.Object, QuantConnect.Lean.Engine.RealTime.IReal
         The algorithm instance
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -107,7 +107,7 @@ class BaseRealTimeHandler(System.Object, QuantConnect.Lean.Engine.RealTime.IReal
         The time monitor instance to use
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -129,7 +129,7 @@ class BaseRealTimeHandler(System.Object, QuantConnect.Lean.Engine.RealTime.IReal
         Gets a new scheduled event unique id
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -138,7 +138,7 @@ class BaseRealTimeHandler(System.Object, QuantConnect.Lean.Engine.RealTime.IReal
         Get's the timeout the scheduled task time monitor should use
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -247,7 +247,7 @@ class LiveTradingRealTimeHandler(QuantConnect.Lean.Engine.RealTime.BacktestingRe
         Gets the current market hours database instance
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -261,7 +261,7 @@ class LiveTradingRealTimeHandler(QuantConnect.Lean.Engine.RealTime.BacktestingRe
         Gets the current symbol properties database instance
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -275,7 +275,7 @@ class LiveTradingRealTimeHandler(QuantConnect.Lean.Engine.RealTime.BacktestingRe
         Gets the time provider
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -297,7 +297,7 @@ class LiveTradingRealTimeHandler(QuantConnect.Lean.Engine.RealTime.BacktestingRe
         Get's the timeout the scheduled task time monitor should use
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -308,7 +308,7 @@ class LiveTradingRealTimeHandler(QuantConnect.Lean.Engine.RealTime.BacktestingRe
         and we need to guarantee that every test starts with the same environment.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -317,7 +317,7 @@ class LiveTradingRealTimeHandler(QuantConnect.Lean.Engine.RealTime.BacktestingRe
         Resets the symbol properties database, forcing a reload when reused.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -346,7 +346,7 @@ class LiveTradingRealTimeHandler(QuantConnect.Lean.Engine.RealTime.BacktestingRe
         Helper method to wait until the second passes, useful to testing
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

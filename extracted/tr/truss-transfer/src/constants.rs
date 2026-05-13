@@ -25,12 +25,17 @@ pub static TRUSS_TRANSFER_LOG: Lazy<String> = Lazy::new(|| {
         .unwrap_or_else(|_| "info".to_string())
 });
 
-/// Environment variable to enable Baseten FS
+/// Environment variable to enable Baseten FS (requires both flags to be set)
 pub static BASETEN_FS_ENABLED: Lazy<bool> = Lazy::new(|| {
-    env::var("BASETEN_FS_ENABLED")
+    let b10fs_enabled = env::var("BASETEN_FS_ENABLED")
         .ok()
         .map(|s| is_truthy(&s))
-        .unwrap_or(false)
+        .unwrap_or(false);
+    let use_b10fs_truss_transfer = env::var("USE_BASETEN_FS_TRUSS_TRANSFER")
+        .ok()
+        .map(|s| is_truthy(&s))
+        .unwrap_or(false);
+    b10fs_enabled && use_b10fs_truss_transfer
 });
 
 pub static HF_TOKEN: Lazy<Option<String>> = Lazy::new(|| {
@@ -99,6 +104,9 @@ pub static TRUSS_TRANSFER_DOWNLOAD_DIR: Lazy<String> = Lazy::new(|| {
 
 /// Base path for secrets
 pub static SECRETS_BASE_PATH: &str = "/secrets";
+
+/// Prefix for environment variable-based secrets (used at build time)
+pub static SECRET_ENV_VAR_PREFIX: &str = "TRUSS_SECRET_";
 
 pub static SECRET_PATH_WHITELIST: &[&str] = &["/secrets", "/aws-secrets", "/app", "/tmp"];
 

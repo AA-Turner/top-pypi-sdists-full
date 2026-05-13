@@ -13,7 +13,7 @@ from typing import Callable
 from ..clients.capsule import IntegrationCredential, LogRecord
 from ..constants import DEFAULT_TOKEN_TYPE
 from ..home import HomeContext
-from ..integration import IntegrationCredentials, KNOWN_SECRET_INTEGRATIONS
+from ..integration import IntegrationCredentials, KNOWN_SECRET_INTEGRATIONS, MODE_PIPEDREAM
 from ..session import RequestContext, Session
 
 # Query keys reserved by the gateway for routing/identity; strip before
@@ -87,7 +87,10 @@ def _parse_integration_credential(ic: IntegrationCredential) -> IntegrationCrede
     For secret-based integrations the gateway JSON-encodes the field map
     into ``access_token``. We unpack it here so ``cred.fields`` is populated.
     """
-    is_secret = ic.type in KNOWN_SECRET_INTEGRATIONS
+    is_secret = ic.type in KNOWN_SECRET_INTEGRATIONS or ic.token_type in {
+        "fields",
+        MODE_PIPEDREAM,
+    }
     secret_fields: dict[str, str] = {}
     if is_secret and ic.access_token:
         try:

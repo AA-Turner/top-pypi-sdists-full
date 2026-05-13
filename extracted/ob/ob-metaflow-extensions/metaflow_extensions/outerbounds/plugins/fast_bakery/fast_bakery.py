@@ -109,6 +109,16 @@ class FastBakery:
         )
         return self
 
+    def default_conda_channel(self, channel: str):
+        if channel:
+            self._payload["defaultCondaChannel"] = channel
+        return self
+
+    def conda_channels(self, channels: list):
+        if channels:
+            self._payload["condaChannels"] = channels
+        return self
+
     def base_image(self, image: str):
         self._payload["baseImage"] = {"imageReference": image}
         return self

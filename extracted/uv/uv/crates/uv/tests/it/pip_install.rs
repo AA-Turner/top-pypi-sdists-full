@@ -1997,6 +1997,36 @@ fn install_editable_bare_cli() {
 }
 
 #[test]
+fn install_editable_unnamed_no_build() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let editable_dir = context.temp_dir.child("editable");
+    editable_dir.child("setup.py").write_str(indoc! {r#"
+        from setuptools import setup
+
+        setup(name="example", version="0.1.0")
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--no-build")
+        .arg("-e")
+        .arg("editable"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + example==0.1.0 (from file://[TEMP_DIR]/editable)
+    "
+    );
+
+    Ok(())
+}
+
+#[test]
 fn install_editable_bare_requirements_txt() -> Result<()> {
     let context = uv_test::test_context!("3.12");
 

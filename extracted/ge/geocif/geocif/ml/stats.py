@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
-from tqdm.rich import tqdm
+from geocif.progress import pbar as _pbar
 
 
 def get_yld_prd(df, name_crop, cntr, region, calendar_year, region_column="ADM1_NAME"):
@@ -155,7 +155,7 @@ def add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone, crop=None, 
 
         # Loop over each Country, Region, harvest year combination and add the area
         grp = df.groupby(["Region", "Harvest Year"], dropna=False)
-        for key, group in tqdm(grp, desc=f"Adding {stat} {method}", leave=False):
+        for key, group in _pbar(grp, desc=f"Adding {stat} {method}", leave=False):
             region, year = key
 
             df_adm0 = pd.DataFrame()
@@ -366,7 +366,7 @@ def add_statistics(
         # Process each group with a progress bar
         results = []
         stats_desc = f"Adding yield/area/production stats ({label})" if label else "Adding yield/area/production stats"
-        for keys, group in tqdm(
+        for keys, group in _pbar(
             groups, total=len(groups), desc=stats_desc, leave=False
         ):
             if has_season:

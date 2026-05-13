@@ -8,6 +8,9 @@ import System.Collections.Generic
 import System.Diagnostics
 import System.Reflection
 
+System_Diagnostics_Debug_AppendFormatted_AssertInterpolatedStringHandler_T = typing.TypeVar("System_Diagnostics_Debug_AppendFormatted_AssertInterpolatedStringHandler_T")
+System_Diagnostics_Debug_AppendFormatted_WriteIfInterpolatedStringHandler_T = typing.TypeVar("System_Diagnostics_Debug_AppendFormatted_WriteIfInterpolatedStringHandler_T")
+
 
 class DebuggerTypeProxyAttribute(System.Attribute):
     """This class has no documentation."""
@@ -430,27 +433,11 @@ class Debug(System.Object):
     class AssertInterpolatedStringHandler:
         """This class has no documentation."""
 
+        @property
+        def append_formatted(self) -> System.Diagnostics._Debug.AssertInterpolatedStringHandler_AppendFormatted:
+            ...
+
         def __init__(self, literal_length: int, formatted_count: int, condition: bool, should_append: typing.Optional[bool]) -> typing.Tuple[None, bool]:
-            ...
-
-        @overload
-        def append_formatted(self, value: System.ReadOnlySpan[str]) -> None:
-            ...
-
-        @overload
-        def append_formatted(self, value: System.ReadOnlySpan[str], alignment: int = 0, format: str = None) -> None:
-            ...
-
-        @overload
-        def append_formatted(self, value: str) -> None:
-            ...
-
-        @overload
-        def append_formatted(self, value: str, alignment: int = 0, format: str = None) -> None:
-            ...
-
-        @overload
-        def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> None:
             ...
 
         def append_literal(self, value: str) -> None:
@@ -459,27 +446,11 @@ class Debug(System.Object):
     class WriteIfInterpolatedStringHandler:
         """This class has no documentation."""
 
+        @property
+        def append_formatted(self) -> System.Diagnostics._Debug.WriteIfInterpolatedStringHandler_AppendFormatted:
+            ...
+
         def __init__(self, literal_length: int, formatted_count: int, condition: bool, should_append: typing.Optional[bool]) -> typing.Tuple[None, bool]:
-            ...
-
-        @overload
-        def append_formatted(self, value: System.ReadOnlySpan[str]) -> None:
-            ...
-
-        @overload
-        def append_formatted(self, value: System.ReadOnlySpan[str], alignment: int = 0, format: str = None) -> None:
-            ...
-
-        @overload
-        def append_formatted(self, value: str) -> None:
-            ...
-
-        @overload
-        def append_formatted(self, value: str, alignment: int = 0, format: str = None) -> None:
-            ...
-
-        @overload
-        def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> None:
             ...
 
         def append_literal(self, value: str) -> None:
@@ -773,6 +744,100 @@ class Debugger(System.Object):
 
     @staticmethod
     def break_for_user_unhandled_exception(exception: System.Exception) -> None:
+        ...
+
+
+class AssertInterpolatedStringHandler_AppendFormatted:
+    """"""
+
+    @overload
+    def __call__(self, value: System.ReadOnlySpan[str]) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: System.ReadOnlySpan[str], alignment: int = 0, format: str = None) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: str) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: str, alignment: int = 0, format: str = None) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: typing.Any, alignment: int = 0, format: str = None) -> None:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Diagnostics_Debug_AppendFormatted_AssertInterpolatedStringHandler_T]) -> System.Diagnostics._Typed_Debug.AssertInterpolatedStringHandler_AppendFormatted[System_Diagnostics_Debug_AppendFormatted_AssertInterpolatedStringHandler_T]:
+        ...
+
+
+class AssertInterpolatedStringHandler_AppendFormatted(typing.Generic[System_Diagnostics_Debug_AppendFormatted_AssertInterpolatedStringHandler_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Diagnostics_Debug_AppendFormatted_AssertInterpolatedStringHandler_T) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: System_Diagnostics_Debug_AppendFormatted_AssertInterpolatedStringHandler_T, format: str) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: System_Diagnostics_Debug_AppendFormatted_AssertInterpolatedStringHandler_T, alignment: int) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: System_Diagnostics_Debug_AppendFormatted_AssertInterpolatedStringHandler_T, alignment: int, format: str) -> None:
+        ...
+
+
+class WriteIfInterpolatedStringHandler_AppendFormatted:
+    """"""
+
+    @overload
+    def __call__(self, value: System.ReadOnlySpan[str]) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: System.ReadOnlySpan[str], alignment: int = 0, format: str = None) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: str) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: str, alignment: int = 0, format: str = None) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: typing.Any, alignment: int = 0, format: str = None) -> None:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Diagnostics_Debug_AppendFormatted_WriteIfInterpolatedStringHandler_T]) -> System.Diagnostics._Typed_Debug.WriteIfInterpolatedStringHandler_AppendFormatted[System_Diagnostics_Debug_AppendFormatted_WriteIfInterpolatedStringHandler_T]:
+        ...
+
+
+class WriteIfInterpolatedStringHandler_AppendFormatted(typing.Generic[System_Diagnostics_Debug_AppendFormatted_WriteIfInterpolatedStringHandler_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Diagnostics_Debug_AppendFormatted_WriteIfInterpolatedStringHandler_T) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: System_Diagnostics_Debug_AppendFormatted_WriteIfInterpolatedStringHandler_T, format: str) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: System_Diagnostics_Debug_AppendFormatted_WriteIfInterpolatedStringHandler_T, alignment: int) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: System_Diagnostics_Debug_AppendFormatted_WriteIfInterpolatedStringHandler_T, alignment: int, format: str) -> None:
         ...
 
 

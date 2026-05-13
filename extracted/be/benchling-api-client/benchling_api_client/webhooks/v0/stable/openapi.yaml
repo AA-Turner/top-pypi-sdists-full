@@ -230,6 +230,78 @@ components:
         - userId
         type: object
       description: Sent when a user interacts with an app canvas via button press
+    CustomEntityCreatedWebhookV3:
+      allOf:
+      - $ref: '#/components/schemas/V3EventBase'
+      - properties:
+          type:
+            enum:
+            - v3.customEntity.created
+            nullable: false
+            type: string
+        required:
+        - type
+        type: object
+    CustomEntityUpdatedWebhookV3:
+      allOf:
+      - $ref: '#/components/schemas/V3UpdateEventBase'
+      - properties:
+          type:
+            enum:
+            - v3.customEntity.updated
+            nullable: false
+            type: string
+        required:
+        - type
+        type: object
+    DnaOligoCreatedWebhookV3:
+      allOf:
+      - $ref: '#/components/schemas/V3EventBase'
+      - properties:
+          type:
+            enum:
+            - v3.dnaOligo.created
+            nullable: false
+            type: string
+        required:
+        - type
+        type: object
+    DnaOligoUpdatedWebhookV3:
+      allOf:
+      - $ref: '#/components/schemas/V3UpdateEventBase'
+      - properties:
+          type:
+            enum:
+            - v3.dnaOligo.updated
+            nullable: false
+            type: string
+        required:
+        - type
+        type: object
+    DnaSequenceCreatedWebhookV3:
+      allOf:
+      - $ref: '#/components/schemas/V3EventBase'
+      - properties:
+          type:
+            enum:
+            - v3.dnaSequence.created
+            nullable: false
+            type: string
+        required:
+        - type
+        type: object
+    DnaSequenceUpdatedWebhookV3:
+      allOf:
+      - $ref: '#/components/schemas/V3UpdateEventBase'
+      - properties:
+          type:
+            enum:
+            - v3.dnaSequence.updated
+            nullable: false
+            type: string
+        required:
+        - type
+        type: object
     EntityRegisteredWebhookV2:
       allOf:
       - $ref: '#/components/schemas/EventBaseWebhookV2Schematized'
@@ -249,6 +321,18 @@ components:
           type:
             enum:
             - v2.entry.created
+            nullable: false
+            type: string
+        required:
+        - type
+        type: object
+    EntryCreatedWebhookV3:
+      allOf:
+      - $ref: '#/components/schemas/V3EventBase'
+      - properties:
+          type:
+            enum:
+            - v3.entry.created
             nullable: false
             type: string
         required:
@@ -461,6 +545,30 @@ components:
       - deprecated
       - excludedProperties
       type: object
+    ProjectCreatedWebhookV3:
+      allOf:
+      - $ref: '#/components/schemas/V3EventBase'
+      - properties:
+          type:
+            enum:
+            - v3.project.created
+            nullable: false
+            type: string
+        required:
+        - type
+        type: object
+    ProjectUpdatedWebhookV3:
+      allOf:
+      - $ref: '#/components/schemas/V3UpdateEventBase'
+      - properties:
+          type:
+            enum:
+            - v3.project.updated
+            nullable: false
+            type: string
+        required:
+        - type
+        type: object
     RequestCreatedWebhookV2:
       allOf:
       - $ref: '#/components/schemas/EventBaseWebhookV2Schematized'
@@ -492,6 +600,66 @@ components:
           type:
             enum:
             - v2.request.updated.status
+            nullable: false
+            type: string
+        required:
+        - type
+        type: object
+    RnaOligoCreatedWebhookV3:
+      allOf:
+      - $ref: '#/components/schemas/V3EventBase'
+      - properties:
+          type:
+            enum:
+            - v3.rnaOligo.created
+            nullable: false
+            type: string
+        required:
+        - type
+        type: object
+    RnaOligoUpdatedWebhookV3:
+      allOf:
+      - $ref: '#/components/schemas/V3UpdateEventBase'
+      - properties:
+          type:
+            enum:
+            - v3.rnaOligo.updated
+            nullable: false
+            type: string
+        required:
+        - type
+        type: object
+    RnaSequenceCreatedWebhookV3:
+      allOf:
+      - $ref: '#/components/schemas/V3EventBase'
+      - properties:
+          type:
+            enum:
+            - v3.rnaSequence.created
+            nullable: false
+            type: string
+        required:
+        - type
+        type: object
+    RnaSequenceUpdatedWebhookV3:
+      allOf:
+      - $ref: '#/components/schemas/V3UpdateEventBase'
+      - properties:
+          type:
+            enum:
+            - v3.rnaSequence.updated
+            nullable: false
+            type: string
+        required:
+        - type
+        type: object
+    RunCreatedWebhookV3:
+      allOf:
+      - $ref: '#/components/schemas/V3EventBase'
+      - properties:
+          type:
+            enum:
+            - v3.run.created
             nullable: false
             type: string
         required:
@@ -910,6 +1078,20 @@ components:
           v2.workflowTaskGroup.created: '#/components/schemas/WorkflowTaskGroupCreatedWebhookV2'
           v2.workflowTaskGroup.mappingCompleted: '#/components/schemas/WorkflowTaskGroupMappingCompletedWebhookV2'
           v2.workflowTaskGroup.updated.watchers: '#/components/schemas/WorkflowTaskGroupUpdatedWatchersWebhookV2'
+          v3.customEntity.created: '#/components/schemas/CustomEntityCreatedWebhookV3'
+          v3.customEntity.updated: '#/components/schemas/CustomEntityUpdatedWebhookV3'
+          v3.dnaOligo.created: '#/components/schemas/DnaOligoCreatedWebhookV3'
+          v3.dnaOligo.updated: '#/components/schemas/DnaOligoUpdatedWebhookV3'
+          v3.dnaSequence.created: '#/components/schemas/DnaSequenceCreatedWebhookV3'
+          v3.dnaSequence.updated: '#/components/schemas/DnaSequenceUpdatedWebhookV3'
+          v3.entry.created: '#/components/schemas/EntryCreatedWebhookV3'
+          v3.project.created: '#/components/schemas/ProjectCreatedWebhookV3'
+          v3.project.updated: '#/components/schemas/ProjectUpdatedWebhookV3'
+          v3.rnaOligo.created: '#/components/schemas/RnaOligoCreatedWebhookV3'
+          v3.rnaOligo.updated: '#/components/schemas/RnaOligoUpdatedWebhookV3'
+          v3.rnaSequence.created: '#/components/schemas/RnaSequenceCreatedWebhookV3'
+          v3.rnaSequence.updated: '#/components/schemas/RnaSequenceUpdatedWebhookV3'
+          v3.run.created: '#/components/schemas/RunCreatedWebhookV3'
         propertyName: type
       oneOf:
       - $ref: '#/components/schemas/LifecycleConfigurationUpdateWebhookV2Beta'
@@ -948,6 +1130,20 @@ components:
       - $ref: '#/components/schemas/LifecycleActivateWebhookV0Beta'
       - $ref: '#/components/schemas/LifecycleDeactivateWebhookV0Beta'
       - $ref: '#/components/schemas/LifecycleConfigurationUpdateWebhookV0Beta'
+      - $ref: '#/components/schemas/CustomEntityCreatedWebhookV3'
+      - $ref: '#/components/schemas/CustomEntityUpdatedWebhookV3'
+      - $ref: '#/components/schemas/DnaOligoCreatedWebhookV3'
+      - $ref: '#/components/schemas/DnaOligoUpdatedWebhookV3'
+      - $ref: '#/components/schemas/DnaSequenceCreatedWebhookV3'
+      - $ref: '#/components/schemas/DnaSequenceUpdatedWebhookV3'
+      - $ref: '#/components/schemas/EntryCreatedWebhookV3'
+      - $ref: '#/components/schemas/ProjectCreatedWebhookV3'
+      - $ref: '#/components/schemas/ProjectUpdatedWebhookV3'
+      - $ref: '#/components/schemas/RnaOligoCreatedWebhookV3'
+      - $ref: '#/components/schemas/RnaOligoUpdatedWebhookV3'
+      - $ref: '#/components/schemas/RnaSequenceCreatedWebhookV3'
+      - $ref: '#/components/schemas/RnaSequenceUpdatedWebhookV3'
+      - $ref: '#/components/schemas/RunCreatedWebhookV3'
     WorkflowOutputCreatedWebhookV2:
       allOf:
       - $ref: '#/components/schemas/EventBaseWebhookV2Schematized'

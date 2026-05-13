@@ -1,20 +1,20 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Functions that deal with the segment registers.
 
-If your processor doesn't use segment registers, then these functions are of no use for you. However, you should define two virtual segment registers - CS and DS (for code segment and data segment) and specify their internal numbers in the LPH structure (processor_t::reg_code_sreg and processor_t::reg_data_sreg). 
-    
+If your processor doesn't use segment registers, then these functions are of no use for you. However, you should define two virtual segment registers - CS and DS (for code segment and data segment) and specify their internal numbers in the LPH structure (processor_t::reg_code_sreg and processor_t::reg_data_sreg).
+
 """
 
 class sreg_range_t:
     @property
-    def end_ea(self) -> Any: ...
+    def end_ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def start_ea(self) -> Any: ...
+    def start_ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def tag(self) -> Any: ...
+    def tag(self) -> int: ...
     @property
-    def val(self) -> Any: ...
+    def val(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -23,19 +23,25 @@ class sreg_range_t:
         ...
     def __eq__(self, r: range_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, r: range_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, r: range_t) -> bool:
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -49,7 +55,7 @@ class sreg_range_t:
         ...
     def __ne__(self, r: range_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -66,10 +72,10 @@ class sreg_range_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -79,7 +85,7 @@ class sreg_range_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def clear(self) -> None:
         r"""Set start_ea, end_ea to 0.
@@ -88,25 +94,16 @@ class sreg_range_t:
         ...
     def compare(self, r: range_t) -> int:
         ...
-    def contains(self, args: Any) -> bool:
-        r"""This function has the following signatures:
+    @overload
+    def contains(self, ea: ida_idaapi.ea_t) -> bool:
+        r"""Compare two range_t instances, based on the start_ea.
         
-            0. contains(ea: ida_idaapi.ea_t) -> bool
-            1. contains(r: const range_t &) -> bool
-        
-        # 0: contains(ea: ida_idaapi.ea_t) -> bool
-        
-        Compare two range_t instances, based on the start_ea.
-        
-        Is 'ea' in the address range? 
-                
-        
-        # 1: contains(r: const range_t &) -> bool
-        
-        Is every ea in 'r' also in this range_t?
-        
-        
+        Is 'ea' in the address range?
         """
+        ...
+    @overload
+    def contains(self, r: range_t) -> bool:
+        r"""Is every ea in 'r' also in this range_t?"""
         ...
     def empty(self) -> bool:
         r"""Is the size of the range_t <= 0?
@@ -162,7 +159,7 @@ def get_prev_sreg_range(out: sreg_range_t, ea: ida_idaapi.ea_t, rg: int) -> bool
     """
     ...
 
-def get_sreg(ea: ida_idaapi.ea_t, rg: int) -> sel_t:
+def get_sreg(ea: ida_idaapi.ea_t, rg: int) -> int:
     r"""Get value of a segment register. This function uses segment register range and default segment register values stored in the segment structure. 
             
     :param ea: linear address in the program
@@ -207,13 +204,13 @@ def getn_sreg_range(out: sreg_range_t, rg: int, n: int) -> bool:
     """
     ...
 
-def set_default_dataseg(ds_sel: sel_t) -> None:
+def set_default_dataseg(ds_sel: int) -> None:
     r"""Set default value of DS register for all segments.
     
     """
     ...
 
-def set_default_sreg_value(sg: segment_t, rg: int, value: sel_t) -> bool:
+def set_default_sreg_value(sg: segment_t, rg: int, value: int) -> bool:
     r"""Set default value of a segment register for a segment. 
             
     :param sg: pointer to segment structure if nullptr, then set the register for all segments
@@ -223,7 +220,7 @@ def set_default_sreg_value(sg: segment_t, rg: int, value: sel_t) -> bool:
     """
     ...
 
-def set_sreg_at_next_code(ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, rg: int, value: sel_t) -> None:
+def set_sreg_at_next_code(ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, rg: int, value: int) -> None:
     r"""Set the segment register value at the next instruction. This function is designed to be called from idb_event::sgr_changed handler in order to contain the effect of changing a segment register value only until the next instruction.
     It is useful, for example, in the ARM module: the modification of the T register does not affect existing instructions later in the code. 
             
@@ -234,7 +231,7 @@ def set_sreg_at_next_code(ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, rg: int, v
     """
     ...
 
-def split_sreg_range(ea: ida_idaapi.ea_t, rg: int, v: sel_t, tag: uchar, silent: bool = False) -> bool:
+def split_sreg_range(ea: ida_idaapi.ea_t, rg: int, v: int, tag: int, silent: bool = False) -> bool:
     r"""Create a new segment register range. This function is used when the IDP emulator detects that a segment register changes its value. 
             
     :param ea: linear address where the segment register will have a new value. if ea==BADADDR, nothing to do.
@@ -257,7 +254,7 @@ SR_autostart: int  # 4
 SR_inherit: int  # 1
 SR_user: int  # 2
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ida_idaapi: module
 ida_range: module
 weakref: module

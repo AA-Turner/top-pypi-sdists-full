@@ -1,9 +1,9 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Contains definition of the interface to IDD modules.
 
-The interface consists of structures describing the target debugged processor and a debugging API. 
-    
+The interface consists of structures describing the target debugged processor and a debugging API.
+
 """
 
 class Appcall__:
@@ -23,10 +23,13 @@ class Appcall__:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattr__(self, name_or_ea: Any) -> Any:
@@ -35,22 +38,25 @@ class Appcall__:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, idx: Any) -> register_info_t:
+    def __getitem__(self, idx: Any) -> Any:
         r"""
-                Use self[func_name] syntax if the function name contains invalid characters for an attribute name
-                See __getattr___
-                
+        Use self[func_name] syntax if the function name contains invalid characters for an attribute name
+        See __getattr___
+        
         """
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -58,16 +64,16 @@ class Appcall__:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -76,7 +82,7 @@ class Appcall__:
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -85,10 +91,10 @@ class Appcall__:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -103,20 +109,20 @@ class Appcall__:
         ...
     def buffer(self, str: Any = None, size: Any = 0, fill: Any = '\x00') -> Any:
         r"""
-                Creates a string buffer. The returned value (r) will be a byref object.
-                Use r.value to get the contents and r.size to get the buffer's size
-                
+        Creates a string buffer. The returned value (r) will be a byref object.
+        Use r.value to get the contents and r.size to get the buffer's size
+        
         """
         ...
     def byref(self, val: Any) -> Any:
         r"""
-                Method to create references to immutable objects
-                Currently we support references to int/strings
-                Objects need not be passed by reference (this will be done automatically)
-                
+        Method to create references to immutable objects
+        Currently we support references to int/strings
+        Objects need not be passed by reference (this will be done automatically)
+        
         """
         ...
-    def cleanup_appcall(self, tid: Any = 0) -> drc_t:
+    def cleanup_appcall(self, tid: Any = 0) -> int:
         r"""Cleanup after manual appcall. 
                 
         :param tid: thread to use. NO_THREAD means to use the current thread The application state is restored as it was before calling the last appcall(). Nested appcalls are supported.
@@ -131,17 +137,17 @@ class Appcall__:
     def int64(self, v: Any) -> Any:
         r"""Whenever a 64bit number is needed use this method to construct an object"""
         ...
-    def obj(self, kwds: Any) -> Any:
+    def obj(self, **kwds: Any) -> Any:
         r"""Returns an empty object or objects with attributes as passed via its keywords arguments"""
         ...
     def proto(self, name_or_ea: Any, proto_or_tinfo: Any, flags: Any = None) -> Any:
         r"""
-                Allows you to instantiate an appcall (callable object) with the desired prototype
-                :param name_or_ea: The name of the function (will be resolved with LocByName())
-                :param proto_or_tinfo: function prototype as a string or type of the function as tinfo_t object
-                :returns: a callbable Appcall instance with the given prototypes and flags, or
-                          an exception if the prototype could not be parsed or the address is not resolvable.
-                
+        Allows you to instantiate an appcall (callable object) with the desired prototype
+        :param name_or_ea: The name of the function (will be resolved with LocByName())
+        :param proto_or_tinfo: function prototype as a string or type of the function as tinfo_t object
+        :returns: a callbable Appcall instance with the given prototypes and flags, or
+                  an exception if the prototype could not be parsed or the address is not resolvable.
+        
         """
         ...
     def set_appcall_options(self, opt: Any) -> Any:
@@ -149,22 +155,22 @@ class Appcall__:
         ...
     def typedobj(self, typedecl_or_tinfo: Any, ea: Any = None) -> Any:
         r"""
-                Returns an appcall object for a type (can be given as tinfo_t object or
-                as a string declaration)
-                One can then use retrieve() member method
-                :param ea: Optional parameter that later can be used to retrieve the type
-                :returns: Appcall object or raises ValueError exception
-                
+        Returns an appcall object for a type (can be given as tinfo_t object or
+        as a string declaration)
+        One can then use retrieve() member method
+        :param ea: Optional parameter that later can be used to retrieve the type
+        :returns: Appcall object or raises ValueError exception
+        
         """
         ...
     def unicode(self, s: Any) -> Any:
         ...
     def valueof(self, name: Any, default: Any = 0) -> Any:
         r"""
-                If the name could not be resolved then the default value will be returned
+        If the name could not be resolved then the default value will be returned
         
-                :returns: the numeric value of a given name string.
-                
+        :returns: the numeric value of a given name string.
+        
         """
         ...
 
@@ -179,24 +185,30 @@ class Appcall_array__:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, tp: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -204,16 +216,16 @@ class Appcall_array__:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -222,7 +234,7 @@ class Appcall_array__:
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -231,10 +243,10 @@ class Appcall_array__:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -256,18 +268,18 @@ class Appcall_array__:
 
 class Appcall_callable__:
     r"""
-        Helper class to issue appcalls using a natural syntax:
-          appcall.FunctionNameInTheDatabase(arguments, ....)
-        or
-          appcall["Function@8"](arguments, ...)
-        or
-          f8 = appcall["Function@8"]
-          f8(arg1, arg2, ...)
-        or
-          o = appcall.obj()
-          i = byref(5)
-          appcall.funcname(arg1, i, "hello", o)
-        
+    Helper class to issue appcalls using a natural syntax:
+      appcall.FunctionNameInTheDatabase(arguments, ....)
+    or
+      appcall["Function@8"](arguments, ...)
+    or
+      f8 = appcall["Function@8"]
+      f8(arg1, arg2, ...)
+    or
+      o = appcall.obj()
+      i = byref(5)
+      appcall.funcname(arg1, i, "hello", o)
+    
     """
     @property
     def ea(self) -> Any: ...
@@ -283,7 +295,7 @@ class Appcall_callable__:
     def timeout(self) -> Any: ...
     @property
     def type(self) -> Any: ...
-    def __call__(self, args: Any) -> Any:
+    def __call__(self, *args: Any) -> Any:
         r"""Make object callable. We redirect execution to idaapi.appcall()"""
         ...
     def __delattr__(self, name: Any) -> Any:
@@ -295,25 +307,31 @@ class Appcall_callable__:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, ea: Any, tinfo_or_typestr: Any = None, fields: Any = None) -> Any:
         r"""Initializes an appcall with a given function ea"""
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -321,16 +339,16 @@ class Appcall_callable__:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -339,7 +357,7 @@ class Appcall_callable__:
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -348,10 +366,10 @@ class Appcall_callable__:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -363,30 +381,30 @@ class Appcall_callable__:
         ...
     def retrieve(self, src: Any = None, flags: Any = 0) -> Any:
         r"""
-                Unpacks a typed object from the database if an ea is given or from a string if a string was passed
-                :param src: the address of the object or a string
-                :returns: Returns a tuple of boolean and object or error number (Bool, Error | Object).
-                
+        Unpacks a typed object from the database if an ea is given or from a string if a string was passed
+        :param src: the address of the object or a string
+        :returns: Returns a tuple of boolean and object or error number (Bool, Error | Object).
+        
         """
         ...
     def store(self, obj: Any, dest_ea: Any = None, base_ea: Any = 0, flags: Any = 0) -> Any:
         r"""
-                Packs an object into a given ea if provided or into a string if no address was passed.
-                :param obj: The object to pack
-                :param dest_ea: If packing to idb this will be the store location
-                :param base_ea: If packing to a buffer, this will be the base that will be used to relocate the pointers
+        Packs an object into a given ea if provided or into a string if no address was passed.
+        :param obj: The object to pack
+        :param dest_ea: If packing to idb this will be the store location
+        :param base_ea: If packing to a buffer, this will be the base that will be used to relocate the pointers
         
-                :returns: Tuple(Boolean, packed_string or error code) if packing to a string
-                :returns: a return code is returned (0 indicating success) if packing to the database
-                
+        :returns: Tuple(Boolean, packed_string or error code) if packing to a string
+        :returns: a return code is returned (0 indicating success) if packing to the database
+        
         """
         ...
 
 class Appcall_consts__:
     r"""
-        Helper class used by Appcall.Consts attribute
-        It is used to retrieve constants via attribute access
-        
+    Helper class used by Appcall.Consts attribute
+    It is used to retrieve constants via attribute access
+    
     """
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
@@ -397,10 +415,13 @@ class Appcall_consts__:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattr__(self, attr: Any) -> Any:
@@ -408,15 +429,18 @@ class Appcall_consts__:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, default: Any = None) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -424,16 +448,16 @@ class Appcall_consts__:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -442,7 +466,7 @@ class Appcall_consts__:
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -451,10 +475,10 @@ class Appcall_consts__:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -467,9 +491,9 @@ class Appcall_consts__:
 
 class bptaddr_t:
     @property
-    def hea(self) -> Any: ...
+    def hea(self) -> ida_idaapi.ea_t: ...
     @property
-    def kea(self) -> Any: ...
+    def kea(self) -> ida_idaapi.ea_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -479,24 +503,30 @@ class bptaddr_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -504,16 +534,16 @@ class bptaddr_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -530,10 +560,10 @@ class bptaddr_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -543,18 +573,18 @@ class bptaddr_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class call_stack_info_t:
     @property
-    def callea(self) -> Any: ...
+    def callea(self) -> ida_idaapi.ea_t: ...
     @property
-    def fp(self) -> Any: ...
+    def fp(self) -> ida_idaapi.ea_t: ...
     @property
-    def funcea(self) -> Any: ...
+    def funcea(self) -> ida_idaapi.ea_t: ...
     @property
-    def funcok(self) -> Any: ...
+    def funcok(self) -> bool: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -563,21 +593,27 @@ class call_stack_info_t:
         ...
     def __eq__(self, r: call_stack_info_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -585,15 +621,15 @@ class call_stack_info_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, r: call_stack_info_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -610,10 +646,10 @@ class call_stack_info_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -623,7 +659,7 @@ class call_stack_info_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class call_stack_info_vec_t:
@@ -635,23 +671,29 @@ class call_stack_info_vec_t:
         ...
     def __eq__(self, r: call_stack_info_vec_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> register_info_t:
+    def __getitem__(self, i: int) -> call_stack_info_t:
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -659,20 +701,20 @@ class call_stack_info_vec_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[call_stack_info_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
     def __len__(self) -> int:
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, r: call_stack_info_vec_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -686,15 +728,15 @@ class call_stack_info_vec_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: call_stack_info_t) -> None:
+    def __setitem__(self, i: int, v: call_stack_info_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -704,17 +746,17 @@ class call_stack_info_vec_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: call_stack_info_t) -> bool:
         ...
     def append(self, x: call_stack_info_t) -> None:
         ...
-    def at(self, _idx: size_t) -> regval_t:
+    def at(self, _idx: int) -> call_stack_info_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> qvector:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -722,35 +764,35 @@ class call_stack_info_vec_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> qvector:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: call_stack_info_vec_t) -> None:
         ...
-    def extract(self) -> regval_t:
+    def extract(self) -> call_stack_info_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: call_stack_info_t) -> bool:
         ...
-    def inject(self, s: call_stack_info_t, len: size_t) -> None:
+    def inject(self, s: call_stack_info_t, len: int) -> None:
         ...
     def insert(self, it: call_stack_info_t, x: call_stack_info_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> regval_t:
+    def push_back(self, *args: Any) -> call_stack_info_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -768,23 +810,29 @@ class call_stack_t(call_stack_info_vec_t):
         ...
     def __eq__(self, r: call_stack_info_vec_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> register_info_t:
+    def __getitem__(self, i: int) -> call_stack_info_t:
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -792,20 +840,20 @@ class call_stack_t(call_stack_info_vec_t):
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[call_stack_info_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
     def __len__(self) -> int:
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, r: call_stack_info_vec_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -819,15 +867,15 @@ class call_stack_t(call_stack_info_vec_t):
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: call_stack_info_t) -> None:
+    def __setitem__(self, i: int, v: call_stack_info_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -837,17 +885,17 @@ class call_stack_t(call_stack_info_vec_t):
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: call_stack_info_t) -> bool:
         ...
     def append(self, x: call_stack_info_t) -> None:
         ...
-    def at(self, _idx: size_t) -> regval_t:
+    def at(self, _idx: int) -> call_stack_info_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> qvector:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -855,35 +903,35 @@ class call_stack_t(call_stack_info_vec_t):
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> qvector:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: call_stack_info_vec_t) -> None:
         ...
-    def extract(self) -> regval_t:
+    def extract(self) -> call_stack_info_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: call_stack_info_t) -> bool:
         ...
-    def inject(self, s: call_stack_info_t, len: size_t) -> None:
+    def inject(self, s: call_stack_info_t, len: int) -> None:
         ...
     def insert(self, it: call_stack_info_t, x: call_stack_info_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> regval_t:
+    def push_back(self, *args: Any) -> call_stack_info_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -894,13 +942,13 @@ class call_stack_t(call_stack_info_vec_t):
 
 class debapp_attrs_t:
     @property
-    def addrsize(self) -> Any: ...
+    def addrsize(self) -> int: ...
     @property
-    def cbsize(self) -> Any: ...
+    def cbsize(self) -> int: ...
     @property
-    def is_be(self) -> Any: ...
+    def is_be(self) -> int: ...
     @property
-    def platform(self) -> Any: ...
+    def platform(self) -> str: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -910,24 +958,30 @@ class debapp_attrs_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -935,16 +989,16 @@ class debapp_attrs_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -961,10 +1015,10 @@ class debapp_attrs_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -974,18 +1028,18 @@ class debapp_attrs_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class debug_event_t:
     @property
-    def ea(self) -> Any: ...
+    def ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def handled(self) -> Any: ...
+    def handled(self) -> bool: ...
     @property
-    def pid(self) -> Any: ...
+    def pid(self) -> pid_t: ...
     @property
-    def tid(self) -> Any: ...
+    def tid(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -995,24 +1049,30 @@ class debug_event_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1020,16 +1080,16 @@ class debug_event_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1046,10 +1106,10 @@ class debug_event_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1059,7 +1119,7 @@ class debug_event_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def bpt(self) -> bptaddr_t:
         r"""EXCEPTION
@@ -1176,31 +1236,31 @@ class debugger_t:
     @property
     def bpt_bytes(self) -> Any: ...
     @property
-    def bpt_size(self) -> Any: ...
+    def bpt_size(self) -> int: ...
     @property
-    def default_regclasses(self) -> Any: ...
+    def default_regclasses(self) -> int: ...
     @property
-    def filetype(self) -> Any: ...
+    def filetype(self) -> int: ...
     @property
-    def flags(self) -> Any: ...
+    def flags(self) -> int: ...
     @property
-    def id(self) -> Any: ...
+    def id(self) -> int: ...
     @property
-    def memory_page_size(self) -> Any: ...
+    def memory_page_size(self) -> int: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
     def nregisters(self) -> Any: ...
     @property
-    def processor(self) -> Any: ...
+    def processor(self) -> str: ...
     @property
     def regclasses(self) -> Any: ...
     @property
     def registers(self) -> Any: ...
     @property
-    def resume_modes(self) -> Any: ...
+    def resume_modes(self) -> int: ...
     @property
-    def version(self) -> Any: ...
+    def version(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -1210,24 +1270,30 @@ class debugger_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1235,16 +1301,16 @@ class debugger_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1261,10 +1327,10 @@ class debugger_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1274,11 +1340,11 @@ class debugger_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def attach_process(self, pid: pid_t, event_id: int, dbg_proc_flags: int) -> drc_t:
+    def attach_process(self, pid: pid_t, event_id: int, dbg_proc_flags: int) -> int:
         ...
-    def bin_search(self, start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, data: compiled_binpat_vec_t, srch_flags: int) -> drc_t:
+    def bin_search(self, start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, data: compiled_binpat_vec_t, srch_flags: int) -> int:
         ...
     def cache_block_size(self) -> int:
         ...
@@ -1286,19 +1352,19 @@ class debugger_t:
         ...
     def can_debug_standalone_dlls(self) -> bool:
         ...
-    def check_bpt(self, bptvc: int, type: bpttype_t, ea: ida_idaapi.ea_t, len: int) -> drc_t:
+    def check_bpt(self, bptvc: int, type: bpttype_t, ea: ida_idaapi.ea_t, len: int) -> int:
         ...
-    def cleanup_appcall(self, tid: thid_t) -> drc_t:
+    def cleanup_appcall(self, tid: int) -> int:
         ...
     def close_file(self, fn: int) -> None:
         ...
-    def dbg_enable_trace(self, tid: thid_t, enable: bool, trace_flags: int) -> bool:
+    def dbg_enable_trace(self, tid: int, enable: bool, trace_flags: int) -> bool:
         ...
-    def detach_process(self) -> drc_t:
+    def detach_process(self) -> int:
         ...
-    def eval_lowcnd(self, tid: thid_t, ea: ida_idaapi.ea_t) -> drc_t:
+    def eval_lowcnd(self, tid: int, ea: ida_idaapi.ea_t) -> int:
         ...
-    def exit_process(self) -> drc_t:
+    def exit_process(self) -> int:
         ...
     def fake_memory(self) -> bool:
         ...
@@ -1310,9 +1376,9 @@ class debugger_t:
         ...
     def get_dynamic_register_set(self, regset: dynamic_register_set_t) -> bool:
         ...
-    def get_memory_info(self, ranges: meminfo_vec_t) -> drc_t:
+    def get_memory_info(self, ranges: meminfo_vec_t) -> int:
         ...
-    def get_processes(self, procs: procinfo_vec_t) -> drc_t:
+    def get_processes(self, procs: procinfo_vec_t) -> int:
         ...
     def get_srcinfo_path(self, path: str, base: ida_idaapi.ea_t) -> bool:
         ...
@@ -1358,7 +1424,7 @@ class debugger_t:
         ...
     def is_safe(self) -> bool:
         ...
-    def is_tracing_enabled(self, tid: thid_t, tracebit: int) -> bool:
+    def is_tracing_enabled(self, tid: int, tracebit: int) -> bool:
         ...
     def is_ttd(self) -> bool:
         ...
@@ -1370,33 +1436,33 @@ class debugger_t:
         ...
     def must_have_hostname(self) -> bool:
         ...
-    def open_file(self, file: str, fsize: uint64, readonly: bool) -> int:
+    def open_file(self, file: str, fsize: int, readonly: bool) -> int:
         ...
-    def read_file(self, fn: int, off: qoff64_t, buf: void, size: size_t) -> ssize_t:
+    def read_file(self, fn: int, off: qoff64_t, buf: Any, size: int) -> int:
         ...
-    def read_memory(self, nbytes: size_t, ea: ida_idaapi.ea_t, buffer: void, size: size_t) -> drc_t:
+    def read_memory(self, nbytes: int, ea: ida_idaapi.ea_t, buffer: Any, size: int) -> int:
         ...
-    def read_registers(self, tid: thid_t, clsmask: int, values: regval_t) -> drc_t:
+    def read_registers(self, tid: int, clsmask: int, values: regval_t) -> int:
         ...
     def rebase_if_required_to(self, new_base: ida_idaapi.ea_t) -> None:
         ...
     def regs(self, idx: int) -> register_info_t:
         ...
-    def request_pause(self) -> drc_t:
+    def request_pause(self) -> int:
         ...
-    def resume(self, event: debug_event_t) -> drc_t:
+    def resume(self, event: debug_event_t) -> int:
         ...
     def rexec(self, cmdline: str) -> int:
         ...
-    def send_ioctl(self, fn: int, buf: void, poutbuf: void, poutsize: ssize_t) -> drc_t:
+    def send_ioctl(self, fn: int, buf: Any, poutbuf: Any, poutsize: int) -> int:
         ...
-    def set_backwards(self, backwards: bool) -> drc_t:
+    def set_backwards(self, backwards: bool) -> int:
         ...
     def set_exception_info(self, info: exception_info_t, qty: int) -> None:
         ...
-    def set_resume_mode(self, tid: thid_t, resmod: resume_mode_t) -> drc_t:
+    def set_resume_mode(self, tid: int, resmod: resume_mode_t) -> int:
         ...
-    def start_process(self, path: str, args: str, envs: launch_env_t, startdir: str, dbg_proc_flags: int, input_path: str, input_file_crc32: int) -> drc_t:
+    def start_process(self, path: str, args: str, envs: launch_env_t, startdir: str, dbg_proc_flags: int, input_path: str, input_file_crc32: int) -> int:
         ...
     def supports_debthread(self) -> bool:
         ...
@@ -1406,17 +1472,17 @@ class debugger_t:
         ...
     def term_debugger(self) -> bool:
         ...
-    def thread_continue(self, tid: thid_t) -> drc_t:
+    def thread_continue(self, tid: int) -> int:
         ...
-    def thread_get_sreg_base(self, answer: ea_t, tid: thid_t, sreg_value: int) -> drc_t:
+    def thread_get_sreg_base(self, answer: int, tid: int, sreg_value: int) -> int:
         ...
-    def thread_suspend(self, tid: thid_t) -> drc_t:
+    def thread_suspend(self, tid: int) -> int:
         ...
-    def update_bpts(self, nbpts: int, bpts: update_bpt_info_t, nadd: int, ndel: int) -> drc_t:
+    def update_bpts(self, nbpts: int, bpts: update_bpt_info_t, nadd: int, ndel: int) -> int:
         ...
-    def update_call_stack(self, tid: thid_t, trace: call_stack_t) -> drc_t:
+    def update_call_stack(self, tid: int, trace: call_stack_t) -> int:
         ...
-    def update_lowcnds(self, nupdated: int, lowcnds: lowcnd_t, nlowcnds: int) -> drc_t:
+    def update_lowcnds(self, nupdated: int, lowcnds: lowcnd_t, nlowcnds: int) -> int:
         ...
     def use_memregs(self) -> bool:
         ...
@@ -1424,18 +1490,18 @@ class debugger_t:
         ...
     def virtual_threads(self) -> bool:
         ...
-    def write_file(self, fn: int, off: qoff64_t, buf: void) -> ssize_t:
+    def write_file(self, fn: int, off: qoff64_t, buf: Any) -> int:
         ...
-    def write_memory(self, nbytes: size_t, ea: ida_idaapi.ea_t, buffer: void, size: size_t) -> drc_t:
+    def write_memory(self, nbytes: int, ea: ida_idaapi.ea_t, buffer: Any, size: int) -> int:
         ...
-    def write_register(self, tid: thid_t, regidx: int, value: regval_t) -> drc_t:
+    def write_register(self, tid: int, regidx: int, value: regval_t) -> int:
         ...
 
 class dyn_register_info_array:
     @property
-    def count(self) -> Any: ...
+    def count(self) -> int: ...
     @property
-    def data(self) -> Any: ...
+    def data(self) -> register_info_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -1445,26 +1511,32 @@ class dyn_register_info_array:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> register_info_t:
+    def __getitem__(self, i: int) -> register_info_t:
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, _data: register_info_t, _count: size_t) -> Any:
+    def __init__(self, _data: register_info_t, _count: int) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1472,21 +1544,21 @@ class dyn_register_info_array:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[register_info_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
     def __len__(self) -> int:
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1500,15 +1572,15 @@ class dyn_register_info_array:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: register_info_t) -> None:
+    def __setitem__(self, i: int, v: register_info_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1518,18 +1590,18 @@ class dyn_register_info_array:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class exception_info_t:
     @property
-    def code(self) -> Any: ...
+    def code(self) -> int: ...
     @property
-    def desc(self) -> Any: ...
+    def desc(self) -> str: ...
     @property
-    def flags(self) -> Any: ...
+    def flags(self) -> int: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -1539,24 +1611,30 @@ class exception_info_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1564,16 +1642,16 @@ class exception_info_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1590,10 +1668,10 @@ class exception_info_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1603,7 +1681,7 @@ class exception_info_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def break_on(self) -> bool:
         r"""Should we break on the exception?
@@ -1618,13 +1696,13 @@ class exception_info_t:
 
 class excinfo_t:
     @property
-    def can_cont(self) -> Any: ...
+    def can_cont(self) -> bool: ...
     @property
-    def code(self) -> Any: ...
+    def code(self) -> int: ...
     @property
-    def ea(self) -> Any: ...
+    def ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def info(self) -> Any: ...
+    def info(self) -> str: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -1634,24 +1712,30 @@ class excinfo_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1659,16 +1743,16 @@ class excinfo_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1685,10 +1769,10 @@ class excinfo_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1698,7 +1782,7 @@ class excinfo_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class excvec_t:
@@ -1711,26 +1795,32 @@ class excvec_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> register_info_t:
+    def __getitem__(self, i: int) -> exception_info_t:
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1738,21 +1828,21 @@ class excvec_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[exception_info_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
     def __len__(self) -> int:
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1766,15 +1856,15 @@ class excvec_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: exception_info_t) -> None:
+    def __setitem__(self, i: int, v: exception_info_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1784,15 +1874,15 @@ class excvec_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def append(self, x: exception_info_t) -> None:
         ...
-    def at(self, _idx: size_t) -> regval_t:
+    def at(self, _idx: int) -> exception_info_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> qvector:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -1800,31 +1890,31 @@ class excvec_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> qvector:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: excvec_t) -> None:
         ...
-    def extract(self) -> regval_t:
+    def extract(self) -> exception_info_t:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
-    def inject(self, s: exception_info_t, len: size_t) -> None:
+    def inject(self, s: exception_info_t, len: int) -> None:
         ...
     def insert(self, it: exception_info_t, x: exception_info_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> regval_t:
+    def push_back(self, *args: Any) -> exception_info_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -1835,7 +1925,7 @@ class excvec_t:
 
 class launch_env_t:
     @property
-    def merge(self) -> Any: ...
+    def merge(self) -> bool: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -1845,24 +1935,30 @@ class launch_env_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1870,16 +1966,16 @@ class launch_env_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1896,10 +1992,10 @@ class launch_env_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1909,7 +2005,7 @@ class launch_env_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def envs(self) -> Any:
         ...
@@ -1925,23 +2021,29 @@ class meminfo_vec_t(meminfo_vec_template_t):
         ...
     def __eq__(self, r: meminfo_vec_template_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> register_info_t:
+    def __getitem__(self, i: int) -> memory_info_t:
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1949,20 +2051,20 @@ class meminfo_vec_t(meminfo_vec_template_t):
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[memory_info_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
     def __len__(self) -> int:
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, r: meminfo_vec_template_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1976,15 +2078,15 @@ class meminfo_vec_t(meminfo_vec_template_t):
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: memory_info_t) -> None:
+    def __setitem__(self, i: int, v: memory_info_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1994,17 +2096,17 @@ class meminfo_vec_t(meminfo_vec_template_t):
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: memory_info_t) -> bool:
         ...
     def append(self, x: memory_info_t) -> None:
         ...
-    def at(self, _idx: size_t) -> regval_t:
+    def at(self, _idx: int) -> memory_info_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> qvector:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -2012,35 +2114,35 @@ class meminfo_vec_t(meminfo_vec_template_t):
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> qvector:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: meminfo_vec_template_t) -> None:
         ...
-    def extract(self) -> regval_t:
+    def extract(self) -> memory_info_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: memory_info_t) -> bool:
         ...
-    def inject(self, s: memory_info_t, len: size_t) -> None:
+    def inject(self, s: memory_info_t, len: int) -> None:
         ...
     def insert(self, it: memory_info_t, x: memory_info_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> regval_t:
+    def push_back(self, *args: Any) -> memory_info_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -2058,23 +2160,29 @@ class meminfo_vec_template_t:
         ...
     def __eq__(self, r: meminfo_vec_template_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> register_info_t:
+    def __getitem__(self, i: int) -> memory_info_t:
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2082,20 +2190,20 @@ class meminfo_vec_template_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[memory_info_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
     def __len__(self) -> int:
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, r: meminfo_vec_template_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2109,15 +2217,15 @@ class meminfo_vec_template_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: memory_info_t) -> None:
+    def __setitem__(self, i: int, v: memory_info_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2127,17 +2235,17 @@ class meminfo_vec_template_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: memory_info_t) -> bool:
         ...
     def append(self, x: memory_info_t) -> None:
         ...
-    def at(self, _idx: size_t) -> regval_t:
+    def at(self, _idx: int) -> memory_info_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> qvector:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -2145,35 +2253,35 @@ class meminfo_vec_template_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> qvector:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: meminfo_vec_template_t) -> None:
         ...
-    def extract(self) -> regval_t:
+    def extract(self) -> memory_info_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: memory_info_t) -> bool:
         ...
-    def inject(self, s: memory_info_t, len: size_t) -> None:
+    def inject(self, s: memory_info_t, len: int) -> None:
         ...
     def insert(self, it: memory_info_t, x: memory_info_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> regval_t:
+    def push_back(self, *args: Any) -> memory_info_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -2184,19 +2292,19 @@ class meminfo_vec_template_t:
 
 class memory_info_t:
     @property
-    def bitness(self) -> Any: ...
+    def bitness(self) -> int: ...
     @property
-    def end_ea(self) -> Any: ...
+    def end_ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def perm(self) -> Any: ...
+    def perm(self) -> int: ...
     @property
-    def sbase(self) -> Any: ...
+    def sbase(self) -> ida_idaapi.ea_t: ...
     @property
-    def sclass(self) -> Any: ...
+    def sclass(self) -> str: ...
     @property
-    def start_ea(self) -> Any: ...
+    def start_ea(self) -> ida_idaapi.ea_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -2205,19 +2313,25 @@ class memory_info_t:
         ...
     def __eq__(self, r: memory_info_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, r: range_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, r: range_t) -> bool:
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2231,7 +2345,7 @@ class memory_info_t:
         ...
     def __ne__(self, r: memory_info_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2248,10 +2362,10 @@ class memory_info_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2261,7 +2375,7 @@ class memory_info_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def clear(self) -> None:
         r"""Set start_ea, end_ea to 0.
@@ -2270,25 +2384,16 @@ class memory_info_t:
         ...
     def compare(self, r: range_t) -> int:
         ...
-    def contains(self, args: Any) -> bool:
-        r"""This function has the following signatures:
+    @overload
+    def contains(self, ea: ida_idaapi.ea_t) -> bool:
+        r"""Compare two range_t instances, based on the start_ea.
         
-            0. contains(ea: ida_idaapi.ea_t) -> bool
-            1. contains(r: const range_t &) -> bool
-        
-        # 0: contains(ea: ida_idaapi.ea_t) -> bool
-        
-        Compare two range_t instances, based on the start_ea.
-        
-        Is 'ea' in the address range? 
-                
-        
-        # 1: contains(r: const range_t &) -> bool
-        
-        Is every ea in 'r' also in this range_t?
-        
-        
+        Is 'ea' in the address range?
         """
+        ...
+    @overload
+    def contains(self, r: range_t) -> bool:
+        r"""Is every ea in 'r' also in this range_t?"""
         ...
     def empty(self) -> bool:
         r"""Is the size of the range_t <= 0?
@@ -2318,13 +2423,13 @@ class memory_info_t:
 
 class modinfo_t:
     @property
-    def base(self) -> Any: ...
+    def base(self) -> ida_idaapi.ea_t: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def rebase_to(self) -> Any: ...
+    def rebase_to(self) -> ida_idaapi.ea_t: ...
     @property
-    def size(self) -> Any: ...
+    def size(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -2334,24 +2439,30 @@ class modinfo_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2359,16 +2470,16 @@ class modinfo_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2385,10 +2496,10 @@ class modinfo_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2398,14 +2509,14 @@ class modinfo_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class process_info_t:
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def pid(self) -> Any: ...
+    def pid(self) -> pid_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -2415,24 +2526,30 @@ class process_info_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2440,16 +2557,16 @@ class process_info_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2466,10 +2583,10 @@ class process_info_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2479,7 +2596,7 @@ class process_info_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class procinfo_vec_t:
@@ -2492,26 +2609,32 @@ class procinfo_vec_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> register_info_t:
+    def __getitem__(self, i: int) -> process_info_t:
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2519,21 +2642,21 @@ class procinfo_vec_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[process_info_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
     def __len__(self) -> int:
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2547,15 +2670,15 @@ class procinfo_vec_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: process_info_t) -> None:
+    def __setitem__(self, i: int, v: process_info_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2565,15 +2688,15 @@ class procinfo_vec_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def append(self, x: process_info_t) -> None:
         ...
-    def at(self, _idx: size_t) -> regval_t:
+    def at(self, _idx: int) -> process_info_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> qvector:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -2581,31 +2704,31 @@ class procinfo_vec_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> qvector:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: procinfo_vec_t) -> None:
         ...
-    def extract(self) -> regval_t:
+    def extract(self) -> process_info_t:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
-    def inject(self, s: process_info_t, len: size_t) -> None:
+    def inject(self, s: process_info_t, len: int) -> None:
         ...
     def insert(self, it: process_info_t, x: process_info_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> regval_t:
+    def push_back(self, *args: Any) -> process_info_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -2618,17 +2741,17 @@ class register_info_t:
     @property
     def bit_strings(self) -> Any: ...
     @property
-    def default_bit_strings_mask(self) -> Any: ...
+    def default_bit_strings_mask(self) -> int: ...
     @property
-    def dtype(self) -> Any: ...
+    def dtype(self) -> op_dtype_t: ...
     @property
-    def flags(self) -> Any: ...
+    def flags(self) -> int: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
     def register_class(self) -> Any: ...
     @property
-    def register_class_mask(self) -> Any: ...
+    def register_class_mask(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -2638,24 +2761,30 @@ class register_info_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2663,16 +2792,16 @@ class register_info_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2689,10 +2818,10 @@ class register_info_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2702,14 +2831,14 @@ class register_info_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class regval_t:
     @property
-    def ival(self) -> Any: ...
+    def ival(self) -> int: ...
     @property
-    def rvtype(self) -> Any: ...
+    def rvtype(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -2718,21 +2847,27 @@ class regval_t:
         ...
     def __eq__(self, r: regval_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2740,15 +2875,15 @@ class regval_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, r: regval_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2765,10 +2900,10 @@ class regval_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2778,26 +2913,26 @@ class regval_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def bytes(self, args: Any) -> bytevec_t:
+    def bytes(self, *args: Any) -> bytevec_t:
         ...
     def clear(self) -> None:
         r"""Clear register value.
         
         """
         ...
-    def get_data(self, args: Any) -> None:
+    def get_data(self, *args: Any) -> None:
         ...
     def get_data_size(self) -> int:
         ...
     def pyval(self, dtype: op_dtype_t) -> Any:
         ...
-    def set_bytes(self, args: Any) -> bytevec_t:
+    def set_bytes(self, *args: Any) -> bytevec_t:
         ...
     def set_float(self, v: bytevec_t) -> None:
         ...
-    def set_int(self, x: uint64) -> None:
+    def set_int(self, x: int) -> None:
         ...
     def set_pyval(self, o: Any, dtype: op_dtype_t) -> bool:
         ...
@@ -2820,23 +2955,29 @@ class regvals_t:
         ...
     def __eq__(self, r: regvals_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> register_info_t:
+    def __getitem__(self, i: int) -> regval_t:
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2844,20 +2985,20 @@ class regvals_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[regval_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
     def __len__(self) -> int:
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, r: regvals_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2871,15 +3012,15 @@ class regvals_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: regval_t) -> None:
+    def __setitem__(self, i: int, v: regval_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2889,17 +3030,17 @@ class regvals_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: regval_t) -> bool:
         ...
     def append(self, x: regval_t) -> None:
         ...
-    def at(self, _idx: size_t) -> regval_t:
+    def at(self, _idx: int) -> regval_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> qvector:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -2907,35 +3048,35 @@ class regvals_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> qvector:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: regvals_t) -> None:
         ...
     def extract(self) -> regval_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: regval_t) -> bool:
         ...
-    def inject(self, s: regval_t, len: size_t) -> None:
+    def inject(self, s: regval_t, len: int) -> None:
         ...
     def insert(self, it: regval_t, x: regval_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> regval_t:
+    def push_back(self, *args: Any) -> regval_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -2946,11 +3087,11 @@ class regvals_t:
 
 class scattered_segm_t:
     @property
-    def end_ea(self) -> Any: ...
+    def end_ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def start_ea(self) -> Any: ...
+    def start_ea(self) -> ida_idaapi.ea_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -2959,19 +3100,25 @@ class scattered_segm_t:
         ...
     def __eq__(self, r: range_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, r: range_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, r: range_t) -> bool:
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2985,7 +3132,7 @@ class scattered_segm_t:
         ...
     def __ne__(self, r: range_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -3002,10 +3149,10 @@ class scattered_segm_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -3015,7 +3162,7 @@ class scattered_segm_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def clear(self) -> None:
         r"""Set start_ea, end_ea to 0.
@@ -3024,25 +3171,16 @@ class scattered_segm_t:
         ...
     def compare(self, r: range_t) -> int:
         ...
-    def contains(self, args: Any) -> bool:
-        r"""This function has the following signatures:
+    @overload
+    def contains(self, ea: ida_idaapi.ea_t) -> bool:
+        r"""Compare two range_t instances, based on the start_ea.
         
-            0. contains(ea: ida_idaapi.ea_t) -> bool
-            1. contains(r: const range_t &) -> bool
-        
-        # 0: contains(ea: ida_idaapi.ea_t) -> bool
-        
-        Compare two range_t instances, based on the start_ea.
-        
-        Is 'ea' in the address range? 
-                
-        
-        # 1: contains(r: const range_t &) -> bool
-        
-        Is every ea in 'r' also in this range_t?
-        
-        
+        Is 'ea' in the address range?
         """
+        ...
+    @overload
+    def contains(self, r: range_t) -> bool:
+        r"""Is every ea in 'r' also in this range_t?"""
         ...
     def empty(self) -> bool:
         r"""Is the size of the range_t <= 0?
@@ -3072,9 +3210,9 @@ class scattered_segm_t:
 
 class thread_name_t:
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def tid(self) -> Any: ...
+    def tid(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -3084,24 +3222,30 @@ class thread_name_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -3109,16 +3253,16 @@ class thread_name_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -3135,10 +3279,10 @@ class thread_name_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -3148,16 +3292,16 @@ class thread_name_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
-def appcall(func_ea: ida_idaapi.ea_t, tid: thid_t, _type_or_none: bytevec_t, _fields: bytevec_t, arg_list: Any) -> Any:
+def appcall(func_ea: ida_idaapi.ea_t, tid: int, _type_or_none: bytevec_t, _fields: bytevec_t, arg_list: Any) -> Any:
     ...
 
 def can_exc_continue(ev: debug_event_t) -> bool:
     ...
 
-def cleanup_appcall(tid: thid_t) -> drc_t:
+def cleanup_appcall(tid: int) -> int:
     r"""Cleanup after manual appcall. 
             
     :param tid: thread to use. NO_THREAD means to use the current thread The application state is restored as it was before calling the last appcall(). Nested appcalls are supported.
@@ -3165,7 +3309,7 @@ def cleanup_appcall(tid: thid_t) -> drc_t:
     """
     ...
 
-def cpu2ieee(ieee_out: fpvalue_t, cpu_fpval: void, size: int) -> int:
+def cpu2ieee(ieee_out: fpvalue_t, cpu_fpval: Any, size: int) -> int:
     r"""Convert a floating point number in CPU native format to IDA's internal format. 
             
     :param ieee_out: output buffer
@@ -3175,7 +3319,7 @@ def cpu2ieee(ieee_out: fpvalue_t, cpu_fpval: void, size: int) -> int:
     """
     ...
 
-def dbg_appcall(retval: idc_value_t, func_ea: ida_idaapi.ea_t, tid: thid_t, ptif: tinfo_t, argv: idc_value_t, argnum: size_t) -> error_t:
+def dbg_appcall(retval: idc_value_t, func_ea: ida_idaapi.ea_t, tid: int, ptif: tinfo_t, argv: idc_value_t, argnum: int) -> int:
     r"""Call a function from the debugged application. 
             
     :param retval: function return value
@@ -3190,7 +3334,7 @@ def dbg_appcall(retval: idc_value_t, func_ea: ida_idaapi.ea_t, tid: thid_t, ptif
     """
     ...
 
-def dbg_can_query(*args: Any, **kwargs: Any) -> Any:
+def dbg_can_query() -> Any:
     ...
 
 def dbg_get_memory_info() -> Any:
@@ -3256,7 +3400,7 @@ def get_debug_event_name(dev: debug_event_t) -> str:
 def get_event_bpt_hea(ev: debug_event_t) -> ida_idaapi.ea_t:
     ...
 
-def get_event_exc_code(ev: debug_event_t) -> uint:
+def get_event_exc_code(ev: debug_event_t) -> int:
     ...
 
 def get_event_exc_ea(ev: debug_event_t) -> ida_idaapi.ea_t:
@@ -3277,7 +3421,7 @@ def get_event_module_name(ev: debug_event_t) -> str:
 def get_event_module_size(ev: debug_event_t) -> int:
     ...
 
-def ieee2cpu(cpu_fpval_out: void, ieee: fpvalue_t, size: int) -> int:
+def ieee2cpu(cpu_fpval_out: Any, ieee: fpvalue_t, size: int) -> int:
     r"""Convert a floating point number in IDA's internal format to CPU native format. 
             
     :param cpu_fpval_out: output buffer
@@ -3293,7 +3437,7 @@ def set_debug_event_code(ev: debug_event_t, id: event_id_t) -> None:
 APPCALL_DEBEV: int  # 2
 APPCALL_MANUAL: int  # 1
 APPCALL_TIMEOUT: int  # 4
-Appcall: Appcall__  # <ida_idd.Appcall__ object at 0x717729761cf0>
+Appcall: Appcall__  # <ida_idd.Appcall__ object at 0x000001FCDDBF0EC0>
 BBLK_TRACE: int  # 8
 BITNESS_CHANGED: int  # -2147483648
 BPT_BAD_ADDR: int  # 4
@@ -3468,7 +3612,7 @@ SWIG_PYTHON_LEGACY_BOOL: int  # 1
 THREAD_EXITED: int  # 4
 THREAD_STARTED: int  # 3
 TRACE_FULL: int  # 14
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 cvar: swigvarlink
 ida_idaapi: module
 ida_range: module

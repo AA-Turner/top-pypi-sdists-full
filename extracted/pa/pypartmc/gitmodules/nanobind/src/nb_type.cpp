@@ -10,6 +10,8 @@
 #include "nb_internals.h"
 #include "nb_ft.h"
 
+#include <structmember.h>
+
 #if defined(_MSC_VER)
 #  pragma warning(disable: 4706) // assignment within conditional expression
 #endif

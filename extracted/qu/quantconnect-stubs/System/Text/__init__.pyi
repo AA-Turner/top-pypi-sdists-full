@@ -12,21 +12,37 @@ import System.Text
 
 System_Text_RunePosition = typing.Any
 
+System_Text_StringBuilder_AppendJoin_T = typing.TypeVar("System_Text_StringBuilder_AppendJoin_T")
+System_Text_StringBuilder_AppendFormat_TArg0 = typing.TypeVar("System_Text_StringBuilder_AppendFormat_TArg0")
+System_Text_StringBuilder_AppendFormat_TArg1 = typing.TypeVar("System_Text_StringBuilder_AppendFormat_TArg1")
+System_Text_StringBuilder_AppendFormat_TArg2 = typing.TypeVar("System_Text_StringBuilder_AppendFormat_TArg2")
+System_Text_StringBuilder_AppendFormatted_AppendInterpolatedStringHandler_T = typing.TypeVar("System_Text_StringBuilder_AppendFormatted_AppendInterpolatedStringHandler_T")
 
-class StringBuilderRuneEnumerator(System.Collections.Generic.IEnumerable[System.Text.Rune], System.Collections.Generic.IEnumerator[System.Text.Rune], typing.Iterable[System.Text.Rune]):
-    """This class has no documentation."""
 
-    @property
-    def current(self) -> System.Text.Rune:
+class _Typed_StringBuilder_AppendJoin(typing.Generic[System_Text_StringBuilder_AppendJoin_T]):
+    """"""
+
+    @overload
+    def __call__(self, separator: str, values: System.Collections.Generic.IEnumerable[System_Text_StringBuilder_AppendJoin_T]) -> System.Text.StringBuilder:
         ...
 
-    def __iter__(self) -> typing.Iterator[System.Text.Rune]:
+    @overload
+    def __call__(self, separator: str, values: System.Collections.Generic.IEnumerable[System_Text_StringBuilder_AppendJoin_T]) -> System.Text.StringBuilder:
         ...
 
-    def get_enumerator(self) -> System.Text.StringBuilderRuneEnumerator:
+
+class _StringBuilder_AppendJoin:
+    """"""
+
+    @overload
+    def __call__(self, separator: str, *values: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Text.StringBuilder:
         ...
 
-    def move_next(self) -> bool:
+    @overload
+    def __call__(self, separator: str, *values: typing.Union[str, typing.Iterable[str]]) -> System.Text.StringBuilder:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Text_StringBuilder_AppendJoin_T]) -> System.Text._Typed_StringBuilder_AppendJoin[System_Text_StringBuilder_AppendJoin_T]:
         ...
 
 
@@ -43,6 +59,82 @@ class CompositeFormat(System.Object):
 
     @staticmethod
     def parse(format: str) -> System.Text.CompositeFormat:
+        ...
+
+
+class _Typed_StringBuilder_AppendFormat(typing.Generic[System_Text_StringBuilder_AppendFormat_TArg0]):
+    """"""
+
+    @overload
+    def __call__(self, provider: System.IFormatProvider, format: System.Text.CompositeFormat, arg_0: System_Text_StringBuilder_AppendFormat_TArg0) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def __call__(self, provider: System.IFormatProvider, format: System.Text.CompositeFormat, arg_0: System_Text_StringBuilder_AppendFormat_TArg0, arg_1: System_Text_StringBuilder_AppendFormat_TArg1) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def __call__(self, provider: System.IFormatProvider, format: System.Text.CompositeFormat, arg_0: System_Text_StringBuilder_AppendFormat_TArg0, arg_1: System_Text_StringBuilder_AppendFormat_TArg1, arg_2: System_Text_StringBuilder_AppendFormat_TArg2) -> System.Text.StringBuilder:
+        ...
+
+
+class _StringBuilder_AppendFormat:
+    """"""
+
+    @overload
+    def __call__(self, format: str, arg_0: typing.Any) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def __call__(self, format: str, arg_0: typing.Any, arg_1: typing.Any) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def __call__(self, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def __call__(self, format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def __call__(self, provider: System.IFormatProvider, format: str, arg_0: typing.Any) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def __call__(self, provider: System.IFormatProvider, format: str, arg_0: typing.Any, arg_1: typing.Any) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def __call__(self, provider: System.IFormatProvider, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def __call__(self, provider: System.IFormatProvider, format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def __call__(self, provider: System.IFormatProvider, format: System.Text.CompositeFormat, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Text.StringBuilder:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Text_StringBuilder_AppendFormat_TArg0]) -> System.Text._Typed_StringBuilder_AppendFormat[System_Text_StringBuilder_AppendFormat_TArg0]:
+        ...
+
+
+class StringBuilderRuneEnumerator(System.Collections.Generic.IEnumerable[System.Text.Rune], System.Collections.Generic.IEnumerator[System.Text.Rune], typing.Iterable[System.Text.Rune]):
+    """This class has no documentation."""
+
+    @property
+    def current(self) -> System.Text.Rune:
+        ...
+
+    def __iter__(self) -> typing.Iterator[System.Text.Rune]:
+        ...
+
+    def get_enumerator(self) -> System.Text.StringBuilderRuneEnumerator:
+        ...
+
+    def move_next(self) -> bool:
         ...
 
 
@@ -65,32 +157,16 @@ class StringBuilder(System.Object, System.Runtime.Serialization.ISerializable):
     class AppendInterpolatedStringHandler:
         """This class has no documentation."""
 
+        @property
+        def append_formatted(self) -> System.Text._StringBuilder.AppendInterpolatedStringHandler_AppendFormatted:
+            ...
+
         @overload
         def __init__(self, literal_length: int, formatted_count: int, string_builder: System.Text.StringBuilder) -> None:
             ...
 
         @overload
         def __init__(self, literal_length: int, formatted_count: int, string_builder: System.Text.StringBuilder, provider: System.IFormatProvider) -> None:
-            ...
-
-        @overload
-        def append_formatted(self, value: System.ReadOnlySpan[str]) -> None:
-            ...
-
-        @overload
-        def append_formatted(self, value: System.ReadOnlySpan[str], alignment: int = 0, format: str = None) -> None:
-            ...
-
-        @overload
-        def append_formatted(self, value: str) -> None:
-            ...
-
-        @overload
-        def append_formatted(self, value: str, alignment: int = 0, format: str = None) -> None:
-            ...
-
-        @overload
-        def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> None:
             ...
 
         def append_literal(self, value: str) -> None:
@@ -114,6 +190,14 @@ class StringBuilder(System.Object, System.Runtime.Serialization.ISerializable):
 
     @length.setter
     def length(self, value: int) -> None:
+        ...
+
+    @property
+    def append_join(self) -> System.Text._StringBuilder_AppendJoin:
+        ...
+
+    @property
+    def append_format(self) -> System.Text._StringBuilder_AppendFormat:
         ...
 
     def __getitem__(self, index: int) -> str:
@@ -212,50 +296,6 @@ class StringBuilder(System.Object, System.Runtime.Serialization.ISerializable):
 
     @overload
     def append(self, value: typing.Any, value_count: int) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, format: str, arg_0: typing.Any) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, format: str, arg_0: typing.Any, arg_1: typing.Any) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, provider: System.IFormatProvider, format: str, arg_0: typing.Any) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, provider: System.IFormatProvider, format: str, arg_0: typing.Any, arg_1: typing.Any) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, provider: System.IFormatProvider, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, provider: System.IFormatProvider, format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, provider: System.IFormatProvider, format: System.Text.CompositeFormat, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_join(self, separator: str, *values: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_join(self, separator: str, *values: typing.Union[str, typing.Iterable[str]]) -> System.Text.StringBuilder:
         ...
 
     @overload
@@ -1933,6 +1973,53 @@ class StringRuneEnumerator(System.Collections.Generic.IEnumerable[System.Text.Ru
         ...
 
     def move_next(self) -> bool:
+        ...
+
+
+class AppendInterpolatedStringHandler_AppendFormatted:
+    """"""
+
+    @overload
+    def __call__(self, value: System.ReadOnlySpan[str]) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: System.ReadOnlySpan[str], alignment: int = 0, format: str = None) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: str) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: str, alignment: int = 0, format: str = None) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: typing.Any, alignment: int = 0, format: str = None) -> None:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Text_StringBuilder_AppendFormatted_AppendInterpolatedStringHandler_T]) -> System.Text._Typed_StringBuilder.AppendInterpolatedStringHandler_AppendFormatted[System_Text_StringBuilder_AppendFormatted_AppendInterpolatedStringHandler_T]:
+        ...
+
+
+class AppendInterpolatedStringHandler_AppendFormatted(typing.Generic[System_Text_StringBuilder_AppendFormatted_AppendInterpolatedStringHandler_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Text_StringBuilder_AppendFormatted_AppendInterpolatedStringHandler_T) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: System_Text_StringBuilder_AppendFormatted_AppendInterpolatedStringHandler_T, format: str) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: System_Text_StringBuilder_AppendFormatted_AppendInterpolatedStringHandler_T, alignment: int) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: System_Text_StringBuilder_AppendFormatted_AppendInterpolatedStringHandler_T, alignment: int, format: str) -> None:
         ...
 
 

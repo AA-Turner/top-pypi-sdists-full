@@ -120,7 +120,7 @@ class PortfolioConstructionModel(System.Object, QuantConnect.Algorithm.Framework
         The algorithm instance
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -132,7 +132,7 @@ class PortfolioConstructionModel(System.Object, QuantConnect.Algorithm.Framework
         run the python implementation unless the call is performed through python too.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -176,7 +176,7 @@ class PortfolioConstructionModel(System.Object, QuantConnect.Algorithm.Framework
         Will determine the target percent for each insight
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param active_insights: The active insights to generate a target for
         :returns: A target percent for each insight.
@@ -190,7 +190,7 @@ class PortfolioConstructionModel(System.Object, QuantConnect.Algorithm.Framework
         implementations to filter Insight instances with an invalid
         Insight.magnitude value based on the IAlgorithmSettings
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param algorithm: The algorithm instance
         :param insights: The insight collection to filter
@@ -203,7 +203,7 @@ class PortfolioConstructionModel(System.Object, QuantConnect.Algorithm.Framework
         Gets the target insights to calculate a portfolio target percent for
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: An enumerable of the target insights.
         """
@@ -216,7 +216,7 @@ class PortfolioConstructionModel(System.Object, QuantConnect.Algorithm.Framework
         If the rebalancing function has not been provided will return true.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param insights: The insights to create portfolio targets from
         :param algorithm_utc: The current algorithm UTC time
@@ -238,7 +238,7 @@ class PortfolioConstructionModel(System.Object, QuantConnect.Algorithm.Framework
         Refresh the next rebalance time and clears the security changes flag
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -247,7 +247,7 @@ class PortfolioConstructionModel(System.Object, QuantConnect.Algorithm.Framework
         Used to set the PortfolioConstructionModelPythonWrapper instance if any
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -260,7 +260,7 @@ class PortfolioConstructionModel(System.Object, QuantConnect.Algorithm.Framework
         For performance we prefer python algorithms using the C# implementation
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param rebalance: Rebalancing func or if a date rule, timedelta will be converted into func.
         For a given algorithm UTC DateTime the func returns the next expected rebalance time
@@ -275,7 +275,7 @@ class PortfolioConstructionModel(System.Object, QuantConnect.Algorithm.Framework
         target for this insight
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param insight: The insight to create a target for
         :returns: True if the portfolio should create a target for the insight.
@@ -376,7 +376,7 @@ class EqualWeightingPortfolioConstructionModel(QuantConnect.Algorithm.Framework.
         Will determine the target percent for each insight
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param active_insights: The active insights to generate a target for
         :returns: A target percent for each insight.
@@ -388,7 +388,7 @@ class EqualWeightingPortfolioConstructionModel(QuantConnect.Algorithm.Framework.
         Method that will determine if a given insight respects the portfolio bias
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param insight: The insight to create a target for
         :returns: True if the insight respects the portfolio bias.
@@ -473,7 +473,7 @@ class SectorWeightingPortfolioConstructionModel(QuantConnect.Algorithm.Framework
         Will determine the target percent for each insight
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param active_insights: The active insights to generate a target for
         :returns: A target percent for each insight.
@@ -485,7 +485,7 @@ class SectorWeightingPortfolioConstructionModel(QuantConnect.Algorithm.Framework
         Gets the sector code
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param security: The security to create a sector code for
         :returns: The value of the sector code for the security.
@@ -507,7 +507,7 @@ class SectorWeightingPortfolioConstructionModel(QuantConnect.Algorithm.Framework
         target for this insight
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param insight: The insight to create a target for
         :returns: True if the portfolio should create a target for the insight.
@@ -640,7 +640,7 @@ class MeanVarianceOptimizationPortfolioConstructionModel(QuantConnect.Algorithm.
         Will determine the target percent for each insight
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param active_insights: The active insights to generate a target for
         :returns: A target percent for each insight.
@@ -662,7 +662,7 @@ class MeanVarianceOptimizationPortfolioConstructionModel(QuantConnect.Algorithm.
         target for this insight
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param insight: The insight to create a target for
         :returns: True if the portfolio should create a target for the insight.
@@ -859,7 +859,7 @@ class AccumulativeInsightPortfolioConstructionModel(QuantConnect.Algorithm.Frame
         Determines the target percent for each insight
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param active_insights: The active insights to generate a target for
         :returns: A target percent for each insight.
@@ -871,7 +871,7 @@ class AccumulativeInsightPortfolioConstructionModel(QuantConnect.Algorithm.Frame
         Gets the target insights to calculate a portfolio target percent for
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: An enumerable of the target insights.
         """
@@ -977,7 +977,7 @@ class InsightWeightingPortfolioConstructionModel(QuantConnect.Algorithm.Framewor
         Will determine the target percent for each insight
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param active_insights: The active insights to generate a target for
         :returns: A target percent for each insight.
@@ -989,7 +989,7 @@ class InsightWeightingPortfolioConstructionModel(QuantConnect.Algorithm.Framewor
         Method that will determine which member will be used to compute the weights and gets its value
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param insight: The insight to create a target for
         :returns: The value of the selected insight member.
@@ -1002,7 +1002,7 @@ class InsightWeightingPortfolioConstructionModel(QuantConnect.Algorithm.Framewor
         target for this insight
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param insight: The insight to create a target for
         :returns: True if the portfolio should create a target for the insight.
@@ -1094,7 +1094,7 @@ class ConfidenceWeightedPortfolioConstructionModel(QuantConnect.Algorithm.Framew
         Method that will determine which member will be used to compute the weights and gets its value
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param insight: The insight to create a target for
         :returns: The value of the selected insight member.
@@ -1107,7 +1107,7 @@ class ConfidenceWeightedPortfolioConstructionModel(QuantConnect.Algorithm.Framew
         target for this insight
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param insight: The insight to create a target for
         :returns: True if the portfolio should create a target for the insight.
@@ -1137,7 +1137,7 @@ class MaximumSharpeRatioPortfolioOptimizer(System.Object, QuantConnect.Algorithm
         Boundary constraints on weights: lw ≤ w ≤ up
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param size: number of variables
         :returns: enumeration of linear constraint objects.
@@ -1149,7 +1149,7 @@ class MaximumSharpeRatioPortfolioOptimizer(System.Object, QuantConnect.Algorithm
         Sum of all weight is one: 1^T w = 1 / Σw = 1
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param size: number of variables
         :returns: linear constraint object.
@@ -1266,7 +1266,7 @@ class RiskParityPortfolioConstructionModel(QuantConnect.Algorithm.Framework.Port
         Will determine the target percent for each insight
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param active_insights: The active insights to generate a target for
         :returns: A target percent for each insight.
@@ -1386,7 +1386,7 @@ class MeanReversionPortfolioConstructionModel(QuantConnect.Algorithm.Framework.P
         Will determine the target percent for each insight
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param active_insights: list of active insights
         """
@@ -1397,7 +1397,7 @@ class MeanReversionPortfolioConstructionModel(QuantConnect.Algorithm.Framework.P
         Get price relatives with reference level of SMA
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param active_insights: list of active insights
         """
@@ -1445,7 +1445,7 @@ class MinimumVariancePortfolioOptimizer(System.Object, QuantConnect.Algorithm.Fr
         Boundary constraints on weights: lw ≤ w ≤ up
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param size: number of variables
         :returns: enumeration of linear constaraint objects.
@@ -1457,7 +1457,7 @@ class MinimumVariancePortfolioOptimizer(System.Object, QuantConnect.Algorithm.Fr
         Sum of all weight is one: 1^T w = 1 / Σw = 1
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param size: number of variables
         :returns: linear constaraint object.
@@ -1507,7 +1507,7 @@ class RiskParityPortfolioOptimizer(System.Object, QuantConnect.Algorithm.Framewo
         Newton method of minimization
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param number_of_variables: The number of variables (size of weight vector).
         :param covariance: Covariance matrix (size: K x K).
@@ -1644,7 +1644,7 @@ class BlackLittermanOptimizationPortfolioConstructionModel(QuantConnect.Algorith
         Will determine the target percent for each insight
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param active_insights: The active insights to generate a target for
         :returns: A target percent for each insight.
@@ -1666,7 +1666,7 @@ class BlackLittermanOptimizationPortfolioConstructionModel(QuantConnect.Algorith
         Gets the target insights to calculate a portfolio target percent for
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: An enumerable of the target insights.
         """
@@ -1687,7 +1687,7 @@ class BlackLittermanOptimizationPortfolioConstructionModel(QuantConnect.Algorith
         target for this insight
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param insight: The insight to create a target for
         :returns: True if the portfolio should create a target for the insight.
@@ -1699,7 +1699,7 @@ class BlackLittermanOptimizationPortfolioConstructionModel(QuantConnect.Algorith
         Generate views from multiple alpha models
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param insights: Array of insight that represent the investors' views
         :param p: A matrix that identifies the assets involved in the views (size: K x N)
@@ -1752,7 +1752,7 @@ class PortfolioConstructionModelPythonWrapper(QuantConnect.Algorithm.Framework.P
         Will determine the target percent for each insight
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param active_insights: The active insights to generate a target for
         :returns: A target percent for each insight.
@@ -1764,7 +1764,7 @@ class PortfolioConstructionModelPythonWrapper(QuantConnect.Algorithm.Framework.P
         Gets the target insights to calculate a portfolio target percent for
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: An enumerable of the target insights.
         """
@@ -1777,7 +1777,7 @@ class PortfolioConstructionModelPythonWrapper(QuantConnect.Algorithm.Framework.P
         If the rebalancing function has not been provided will return true.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param insights: The insights to create portfolio targets from
         :param algorithm_utc: The current algorithm UTC time
@@ -1800,7 +1800,7 @@ class PortfolioConstructionModelPythonWrapper(QuantConnect.Algorithm.Framework.P
         target for this insight
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param insight: The insight to create a target for
         :returns: True if the portfolio should create a target for the insight.

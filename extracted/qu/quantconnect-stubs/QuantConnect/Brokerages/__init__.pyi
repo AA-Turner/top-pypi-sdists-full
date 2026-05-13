@@ -6,8 +6,10 @@ import typing
 import warnings
 
 import QuantConnect
+import QuantConnect.Api
 import QuantConnect.Benchmarks
 import QuantConnect.Brokerages
+import QuantConnect.Brokerages.Authentication
 import QuantConnect.Brokerages.CrossZero
 import QuantConnect.Data
 import QuantConnect.Data.Market
@@ -30,6 +32,8 @@ QuantConnect_Brokerages_IOrderBookUpdater_V = typing.TypeVar("QuantConnect_Broke
 QuantConnect_Brokerages_BrokerageConcurrentMessageHandler_T = typing.TypeVar("QuantConnect_Brokerages_BrokerageConcurrentMessageHandler_T")
 QuantConnect_Brokerages__EventContainer_Callable = typing.TypeVar("QuantConnect_Brokerages__EventContainer_Callable")
 QuantConnect_Brokerages__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Brokerages__EventContainer_ReturnType")
+QuantConnect_Brokerages_BrokerageFactory_Read_T = typing.TypeVar("QuantConnect_Brokerages_BrokerageFactory_Read_T")
+QuantConnect_Brokerages_Brokerage_CreateOAuthTokenHandler_T = typing.TypeVar("QuantConnect_Brokerages_Brokerage_CreateOAuthTokenHandler_T")
 
 
 class WebSocketError(System.Object):
@@ -301,7 +305,7 @@ class WebSocketClientWrapper(System.Object, QuantConnect.Brokerages.IWebSocket):
         Event invocator for the close event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -310,7 +314,7 @@ class WebSocketClientWrapper(System.Object, QuantConnect.Brokerages.IWebSocket):
         Event invocator for the error event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: 
         """
@@ -321,7 +325,7 @@ class WebSocketClientWrapper(System.Object, QuantConnect.Brokerages.IWebSocket):
         Event invocator for the message event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -330,7 +334,7 @@ class WebSocketClientWrapper(System.Object, QuantConnect.Brokerages.IWebSocket):
         Event invocator for the open event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -340,6 +344,34 @@ class WebSocketClientWrapper(System.Object, QuantConnect.Brokerages.IWebSocket):
         
         :param data: 
         """
+        ...
+
+
+class _Typed_Brokerage_CreateOAuthTokenHandler(typing.Generic[QuantConnect_Brokerages_Brokerage_CreateOAuthTokenHandler_T]):
+    """"""
+
+    @overload
+    def __call__(self, api_client: QuantConnect.Api.ApiConnection, request: QuantConnect.Brokerages.Authentication.OAuthTokenRequest, token_lifetime: datetime.timedelta) -> QuantConnect.Brokerages.Authentication.LeanOAuthTokenHandler[QuantConnect_Brokerages_Brokerage_CreateOAuthTokenHandler_T]:
+        """
+        Creates a LeanOAuthTokenHandler and automatically wires it so that
+        authentication failures trigger a brokerage error message, causing Lean to shut down gracefully.
+        
+        
+        This Class is protected.
+        
+        :param api_client: The API client used to communicate with the Lean platform.
+        :param request: The request model used to generate the access token.
+        :param token_lifetime: The expected lifetime of a fetched token. A 1-minute safety buffer is applied before expiry.
+        Must be provided explicitly — each brokerage has a different token lifetime.
+        :returns: A configured LeanOAuthTokenHandler instance.
+        """
+        ...
+
+
+class _Brokerage_CreateOAuthTokenHandler:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Brokerages_Brokerage_CreateOAuthTokenHandler_T]) -> QuantConnect.Brokerages._Typed_Brokerage_CreateOAuthTokenHandler[QuantConnect_Brokerages_Brokerage_CreateOAuthTokenHandler_T]:
         ...
 
 
@@ -644,7 +676,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         Gets the date of the last sync (New York time zone)
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -659,8 +691,12 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         A thread-safe dictionary that maps brokerage order IDs to their corresponding Order objects.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
+        ...
+
+    @property
+    def create_o_auth_token_handler(self) -> QuantConnect.Brokerages._Brokerage_CreateOAuthTokenHandler:
         ...
 
     def __init__(self, name: str) -> None:
@@ -668,7 +704,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         Creates a new Brokerage instance with the specified name
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: The name of the brokerage
         """
@@ -701,7 +737,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         Helper method that will try to get the live holdings from the provided brokerage data collection else will default to the algorithm state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -720,7 +756,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         Helper method that will try to get the live cash balance from the provided brokerage data collection else will default to the algorithm state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -759,7 +795,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         (e.g. Tradier differentiates Buy/Sell and BuyToOpen/BuyToCover/SellShort/SellToClose)
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param order_direction: The order direction
         :param holdings_quantity: The current holdings quantity
@@ -772,7 +808,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         Event invocator for the AccountChanged event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: The AccountEvent
         """
@@ -783,7 +819,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         Event invocator for the DelistingNotification event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: The DelistingNotification event arguments
         """
@@ -794,7 +830,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         Event invocator for the Message event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: The error
         """
@@ -805,7 +841,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         Event invocator for the NewBrokerageOrderNotification event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: The NewBrokerageOrderNotification event arguments
         """
@@ -816,7 +852,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         Event invocator for the OptionNotification event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: The OptionNotification event arguments
         """
@@ -827,7 +863,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         Event invocator for the OptionPositionAssigned event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: The OrderEvent
         """
@@ -838,7 +874,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         Event invocator for the OrderFilled event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: The order event
         """
@@ -849,7 +885,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         Event invocator for the OrderFilled event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param order_events: The list of order events
         """
@@ -860,7 +896,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         Event invocator for the OrderIdChanged event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: The BrokerageOrderIdChangedEvent
         """
@@ -871,7 +907,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         Event invocator for the OrderUpdated event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: The update event
         """
@@ -894,7 +930,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         This method should be overridden in a derived class to implement brokerage-specific logic for placing such orders.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param cross_zero_order_request: The request object containing details of the cross zero order to be placed.
         :param is_place_order_with_lean_event: A boolean indicating whether the order should be placed with triggering a Lean event.
@@ -928,7 +964,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         this method handles the split and placement accordingly.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param order: The order to be placed. Must not be null.
         :param holding_quantity: The current holding quantity of the order's symbol.
@@ -941,7 +977,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         Attempts to retrieve or remove a cross-zero order based on the brokerage order ID and its filled status.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param brokerage_order_id: The unique identifier of the brokerage order.
         :param lean_order_status: The updated status of the order received from the brokerage
@@ -957,7 +993,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         Determines whether the given Lean order crosses zero quantity based on the initial order quantity.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param lean_order: The Lean order to check.
         :param quantity: The quantity to be updated based on whether the order crosses zero.
@@ -970,7 +1006,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         Attempts to handle any remaining orders that cross the zero boundary.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param lean_order: The order object that needs to be processed.
         :param order_event: The event object containing order event details.
@@ -996,7 +1032,7 @@ class BaseWebsocketsBrokerage(QuantConnect.Brokerages.Brokerage, metaclass=abc.A
         True if the current brokerage is already initialized
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1010,7 +1046,7 @@ class BaseWebsocketsBrokerage(QuantConnect.Brokerages.Brokerage, metaclass=abc.A
         The websockets client instance
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1024,7 +1060,7 @@ class BaseWebsocketsBrokerage(QuantConnect.Brokerages.Brokerage, metaclass=abc.A
         The rest client instance
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         
         RestClient is deprecated. Use HttpClient property instead
         """
@@ -1040,7 +1076,7 @@ class BaseWebsocketsBrokerage(QuantConnect.Brokerages.Brokerage, metaclass=abc.A
         The HTTP client instance
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1054,7 +1090,7 @@ class BaseWebsocketsBrokerage(QuantConnect.Brokerages.Brokerage, metaclass=abc.A
         standard json parsing settings
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1077,7 +1113,7 @@ class BaseWebsocketsBrokerage(QuantConnect.Brokerages.Brokerage, metaclass=abc.A
         The api secret
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1091,7 +1127,7 @@ class BaseWebsocketsBrokerage(QuantConnect.Brokerages.Brokerage, metaclass=abc.A
         The api key
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1105,7 +1141,7 @@ class BaseWebsocketsBrokerage(QuantConnect.Brokerages.Brokerage, metaclass=abc.A
         Count subscribers for each (symbol, tickType) combination
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1118,7 +1154,7 @@ class BaseWebsocketsBrokerage(QuantConnect.Brokerages.Brokerage, metaclass=abc.A
         Creates an instance of a websockets brokerage
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: Name of brokerage
         """
@@ -1133,7 +1169,7 @@ class BaseWebsocketsBrokerage(QuantConnect.Brokerages.Brokerage, metaclass=abc.A
         Start websocket connect
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1142,7 +1178,7 @@ class BaseWebsocketsBrokerage(QuantConnect.Brokerages.Brokerage, metaclass=abc.A
         Gets a list of current subscriptions
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1151,7 +1187,7 @@ class BaseWebsocketsBrokerage(QuantConnect.Brokerages.Brokerage, metaclass=abc.A
         Initialize the instance of this class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param wss_url: The web socket base url
         :param websocket: Instance of websockets client
@@ -1166,7 +1202,7 @@ class BaseWebsocketsBrokerage(QuantConnect.Brokerages.Brokerage, metaclass=abc.A
         Handles websocket received messages
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param sender: 
         :param e: 
@@ -1178,10 +1214,31 @@ class BaseWebsocketsBrokerage(QuantConnect.Brokerages.Brokerage, metaclass=abc.A
         Handles the creation of websocket subscriptions
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param symbols: 
         """
+        ...
+
+
+class _Typed_BrokerageFactory_Read(typing.Generic[QuantConnect_Brokerages_BrokerageFactory_Read_T]):
+    """"""
+
+    @overload
+    def __call__(self, brokerage_data: typing.Dict[str, str], key: str, errors: System.Collections.Generic.ICollection[str]) -> QuantConnect_Brokerages_BrokerageFactory_Read_T:
+        """
+        Reads a value from the brokerage data, adding an error if the key is not found
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class _BrokerageFactory_Read:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Brokerages_BrokerageFactory_Read_T]) -> QuantConnect.Brokerages._Typed_BrokerageFactory_Read[QuantConnect_Brokerages_BrokerageFactory_Read_T]:
         ...
 
 
@@ -1375,11 +1432,13 @@ class BrokerageFactory(System.Object, QuantConnect.Interfaces.IBrokerageFactory,
         """Gets the brokerage data required to run the brokerage from configuration/disk"""
         ...
 
+    read: QuantConnect.Brokerages._BrokerageFactory_Read
+
     def __init__(self, brokerage_type: typing.Type) -> None:
         """
         Initializes a new instance of the BrokerageFactory class for the specified brokerage_type
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param brokerage_type: The type of brokerage created by this factory
         """
@@ -1738,7 +1797,7 @@ class DefaultConnectionHandler(System.Object, QuantConnect.Brokerages.IConnectio
         Event invocator for the connection_lost event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1747,7 +1806,7 @@ class DefaultConnectionHandler(System.Object, QuantConnect.Brokerages.IConnectio
         Event invocator for the connection_restored event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1756,7 +1815,7 @@ class DefaultConnectionHandler(System.Object, QuantConnect.Brokerages.IConnectio
         Event invocator for the reconnect_requested event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1790,7 +1849,7 @@ class BrokerageMultiWebSocketSubscriptionManager(QuantConnect.Data.EventBasedDat
         Subscribes to the symbols
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param symbols: Symbols to subscribe
         :param tick_type: Type of tick data
@@ -1802,7 +1861,7 @@ class BrokerageMultiWebSocketSubscriptionManager(QuantConnect.Data.EventBasedDat
         Unsubscribes from the symbols
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param symbols: Symbols to subscribe
         :param tick_type: Type of tick data
@@ -1952,7 +2011,7 @@ class DefaultOrderBook(System.Object, QuantConnect.Brokerages.IOrderBookUpdater[
         Represents bid prices and sizes
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1962,7 +2021,7 @@ class DefaultOrderBook(System.Object, QuantConnect.Brokerages.IOrderBookUpdater[
         Represents ask prices and sizes
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -2330,7 +2389,7 @@ class BinanceBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         The base Binance API endpoint URL.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -2340,7 +2399,7 @@ class BinanceBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         Market name
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -2396,7 +2455,7 @@ class BinanceBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         Returns a readonly dictionary of binance default markets
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2429,7 +2488,7 @@ class BinanceFuturesBrokerageModel(QuantConnect.Brokerages.BinanceBrokerageModel
         Creates the crypto future margin model for the given security
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param security: The security to create the margin model for
         :returns: The margin model instance.
@@ -2487,7 +2546,7 @@ class BinanceCoinFuturesBrokerageModel(QuantConnect.Brokerages.BinanceFuturesBro
         Creates the crypto future margin model for the given security
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param security: The security to create the margin model for
         :returns: The margin model instance.
@@ -2580,7 +2639,7 @@ class CoinbaseBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         Gets the default markets for different security types, with an option to override the market name for Crypto securities.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param market_name: The default market name for Crypto securities.
         :returns: A read-only dictionary where the keys are SecurityType and the values are market names.
@@ -2608,7 +2667,7 @@ class CoinbaseBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         Returns true if the order size is large enough for the given security.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param security: The security of the order
         :param order_quantity: The order quantity
@@ -2889,7 +2948,7 @@ class FTXBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         market name
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -2947,7 +3006,7 @@ class FTXBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         Returns a readonly dictionary of FTX default markets
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2979,7 +3038,7 @@ class FTXUSBrokerageModel(QuantConnect.Brokerages.FTXBrokerageModel):
         Market name
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -3786,7 +3845,7 @@ class InteractiveBrokersBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageM
         Supported time in force
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -3796,7 +3855,7 @@ class InteractiveBrokersBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageM
         Supported order types
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -3889,7 +3948,7 @@ class InteractiveBrokersFixModel(QuantConnect.Brokerages.InteractiveBrokersBroke
         Supported time in force
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -3899,7 +3958,7 @@ class InteractiveBrokersFixModel(QuantConnect.Brokerages.InteractiveBrokersBroke
         Supported order types
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -4097,7 +4156,7 @@ class BybitBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         Market name
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -4178,7 +4237,7 @@ class BybitBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         Returns true if the order size is large enough for the given security.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param security: The security of the order
         :param order_quantity: The order quantity
@@ -4321,7 +4380,7 @@ class BinanceUSBrokerageModel(QuantConnect.Brokerages.BinanceBrokerageModel):
         The base Binance Futures API endpoint URL.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -4331,7 +4390,7 @@ class BinanceUSBrokerageModel(QuantConnect.Brokerages.BinanceBrokerageModel):
         Market name
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 

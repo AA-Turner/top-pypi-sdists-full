@@ -22,7 +22,6 @@ netmiko requirements. So installation of pysnmp might be required.
 """
 
 from typing import Optional, Dict, List
-from typing.re import Pattern
 import asyncio
 import re
 import socket
@@ -133,6 +132,11 @@ SNMP_MAPPER_BASE = {
         "expr": re.compile(r".*RouterOS.*", re.IGNORECASE),
         "priority": 60,
     },
+    "hirschmann_hios": {
+        "oid": ".1.3.6.1.2.1.1.1.0",
+        "expr": re.compile(r".*Hirschmann BOBCAT.*"),
+        "priority": 60,
+    },
 }
 
 # Ensure all SNMP device types are supported by Netmiko
@@ -173,16 +177,17 @@ def identify_address_type(entry: str) -> List[str]:
         addrinfo = socket.getaddrinfo(entry, None)
         for info in addrinfo:
             ip = info[4][0]
-            try:
-                socket.inet_pton(socket.AF_INET, ip)
-                ip_types.append("IPv4")
-            except socket.error:
-                pass
-            try:
-                socket.inet_pton(socket.AF_INET6, ip)
-                ip_types.append("IPv6")
-            except socket.error:
-                pass
+            if isinstance(ip, str):
+                try:
+                    socket.inet_pton(socket.AF_INET, ip)
+                    ip_types.append("IPv4")
+                except socket.error:
+                    pass
+                try:
+                    socket.inet_pton(socket.AF_INET6, ip)
+                    ip_types.append("IPv6")
+                except socket.error:
+                    pass
     except socket.gaierror:
         pass
     return ip_types
@@ -460,14 +465,16 @@ class SNMPDetect(object):
         for k, v in SNMP_MAPPER.items():
             snmp_mapper_orig.append({k: v})
         snmp_mapper_list = sorted(
-            snmp_mapper_orig, key=lambda x: list(x.values())[0]["priority"]  # type: ignore
+            snmp_mapper_orig,
+            key=lambda x: list(x.values())[0]["priority"],  # type: ignore
         )
         snmp_mapper_list.reverse()
 
         for entry in snmp_mapper_list:
             for device_type, v in entry.items():
                 oid: str = v["oid"]  # type: ignore
-                regex: Pattern = v["expr"]
+                regex = v["expr"]
+                assert isinstance(regex, re.Pattern)
 
                 # Used cache data if we already queryied this OID
                 if self._response_cache.get(oid):

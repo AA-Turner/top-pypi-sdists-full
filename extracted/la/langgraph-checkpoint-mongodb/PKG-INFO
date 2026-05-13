@@ -1,18 +1,26 @@
 Metadata-Version: 2.4
 Name: langgraph-checkpoint-mongodb
-Version: 0.3.1
+Version: 0.4.0
 Summary: Library with a MongoDB implementation of LangGraph checkpoint saver.
 Requires-Python: >=3.10
 Requires-Dist: langchain-mongodb>=0.8.0
 Requires-Dist: langgraph-checkpoint>=3.0.0
-Requires-Dist: pymongo<4.16,>=4.12
+Requires-Dist: pymongo<4.17,>=4.12
 Description-Content-Type: text/markdown
 
 # LangGraph Checkpoint MongoDB
 
 Implementation of LangGraph CheckpointSaver that uses MongoDB.
 
+# Installation
+
+```bash
+pip install -U langgraph-checkpoint-mongodb
+```
+
 ## Usage
+
+For more detailed usage examples and documentation, please refer to the [MongoDB LangGraph documentation](https://www.mongodb.com/docs/atlas/ai-integrations/langgraph/).
 
 ```python
 from langgraph.checkpoint.mongodb import MongoDBSaver

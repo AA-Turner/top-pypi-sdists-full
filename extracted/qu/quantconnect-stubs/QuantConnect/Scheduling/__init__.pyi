@@ -68,7 +68,7 @@ class BaseScheduleRules(System.Object):
         The algorithm's default time zone
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -82,7 +82,7 @@ class BaseScheduleRules(System.Object):
         The security manager
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -96,7 +96,7 @@ class BaseScheduleRules(System.Object):
         The market hours database instance to use
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -121,7 +121,7 @@ class BaseScheduleRules(System.Object):
         whose markets are not always open. If no such securities are present, falls back to US equities (SPY).
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -130,12 +130,12 @@ class BaseScheduleRules(System.Object):
         Helper method to fetch the security exchange hours
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
     def get_symbol(self, ticker: str) -> QuantConnect.Symbol:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
 
@@ -980,7 +980,7 @@ class ScheduledEvent(System.Object, System.IDisposable):
         Event invocator for the event_fired event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param trigger_time: The event's time in UTC
         """
@@ -1399,7 +1399,7 @@ class TimeMonitor(System.Object, System.IDisposable):
         List to store the coming TimeConsumer objects
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1429,7 +1429,7 @@ class TimeMonitor(System.Object, System.IDisposable):
         Process the TimeConsumer object in TimeConsumers list
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param consumer: The TimeConsumer object to be processed
         """
@@ -1440,7 +1440,7 @@ class TimeMonitor(System.Object, System.IDisposable):
         Remove all TimeConsumer objects where the `Finished` field is marked as true
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

@@ -11,6 +11,7 @@ from rich.console import Console
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
@@ -362,18 +363,80 @@ class NotasFaturamentoSAP:
             await kill_all_emsys()
             console.print(f"[STEP={step}] kill_all_emsys concluído.")
 
-            # 2) Instalar/obter ChromeDriver
+           # 2) Instalar/obter ChromeDriver
             step = "INIT_CHROMEDRIVER"
             console.print(f"[STEP={step}] Instalando/obtendo ChromeDriver...")
-            sim_service = Service(ChromeDriverManager().install())
-            console.print(f"[STEP={step}] ChromeDriverManager instalado com sucesso.")
+
+            chrome_driver_path = ChromeDriverManager().install()
+
+            console.print(f"[STEP={step}] ChromeDriver path: {chrome_driver_path}")
+            console.print(f"[STEP={step}] ChromeDriver existe? {os.path.exists(chrome_driver_path)}")
+
+            sim_service = Service(chrome_driver_path)
+
+            console.print(f"[STEP={step}] ChromeDriverManager concluído.")
 
             # 3) Inicializar webdriver
             step = "INIT_WEBDRIVER"
             console.print(f"[STEP={step}] Inicializando webdriver.Chrome...")
-            self.driver = webdriver.Chrome(service=sim_service)
-            self.driver.maximize_window()
-            console.print(f"[STEP={step}] Driver inicializado e janela maximizada.")
+
+            chrome_options = Options()
+
+            # Pasta de download
+            prefs = {
+                "download.default_directory": DOWNLOADS_PATH,
+                "download.prompt_for_download": False,
+                "download.directory_upgrade": True,
+                "safebrowsing.enabled": True,
+            }
+
+            chrome_options.add_experimental_option("prefs", prefs)
+
+            # Configurações compatíveis com BotCity/VM
+            chrome_options.add_argument("--start-maximized")
+            chrome_options.add_argument("--no-first-run")
+            chrome_options.add_argument("--no-default-browser-check")
+            chrome_options.add_argument("--disable-popup-blocking")
+            chrome_options.add_argument("--disable-notifications")
+            chrome_options.add_argument("--disable-infobars")
+            chrome_options.add_argument("--disable-extensions")
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--ignore-certificate-errors")
+            chrome_options.add_argument("--ignore-ssl-errors")
+            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+
+            # Importante: evita usar perfil padrão do Chrome
+            profile_path = os.path.join(
+                DOWNLOADS_PATH,
+                f"chrome_profile_sap_{self.unique_id}"
+            )
+
+            os.makedirs(profile_path, exist_ok=True)
+
+            chrome_options.add_argument(f"--user-data-dir={profile_path}")
+
+            try:
+                self.driver = webdriver.Chrome(
+                    service=sim_service,
+                    options=chrome_options
+                )
+
+                try:
+                    self.driver.maximize_window()
+                except Exception:
+                    console.print(f"[STEP={step}][ALERTA] Não conseguiu maximizar janela.")
+
+                console.print(f"[STEP={step}] Driver inicializado com sucesso.")
+
+            except Exception as e:
+                console.print(f"[STEP={step}][ERRO] Falha ao iniciar Chrome.")
+                console.print(f"[STEP={step}][ERRO] Tipo: {type(e).__name__}")
+                console.print(f"[STEP={step}][ERRO] Mensagem: {str(e)}")
+                console.print(f"[STEP={step}][ERRO] ChromeDriver path: {chrome_driver_path}")
+                console.print(f"[STEP={step}][ERRO] Profile path: {profile_path}")
+
+                raise
 
             # 4) Salvar PID
             step = "SAVE_PID"

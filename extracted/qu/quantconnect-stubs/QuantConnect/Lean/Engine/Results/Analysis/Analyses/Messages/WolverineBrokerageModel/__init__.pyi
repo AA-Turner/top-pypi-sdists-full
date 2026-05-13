@@ -20,11 +20,11 @@ class WolverineUnsupportedOrderTypeAnalysis(QuantConnect.Lean.Engine.Results.Ana
 
     @property
     def expected_message_text(self) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
 

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.812667                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.053850                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ class DeployerImpl(object, metaclass=type):
         Additional arguments that you would pass to `python myflow.py` before
         the deployment command.
     """
-    def __init__(self, flow_file: str, show_output: bool = True, profile: typing.Optional[str] = None, env: typing.Optional[typing.Dict] = None, cwd: typing.Optional[str] = None, file_read_timeout: int = 3600, **kwargs):
+    def __init__(self, flow_file: str, show_output: bool = True, profile: typing.Union[str, None] = None, env: typing.Union[typing.Dict, None] = None, cwd: typing.Union[str, None] = None, file_read_timeout: int = 3600, **kwargs):
         ...
     @property
     def to_reload(self) -> typing.List[str]:

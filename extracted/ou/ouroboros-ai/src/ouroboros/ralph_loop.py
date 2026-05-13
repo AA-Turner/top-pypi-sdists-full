@@ -52,9 +52,9 @@ class RalphLoopConfig:
     project_dir: str | None = None
     max_generations: int = 10
     per_iteration_timeout_seconds: float = DEFAULT_PER_ITERATION_TIMEOUT_SECONDS
+    max_total_seconds: float | None = None
     oscillation_window: int = DEFAULT_OSCILLATION_WINDOW
     grade_regression_window: int = DEFAULT_GRADE_REGRESSION_WINDOW
-    max_total_seconds: float | None = None
 
 
 @dataclass(frozen=True, slots=True)

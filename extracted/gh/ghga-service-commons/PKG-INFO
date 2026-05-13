@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ghga_service_commons
-Version: 7.0.1
+Version: 7.0.2
 Summary: A library that contains common functionality used in services of GHGA
 Author-email: "German Human Genome Phenome Archive (GHGA)" <contact@ghga.de>
 License: Apache 2.0

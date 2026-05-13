@@ -339,9 +339,9 @@ class Model(object):
         '_Model__dict',  # Note the name mangling!
     )
 
-    _swagger_spec = None  # type: Spec
-    _model_spec = None  # type: JSONDict
-    _json_reference = None  # type: str
+    _swagger_spec = None  # type: Spec  # type: ignore[assignment]
+    _model_spec = None  # type: JSONDict  # type: ignore[assignment]
+    _json_reference = None  # type: str  # type: ignore[assignment]
 
     def __init__(self, **kwargs):
         """Initialize from property values in keyword arguments.

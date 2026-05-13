@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.847976                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.114681                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.checkpoint_storage
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.core
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.checkpoint_storage
+    import metaflow
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
 
 from ......metaflow_current import current as current
@@ -56,7 +56,7 @@ class Checkpointer(object, metaclass=type):
 
 class CheckpointLoadPolicy(object, metaclass=type):
     @classmethod
-    def fresh(cls, datastore: metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.checkpoint_storage.CheckpointDatastore, flow: "metaflow.FlowSpec") -> typing.Optional[metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.CheckpointArtifact]:
+    def fresh(cls, datastore: metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.checkpoint_storage.CheckpointDatastore, flow: "metaflow.FlowSpec") -> typing.Union[metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.CheckpointArtifact, None]:
         """
         ```python
         @checkpoint(load_policy="fresh")
@@ -70,7 +70,7 @@ class CheckpointLoadPolicy(object, metaclass=type):
         """
         ...
     @classmethod
-    def eager(cls, datastore: metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.checkpoint_storage.CheckpointDatastore, flow: "metaflow.FlowSpec") -> typing.Optional[metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.CheckpointArtifact]:
+    def eager(cls, datastore: metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.checkpoint_storage.CheckpointDatastore, flow: "metaflow.FlowSpec") -> typing.Union[metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.CheckpointArtifact, None]:
         """
         ```python
         @checkpoint(load_policy="eager")
@@ -146,7 +146,7 @@ class WriteResolver(object, metaclass=type):
     def from_environment(cls):
         ...
     @classmethod
-    def from_run(cls, run: "metaflow.FlowSpec", scope: str, task_identifier: typing.Optional[str] = None, gang_scheduled_task = False):
+    def from_run(cls, run: "metaflow.FlowSpec", scope: str, task_identifier: typing.Union[str, None] = None, gang_scheduled_task = False):
         """
         The task-identifier gets computed in the Metaflow main process with the
         i.e. in the decorator. The pathspec we choose to write the metadata store

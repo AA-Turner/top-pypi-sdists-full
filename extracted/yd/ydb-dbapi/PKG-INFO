@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ydb-dbapi
-Version: 0.1.21
+Version: 0.1.22
 Summary: YDB Python DBAPI which complies with PEP 249
 License-File: LICENSE
 Author: Yandex LLC

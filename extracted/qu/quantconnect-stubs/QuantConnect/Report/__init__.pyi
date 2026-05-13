@@ -19,6 +19,8 @@ import System
 import System.Collections.Generic
 
 QuantConnect_Report_NullResultValueTypeJsonConverter_T = typing.TypeVar("QuantConnect_Report_NullResultValueTypeJsonConverter_T")
+QuantConnect_Report_DeedleUtil_DropSparseColumnsAll_TRowKey = typing.TypeVar("QuantConnect_Report_DeedleUtil_DropSparseColumnsAll_TRowKey")
+QuantConnect_Report_DeedleUtil_DropSparseRowsAll_TRowKey = typing.TypeVar("QuantConnect_Report_DeedleUtil_DropSparseRowsAll_TRowKey")
 
 
 class PointInTimePortfolio(System.Object):
@@ -440,8 +442,54 @@ class NullResultValueTypeJsonConverter(typing.Generic[QuantConnect_Report_NullRe
         ...
 
 
+class _Typed_DeedleUtil_DropSparseColumnsAll(typing.Generic[QuantConnect_Report_DeedleUtil_DropSparseColumnsAll_TRowKey]):
+    """"""
+
+    @overload
+    def __call__(self, frame: typing.Any) -> typing.Any:
+        """
+        Drops sparse columns only if every value is `missing` in the column
+        
+        :param frame: Data Frame
+        :returns: new Frame with sparse columns dropped.
+        """
+        ...
+
+
+class _DeedleUtil_DropSparseColumnsAll:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Report_DeedleUtil_DropSparseColumnsAll_TRowKey]) -> QuantConnect.Report._Typed_DeedleUtil_DropSparseColumnsAll[QuantConnect_Report_DeedleUtil_DropSparseColumnsAll_TRowKey]:
+        ...
+
+
+class _Typed_DeedleUtil_DropSparseRowsAll(typing.Generic[QuantConnect_Report_DeedleUtil_DropSparseRowsAll_TRowKey]):
+    """"""
+
+    @overload
+    def __call__(self, frame: typing.Any) -> typing.Any:
+        """
+        Drops sparse rows if and only if every value is `missing` in the Frame
+        
+        :param frame: Data Frame
+        :returns: new Frame with sparse rows dropped.
+        """
+        ...
+
+
+class _DeedleUtil_DropSparseRowsAll:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Report_DeedleUtil_DropSparseRowsAll_TRowKey]) -> QuantConnect.Report._Typed_DeedleUtil_DropSparseRowsAll[QuantConnect_Report_DeedleUtil_DropSparseRowsAll_TRowKey]:
+        ...
+
+
 class DeedleUtil(System.Object):
     """Utility extension methods for Deedle series/frames"""
+
+    drop_sparse_columns_all: QuantConnect.Report._DeedleUtil_DropSparseColumnsAll
+
+    drop_sparse_rows_all: QuantConnect.Report._DeedleUtil_DropSparseRowsAll
 
     @staticmethod
     def cumulative_max(input: typing.Any) -> typing.Any:

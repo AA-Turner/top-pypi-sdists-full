@@ -15,13 +15,12 @@ class KMSSigner:
         self._client = kms.KeyManagementServiceClient()
         self._key_name = kms_key_name
 
-    def sign_request(self, tenant_id: str, body: bytes) -> tuple[str, str]:
+    def sign_request(self, tenant_id: str, request_id: str) -> tuple[str, str]:
         """Returns (base64_signature, unix_timestamp_str)."""
         from google.cloud.kms_v1.types import service as kms_service
 
         timestamp = str(int(time_mod.time()))
-        body_hash = hashlib.sha256(body).hexdigest()
-        canonical = f"{tenant_id}\n{timestamp}\n{body_hash}"
+        canonical = f"{tenant_id}\n{timestamp}\n{request_id}"
         digest_bytes = hashlib.sha256(canonical.encode()).digest()
 
         response = self._client.asymmetric_sign(
@@ -42,9 +41,9 @@ class AsyncKMSSigner:
     def __init__(self, kms_key_name: str) -> None:
         self._signer = KMSSigner(kms_key_name)
 
-    async def sign_request(self, tenant_id: str, body: bytes) -> tuple[str, str]:
+    async def sign_request(self, tenant_id: str, request_id: str) -> tuple[str, str]:
         """Returns (base64_signature, unix_timestamp_str)."""
-        return await asyncio.to_thread(self._signer.sign_request, tenant_id, body)
+        return await asyncio.to_thread(self._signer.sign_request, tenant_id, request_id)
 
     async def close(self) -> None:
         await asyncio.to_thread(self._signer.close)

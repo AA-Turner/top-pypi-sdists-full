@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: label-studio-sdk
-Version: 2.0.21
+Version: 2.0.22
 Summary: 
 Requires-Python: >=3.10,<4
 Classifier: Intended Audience :: Developers
@@ -121,6 +121,10 @@ uv run --with git+https://github.com/HumanSignal/label-studio-sdk.git label-stud
 # from local
 uv run --with-editable . label-studio-sdk --help
 ```
+
+### Interface CLI
+
+Use `label-studio-sdk interface` to scaffold, validate, preview, sync, and start projects from local interface JSX files. See [the interface CLI guide](interface-cli.md).
 
 # Versions
 
@@ -257,5 +261,4 @@ an issue first to discuss with us!
 
 On the other hand, contributions to the README are always very welcome!
 <!-- End Contributing  -->
-
 

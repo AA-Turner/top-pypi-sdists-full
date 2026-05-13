@@ -12,7 +12,7 @@ license = "MIT"
 name = "pytest-databases"
 readme = "README.md"
 requires-python = ">=3.9"
-version = "0.17.0"
+version = "0.18.0"
 #
 authors = [{ name = "Cody Fincher", email = "cody@litestar.dev" }]
 keywords = [
@@ -28,6 +28,7 @@ keywords = [
   "alloydb",
   "alloydbomni",
   "cockroachdb",
+  "doltdb",
   "redis",
   "elasticsearch",
   "azure",
@@ -66,17 +67,16 @@ elasticsearch7 = ["elasticsearch7"]
 elasticsearch8 = ["elasticsearch8"]
 gizmosql = ["adbc-driver-flightsql", "pyarrow"]
 keydb = ["redis"]
-mariadb = ["mariadb"]
-minio = ["minio"]
+mariadb = []
 mongodb = ["pymongo"]
-mssql = ["pymssql"]
-mysql = ["mysql-connector-python"]
+mssql = []
+mysql = []
 oracle = ["oracledb"]
 postgres = ["psycopg>=3"]
 redis = ["redis"]
 spanner = ["google-cloud-spanner"]
 valkey = ["valkey"]
-yugabyte = ["psycopg2-yugabytedb"]
+yugabyte = []
 
 [dependency-groups]
 build = ["bump-my-version"]
@@ -104,7 +104,7 @@ doc = [
   "sphinx-autodoc-typehints",
   "sphinx-rtd-theme",
 ]
-extra = ["psycopg2-binary", "psycopg[binary,pool]", "psycopg2-yugabytedb-binary"]
+extra = ["psycopg[binary,pool]"]
 lint = [
   "mypy",
   "ruff",
@@ -138,7 +138,7 @@ test = [
 allow_dirty = true
 commit = false
 commit_args = "--no-verify"
-current_version = "0.17.0"
+current_version = "0.18.0"
 ignore_missing_files = false
 ignore_missing_version = false
 message = "chore(release): bump to `v{new_version}`"

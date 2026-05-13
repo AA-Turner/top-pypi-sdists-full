@@ -174,7 +174,7 @@ class OptimizationNodePacket(QuantConnect.Packets.Packet):
         Creates a new instance
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -241,7 +241,7 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         The total completed backtests count
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -251,7 +251,7 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         The current optimization status
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -261,7 +261,7 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         The optimization target
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -271,7 +271,7 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         Collection holding ParameterSet for each backtest id we are waiting to finish
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -281,7 +281,7 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         Collection holding ParameterSet for each backtest id we are waiting to launch
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -291,7 +291,7 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         The optimization strategy being used
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -301,7 +301,7 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         The optimization packet
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -311,7 +311,7 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         Indicates whether optimizer was disposed
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -329,7 +329,7 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         Creates a new instance
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param node_packet: The optimization node packet to handle
         """
@@ -340,7 +340,7 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         Handles stopping Lean process
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param backtest_id: Specified backtest id
         """
@@ -355,7 +355,7 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         Get's a new backtest name
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -368,7 +368,7 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         Helper method to have pretty more informative logs
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -381,7 +381,7 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         Handles a new backtest json result matching a requested backtest id
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param json_backtest_result: The backtest json result
         :param backtest_id: The associated backtest id
@@ -393,7 +393,7 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         Handles starting Lean for a given parameter set
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param parameter_set: The parameter set for the backtest to run
         :param backtest_name: The backtest name to use
@@ -406,7 +406,7 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         Sends an update of the current optimization status to the user
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -415,7 +415,7 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         Sets the current optimization status
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param optimization_status: The new optimization status
         """
@@ -430,7 +430,7 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         Triggers the optimization job end event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

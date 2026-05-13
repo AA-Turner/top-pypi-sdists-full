@@ -4034,21 +4034,73 @@ def _build_messages_with_optional_resume_context(
 def _build_prompt_reader(cwd: Path) -> Callable[[str], str]:
     """Build an input reader with arrow-key history when available.
 
-    Uses prompt_toolkit in interactive terminals. Falls back to Rich input in
-    non-interactive/test environments.
+    Uses prompt_toolkit in interactive terminals. Pastes are detected via
+    `Keys.BracketedPaste`:
+      - The actual text is stashed in a per-reader registry.
+      - A compact placeholder `[Pasted text N characters]` is inserted
+        into the visible buffer so the prompt stays clean and the user
+        can keep typing after it.
+      - When the user hits Enter, the reader expands every placeholder
+        back to its real text before returning. Downstream code sees the
+        full content; the terminal only ever displayed the placeholder.
+
+    Falls back to Rich input in non-interactive/test environments.
     """
     if sys.stdin.isatty() and sys.stdout.isatty():
         try:
             from prompt_toolkit import PromptSession
             from prompt_toolkit.history import InMemoryHistory
+            from prompt_toolkit.key_binding import KeyBindings
+            from prompt_toolkit.keys import Keys
 
             history = InMemoryHistory()
             for item in _load_prompt_history(cwd):
                 text = (item.get("prompt") or "").strip()
                 if text:
                     history.append_string(text)
-            session = PromptSession(history=history)
-            return lambda prompt_text: session.prompt(prompt_text)
+
+            paste_registry: dict[str, str] = {}
+            paste_fired_flag = [False]
+
+            kb = KeyBindings()
+
+            @kb.add(Keys.BracketedPaste)
+            def _on_bracketed_paste(event) -> None:  # type: ignore[no-untyped-def]
+                data = event.data or ""
+                char_count = len(data)
+                # Tiny pastes (e.g. a URL, a single word) get inserted verbatim —
+                # no placeholder needed because there's no display burden.
+                if char_count < 200:
+                    event.current_buffer.insert_text(data)
+                    return
+                # Replace large pastes with a compact placeholder so the
+                # prompt line stays uncluttered and the user can append.
+                placeholder = f"[Pasted text {char_count:,} characters]"
+                paste_registry[placeholder] = data
+                paste_fired_flag[0] = True
+                event.current_buffer.insert_text(placeholder)
+
+            session = PromptSession(
+                history=history,
+                key_bindings=kb,
+                enable_open_in_editor=True,
+            )
+
+            def reader(prompt_text: str) -> str:
+                paste_fired_flag[0] = False
+                text = session.prompt(prompt_text)
+                # Expand every placeholder back to its actual pasted text.
+                if paste_registry and "[Pasted text " in text:
+                    for placeholder, real in list(paste_registry.items()):
+                        if placeholder in text:
+                            text = text.replace(placeholder, real)
+                            del paste_registry[placeholder]
+                return text
+
+            reader.last_paste_fired = (  # type: ignore[attr-defined]
+                lambda: paste_fired_flag[0]
+            )
+            return reader
         except Exception as e:
             logger.debug(f"PromptSession initialization failed: {e}")
             pass
@@ -6886,6 +6938,436 @@ def _build_simple_qa_messages(
         messages.extend(history[-4:])
     messages.append(Message(role="user", content=prompt))
     return messages
+
+
+def _show_paste_indicator(text: str) -> None:
+    """Print `[ Text pasted: N lines, M characters ]` whenever input is
+    multi-line or large.
+
+    This is a UX nicety so the user can immediately confirm the terminal
+    did NOT truncate their paste. Below the thresholds we stay silent —
+    short prompts don't need this signal.
+
+    Uses `renderer.console.print` directly (NOT `renderer.info`) so the
+    indicator shows in clean/normal mode too — `renderer.info` is
+    verbose-mode-only and would suppress this critical signal.
+    """
+    if not text:
+        return
+    line_count = text.count("\n") + 1
+    char_count = len(text)
+    is_multiline = line_count > 1
+    is_large = char_count >= 500
+    if not (is_multiline or is_large):
+        return
+    if is_multiline:
+        msg = f"[ Text pasted: {line_count:,} lines, {char_count:,} characters ]"
+    else:
+        msg = f"[ Text pasted: {char_count:,} characters ]"
+    renderer.console.print(f"[dim cyan]{msg}[/dim cyan]")
+
+
+# Models known to be too slow on typical local hardware for build mode.
+# Build pipeline does 30+ LLM calls per project — even a 5-min/call model
+# means 2.5 hours per project. We auto-swap to a faster alternative.
+_SLOW_BUILD_MODELS: tuple[str, ...] = (
+    "qwen3-coder-next",
+    "qwen3-coder:30b",
+    "qwen2.5-coder:32b",
+    "deepseek-r1:70b",
+    "llama3.3:70b",
+    "qwen2.5:72b",
+)
+
+# Preferred fast local models for build mode, in order of preference.
+_FAST_BUILD_MODELS: tuple[str, ...] = (
+    "devstral:latest",
+    "devstral",
+    "qwen2.5-coder:14b",
+    "qwen2.5-coder:7b",
+    "llama3.2:latest",
+    "llama3.2",
+    "codellama:13b",
+    "codellama:7b",
+)
+
+
+def _pick_build_model(current_model_id: str) -> tuple[str, str | None]:
+    """Pick the best model for the build pipeline.
+
+    Returns (model_id_to_use, reason_if_swapped). If the current model is
+    fast enough, returns it unchanged with reason=None. Otherwise picks
+    the fastest available local model and returns a short user-facing
+    explanation.
+    """
+    if not current_model_id.startswith("ollama:"):
+        return current_model_id, None
+    bare = current_model_id.split(":", 1)[1]
+    bare_no_tag = bare.split(":", 1)[0]
+    is_slow = any(
+        slow in bare.lower() or slow in bare_no_tag.lower()
+        for slow in _SLOW_BUILD_MODELS
+    )
+    if not is_slow:
+        return current_model_id, None
+    available = _ollama_local_models()
+    if not available:
+        return current_model_id, None
+    for fast in _FAST_BUILD_MODELS:
+        if fast in available or fast.split(":", 1)[0] in available:
+            new_id = f"ollama:{fast}"
+            return new_id, (
+                f"Build mode needs ~30 LLM calls per project. "
+                f"`{current_model_id}` averages 5–13 min/call on typical local "
+                f"hardware which exhausts the ollama timeout. Switching to "
+                f"`{new_id}` (~20–60 s/call) for the build."
+            )
+    return current_model_id, None
+
+
+# ---------------------------------------------------------------------------
+# Autonomous commands (/autopolit, /autofleet, /autoorg)
+# ---------------------------------------------------------------------------
+
+
+def _autonomous_progress(line: str) -> None:
+    """Print autonomous-loop progress directly to the console (bypasses
+    verbose-mode gating so the user always sees iteration markers)."""
+    renderer.console.print(f"[dim cyan]{line}[/dim cyan]")
+
+
+def _autonomous_generate_factory(
+    router, model_id: str, temp: float, tokens: int, model_locked: bool
+):
+    """Build a generate(prompt) -> str closure for autonomous loops."""
+
+    def _gen(prompt: str) -> str:
+        messages = _build_simple_qa_messages(prompt)
+        return router.generate(
+            messages, model_id, temp, tokens, lock_provider=model_locked
+        )
+
+    return _gen
+
+
+def _run_autopolit_command(
+    message: str | None,
+    *,
+    cwd: Path,
+    sage_agent,
+    router,
+    model_id: str,
+    temp: float,
+    tokens: int,
+    model_locked: bool,
+) -> None:
+    """REPL entry point for `/autopolit [message]`.
+
+    Runs the agent loop indefinitely, one iteration at a time, until the
+    user presses Ctrl-C or creates `.sage/AUTO-STOP`. Without a message,
+    sage self-directs: codebase analysis → TDD improvement → repeat.
+    """
+    from sage.core.autonomous import run_autopolit_loop, LoopState
+
+    renderer.console.print(
+        f"[bold cyan]/autopolit[/bold cyan] starting — "
+        f"focus: [bold]{message or '(self-directed code improvement)'}[/bold]"
+    )
+    renderer.console.print(
+        "[dim]Stop with Ctrl-C. Or `touch ./.sage/AUTO-STOP` from another shell.[/dim]"
+    )
+
+    def _iteration(prompt: str, state: LoopState) -> dict:
+        # Single in-process agent turn. Catches the agent's own errors so
+        # the loop continues. The sage_agent already handles tool execution
+        # so files get written / tests get run inside one call.
+        try:
+            sage_agent.execute_task_prompt(prompt, save_history=True)
+            return {
+                "iteration": state.iteration,
+                "response_hash": f"iter-{state.iteration}-{int(time.time())}",
+                "success": True,
+            }
+        except KeyboardInterrupt:
+            raise
+        except Exception as exc:
+            return {"iteration": state.iteration, "error": str(exc)}
+
+    try:
+        run_autopolit_loop(
+            task=message,
+            project_root=cwd,
+            run_one_iteration=_iteration,
+            progress=_autonomous_progress,
+            iteration_delay_seconds=0.5,
+        )
+    except KeyboardInterrupt:
+        renderer.console.print("\n[yellow]/autopolit cancelled. Sage is still running.[/yellow]")
+
+
+def _run_autofleet_command(
+    message: str | None,
+    *,
+    cwd: Path,
+    router,
+    model_id: str,
+    temp: float,
+    tokens: int,
+    model_locked: bool,
+    cfg,
+) -> None:
+    """REPL entry point for `/autofleet [message]`.
+
+    Each iteration decomposes the focus into multiple subtasks and runs
+    them in parallel threads (one model call per thread, optionally with
+    different models picked by MultiModelOrchestrator). Repeats forever
+    until cancelled.
+    """
+    from sage.core.autonomous import run_autofleet_loop, LoopState
+
+    renderer.console.print(
+        f"[bold cyan]/autofleet[/bold cyan] starting — "
+        f"focus: [bold]{message or '(self-directed code improvement)'}[/bold]"
+    )
+    renderer.console.print(
+        "[dim]Stop with Ctrl-C. Or `touch ./.sage/AUTO-STOP` from another shell.[/dim]"
+    )
+
+    generate = _autonomous_generate_factory(router, model_id, temp, tokens, model_locked)
+
+    def _decompose(task: str | None, state: LoopState) -> list[str]:
+        # Ask the model to decompose the focus into 4 parallel subtasks.
+        focus = task or "self-directed improvement of this codebase"
+        decomp_prompt = (
+            f"Decompose this work into EXACTLY 4 parallel subtasks for iteration "
+            f"{state.iteration}. Each subtask must be independently completable "
+            f"and non-overlapping with the others.\n\n"
+            f"Focus: {focus}\n\n"
+            f"Output 4 lines, one subtask per line, no numbering, no prose. "
+            f"Each line is a complete instruction a subagent will follow."
+        )
+        try:
+            text = generate(decomp_prompt)
+        except Exception:
+            return [
+                f"Add or improve tests for the most critical untested module "
+                f"(iteration {state.iteration})",
+                f"Find and fix one security issue or unsafe pattern "
+                f"(iteration {state.iteration})",
+                f"Improve error handling in one user-facing surface "
+                f"(iteration {state.iteration})",
+                f"Improve docs/README for one weak area "
+                f"(iteration {state.iteration})",
+            ]
+        lines = [ln.strip("- *0123456789. \t") for ln in text.splitlines()]
+        lines = [ln for ln in lines if len(ln) > 20][:4]
+        return lines if lines else [focus]
+
+    def _run_subtask(sub: str, state: LoopState) -> dict:
+        try:
+            response = generate(sub)
+            return {
+                "subtask": sub,
+                "response_hash": str(hash(response)),
+                "ok": True,
+            }
+        except Exception as exc:
+            return {"subtask": sub, "error": str(exc)}
+
+    try:
+        run_autofleet_loop(
+            task=message,
+            project_root=cwd,
+            decompose=_decompose,
+            run_one_subtask=_run_subtask,
+            progress=_autonomous_progress,
+            max_workers=4,
+            iteration_delay_seconds=0.5,
+        )
+    except KeyboardInterrupt:
+        renderer.console.print("\n[yellow]/autofleet cancelled. Sage is still running.[/yellow]")
+
+
+def _run_autoorg_command(
+    message: str | None,
+    *,
+    cwd: Path,
+    router,
+    model_id: str,
+    temp: float,
+    tokens: int,
+    model_locked: bool,
+) -> None:
+    """REPL entry point for `/autoorg [message]`.
+
+    Each iteration spawns one subagent per organisational role (product,
+    staff engineer, QA, security, devops, docs) running in parallel.
+    Repeats forever until cancelled.
+    """
+    from sage.core.autonomous import run_autoorg_loop, LoopState
+
+    renderer.console.print(
+        f"[bold cyan]/autoorg[/bold cyan] starting — "
+        f"focus: [bold]{message or '(self-directed organisation-wide improvement)'}[/bold]"
+    )
+    renderer.console.print(
+        "[dim]Stop with Ctrl-C. Or `touch ./.sage/AUTO-STOP` from another shell.[/dim]"
+    )
+
+    generate = _autonomous_generate_factory(router, model_id, temp, tokens, model_locked)
+
+    def _run_role(role: str, prompt: str, state: LoopState) -> dict:
+        try:
+            response = generate(prompt)
+            return {"role": role, "response_hash": str(hash(response)), "ok": True}
+        except Exception as exc:
+            return {"role": role, "error": str(exc)}
+
+    try:
+        run_autoorg_loop(
+            task=message,
+            project_root=cwd,
+            run_one_role=_run_role,
+            progress=_autonomous_progress,
+            max_workers=6,
+            iteration_delay_seconds=0.5,
+        )
+    except KeyboardInterrupt:
+        renderer.console.print("\n[yellow]/autoorg cancelled. Sage is still running.[/yellow]")
+
+
+def _route_to_principal_pipeline(
+    user_input: str,
+    base_out_dir: Path,
+    router,
+    model_id: str,
+    temp: float,
+    tokens: int,
+    model_locked: bool,
+    system_prompt: str | None,
+) -> dict | None:
+    """Route a build-style prompt through the principal pipeline.
+
+    If the prompt contains a single build task, generates ONE project at
+    base_out_dir. If the prompt looks like multiple stacked build tasks
+    (e.g. "Build a FastAPI app... Build a Go service... Build an Android
+    app..."), generates EACH sub-task into its own labelled subfolder.
+
+    Returns a combined report dict, or None if the prompt isn't a build
+    request at all.
+    """
+    from sage.core.principal_engineer import (
+        build_project,
+        decompose_multi_build_request,
+        looks_like_build_request,
+    )
+
+    if not looks_like_build_request(user_input):
+        return None
+
+    # ── Always save the user input to a text file alongside the build ──
+    # Goes into a hidden .sage/ subdir so the project root stays clean —
+    # sage scaffolds INTO the user's repo without cluttering it with
+    # internal artifacts.
+    import time
+    base_out_dir = base_out_dir.resolve()
+    base_out_dir.mkdir(parents=True, exist_ok=True)
+    sage_dir = base_out_dir / ".sage"
+    sage_dir.mkdir(parents=True, exist_ok=True)
+    ts = time.strftime("%Y%m%d-%H%M%S")
+    saved_input = sage_dir / f"INPUT-{ts}.txt"
+    saved_input.write_text(user_input, encoding="utf-8")
+    if len(user_input) >= 1500:
+        renderer.console.print(
+            f"[cyan]Saved your {len(user_input):,}-char input to "
+            f"{saved_input}[/cyan]"
+        )
+
+    # Auto-swap to a faster local model if the current one is too slow for
+    # the build pipeline's volume of LLM calls.
+    effective_model, swap_reason = _pick_build_model(model_id)
+    if swap_reason:
+        renderer.info(f"[yellow]{swap_reason}[/yellow]")
+
+    # Extend ollama timeout floor for build mode — per-file LLM calls on a
+    # large local model can run 5+ min. Don't lower an existing higher value.
+    _existing_timeout = os.environ.get("SAGE_OLLAMA_TIMEOUT", "")
+    try:
+        if not _existing_timeout or float(_existing_timeout) < 1200:
+            os.environ["SAGE_OLLAMA_TIMEOUT"] = "1200"
+    except ValueError:
+        os.environ["SAGE_OLLAMA_TIMEOUT"] = "1200"
+
+    def _generate(p: str) -> str:
+        messages = _build_simple_qa_messages(p, system_prompt=system_prompt)
+        return router.generate(
+            messages, effective_model, temp, tokens, lock_provider=False
+        )
+
+    sub_tasks = decompose_multi_build_request(user_input)
+    base_out_dir = base_out_dir.resolve()
+
+    if len(sub_tasks) == 1:
+        renderer.info(f"[bold]Build mode[/bold] → {base_out_dir}")
+        report = build_project(
+            sub_tasks[0][1], base_out_dir, _generate, progress=renderer.info
+        )
+        renderer.info(
+            f"[green]Generated {len(report['files'])} files "
+            f"({report['template_count']} from templates, "
+            f"{report['llm_count']} from LLM, "
+            f"{report.get('integrity_fixes', 0)} integrity fixes, "
+            f"{report.get('lint_fixes', 0)} lint fixes)[/green]"
+        )
+        renderer.info(f"Project at: [cyan]{report['out_dir']}[/cyan]")
+        return report
+
+    renderer.info(
+        f"[bold]Build mode[/bold] → {len(sub_tasks)} sub-projects under {base_out_dir}"
+    )
+    base_out_dir.mkdir(parents=True, exist_ok=True)
+    combined: dict = {
+        "stack": "multi",
+        "out_dir": str(base_out_dir),
+        "sub_projects": [],
+        "files": [],
+        "template_count": 0,
+        "llm_count": 0,
+        "integrity_fixes": 0,
+        "lint_fixes": 0,
+        "review_failures": 0,
+    }
+    for idx, (label, sub_task) in enumerate(sub_tasks, start=1):
+        sub_dir = base_out_dir / f"{idx:02d}-{label}"
+        renderer.info(f"\n[bold cyan]── Project {idx}/{len(sub_tasks)}: {label}[/bold cyan]")
+        try:
+            report = build_project(sub_task, sub_dir, _generate, progress=renderer.info)
+        except Exception as exc:
+            renderer.warning(f"Project {idx} ({label}) failed: {exc}")
+            combined["sub_projects"].append(
+                {"label": label, "out_dir": str(sub_dir), "error": str(exc)}
+            )
+            continue
+        combined["sub_projects"].append(
+            {
+                "label": label,
+                "stack": report["stack"],
+                "out_dir": report["out_dir"],
+                "file_count": len(report["files"]),
+            }
+        )
+        combined["files"].extend(report["files"])
+        for key in ("template_count", "llm_count", "integrity_fixes",
+                    "lint_fixes", "review_failures"):
+            combined[key] += report.get(key, 0)
+        renderer.info(
+            f"[green]  ✓ {label}: {len(report['files'])} files at {report['out_dir']}[/green]"
+        )
+
+    renderer.info(
+        f"\n[bold green]All {len(sub_tasks)} projects generated under {base_out_dir}[/bold green]"
+    )
+    return combined
 
 
 def _get_single_turn_agent_timeout(provider_name: str) -> float:
@@ -12456,6 +12938,12 @@ def run(
         if not user_input:
             continue
 
+        # Surface a paste indicator so the user sees exactly how many lines
+        # and characters made it through their terminal. Suppress if the
+        # bracketed-paste handler already announced inline (avoids dup).
+        if not getattr(prompt_reader, "last_paste_fired", lambda: False)():
+            _show_paste_indicator(user_input)
+
         # ── Shell escape: !command ─────────────────────────
         if user_input.startswith("!"):
             shell_cmd = user_input[1:].strip()
@@ -12635,32 +13123,47 @@ def run(
                         f"Thinking mode: {'enabled' if mode != 'clean' else 'disabled'} (current mode: {mode})"
                     )
                 continue
-            elif command == "/autoorg":
-                try:
-                    org_task, plan_only, dry_run, parallel = _parse_autoorg_repl_args(arg)
-                except ValueError as exc:
-                    renderer.error(str(exc))
-                    continue
-                if not org_task:
-                    renderer.header("SAGE Auto-Orchestration")
-                    renderer.info("What would you like me to orchestrate?")
-                    renderer.console.print()
-                    try:
-                        org_task = renderer.console.input("Task: ").strip()
-                    except (EOFError, KeyboardInterrupt):
-                        renderer.console.print()
-                        continue
-                    if not org_task:
-                        renderer.warning("No task provided")
-                        continue
-                _run_repl_autoorg_flow(
-                    task=org_task,
-                    plan_only=plan_only,
-                    dry_run=dry_run,
-                    parallel=parallel,
-                    cfg=cfg,
+            elif command in ("/autopolit", "/autopilot"):
+                # Single-thread autonomous loop. Optional message; without
+                # one, sage analyzes the codebase and improves it with TDD.
+                # Runs indefinitely until Ctrl-C or `.sage/AUTO-STOP` appears.
+                _run_autopolit_command(
+                    arg.strip() or None,
+                    cwd=cwd,
+                    sage_agent=sage_agent,
                     router=router,
-                    ai_orchestrator=ai_orchestrator,
+                    model_id=model_id,
+                    temp=temp,
+                    tokens=tokens,
+                    model_locked=model_locked,
+                )
+                continue
+            elif command == "/autofleet":
+                # Parallel-subagent autonomous loop. Decomposes each
+                # iteration into N subtasks running in their own threads.
+                _run_autofleet_command(
+                    arg.strip() or None,
+                    cwd=cwd,
+                    router=router,
+                    model_id=model_id,
+                    temp=temp,
+                    tokens=tokens,
+                    model_locked=model_locked,
+                    cfg=cfg,
+                )
+                continue
+            elif command == "/autoorg":
+                # Organisation-role autonomous loop. Each role (product,
+                # engineering, QA, security, devops, docs) runs as a
+                # separate subagent in parallel per iteration.
+                _run_autoorg_command(
+                    arg.strip() or None,
+                    cwd=cwd,
+                    router=router,
+                    model_id=model_id,
+                    temp=temp,
+                    tokens=tokens,
+                    model_locked=model_locked,
                 )
                 continue
             else:
@@ -12690,47 +13193,34 @@ def run(
             continue
 
         # ── Auto-route build-style prompts through the principal pipeline ──
-        # Any prompt that looks like a multi-file project build request gets
-        # principal-engineer-grade output: deterministic templates + per-file
-        # focused LLM generation + cross-file integrity check. This applies
-        # uniformly to `sage run`, `sage ask`, and `sage chat` so output
-        # quality does not depend on which entry point the user picks.
+        # Routes single or multi-task prompts uniformly via the shared helper.
+        # Writes directly into the current project root — scaffolds the repo
+        # the user is in, not a subfolder.
         try:
-            from sage.core.principal_engineer import (
-                build_project,
-                looks_like_build_request,
+            report = _route_to_principal_pipeline(
+                user_input,
+                cwd,
+                router=router,
+                model_id=model_id,
+                temp=temp,
+                tokens=tokens,
+                model_locked=model_locked,
+                system_prompt=engine.system_prompt,
             )
-
-            if looks_like_build_request(user_input):
-                target_dir = (cwd / "build").resolve()
-
-                def _principal_generate(p: str) -> str:
-                    messages = _build_simple_qa_messages(
-                        p, system_prompt=engine.system_prompt
-                    )
-                    return router.generate(
-                        messages, model_id, temp, tokens, lock_provider=model_locked
-                    )
-
-                renderer.info(f"[bold]Build mode[/bold] → {target_dir}")
-                report = build_project(
-                    user_input,
-                    target_dir,
-                    _principal_generate,
-                    progress=renderer.info,
-                )
-                renderer.info(
-                    f"[green]Generated {len(report['files'])} files "
-                    f"({report['template_count']} from templates, "
-                    f"{report['llm_count']} from LLM, "
-                    f"{report.get('integrity_fixes', 0)} integrity fixes)[/green]"
-                )
-                renderer.info(f"Project at: [cyan]{report['out_dir']}[/cyan]")
+            if report is not None:
                 engine.add_user(user_input)
-                engine.add_assistant(
-                    f"Generated a {report['stack']} project at {report['out_dir']} "
-                    f"with {len(report['files'])} files."
-                )
+                if "sub_projects" in report:
+                    summary = (
+                        f"Generated {len(report['sub_projects'])} projects under "
+                        f"{report['out_dir']}: "
+                        + ", ".join(p.get("label", "?") for p in report["sub_projects"])
+                    )
+                else:
+                    summary = (
+                        f"Generated a {report['stack']} project at {report['out_dir']} "
+                        f"with {len(report['files'])} files."
+                    )
+                engine.add_assistant(summary)
                 continue
         except Exception as build_exc:
             renderer.warning(f"Build routing skipped: {build_exc}")
@@ -12832,6 +13322,10 @@ def chat(
         if not user_input:
             continue
 
+        # Suppress if bracketed-paste handler already announced inline.
+        if not getattr(prompt_reader, "last_paste_fired", lambda: False)():
+            _show_paste_indicator(user_input)
+
         # ── REPL commands ───────────────────────────────────
         if user_input.startswith("/"):
             cmd = user_input.split(None, 1)
@@ -12911,45 +13405,31 @@ def chat(
                 continue
 
         # ── Auto-route build prompts through the principal pipeline ──
-        # `sage chat` uses the same principal pipeline as `sage ask` and
-        # `sage run` so every entry point produces principal-engineer-grade
-        # multi-file projects when the user asks to build one.
+        # Writes directly into the current project root.
         try:
-            from sage.core.principal_engineer import (
-                build_project,
-                looks_like_build_request,
+            report = _route_to_principal_pipeline(
+                user_input,
+                Path.cwd(),
+                router=router,
+                model_id=model_id,
+                temp=temp,
+                tokens=tokens,
+                model_locked=model_locked,
+                system_prompt=engine.system_prompt,
             )
-
-            if looks_like_build_request(user_input):
-                target_dir = (Path.cwd() / "build").resolve()
-
-                def _principal_generate(p: str) -> str:
-                    messages = _build_simple_qa_messages(
-                        p, system_prompt=engine.system_prompt
-                    )
-                    return router.generate(
-                        messages, model_id, temp, tokens, lock_provider=model_locked
-                    )
-
-                renderer.info(f"[bold]Build mode[/bold] → {target_dir}")
-                report = build_project(
-                    user_input,
-                    target_dir,
-                    _principal_generate,
-                    progress=renderer.info,
-                )
-                renderer.info(
-                    f"[green]Generated {len(report['files'])} files "
-                    f"({report['template_count']} from templates, "
-                    f"{report['llm_count']} from LLM, "
-                    f"{report.get('integrity_fixes', 0)} integrity fixes)[/green]"
-                )
-                renderer.info(f"Project at: [cyan]{report['out_dir']}[/cyan]")
+            if report is not None:
                 engine.add_user(user_input)
-                engine.add_assistant(
-                    f"Generated a {report['stack']} project at {report['out_dir']} "
-                    f"with {len(report['files'])} files."
-                )
+                if "sub_projects" in report:
+                    summary = (
+                        f"Generated {len(report['sub_projects'])} projects under "
+                        f"{report['out_dir']}"
+                    )
+                else:
+                    summary = (
+                        f"Generated a {report['stack']} project at {report['out_dir']} "
+                        f"with {len(report['files'])} files."
+                    )
+                engine.add_assistant(summary)
                 continue
         except Exception:
             pass  # Fall through to standard chat path on any error
@@ -13046,40 +13526,35 @@ def ask(
         raise typer.Exit(1)
 
     raw_prompt = "\n\n".join(parts)
+    _show_paste_indicator(raw_prompt)
 
     # ── Auto-route build prompts through the principal pipeline ─────────
-    # This makes sage produce principal-engineer-quality multi-file projects
-    # for any prompt that looks like a build request — regardless of whether
-    # the user passed --no-agent or any other flag.
-    from sage.core.principal_engineer import build_project, looks_like_build_request
+    # Uses _route_to_principal_pipeline which also handles multi-task
+    # prompts (e.g. "Build X. Build Y. Build Z." produces 3 sub-projects).
+    # Default output directory is the current working directory — sage
+    # scaffolds INTO the repo the user is in, not a subfolder.
+    target_dir = (out or Path.cwd()).resolve()
+    report = _route_to_principal_pipeline(
+        raw_prompt,
+        target_dir,
+        router=router,
+        model_id=model_id,
+        temp=temp,
+        tokens=tokens,
+        model_locked=model_locked,
+        system_prompt=system,
+    )
+    if report is not None or out is not None:
+        # If --out was given but the prompt didn't look like a build, still
+        # try the pipeline for the user's benefit.
+        if report is None and out is not None:
+            from sage.core.principal_engineer import build_project
 
-    if out is not None or looks_like_build_request(raw_prompt):
-        target_dir = (out or Path.cwd() / "build").resolve()
+            def _gen(p: str) -> str:
+                messages = _build_simple_qa_messages(p, system_prompt=system)
+                return router.generate(messages, model_id, temp, tokens, lock_provider=model_locked)
 
-        def _principal_generate(p: str) -> str:
-            messages = _build_simple_qa_messages(p, system_prompt=system)
-            return router.generate(
-                messages, model_id, temp, tokens, lock_provider=model_locked
-            )
-
-        def _principal_progress(line: str) -> None:
-            renderer.info(line)
-
-        renderer.info(f"[bold]Build mode[/bold] → {target_dir}")
-        report = build_project(
-            raw_prompt,
-            target_dir,
-            _principal_generate,
-            progress=_principal_progress,
-        )
-        renderer.info(
-            f"[green]Generated {len(report['files'])} files "
-            f"({report['template_count']} from templates, "
-            f"{report['llm_count']} from LLM, "
-            f"{report.get('integrity_fixes', 0)} integrity fixes, "
-            f"{report['review_failures']} below review threshold)[/green]"
-        )
-        renderer.info(f"Project at: [cyan]{report['out_dir']}[/cyan]")
+            build_project(raw_prompt, target_dir, _gen, progress=renderer.info)
         return
 
     # Check if this is just a quick simple QA prompt

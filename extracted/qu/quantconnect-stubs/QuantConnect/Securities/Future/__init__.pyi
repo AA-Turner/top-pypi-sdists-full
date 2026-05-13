@@ -126,7 +126,7 @@ class FutureCache(QuantConnect.Securities.SecurityCache):
         Will consume the given data point updating the cache state and it's properties
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param data: The data point to process
         :param cache_by_type: True if this data point should be cached by type

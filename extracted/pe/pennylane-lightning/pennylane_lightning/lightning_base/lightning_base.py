@@ -28,15 +28,26 @@ from typing import Callable, List, Optional, Sequence, Tuple, Union
 from warnings import warn
 
 import numpy as np
-import pennylane as qml
+import pennylane as qp
 from numpy.random import BitGenerator, Generator, SeedSequence
 from numpy.typing import ArrayLike
 from pennylane.devices import Device, ExecutionConfig, MCMConfig
+from pennylane.devices.capabilities import DeviceCapabilities
 from pennylane.devices.modifiers import simulator_tracking, single_tape_support
-from pennylane.exceptions import DeviceError
-from pennylane.measurements import MidMeasureMP, Shots, ShotsLike
+from pennylane.devices.preprocess import (
+    decompose,
+    no_sampling,
+    validate_adjoint_trainable_params,
+    validate_measurements,
+    validate_observables,
+)
+from pennylane.exceptions import DecompositionUndefinedError, DeviceError
+from pennylane.measurements.expval import ExpectationMP
+from pennylane.measurements.measurements import MeasurementProcess
+from pennylane.operation import Operator
+from pennylane.ops import Conditional, MidMeasure, PauliRot
 from pennylane.tape import QuantumScript, QuantumTape
-from pennylane.typing import Result, ResultBatch, TensorLike
+from pennylane.typing import Result, ResultBatch
 
 from pennylane_lightning.core import __version__
 from pennylane_lightning.lightning_base._measurements import LightningBaseMeasurements
@@ -196,14 +207,14 @@ class LightningBase(Device):
         if mcmc is None:
             mcmc = {}
 
-        if any(isinstance(op, MidMeasureMP) for op in circuit.operations):
+        if any(isinstance(op, MidMeasure) for op in circuit.operations):
             if self._mpi:
                 raise DeviceError(
                     "Lightning Device with MPI does not support Mid-circuit measurements."
                 )
 
         # Simulate with Mid Circuit Measurements
-        if any(isinstance(op, MidMeasureMP) for op in circuit.operations):
+        if any(isinstance(op, MidMeasure) for op in circuit.operations):
             # If mcm_method is not specified and the circuit does not have shots, default to "deferred".
             # It is not listed here because all mid-circuit measurements are replaced with additional wires.
 
@@ -216,7 +227,7 @@ class LightningBase(Device):
             if mcm_method == "one-shot" or (mcm_method is None and circuit.shots):
                 # Using the one-shot MCM method.
                 results = []
-                aux_circ = qml.tape.QuantumScript(
+                aux_circ = qp.tape.QuantumScript(
                     circuit.operations,
                     circuit.measurements,
                     shots=[1],
@@ -244,7 +255,7 @@ class LightningBase(Device):
     def supports_derivatives(
         self,
         execution_config: ExecutionConfig | None = None,
-        circuit: Optional[qml.tape.QuantumTape] = None,
+        circuit: Optional[qp.tape.QuantumTape] = None,
     ) -> bool:
         """Check whether or not derivatives are available for a given configuration and circuit.
 
@@ -277,7 +288,7 @@ class LightningBase(Device):
             TensorLike: The Jacobian of the quantum script
         """
         if wire_map is not None:
-            [circuit], _ = qml.map_wires(circuit, wire_map)
+            [circuit], _ = qp.map_wires(circuit, wire_map)
 
         if self._intermediate_states is not None and (
             final_state := self._intermediate_states.get(circuit.hash, None)
@@ -319,7 +330,7 @@ class LightningBase(Device):
         Note that this function can return measurements for non-commuting observables simultaneously.
         """
         if wire_map is not None:
-            [circuit], _ = qml.map_wires(circuit, wire_map)
+            [circuit], _ = qp.map_wires(circuit, wire_map)
         res = self.simulate(circuit, state)
         # pylint: disable=not-callable
         jac = self.LightningAdjointJacobian(state, batch_obs=batch_obs).calculate_jacobian(circuit)
@@ -349,7 +360,7 @@ class LightningBase(Device):
             TensorLike: The VJP of the quantum script
         """
         if wire_map is not None:
-            [circuit], _ = qml.map_wires(circuit, wire_map)
+            [circuit], _ = qp.map_wires(circuit, wire_map)
 
         if self._intermediate_states is not None and (
             final_state := self._intermediate_states.get(circuit.hash, None)
@@ -393,7 +404,7 @@ class LightningBase(Device):
         Note that this function can return measurements for non-commuting observables simultaneously.
         """
         if wire_map is not None:
-            [circuit], _ = qml.map_wires(circuit, wire_map)
+            [circuit], _ = qp.map_wires(circuit, wire_map)
         res = self.simulate(circuit, state)
         # pylint: disable=not-callable
         _vjp = self.LightningAdjointJacobian(state, batch_obs=batch_obs).calculate_vjp(
@@ -554,185 +565,6 @@ class LightningBase(Device):
         )
         return tuple(zip(*results))
 
-    # pylint: disable=import-outside-toplevel, unused-argument
-    def eval_jaxpr(
-        self,
-        jaxpr: "jax.extend.core.Jaxpr",
-        consts: list[TensorLike],
-        *args: TensorLike,
-        execution_config: ExecutionConfig | None = None,
-        shots: ShotsLike = None,
-    ) -> list[TensorLike]:
-        """Execute pennylane variant jaxpr using C++ simulation tools.
-
-        Args:
-            jaxpr (jax.extend.core.Jaxpr): jaxpr containing quantum operations
-            consts (list[TensorLike]): List of constants for the jaxpr closure variables
-            *args (TensorLike): The arguments to the jaxpr.
-
-        Keyword Args:
-            execution_config (ExecutionConfig | None): a datastructure with additional
-                information required for execution
-
-        Returns:
-            list(TensorLike): the results of the execution
-
-        .. code-block:: python
-
-            import pennylane as qml
-            import jax
-            qml.capture.enable()
-
-            def f(x):
-                @qml.for_loop(3)
-                def loop(i, y):
-                    qml.RX(y, i)
-                    return y + 0.5
-                loop(x)
-                return [qml.expval(qml.Z(i)) for i in range(3)]
-
-            jaxpr = jax.make_jaxpr(f)(0.5)
-
-            dev = qml.device('lightning.qubit', wires=3)
-            dev.eval_jaxpr(jaxpr.jaxpr, jaxpr.consts, 0.0)
-
-        .. code-block::
-
-            [1.0, 0.8775825618903728, 0.5403023058681395]
-
-        """
-        # jax is still an optional dependency for pennylane, but mandatory for program capture
-        # jax imports cannot be placed in the standard import path
-        import jax
-        from pennylane.capture.primitives import AbstractMeasurement
-
-        from .lightning_interpreter import LightningInterpreter
-
-        # pylint: disable=no-member
-        dtype_map = {
-            float: (jax.numpy.float64 if jax.config.jax_enable_x64 else jax.numpy.float32),
-            int: jax.numpy.int64 if jax.config.jax_enable_x64 else jax.numpy.int32,
-            complex: (jax.numpy.complex128 if jax.config.jax_enable_x64 else jax.numpy.complex64),
-        }
-
-        if self.wires is None:
-            raise NotImplementedError("Wires must be specified for integration with plxpr capture.")
-
-        self._statevector = self.LightningStateVector(
-            num_wires=len(self.wires), dtype=self._c_dtype, rng=self._rng
-        )
-
-        shots = Shots(shots)
-        interpreter = LightningInterpreter(
-            self._statevector, self.LightningMeasurements, shots=shots
-        )
-        evaluator = partial(interpreter.eval, jaxpr)
-
-        def shape(var, shots):
-            if isinstance(var.aval, AbstractMeasurement):
-                shots = shots.total_shots
-                s, dtype = var.aval.abstract_eval(num_device_wires=len(self.wires), shots=shots)
-                return jax.core.ShapedArray(s, dtype_map[dtype])
-            return var.aval
-
-        shapes = [shape(var, shots) for var in jaxpr.outvars]
-        return jax.pure_callback(evaluator, shapes, consts, *args, vmap_method="sequential")
-
-    def jaxpr_jvp(
-        self,
-        jaxpr: "jax.extend.core.Jaxpr",
-        args: Sequence[TensorLike],
-        tangents: Sequence[TensorLike],
-        execution_config: ExecutionConfig | None = None,
-    ) -> tuple[Sequence[TensorLike], Sequence[TensorLike]]:
-        """
-        An **experimental** method for computing the results and jvp for PLXPR with LightningBase devices.
-
-        Args:
-            jaxpr (jax.extend.core.Jaxpr): Pennylane variant jaxpr containing quantum operations
-                and measurements
-            args (Sequence[TensorLike]): the arguments to the ``jaxpr``. Should contain ``consts`` followed
-                by non-constant arguments
-            tangents (Sequence[TensorLike]): the tangents corresponding to ``args``.
-                May contain ``jax.interpreters.ad.Zero``.
-
-        Keyword Args:
-            execution_config (ExecutionConfig | None): a data structure with additional information required for execution
-
-        Returns:
-            Sequence[TensorLike], Sequence[TensorLike]: the results and Jacobian vector products
-
-
-        .. note::
-
-            For LightningBase devices, the current implementation of this method is based on the conversion of the jaxpr to a PennyLane tape.
-            This has strict limitations. The ``args`` should contain the concatenation of ``jaxpr.constvars`` and ``jaxpr.invars``,
-            which are assumed to represent the trainable parameters of the circuit.
-            The method will raise an error if ``args`` do not match exactly the parameters of the tape created from the jaxpr.
-            Finally, only the adjoint method is supported for gradient calculation on LightningBase devices.
-
-        """
-
-        # pylint: disable=import-outside-toplevel
-        import jax
-
-        from pennylane_lightning.lightning_base.jaxpr_jvp import (
-            convert_jaxpr_to_tape,
-            get_output_shapes,
-            validate_args_tangents,
-        )
-
-        if self.wires is None:
-            raise NotImplementedError("Wires must be specified for integration with plxpr capture.")
-
-        if execution_config is None:
-            execution_config = ExecutionConfig(gradient_method="adjoint")
-        gradient_method = getattr(execution_config, "gradient_method", "adjoint")
-
-        if gradient_method != "adjoint":
-            raise NotImplementedError(
-                f"LightningQubit does not support gradient_method={gradient_method} for jaxpr_jvp."
-            )
-
-        if self.shots.total_shots is not None:
-            raise NotImplementedError(
-                "LightningBase does not support finite shots for ``jaxpr_jvp``. Please use shots=None."
-            )
-
-        tangents = validate_args_tangents(args, tangents)
-
-        self._statevector = self.LightningStateVector(
-            num_wires=len(self.wires), dtype=self._c_dtype, rng=self._rng
-        )
-
-        def wrapper(*args):
-            """
-            Evaluate a jaxpr by converting it into a quantum tape, ensuring the provided
-            parameters match the tape's parameters, and then simulating the tape to compute
-            both the result and the Jacobian.
-
-            The *args should contain the concatenation of jaxpr.constvars and jaxpr.invars,
-            which are assumed to represent the trainable parameters.
-            """
-            tape = convert_jaxpr_to_tape(jaxpr, args)
-            return self.simulate_and_jacobian(tape, state=self._statevector)
-
-        shapes_res, shapes_jac = get_output_shapes(jaxpr, len(self.wires))
-        results, jacobians = jax.pure_callback(
-            wrapper, (shapes_res, shapes_jac), *args, vmap_method="sequential"
-        )
-
-        if len(tangents) == 1 and not jax.numpy.isscalar(tangents[0]):
-            tangents = tangents[0]
-
-        jvps = (
-            [qml.gradients.compute_jvp_single(tangents, jacobians)]
-            if len(jaxpr.outvars) == 1
-            else qml.gradients.compute_jvp_multi(tangents, jacobians)
-        )
-
-        return results, jvps
-
     @staticmethod
     def get_c_interface_impl(
         lightning_device_name: str, lightning_lib_name: str
@@ -784,7 +616,7 @@ def resolve_mcm_method(mcm_config: MCMConfig, tape: QuantumScript | None, device
 
     mcm_supported_methods = (
         ("device", "deferred", "tree-traversal", "one-shot", None)
-        if not qml.capture.enabled()
+        if not qp.capture.enabled()
         else ("device", "deferred", "single-branch-statistics", None)
     )
 
@@ -803,7 +635,7 @@ def resolve_mcm_method(mcm_config: MCMConfig, tape: QuantumScript | None, device
 
     mcm_config = replace(mcm_config, mcm_method=final_mcm_method)
 
-    if qml.capture.enabled():
+    if qp.capture.enabled():
         mcm_updated_values = {}
 
         if mcm_method == "single-branch-statistics" and mcm_config.postselect_mode is not None:
@@ -819,3 +651,62 @@ def resolve_mcm_method(mcm_config: MCMConfig, tape: QuantumScript | None, device
         mcm_config = replace(mcm_config, **mcm_updated_values)
 
     return mcm_config
+
+
+def _adjoint_stopping_condition(op: Operator) -> bool:
+    return not isinstance(op, (Conditional, MidMeasure, PauliRot)) and (
+        not any(qp.math.requires_grad(d) for d in op.data)
+        or (op.num_params == 1 and op.has_generator)
+    )
+
+
+def _adjoint_measurement(mp: MeasurementProcess) -> bool:
+    return isinstance(mp, ExpectationMP)
+
+
+def adjoint_observables(obs: Operator, capabilities: DeviceCapabilities) -> bool:
+    """Returns True for observables supported in the adjoint differentiation method."""
+    if isinstance(obs, qp.ops.SProd):
+        return adjoint_observables(obs.base, capabilities)
+    if isinstance(obs, (qp.ops.Sum, qp.ops.Prod)):
+        return all(adjoint_observables(o, capabilities) for o in obs)
+    return capabilities.supports_observable(obs)
+
+
+def adjoint_transforms(device: LightningBase, allow_mcms: bool = False) -> qp.CompilePipeline:
+    """Return a compile pipeline that prepares the circuit for adjoint differentiation."""
+
+    name = f"adjoint + {device.name}"
+    capabilities = device.capabilities
+    gate_set = capabilities.gate_set(differentiable=True)
+    if allow_mcms:
+        gate_set |= {"MidMeasureMP"}
+    _adjoint_observables = partial(adjoint_observables, capabilities=capabilities)
+    return (
+        no_sampling(name=name)
+        + qp.transforms.broadcast_expand
+        + decompose(
+            stopping_condition=_adjoint_stopping_condition,
+            skip_initial_state_prep=False,
+            device_wires=device.wires,
+            target_gates=gate_set,
+            name=name,
+        )
+        + validate_observables(stopping_condition=_adjoint_observables, name=name)
+        + validate_measurements(analytic_measurements=_adjoint_measurement, name=name)
+        + validate_adjoint_trainable_params
+    )
+
+
+def supports_adjoint(device, circuit) -> bool:
+    """Returns True if the device supports adjoint differentiation of the given circuit."""
+
+    if circuit is None:
+        return True
+
+    prog = adjoint_transforms(device, allow_mcms=True)
+    try:
+        prog((circuit,))
+        return True
+    except (DecompositionUndefinedError, DeviceError, AttributeError):
+        return False

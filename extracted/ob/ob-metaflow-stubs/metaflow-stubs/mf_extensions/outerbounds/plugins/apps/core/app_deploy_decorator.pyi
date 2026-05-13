@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.795341                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.030700                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
     import metaflow.decorators
     import metaflow.user_decorators.user_flow_decorator
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
 
 from ......exception import MetaflowException as MetaflowException
 from ......user_decorators.user_flow_decorator import FlowMutator as FlowMutator
@@ -177,7 +177,7 @@ class FlowAppManager(object, metaclass=type):
         apps = current.apps.list()
     ```
     """
-    def __init__(self, flow_name: str, run_id: str, package: metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config.PackagedCode, image: typing.Optional[str] = None, default_image: typing.Optional[str] = None):
+    def __init__(self, flow_name: str, run_id: str, package: metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config.PackagedCode, image: typing.Union[str, None] = None, default_image: typing.Union[str, None] = None):
         ...
     @property
     def metaflow_code_package(self) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config.PackagedCode:

@@ -1,4 +1,4 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Contains definition of the interface to IDP modules.
 
@@ -13,8 +13,8 @@ It also defines two groups of kernel events:
 * idb_event:event_code_t database related events
 
 
-The processor related events are used to communicate with the processor module. The database related events are used to inform any interested parties, like plugins or processor modules, about the changes in the database. 
-    
+The processor related events are used to communicate with the processor module. The database related events are used to inform any interested parties, like plugins or processor modules, about the changes in the database.
+
 """
 
 class IDB_Hooks:
@@ -29,8 +29,11 @@ class IDB_Hooks:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -38,15 +41,18 @@ class IDB_Hooks:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, _flags: int = 0, _hkcb_flags: int = 1) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -63,7 +69,7 @@ class IDB_Hooks:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -80,10 +86,10 @@ class IDB_Hooks:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -93,7 +99,7 @@ class IDB_Hooks:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def adding_segm(self, s: segment_t) -> None:
         r"""A segment is being created. 
@@ -118,7 +124,7 @@ class IDB_Hooks:
         """
         ...
     def bookmark_changed(self, index: int, pos: lochist_entry_t, desc: str, operation: int) -> None:
-        r"""Boomarked position changed. 
+        r"""Bookmarked position changed. 
                   
         :param index: (uint32)
         :param pos: (::const lochist_entry_t *)
@@ -148,7 +154,7 @@ class IDB_Hooks:
         :param newcmt: (const char *)
         """
         ...
-    def changing_op_ti(self, ea: ida_idaapi.ea_t, n: int, new_type: type_t, new_fnames: p_list) -> None:
+    def changing_op_ti(self, ea: ida_idaapi.ea_t, n: int, new_type: bytes, new_fnames: p_list) -> None:
         r"""An operand typestring (c/c++ prototype) is to be changed. 
                   
         :param ea: (::ea_t)
@@ -203,7 +209,7 @@ class IDB_Hooks:
         :param segmod_flags: (int)
         """
         ...
-    def changing_ti(self, ea: ida_idaapi.ea_t, new_type: type_t, new_fnames: p_list) -> None:
+    def changing_ti(self, ea: ida_idaapi.ea_t, new_type: bytes, new_fnames: p_list) -> None:
         r"""An item typestring (c/c++ prototype) is to be changed. 
                   
         :param ea: (::ea_t)
@@ -268,6 +274,16 @@ class IDB_Hooks:
         :param main: (::ea_t) address of the main() function
         """
         ...
+    def dirtree_bulk_move(self, dt: dirtree_t, sources: dirtree_bulk_results_t, moved_items: dirtree_cursor_vec_t, dstdir: str, dstrank: int) -> None:
+        r"""Dirtree: many items have been moved. 
+                  
+        :param dt: (dirtree_t *)
+        :param sources: (::dirtree_bulk_results_t *)
+        :param moved_items: (::dirtree_cursor_vec_t *)
+        :param dstdir: (::const char *)
+        :param dstrank: (ssize_t) SOURCES and MOVED_ITEMS correspond to each other
+        """
+        ...
     def dirtree_link(self, dt: dirtree_t, path: str, link: bool) -> None:
         r"""Dirtree: an item has been linked/unlinked. 
                   
@@ -290,7 +306,15 @@ class IDB_Hooks:
         :param to: (::const char *)
         """
         ...
-    def dirtree_rank(self, dt: dirtree_t, path: str, rank: size_t) -> None:
+    def dirtree_ordering_changed(self, dt: dirtree_t, diridx: diridx_t, natural: bool) -> None:
+        r"""Dirtree: a directory's "natural" ordering changed 
+                  
+        :param dt: (dirtree_t *)
+        :param diridx: (diridx_t)
+        :param natural: (::bool)
+        """
+        ...
+    def dirtree_rank(self, dt: dirtree_t, path: str, rank: int) -> None:
         r"""Dirtree: a directory or item rank has been changed. 
                   
         :param dt: (dirtree_t *)
@@ -352,7 +376,7 @@ class IDB_Hooks:
         :param pfn: (func_t *) idb_event::frame_created
         """
         ...
-    def frame_expanded(self, func_ea: ida_idaapi.ea_t, udm_tid: tid_t, delta: adiff_t) -> None:
+    def frame_expanded(self, func_ea: ida_idaapi.ea_t, udm_tid: int, delta: int) -> None:
         r"""A frame type has been expanded/shrank. 
                   
         :param func_ea: (::ea_t)
@@ -360,7 +384,7 @@ class IDB_Hooks:
         :param delta: (::adiff_t) number of added/removed bytes
         """
         ...
-    def frame_udm_changed(self, func_ea: ida_idaapi.ea_t, udm_tid: tid_t, udmold: udm_t, udmnew: udm_t) -> None:
+    def frame_udm_changed(self, func_ea: ida_idaapi.ea_t, udm_tid: int, udmold: udm_t, udmnew: udm_t) -> None:
         r"""Frame member has been changed. 
                   
         :param func_ea: (::ea_t)
@@ -376,7 +400,7 @@ class IDB_Hooks:
         :param udm: (::const udm_t *)
         """
         ...
-    def frame_udm_deleted(self, func_ea: ida_idaapi.ea_t, udm_tid: tid_t, udm: udm_t) -> None:
+    def frame_udm_deleted(self, func_ea: ida_idaapi.ea_t, udm_tid: int, udm: udm_t) -> None:
         r"""Frame member has been deleted. 
                   
         :param func_ea: (::ea_t)
@@ -446,11 +470,11 @@ class IDB_Hooks:
         :param lib_name: (::const char *) library name extracted from signature file
         """
         ...
-    def item_color_changed(self, ea: ida_idaapi.ea_t, color: bgcolor_t) -> None:
+    def item_color_changed(self, ea: ida_idaapi.ea_t, color: int) -> None:
         r"""An item color has been changed. 
                   
         :param ea: (::ea_t)
-        :param color: (bgcolor_t) if color==DEFCOLOR, the the color is deleted.
+        :param color: (bgcolor_t) if color==DEFCOLOR, the color is deleted.
         """
         ...
     def kernel_config_loaded(self, pass_number: int) -> None:
@@ -459,7 +483,7 @@ class IDB_Hooks:
         :param pass_number: (int)
         """
         ...
-    def loader_finished(self, li: linput_t, neflags: uint16, filetypename: str) -> None:
+    def loader_finished(self, li: linput_t, neflags: int, filetypename: str) -> None:
         r"""External file loader finished its work. Use this event to augment the existing loader functionality. 
                   
         :param li: (linput_t *)
@@ -483,7 +507,7 @@ class IDB_Hooks:
         :param name: (const char *) nullptr means name is unknown
         """
         ...
-    def lt_edm_changed(self, enumname: str, edm_tid: tid_t, edmold: edm_t, edmnew: edm_t) -> None:
+    def lt_edm_changed(self, enumname: str, edm_tid: int, edmold: edm_t, edmnew: edm_t) -> None:
         r"""local type enum member has been changed 
                   
         :param enumname: (::const char *)
@@ -499,7 +523,7 @@ class IDB_Hooks:
         :param edm: (::const edm_t *)
         """
         ...
-    def lt_edm_deleted(self, enumname: str, edm_tid: tid_t, edm: edm_t) -> None:
+    def lt_edm_deleted(self, enumname: str, edm_tid: int, edm: edm_t) -> None:
         r"""local type enum member has been deleted 
                   
         :param enumname: (::const char *)
@@ -515,7 +539,7 @@ class IDB_Hooks:
         :param oldname: (::const char *)
         """
         ...
-    def lt_udm_changed(self, udtname: str, udm_tid: tid_t, udmold: udm_t, udmnew: udm_t) -> None:
+    def lt_udm_changed(self, udtname: str, udm_tid: int, udmold: udm_t, udmnew: udm_t) -> None:
         r"""local type udt member has been changed 
                   
         :param udtname: (::const char *)
@@ -531,7 +555,7 @@ class IDB_Hooks:
         :param udm: (::const udm_t *)
         """
         ...
-    def lt_udm_deleted(self, udtname: str, udm_tid: tid_t, udm: udm_t) -> None:
+    def lt_udm_deleted(self, udtname: str, udm_tid: int, udm: udm_t) -> None:
         r"""local type udt member has been deleted 
                   
         :param udtname: (::const char *)
@@ -547,7 +571,7 @@ class IDB_Hooks:
         :param oldname: (::const char *)
         """
         ...
-    def lt_udt_expanded(self, udtname: str, udm_tid: tid_t, delta: adiff_t) -> None:
+    def lt_udt_expanded(self, udtname: str, udm_tid: int, delta: int) -> None:
         r"""A structure type has been expanded/shrank. 
                   
         :param udtname: (::const char *)
@@ -561,7 +585,7 @@ class IDB_Hooks:
         :param insn: (const insn_t*)
         """
         ...
-    def make_data(self, ea: ida_idaapi.ea_t, flags: flags64_t, tid: tid_t, len: asize_t) -> None:
+    def make_data(self, ea: ida_idaapi.ea_t, flags: int, tid: int, len: int) -> None:
         r"""A data item is being created. 
                   
         :param ea: (::ea_t)
@@ -570,7 +594,7 @@ class IDB_Hooks:
         :param len: (::asize_t)
         """
         ...
-    def op_ti_changed(self, ea: ida_idaapi.ea_t, n: int, type: type_t, fnames: p_list) -> None:
+    def op_ti_changed(self, ea: ida_idaapi.ea_t, n: int, type: bytes, fnames: p_list) -> None:
         r"""An operand typestring (c/c++ prototype) has been changed. 
                   
         :param ea: (::ea_t)
@@ -643,7 +667,7 @@ class IDB_Hooks:
         :param oldend: (::ea_t)
         """
         ...
-    def segm_moved(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, size: asize_t, changed_netmap: bool) -> None:
+    def segm_moved(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, size: int, changed_netmap: bool) -> None:
         r"""Segment has been moved. 
                   
         :param to: (::ea_t)
@@ -679,7 +703,7 @@ class IDB_Hooks:
         :param new_start: (::ea_t)
         """
         ...
-    def sgr_changed(self, start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, regnum: int, value: sel_t, old_value: sel_t, tag: uchar) -> None:
+    def sgr_changed(self, start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, regnum: int, value: int, old_value: int, tag: int) -> None:
         r"""The kernel has changed a segment register value. 
                   
         :param start_ea: (::ea_t)
@@ -718,7 +742,7 @@ class IDB_Hooks:
         :param pfn: (func_t *)
         """
         ...
-    def ti_changed(self, ea: ida_idaapi.ea_t, type: type_t, fnames: p_list) -> None:
+    def ti_changed(self, ea: ida_idaapi.ea_t, type: bytes, fnames: p_list) -> None:
         r"""An item typestring (c/c++ prototype) has been changed. 
                   
         :param ea: (::ea_t)
@@ -758,8 +782,11 @@ class IDP_Hooks:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -767,15 +794,18 @@ class IDP_Hooks:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, _flags: int = 0, _hkcb_flags: int = 1) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -792,7 +822,7 @@ class IDP_Hooks:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -809,10 +839,10 @@ class IDP_Hooks:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -822,7 +852,7 @@ class IDP_Hooks:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def ev_add_cref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, type: cref_t) -> int:
         r"""A code reference is being created. 
@@ -852,7 +882,7 @@ class IDP_Hooks:
         :returns: -1: error
         """
         ...
-    def ev_adjust_libfunc_ea(self, sig: idasgn_t, libfun: libfunc_t, ea: ea_t) -> int:
+    def ev_adjust_libfunc_ea(self, sig: idasgn_t, libfun: libfunc_t, ea: int) -> int:
         r"""Called when a signature module has been matched against bytes in the database. This is used to compute the offset at which a particular module's libfunc should be applied. 
                   
         :param sig: (const idasgn_t *)
@@ -896,7 +926,7 @@ class IDP_Hooks:
         :returns: 0: not implemented or failed
         """
         ...
-    def ev_arg_addrs_ready(self, caller: ida_idaapi.ea_t, n: int, tif: tinfo_t, addrs: ea_t) -> int:
+    def ev_arg_addrs_ready(self, caller: ida_idaapi.ea_t, n: int, tif: tinfo_t, addrs: int) -> int:
         r"""Argument address info is ready. 
                   
         :param caller: (::ea_t)
@@ -913,12 +943,12 @@ class IDP_Hooks:
         """
         ...
     def ev_assemble(self, ea: ida_idaapi.ea_t, cs: ida_idaapi.ea_t, ip: ida_idaapi.ea_t, use32: bool, line: str) -> Any:
-        r"""Assemble an instruction. (display a warning if an error is found). 
+        r"""Assemble an instruction. (display a warning if an error occurs). 
                   
         :param ea: (::ea_t) linear address of instruction
         :param cs: (::ea_t) cs of instruction
         :param ip: (::ea_t) ip of instruction
-        :param use32: (bool) is 32bit segment?
+        :param use32: (bool) is 32-bit segment?
         :param line: (const char *) line to assemble
         :returns: size of the instruction in bytes
         """
@@ -985,7 +1015,7 @@ class IDP_Hooks:
         :returns: 0: not implemented
         """
         ...
-    def ev_calc_step_over(self, target: ea_t, ip: ida_idaapi.ea_t) -> int:
+    def ev_calc_step_over(self, target: int, ip: ida_idaapi.ea_t) -> int:
         r"""Calculate the address of the instruction which will be executed after "step over". The kernel will put a breakpoint there. If the step over is equal to step into or we cannot calculate the address, return BADADDR. 
                   
         :param target: (::ea_t *) pointer to the answer
@@ -1058,7 +1088,7 @@ class IDP_Hooks:
         :returns: number of converted bytes
         """
         ...
-    def ev_coagulate_dref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, may_define: bool, code_ea: ea_t) -> int:
+    def ev_coagulate_dref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, may_define: bool, code_ea: int) -> int:
         r"""Data reference is being analyzed. plugin may correct 'code_ea' (e.g. for thumb mode refs, we clear the last bit) 
                   
         :param to: (::ea_t)
@@ -1068,7 +1098,7 @@ class IDP_Hooks:
         :returns: 0: not implemented or continue
         """
         ...
-    def ev_create_flat_group(self, image_base: ida_idaapi.ea_t, bitness: int, dataseg_sel: sel_t) -> int:
+    def ev_create_flat_group(self, image_base: ida_idaapi.ea_t, bitness: int, dataseg_sel: int) -> int:
         r"""Create special segment representing the flat group. 
                   
         :param image_base: (::ea_t)
@@ -1107,7 +1137,7 @@ class IDP_Hooks:
         :returns: <0: segment should not be created
         """
         ...
-    def ev_cvt64_hashval(self, node: nodeidx_t, tag: uchar, name: str, data: uchar) -> int:
+    def ev_cvt64_hashval(self, node: int, tag: int, name: str, data: int) -> int:
         r"""perform 32-64 conversion for a hash value 
                   
         :param node: (::nodeidx_t)
@@ -1119,7 +1149,7 @@ class IDP_Hooks:
         :returns: -1: error (and message in errbuf)
         """
         ...
-    def ev_cvt64_supval(self, node: nodeidx_t, tag: uchar, idx: nodeidx_t, data: uchar) -> int:
+    def ev_cvt64_supval(self, node: int, tag: int, idx: int, data: int) -> int:
         r"""perform 32-64 conversion for a netnode array element 
                   
         :param node: (::nodeidx_t)
@@ -1163,7 +1193,7 @@ class IDP_Hooks:
                   
         :param ea: (::ea_t *) in: instruction address in question, out: (if the answer is positive) if the delay slot contains valid insn: the address of the delay slot insn else: BADADDR (invalid insn, e.g. a branch)
         :param bexec: (bool *) execute slot if jumping, initially set to 'true'
-        :param fexec: (bool *) execute slot if not jumping, initally set to 'true'
+        :param fexec: (bool *) execute slot if not jumping, initially set to 'true'
         :returns: 1: positive answer
         :returns: <=0: ordinary insn
         """
@@ -1209,7 +1239,7 @@ class IDP_Hooks:
         :returns: 0: not implemented
         """
         ...
-    def ev_extract_address(self, out_ea: ea_t, screen_ea: ida_idaapi.ea_t, string: str, position: size_t) -> int:
+    def ev_extract_address(self, out_ea: int, screen_ea: ida_idaapi.ea_t, string: str, position: int) -> int:
         r"""Extract address from a string. 
                   
         :param out_ea: (ea_t *), out
@@ -1248,7 +1278,7 @@ class IDP_Hooks:
         :returns: void: 
         """
         ...
-    def ev_gen_asm_or_lst(self, starting: bool, fp: FILE, is_asm: bool, flags: int, outline: html_line_cb_t) -> int:
+    def ev_gen_asm_or_lst(self, starting: bool, fp: Any, is_asm: bool, flags: int, outline: html_line_cb_t) -> int:
         r"""Callback: generating asm or lst file. The kernel calls this callback twice, at the beginning and at the end of listing generation. The processor module can intercept this event and adjust its output 
                   
         :param starting: (bool) beginning listing generation
@@ -1259,7 +1289,7 @@ class IDP_Hooks:
         :returns: void: 
         """
         ...
-    def ev_gen_map_file(self, nlines: int, fp: FILE) -> int:
+    def ev_gen_map_file(self, nlines: int, fp: Any) -> int:
         r"""Generate map file. If not implemented the kernel itself will create the map file. 
                   
         :param nlines: (int *) number of lines in map file (-1 means write error)
@@ -1278,7 +1308,7 @@ class IDP_Hooks:
         :returns: 0: not implemented
         """
         ...
-    def ev_gen_src_file_lnnum(self, outctx: outctx_t, file: str, lnnum: size_t) -> int:
+    def ev_gen_src_file_lnnum(self, outctx: outctx_t, file: str, lnnum: int) -> int:
         r"""Callback: generate analog of: 
              #line  123
             
@@ -1292,7 +1322,7 @@ class IDP_Hooks:
         :returns: 0: not implemented
         """
         ...
-    def ev_gen_stkvar_def(self, outctx: outctx_t, stkvar: udm_t, v: int, tid: tid_t) -> int:
+    def ev_gen_stkvar_def(self, outctx: outctx_t, stkvar: udm_t, v: int, tid: int) -> int:
         r"""Generate stack variable definition line Default line is varname = type ptr value, where 'type' is one of byte,word,dword,qword,tbyte 
                   
         :param outctx: (outctx_t *)
@@ -1319,7 +1349,7 @@ class IDP_Hooks:
         :returns: 0: callback has not been handled. the buffer must not be changed in this case
         """
         ...
-    def ev_get_bg_color(self, color: bgcolor_t, ea: ida_idaapi.ea_t) -> int:
+    def ev_get_bg_color(self, color: int, ea: ida_idaapi.ea_t) -> int:
         r"""Get item background color. Plugins can hook this callback to color disassembly lines dynamically 
                   
         :param color: (bgcolor_t *), out
@@ -1373,7 +1403,7 @@ class IDP_Hooks:
         :returns: 0: not implemented
         """
         ...
-    def ev_get_macro_insn_head(self, head: ea_t, ip: ida_idaapi.ea_t) -> int:
+    def ev_get_macro_insn_head(self, head: int, ip: ida_idaapi.ea_t) -> int:
         r"""Calculate the start of a macro instruction. This notification is called if IP points to the middle of an instruction 
                   
         :param head: (::ea_t *), out: answer, BADADDR means normal instruction
@@ -1407,7 +1437,7 @@ class IDP_Hooks:
         :returns: 0: not implemented
         """
         ...
-    def ev_get_reg_info(self, main_regname: char, bitrange: bitrange_t, regname: str) -> int:
+    def ev_get_reg_info(self, main_regname: int, bitrange: bitrange_t, regname: str) -> int:
         r"""Get register information by its name. example: "ah" returns:
         * main_regname="eax"
         * bitrange_t = { offset==8, nbits==8 }
@@ -1423,7 +1453,7 @@ class IDP_Hooks:
         :returns: 0: unimplemented
         """
         ...
-    def ev_get_reg_name(self, reg: int, width: size_t, reghi: int) -> Any:
+    def ev_get_reg_name(self, reg: int, width: int, reghi: int) -> Any:
         r"""Generate text representation of a register. Most processor modules do not need to implement this callback. It is useful only if processor_t::reg_names[reg] does not provide the correct register name. 
                   
         :param reg: (int) internal register number as defined in the processor module
@@ -1433,15 +1463,17 @@ class IDP_Hooks:
         :returns: strlen(buf): if success
         """
         ...
-    def ev_get_simd_types(self, out: simd_info_vec_t, simd_attrs: simd_info_t, argloc: argloc_t, create_tifs: bool) -> int:
+    def ev_get_simd_types(self, out: simd_info_vec_t, simd_attrs: simd_info_t, argloc: argloc_t, create_tifs: bool, insn: insn_t, op: op_t) -> int:
         r"""Get SIMD-related types according to given attributes ant/or argument location 
                   
-        :param out: (::simd_info_vec_t *)
+        :param out: (simd_info_vec_t *)
         :param simd_attrs: (const simd_info_t *), may be nullptr
         :param argloc: (const argloc_t *), may be nullptr
         :param create_tifs: (bool) return valid tinfo_t objects, create if neccessary
+        :param insn: (::const insn_t *)
+        :param op: (::const op_t *)
         :returns: number: of found types
-        :returns: -1: error If name==nullptr, initialize all SIMD types
+        :returns: -1: error If insn and op are specified, return only the types that match them
         """
         ...
     def ev_get_stkarg_area_info(self, out: stkarg_area_info_t, cc: callcnv_t) -> int:
@@ -1454,7 +1486,7 @@ class IDP_Hooks:
         """
         ...
     def ev_get_stkvar_scale_factor(self) -> int:
-        r"""Should stack variable references be multiplied by a coefficient before being used in the stack frame?. Currently used by TMS320C55 because the references into the stack should be multiplied by 2 
+        r"""Should stack variable references be multiplied by a coefficient before being used in the stack frame? Currently used by TMS320C55 because the references into the stack should be multiplied by 2 
                   
         :returns: scaling factor
         :returns: 0: not implemented
@@ -1508,7 +1540,7 @@ class IDP_Hooks:
         """
         ...
     def ev_is_alloca_probe(self, ea: ida_idaapi.ea_t) -> int:
-        r"""Does the function at 'ea' behave as __alloca_probe? 
+        r"""Does the function at 'ea' behave like __alloca_probe? 
                   
         :param ea: (::ea_t)
         :returns: 1: yes
@@ -1516,7 +1548,7 @@ class IDP_Hooks:
         """
         ...
     def ev_is_basic_block_end(self, insn: insn_t, call_insn_stops_block: bool) -> int:
-        r"""Is the current instruction end of a basic block?. This function should be defined for processors with delayed jump slots. 
+        r"""Is the current instruction end of a basic block? This function should be defined for processors with delayed jump slots. 
                   
         :param insn: (const insn_t*) the instruction
         :param call_insn_stops_block: (bool)
@@ -1578,8 +1610,8 @@ class IDP_Hooks:
         
         """
         ...
-    def ev_is_jump_func(self, pfn: func_t, jump_target: ea_t, func_pointer: ea_t) -> int:
-        r"""Is the function a trivial "jump" function?. 
+    def ev_is_jump_func(self, pfn: func_t, jump_target: int, func_pointer: int) -> int:
+        r"""Is the function a trivial "jump" function? 
                   
         :param pfn: (func_t *)
         :param jump_target: (::ea_t *)
@@ -1589,7 +1621,7 @@ class IDP_Hooks:
         :returns: 1: yes, see 'jump_target' and 'func_pointer'
         """
         ...
-    def ev_is_ret_insn(self, insn: insn_t, flags: uchar) -> int:
+    def ev_is_ret_insn(self, insn: insn_t, flags: int) -> int:
         r"""Is the instruction a "return"? 
                   
         :param insn: (const insn_t *) instruction
@@ -1600,7 +1632,7 @@ class IDP_Hooks:
         """
         ...
     def ev_is_sane_insn(self, insn: insn_t, no_crefs: int) -> int:
-        r"""Is the instruction sane for the current file type?. 
+        r"""Is the instruction sane for the current file type? 
                   
         :param insn: (const insn_t*) the instruction
         :param no_crefs: (int) 1: the instruction has no code refs to it. ida just tries to convert unexplored bytes to an instruction (but there is no other reason to convert them into an instruction) 0: the instruction is created because of some coderef, user request or another weighty reason.
@@ -1683,7 +1715,7 @@ class IDP_Hooks:
         :param asmnum: (int) See also ev_asm_installed
         """
         ...
-    def ev_newbinary(self, filename: char, fileoff: qoff64_t, basepara: ida_idaapi.ea_t, binoff: ida_idaapi.ea_t, nbytes: uint64) -> int:
+    def ev_newbinary(self, filename: int, fileoff: qoff64_t, basepara: ida_idaapi.ea_t, binoff: ida_idaapi.ea_t, nbytes: int) -> int:
         r"""IDA is about to load a binary file. 
                   
         :param filename: (char *) binary file name
@@ -1693,7 +1725,7 @@ class IDP_Hooks:
         :param nbytes: (::uint64) number of bytes to load
         """
         ...
-    def ev_newfile(self, fname: char) -> int:
+    def ev_newfile(self, fname: int) -> int:
         r"""A new file has been loaded. 
                   
         :param fname: (char *) input file name
@@ -1708,7 +1740,7 @@ class IDP_Hooks:
         :returns: <0: prohibit
         """
         ...
-    def ev_next_exec_insn(self, target: ea_t, ea: ida_idaapi.ea_t, tid: int, getreg: regval_getter_t, regvalues: regval_t) -> int:
+    def ev_next_exec_insn(self, target: int, ea: ida_idaapi.ea_t, tid: int, getreg: regval_getter_t, regvalues: regval_t) -> int:
         r"""Get next address to be executed This function must return the next address to be executed. If the instruction following the current one is executed, then it must return BADADDR Usually the instructions to consider are: jumps, branches, calls, returns. This function is essential if the 'single step' is not supported in hardware. 
                   
         :param target: (::ea_t *), out: pointer to the answer
@@ -1720,7 +1752,7 @@ class IDP_Hooks:
         :returns: 1: implemented
         """
         ...
-    def ev_oldfile(self, fname: char) -> int:
+    def ev_oldfile(self, fname: int) -> int:
         r"""An old file has been loaded. 
                   
         :param fname: (char *) input file name
@@ -1808,7 +1840,7 @@ class IDP_Hooks:
         :returns: 0: not implemented
         """
         ...
-    def ev_out_special_item(self, outctx: outctx_t, segtype: uchar) -> int:
+    def ev_out_special_item(self, outctx: outctx_t, segtype: int) -> int:
         r"""Generate text representation of an item in a special segment i.e. absolute symbols, externs, communal definitions etc 
                   
         :param outctx: (outctx_t *)
@@ -1818,7 +1850,7 @@ class IDP_Hooks:
         :returns: -1: overflow
         """
         ...
-    def ev_privrange_changed(self, old_privrange: range_t, delta: adiff_t) -> int:
+    def ev_privrange_changed(self, old_privrange: range_t, delta: int) -> int:
         r"""Privrange interval has been moved to a new location. Most common actions to be done by module in this case: fix indices of netnodes used by module 
                   
         :param old_privrange: (const range_t *) - old privrange interval
@@ -1827,7 +1859,7 @@ class IDP_Hooks:
         :returns: -1: error (and message in errbuf)
         """
         ...
-    def ev_realcvt(self, m: void, e: fpvalue_t, swt: uint16) -> int:
+    def ev_realcvt(self, m: Any, e: fpvalue_t, swt: int) -> int:
         r"""Floating point -> IEEE conversion 
                   
         :param m: (void *) ptr to processor-specific floating point value
@@ -1848,7 +1880,7 @@ class IDP_Hooks:
     def ev_replaying_undo(self, action_name: str, vec: undo_records_t, is_undo: bool) -> int:
         r"""Replaying an undo/redo buffer 
                   
-        :param action_name: (const char *) action that we perform undo/redo for. may be nullptr for intermediary buffers.
+        :param action_name: (const char *) action that we perform undo/redo for. may be nullptr for intermediate buffers.
         :param vec: (const undo_records_t *)
         :param is_undo: (bool) true if performing undo, false if performing redo This event may be generated multiple times per undo/redo
         """
@@ -1860,7 +1892,7 @@ class IDP_Hooks:
         :param code16: (bool) true for 16-bit mode, false for 32-bit mode
         """
         ...
-    def ev_set_idp_options(self, keyword: str, value_type: int, value: void, idb_loaded: bool) -> int:
+    def ev_set_idp_options(self, keyword: str, value_type: int, value: Any, idb_loaded: bool) -> int:
         r"""Set IDP-specific configuration option Also see set_options_t in config.hpp 
                   
         :param keyword: (const char *)
@@ -1899,7 +1931,7 @@ class IDP_Hooks:
         
         """
         ...
-    def ev_treat_hindering_item(self, hindering_item_ea: ida_idaapi.ea_t, new_item_flags: flags64_t, new_item_ea: ida_idaapi.ea_t, new_item_length: asize_t) -> int:
+    def ev_treat_hindering_item(self, hindering_item_ea: ida_idaapi.ea_t, new_item_flags: int, new_item_ea: ida_idaapi.ea_t, new_item_length: int) -> int:
         r"""An item hinders creation of another item. 
                   
         :param hindering_item_ea: (::ea_t)
@@ -1989,109 +2021,109 @@ class IDP_Hooks:
 
 class asm_t:
     @property
-    def a_align(self) -> Any: ...
+    def a_align(self) -> str: ...
     @property
-    def a_ascii(self) -> Any: ...
+    def a_ascii(self) -> str: ...
     @property
-    def a_band(self) -> Any: ...
+    def a_band(self) -> str: ...
     @property
-    def a_bnot(self) -> Any: ...
+    def a_bnot(self) -> str: ...
     @property
-    def a_bor(self) -> Any: ...
+    def a_bor(self) -> str: ...
     @property
-    def a_bss(self) -> Any: ...
+    def a_bss(self) -> str: ...
     @property
-    def a_byte(self) -> Any: ...
+    def a_byte(self) -> str: ...
     @property
-    def a_comdef(self) -> Any: ...
+    def a_comdef(self) -> str: ...
     @property
-    def a_curip(self) -> Any: ...
+    def a_curip(self) -> str: ...
     @property
-    def a_double(self) -> Any: ...
+    def a_double(self) -> str: ...
     @property
-    def a_dups(self) -> Any: ...
+    def a_dups(self) -> str: ...
     @property
-    def a_dword(self) -> Any: ...
+    def a_dword(self) -> str: ...
     @property
-    def a_equ(self) -> Any: ...
+    def a_equ(self) -> str: ...
     @property
-    def a_extrn(self) -> Any: ...
+    def a_extrn(self) -> str: ...
     @property
-    def a_float(self) -> Any: ...
+    def a_float(self) -> str: ...
     @property
-    def a_include_fmt(self) -> Any: ...
+    def a_include_fmt(self) -> str: ...
     @property
-    def a_mod(self) -> Any: ...
+    def a_mod(self) -> str: ...
     @property
-    def a_oword(self) -> Any: ...
+    def a_oword(self) -> str: ...
     @property
-    def a_packreal(self) -> Any: ...
+    def a_packreal(self) -> str: ...
     @property
-    def a_public(self) -> Any: ...
+    def a_public(self) -> str: ...
     @property
-    def a_qword(self) -> Any: ...
+    def a_qword(self) -> str: ...
     @property
-    def a_rva(self) -> Any: ...
+    def a_rva(self) -> str: ...
     @property
-    def a_seg(self) -> Any: ...
+    def a_seg(self) -> str: ...
     @property
-    def a_shl(self) -> Any: ...
+    def a_shl(self) -> str: ...
     @property
-    def a_shr(self) -> Any: ...
+    def a_shr(self) -> str: ...
     @property
-    def a_sizeof_fmt(self) -> Any: ...
+    def a_sizeof_fmt(self) -> str: ...
     @property
-    def a_tbyte(self) -> Any: ...
+    def a_tbyte(self) -> str: ...
     @property
-    def a_vstruc_fmt(self) -> Any: ...
+    def a_vstruc_fmt(self) -> str: ...
     @property
-    def a_weak(self) -> Any: ...
+    def a_weak(self) -> str: ...
     @property
-    def a_word(self) -> Any: ...
+    def a_word(self) -> str: ...
     @property
-    def a_xor(self) -> Any: ...
+    def a_xor(self) -> str: ...
     @property
-    def a_yword(self) -> Any: ...
+    def a_yword(self) -> str: ...
     @property
-    def a_zword(self) -> Any: ...
+    def a_zword(self) -> str: ...
     @property
-    def accsep(self) -> Any: ...
+    def accsep(self) -> int: ...
     @property
-    def ascsep(self) -> Any: ...
+    def ascsep(self) -> int: ...
     @property
-    def cmnt(self) -> Any: ...
+    def cmnt(self) -> str: ...
     @property
-    def cmnt2(self) -> Any: ...
+    def cmnt2(self) -> str: ...
     @property
-    def end(self) -> Any: ...
+    def end(self) -> str: ...
     @property
-    def esccodes(self) -> Any: ...
+    def esccodes(self) -> str: ...
     @property
-    def flag(self) -> Any: ...
+    def flag(self) -> int: ...
     @property
-    def flag2(self) -> Any: ...
+    def flag2(self) -> int: ...
     @property
     def header(self) -> Any: ...
     @property
-    def help(self) -> Any: ...
+    def help(self) -> help_t: ...
     @property
-    def high16(self) -> Any: ...
+    def high16(self) -> str: ...
     @property
-    def high8(self) -> Any: ...
+    def high8(self) -> str: ...
     @property
-    def lbrace(self) -> Any: ...
+    def lbrace(self) -> int: ...
     @property
-    def low16(self) -> Any: ...
+    def low16(self) -> str: ...
     @property
-    def low8(self) -> Any: ...
+    def low8(self) -> str: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def origin(self) -> Any: ...
+    def origin(self) -> str: ...
     @property
-    def rbrace(self) -> Any: ...
+    def rbrace(self) -> int: ...
     @property
-    def uflag(self) -> Any: ...
+    def uflag(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -2101,8 +2133,11 @@ class asm_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -2110,15 +2145,18 @@ class asm_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2135,7 +2173,7 @@ class asm_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2152,10 +2190,10 @@ class asm_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2165,14 +2203,14 @@ class asm_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class num_range_t:
     @property
-    def maxval(self) -> Any: ...
+    def maxval(self) -> int: ...
     @property
-    def minval(self) -> Any: ...
+    def minval(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -2182,8 +2220,11 @@ class num_range_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -2191,15 +2232,18 @@ class num_range_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, _min: int64, _max: int64) -> Any:
+    def __init__(self, _min: int, _max: int) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2216,7 +2260,7 @@ class num_range_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2233,10 +2277,10 @@ class num_range_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2246,14 +2290,14 @@ class num_range_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class params_t:
     @property
-    def p1(self) -> Any: ...
+    def p1(self) -> int: ...
     @property
-    def p2(self) -> Any: ...
+    def p2(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -2263,8 +2307,11 @@ class params_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -2272,15 +2319,18 @@ class params_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, _p1: int64, _p2: int64) -> Any:
+    def __init__(self, _p1: int, _p2: int) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2297,7 +2347,7 @@ class params_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2314,10 +2364,10 @@ class params_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2327,7 +2377,7 @@ class params_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class processor_t(IDP_Hooks):
@@ -2342,8 +2392,11 @@ class processor_t(IDP_Hooks):
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -2351,15 +2404,18 @@ class processor_t(IDP_Hooks):
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2376,7 +2432,7 @@ class processor_t(IDP_Hooks):
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2393,10 +2449,10 @@ class processor_t(IDP_Hooks):
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2406,19 +2462,19 @@ class processor_t(IDP_Hooks):
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def auto_empty(self, args: Any) -> None:
+    def auto_empty(self, *args: Any) -> Any:
         ...
-    def auto_empty_finally(self, args: Any) -> None:
+    def auto_empty_finally(self, *args: Any) -> Any:
         ...
-    def closebase(self, args: Any) -> None:
+    def closebase(self, *args: Any) -> Any:
         ...
-    def compiler_changed(self, args: Any) -> None:
+    def compiler_changed(self, *args: Any) -> Any:
         ...
-    def deleting_func(self, pfn: Any) -> None:
+    def deleting_func(self, pfn: Any) -> Any:
         ...
-    def determined_main(self, args: Any) -> None:
+    def determined_main(self, *args: Any) -> Any:
         ...
     def ev_add_cref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, type: cref_t) -> int:
         r"""A code reference is being created. 
@@ -2448,7 +2504,7 @@ class processor_t(IDP_Hooks):
         :returns: -1: error
         """
         ...
-    def ev_adjust_libfunc_ea(self, sig: idasgn_t, libfun: libfunc_t, ea: ea_t) -> int:
+    def ev_adjust_libfunc_ea(self, sig: idasgn_t, libfun: libfunc_t, ea: int) -> int:
         r"""Called when a signature module has been matched against bytes in the database. This is used to compute the offset at which a particular module's libfunc should be applied. 
                   
         :param sig: (const idasgn_t *)
@@ -2469,7 +2525,7 @@ class processor_t(IDP_Hooks):
         :returns: 0: not implemented or refinfo adjusted
         """
         ...
-    def ev_ana_insn(self, args: Any) -> bool:
+    def ev_ana_insn(self, *args: Any) -> bool:
         ...
     def ev_analyze_prolog(self, ea: ida_idaapi.ea_t) -> int:
         r"""Analyzes function prolog, epilog, and updates purge, and function attributes 
@@ -2486,7 +2542,7 @@ class processor_t(IDP_Hooks):
         :returns: 0: not implemented or failed
         """
         ...
-    def ev_arg_addrs_ready(self, caller: ida_idaapi.ea_t, n: int, tif: tinfo_t, addrs: ea_t) -> int:
+    def ev_arg_addrs_ready(self, caller: ida_idaapi.ea_t, n: int, tif: tinfo_t, addrs: int) -> int:
         r"""Argument address info is ready. 
                   
         :param caller: (::ea_t)
@@ -2502,9 +2558,9 @@ class processor_t(IDP_Hooks):
         :param asmnum: (int) See also ev_newasm
         """
         ...
-    def ev_assemble(self, args: Any) -> Any:
+    def ev_assemble(self, *args: Any) -> Any:
         ...
-    def ev_auto_queue_empty(self, args: Any) -> int:
+    def ev_auto_queue_empty(self, *args: Any) -> int:
         ...
     def ev_calc_arglocs(self, fti: func_type_data_t) -> int:
         r"""Calculate function argument locations. This callback should fill retloc, all arglocs, and stkargs. This callback is never called for CM_CC_SPECIAL functions. 
@@ -2591,7 +2647,7 @@ class processor_t(IDP_Hooks):
         
         """
         ...
-    def ev_can_have_type(self, args: Any) -> int:
+    def ev_can_have_type(self, *args: Any) -> int:
         ...
     def ev_clean_tbit(self, ea: ida_idaapi.ea_t, getreg: regval_getter_t, regvalues: regval_t) -> int:
         r"""Clear the TF bit after an insn like pushf stored it in memory. 
@@ -2603,13 +2659,13 @@ class processor_t(IDP_Hooks):
         :returns: 0: failed
         """
         ...
-    def ev_cmp_operands(self, args: Any) -> int:
+    def ev_cmp_operands(self, *args: Any) -> int:
         ...
-    def ev_coagulate(self, args: Any) -> int:
+    def ev_coagulate(self, *args: Any) -> int:
         ...
     def ev_coagulate_dref(self, from_ea: Any, to_ea: Any, may_define: Any, _code_ea: Any) -> int:
         ...
-    def ev_create_flat_group(self, image_base: ida_idaapi.ea_t, bitness: int, dataseg_sel: sel_t) -> int:
+    def ev_create_flat_group(self, image_base: ida_idaapi.ea_t, bitness: int, dataseg_sel: int) -> int:
         r"""Create special segment representing the flat group. 
                   
         :param image_base: (::ea_t)
@@ -2626,11 +2682,11 @@ class processor_t(IDP_Hooks):
         :returns: must be 0
         """
         ...
-    def ev_create_switch_xrefs(self, args: Any) -> int:
+    def ev_create_switch_xrefs(self, *args: Any) -> int:
         ...
     def ev_creating_segm(self, s: Any) -> int:
         ...
-    def ev_cvt64_hashval(self, node: nodeidx_t, tag: uchar, name: str, data: uchar) -> int:
+    def ev_cvt64_hashval(self, node: int, tag: int, name: str, data: int) -> int:
         r"""perform 32-64 conversion for a hash value 
                   
         :param node: (::nodeidx_t)
@@ -2642,7 +2698,7 @@ class processor_t(IDP_Hooks):
         :returns: -1: error (and message in errbuf)
         """
         ...
-    def ev_cvt64_supval(self, node: nodeidx_t, tag: uchar, idx: nodeidx_t, data: uchar) -> int:
+    def ev_cvt64_supval(self, node: int, tag: int, idx: int, data: int) -> int:
         r"""perform 32-64 conversion for a netnode array element 
                   
         :param node: (::nodeidx_t)
@@ -2686,7 +2742,7 @@ class processor_t(IDP_Hooks):
                   
         :param ea: (::ea_t *) in: instruction address in question, out: (if the answer is positive) if the delay slot contains valid insn: the address of the delay slot insn else: BADADDR (invalid insn, e.g. a branch)
         :param bexec: (bool *) execute slot if jumping, initially set to 'true'
-        :param fexec: (bool *) execute slot if not jumping, initally set to 'true'
+        :param fexec: (bool *) execute slot if not jumping, initially set to 'true'
         :returns: 1: positive answer
         :returns: <=0: ordinary insn
         """
@@ -2701,9 +2757,9 @@ class processor_t(IDP_Hooks):
         :returns: 0: not implemented
         """
         ...
-    def ev_emu_insn(self, args: Any) -> bool:
+    def ev_emu_insn(self, *args: Any) -> bool:
         ...
-    def ev_endbinary(self, args: Any) -> int:
+    def ev_endbinary(self, *args: Any) -> int:
         ...
     def ev_ending_undo(self, action_name: str, is_undo: bool) -> int:
         r"""Ended undoing/redoing an action 
@@ -2722,7 +2778,7 @@ class processor_t(IDP_Hooks):
         :returns: 0: not implemented
         """
         ...
-    def ev_extract_address(self, out_ea: ea_t, screen_ea: ida_idaapi.ea_t, string: str, position: size_t) -> int:
+    def ev_extract_address(self, out_ea: int, screen_ea: ida_idaapi.ea_t, string: str, position: int) -> int:
         r"""Extract address from a string. 
                   
         :param out_ea: (ea_t *), out
@@ -2754,7 +2810,7 @@ class processor_t(IDP_Hooks):
         ...
     def ev_func_bounds(self, _possible_return_code: Any, pfn: Any, max_func_end_ea: Any) -> int:
         ...
-    def ev_gen_asm_or_lst(self, starting: bool, fp: FILE, is_asm: bool, flags: int, outline: html_line_cb_t) -> int:
+    def ev_gen_asm_or_lst(self, starting: bool, fp: Any, is_asm: bool, flags: int, outline: html_line_cb_t) -> int:
         r"""Callback: generating asm or lst file. The kernel calls this callback twice, at the beginning and at the end of listing generation. The processor module can intercept this event and adjust its output 
                   
         :param starting: (bool) beginning listing generation
@@ -2769,9 +2825,9 @@ class processor_t(IDP_Hooks):
         ...
     def ev_gen_regvar_def(self, ctx: Any, v: Any) -> int:
         ...
-    def ev_gen_src_file_lnnum(self, args: Any) -> int:
+    def ev_gen_src_file_lnnum(self, *args: Any) -> int:
         ...
-    def ev_gen_stkvar_def(self, outctx: outctx_t, stkvar: udm_t, v: int, tid: tid_t) -> int:
+    def ev_gen_stkvar_def(self, outctx: outctx_t, stkvar: udm_t, v: int, tid: int) -> int:
         r"""Generate stack variable definition line Default line is varname = type ptr value, where 'type' is one of byte,word,dword,qword,tbyte 
                   
         :param outctx: (outctx_t *)
@@ -2790,9 +2846,9 @@ class processor_t(IDP_Hooks):
         :returns: 1: ok
         """
         ...
-    def ev_get_autocmt(self, args: Any) -> Any:
+    def ev_get_autocmt(self, *args: Any) -> Any:
         ...
-    def ev_get_bg_color(self, color: bgcolor_t, ea: ida_idaapi.ea_t) -> int:
+    def ev_get_bg_color(self, color: int, ea: ida_idaapi.ea_t) -> int:
         r"""Get item background color. Plugins can hook this callback to color disassembly lines dynamically 
                   
         :param color: (bgcolor_t *), out
@@ -2834,7 +2890,7 @@ class processor_t(IDP_Hooks):
         ...
     def ev_get_frame_retsize(self, frsize: Any, pfn: Any) -> int:
         ...
-    def ev_get_macro_insn_head(self, head: ea_t, ip: ida_idaapi.ea_t) -> int:
+    def ev_get_macro_insn_head(self, head: int, ip: ida_idaapi.ea_t) -> int:
         r"""Calculate the start of a macro instruction. This notification is called if IP points to the middle of an instruction 
                   
         :param head: (::ea_t *), out: answer, BADADDR means normal instruction
@@ -2861,7 +2917,7 @@ class processor_t(IDP_Hooks):
         :returns: 0: not implemented
         """
         ...
-    def ev_get_reg_info(self, main_regname: char, bitrange: bitrange_t, regname: str) -> int:
+    def ev_get_reg_info(self, main_regname: int, bitrange: bitrange_t, regname: str) -> int:
         r"""Get register information by its name. example: "ah" returns:
         * main_regname="eax"
         * bitrange_t = { offset==8, nbits==8 }
@@ -2877,7 +2933,7 @@ class processor_t(IDP_Hooks):
         :returns: 0: unimplemented
         """
         ...
-    def ev_get_reg_name(self, reg: int, width: size_t, reghi: int) -> Any:
+    def ev_get_reg_name(self, reg: int, width: int, reghi: int) -> Any:
         r"""Generate text representation of a register. Most processor modules do not need to implement this callback. It is useful only if processor_t::reg_names[reg] does not provide the correct register name. 
                   
         :param reg: (int) internal register number as defined in the processor module
@@ -2887,15 +2943,17 @@ class processor_t(IDP_Hooks):
         :returns: strlen(buf): if success
         """
         ...
-    def ev_get_simd_types(self, out: simd_info_vec_t, simd_attrs: simd_info_t, argloc: argloc_t, create_tifs: bool) -> int:
+    def ev_get_simd_types(self, out: simd_info_vec_t, simd_attrs: simd_info_t, argloc: argloc_t, create_tifs: bool, insn: insn_t, op: op_t) -> int:
         r"""Get SIMD-related types according to given attributes ant/or argument location 
                   
-        :param out: (::simd_info_vec_t *)
+        :param out: (simd_info_vec_t *)
         :param simd_attrs: (const simd_info_t *), may be nullptr
         :param argloc: (const argloc_t *), may be nullptr
         :param create_tifs: (bool) return valid tinfo_t objects, create if neccessary
+        :param insn: (::const insn_t *)
+        :param op: (::const op_t *)
         :returns: number: of found types
-        :returns: -1: error If name==nullptr, initialize all SIMD types
+        :returns: -1: error If insn and op are specified, return only the types that match them
         """
         ...
     def ev_get_stkarg_area_info(self, out: stkarg_area_info_t, cc: callcnv_t) -> int:
@@ -2908,7 +2966,7 @@ class processor_t(IDP_Hooks):
         """
         ...
     def ev_get_stkvar_scale_factor(self) -> int:
-        r"""Should stack variable references be multiplied by a coefficient before being used in the stack frame?. Currently used by TMS320C55 because the references into the stack should be multiplied by 2 
+        r"""Should stack variable references be multiplied by a coefficient before being used in the stack frame? Currently used by TMS320C55 because the references into the stack should be multiplied by 2 
                   
         :returns: scaling factor
         :returns: 0: not implemented
@@ -2954,13 +3012,13 @@ class processor_t(IDP_Hooks):
         :returns: 0: not implemented
         """
         ...
-    def ev_is_align_insn(self, args: Any) -> int:
+    def ev_is_align_insn(self, *args: Any) -> int:
         ...
-    def ev_is_alloca_probe(self, args: Any) -> int:
+    def ev_is_alloca_probe(self, *args: Any) -> int:
         ...
-    def ev_is_basic_block_end(self, args: Any) -> int:
+    def ev_is_basic_block_end(self, *args: Any) -> int:
         ...
-    def ev_is_call_insn(self, args: Any) -> int:
+    def ev_is_call_insn(self, *args: Any) -> int:
         ...
     def ev_is_cond_insn(self, insn: insn_t) -> int:
         r"""Is conditional instruction? 
@@ -2983,14 +3041,14 @@ class processor_t(IDP_Hooks):
         :returns: 0: not implemented
         """
         ...
-    def ev_is_far_jump(self, args: Any) -> int:
+    def ev_is_far_jump(self, *args: Any) -> int:
         ...
-    def ev_is_indirect_jump(self, args: Any) -> int:
+    def ev_is_indirect_jump(self, *args: Any) -> int:
         ...
-    def ev_is_insn_table_jump(self, args: Any) -> int:
+    def ev_is_insn_table_jump(self, *args: Any) -> int:
         ...
-    def ev_is_jump_func(self, pfn: func_t, jump_target: ea_t, func_pointer: ea_t) -> int:
-        r"""Is the function a trivial "jump" function?. 
+    def ev_is_jump_func(self, pfn: func_t, jump_target: int, func_pointer: int) -> int:
+        r"""Is the function a trivial "jump" function? 
                   
         :param pfn: (func_t *)
         :param jump_target: (::ea_t *)
@@ -3000,13 +3058,13 @@ class processor_t(IDP_Hooks):
         :returns: 1: yes, see 'jump_target' and 'func_pointer'
         """
         ...
-    def ev_is_ret_insn(self, args: Any) -> int:
+    def ev_is_ret_insn(self, *args: Any) -> int:
         ...
-    def ev_is_sane_insn(self, args: Any) -> int:
+    def ev_is_sane_insn(self, *args: Any) -> int:
         ...
     def ev_is_sp_based(self, mode: Any, insn: Any, op: Any) -> int:
         ...
-    def ev_is_switch(self, args: Any) -> int:
+    def ev_is_switch(self, *args: Any) -> int:
         ...
     def ev_last_cb_before_loader(self) -> int:
         ...
@@ -3031,9 +3089,9 @@ class processor_t(IDP_Hooks):
         :returns: max possible size of a pointer
         """
         ...
-    def ev_may_be_func(self, args: Any) -> int:
+    def ev_may_be_func(self, *args: Any) -> int:
         ...
-    def ev_may_show_sreg(self, args: Any) -> int:
+    def ev_may_show_sreg(self, *args: Any) -> int:
         ...
     def ev_moving_segm(self, s: Any, to_ea: Any, flags: Any) -> int:
         ...
@@ -3043,13 +3101,13 @@ class processor_t(IDP_Hooks):
         :param asmnum: (int) See also ev_asm_installed
         """
         ...
-    def ev_newbinary(self, args: Any) -> int:
+    def ev_newbinary(self, *args: Any) -> int:
         ...
-    def ev_newfile(self, args: Any) -> int:
+    def ev_newfile(self, *args: Any) -> int:
         ...
-    def ev_newprc(self, args: Any) -> int:
+    def ev_newprc(self, *args: Any) -> int:
         ...
-    def ev_next_exec_insn(self, target: ea_t, ea: ida_idaapi.ea_t, tid: int, getreg: regval_getter_t, regvalues: regval_t) -> int:
+    def ev_next_exec_insn(self, target: int, ea: ida_idaapi.ea_t, tid: int, getreg: regval_getter_t, regvalues: regval_t) -> int:
         r"""Get next address to be executed This function must return the next address to be executed. If the instruction following the current one is executed, then it must return BADADDR Usually the instructions to consider are: jumps, branches, calls, returns. This function is essential if the 'single step' is not supported in hardware. 
                   
         :param target: (::ea_t *), out: pointer to the answer
@@ -3061,31 +3119,31 @@ class processor_t(IDP_Hooks):
         :returns: 1: implemented
         """
         ...
-    def ev_oldfile(self, args: Any) -> int:
+    def ev_oldfile(self, *args: Any) -> int:
         ...
-    def ev_out_assumes(self, args: Any) -> int:
+    def ev_out_assumes(self, *args: Any) -> int:
         ...
-    def ev_out_data(self, args: Any) -> int:
+    def ev_out_data(self, *args: Any) -> int:
         ...
-    def ev_out_footer(self, args: Any) -> int:
+    def ev_out_footer(self, *args: Any) -> int:
         ...
-    def ev_out_header(self, args: Any) -> int:
+    def ev_out_header(self, *args: Any) -> int:
         ...
-    def ev_out_insn(self, args: Any) -> bool:
+    def ev_out_insn(self, *args: Any) -> bool:
         ...
-    def ev_out_label(self, args: Any) -> int:
+    def ev_out_label(self, *args: Any) -> int:
         ...
-    def ev_out_mnem(self, args: Any) -> int:
+    def ev_out_mnem(self, *args: Any) -> int:
         ...
-    def ev_out_operand(self, args: Any) -> bool:
+    def ev_out_operand(self, *args: Any) -> bool:
         ...
     def ev_out_segend(self, ctx: Any, s: Any) -> int:
         ...
     def ev_out_segstart(self, ctx: Any, s: Any) -> int:
         ...
-    def ev_out_special_item(self, args: Any) -> int:
+    def ev_out_special_item(self, *args: Any) -> int:
         ...
-    def ev_privrange_changed(self, old_privrange: range_t, delta: adiff_t) -> int:
+    def ev_privrange_changed(self, old_privrange: range_t, delta: int) -> int:
         r"""Privrange interval has been moved to a new location. Most common actions to be done by module in this case: fix indices of netnodes used by module 
                   
         :param old_privrange: (const range_t *) - old privrange interval
@@ -3094,7 +3152,7 @@ class processor_t(IDP_Hooks):
         :returns: -1: error (and message in errbuf)
         """
         ...
-    def ev_realcvt(self, m: void, e: fpvalue_t, swt: uint16) -> int:
+    def ev_realcvt(self, m: Any, e: fpvalue_t, swt: int) -> int:
         r"""Floating point -> IEEE conversion 
                   
         :param m: (void *) ptr to processor-specific floating point value
@@ -3103,12 +3161,12 @@ class processor_t(IDP_Hooks):
         :returns: 0: not implemented
         """
         ...
-    def ev_rename(self, args: Any) -> int:
+    def ev_rename(self, *args: Any) -> int:
         ...
     def ev_replaying_undo(self, action_name: str, vec: undo_records_t, is_undo: bool) -> int:
         r"""Replaying an undo/redo buffer 
                   
-        :param action_name: (const char *) action that we perform undo/redo for. may be nullptr for intermediary buffers.
+        :param action_name: (const char *) action that we perform undo/redo for. may be nullptr for intermediate buffers.
         :param vec: (const undo_records_t *)
         :param is_undo: (bool) true if performing undo, false if performing redo This event may be generated multiple times per undo/redo
         """
@@ -3122,7 +3180,7 @@ class processor_t(IDP_Hooks):
         ...
     def ev_set_idp_options(self, keyword: Any, value_type: Any, value: Any, idb_loaded: Any) -> int:
         ...
-    def ev_set_proc_options(self, args: Any) -> int:
+    def ev_set_proc_options(self, *args: Any) -> int:
         ...
     def ev_setup_til(self) -> int:
         r"""Setup default type libraries. (called after loading a new file into the database). The processor module may load tils, setup memory model and perform other actions required to set up the type system. This is an optional callback. 
@@ -3130,16 +3188,16 @@ class processor_t(IDP_Hooks):
         :returns: void: 
         """
         ...
-    def ev_str2reg(self, args: Any) -> int:
+    def ev_str2reg(self, *args: Any) -> int:
         ...
     def ev_term(self) -> int:
         r"""The IDP module is being unloaded.
         
         """
         ...
-    def ev_treat_hindering_item(self, args: Any) -> int:
+    def ev_treat_hindering_item(self, *args: Any) -> int:
         ...
-    def ev_undefine(self, args: Any) -> int:
+    def ev_undefine(self, *args: Any) -> int:
         ...
     def ev_update_call_stack(self, stack: call_stack_t, tid: int, getreg: regval_getter_t, regvalues: regval_t) -> int:
         r"""Calculate the call stack trace for the given thread. This callback is invoked when the process is suspended and should fill the 'trace' object with the information about the current call stack. Note that this callback is NOT invoked if the current debugger backend implements stack tracing via debugger_t::event_t::ev_update_call_stack. The debugger-specific algorithm takes priority. Implementing this callback in the processor module is useful when multiple debugging platforms follow similar patterns, and thus the same processor-specific algorithm can be used for different platforms. 
@@ -3181,59 +3239,59 @@ class processor_t(IDP_Hooks):
         :returns: <=0: failed, the kernel will create a comment with the argument name or type for the instruction
         """
         ...
-    def ev_validate_flirt_func(self, args: Any) -> int:
+    def ev_validate_flirt_func(self, *args: Any) -> int:
         ...
     def ev_verify_noreturn(self, pfn: Any) -> int:
         ...
     def ev_verify_sp(self, pfn: Any) -> int:
         ...
-    def func_added(self, pfn: Any) -> None:
+    def func_added(self, pfn: Any) -> Any:
         ...
     def get_auxpref(self, insn: Any) -> Any:
         r"""This function returns insn.auxpref value"""
         ...
     def get_idpdesc(self) -> Any:
         r"""
-                This function must be present and should return the list of
-                short processor names similar to the one in ph.psnames.
-                This method can be overridden to return to the kernel a different IDP description.
-                
+        This function must be present and should return the list of
+        short processor names similar to the one in ph.psnames.
+        This method can be overridden to return to the kernel a different IDP description.
+        
         """
         ...
     def hook(self) -> bool:
         ...
-    def idasgn_loaded(self, args: Any) -> None:
+    def idasgn_loaded(self, *args: Any) -> Any:
         ...
-    def kernel_config_loaded(self, args: Any) -> None:
+    def kernel_config_loaded(self, *args: Any) -> Any:
         ...
-    def make_code(self, args: Any) -> None:
+    def make_code(self, *args: Any) -> Any:
         ...
-    def make_data(self, args: Any) -> None:
+    def make_data(self, *args: Any) -> Any:
         ...
-    def renamed(self, args: Any) -> None:
+    def renamed(self, *args: Any) -> Any:
         ...
-    def savebase(self, args: Any) -> None:
+    def savebase(self, *args: Any) -> Any:
         ...
-    def segm_moved(self, from_ea: Any, to_ea: Any, size: Any, changed_netmap: Any) -> None:
+    def segm_moved(self, from_ea: Any, to_ea: Any, size: Any, changed_netmap: Any) -> Any:
         ...
-    def set_func_end(self, args: Any) -> None:
+    def set_func_end(self, *args: Any) -> Any:
         ...
-    def set_func_start(self, args: Any) -> None:
+    def set_func_start(self, *args: Any) -> Any:
         ...
-    def sgr_changed(self, args: Any) -> None:
+    def sgr_changed(self, *args: Any) -> Any:
         ...
     def unhook(self) -> bool:
         ...
 
 class reg_access_t:
     @property
-    def access_type(self) -> Any: ...
+    def access_type(self) -> access_type_t: ...
     @property
-    def opnum(self) -> Any: ...
+    def opnum(self) -> int: ...
     @property
-    def range(self) -> Any: ...
+    def range(self) -> bitrange_t: ...
     @property
-    def regnum(self) -> Any: ...
+    def regnum(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -3242,8 +3300,11 @@ class reg_access_t:
         ...
     def __eq__(self, r: reg_access_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -3251,12 +3312,15 @@ class reg_access_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -3272,7 +3336,7 @@ class reg_access_t:
         ...
     def __ne__(self, r: reg_access_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -3289,10 +3353,10 @@ class reg_access_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -3302,7 +3366,7 @@ class reg_access_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def have_common_bits(self, r: reg_access_t) -> bool:
         ...
@@ -3316,8 +3380,11 @@ class reg_access_vec_t:
         ...
     def __eq__(self, r: reg_access_vec_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -3325,14 +3392,17 @@ class reg_access_vec_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> reg_access_t:
+    def __getitem__(self, i: int) -> reg_access_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -3340,7 +3410,7 @@ class reg_access_vec_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[reg_access_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -3353,7 +3423,7 @@ class reg_access_vec_t:
         ...
     def __ne__(self, r: reg_access_vec_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -3367,15 +3437,15 @@ class reg_access_vec_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: reg_access_t) -> None:
+    def __setitem__(self, i: int, v: reg_access_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -3385,17 +3455,17 @@ class reg_access_vec_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: reg_access_t) -> bool:
         ...
     def append(self, x: reg_access_t) -> None:
         ...
-    def at(self, _idx: size_t) -> reg_access_t:
+    def at(self, _idx: int) -> reg_access_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> qvector:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -3403,35 +3473,35 @@ class reg_access_vec_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> qvector:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: reg_access_vec_t) -> None:
         ...
     def extract(self) -> reg_access_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: reg_access_t) -> bool:
         ...
-    def inject(self, s: reg_access_t, len: size_t) -> None:
+    def inject(self, s: reg_access_t, len: int) -> None:
         ...
     def insert(self, it: reg_access_t, x: reg_access_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> reg_access_t:
+    def push_back(self, *args: Any) -> reg_access_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -3449,8 +3519,11 @@ class reg_accesses_t(reg_access_vec_t):
         ...
     def __eq__(self, r: reg_access_vec_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -3458,14 +3531,17 @@ class reg_accesses_t(reg_access_vec_t):
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> reg_access_t:
+    def __getitem__(self, i: int) -> reg_access_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -3473,7 +3549,7 @@ class reg_accesses_t(reg_access_vec_t):
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[reg_access_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -3486,7 +3562,7 @@ class reg_accesses_t(reg_access_vec_t):
         ...
     def __ne__(self, r: reg_access_vec_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -3500,15 +3576,15 @@ class reg_accesses_t(reg_access_vec_t):
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: reg_access_t) -> None:
+    def __setitem__(self, i: int, v: reg_access_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -3518,17 +3594,17 @@ class reg_accesses_t(reg_access_vec_t):
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: reg_access_t) -> bool:
         ...
     def append(self, x: reg_access_t) -> None:
         ...
-    def at(self, _idx: size_t) -> reg_access_t:
+    def at(self, _idx: int) -> reg_access_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> qvector:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -3536,35 +3612,35 @@ class reg_accesses_t(reg_access_vec_t):
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> qvector:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: reg_access_vec_t) -> None:
         ...
     def extract(self) -> reg_access_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: reg_access_t) -> bool:
         ...
-    def inject(self, s: reg_access_t, len: size_t) -> None:
+    def inject(self, s: reg_access_t, len: int) -> None:
         ...
     def insert(self, it: reg_access_t, x: reg_access_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> reg_access_t:
+    def push_back(self, *args: Any) -> reg_access_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -3575,9 +3651,9 @@ class reg_accesses_t(reg_access_vec_t):
 
 class reg_info_t:
     @property
-    def reg(self) -> Any: ...
+    def reg(self) -> int: ...
     @property
-    def size(self) -> Any: ...
+    def size(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -3586,19 +3662,25 @@ class reg_info_t:
         ...
     def __eq__(self, r: reg_info_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, r: reg_info_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, r: reg_info_t) -> bool:
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -3612,7 +3694,7 @@ class reg_info_t:
         ...
     def __ne__(self, r: reg_info_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -3629,10 +3711,10 @@ class reg_info_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -3642,7 +3724,7 @@ class reg_info_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def compare(self, r: reg_info_t) -> int:
         ...
@@ -3659,7 +3741,7 @@ def AssembleLine(ea: Any, cs: Any, ip: Any, use32: Any, line: Any) -> Any:
     """
     ...
 
-def assemble(ea: Any, cs: Any, ip: Any, use32: Any, line: Any) -> ssize_t:
+def assemble(ea: Any, cs: Any, ip: Any, use32: Any, line: Any) -> Any:
     r"""Assemble an instruction into the database (display a warning if an error is found)
     
     :param ea: linear address of instruction
@@ -3681,10 +3763,10 @@ def cfg_get_cc_parm(compid: comp_t, name: str) -> str:
 def cfg_get_cc_predefined_macros(compid: comp_t) -> str:
     ...
 
-def delay_slot_insn(ea: ea_t, bexec: bool, fexec: bool) -> bool:
+def delay_slot_insn(ea: int, bexec: bool, fexec: bool) -> bool:
     ...
 
-def gen_idb_event(args: Any) -> None:
+def gen_idb_event(*args: Any) -> None:
     r"""the kernel will use this function to generate idb_events
     
     """
@@ -3720,7 +3802,7 @@ def get_ph() -> processor_t:
 def get_reg_info(regname: str, bitrange: bitrange_t) -> str:
     ...
 
-def get_reg_name(reg: int, width: size_t, reghi: int = -1) -> str:
+def get_reg_name(reg: int, width: int, reghi: int = -1) -> str:
     r"""Get text representation of a register. For most processors this function will just return processor_t::reg_names[reg]. If the processor module has implemented processor_t::get_reg_name, it will be used instead 
             
     :param reg: internal register number as defined in the processor module
@@ -3730,19 +3812,19 @@ def get_reg_name(reg: int, width: size_t, reghi: int = -1) -> str:
     """
     ...
 
-def has_cf_chg(feature: int, opnum: uint) -> bool:
+def has_cf_chg(feature: int, opnum: int) -> bool:
     r"""Does an instruction with the specified feature modify the i-th operand?
     
     """
     ...
 
-def has_cf_use(feature: int, opnum: uint) -> bool:
+def has_cf_use(feature: int, opnum: int) -> bool:
     r"""Does an instruction with the specified feature use a value of the i-th operand?
     
     """
     ...
 
-def has_insn_feature(icode: uint16, bit: int) -> bool:
+def has_insn_feature(icode: int, bit: int) -> bool:
     r"""Does the specified instruction have the specified feature?
     
     """
@@ -3754,13 +3836,13 @@ def is_align_insn(ea: ida_idaapi.ea_t) -> int:
     """
     ...
 
-def is_basic_block_end(insn: insn_t, call_insn_stops_block: bool) -> ssize_t:
+def is_basic_block_end(insn: insn_t, call_insn_stops_block: bool) -> bool:
     r"""Is the instruction the end of a basic block?
     
     """
     ...
 
-def is_call_insn(insn: insn_t) -> ssize_t:
+def is_call_insn(insn: insn_t) -> bool:
     r"""Is the instruction a "call"?
     
     """
@@ -3772,7 +3854,7 @@ def is_indirect_jump_insn(insn: insn_t) -> bool:
     """
     ...
 
-def is_ret_insn(args: Any) -> ssize_t:
+def is_ret_insn(*args: Any) -> bool:
     ...
 
 def parse_reg_name(ri: reg_info_t, regname: str) -> bool:
@@ -3787,10 +3869,10 @@ def parse_reg_name(ri: reg_info_t, regname: str) -> bool:
 def ph_calcrel(ea: ida_idaapi.ea_t) -> Any:
     ...
 
-def ph_find_op_value(insn: insn_t, op: int) -> uint64:
+def ph_find_op_value(insn: insn_t, op: int) -> int:
     ...
 
-def ph_find_reg_value(insn: insn_t, reg: int) -> uint64:
+def ph_find_reg_value(insn: insn_t, reg: int) -> int:
     ...
 
 def ph_get_abi_info(comp: comp_t) -> Any:
@@ -3830,7 +3912,7 @@ def ph_get_instruc_start() -> Any:
     r"""Returns the 'ph.instruc_start'"""
     ...
 
-def ph_get_operand_info(ea: ida_idaapi.ea_t, n: int) -> Any:
+def ph_get_operand_info(ea: ida_idaapi.ea_t, n: int) -> Union[Tuple[int, ida_idaapi.ea_t, int, int, int], None]:
     r"""Returns the operand information given an ea and operand number.
     
     :param ea: address
@@ -3841,7 +3923,7 @@ def ph_get_operand_info(ea: ida_idaapi.ea_t, n: int) -> Any:
     """
     ...
 
-def ph_get_reg_accesses(accvec: reg_accesses_t, insn: insn_t, flags: int) -> ssize_t:
+def ph_get_reg_accesses(accvec: reg_accesses_t, insn: insn_t, flags: int) -> int:
     ...
 
 def ph_get_reg_code_sreg() -> Any:
@@ -3879,7 +3961,7 @@ def ph_get_version() -> Any:
 def process_config_directive(directive: str, priority: int = 2) -> None:
     ...
 
-def register_cfgopts(opts: Any, nopts: size_t, cb: config_changed_cb_t = None, obj: void = None) -> bool:
+def register_cfgopts(opts: Any, nopts: int, cb: config_changed_cb_t = None, obj: Any = None) -> bool:
     ...
 
 def set_processor_type(procname: str, level: setproc_level_t) -> bool:
@@ -4078,6 +4160,7 @@ PLFM_MC6816: int  # 44
 PLFM_MIPS: int  # 12
 PLFM_MN102L00: int  # 53
 PLFM_MSP430: int  # 58
+PLFM_NDS32: int  # 76
 PLFM_NEC_78K0: int  # 38
 PLFM_NEC_78K0S: int  # 39
 PLFM_NEC_V850X: int  # 55
@@ -4117,6 +4200,7 @@ PLFM_Z80: int  # 1
 PR2_CODE16_BIT: int  # 8
 PR2_FORCE_16BIT: int  # 128
 PR2_IDP_OPTS: int  # 2
+PR2_IGNORE_IDA_GUESS: int  # 256
 PR2_MACRO: int  # 16
 PR2_MAPPINGS: int  # 1
 PR2_REL_BITS: int  # 64
@@ -4166,7 +4250,7 @@ SWIG_PYTHON_LEGACY_BOOL: int  # 1
 WRITE_ACCESS: int  # 1
 adding_segm: int  # 63
 allsegs_moved: int  # 31
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 auto_empty: int  # 3
 auto_empty_finally: int  # 4
 bookmark_changed: int  # 61
@@ -4193,9 +4277,11 @@ deleting_segm: int  # 19
 deleting_tryblks: int  # 47
 destroyed_items: int  # 51
 determined_main: int  # 5
+dirtree_bulk_move: int  # 91
 dirtree_link: int  # 67
 dirtree_mkdir: int  # 65
 dirtree_move: int  # 68
+dirtree_ordering_changed: int  # 90
 dirtree_rank: int  # 69
 dirtree_rmdir: int  # 66
 dirtree_rminode: int  # 70
@@ -4241,7 +4327,7 @@ make_code: int  # 49
 make_data: int  # 50
 op_ti_changed: int  # 15
 op_type_changed: int  # 17
-ph: __ph  # <ida_idp.__ph object at 0x71772a18dfc0>
+ph: __ph  # <ida_idp.__ph object at 0x000001FCE2866900>
 range_cmt_changed: int  # 57
 renamed: int  # 52
 savebase: int  # 1

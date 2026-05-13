@@ -23,10 +23,11 @@ class IndexArgs:
     def __init__(__self__, *,
                  sources: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]],
                  tag: pulumi.Input[_builtins.str],
-                 push: Optional[pulumi.Input[_builtins.bool]] = None,
-                 registry: Optional[pulumi.Input['RegistryArgs']] = None):
+                 push: pulumi.Input[Optional[_builtins.bool]] = None,
+                 registry: pulumi.Input[Optional['RegistryArgs']] = None):
         """
         The set of arguments for constructing a Index resource.
+
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] sources: Existing images to include in the index.
         :param pulumi.Input[_builtins.str] tag: The tag to apply to the index.
         :param pulumi.Input[_builtins.bool] push: If true, push the index to the target registry.
@@ -71,7 +72,7 @@ class IndexArgs:
 
     @_builtins.property
     @pulumi.getter
-    def push(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def push(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If true, push the index to the target registry.
 
@@ -80,12 +81,12 @@ class IndexArgs:
         return pulumi.get(self, "push")
 
     @push.setter
-    def push(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def push(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "push", value)
 
     @_builtins.property
     @pulumi.getter
-    def registry(self) -> Optional[pulumi.Input['RegistryArgs']]:
+    def registry(self) -> pulumi.Input[Optional['RegistryArgs']]:
         """
         Authentication for the registry where the tagged index will be pushed.
 
@@ -94,7 +95,7 @@ class IndexArgs:
         return pulumi.get(self, "registry")
 
     @registry.setter
-    def registry(self, value: Optional[pulumi.Input['RegistryArgs']]):
+    def registry(self, value: pulumi.Input[Optional['RegistryArgs']]):
         pulumi.set(self, "registry", value)
 
 
@@ -104,10 +105,10 @@ class Index(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 push: Optional[pulumi.Input[_builtins.bool]] = None,
-                 registry: Optional[pulumi.Input[Union['RegistryArgs', 'RegistryArgsDict']]] = None,
-                 sources: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 tag: Optional[pulumi.Input[_builtins.str]] = None,
+                 push: pulumi.Input[Optional[_builtins.bool]] = None,
+                 registry: pulumi.Input[Optional[Union['RegistryArgs', 'RegistryArgsDict']]] = None,
+                 sources: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 tag: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A wrapper around `docker buildx imagetools create` to create an index
@@ -178,6 +179,7 @@ class Index(pulumi.CustomResource):
             tag="docker.io/pulumi/pulumi:3.107.0")
         pulumi.export("ref", index.ref)
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -266,6 +268,7 @@ class Index(pulumi.CustomResource):
         pulumi.export("ref", index.ref)
         ```
 
+
         :param str resource_name: The name of the resource.
         :param IndexArgs args: The arguments to use to populate this resource's properties.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -281,10 +284,10 @@ class Index(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 push: Optional[pulumi.Input[_builtins.bool]] = None,
-                 registry: Optional[pulumi.Input[Union['RegistryArgs', 'RegistryArgsDict']]] = None,
-                 sources: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 tag: Optional[pulumi.Input[_builtins.str]] = None,
+                 push: pulumi.Input[Optional[_builtins.bool]] = None,
+                 registry: pulumi.Input[Optional[Union['RegistryArgs', 'RegistryArgsDict']]] = None,
+                 sources: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 tag: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):

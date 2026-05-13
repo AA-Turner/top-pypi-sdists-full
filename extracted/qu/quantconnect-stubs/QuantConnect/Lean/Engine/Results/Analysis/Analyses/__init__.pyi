@@ -35,7 +35,7 @@ class BaseResultsAnalysis(System.Object, metaclass=abc.ABCMeta):
         prefixes the class name, and returns a flat list.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -45,7 +45,7 @@ class BaseResultsAnalysis(System.Object, metaclass=abc.ABCMeta):
         Formats the specified code string according to the conventions of the given programming language.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -59,7 +59,7 @@ class BaseResultsAnalysis(System.Object, metaclass=abc.ABCMeta):
         Wraps a single QuantConnect.Analysis in a one-element read-only list.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -69,7 +69,7 @@ class BaseResultsAnalysis(System.Object, metaclass=abc.ABCMeta):
         Wraps a single QuantConnect.Analysis in a one-element read-only list.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -249,7 +249,7 @@ class InsightsEmittedForDelistedSecuritiesAnalysis(QuantConnect.Lean.Engine.Resu
         Log messages indicating that insights were emitted for delisted securities.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -258,7 +258,7 @@ class InsightsEmittedForDelistedSecuritiesAnalysis(QuantConnect.Lean.Engine.Resu
         Returns suggested solutions for avoiding insight emissions on delisted securities.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -412,7 +412,7 @@ class MarginCallsAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Mes
         Log messages indicating that a margin-call order was executed.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -421,7 +421,7 @@ class MarginCallsAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Mes
         Returns suggested solutions for preventing or handling margin calls.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -534,7 +534,7 @@ class OrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analy
         whose message contains all MessageAnalysis.expected_message_text fragments.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param order_events: The order events to inspect.
         :returns: An enumerable of matching message strings.
@@ -577,7 +577,7 @@ class ForexConversionRateZeroOrderResponseErrorAnalysis(QuantConnect.Lean.Engine
         Gets the message fragments that identify a zero conversion rate error.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -586,7 +586,7 @@ class ForexConversionRateZeroOrderResponseErrorAnalysis(QuantConnect.Lean.Engine
         Gets solutions suggesting investigation of missing data.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -610,7 +610,7 @@ class UnsupportedOptionShortPositionExerciseAnalysis(QuantConnect.Lean.Engine.Re
         Gets the message fragments that identify a short-position option exercise error.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -619,7 +619,7 @@ class UnsupportedOptionShortPositionExerciseAnalysis(QuantConnect.Lean.Engine.Re
         Gets solutions for verifying the position direction before exercising an Option contract.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -643,7 +643,7 @@ class MarketOnOpenNotAllowedDuringRegularHoursOrderResponseErrorAnalysis(QuantCo
         Gets the message fragment that identifies a market-on-open during regular hours error.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -652,7 +652,7 @@ class MarketOnOpenNotAllowedDuringRegularHoursOrderResponseErrorAnalysis(QuantCo
         Gets solutions for placing market-on-open orders outside regular hours.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -676,7 +676,7 @@ class OrderQuantityZeroOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Resul
         Gets the message fragments that identify a zero-quantity order error.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -685,7 +685,7 @@ class OrderQuantityZeroOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Resul
         Gets solutions for ensuring non-zero order quantities or increasing starting cash.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -712,7 +712,7 @@ class BrokerageModelRefusedToSubmitOrderOrderResponseErrorAnalysis(QuantConnect.
         Gets the message fragment that identifies a brokerage submit-order refusal.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -732,7 +732,7 @@ class BrokerageModelRefusedToSubmitOrderOrderResponseErrorAnalysis(QuantConnect.
         Returns an empty list because solutions are provided by the per-brokerage sub-analyses.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -756,7 +756,7 @@ class MarketOnCloseOrderTooLateOrderResponseErrorAnalysis(QuantConnect.Lean.Engi
         Gets the message fragments that identify a MOC order timing error.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -765,7 +765,7 @@ class MarketOnCloseOrderTooLateOrderResponseErrorAnalysis(QuantConnect.Lean.Engi
         Gets solutions for adjusting MOC order timing or the submission time buffer.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -792,7 +792,7 @@ class EuropeanOptionNotExpiredOnExerciseOrderResponseErrorAnalysis(QuantConnect.
         Gets the message fragments that identify a European option early exercise error.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -801,7 +801,7 @@ class EuropeanOptionNotExpiredOnExerciseOrderResponseErrorAnalysis(QuantConnect.
         Gets solutions for verifying option style and expiry before exercising.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -825,7 +825,7 @@ class InsufficientBuyingPowerOrderResponseErrorAnalysis(QuantConnect.Lean.Engine
         Gets the message fragment that identifies an insufficient buying power error.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -834,7 +834,7 @@ class InsufficientBuyingPowerOrderResponseErrorAnalysis(QuantConnect.Lean.Engine
         Gets solutions for ensuring sufficient margin or adjusting the buying power buffer.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -858,7 +858,7 @@ class UnsupportedOptionExerciseQuantityAnalysis(QuantConnect.Lean.Engine.Results
         Gets the message fragments that identify an excess-quantity option exercise error.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -867,7 +867,7 @@ class UnsupportedOptionExerciseQuantityAnalysis(QuantConnect.Lean.Engine.Results
         Gets solutions for capping the exercise quantity to what is actually held.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -891,7 +891,7 @@ class NonTradableSecurityOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Res
         Gets the message fragments that identify a non-tradable security error.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -900,7 +900,7 @@ class NonTradableSecurityOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Res
         Gets solutions for checking the IsTradable flag before placing orders.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -957,7 +957,7 @@ class AlgorithmWarmingUpOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Resu
         Gets the message fragments that identify a warm-up period order error.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -966,7 +966,7 @@ class AlgorithmWarmingUpOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Resu
         Gets solutions suggesting moving orders out of the warm-up period.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -990,7 +990,7 @@ class ExceededMaximumOrdersOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.R
         Gets the message fragments that identify the exceeded-maximum-orders error.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -999,7 +999,7 @@ class ExceededMaximumOrdersOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.R
         Gets solutions for upgrading the account tier or reducing order count.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1023,7 +1023,7 @@ class OptionOrderOnStockSplitOrderResponseErrorAnalysis(QuantConnect.Lean.Engine
         Gets the message fragment that identifies an option-order-on-stock-split error.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1032,7 +1032,7 @@ class OptionOrderOnStockSplitOrderResponseErrorAnalysis(QuantConnect.Lean.Engine
         Gets solutions for checking underlying split events before placing option orders.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1090,7 +1090,7 @@ class SecurityPriceZeroOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Resul
         Gets the message fragment that identifies a zero security price error.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1099,7 +1099,7 @@ class SecurityPriceZeroOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Resul
         Gets solutions for seeding initial prices or investigating missing data.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1123,7 +1123,7 @@ class BrokerageModelRefusedToUpdateOrderOrderResponseErrorAnalysis(QuantConnect.
         Gets the message fragment that identifies a brokerage update-order refusal.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1143,7 +1143,7 @@ class BrokerageModelRefusedToUpdateOrderOrderResponseErrorAnalysis(QuantConnect.
         Returns an empty list because solutions are provided by the per-brokerage sub-analyses.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1167,7 +1167,7 @@ class OrderQuantityLessThanLotSizeOrderResponseErrorAnalysis(QuantConnect.Lean.E
         Gets the message fragments that identify a quantity-less-than-lot-size error.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1176,7 +1176,7 @@ class OrderQuantityLessThanLotSizeOrderResponseErrorAnalysis(QuantConnect.Lean.E
         Gets solutions for validating order quantity against the lot size.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

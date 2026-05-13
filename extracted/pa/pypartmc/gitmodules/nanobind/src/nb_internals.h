@@ -148,6 +148,8 @@ public:
     template <typename U> py_allocator(const py_allocator<U> &) { }
 
     pointer allocate(size_type n, const void * /*hint*/ = nullptr) noexcept {
+        if (NB_UNLIKELY(n > SIZE_MAX / sizeof(T)))
+            fail("py_allocator::allocate(): integer overflow!");
         void *p = PyMem_Malloc(n * sizeof(T));
         if (!p)
             fail("PyMem_Malloc(): out of memory!");
@@ -523,11 +525,15 @@ inline void *inst_ptr(nb_inst *self) {
 
 template <typename T> struct scoped_pymalloc {
     scoped_pymalloc(size_t size = 1, size_t extra_bytes = 0) {
-        // Tip: construct objects in the extra bytes using placement new.
-        ptr = (T *) PyMem_Malloc(size * sizeof(T) + extra_bytes);
+        size_t total = size * sizeof(T);
+        if (NB_UNLIKELY(size > SIZE_MAX / sizeof(T) ||
+                        total > SIZE_MAX - extra_bytes))
+            fail("scoped_pymalloc(): integer overflow!");
+        total += extra_bytes;
+        ptr = (T *) PyMem_Malloc(total);
         if (!ptr)
             fail("scoped_pymalloc(): could not allocate %llu bytes of memory!",
-                 (unsigned long long) (size * sizeof(T) + extra_bytes));
+                 (unsigned long long) total);
     }
     ~scoped_pymalloc() { PyMem_Free(ptr); }
     T *release() {

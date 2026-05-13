@@ -119,7 +119,7 @@ class EventMessagingHandler(System.Object, QuantConnect.Interfaces.IMessagingHan
         Raise a backtest result event safely.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -132,7 +132,7 @@ class EventMessagingHandler(System.Object, QuantConnect.Interfaces.IMessagingHan
         Raise a debug event safely
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -141,7 +141,7 @@ class EventMessagingHandler(System.Object, QuantConnect.Interfaces.IMessagingHan
         Raise a handled error event safely
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -150,7 +150,7 @@ class EventMessagingHandler(System.Object, QuantConnect.Interfaces.IMessagingHan
         Raise a log event safely
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -159,7 +159,7 @@ class EventMessagingHandler(System.Object, QuantConnect.Interfaces.IMessagingHan
         Raise runtime error safely
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -168,7 +168,7 @@ class EventMessagingHandler(System.Object, QuantConnect.Interfaces.IMessagingHan
         Raise a system debug event safely
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

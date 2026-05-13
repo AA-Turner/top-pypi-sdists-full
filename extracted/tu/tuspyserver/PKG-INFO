@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: tuspyserver
-Version: 4.2.4
+Version: 4.2.5
 Summary: A Python tus server implementation as a FastAPI router
 Author: Edi Hasaj
 Author-email: Edi Hasaj <edi.hasaj@applifyer.com>

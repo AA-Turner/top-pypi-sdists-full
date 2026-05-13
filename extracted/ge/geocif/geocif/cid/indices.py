@@ -1393,16 +1393,57 @@ class CIDs:
             # mean). Restricting to the latest init row removes both
             # problems: a single value per (stage, lead), with a deterministic
             # target month independent of how much of the season has elapsed.
-            if var in ("FLDAS", "S2S") and "Month" in df_time_period.columns:
-                if df_time_period.empty:
+            if var in ("FLDAS", "S2S"):
+                # Pick the init-source frame. Normal path: the in-season
+                # slice for this region. Still-pre-season fallback: when
+                # df_time_period is empty because this region's planting
+                # hasn't reached the current stage's calendar window yet
+                # (e.g. Gauteng with Nov planting at the country's Oct
+                # stage), but the region DOES have in-season data later
+                # in the harvest year, source the latest init-month row
+                # from the broader harvest-year slice bounded by the
+                # country-level latest time at this stage. This injects
+                # forecast features so the ML model still produces a
+                # prediction for late-planting regions at early stages.
+                df_init_src = df_time_period
+                if df_init_src.empty:
+                    if "crop_cal" not in df_harvest_year_region.columns or \
+                            not (df_harvest_year_region["crop_cal"] == 1).any():
+                        # No in-season data anywhere this year — skip.
+                        continue
+                    stage_col = METHOD_TO_COLUMN.get(self.method)
+                    country_stage = self.df_harvest_year[
+                        self.df_harvest_year[stage_col].isin(stage)
+                    ] if stage_col else pd.DataFrame()
+                    if country_stage.empty:
+                        continue
+                    # Bound by time when available so cross-year-wrap
+                    # seasons (Nov-Jul etc.) don't pull future inits.
+                    if "time" in country_stage.columns and \
+                            "time" in df_harvest_year_region.columns:
+                        cap_time = country_stage["time"].max()
+                        df_init_src = df_harvest_year_region[
+                            df_harvest_year_region["time"] <= cap_time
+                        ]
+                    elif "Month" in country_stage.columns and \
+                            "Month" in df_harvest_year_region.columns:
+                        cap_month = int(country_stage["Month"].max())
+                        df_init_src = df_harvest_year_region[
+                            df_harvest_year_region["Month"] <= cap_month
+                        ]
+                    else:
+                        continue
+                    if df_init_src.empty:
+                        continue
+                if "Month" not in df_init_src.columns:
                     continue
                 # Latest init-month row by absolute time (handles year-wrap
                 # seasons like Nov-Jul where max(Month) is wrong).
-                if "time" in df_time_period.columns:
-                    latest_idx = df_time_period["time"].idxmax()
+                if "time" in df_init_src.columns:
+                    latest_idx = df_init_src["time"].idxmax()
                 else:
-                    latest_idx = df_time_period["Month"].idxmax()
-                latest_row = df_time_period.loc[latest_idx]
+                    latest_idx = df_init_src["Month"].idxmax()
+                latest_row = df_init_src.loc[latest_idx]
                 init_month = int(latest_row["Month"])
 
                 lead = int(iname.rsplit("LEAD", 1)[1])

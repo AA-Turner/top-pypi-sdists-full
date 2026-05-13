@@ -40,7 +40,10 @@ integration-tests: submodules
 release:
 	@echo Building a release
 	set -e ;\
-	maturin build ;\
+	maturin build --release ;\
+	WHEEL=$$(ls -1t target/wheels/cedarpy-*.whl | head -1) ;\
+	echo "Installing $$WHEEL for test" ;\
+	python -m pip install --force-reinstall --no-deps "$$WHEEL" ;\
 	pytest
 
 # Performance benchmark targets
@@ -50,7 +53,7 @@ BENCHMARK_RESULTS_DIR := tests/benchmark/results
 benchmark:
 	@echo Running performance benchmarks
 	set -e ;\
-	maturin develop ;\
+	maturin develop --release ;\
 	pytest tests/benchmark --benchmark-only -v
 
 .PHONY: benchmark-save
@@ -58,7 +61,7 @@ benchmark-save:
 	@echo Running benchmarks and saving results
 	@mkdir -p $(BENCHMARK_RESULTS_DIR)/out
 	set -e ;\
-	maturin develop ;\
+	maturin develop --release ;\
 	pytest tests/benchmark --benchmark-only \
 		--benchmark-json=$(BENCHMARK_RESULTS_DIR)/out/results.$(VCS_REF).$$(date +%Y%m%d_%H%M%S).json -v
 
@@ -74,8 +77,27 @@ benchmark-compare:
 		exit 1; \
 	fi
 	set -e ;\
-	maturin develop ;\
+	maturin develop --release ;\
 	pytest tests/benchmark --benchmark-only \
 		--benchmark-compare=$(BENCHMARK_RESULTS_DIR)/baseline.json -v \
 		--benchmark-compare-fail=median:5% \
 		--benchmark-compare-fail=mean:15%
+
+.PHONY: benchmark-history
+benchmark-history:
+	@echo Capturing release-mode benchmark history across the commits listed in tests/benchmark/capture_history.sh
+	@echo "(this takes ~30-40 min; switches branches and restores on exit)"
+	set -e ;\
+	bash tests/benchmark/capture_history.sh ;\
+	python3 tests/benchmark/aggregate.py
+
+.PHONY: benchmark-baseline
+# Synthesize a median-of-N baseline JSON from BASELINE_STATE's committed
+# historical runs (default v4_8_0; override with BASELINE_STATE=...). Output
+# lands in tests/benchmark/results/baseline-<state>-median.json — a new file
+# alongside the existing baseline.json, not a replacement. The maintainer
+# decides when (and whether) to point `make benchmark-compare` at it.
+BASELINE_STATE ?= v4_8_0
+benchmark-baseline:
+	@echo Synthesizing $(BENCHMARK_RESULTS_DIR)/baseline-$(BASELINE_STATE)-median.json from $(BASELINE_STATE) historical runs
+	python3 tests/benchmark/aggregate.py --build-baseline-from $(BASELINE_STATE)

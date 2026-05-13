@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.824761                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.070201                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -20,9 +20,9 @@ class SystemLogger(object, metaclass=type):
     def init_system_logger(self, flow_name: str, logger: "metaflow.event_logger.NullEventLogger"):
         ...
     @property
-    def logger(self) -> typing.Optional["metaflow.event_logger.NullEventLogger"]:
+    def logger(self) -> typing.Union["metaflow.event_logger.NullEventLogger", None]:
         ...
-    def log_event(self, level: str, module: str, name: str, payload: typing.Optional[typing.Any] = None):
+    def log_event(self, level: str, module: str, name: str, payload: typing.Union[typing.Any, None] = None):
         """
         Log an event to the event logger.
         

@@ -1,10 +1,9 @@
 """Construct ``pydantic_ai`` model instances for the chat endpoint.
 
-Two entry points: ``build_chat_model`` dispatches on
-``ChatSearchParams`` to either a stored custom-provider record (Anthropic,
-Azure OpenAI, AWS Bedrock, Google GenAI, OpenAI-compatible) or to a
-built-in provider whose credentials are resolved from the secret store
-first and the environment second.
+``build_model`` dispatches on ``AgentModelSelection`` to either a stored
+custom-provider record (Anthropic, Azure OpenAI, AWS Bedrock, Google
+GenAI, OpenAI-compatible) or to a built-in provider whose credentials
+are resolved from the secret store first and the environment second.
 
 This module is **transport-neutral**: it does not import ``fastapi`` or
 raise ``HTTPException``. Failures surface as ``AgentError`` subclasses
@@ -18,21 +17,20 @@ protocol so this module is fully composable.
 from __future__ import annotations
 
 from os import getenv
-from typing import TYPE_CHECKING, Any, Callable, Literal, Protocol, cast
+from typing import Any, Callable, Literal, Protocol, cast
 
+from opentelemetry.trace import NoOpTracerProvider, TracerProvider
 from pydantic import ValidationError
+from pydantic_ai.models import Model as PydanticAIModel
+from pydantic_ai.models.anthropic import AnthropicModelSettings
 from sqlalchemy.ext.asyncio import AsyncSession
+from strawberry.relay import GlobalID
 from typing_extensions import assert_never
 
 from phoenix.db import models
 from phoenix.db.types.model_provider import (
     GenerativeModelCustomerProviderConfig,
     ModelProvider,
-)
-from phoenix.server.agents.chat_params import (
-    BuiltInProviderChatSearchParams,
-    ChatSearchParams,
-    CustomProviderChatSearchParams,
 )
 from phoenix.server.agents.exceptions import (
     ProviderConfigError,
@@ -41,16 +39,34 @@ from phoenix.server.agents.exceptions import (
     ProviderNotFoundError,
     ProviderUnsupportedError,
 )
+from phoenix.server.agents.model_selection import (
+    AgentModelSelection,
+    BuiltInProviderModelSelection,
+    CustomProviderModelSelection,
+)
+from phoenix.server.agents.pydantic_ai import OpenInferenceModelWrapper
 from phoenix.server.api.exceptions import BadRequest
 from phoenix.server.api.helpers.playground_clients import _resolve_secrets
+from phoenix.server.api.types.node import from_global_id_with_expected_type
 from phoenix.utilities.env_vars import without_env_vars
-
-if TYPE_CHECKING:
-    from pydantic_ai.models import Model as PydanticAIModel
 
 
 class _EncryptedProviderRecord(Protocol):
     config: bytes
+
+
+def _anthropic_cache_settings() -> "AnthropicModelSettings":
+    """Cache flags applied to every Anthropic model built for the chat endpoint.
+
+    Together they cover the conversation prefix, system instructions, and tool
+    definitions — the most expensive parts of each turn.
+    """
+
+    return AnthropicModelSettings(
+        anthropic_cache=True,
+        anthropic_cache_instructions=True,
+        anthropic_cache_tool_definitions=True,
+    )
 
 
 def _build_openai_model(
@@ -131,20 +147,22 @@ def _placeholder_or_error_for_openai_compatible_provider(
     raise ProviderCredentialsError(missing_credential_message)
 
 
-async def build_chat_model(
-    params: ChatSearchParams,
+async def build_model(
+    model: AgentModelSelection,
     *,
     session: AsyncSession,
     decrypt: Callable[[bytes], bytes],
-) -> "PydanticAIModel":
+    tracer_provider: TracerProvider | None = None,
+) -> OpenInferenceModelWrapper:
     """Build a ``pydantic_ai`` model for a chat request.
 
     Args:
-        params: Discriminated request schema selecting either a stored
-            custom provider or a built-in provider.
+        model: Discriminated schema selecting either a stored custom
+            provider or a built-in provider.
         session: Open async session used for secret-store and provider
             lookups.
         decrypt: Callable that decrypts secret/provider config payloads.
+        tracer_provider: Optional provider for OpenInference spans.
 
     Returns:
         A ready-to-use ``pydantic_ai.models.Model`` instance.
@@ -160,28 +178,37 @@ async def build_chat_model(
         ProviderUnsupportedError: The requested provider type is not
             recognised by this builder.
     """
-    if isinstance(params, CustomProviderChatSearchParams):
+    if isinstance(model, CustomProviderModelSelection):
+        provider_id = from_global_id_with_expected_type(
+            GlobalID.from_id(model.provider_id),
+            "GenerativeModelCustomProvider",
+        )
         provider = await session.get(
             models.GenerativeModelCustomProvider,
-            params.provider_id,
+            provider_id,
         )
         if provider is None:
             raise ProviderNotFoundError("Custom provider not found.")
-        return await _get_pydantic_ai_model_from_generative_model_custom_provider(
+        pydantic_ai_model = await _get_pydantic_ai_model_from_generative_model_custom_provider(
             provider_record=provider,
-            model_name=params.model_name,
+            model_name=model.model_name,
             decrypt=decrypt,
         )
-    if isinstance(params, BuiltInProviderChatSearchParams):
-        return await _get_pydantic_ai_model_from_builtin_provider(
-            params,
+    elif isinstance(model, BuiltInProviderModelSelection):
+        pydantic_ai_model = await _get_pydantic_ai_model_from_builtin_provider(
+            model,
             session=session,
             decrypt=decrypt,
         )
-    # See ``_build_openai_model`` for why ``assert_never`` and ``raise``
-    # both appear.
-    assert_never(params)
-    raise ValueError(f"Unsupported chat search params type: {type(params).__name__}")
+    else:
+        # See ``_build_openai_model`` for why ``assert_never`` and ``raise``
+        # both appear.
+        assert_never(model)
+        raise ValueError(f"Unsupported model selection type: {type(model).__name__}")
+    return OpenInferenceModelWrapper(
+        pydantic_ai_model,
+        tracer_provider=tracer_provider or NoOpTracerProvider(),
+    )
 
 
 async def _get_pydantic_ai_model_from_generative_model_custom_provider(
@@ -301,7 +328,11 @@ async def _get_pydantic_ai_model_from_generative_model_custom_provider(
                     max_retries=0,
                 )
             )
-        return AnthropicModel(model_name, provider=anthropic_provider)
+        return AnthropicModel(
+            model_name,
+            provider=anthropic_provider,
+            settings=_anthropic_cache_settings(),
+        )
     if config.type == "google_genai":
         google_kwargs = config.google_genai_client_kwargs
         http_options = google_kwargs.http_options if google_kwargs else None
@@ -340,7 +371,7 @@ async def _get_pydantic_ai_model_from_generative_model_custom_provider(
 
 
 async def _get_pydantic_ai_model_from_builtin_provider(
-    params: BuiltInProviderChatSearchParams,
+    params: BuiltInProviderModelSelection,
     *,
     session: AsyncSession,
     decrypt: Callable[[bytes], bytes],
@@ -417,7 +448,11 @@ async def _get_pydantic_ai_model_from_builtin_provider(
                 "Set the ANTHROPIC_API_KEY environment variable or store it in Phoenix secrets."
             )
         anthropic_provider = AnthropicProvider(anthropic_client=AsyncAnthropic(api_key=api_key))
-        return AnthropicModel(params.model_name, provider=anthropic_provider)
+        return AnthropicModel(
+            params.model_name,
+            provider=anthropic_provider,
+            settings=_anthropic_cache_settings(),
+        )
     if params.provider == ModelProvider.GOOGLE:
         api_key = await _resolve_secret_or_env(session, decrypt, "GEMINI_API_KEY", "GOOGLE_API_KEY")
         if not api_key:

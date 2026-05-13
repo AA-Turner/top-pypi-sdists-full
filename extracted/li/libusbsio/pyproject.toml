@@ -1,0 +1,48 @@
+[build-system]
+requires = [
+    "setuptools>=42",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "libusbsio"
+version = "2.2.0"
+authors = [
+  { name="Michal Hanak", email="michal.hanak@nxp.com" },
+]
+description = "Python wrapper around NXP LIBUSBSIO library"
+readme = "README.md"
+requires-python = ">=3.6"
+classifiers = [
+    'Programming Language :: Python :: 3',
+    'Operating System :: POSIX :: Linux',
+    'Operating System :: Microsoft :: Windows',
+    'Operating System :: MacOS :: MacOS X',
+    'Topic :: Scientific/Engineering',
+    'Topic :: Software Development :: Embedded Systems',
+    'Topic :: System :: Hardware',
+    'Topic :: Utilities'
+]
+keywords = ['LIBUSBSIO', 'USBSIO', 'SPI', 'I2C', 'GPIO']
+license = "BSD-3-Clause"
+license-files = ["LICEN[CS]E*"]
+
+[project.urls]
+Homepage = "https://www.nxp.com/libusbsio"
+"NXP LIBUSBSIO Home" = "https://www.nxp.com/libusbsio"
+"MCU-Link Pro" = "https://www.nxp.com/mculink"
+"LPCLink2" = "https://www.nxp.com/lpclink2"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-dir]
+"libusbsio" = "libusbsio"
+"libusbsio.license" = "license"
+"libusbsio.test" = "test"
+"libusbsio.examples" = "examples"
+
+[tool.setuptools.package-data]
+"*" = ["*.txt", "*.so", "*.dylib", "*.dll"]
+

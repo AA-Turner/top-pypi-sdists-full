@@ -1,13 +1,13 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.805155                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.043918                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import metaflow._vendor.click.types
     import typing
@@ -57,9 +57,9 @@ class ConfigInput(object, metaclass=type):
     def set_config_file(cls, config_file: str):
         ...
     @classmethod
-    def get_config(cls, config_name: str) -> typing.Optional[typing.Dict[typing.Any, typing.Any]]:
+    def get_config(cls, config_name: str) -> typing.Union[typing.Dict[typing.Any, typing.Any], None]:
         ...
-    def process_configs(self, flow_name: str, param_name: str, param_value: typing.Dict[str, typing.Optional[str]], quiet: bool, datastore: str, click_obj: typing.Optional[typing.Any] = None):
+    def process_configs(self, flow_name: str, param_name: str, param_value: typing.Dict[str, typing.Union[str, None]], quiet: bool, datastore: str, click_obj: typing.Union[typing.Any, None] = None):
         ...
     def process_configs_click(self, ctx, param, value):
         ...

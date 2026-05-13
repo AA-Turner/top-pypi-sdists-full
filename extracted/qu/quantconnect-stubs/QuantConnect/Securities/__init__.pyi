@@ -45,11 +45,19 @@ QuantConnect_Securities_FuncSecurityDerivativeFilter_T = typing.TypeVar("QuantCo
 QuantConnect_Securities_ContractSecurityFilterUniverse_TData = typing.TypeVar("QuantConnect_Securities_ContractSecurityFilterUniverse_TData")
 QuantConnect_Securities_ContractSecurityFilterUniverse_T = typing.TypeVar("QuantConnect_Securities_ContractSecurityFilterUniverse_T")
 QuantConnect_Securities_IDerivativeSecurityFilter_T = typing.TypeVar("QuantConnect_Securities_IDerivativeSecurityFilter_T")
+QuantConnect_Securities_DynamicSecurityData_Get_T = typing.TypeVar("QuantConnect_Securities_DynamicSecurityData_Get_T")
+QuantConnect_Securities_DynamicSecurityData_GetAll_T = typing.TypeVar("QuantConnect_Securities_DynamicSecurityData_GetAll_T")
 QuantConnect_Securities_IDerivativeSecurityFilterUniverse_T = typing.TypeVar("QuantConnect_Securities_IDerivativeSecurityFilterUniverse_T")
 QuantConnect_Securities_BaseSecurityDatabase_T = typing.TypeVar("QuantConnect_Securities_BaseSecurityDatabase_T")
 QuantConnect_Securities_BaseSecurityDatabase_TEntry = typing.TypeVar("QuantConnect_Securities_BaseSecurityDatabase_TEntry")
 QuantConnect_Securities__EventContainer_Callable = typing.TypeVar("QuantConnect_Securities__EventContainer_Callable")
 QuantConnect_Securities__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Securities__EventContainer_ReturnType")
+QuantConnect_Securities_Security_TryGet_T = typing.TypeVar("QuantConnect_Securities_Security_TryGet_T")
+QuantConnect_Securities_Security_Get_T = typing.TypeVar("QuantConnect_Securities_Security_Get_T")
+QuantConnect_Securities_Security_Remove_T = typing.TypeVar("QuantConnect_Securities_Security_Remove_T")
+QuantConnect_Securities_SecurityCache_GetData_T = typing.TypeVar("QuantConnect_Securities_SecurityCache_GetData_T")
+QuantConnect_Securities_SecurityCache_GetAll_T = typing.TypeVar("QuantConnect_Securities_SecurityCache_GetAll_T")
+QuantConnect_Securities_DynamicSecurityData_HasData_T = typing.TypeVar("QuantConnect_Securities_DynamicSecurityData_HasData_T")
 
 
 class MarketHoursState(IntEnum):
@@ -900,7 +908,7 @@ class SecurityManager(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, Quant
         Gets an System.Collections.Generic.ICollection{T} containing the Symbol objects of the System.Collections.Generic.IDictionary{TKey, TValue}.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -910,7 +918,7 @@ class SecurityManager(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, Quant
         Gets an System.Collections.Generic.ICollection{T} containing the values in the System.Collections.Generic.IDictionary{TKey, TValue}.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1113,7 +1121,7 @@ class SecurityManager(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, Quant
         Event invocator for the collection_changed event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param changed_event_args: Event arguments for the collection_changed event
         """
@@ -1426,7 +1434,7 @@ class SymbolProperties(System.Object):
         Creates an instance of the SymbolProperties class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1447,6 +1455,64 @@ class SymbolProperties(System.Object):
 
     def to_string(self) -> str:
         """The string representation of these symbol properties"""
+        ...
+
+
+class _Typed_SecurityCache_GetData(typing.Generic[QuantConnect_Securities_SecurityCache_GetData_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> QuantConnect_Securities_SecurityCache_GetData_T:
+        """
+        Get last data packet received for this security of the specified type
+        
+        :returns: The last data packet, null if none received of type.
+        """
+        ...
+
+
+class _SecurityCache_GetData:
+    """"""
+
+    @overload
+    def __call__(self, py_type: typing.Any) -> typing.Any:
+        """
+        Retrieves the last data packet of the specified Python type.
+        
+        :param py_type: The Python type to convert and match
+        :returns: The last data packet as a PyObject, or null if not found.
+        """
+        ...
+
+    @overload
+    def __call__(self) -> QuantConnect.Data.BaseData:
+        """
+        Get last data packet received for this security if any else null
+        
+        :returns: BaseData type of the security.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Securities_SecurityCache_GetData_T]) -> QuantConnect.Securities._Typed_SecurityCache_GetData[QuantConnect_Securities_SecurityCache_GetData_T]:
+        ...
+
+
+class _Typed_SecurityCache_GetAll(typing.Generic[QuantConnect_Securities_SecurityCache_GetAll_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> typing.Sequence[QuantConnect_Securities_SecurityCache_GetAll_T]:
+        """
+        Gets all data points of the specified type from the most recent time step
+        that produced data for that type
+        """
+        ...
+
+
+class _SecurityCache_GetAll:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Securities_SecurityCache_GetAll_T]) -> QuantConnect.Securities._Typed_SecurityCache_GetAll[QuantConnect_Securities_SecurityCache_GetAll_T]:
         ...
 
 
@@ -1522,6 +1588,14 @@ class SecurityCache(System.Object):
         """Collection of keyed custom properties"""
         ...
 
+    @property
+    def get_data(self) -> QuantConnect.Securities._SecurityCache_GetData:
+        ...
+
+    @property
+    def get_all(self) -> QuantConnect.Securities._SecurityCache_GetAll:
+        ...
+
     def add_data(self, data: QuantConnect.Data.BaseData) -> None:
         """
         Add a new market data point to the local security cache for the current market price.
@@ -1536,25 +1610,6 @@ class SecurityCache(System.Object):
         """Add a list of market data points to the local security cache for the current market price."""
         ...
 
-    @overload
-    def get_data(self, py_type: typing.Any) -> typing.Any:
-        """
-        Retrieves the last data packet of the specified Python type.
-        
-        :param py_type: The Python type to convert and match
-        :returns: The last data packet as a PyObject, or null if not found.
-        """
-        ...
-
-    @overload
-    def get_data(self) -> QuantConnect.Data.BaseData:
-        """
-        Get last data packet received for this security if any else null
-        
-        :returns: BaseData type of the security.
-        """
-        ...
-
     def has_data(self, type: typing.Type) -> bool:
         """Gets whether or not this dynamic data instance has data stored for the specified type"""
         ...
@@ -1564,7 +1619,7 @@ class SecurityCache(System.Object):
         Will consume the given data point updating the cache state and it's properties
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param data: The data point to process
         :param cache_by_type: True if this data point should be cached by type
@@ -1728,7 +1783,7 @@ class SecurityHolding(System.Object):
         The security being held
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1894,7 +1949,7 @@ class SecurityHolding(System.Object):
         Create a new holding class instance copying the initial properties
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param holding: The security being held
         """
@@ -1960,7 +2015,7 @@ class SecurityHolding(System.Object):
         Event invocator for the quantity_changed event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2683,11 +2738,31 @@ class IPriceVariationModel(metaclass=abc.ABCMeta):
         ...
 
 
+class _Typed_DynamicSecurityData_HasData(typing.Generic[QuantConnect_Securities_DynamicSecurityData_HasData_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> bool:
+        """Gets whether or not this dynamic data instance has data stored for the specified type"""
+        ...
+
+
+class _DynamicSecurityData_HasData:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Securities_DynamicSecurityData_HasData_T]) -> QuantConnect.Securities._Typed_DynamicSecurityData_HasData[QuantConnect_Securities_DynamicSecurityData_HasData_T]:
+        ...
+
+
 class DynamicSecurityData:
     """
     Provides access to a security's data via it's type. This implementation supports dynamic access
     by type name.
     """
+
+    @property
+    def has_data(self) -> QuantConnect.Securities._DynamicSecurityData_HasData:
+        ...
 
     def __init__(self, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, cache: QuantConnect.Securities.SecurityCache) -> None:
         """
@@ -2698,7 +2773,7 @@ class DynamicSecurityData:
         """
         ...
 
-    def get(self, type: typing.Type) -> typing.Any:
+    def get(self, type: QuantConnect_Securities_DynamicSecurityData_Get_T) -> QuantConnect_Securities_DynamicSecurityData_Get_T:
         """
         Get the matching cached object in a python friendly accessor
         
@@ -2707,7 +2782,7 @@ class DynamicSecurityData:
         """
         ...
 
-    def get_all(self, type: typing.Type) -> typing.List[typing.Any]:
+    def get_all(self, type: QuantConnect_Securities_DynamicSecurityData_GetAll_T) -> typing.Sequence[QuantConnect_Securities_DynamicSecurityData_GetAll_T]:
         """
         Get all the matching types with a python friendly overload.
         
@@ -2756,6 +2831,81 @@ class DynamicSecurityData:
         :returns: Returns the input value back to the caller.
         """
         warnings.warn("DynamicSecurityData is a view of the SecurityCache. It is readonly, properties can not be set", DeprecationWarning)
+
+
+class _Typed_Security_TryGet(typing.Generic[QuantConnect_Securities_Security_TryGet_T]):
+    """"""
+
+    @overload
+    def __call__(self, key: str, value: typing.Optional[QuantConnect_Securities_Security_TryGet_T]) -> typing.Tuple[bool, QuantConnect_Securities_Security_TryGet_T]:
+        """
+        Gets the specified custom property
+        
+        :param key: The property key
+        :param value: The property value
+        :returns: True if the property is found.
+        """
+        ...
+
+
+class _Security_TryGet:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Securities_Security_TryGet_T]) -> QuantConnect.Securities._Typed_Security_TryGet[QuantConnect_Securities_Security_TryGet_T]:
+        ...
+
+
+class _Typed_Security_Get(typing.Generic[QuantConnect_Securities_Security_Get_T]):
+    """"""
+
+    @overload
+    def __call__(self, key: str) -> QuantConnect_Securities_Security_Get_T:
+        """
+        Gets the specified custom property
+        
+        :param key: The property key
+        :returns: The property value is found.
+        """
+        ...
+
+
+class _Security_Get:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Securities_Security_Get_T]) -> QuantConnect.Securities._Typed_Security_Get[QuantConnect_Securities_Security_Get_T]:
+        ...
+
+
+class _Typed_Security_Remove(typing.Generic[QuantConnect_Securities_Security_Remove_T]):
+    """"""
+
+    @overload
+    def __call__(self, key: str, value: typing.Optional[QuantConnect_Securities_Security_Remove_T]) -> typing.Tuple[bool, QuantConnect_Securities_Security_Remove_T]:
+        """
+        Removes a custom property.
+        
+        :param key: The property key
+        :param value: The removed property value
+        :returns: True if the property is successfully removed.
+        """
+        ...
+
+
+class _Security_Remove:
+    """"""
+
+    @overload
+    def __call__(self, key: str) -> bool:
+        """
+        Removes a custom property.
+        
+        :param key: The property key
+        :returns: True if the property is successfully removed.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Securities_Security_Remove_T]) -> QuantConnect.Securities._Typed_Security_Remove[QuantConnect_Securities_Security_Remove_T]:
+        ...
 
 
 class Security(DynamicObject, QuantConnect.Interfaces.ISecurityPrice):
@@ -3093,6 +3243,18 @@ class Security(DynamicObject, QuantConnect.Interfaces.ISecurityPrice):
         """Gets the fundamental data associated with the security if there is any, otherwise null."""
         ...
 
+    @property
+    def try_get(self) -> QuantConnect.Securities._Security_TryGet:
+        ...
+
+    @property
+    def get(self) -> QuantConnect.Securities._Security_Get:
+        ...
+
+    @property
+    def remove(self) -> QuantConnect.Securities._Security_Remove:
+        ...
+
     def __getitem__(self, key: str) -> typing.Any:
         """
         Gets or sets the specified custom property through the indexer.
@@ -3113,7 +3275,7 @@ class Security(DynamicObject, QuantConnect.Interfaces.ISecurityPrice):
         Construct a new security vehicle based on the user options.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -3128,7 +3290,7 @@ class Security(DynamicObject, QuantConnect.Interfaces.ISecurityPrice):
         Temporary convenience constructor
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -3177,15 +3339,6 @@ class Security(DynamicObject, QuantConnect.Interfaces.ISecurityPrice):
         This method will refresh the value of the data_normalization_mode property.
         This is required for backward-compatibility.
         TODO: to be deleted with the DataNormalizationMode property
-        """
-        ...
-
-    def remove(self, key: str) -> bool:
-        """
-        Removes a custom property.
-        
-        :param key: The property key
-        :returns: True if the property is successfully removed.
         """
         ...
 
@@ -3460,7 +3613,7 @@ class Security(DynamicObject, QuantConnect.Interfaces.ISecurityPrice):
         Update market price of this Security
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param data: Data to pull price from
         """
@@ -3480,7 +3633,7 @@ class SecurityEventArgs(System.Object, metaclass=abc.ABCMeta):
         Initializes a new instance of the SecurityEventArgs class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param security: The security
         """
@@ -4269,7 +4422,7 @@ class CashBook(QuantConnect.ExtendedDictionary[str, QuantConnect.Securities.Cash
         Gets the keys.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -4279,7 +4432,7 @@ class CashBook(QuantConnect.ExtendedDictionary[str, QuantConnect.Securities.Cash
         Gets the values.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -4554,7 +4707,7 @@ class SecurityPortfolioManager(QuantConnect.ExtendedDictionary[QuantConnect.Symb
         Gets an System.Collections.Generic.ICollection{T} containing the Symbol objects of the System.Collections.Generic.IDictionary{TKey, TValue}.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -4564,7 +4717,7 @@ class SecurityPortfolioManager(QuantConnect.ExtendedDictionary[QuantConnect.Symb
         Gets an System.Collections.Generic.ICollection{T} containing the values in the System.Collections.Generic.IDictionary{TKey, TValue}.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -5163,7 +5316,7 @@ class BuyingPowerModel(System.Object, QuantConnect.Securities.IBuyingPowerModel)
         The percentage used to determine the required unused buying power for the account.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -5264,7 +5417,7 @@ class BuyingPowerModel(System.Object, QuantConnect.Securities.IBuyingPowerModel)
         Gets the margin cash available for a trade
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param portfolio: The algorithm's portfolio
         :param security: The security to be traded
@@ -5422,7 +5575,7 @@ class SecurityPortfolioModel(System.Object, QuantConnect.Securities.ISecurityPor
         Helper method to determine the close trade profit
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -5994,7 +6147,7 @@ class SymbolPropertiesDatabase(QuantConnect.Securities.BaseSecurityDatabase[Quan
         Initialize a new instance of SymbolPropertiesDatabase using the given file
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param file: File to read from
         """
@@ -6006,7 +6159,7 @@ class SymbolPropertiesDatabase(QuantConnect.Securities.BaseSecurityDatabase[Quan
         Creates a new instance of SymbolProperties from the specified csv line
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param line: The csv line to be parsed
         :param key: The key used to uniquely identify this security
@@ -6099,7 +6252,7 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         Defines listed contract types with Flags attribute
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
 
         STANDARD = 1
@@ -6113,7 +6266,7 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
     The default expiration type filter value
     
     
-    This codeEntityType is protected.
+    This Field is protected.
     """
 
     @property
@@ -6123,7 +6276,7 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         Standards only by default
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -6142,7 +6295,7 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         Constructs ContractSecurityFilterUniverse
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -6152,7 +6305,7 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         Constructs ContractSecurityFilterUniverse
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -6164,7 +6317,7 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         Adjust the reference date used for expiration filtering. By default it just returns the same date.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param reference_date: The reference date to be adjusted
         :returns: The adjusted date.
@@ -6247,7 +6400,7 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         Creates a new instance of the data type for the given symbol
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: A data instance for the given symbol.
         """
@@ -6311,7 +6464,7 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         Function to determine if the given symbol is a standard contract
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: True if standard type.
         """
@@ -6751,7 +6904,7 @@ class DefaultMarginCallModel(System.Object, QuantConnect.Securities.IMarginCallM
         Gets the portfolio that margin calls will be transacted against
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -6761,7 +6914,7 @@ class DefaultMarginCallModel(System.Object, QuantConnect.Securities.IMarginCallM
         Gets the default order properties to be used in margin call orders
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -6792,7 +6945,7 @@ class DefaultMarginCallModel(System.Object, QuantConnect.Securities.IMarginCallM
         used by the account. Returns null when no margin call is to be issued.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param parameters: The set of parameters required to generate the margin call orders
         :returns: An order object representing a liquidation order to be executed to bring the account within margin requirements.
@@ -7059,7 +7212,7 @@ class BaseSecurityDatabase(typing.Generic[QuantConnect_Securities_BaseSecurityDa
     The database instance loaded from the data folder
     
     
-    This codeEntityType is protected.
+    This Property is protected.
     """
 
     DATA_FOLDER_DATABASE_LOCK: System.Object = ...
@@ -7067,7 +7220,7 @@ class BaseSecurityDatabase(typing.Generic[QuantConnect_Securities_BaseSecurityDa
     Lock object for the data folder database
     
     
-    This codeEntityType is protected.
+    This Field is protected.
     """
 
     @property
@@ -7076,7 +7229,7 @@ class BaseSecurityDatabase(typing.Generic[QuantConnect_Securities_BaseSecurityDa
         The database entries
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -7090,7 +7243,7 @@ class BaseSecurityDatabase(typing.Generic[QuantConnect_Securities_BaseSecurityDa
         Custom entries set by the user.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -7099,7 +7252,7 @@ class BaseSecurityDatabase(typing.Generic[QuantConnect_Securities_BaseSecurityDa
         Initializes a new instance of the BaseSecurityDatabase{T, TEntry} class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param entries: The full listing of exchange hours by key
         :param from_data_folder: Method to load the database form the data folder
@@ -7124,7 +7277,7 @@ class BaseSecurityDatabase(typing.Generic[QuantConnect_Securities_BaseSecurityDa
         Determines if the database contains the specified key
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param key: The key to search for
         :returns: True if an entry is found, otherwise false.
@@ -7203,7 +7356,7 @@ class UniverseManager(Common.Util.BaseExtendedDictionary[QuantConnect.Symbol, Qu
         Event invocator for the collection_changed event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -7329,7 +7482,7 @@ class OptionFilterUniverse(QuantConnect.Securities.ContractSecurityFilterUnivers
         The underlying price data
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -7364,7 +7517,7 @@ class OptionFilterUniverse(QuantConnect.Securities.ContractSecurityFilterUnivers
         contracts expiring on Monday would be filtered out if the date is not properly adjusted to the next trading day (Monday).
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param reference_date: The date to be adjusted
         :returns: The adjusted date.
@@ -7449,7 +7602,7 @@ class OptionFilterUniverse(QuantConnect.Securities.ContractSecurityFilterUnivers
         Creates a new instance of the data type for the given symbol
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: A data instance for the given symbol.
         """
@@ -7534,7 +7687,7 @@ class OptionFilterUniverse(QuantConnect.Securities.ContractSecurityFilterUnivers
         Determine if the given Option contract symbol is standard
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: True if standard.
         """
@@ -8037,7 +8190,7 @@ class FutureFilterUniverse(QuantConnect.Securities.ContractSecurityFilterUnivers
         Creates a new instance of the data type for the given symbol
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: A data instance for the given symbol, which is just the symbol itself.
         """
@@ -8057,7 +8210,7 @@ class FutureFilterUniverse(QuantConnect.Securities.ContractSecurityFilterUnivers
         Determine if the given Future contract symbol is standard
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: True if contract is standard.
         """

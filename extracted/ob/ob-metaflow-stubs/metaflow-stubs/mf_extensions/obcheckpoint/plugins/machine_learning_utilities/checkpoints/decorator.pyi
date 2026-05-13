@@ -1,18 +1,18 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.820851                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.065237                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
     import metaflow.decorators
-    import metaflow
     import os
+    import metaflow
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
 
 from .exceptions import CheckpointException as CheckpointException
 from ..utils import flowspec_utils as flowspec_utils
@@ -67,7 +67,7 @@ class CurrentCheckpointer(object, metaclass=type):
         ...
     def __init__(self, flow, task_identifier, resolved_scope, logger, gang_scheduled_task = False, temp_dir_root = None):
         ...
-    def save(self, path: typing.Union[str, os.PathLike, None] = None, name: typing.Optional[str] = 'mfchckpt', metadata: typing.Optional[typing.Dict] = {}, latest: bool = True, storage_format: str = 'files'):
+    def save(self, path: typing.Union[str, os.PathLike, None] = None, name: typing.Union[str, None] = 'mfchckpt', metadata: typing.Union[typing.Dict, None] = {}, latest: bool = True, storage_format: str = 'files'):
         """
         Saves the checkpoint to the datastore.
         
@@ -98,7 +98,7 @@ class CurrentCheckpointer(object, metaclass=type):
             If `files`, saves directory directly to the datastore.
         """
         ...
-    def list(self, name: typing.Optional[str] = None, task: typing.Union["metaflow.Task", str, None] = None, attempt: typing.Optional[int] = None, full_namespace: bool = False) -> typing.List[typing.Dict]:
+    def list(self, name: typing.Union[str, None] = None, task: typing.Union["metaflow.Task", str, None] = None, attempt: typing.Union[int, None] = None, full_namespace: bool = False) -> typing.List[typing.Dict]:
         """
         lists the checkpoints in the current task or the specified task.
         
@@ -154,7 +154,7 @@ class CurrentCheckpointer(object, metaclass=type):
         ...
     def refresh_directory(self):
         ...
-    def load(self, reference: typing.Union[str, typing.Dict, metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.CheckpointArtifact], path: typing.Optional[str] = None):
+    def load(self, reference: typing.Union[str, typing.Dict, metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.CheckpointArtifact], path: typing.Union[str, None] = None):
         """
         loads a checkpoint reference from the datastore. (resembles a read op)
         

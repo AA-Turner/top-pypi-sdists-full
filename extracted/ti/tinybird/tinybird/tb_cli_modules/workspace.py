@@ -55,19 +55,18 @@ async def workspace_ls(ctx: Context) -> None:
         raise CLIWorkspaceException(FeedbackManager.error_unable_to_identify_main_workspace())
 
     columns = ["name", "id", "role", "plan", "current"]
-    table = []
     click.echo(FeedbackManager.info_workspaces())
 
-    for workspace in response["workspaces"]:
-        table.append(
-            [
-                workspace["name"],
-                workspace["id"],
-                workspace["role"],
-                _get_workspace_plan_name(workspace["plan"]),
-                current_main_workspace["id"] == workspace["id"],
-            ]
-        )
+    table = [
+        [
+            workspace["name"],
+            workspace["id"],
+            workspace["role"],
+            _get_workspace_plan_name(workspace["plan"]),
+            current_main_workspace["id"] == workspace["id"],
+        ]
+        for workspace in response["workspaces"]
+    ]
 
     echo_safe_humanfriendly_tables_format_smart_table(table, column_names=columns)
 

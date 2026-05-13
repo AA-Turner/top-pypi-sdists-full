@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.808233                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.047884                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ class Card(object, metaclass=type):
     """
     def __init__(self, card_ds, type, path, hash, id = None, html = None, created_on = None, from_resumed = False, origin_pathspec = None):
         ...
-    def get_data(self) -> typing.Optional[dict]:
+    def get_data(self) -> typing.Union[dict, None]:
         ...
     def get(self) -> str:
         """
@@ -60,7 +60,7 @@ class Card(object, metaclass=type):
         """
         ...
     @property
-    def id(self) -> typing.Optional[str]:
+    def id(self) -> typing.Union[str, None]:
         """
         The ID of the card, if specified with `@card(id=ID)`.
         
@@ -116,7 +116,7 @@ class CardContainer(object, metaclass=type):
         ...
     ...
 
-def get_cards(task: typing.Union[str, "metaflow.Task"], id: typing.Optional[str] = None, type: typing.Optional[str] = None, follow_resumed: bool = True) -> CardContainer:
+def get_cards(task: typing.Union[str, "metaflow.Task"], id: typing.Union[str, None] = None, type: typing.Union[str, None] = None, follow_resumed: bool = True) -> CardContainer:
     """
     Get cards related to a `Task`.
     

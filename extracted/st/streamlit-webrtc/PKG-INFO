@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streamlit-webrtc
-Version: 0.64.6
+Version: 0.65.4
 Summary: Real-time video and audio processing on Streamlit
 Project-URL: Repository, https://github.com/whitphx/streamlit-webrtc
 Author-email: "Yuichiro Tachibana (Tsuchiya)" <t.yic.yt@gmail.com>
@@ -8,7 +8,8 @@ License-Expression: MIT
 License-File: LICENSE
 Requires-Python: >=3.10
 Requires-Dist: aioice>=0.10.1
-Requires-Dist: aiortc>=1.11.0
+Requires-Dist: aiortc>=1.14.0
+Requires-Dist: av>=15.1.0
 Requires-Dist: packaging>=20.0
 Requires-Dist: streamlit>=1.4.0
 Description-Content-Type: text/markdown

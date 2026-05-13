@@ -46,7 +46,7 @@ class Objective(System.Object, metaclass=abc.ABCMeta):
         Creates a new instance of Objective class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -56,7 +56,7 @@ class Objective(System.Object, metaclass=abc.ABCMeta):
         Creates a new instance
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -195,7 +195,7 @@ class ExtremumJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConne
         Don't populate any property
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -205,7 +205,7 @@ class ExtremumJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConne
         Converts a Extremum object into a string
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -215,7 +215,7 @@ class ExtremumJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConne
         Converts a string into its corresponding Extremum object
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: 
         """

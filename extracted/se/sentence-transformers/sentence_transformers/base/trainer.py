@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import inspect
+import json
 import logging
 import os
 import re
+import shutil
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from collections.abc import Callable
@@ -19,8 +21,27 @@ from transformers.feature_extraction_utils import FeatureExtractionMixin
 from transformers.image_processing_utils import BaseImageProcessor
 from transformers.integrations import WandbCallback
 from transformers.processing_utils import ProcessorMixin
-from transformers.trainer import TRAINING_ARGS_NAME
-from transformers.trainer_utils import EvalLoopOutput
+from transformers.trainer import (
+    OPTIMIZER_NAME,
+    OPTIMIZER_NAME_BIN,
+    SCALER_NAME,
+    SCHEDULER_NAME,
+    TRAINER_STATE_NAME,
+    TRAINING_ARGS_NAME,
+)
+from transformers.trainer_utils import EvalLoopOutput, HubStrategy
+from transformers.utils import (
+    ADAPTER_CONFIG_NAME,
+    ADAPTER_SAFE_WEIGHTS_NAME,
+    ADAPTER_WEIGHTS_NAME,
+    CONFIG_NAME,
+    GENERATION_CONFIG_NAME,
+    SAFE_WEIGHTS_INDEX_NAME,
+    SAFE_WEIGHTS_NAME,
+    WEIGHTS_INDEX_NAME,
+    WEIGHTS_NAME,
+    is_peft_available,
+)
 
 from sentence_transformers.base.data_collator import BaseDataCollator
 from sentence_transformers.base.evaluation import BaseEvaluator, SequentialEvaluator
@@ -74,7 +95,7 @@ class BaseTrainer(Trainer, ABC):
         args (:class:`~sentence_transformers.base.training_args.BaseTrainingArguments`, *optional*):
             The arguments to tweak for training. Will default to a basic instance of
             :class:`~sentence_transformers.base.training_args.BaseTrainingArguments` with the
-            `output_dir` set to a directory named *tmp_trainer* in the current directory if not provided.
+            ``output_dir`` set to a directory named ``"tmp_trainer"`` in the current directory if not provided.
         train_dataset (Union[:class:`datasets.Dataset`, :class:`datasets.DatasetDict`, :class:`datasets.IterableDataset`, Dict[str, :class:`datasets.Dataset`]], *optional*):
             The dataset to use for training. Must have a format accepted by your loss function.
         eval_dataset (Union[:class:`datasets.Dataset`, :class:`datasets.DatasetDict`, :class:`datasets.IterableDataset`, Dict[str, :class:`datasets.Dataset`]], *optional*):
@@ -94,28 +115,27 @@ class BaseTrainer(Trainer, ABC):
             wrapped in a :class:`~sentence_transformers.base.evaluation.SequentialEvaluator` to run them sequentially.
         callbacks (List of [:class:`transformers.TrainerCallback`], *optional*):
             A list of callbacks to customize the training loop. Will add those to the list of default callbacks
-            detailed in [here](callback).
+            detailed in :doc:`here <transformers:main_classes/callback>`.
 
-            If you want to remove one of the default callbacks used, use the [`Trainer.remove_callback`] method.
-        optimizers (`Tuple[:class:`torch.optim.Optimizer`, :class:`torch.optim.lr_scheduler.LambdaLR`]`, *optional*, defaults to `(None, None)`):
+            If you want to remove one of the default callbacks used, use the :meth:`~transformers.Trainer.remove_callback` method.
+        optimizers (Tuple[:class:`torch.optim.Optimizer`, :class:`torch.optim.lr_scheduler.LambdaLR`], *optional*, defaults to ``(None, None)``):
             A tuple containing the optimizer and the scheduler to use. Will default to an instance of :class:`torch.optim.AdamW`
             on your model and a scheduler given by :func:`transformers.get_linear_schedule_with_warmup` controlled by `args`.
 
     Important attributes:
 
-        - **model** -- Always points to the core model. If using a transformers model, it will be a [`PreTrainedModel`]
-          subclass.
-        - **model_wrapped** -- Always points to the most external model in case one or more other modules wrap the
-          original model. This is the model that should be used for the forward pass. For example, under `DeepSpeed`,
-          the inner model is wrapped in `DeepSpeed` and then again in `torch.nn.DistributedDataParallel`. If the inner
-          model hasn't been wrapped, then `self.model_wrapped` is the same as `self.model`.
-        - **is_model_parallel** -- Whether or not a model has been switched to a model parallel mode (different from
+        - **model**: Always points to the :class:`~sentence_transformers.base.model.BaseModel` model to be trained.
+        - **model_wrapped**: Always points to the most external model in case one or more other modules wrap the
+          original model. This is the model that should be used for the forward pass. For example, under ``DeepSpeed``,
+          the inner model is wrapped in ``DeepSpeed`` and then again in :class:`~torch.nn.parallel.DistributedDataParallel`. If the inner
+          model hasn't been wrapped, then ``self.model_wrapped`` is the same as ``self.model``.
+        - **is_model_parallel**: Whether or not a model has been switched to a model parallel mode (different from
           data parallelism, this means some of the model layers are split on different GPUs).
-        - **place_model_on_device** -- Whether or not to automatically place the model on the device - it will be set
-          to `False` if model parallel or deepspeed is used, or if the default
-          `TrainingArguments.place_model_on_device` is overridden to return `False` .
-        - **is_in_train** -- Whether or not a model is currently running `train` (e.g. when `evaluate` is called while
-          in `train`)
+        - **place_model_on_device**: Whether or not to automatically place the model on the device - it will be set
+          to ``False`` if model parallel or deepspeed is used, or if the default
+          :attr:`~sentence_transformers.base.training_args.BaseTrainingArguments.place_model_on_device` is overridden to return ``False``.
+        - **is_in_train**: Whether or not a model is currently running :meth:`~sentence_transformers.base.trainer.BaseTrainer.train` (e.g. when :meth:`~sentence_transformers.base.trainer.BaseTrainer.evaluate` is called while
+          in :meth:`~sentence_transformers.base.trainer.BaseTrainer.train`)
 
     """
 
@@ -399,6 +419,12 @@ class BaseTrainer(Trainer, ABC):
 
         for name, child in loss.named_children():
             if name == "model" and isinstance(child, BaseModel):
+                # DDP/compile wrappers don't expose BaseModel methods; bind the ones
+                # losses call inside `forward` (CE: `preprocess`, MatryoshkaLoss:
+                # `get_embedding_dimension`).
+                for attr in ("preprocess", "get_embedding_dimension"):
+                    if hasattr(child, attr) and not hasattr(model, attr):
+                        setattr(model, attr, getattr(child, attr))
                 loss.model = model
             elif isinstance(child, torch.nn.Module):
                 setattr(loss, name, self.override_model_in_loss(child, model))
@@ -960,6 +986,57 @@ class BaseTrainer(Trainer, ABC):
 
         # Good practice: save your training arguments together with the trained model
         torch.save(self.args, os.path.join(output_dir, TRAINING_ARGS_NAME))
+
+    def _push_from_checkpoint(self, checkpoint_folder: str) -> None:
+        # The parent only copies a transformers-layout subset into output_dir before uploading.
+        # Extend it with the rest of the sentence-transformers layout (modules.json, README.md,
+        # module subfolders, ...) so mid-training pushes aren't missing files. Super still runs
+        # and handles the actual upload plus its own file list (weights, config, adapters).
+        if (
+            self.is_world_process_zero()
+            and self.args.hub_strategy != HubStrategy.END
+            and (self.args.hub_always_push or self.push_in_progress is None or self.push_in_progress.is_done())
+        ):
+            skip_names = self._checkpoint_push_skip_names(checkpoint_folder)
+            os.makedirs(self.args.output_dir, exist_ok=True)
+            for name in os.listdir(checkpoint_folder):
+                if name in skip_names or name.startswith("rng_state") or name.startswith("global_step"):
+                    continue
+                src = os.path.join(checkpoint_folder, name)
+                dst = os.path.join(self.args.output_dir, name)
+                if os.path.isdir(src):
+                    shutil.copytree(src, dst, dirs_exist_ok=True)
+                else:
+                    shutil.copy(src, dst)
+
+        super()._push_from_checkpoint(checkpoint_folder)
+
+    def _checkpoint_push_skip_names(self, checkpoint_folder: str) -> set[str]:
+        # Training state files (never pushed) + files the parent will copy itself (avoid
+        # double-writing large weight shards). Mirrors `modeling_files` in
+        # `Trainer._push_from_checkpoint`, including shards listed in a weights index.
+        skip = {
+            OPTIMIZER_NAME,
+            OPTIMIZER_NAME_BIN,
+            SCHEDULER_NAME,
+            SCALER_NAME,
+            TRAINER_STATE_NAME,
+            TRAINING_ARGS_NAME,
+            CONFIG_NAME,
+            GENERATION_CONFIG_NAME,
+            WEIGHTS_NAME,
+            SAFE_WEIGHTS_NAME,
+            WEIGHTS_INDEX_NAME,
+            SAFE_WEIGHTS_INDEX_NAME,
+        }
+        if is_peft_available():
+            skip |= {ADAPTER_CONFIG_NAME, ADAPTER_WEIGHTS_NAME, ADAPTER_SAFE_WEIGHTS_NAME}
+        for index_name in (WEIGHTS_INDEX_NAME, SAFE_WEIGHTS_INDEX_NAME):
+            index_path = os.path.join(checkpoint_folder, index_name)
+            if os.path.isfile(index_path):
+                with open(index_path) as f:
+                    skip.update(json.load(f).get("weight_map", {}).values())
+        return skip
 
     def _load_from_checkpoint(self, checkpoint_path: str) -> None:
         model_class = self.model.__class__

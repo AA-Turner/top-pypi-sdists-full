@@ -77,6 +77,15 @@ System_Numerics_INumberBase_TSelf = typing.TypeVar("System_Numerics_INumberBase_
 System_Numerics_IMinMaxValue_TSelf = typing.TypeVar("System_Numerics_IMinMaxValue_TSelf")
 System_Numerics_IDecrementOperators_TSelf = typing.TypeVar("System_Numerics_IDecrementOperators_TSelf")
 System_Numerics_IFloatingPointConstants_TSelf = typing.TypeVar("System_Numerics_IFloatingPointConstants_TSelf")
+System_Numerics_BFloat16_CreateChecked_TOther = typing.TypeVar("System_Numerics_BFloat16_CreateChecked_TOther")
+System_Numerics_BFloat16_CreateSaturating_TOther = typing.TypeVar("System_Numerics_BFloat16_CreateSaturating_TOther")
+System_Numerics_BFloat16_CreateTruncating_TOther = typing.TypeVar("System_Numerics_BFloat16_CreateTruncating_TOther")
+System_Numerics_INumberBase_TryConvertFromChecked_TOther = typing.TypeVar("System_Numerics_INumberBase_TryConvertFromChecked_TOther")
+System_Numerics_INumberBase_TryConvertFromSaturating_TOther = typing.TypeVar("System_Numerics_INumberBase_TryConvertFromSaturating_TOther")
+System_Numerics_INumberBase_TryConvertFromTruncating_TOther = typing.TypeVar("System_Numerics_INumberBase_TryConvertFromTruncating_TOther")
+System_Numerics_INumberBase_TryConvertToChecked_TOther = typing.TypeVar("System_Numerics_INumberBase_TryConvertToChecked_TOther")
+System_Numerics_INumberBase_TryConvertToSaturating_TOther = typing.TypeVar("System_Numerics_INumberBase_TryConvertToSaturating_TOther")
+System_Numerics_INumberBase_TryConvertToTruncating_TOther = typing.TypeVar("System_Numerics_INumberBase_TryConvertToTruncating_TOther")
 
 
 class IComparisonOperators(typing.Generic[System_Numerics_IComparisonOperators_TSelf, System_Numerics_IComparisonOperators_TOther, System_Numerics_IComparisonOperators_TResult], System.Numerics.IEqualityOperators[System_Numerics_IComparisonOperators_TSelf, System_Numerics_IComparisonOperators_TOther, System_Numerics_IComparisonOperators_TResult], metaclass=abc.ABCMeta):
@@ -3844,6 +3853,51 @@ class IUnsignedNumber(typing.Generic[System_Numerics_IUnsignedNumber_TSelf], Sys
     """This class has no documentation."""
 
 
+class _Typed_BFloat16_CreateChecked(typing.Generic[System_Numerics_BFloat16_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_BFloat16_CreateChecked_TOther) -> System.Numerics.BFloat16:
+        ...
+
+
+class _BFloat16_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_BFloat16_CreateChecked_TOther]) -> System.Numerics._Typed_BFloat16_CreateChecked[System_Numerics_BFloat16_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_BFloat16_CreateSaturating(typing.Generic[System_Numerics_BFloat16_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_BFloat16_CreateSaturating_TOther) -> System.Numerics.BFloat16:
+        ...
+
+
+class _BFloat16_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_BFloat16_CreateSaturating_TOther]) -> System.Numerics._Typed_BFloat16_CreateSaturating[System_Numerics_BFloat16_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_BFloat16_CreateTruncating(typing.Generic[System_Numerics_BFloat16_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_BFloat16_CreateTruncating_TOther) -> System.Numerics.BFloat16:
+        ...
+
+
+class _BFloat16_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_BFloat16_CreateTruncating_TOther]) -> System.Numerics._Typed_BFloat16_CreateTruncating[System_Numerics_BFloat16_CreateTruncating_TOther]:
+        ...
+
+
 class BFloat16(System.IComparable[System_Numerics_BFloat16], System.ISpanFormattable, System.IEquatable[System_Numerics_BFloat16], System.IUtf8SpanFormattable, System.IBinaryFloatParseAndFormatInfo[System_Numerics_BFloat16]):
     """This class has no documentation."""
 
@@ -3874,6 +3928,12 @@ class BFloat16(System.IComparable[System_Numerics_BFloat16], System.ISpanFormatt
     ZERO: System.Numerics.BFloat16
 
     NEGATIVE_ONE: System.Numerics.BFloat16
+
+    create_checked: System.Numerics._BFloat16_CreateChecked
+
+    create_saturating: System.Numerics._BFloat16_CreateSaturating
+
+    create_truncating: System.Numerics._BFloat16_CreateTruncating
 
     def __add__(self, right: System.Numerics.BFloat16) -> System.Numerics.BFloat16:
         ...
@@ -4532,8 +4592,110 @@ class IUnaryPlusOperators(typing.Generic[System_Numerics_IUnaryPlusOperators_TSe
     """This class has no documentation."""
 
 
+class _Typed_INumberBase_TryConvertFromChecked(typing.Generic[System_Numerics_INumberBase_TryConvertFromChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_INumberBase_TryConvertFromChecked_TOther, result: typing.Optional[System_Numerics_INumberBase_TSelf]) -> typing.Tuple[bool, System_Numerics_INumberBase_TSelf]:
+        ...
+
+
+class _INumberBase_TryConvertFromChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_INumberBase_TryConvertFromChecked_TOther]) -> System.Numerics._Typed_INumberBase_TryConvertFromChecked[System_Numerics_INumberBase_TryConvertFromChecked_TOther]:
+        ...
+
+
+class _Typed_INumberBase_TryConvertFromSaturating(typing.Generic[System_Numerics_INumberBase_TryConvertFromSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_INumberBase_TryConvertFromSaturating_TOther, result: typing.Optional[System_Numerics_INumberBase_TSelf]) -> typing.Tuple[bool, System_Numerics_INumberBase_TSelf]:
+        ...
+
+
+class _INumberBase_TryConvertFromSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_INumberBase_TryConvertFromSaturating_TOther]) -> System.Numerics._Typed_INumberBase_TryConvertFromSaturating[System_Numerics_INumberBase_TryConvertFromSaturating_TOther]:
+        ...
+
+
+class _Typed_INumberBase_TryConvertFromTruncating(typing.Generic[System_Numerics_INumberBase_TryConvertFromTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_INumberBase_TryConvertFromTruncating_TOther, result: typing.Optional[System_Numerics_INumberBase_TSelf]) -> typing.Tuple[bool, System_Numerics_INumberBase_TSelf]:
+        ...
+
+
+class _INumberBase_TryConvertFromTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_INumberBase_TryConvertFromTruncating_TOther]) -> System.Numerics._Typed_INumberBase_TryConvertFromTruncating[System_Numerics_INumberBase_TryConvertFromTruncating_TOther]:
+        ...
+
+
+class _Typed_INumberBase_TryConvertToChecked(typing.Generic[System_Numerics_INumberBase_TryConvertToChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_INumberBase_TSelf, result: typing.Optional[System_Numerics_INumberBase_TryConvertToChecked_TOther]) -> typing.Tuple[bool, System_Numerics_INumberBase_TryConvertToChecked_TOther]:
+        ...
+
+
+class _INumberBase_TryConvertToChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_INumberBase_TryConvertToChecked_TOther]) -> System.Numerics._Typed_INumberBase_TryConvertToChecked[System_Numerics_INumberBase_TryConvertToChecked_TOther]:
+        ...
+
+
+class _Typed_INumberBase_TryConvertToSaturating(typing.Generic[System_Numerics_INumberBase_TryConvertToSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_INumberBase_TSelf, result: typing.Optional[System_Numerics_INumberBase_TryConvertToSaturating_TOther]) -> typing.Tuple[bool, System_Numerics_INumberBase_TryConvertToSaturating_TOther]:
+        ...
+
+
+class _INumberBase_TryConvertToSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_INumberBase_TryConvertToSaturating_TOther]) -> System.Numerics._Typed_INumberBase_TryConvertToSaturating[System_Numerics_INumberBase_TryConvertToSaturating_TOther]:
+        ...
+
+
+class _Typed_INumberBase_TryConvertToTruncating(typing.Generic[System_Numerics_INumberBase_TryConvertToTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_INumberBase_TSelf, result: typing.Optional[System_Numerics_INumberBase_TryConvertToTruncating_TOther]) -> typing.Tuple[bool, System_Numerics_INumberBase_TryConvertToTruncating_TOther]:
+        ...
+
+
+class _INumberBase_TryConvertToTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_INumberBase_TryConvertToTruncating_TOther]) -> System.Numerics._Typed_INumberBase_TryConvertToTruncating[System_Numerics_INumberBase_TryConvertToTruncating_TOther]:
+        ...
+
+
 class INumberBase(typing.Generic[System_Numerics_INumberBase_TSelf], System.Numerics.IAdditionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IAdditiveIdentity[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IDecrementOperators[System_Numerics_INumberBase_TSelf], System.Numerics.IDivisionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.IEquatable[System_Numerics_INumberBase_TSelf], System.Numerics.IEqualityOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, bool], System.Numerics.IIncrementOperators[System_Numerics_INumberBase_TSelf], System.Numerics.IMultiplicativeIdentity[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IMultiplyOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.ISpanFormattable, System.ISpanParsable[System_Numerics_INumberBase_TSelf], System.Numerics.ISubtractionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IUnaryPlusOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IUnaryNegationOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_INumberBase_TSelf], metaclass=abc.ABCMeta):
     """This class has no documentation."""
+
+    try_convert_from_checked: System.Numerics._INumberBase_TryConvertFromChecked
+
+    try_convert_from_saturating: System.Numerics._INumberBase_TryConvertFromSaturating
+
+    try_convert_from_truncating: System.Numerics._INumberBase_TryConvertFromTruncating
+
+    try_convert_to_checked: System.Numerics._INumberBase_TryConvertToChecked
+
+    try_convert_to_saturating: System.Numerics._INumberBase_TryConvertToSaturating
+
+    try_convert_to_truncating: System.Numerics._INumberBase_TryConvertToTruncating
 
 
 class IMinMaxValue(typing.Generic[System_Numerics_IMinMaxValue_TSelf], metaclass=abc.ABCMeta):

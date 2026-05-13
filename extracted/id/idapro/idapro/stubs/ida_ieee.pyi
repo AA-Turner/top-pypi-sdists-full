@@ -1,8 +1,6 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
-r"""IEEE floating point functions.
-
-"""
+r"""IEEE floating point functions."""
 
 class fpvalue_shorts_array_t:
     @property
@@ -18,8 +16,11 @@ class fpvalue_shorts_array_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -27,17 +28,20 @@ class fpvalue_shorts_array_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> int:
+    def __getitem__(self, i: int) -> int:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, data: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -45,7 +49,7 @@ class fpvalue_shorts_array_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[int]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -59,7 +63,7 @@ class fpvalue_shorts_array_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -73,7 +77,7 @@ class fpvalue_shorts_array_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: int) -> None:
+    def __setitem__(self, i: int, v: int) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
@@ -81,7 +85,7 @@ class fpvalue_shorts_array_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -91,7 +95,7 @@ class fpvalue_shorts_array_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class fpvalue_t:
@@ -119,21 +123,27 @@ class fpvalue_t:
         ...
     def __eq__(self, r: fpvalue_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, r: fpvalue_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: Any) -> int:
+    def __getitem__(self, i: Any) -> Any:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, r: fpvalue_t) -> bool:
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -151,7 +161,7 @@ class fpvalue_t:
         ...
     def __ne__(self, r: fpvalue_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -165,7 +175,7 @@ class fpvalue_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: Any, v: Any) -> None:
+    def __setitem__(self, i: Any, v: Any) -> Any:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
@@ -174,7 +184,7 @@ class fpvalue_t:
         ...
     def __sub__(self, o: fpvalue_t) -> fpvalue_t:
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -184,7 +194,7 @@ class fpvalue_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def __truediv__(self, o: fpvalue_t) -> fpvalue_t:
         ...
@@ -210,17 +220,17 @@ class fpvalue_t:
         ...
     def fmul(self, y: fpvalue_t) -> fpvalue_error_t:
         ...
-    def from_10bytes(self, fpval: void) -> fpvalue_error_t:
+    def from_10bytes(self, fpval: Any) -> fpvalue_error_t:
         r"""Conversions for 10-byte floating point values.
         
         """
         ...
-    def from_12bytes(self, fpval: void) -> fpvalue_error_t:
+    def from_12bytes(self, fpval: Any) -> fpvalue_error_t:
         r"""Conversions for 12-byte floating point values.
         
         """
         ...
-    def from_int64(self, x: int64) -> None:
+    def from_int64(self, x: int) -> None:
         ...
     def from_str(self, p: str) -> fpvalue_error_t:
         r"""Convert string to IEEE. 
@@ -232,7 +242,7 @@ class fpvalue_t:
         
         """
         ...
-    def from_uint64(self, x: uint64) -> None:
+    def from_uint64(self, x: int) -> None:
         ...
     def fsub(self, y: fpvalue_t) -> fpvalue_error_t:
         ...
@@ -258,13 +268,13 @@ class fpvalue_t:
         ...
     def new_from_str(self, p: str) -> fpvalue_t:
         ...
-    def to_10bytes(self, fpval: void) -> fpvalue_error_t:
+    def to_10bytes(self, fpval: Any) -> fpvalue_error_t:
         ...
-    def to_12bytes(self, fpval: void) -> fpvalue_error_t:
+    def to_12bytes(self, fpval: Any) -> fpvalue_error_t:
         ...
     def to_int64(self, round: bool = False) -> fpvalue_error_t:
         ...
-    def to_str(self, args: Any) -> None:
+    def to_str(self, *args: Any) -> None:
         r"""Convert IEEE to string. 
                 
         :param buf: the output buffer
@@ -312,7 +322,7 @@ REAL_ERROR_OK: int  # 1
 REAL_ERROR_RANGE: int  # -2
 REAL_ERROR_ZERODIV: int  # 4
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 cvar: swigvarlink  # (MAXEXP_LNGDBL, MAXEXP_DOUBLE, MAXEXP_FLOAT)
 ida_idaapi: module
 weakref: module

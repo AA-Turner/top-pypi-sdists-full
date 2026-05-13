@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulp-cli-deb
-Version: 0.4.3
+Version: 0.4.4
 Summary: Command line interface to talk to pulpcore's REST API. (Deb plugin commands)
 Author-email: Pulp Team <pulp-list@redhat.com>
 License: GPLv2+
@@ -17,6 +17,6 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pulp-cli<0.38,>=0.23.2
-Requires-Dist: pulp-glue-deb==0.4.3
+Requires-Dist: pulp-cli<0.40,>=0.23.2
+Requires-Dist: pulp-glue-deb==0.4.4
 Dynamic: license-file

@@ -134,7 +134,7 @@ class IndexOption(QuantConnect.Securities.Option.Option):
         Consumes market price data and updates the minimum price variation
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param data: Market price data
         """

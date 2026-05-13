@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.792831                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.027475                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ class TorchrunExecutor(object, metaclass=type):
     """
     def __init__(self, pathspec, main_addr, main_port, num_nodes, node_index, nproc_per_node = 1, flow_datastore = None):
         ...
-    def run(self, torchrun_args: typing.Union[typing.List[str], typing.Dict[str, str]] = {}, entrypoint: str = None, entrypoint_args: typing.Union[typing.List[str], typing.Dict[str, str]] = {}, nproc_per_node: int = None, push_results_dir_to_cloud: bool = False, local_output_dir: str = None, cloud_output_dir: str = None) -> typing.Optional[str]:
+    def run(self, torchrun_args: typing.Union[typing.List[str], typing.Dict[str, str]] = {}, entrypoint: str = None, entrypoint_args: typing.Union[typing.List[str], typing.Dict[str, str]] = {}, nproc_per_node: int = None, push_results_dir_to_cloud: bool = False, local_output_dir: str = None, cloud_output_dir: str = None) -> typing.Union[str, None]:
         ...
     ...
 
@@ -42,7 +42,7 @@ class TorchrunSingleNodeMultiGPU(object, metaclass=type):
     """
     def __init__(self):
         ...
-    def run(self, torchrun_args: typing.Union[typing.List[str], typing.Dict[str, str]] = [], entrypoint: str = None, entrypoint_args: typing.Union[typing.List[str], typing.Dict[str, str]] = [], nproc_per_node: int = None) -> typing.Optional[str]:
+    def run(self, torchrun_args: typing.Union[typing.List[str], typing.Dict[str, str]] = [], entrypoint: str = None, entrypoint_args: typing.Union[typing.List[str], typing.Dict[str, str]] = [], nproc_per_node: int = None) -> typing.Union[str, None]:
         ...
     ...
 

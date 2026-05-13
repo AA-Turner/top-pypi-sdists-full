@@ -1,9 +1,9 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Middle-level search functions.
 
-They all are controlled by Search flags 
-    
+They all are controlled by Search flags
+
 """
 
 def find_code(ea: ida_idaapi.ea_t, sflag: int) -> ida_idaapi.ea_t:
@@ -58,6 +58,6 @@ SEARCH_UP: int  # 0
 SEARCH_USE: int  # 512
 SEARCH_USESEL: int  # 2048
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ida_idaapi: module
 weakref: module

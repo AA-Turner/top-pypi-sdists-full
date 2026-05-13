@@ -198,6 +198,7 @@ bool enum_from_python(const std::type_info *tp, PyObject *o, int64_t *out, uint8
         }
         if ((t->flags & (uint32_t) enum_flags::is_signed)) {
             long long value = PyLong_AsLongLong(value_o);
+            Py_DECREF(value_o);
             if (value == -1 && PyErr_Occurred()) {
                 PyErr_Clear();
                 return false;
@@ -206,6 +207,7 @@ bool enum_from_python(const std::type_info *tp, PyObject *o, int64_t *out, uint8
             return true;
         } else {
             unsigned long long value = PyLong_AsUnsignedLongLong(value_o);
+            Py_DECREF(value_o);
             if (value == (unsigned long long) -1 && PyErr_Occurred()) {
                 PyErr_Clear();
                 return false;

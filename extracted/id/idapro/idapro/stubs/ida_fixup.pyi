@@ -1,45 +1,51 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Functions that deal with fixup information.
 
-A loader should setup fixup information using set_fixup(). 
-    
+A loader should setup fixup information using set_fixup().
+
 """
 
 class fixup_data_t:
     @property
-    def displacement(self) -> Any: ...
+    def displacement(self) -> int: ...
     @property
-    def off(self) -> Any: ...
+    def off(self) -> ida_idaapi.ea_t: ...
     @property
-    def sel(self) -> Any: ...
+    def sel(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -47,16 +53,16 @@ class fixup_data_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -73,10 +79,10 @@ class fixup_data_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -86,7 +92,7 @@ class fixup_data_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def calc_size(self) -> int:
         r"""calc_fixup_size()
@@ -184,36 +190,42 @@ class fixup_data_t:
 
 class fixup_info_t:
     @property
-    def ea(self) -> Any: ...
+    def ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def fd(self) -> Any: ...
+    def fd(self) -> fixup_data_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -221,16 +233,16 @@ class fixup_info_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -247,10 +259,10 @@ class fixup_info_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -260,7 +272,7 @@ class fixup_info_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 def calc_fixup_size(type: fixup_type_t) -> int:
@@ -270,7 +282,7 @@ def calc_fixup_size(type: fixup_type_t) -> int:
     """
     ...
 
-def contains_fixups(ea: ida_idaapi.ea_t, size: asize_t) -> bool:
+def contains_fixups(ea: ida_idaapi.ea_t, size: int) -> bool:
     r"""Does the specified address range contain any fixup information?
     
     """
@@ -291,7 +303,7 @@ def exists_fixup(source: ida_idaapi.ea_t) -> bool:
 def find_custom_fixup(name: str) -> fixup_type_t:
     ...
 
-def gen_fix_fixups(_from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, size: asize_t) -> None:
+def gen_fix_fixups(_from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, size: int) -> None:
     r"""Relocate the bytes with fixup information once more (generic function). This function may be called from loader_t::move_segm() if it suits the goal. If loader_t::move_segm is not defined then this function will be called automatically when moving segments or rebasing the entire program. Special parameter values (from = BADADDR, size = 0, to = delta) are used when the function is called from rebase_program(delta). 
             
     """
@@ -327,7 +339,7 @@ def get_fixup_value(ea: ida_idaapi.ea_t, type: fixup_type_t) -> int:
     """
     ...
 
-def get_fixups(out: fixups_t, ea: ida_idaapi.ea_t, size: asize_t) -> bool:
+def get_fixups(out: fixups_t, ea: ida_idaapi.ea_t, size: int) -> bool:
     ...
 
 def get_next_fixup_ea(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
@@ -395,6 +407,6 @@ FIXUP_SEG16: int  # 2
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
 V695_FIXUP_VHIGH: int  # 10
 V695_FIXUP_VLOW: int  # 11
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ida_idaapi: module
 weakref: module

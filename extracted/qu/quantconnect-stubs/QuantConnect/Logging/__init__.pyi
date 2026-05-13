@@ -158,7 +158,7 @@ class QueueLogHandler(System.Object, QuantConnect.Logging.ILogHandler):
         Raise a log event safely
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -303,7 +303,7 @@ class FileLogHandler(System.Object, QuantConnect.Logging.ILogHandler):
         Creates the message to be logged
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param text: The text to be logged
         :param level: The logging leel

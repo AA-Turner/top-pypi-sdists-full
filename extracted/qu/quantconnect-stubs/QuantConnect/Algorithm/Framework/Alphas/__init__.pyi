@@ -652,7 +652,7 @@ class MacdAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
         Dictionary containing basic information for each symbol present as key
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -773,7 +773,7 @@ class ConstantAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
         Determine if its time to emit insight for this symbol
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param utc_time: Time of the insight
         :param symbol: The symbol to emit an insight for
@@ -843,7 +843,7 @@ class EmaCrossAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
         This is made protected for testing purposes
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 

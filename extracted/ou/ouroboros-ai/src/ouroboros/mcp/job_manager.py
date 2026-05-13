@@ -7,14 +7,17 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 import inspect
+import logging
 from typing import Any
 from uuid import uuid4
 
 from ouroboros.events.base import BaseEvent
+from ouroboros.orchestrator.agent_process import AgentProcessHandle
 from ouroboros.orchestrator.events import create_execution_terminal_event
 from ouroboros.orchestrator.heartbeat import is_holder_alive, is_owned_by_current_process
 from ouroboros.orchestrator.runner import clear_cancellation, request_cancellation
 from ouroboros.orchestrator.session import SessionRepository, SessionStatus
+from ouroboros.persistence.checkpoint import CheckpointStore
 from ouroboros.persistence.event_store import EventStore
 
 
@@ -77,23 +80,41 @@ def _safe_meta(value: Any) -> Any:
 
 
 _JOB_TTL = timedelta(hours=1)
+logger = logging.getLogger(__name__)
 
 
 class JobManager:
     """Owns background MCP jobs and persists their state as events."""
 
-    def __init__(self, event_store: EventStore | None = None) -> None:
+    def __init__(
+        self, event_store: EventStore | None = None, checkpoint_store: CheckpointStore | None = None
+    ) -> None:
         self._event_store = event_store or EventStore()
+        self._checkpoint_store = checkpoint_store
         self._tasks: dict[str, asyncio.Task[Any]] = {}
         self._runner_tasks: dict[str, asyncio.Task[Any]] = {}
         self._monitors: dict[str, asyncio.Task[None]] = {}
         self._initialized = False
         self._known_job_ids: set[str] = set()
+        self._reserved_job_ids: set[str] = set()
 
     async def _ensure_initialized(self) -> None:
         if not self._initialized:
             await self._event_store.initialize()
             self._initialized = True
+
+    async def allocate_job_id(self) -> str:
+        """Reserve a fresh job ID before constructing a job runner."""
+        await self._ensure_initialized()
+        while True:
+            job_id = f"job_{uuid4().hex[:12]}"
+            if job_id in self._known_job_ids:
+                continue
+            if await self._job_exists(job_id):
+                continue
+            self._known_job_ids.add(job_id)
+            self._reserved_job_ids.add(job_id)
+            return job_id
 
     async def start_job(
         self,
@@ -102,11 +123,18 @@ class JobManager:
         initial_message: str,
         runner: asyncio.Future[Any] | Any,
         links: JobLinks | None = None,
+        job_id: str | None = None,
     ) -> JobSnapshot:
         """Create and start a new background job."""
         await self._ensure_initialized()
 
-        job_id = f"job_{uuid4().hex[:12]}"
+        if job_id is None:
+            job_id = await self.allocate_job_id()
+        elif job_id not in self._reserved_job_ids:
+            if job_id in self._known_job_ids or await self._job_exists(job_id):
+                raise ValueError(f"Job already exists: {job_id}")
+            self._known_job_ids.add(job_id)
+        self._reserved_job_ids.discard(job_id)
         job_links = links or JobLinks()
 
         await self._append_event(
@@ -124,7 +152,6 @@ class JobManager:
             },
         )
 
-        self._known_job_ids.add(job_id)
         # Normalise ``runner`` to a Task so ``_run_job`` can rely on Task
         # semantics (cancellation, ``done()``). Coroutines are wrapped via
         # ``create_task``; pre-built Tasks are reused; bare awaitables (e.g.
@@ -146,6 +173,10 @@ class JobManager:
         self._monitors[job_id] = asyncio.create_task(self._monitor_job(job_id))
 
         return await self.get_snapshot(job_id)
+
+    async def _job_exists(self, job_id: str) -> bool:
+        events, _ = await self._event_store.get_events_after("job", job_id, last_row_id=0)
+        return bool(events)
 
     async def _run_job(
         self,
@@ -451,11 +482,31 @@ class JobManager:
 
             await asyncio.sleep(0.5)
 
+    def has_live_job_task(self, job_id: str) -> bool:
+        """Return true when this process still owns live tasks for ``job_id``."""
+        return any(
+            task is not None and not task.done()
+            for task in (
+                self._tasks.get(job_id),
+                self._runner_tasks.get(job_id),
+                self._monitors.get(job_id),
+            )
+        )
+
     async def cancel_job(self, job_id: str) -> JobSnapshot:
         """Request cancellation for a running job."""
         snapshot = await self.get_snapshot(job_id)
         if snapshot.is_terminal:
             return snapshot
+
+        try:
+            self._persist_durable_cancel(job_id, reason="Background job cancelled")
+        except Exception:  # noqa: BLE001 - durable cancel must not block live cancellation
+            logger.warning(
+                "job_manager.cancel_job: failed to persist durable cancel marker",
+                exc_info=True,
+                extra={"job_id": job_id},
+            )
 
         linked_session_repo: SessionRepository | None = None
         linked_session_reconstructed = False
@@ -555,6 +606,137 @@ class JobManager:
             await clear_cancellation(snapshot.links.session_id)
 
         return await self.get_snapshot(job_id)
+
+    async def find_active_job_by_lineage(
+        self,
+        lineage_id: str,
+        *,
+        job_type: str | None = None,
+        include_terminal: bool = False,
+    ) -> JobSnapshot | None:
+        """Return the most recently updated job for ``lineage_id``.
+
+        Used by the auto pipeline RALPH_HANDOFF resume path to rediscover an
+        already-running Ralph job when the auto state recorded a lineage_id
+        but crashed (or returned to caller) before the job_id was persisted.
+        Without this lookup, resuming an in-flight handoff would dispatch a
+        second Ralph loop for the same lineage. By default, returns ``None``
+        when no active match exists; terminal jobs are deliberately ignored for
+        legacy callers. Set ``include_terminal=True`` for crash-gap recovery
+        paths that must consume the already-finished job result instead of
+        starting duplicate lineage work.
+        """
+        await self._ensure_initialized()
+        candidates: list[JobSnapshot] = []
+        candidate_job_ids = set(self._known_job_ids)
+        offset = 0
+        while True:
+            created_events = await self._event_store.query_events(
+                event_type="mcp.job.created",
+                limit=100,
+                offset=offset,
+            )
+            if not created_events:
+                break
+            for event in created_events:
+                links = event.data.get("links") or {}
+                if links.get("lineage_id") != lineage_id:
+                    continue
+                if job_type is not None and event.data.get("job_type") != job_type:
+                    continue
+                candidate_job_ids.add(event.aggregate_id)
+            if len(created_events) < 100:
+                break
+            offset += 100
+
+        for job_id in candidate_job_ids:
+            try:
+                snapshot = await self.get_snapshot(job_id)
+            except ValueError:
+                continue
+            if snapshot.is_terminal and not include_terminal:
+                continue
+            if snapshot.links.lineage_id != lineage_id:
+                continue
+            if job_type is not None and snapshot.job_type != job_type:
+                continue
+            self._known_job_ids.add(job_id)
+            candidates.append(snapshot)
+        if not candidates:
+            return None
+        return max(candidates, key=lambda s: s.updated_at)
+
+    async def find_active_job_by_session(
+        self,
+        session_id: str,
+        *,
+        job_type: str | None = None,
+        include_terminal: bool = False,
+    ) -> JobSnapshot | None:
+        """Return the most recently updated job for ``session_id``.
+
+        Mirrors :meth:`find_active_job_by_lineage` for tools whose durable
+        checkpoint is keyed by session id. Returning an active match lets
+        accept-boundary handlers reject duplicate starts before two workers
+        race on the same session-scoped state file.
+        """
+        await self._ensure_initialized()
+        candidates: list[JobSnapshot] = []
+        candidate_job_ids = set(self._known_job_ids)
+        offset = 0
+        while True:
+            created_events = await self._event_store.query_events(
+                event_type="mcp.job.created",
+                limit=100,
+                offset=offset,
+            )
+            if not created_events:
+                break
+            for event in created_events:
+                links = event.data.get("links") or {}
+                if links.get("session_id") != session_id:
+                    continue
+                if job_type is not None and event.data.get("job_type") != job_type:
+                    continue
+                candidate_job_ids.add(event.aggregate_id)
+            if len(created_events) < 100:
+                break
+            offset += 100
+
+        for job_id in candidate_job_ids:
+            try:
+                snapshot = await self.get_snapshot(job_id)
+            except ValueError:
+                continue
+            if snapshot.is_terminal and not include_terminal:
+                continue
+            if snapshot.links.session_id != session_id:
+                continue
+            if job_type is not None and snapshot.job_type != job_type:
+                continue
+            self._known_job_ids.add(job_id)
+            candidates.append(snapshot)
+        if not candidates:
+            return None
+        return max(candidates, key=lambda s: s.updated_at)
+
+    def _persist_durable_cancel(self, job_id: str, *, reason: str) -> None:
+        """Persist the job-scoped AgentProcess cancel marker before volatile cancel.
+
+        The running AgentProcess normally writes this marker when it observes a
+        cooperative cancel, but ``cancel_job`` is the user-facing accept point.
+        Persisting here closes the crash window between ``CANCEL_REQUESTED`` and
+        runner observation so a restarted job using ``mcp_job:{job_id}`` will
+        still see the cancellation.
+        """
+        store = self._checkpoint_store or CheckpointStore()
+        store.initialize()
+        AgentProcessHandle.persist_cancel_signal(
+            f"mcp_job:{job_id}",
+            store=store,
+            reason=reason,
+            source_process_id=job_id,
+        )
 
     async def cleanup_expired_jobs(self, ttl: timedelta | None = None) -> int:
         """Remove terminal jobs older than *ttl* from the in-memory registry.

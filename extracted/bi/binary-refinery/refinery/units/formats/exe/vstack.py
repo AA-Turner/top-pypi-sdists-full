@@ -13,7 +13,7 @@ import re
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Callable, Type, TypeVar, cast
+from typing import Callable, TypeVar, cast
 
 from refinery.lib.emulator import (
     EmulationError,
@@ -105,7 +105,7 @@ class EmuState:
 
 
 FN = TypeVar('FN', bound=Callable)
-ET = TypeVar('ET', bound=Type[Emulator])
+ET = TypeVar('ET', bound=type[Emulator])
 
 
 def EmuFactory(base: ET) -> ET:
@@ -395,7 +395,7 @@ class vstack(EmulatingUnit):
     Emulation is halted as soon as a certain number of instructions have not performed any
     memory writes, or when an error occurs. By default, most registers are set to the current
     location in the emulated stack. If you want to initialize some of them differently, the
-    `-r` switch maes the unit initialize register values from meta variables:
+    `-r` switch makes the unit initialize register values from meta variables:
 
         emit shellcode [| put eax 0x2000 | vstack -r ]
 

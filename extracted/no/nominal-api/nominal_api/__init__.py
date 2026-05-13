@@ -36,6 +36,7 @@ __all__ = [
     'scout_compute_api_deprecated',
     'scout_compute_resolved_api',
     'scout_dataexport_api',
+    'scout_dataframe_api',
     'scout_datareview_api',
     'scout_datasource',
     'scout_datasource_connection',
@@ -85,5 +86,5 @@ __all__ = [
 
 __conjure_generator_version__ = "4.17.0"
 
-__version__ = "0.1235.0"
+__version__ = "0.1237.0"
 

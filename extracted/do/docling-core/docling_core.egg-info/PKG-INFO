@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-core
-Version: 2.74.1
+Version: 2.75.0
 Summary: A python library to define and validate data types in Docling.
 Author-email: Cesar Berrospi Ramis <ceb@zurich.ibm.com>, Panos Vagenas <pva@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Christoph Auer <cau@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>
 Maintainer-email: Panos Vagenas <pva@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Christoph Auer <cau@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>, Cesar Berrospi Ramis <ceb@zurich.ibm.com>

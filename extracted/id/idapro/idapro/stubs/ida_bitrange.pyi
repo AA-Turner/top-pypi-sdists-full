@@ -1,8 +1,6 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
-r"""Definition of the bitrange_t class.
-
-"""
+r"""Definition of the bitrange_t class."""
 
 class bitrange_t:
     def __delattr__(self, name: Any) -> Any:
@@ -13,19 +11,25 @@ class bitrange_t:
         ...
     def __eq__(self, r: bitrange_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, r: bitrange_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, r: bitrange_t) -> bool:
         ...
-    def __init__(self, bit_ofs: uint16 = 0, size_in_bits: uint16 = 0) -> Any:
+    def __init__(self, bit_ofs: int = 0, size_in_bits: int = 0) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -39,7 +43,7 @@ class bitrange_t:
         ...
     def __ne__(self, r: bitrange_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -58,7 +62,7 @@ class bitrange_t:
         ...
     def __str__(self) -> str:
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -68,7 +72,7 @@ class bitrange_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def apply_mask(self, subrange: bitrange_t) -> bool:
         r"""Apply mask to a bitrange 
@@ -77,17 +81,17 @@ class bitrange_t:
         :returns: success
         """
         ...
-    def bitoff(self) -> uint:
+    def bitoff(self) -> int:
         r"""Get offset of 1st bit.
         
         """
         ...
-    def bitsize(self) -> uint:
+    def bitsize(self) -> int:
         r"""Get size of the value in bits.
         
         """
         ...
-    def bytesize(self) -> uint:
+    def bytesize(self) -> int:
         r"""Size of the value in bytes.
         
         """
@@ -104,26 +108,26 @@ class bitrange_t:
         
         """
         ...
-    def extract(self, src: void, is_mf: bool) -> bool:
+    def extract(self, src: Any, is_mf: bool) -> bool:
         ...
     def has_common(self, r: bitrange_t) -> bool:
         r"""Does have common bits with another bitrange?
         
         """
         ...
-    def init(self, bit_ofs: uint16, size_in_bits: uint16) -> None:
+    def init(self, bit_ofs: int, size_in_bits: int) -> None:
         r"""Initialize offset and size to given values.
         
         """
         ...
-    def inject(self, dst: void, src: bytevec_t, is_mf: bool) -> bool:
+    def inject(self, dst: Any, src: bytevec_t, is_mf: bool) -> bool:
         ...
     def intersect(self, r: bitrange_t) -> None:
         r"""Intersect two ranges.
         
         """
         ...
-    def mask64(self) -> uint64:
+    def mask64(self) -> int:
         r"""Convert to mask of 64 bits.
         
         """
@@ -133,12 +137,12 @@ class bitrange_t:
         
         """
         ...
-    def shift_down(self, cnt: uint) -> None:
+    def shift_down(self, cnt: int) -> None:
         r"""Shift range down (left)
         
         """
         ...
-    def shift_up(self, cnt: uint) -> None:
+    def shift_up(self, cnt: int) -> None:
         r"""Shift range up (right)
         
         """
@@ -150,6 +154,6 @@ class bitrange_t:
         ...
 
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ida_idaapi: module
 weakref: module

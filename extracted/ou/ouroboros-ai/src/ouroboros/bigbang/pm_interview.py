@@ -43,6 +43,7 @@ from ouroboros.bigbang.question_classifier import (
     QuestionCategory,
     QuestionClassifier,
 )
+from ouroboros.config import get_clarification_model
 from ouroboros.core.errors import ProviderError, ValidationError
 from ouroboros.core.types import Result
 from ouroboros.providers.base import (
@@ -86,9 +87,6 @@ Respond ONLY with valid JSON in this exact format:
     "assumptions": ["assumption 1"]
 }
 """
-
-# Model for extraction (uses same as interview for consistency)
-_FALLBACK_MODEL = "claude-opus-4-6"
 
 
 @dataclass
@@ -204,6 +202,7 @@ class PMInterviewEngine:
 
         classifier = QuestionClassifier(
             llm_adapter=llm_adapter,
+            implicit_model=model,
         )
 
         return cls(
@@ -217,7 +216,7 @@ class PMInterviewEngine:
         """Resolve implicit default model while preserving explicit caller pins."""
         self.model_is_explicit = self.model is not None
         if self.model is None:
-            self.model = _FALLBACK_MODEL
+            self.model = get_clarification_model()
 
     # ──────────────────────────────────────────────────────────────
     # Brownfield repo management

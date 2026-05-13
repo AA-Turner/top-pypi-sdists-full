@@ -1,4 +1,4 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 class bookmarks_t:
     def __delattr__(self, name: Any) -> Any:
@@ -10,39 +10,45 @@ class bookmarks_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, idx: Any) -> segm_move_info_t:
+    def __getitem__(self, idx: Any) -> Any:
         r"""
-                Get the n-th bookmark for the widget.
-                
+        Get the n-th bookmark for the widget.
+        
         """
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, w: Any) -> Any:
         r"""
-                Build an object suitable for iterating bookmarks
-                associated with the specified widget.
+        Build an object suitable for iterating bookmarks
+        associated with the specified widget.
         
-                Note: all ea_t-based widgets (e.g., "IDA View-*",
-                "Pseudocode-*", "Hex View-*", ...) share a common storage,
-                so bookmarks can be re-used interchangeably between them
-                
+        Note: all ea_t-based widgets (e.g., "IDA View-*",
+        "Pseudocode-*", "Hex View-*", ...) share a common storage,
+        so bookmarks can be re-used interchangeably between them
+        
         """
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -52,26 +58,26 @@ class bookmarks_t:
         ...
     def __iter__(self) -> Any:
         r"""
-                Iterate on bookmarks present for the widget.
-                
+        Iterate on bookmarks present for the widget.
+        
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __len__(self) -> int:
+    def __len__(self) -> Any:
         r"""
-                Get the number of bookmarks for the widget.
-                
+        Get the number of bookmarks for the widget.
+        
         """
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -88,10 +94,10 @@ class bookmarks_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -101,28 +107,30 @@ class bookmarks_t:
         
         """
         ...
-    def erase(self, e: lochist_entry_t, index: int, ud: void) -> bool:
+    def erase(self, e: lochist_entry_t, index: int, ud: Any) -> bool:
         ...
-    def find_index(self, e: lochist_entry_t, ud: void) -> int:
+    def find_index(self, e: lochist_entry_t, ud: Any) -> int:
         ...
-    def get(self, out: lochist_entry_t, _index: int, ud: void) -> Any:
+    def get(self, out: lochist_entry_t, _index: int, ud: Any) -> Any:
         ...
-    def get_desc(self, e: lochist_entry_t, index: int, ud: void) -> str:
+    def get_by_inode(self, out_entry: lochist_entry_t, out_desc: str, inode: inode_t, ud: Any) -> int:
         ...
-    def get_dirtree_id(self, e: lochist_entry_t, ud: void) -> dirtree_id_t:
+    def get_desc(self, e: lochist_entry_t, index: int, ud: Any) -> str:
         ...
-    def mark(self, e: lochist_entry_t, index: int, title: str, desc: str, ud: void) -> int:
+    def get_dirtree_id(self, e: lochist_entry_t, ud: Any) -> dirtree_id_t:
         ...
-    def size(self, e: lochist_entry_t, ud: void) -> int:
+    def mark(self, e: lochist_entry_t, index: int, title: str, desc: str, ud: Any) -> int:
+        ...
+    def size(self, e: lochist_entry_t, ud: Any) -> int:
         ...
 
 class graph_location_info_t:
     @property
-    def orgx(self) -> Any: ...
+    def orgx(self) -> double: ...
     @property
-    def orgy(self) -> Any: ...
+    def orgy(self) -> double: ...
     @property
-    def zoom(self) -> Any: ...
+    def zoom(self) -> double: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -131,21 +139,27 @@ class graph_location_info_t:
         ...
     def __eq__(self, r: graph_location_info_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -153,15 +167,15 @@ class graph_location_info_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, r: graph_location_info_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -178,10 +192,10 @@ class graph_location_info_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -191,14 +205,14 @@ class graph_location_info_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class lochist_entry_t:
     @property
-    def plce(self) -> Any: ...
+    def plce(self) -> place_t: ...
     @property
-    def rinfo(self) -> Any: ...
+    def rinfo(self) -> renderer_info_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -208,24 +222,30 @@ class lochist_entry_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -233,16 +253,16 @@ class lochist_entry_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -259,10 +279,10 @@ class lochist_entry_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -272,7 +292,7 @@ class lochist_entry_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def acquire_place(self, in_p: place_t) -> None:
         ...
@@ -287,13 +307,13 @@ class lochist_entry_t:
 
 class navstack_entry_t(lochist_entry_t):
     @property
-    def plce(self) -> Any: ...
+    def plce(self) -> place_t: ...
     @property
-    def rinfo(self) -> Any: ...
+    def rinfo(self) -> renderer_info_t: ...
     @property
-    def ud_str(self) -> Any: ...
+    def ud_str(self) -> str: ...
     @property
-    def widget_id(self) -> Any: ...
+    def widget_id(self) -> str: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -303,24 +323,30 @@ class navstack_entry_t(lochist_entry_t):
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -328,16 +354,16 @@ class navstack_entry_t(lochist_entry_t):
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -354,10 +380,10 @@ class navstack_entry_t(lochist_entry_t):
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -367,7 +393,7 @@ class navstack_entry_t(lochist_entry_t):
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def acquire_place(self, in_p: place_t) -> None:
         ...
@@ -382,7 +408,7 @@ class navstack_entry_t(lochist_entry_t):
 
 class navstack_t:
     @property
-    def flags(self) -> Any: ...
+    def flags(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -392,24 +418,30 @@ class navstack_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -417,16 +449,16 @@ class navstack_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -443,10 +475,10 @@ class navstack_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -456,7 +488,7 @@ class navstack_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def get_all_current(self, out: navstack_entry_vec_t) -> None:
         ...
@@ -470,7 +502,7 @@ class navstack_t:
         ...
     def is_history_enabled(self) -> bool:
         ...
-    def netcode(self) -> nodeidx_t:
+    def netcode(self) -> int:
         ...
     def perform_move(self, stream_name: str, source_stream_name: str, widget_id: str, move_stack: bool) -> bool:
         ...
@@ -497,11 +529,11 @@ class navstack_t:
 
 class renderer_info_pos_t:
     @property
-    def cx(self) -> Any: ...
+    def cx(self) -> short: ...
     @property
-    def cy(self) -> Any: ...
+    def cy(self) -> short: ...
     @property
-    def node(self) -> Any: ...
+    def node(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -510,21 +542,27 @@ class renderer_info_pos_t:
         ...
     def __eq__(self, r: renderer_info_pos_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -532,15 +570,15 @@ class renderer_info_pos_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, r: renderer_info_pos_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -557,10 +595,10 @@ class renderer_info_pos_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -570,16 +608,16 @@ class renderer_info_pos_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class renderer_info_t:
     @property
-    def gli(self) -> Any: ...
+    def gli(self) -> graph_location_info_t: ...
     @property
-    def pos(self) -> Any: ...
+    def pos(self) -> pos_t: ...
     @property
-    def rtype(self) -> Any: ...
+    def rtype(self) -> tcc_renderer_type_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -588,21 +626,27 @@ class renderer_info_t:
         ...
     def __eq__(self, r: renderer_info_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -610,15 +654,15 @@ class renderer_info_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, r: renderer_info_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -635,10 +679,10 @@ class renderer_info_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -648,14 +692,14 @@ class renderer_info_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class segm_move_info_t:
     @property
-    def size(self) -> Any: ...
+    def size(self) -> int: ...
     @property
-    def to(self) -> Any: ...
+    def to(self) -> ida_idaapi.ea_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -664,21 +708,27 @@ class segm_move_info_t:
         ...
     def __eq__(self, r: segm_move_info_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, _from: ida_idaapi.ea_t = 0, _to: ida_idaapi.ea_t = 0, _sz: size_t = 0) -> Any:
+    def __init__(self, _from: ida_idaapi.ea_t = 0, _to: ida_idaapi.ea_t = 0, _sz: int = 0) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -686,15 +736,15 @@ class segm_move_info_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, r: segm_move_info_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -711,10 +761,10 @@ class segm_move_info_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -724,7 +774,7 @@ class segm_move_info_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class segm_move_info_vec_t:
@@ -736,23 +786,29 @@ class segm_move_info_vec_t:
         ...
     def __eq__(self, r: segm_move_info_vec_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> segm_move_info_t:
+    def __getitem__(self, i: int) -> segm_move_info_t:
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -760,20 +816,20 @@ class segm_move_info_vec_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[segm_move_info_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
     def __len__(self) -> int:
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, r: segm_move_info_vec_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -787,15 +843,15 @@ class segm_move_info_vec_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: segm_move_info_t) -> None:
+    def __setitem__(self, i: int, v: segm_move_info_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -805,17 +861,17 @@ class segm_move_info_vec_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: segm_move_info_t) -> bool:
         ...
     def append(self, x: segm_move_info_t) -> None:
         ...
-    def at(self, _idx: size_t) -> segm_move_info_t:
+    def at(self, _idx: int) -> segm_move_info_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> qvector:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -823,35 +879,35 @@ class segm_move_info_vec_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> qvector:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> bool:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: segm_move_info_vec_t) -> None:
         ...
     def extract(self) -> segm_move_info_t:
         ...
-    def find(self, args: Any) -> segm_move_info_t:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: segm_move_info_t) -> bool:
         ...
-    def inject(self, s: segm_move_info_t, len: size_t) -> None:
+    def inject(self, s: segm_move_info_t, len: int) -> None:
         ...
     def insert(self, it: segm_move_info_t, x: segm_move_info_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> segm_move_info_t:
+    def push_back(self, *args: Any) -> segm_move_info_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -869,23 +925,29 @@ class segm_move_infos_t(segm_move_info_vec_t):
         ...
     def __eq__(self, r: segm_move_info_vec_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> segm_move_info_t:
+    def __getitem__(self, i: int) -> segm_move_info_t:
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -893,20 +955,20 @@ class segm_move_infos_t(segm_move_info_vec_t):
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[segm_move_info_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
     def __len__(self) -> int:
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, r: segm_move_info_vec_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -920,15 +982,15 @@ class segm_move_infos_t(segm_move_info_vec_t):
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: segm_move_info_t) -> None:
+    def __setitem__(self, i: int, v: segm_move_info_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -938,17 +1000,17 @@ class segm_move_infos_t(segm_move_info_vec_t):
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: segm_move_info_t) -> bool:
         ...
     def append(self, x: segm_move_info_t) -> None:
         ...
-    def at(self, _idx: size_t) -> segm_move_info_t:
+    def at(self, _idx: int) -> segm_move_info_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> qvector:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -956,9 +1018,9 @@ class segm_move_infos_t(segm_move_info_vec_t):
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> qvector:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> bool:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: segm_move_info_vec_t) -> None:
         ...
@@ -968,23 +1030,23 @@ class segm_move_infos_t(segm_move_info_vec_t):
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: segm_move_info_t) -> bool:
         ...
-    def inject(self, s: segm_move_info_t, len: size_t) -> None:
+    def inject(self, s: segm_move_info_t, len: int) -> None:
         ...
     def insert(self, it: segm_move_info_t, x: segm_move_info_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> segm_move_info_t:
+    def push_back(self, *args: Any) -> segm_move_info_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -993,25 +1055,25 @@ class segm_move_infos_t(segm_move_info_vec_t):
     def truncate(self) -> None:
         ...
 
-def bookmarks_t_erase(e: lochist_entry_t, index: int, ud: void) -> bool:
+def bookmarks_t_erase(e: lochist_entry_t, index: int, ud: Any) -> bool:
     ...
 
-def bookmarks_t_find_index(e: lochist_entry_t, ud: void) -> int:
+def bookmarks_t_find_index(e: lochist_entry_t, ud: Any) -> int:
     ...
 
-def bookmarks_t_get(out: lochist_entry_t, _index: int, ud: void) -> Any:
+def bookmarks_t_get(out: lochist_entry_t, _index: int, ud: Any) -> Any:
     ...
 
-def bookmarks_t_get_desc(e: lochist_entry_t, index: int, ud: void) -> str:
+def bookmarks_t_get_desc(e: lochist_entry_t, index: int, ud: Any) -> str:
     ...
 
-def bookmarks_t_get_dirtree_id(e: lochist_entry_t, ud: void) -> dirtree_id_t:
+def bookmarks_t_get_dirtree_id(e: lochist_entry_t, ud: Any) -> dirtree_id_t:
     ...
 
-def bookmarks_t_mark(e: lochist_entry_t, index: int, title: str, desc: str, ud: void) -> int:
+def bookmarks_t_mark(e: lochist_entry_t, index: int, title: str, desc: str, ud: Any) -> int:
     ...
 
-def bookmarks_t_size(e: lochist_entry_t, ud: void) -> int:
+def bookmarks_t_size(e: lochist_entry_t, ud: Any) -> int:
     ...
 
 BOOKMARKS_PROMPT_WITH_HINT_PREFIX: str  # 
@@ -1028,7 +1090,7 @@ SWIG_PYTHON_LEGACY_BOOL: int  # 1
 UNHID_FUNC: int  # 2
 UNHID_RANGE: int  # 4
 UNHID_SEGM: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ida_idaapi: module
 ida_kernwin: module
 weakref: module

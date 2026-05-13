@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.785038                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.017614                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow._vendor.click.types
-    import typing
     import metaflow.parameters
+    import typing
+    import metaflow._vendor.click.types
 
 from ._vendor import click as click
 from ._vendor import yaml as yaml
@@ -86,7 +86,7 @@ class IncludeFile(metaflow.parameters.Parameter, metaclass=type):
         be able to parse the file contents. If the name starts with a ".", it is assumed
         to be relative to "metaflow".
     """
-    def __init__(self, name: str, required: typing.Optional[bool] = None, is_text: typing.Optional[bool] = None, encoding: typing.Optional[str] = None, help: typing.Optional[str] = None, parser: typing.Union[str, typing.Callable[[str], typing.Any], None] = None, **kwargs: typing.Dict[str, str]):
+    def __init__(self, name: str, required: typing.Union[bool, None] = None, is_text: typing.Union[bool, None] = None, encoding: typing.Union[str, None] = None, help: typing.Union[str, None] = None, parser: typing.Union[str, typing.Callable[[str], typing.Any], None] = None, **kwargs: typing.Dict[str, str]):
         ...
     def init(self, ignore_errors = False):
         ...

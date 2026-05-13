@@ -1,7 +1,7 @@
 [project]
 name = "redisvl"
 # NOTE: This version value is automatically incremented by the release workflow - do not manually adjust it.
-version = "0.18.1"
+version = "0.18.2"
 description = "Python client library and CLI for using Redis as a vector database"
 authors = [{ name = "Redis Inc.", email = "applied.ai@redis.com" }]
 requires-python = ">=3.10,<3.15"
@@ -57,7 +57,7 @@ pillow = [
     "pillow>=11.3.0",
 ]
 sql-redis = [
-    "sql-redis>=0.4.0",
+    "sql-redis>=0.5.0",
 ]
 all = [
     "mistralai>=1.0.0",
@@ -72,7 +72,7 @@ all = [
     "boto3>=1.36.0,<2",
     "urllib3<2.2.0",
     "pillow>=11.3.0",
-    "sql-redis>=0.4.0",
+    "sql-redis>=0.5.0",
 ]
 
 [project.urls]

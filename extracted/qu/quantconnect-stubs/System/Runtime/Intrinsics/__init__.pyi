@@ -15,6 +15,58 @@ System_Runtime_Intrinsics_Vector128_T = typing.TypeVar("System_Runtime_Intrinsic
 System_Runtime_Intrinsics_Vector64_T = typing.TypeVar("System_Runtime_Intrinsics_Vector64_T")
 System_Runtime_Intrinsics_Vector512_T = typing.TypeVar("System_Runtime_Intrinsics_Vector512_T")
 System_Runtime_Intrinsics_Vector256_T = typing.TypeVar("System_Runtime_Intrinsics_Vector256_T")
+System_Runtime_Intrinsics_Vector128_AsVector128_T = typing.TypeVar("System_Runtime_Intrinsics_Vector128_AsVector128_T")
+System_Runtime_Intrinsics_Vector128_AsVector_T = typing.TypeVar("System_Runtime_Intrinsics_Vector128_AsVector_T")
+
+
+class _Typed_Vector128_AsVector128(typing.Generic[System_Runtime_Intrinsics_Vector128_AsVector128_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System.Numerics.Vector[System_Runtime_Intrinsics_Vector128_AsVector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_AsVector128_T]:
+        ...
+
+
+class _Vector128_AsVector128:
+    """"""
+
+    @overload
+    def __call__(self, value: System.Numerics.Plane) -> System.Runtime.Intrinsics.Vector128[float]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Numerics.Quaternion) -> System.Runtime.Intrinsics.Vector128[float]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Numerics.Vector2) -> System.Runtime.Intrinsics.Vector128[float]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Numerics.Vector3) -> System.Runtime.Intrinsics.Vector128[float]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Numerics.Vector4) -> System.Runtime.Intrinsics.Vector128[float]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_Intrinsics_Vector128_AsVector128_T]) -> System.Runtime.Intrinsics._Typed_Vector128_AsVector128[System_Runtime_Intrinsics_Vector128_AsVector128_T]:
+        ...
+
+
+class _Typed_Vector128_AsVector(typing.Generic[System_Runtime_Intrinsics_Vector128_AsVector_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_AsVector_T]) -> System.Numerics.Vector[System_Runtime_Intrinsics_Vector128_AsVector_T]:
+        ...
+
+
+class _Vector128_AsVector:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_Intrinsics_Vector128_AsVector_T]) -> System.Runtime.Intrinsics._Typed_Vector128_AsVector[System_Runtime_Intrinsics_Vector128_AsVector_T]:
+        ...
 
 
 class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Runtime.Intrinsics.ISimdVector[System_Runtime_Intrinsics_Vector128, System_Runtime_Intrinsics_Vector128_T]):
@@ -39,6 +91,10 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
     PI: System.Runtime.Intrinsics.Vector128[T]
 
     TAU: System.Runtime.Intrinsics.Vector128[T]
+
+    as_vector_128: System.Runtime.Intrinsics._Vector128_AsVector128
+
+    as_vector: System.Runtime.Intrinsics._Vector128_AsVector
 
     def __add__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         ...
@@ -146,31 +202,6 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
 
     @staticmethod
     def as_quaternion(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Numerics.Quaternion:
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_128(value: System.Numerics.Plane) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_128(value: System.Numerics.Quaternion) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_128(value: System.Numerics.Vector2) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_128(value: System.Numerics.Vector3) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_128(value: System.Numerics.Vector4) -> System.Runtime.Intrinsics.Vector128[float]:
         ...
 
     @staticmethod

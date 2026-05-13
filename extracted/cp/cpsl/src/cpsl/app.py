@@ -37,6 +37,7 @@ from .integration import (
     IntegrationConfig,
     KNOWN_SECRET_INTEGRATIONS,
     MODE_OAUTH,
+    MODE_PIPEDREAM,
     MODE_SECRET,
     Integration,
 )
@@ -561,13 +562,24 @@ class App:
             )
 
         is_secret = config.mode == MODE_SECRET
+        is_pipedream = config.mode == MODE_PIPEDREAM
         if is_secret and (config.client_id or config.client_secret):
             raise ValueError(
                 f"Secret integration '{config.type}' must not set client_id or client_secret"
             )
         if is_secret and config.type not in KNOWN_SECRET_INTEGRATIONS and not config.fields:
             raise ValueError(f"Custom secret integration '{config.type}' requires fields")
-        if not is_secret and (not config.client_id or not config.client_secret):
+        if is_pipedream and config.scopes:
+            raise ValueError(
+                f"Pipedream integration '{config.type}' must not set scopes"
+            )
+        if is_pipedream and bool(config.client_id) != bool(config.client_secret):
+            raise ValueError(
+                f"Pipedream integration '{config.type}' must set both client_id and client_secret"
+            )
+        if not is_secret and not is_pipedream and (
+            not config.client_id or not config.client_secret
+        ):
             raise ValueError(
                 f"OAuth integration '{config.type}' requires client_id and client_secret"
             )

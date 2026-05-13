@@ -57,6 +57,7 @@ from .common import _DeleteMultimodalDatasetRequestParameters
 from .common import _DeletePromptVersionRequestParameters
 from .common import _DeleteSandboxEnvironmentSnapshotRequestParameters
 from .common import _DeleteSandboxEnvironmentTemplateRequestParameters
+from .common import _DeleteSkillRequestParameters
 from .common import _EvaluateInstancesRequestParameters
 from .common import _ExecuteCodeAgentEngineSandboxRequestParameters
 from .common import _GenerateAgentEngineMemoriesRequestParameters
@@ -93,6 +94,7 @@ from .common import _GetSandboxEnvironmentTemplateOperationParameters
 from .common import _GetSandboxEnvironmentTemplateRequestParameters
 from .common import _GetSkillOperationParameters
 from .common import _GetSkillRequestParameters
+from .common import _GetSkillRevisionRequestParameters
 from .common import _IngestEventsRequestParameters
 from .common import _ListAgentEngineMemoryRequestParameters
 from .common import _ListAgentEngineMemoryRevisionsRequestParameters
@@ -109,6 +111,8 @@ from .common import _ListEvaluationMetricsParameters
 from .common import _ListMultimodalDatasetsRequestParameters
 from .common import _ListSandboxEnvironmentSnapshotsRequestParameters
 from .common import _ListSandboxEnvironmentTemplatesRequestParameters
+from .common import _ListSkillRevisionsRequestParameters
+from .common import _ListSkillsRequestParameters
 from .common import _OptimizeRequestParameters
 from .common import _OptimizeRequestParameters
 from .common import _PurgeAgentEngineMemoriesRequestParameters
@@ -128,6 +132,7 @@ from .common import _UpdateAgentEngineRequestParameters
 from .common import _UpdateAgentEngineSessionRequestParameters
 from .common import _UpdateDatasetParameters
 from .common import _UpdateMultimodalDatasetParameters
+from .common import _UpdateSkillRequestParameters
 from .common import A2aTask
 from .common import A2aTaskDict
 from .common import A2aTaskOrDict
@@ -176,6 +181,9 @@ from .common import AgentServerMode
 from .common import AggregatedMetricResult
 from .common import AggregatedMetricResultDict
 from .common import AggregatedMetricResultOrDict
+from .common import AnalysisConfig
+from .common import AnalysisConfigDict
+from .common import AnalysisConfigOrDict
 from .common import AppendAgentEngineSessionEventConfig
 from .common import AppendAgentEngineSessionEventConfigDict
 from .common import AppendAgentEngineSessionEventConfigOrDict
@@ -197,6 +205,9 @@ from .common import AssembleDatasetOrDict
 from .common import AssessDatasetConfig
 from .common import AssessDatasetConfigDict
 from .common import AssessDatasetConfigOrDict
+from .common import AttackCategoryResult
+from .common import AttackCategoryResultDict
+from .common import AttackCategoryResultOrDict
 from .common import BatchPredictionResourceUsageAssessmentConfig
 from .common import BatchPredictionResourceUsageAssessmentConfigDict
 from .common import BatchPredictionResourceUsageAssessmentConfigOrDict
@@ -384,6 +395,12 @@ from .common import DeleteSandboxEnvironmentTemplateConfigOrDict
 from .common import DeleteSandboxEnvironmentTemplateOperation
 from .common import DeleteSandboxEnvironmentTemplateOperationDict
 from .common import DeleteSandboxEnvironmentTemplateOperationOrDict
+from .common import DeleteSkillConfig
+from .common import DeleteSkillConfigDict
+from .common import DeleteSkillConfigOrDict
+from .common import DeleteSkillOperation
+from .common import DeleteSkillOperationDict
+from .common import DeleteSkillOperationOrDict
 from .common import DiskSpec
 from .common import DiskSpecDict
 from .common import DiskSpecOrDict
@@ -621,6 +638,9 @@ from .common import GetSkillConfigOrDict
 from .common import GetSkillOperationConfig
 from .common import GetSkillOperationConfigDict
 from .common import GetSkillOperationConfigOrDict
+from .common import GetSkillRevisionConfig
+from .common import GetSkillRevisionConfigDict
+from .common import GetSkillRevisionConfigOrDict
 from .common import IdentityType
 from .common import Importance
 from .common import IngestEventsConfig
@@ -730,6 +750,18 @@ from .common import ListSandboxEnvironmentTemplatesConfigOrDict
 from .common import ListSandboxEnvironmentTemplatesResponse
 from .common import ListSandboxEnvironmentTemplatesResponseDict
 from .common import ListSandboxEnvironmentTemplatesResponseOrDict
+from .common import ListSkillRevisionsConfig
+from .common import ListSkillRevisionsConfigDict
+from .common import ListSkillRevisionsConfigOrDict
+from .common import ListSkillRevisionsResponse
+from .common import ListSkillRevisionsResponseDict
+from .common import ListSkillRevisionsResponseOrDict
+from .common import ListSkillsConfig
+from .common import ListSkillsConfigDict
+from .common import ListSkillsConfigOrDict
+from .common import ListSkillsResponse
+from .common import ListSkillsResponseDict
+from .common import ListSkillsResponseOrDict
 from .common import LLMMetric
 from .common import LossAnalysisConfig
 from .common import LossAnalysisConfigDict
@@ -1037,6 +1069,12 @@ from .common import ReasoningEngineTrafficConfigTrafficSplitManualOrDict
 from .common import ReasoningEngineTrafficConfigTrafficSplitManualTarget
 from .common import ReasoningEngineTrafficConfigTrafficSplitManualTargetDict
 from .common import ReasoningEngineTrafficConfigTrafficSplitManualTargetOrDict
+from .common import RedTeamingAnalysisConfig
+from .common import RedTeamingAnalysisConfigDict
+from .common import RedTeamingAnalysisConfigOrDict
+from .common import RedTeamingAnalysisResult
+from .common import RedTeamingAnalysisResultDict
+from .common import RedTeamingAnalysisResultOrDict
 from .common import ReservationAffinity
 from .common import ReservationAffinityDict
 from .common import ReservationAffinityOrDict
@@ -1178,6 +1216,7 @@ from .common import SandboxEnvironmentTemplateResourceRequirementsOrDict
 from .common import SandboxEnvironmentTemplateWarmPoolConfig
 from .common import SandboxEnvironmentTemplateWarmPoolConfigDict
 from .common import SandboxEnvironmentTemplateWarmPoolConfigOrDict
+from .common import SandboxState
 from .common import SavedQuery
 from .common import SavedQueryDict
 from .common import SavedQueryOrDict
@@ -1271,6 +1310,9 @@ from .common import SkillOperation
 from .common import SkillOperationDict
 from .common import SkillOperationOrDict
 from .common import SkillOrDict
+from .common import SkillRevision
+from .common import SkillRevisionDict
+from .common import SkillRevisionOrDict
 from .common import SkillState
 from .common import State
 from .common import Strategy
@@ -1404,9 +1446,15 @@ from .common import UpdateAgentEngineSessionConfigOrDict
 from .common import UpdatePromptConfig
 from .common import UpdatePromptConfigDict
 from .common import UpdatePromptConfigOrDict
+from .common import UpdateSkillConfig
+from .common import UpdateSkillConfigDict
+from .common import UpdateSkillConfigOrDict
 from .common import VertexBaseConfig
 from .common import VertexBaseConfigDict
 from .common import VertexBaseConfigOrDict
+from .common import VulnerableTool
+from .common import VulnerableToolDict
+from .common import VulnerableToolOrDict
 from .common import WinRateStats
 from .common import WinRateStatsDict
 from .common import WinRateStatsOrDict
@@ -1544,12 +1592,27 @@ __all__ = [
     "EvaluationRunInferenceConfig",
     "EvaluationRunInferenceConfigDict",
     "EvaluationRunInferenceConfigOrDict",
+    "VulnerableTool",
+    "VulnerableToolDict",
+    "VulnerableToolOrDict",
+    "RedTeamingAnalysisConfig",
+    "RedTeamingAnalysisConfigDict",
+    "RedTeamingAnalysisConfigOrDict",
+    "AnalysisConfig",
+    "AnalysisConfigDict",
+    "AnalysisConfigOrDict",
     "CreateEvaluationRunConfig",
     "CreateEvaluationRunConfigDict",
     "CreateEvaluationRunConfigOrDict",
     "SummaryMetric",
     "SummaryMetricDict",
     "SummaryMetricOrDict",
+    "AttackCategoryResult",
+    "AttackCategoryResultDict",
+    "AttackCategoryResultOrDict",
+    "RedTeamingAnalysisResult",
+    "RedTeamingAnalysisResultDict",
+    "RedTeamingAnalysisResultOrDict",
     "LossTaxonomyEntry",
     "LossTaxonomyEntryDict",
     "LossTaxonomyEntryOrDict",
@@ -2528,9 +2591,36 @@ __all__ = [
     "SkillOperation",
     "SkillOperationDict",
     "SkillOperationOrDict",
+    "UpdateSkillConfig",
+    "UpdateSkillConfigDict",
+    "UpdateSkillConfigOrDict",
+    "ListSkillsConfig",
+    "ListSkillsConfigDict",
+    "ListSkillsConfigOrDict",
+    "ListSkillsResponse",
+    "ListSkillsResponseDict",
+    "ListSkillsResponseOrDict",
+    "DeleteSkillConfig",
+    "DeleteSkillConfigDict",
+    "DeleteSkillConfigOrDict",
+    "DeleteSkillOperation",
+    "DeleteSkillOperationDict",
+    "DeleteSkillOperationOrDict",
     "GetSkillOperationConfig",
     "GetSkillOperationConfigDict",
     "GetSkillOperationConfigOrDict",
+    "GetSkillRevisionConfig",
+    "GetSkillRevisionConfigDict",
+    "GetSkillRevisionConfigOrDict",
+    "SkillRevision",
+    "SkillRevisionDict",
+    "SkillRevisionOrDict",
+    "ListSkillRevisionsConfig",
+    "ListSkillRevisionsConfigDict",
+    "ListSkillRevisionsConfigOrDict",
+    "ListSkillRevisionsResponse",
+    "ListSkillRevisionsResponseDict",
+    "ListSkillRevisionsResponseOrDict",
     "PromptOptimizerConfig",
     "PromptOptimizerConfigDict",
     "PromptOptimizerConfigOrDict",
@@ -2634,6 +2724,7 @@ __all__ = [
     "Operator",
     "Language",
     "MachineConfig",
+    "SandboxState",
     "Protocol",
     "DefaultContainerCategory",
     "PostSnapshotAction",
@@ -2771,7 +2862,12 @@ __all__ = [
     "_GetSkillRequestParameters",
     "_RetrieveSkillsRequestParameters",
     "_CreateSkillRequestParameters",
+    "_UpdateSkillRequestParameters",
+    "_ListSkillsRequestParameters",
+    "_DeleteSkillRequestParameters",
     "_GetSkillOperationParameters",
+    "_GetSkillRevisionRequestParameters",
+    "_ListSkillRevisionsRequestParameters",
     "evals",
     "agent_engines",
     "prompts",

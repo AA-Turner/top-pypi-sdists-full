@@ -88,7 +88,7 @@ class Micromamba(object):
 
         return self._bin
 
-    def solve(self, id_, packages, python, platform):
+    def solve(self, id_, packages, python, platform, channels=None):
         # Performance enhancements
         # 1. Using zstd compressed repodata index files drops the index download time
         #    by a factor of 10x - conda-forge/noarch/repodata.json has a
@@ -124,8 +124,9 @@ class Micromamba(object):
                 "--retry-clean-cache",
                 "--prefix=%s/prefix" % tmp_dir,
             ]
-            # Introduce conda-forge as a default channel
-            for channel in self.info()["channels"] or ["conda-forge"]:
+            # Use per-solve channels if provided, otherwise fall back to
+            # global config, then to conda-forge as the ultimate default.
+            for channel in channels or self.info()["channels"] or ["conda-forge"]:
                 cmd.append("--channel=%s" % channel)
 
             for package, version in packages.items():

@@ -21,6 +21,8 @@ IServiceProvider = typing.Any
 System_ComponentModel_BindingList_T = typing.TypeVar("System_ComponentModel_BindingList_T")
 System_ComponentModel__EventContainer_Callable = typing.TypeVar("System_ComponentModel__EventContainer_Callable")
 System_ComponentModel__EventContainer_ReturnType = typing.TypeVar("System_ComponentModel__EventContainer_ReturnType")
+System_ComponentModel_TypeDescriptor_RegisterType_T = typing.TypeVar("System_ComponentModel_TypeDescriptor_RegisterType_T")
+System_ComponentModel_TypeDescriptionProvider_RegisterType_T = typing.TypeVar("System_ComponentModel_TypeDescriptionProvider_RegisterType_T")
 
 
 class Win32Exception(System.Runtime.InteropServices.ExternalException):
@@ -299,6 +301,9 @@ class PropertyDescriptorCollection(System.Object, System.Collections.IList, Syst
     def __init__(self, properties: typing.List[System.ComponentModel.PropertyDescriptor], read_only: bool) -> None:
         ...
 
+    def __len__(self) -> int:
+        ...
+
     def add(self, value: System.ComponentModel.PropertyDescriptor) -> int:
         ...
 
@@ -400,6 +405,9 @@ class TypeConverter(System.Object):
             ...
 
         def __init__(self, values: System.Collections.ICollection) -> None:
+            ...
+
+        def __len__(self) -> int:
             ...
 
         def copy_to(self, array: System.Array, index: int) -> None:
@@ -581,6 +589,9 @@ class AttributeCollection(System.Object, System.Collections.ICollection):
 
     @overload
     def __init__(self) -> None:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     @overload
@@ -1835,6 +1846,9 @@ class EventDescriptorCollection(System.Object, System.Collections.IList):
     def __init__(self, events: typing.List[System.ComponentModel.EventDescriptor], read_only: bool) -> None:
         ...
 
+    def __len__(self) -> int:
+        ...
+
     def add(self, value: System.ComponentModel.EventDescriptor) -> int:
         ...
 
@@ -1931,6 +1945,36 @@ class IComNativeDescriptorHandler(metaclass=abc.ABCMeta):
         ...
 
 
+class _Typed_TypeDescriptor_RegisterType(typing.Generic[System_ComponentModel_TypeDescriptor_RegisterType_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> None:
+        ...
+
+
+class _TypeDescriptor_RegisterType:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_ComponentModel_TypeDescriptor_RegisterType_T]) -> System.ComponentModel._Typed_TypeDescriptor_RegisterType[System_ComponentModel_TypeDescriptor_RegisterType_T]:
+        ...
+
+
+class _Typed_TypeDescriptionProvider_RegisterType(typing.Generic[System_ComponentModel_TypeDescriptionProvider_RegisterType_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> None:
+        ...
+
+
+class _TypeDescriptionProvider_RegisterType:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_ComponentModel_TypeDescriptionProvider_RegisterType_T]) -> System.ComponentModel._Typed_TypeDescriptionProvider_RegisterType[System_ComponentModel_TypeDescriptionProvider_RegisterType_T]:
+        ...
+
+
 class ICustomTypeDescriptor(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -1994,6 +2038,10 @@ class TypeDescriptionProvider(System.Object, metaclass=abc.ABCMeta):
 
     @property
     def require_registered_types(self) -> typing.Optional[bool]:
+        ...
+
+    @property
+    def register_type(self) -> System.ComponentModel._TypeDescriptionProvider_RegisterType:
         ...
 
     @overload
@@ -2075,6 +2123,8 @@ class TypeDescriptor(System.Object):
     COM_OBJECT_TYPE: typing.Type
 
     com_native_descriptor_handler: System.ComponentModel.IComNativeDescriptorHandler
+
+    register_type: System.ComponentModel._TypeDescriptor_RegisterType
 
     @staticmethod
     @overload
@@ -2814,6 +2864,9 @@ class ListSortDescriptionCollection(System.Object, System.Collections.IList):
 
     @overload
     def __init__(self, sorts: typing.List[System.ComponentModel.ListSortDescription]) -> None:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def __setitem__(self, index: int, value: System.ComponentModel.ListSortDescription) -> None:

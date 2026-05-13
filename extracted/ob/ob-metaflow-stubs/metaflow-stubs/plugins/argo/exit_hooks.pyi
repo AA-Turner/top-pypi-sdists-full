@@ -1,13 +1,13 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.915533                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.182842                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import metaflow.plugins.argo.exit_hooks
 
@@ -29,7 +29,7 @@ class Hook(object, metaclass=type):
     ...
 
 class HttpExitHook(Hook, metaclass=type):
-    def __init__(self, name: str, url: str, method: str = 'GET', headers: typing.Optional[typing.Dict] = None, body: typing.Optional[str] = None, on_success: bool = False, on_error: bool = False):
+    def __init__(self, name: str, url: str, method: str = 'GET', headers: typing.Union[typing.Dict, None] = None, body: typing.Union[str, None] = None, on_success: bool = False, on_error: bool = False):
         ...
     ...
 

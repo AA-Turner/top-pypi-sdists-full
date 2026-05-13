@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.811046                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.051561                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ JS_PATH: str
 
 CSS_PATH: str
 
-def transform_flow_graph(step_info):
+def transform_flow_graph(graph):
     ...
 
 def read_file(path):
@@ -175,7 +175,7 @@ class TaskInfoComponent(metaflow.plugins.cards.card_modules.card.MetaflowCardCom
     ...
 
 class ErrorCard(metaflow.plugins.cards.card_modules.card.MetaflowCard, metaclass=type):
-    def __init__(self, options = {}, components = [], graph = None, **kwargs):
+    def __init__(self, options = {}, components = [], graph = None, graph_info = None, **kwargs):
         ...
     def reload_content_token(self, task, data):
         """
@@ -188,14 +188,14 @@ class ErrorCard(metaflow.plugins.cards.card_modules.card.MetaflowCard, metaclass
     ...
 
 class DefaultCardJSON(metaflow.plugins.cards.card_modules.card.MetaflowCard, metaclass=type):
-    def __init__(self, options = {'only_repr': True}, components = [], graph = None, flow = None, **kwargs):
+    def __init__(self, options = {'only_repr': True}, components = [], graph = None, graph_info = None, flow = None, **kwargs):
         ...
     def render(self, task):
         ...
     ...
 
 class DefaultCard(metaflow.plugins.cards.card_modules.card.MetaflowCard, metaclass=type):
-    def __init__(self, options = {'only_repr': True}, components = [], graph = None, flow = None, **kwargs):
+    def __init__(self, options = {'only_repr': True}, components = [], graph = None, graph_info = None, flow = None, **kwargs):
         ...
     def render(self, task, runtime = False):
         ...

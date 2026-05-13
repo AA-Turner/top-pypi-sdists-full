@@ -56,7 +56,17 @@ from sentry_protos.billing.v1.services.package.v1.endpoint_get_package_pb2 impor
     GetPackageRequest,
     GetPackageResponse,
 )
+from sentry_protos.billing.v1.services.account_status.v1.account_status_pb2 import (
+    AccountStatus,
+    OnDemandStatus,
+    Status,
+)
+from sentry_protos.billing.v1.services.account_status.v1.endpoint_get_account_status_pb2 import (
+    GetAccountStatusRequest,
+    GetAccountStatusResponse,
+)
 from sentry_protos.billing.v1.data_category_pb2 import DataCategory
+from sentry_protos.billing.v1.quota_config_pb2 import QuotaConfig, QuotaScope
 
 
 def test_contract_with_all_sub_messages():
@@ -507,3 +517,110 @@ def test_create_contract():
     assert pricing.user_config[1].reservation.is_unlimited is True
     assert pricing.user_config[2].WhichOneof("line_items") == "all_items"
     assert pricing.user_config[2].HasField("all_items")
+
+
+def test_quota_config_basic():
+    quota = QuotaConfig(
+        id="pae",
+        categories=[DataCategory.DATA_CATEGORY_ERROR],
+        scope=QuotaScope.QUOTA_SCOPE_PROJECT,
+        scope_id="42",
+        limit=1000,
+        window=3600,
+        reason_code="project_abuse_limit",
+    )
+    assert quota.id == "pae"
+    assert list(quota.categories) == [DataCategory.DATA_CATEGORY_ERROR]
+    assert quota.scope == QuotaScope.QUOTA_SCOPE_PROJECT
+    assert quota.scope_id == "42"
+    assert quota.limit == 1000
+    assert quota.window == 3600
+    assert quota.reason_code == "project_abuse_limit"
+
+    serialized = quota.SerializeToString()
+    parsed = QuotaConfig()
+    parsed.ParseFromString(serialized)
+    assert parsed.id == quota.id
+    assert list(parsed.categories) == list(quota.categories)
+    assert parsed.scope == quota.scope
+    assert parsed.scope_id == quota.scope_id
+    assert parsed.limit == quota.limit
+    assert parsed.window == quota.window
+    assert parsed.reason_code == quota.reason_code
+
+
+def test_quota_config_unlimited_multiple_categories():
+    quota = QuotaConfig(
+        id="unlimited_multi",
+        categories=[
+            DataCategory.DATA_CATEGORY_ERROR,
+            DataCategory.DATA_CATEGORY_TRANSACTION,
+            DataCategory.DATA_CATEGORY_SPAN,
+        ],
+        scope=QuotaScope.QUOTA_SCOPE_ORGANIZATION,
+        window=3600,
+    )
+    assert not quota.HasField("limit")
+    assert quota.HasField("window")
+    assert quota.window == 3600
+    assert len(quota.categories) == 3
+    assert DataCategory.DATA_CATEGORY_ERROR in quota.categories
+    assert DataCategory.DATA_CATEGORY_TRANSACTION in quota.categories
+    assert DataCategory.DATA_CATEGORY_SPAN in quota.categories
+
+
+def test_quota_config_reject_all():
+    quota = QuotaConfig(
+        id="reject_all",
+        limit=0,
+        scope=QuotaScope.QUOTA_SCOPE_PROJECT,
+        categories=[DataCategory.DATA_CATEGORY_ATTACHMENT],
+        reason_code="attachments_disabled",
+    )
+    assert quota.HasField("limit")
+    assert quota.limit == 0
+    assert not quota.HasField("window")
+    assert quota.id == "reject_all"
+    assert quota.reason_code == "attachments_disabled"
+
+
+def test_quota_config_empty_categories():
+    quota = QuotaConfig(
+        id="org_all",
+        scope=QuotaScope.QUOTA_SCOPE_ORGANIZATION,
+        limit=50000,
+        window=3600,
+        reason_code="usage_exceeded",
+    )
+    assert len(quota.categories) == 0
+
+
+def test_get_account_status_request():
+    request = GetAccountStatusRequest(organization_id=12345)
+    assert request.organization_id == 12345
+
+    serialized = request.SerializeToString()
+    parsed = GetAccountStatusRequest()
+    parsed.ParseFromString(serialized)
+    assert parsed.organization_id == 12345
+
+
+def test_get_account_status_response():
+    account_status = AccountStatus(
+        organization_id=99,
+        status=Status.STATUS_SUSPENDED,
+        suspension_reason="tos_violation",
+        ondemand_status=OnDemandStatus.ON_DEMAND_STATUS_DISABLED,
+    )
+    response = GetAccountStatusResponse(account_status=account_status)
+    assert response.account_status.organization_id == 99
+    assert response.account_status.status == Status.STATUS_SUSPENDED
+    assert response.account_status.suspension_reason == "tos_violation"
+    assert response.account_status.ondemand_status == OnDemandStatus.ON_DEMAND_STATUS_DISABLED
+
+
+def test_get_account_status_response_empty():
+    response = GetAccountStatusResponse()
+    assert not response.HasField("account_status")
+
+

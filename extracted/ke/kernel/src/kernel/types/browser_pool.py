@@ -48,7 +48,7 @@ class BrowserPoolConfig(BaseModel):
     """
 
     name: Optional[str] = None
-    """Optional name for the browser pool. Must be unique within the organization."""
+    """Optional name for the browser pool. Must be unique within the project."""
 
     profile: Optional[BrowserProfile] = None
     """Profile selection for the browser session.
@@ -61,6 +61,15 @@ class BrowserPoolConfig(BaseModel):
     """Optional proxy to associate to the browser session.
 
     Must reference a proxy belonging to the caller's org.
+    """
+
+    start_url: Optional[str] = None
+    """Optional URL to navigate to when a new browser is warmed into the pool.
+
+    Best-effort: failures to navigate do not fail pool fill. Only applied to
+    newly-warmed browsers — browsers reused via release/acquire keep whatever URL
+    the previous lease left them on. Accepts any URL Chromium can resolve, including
+    chrome:// pages.
     """
 
     stealth: Optional[bool] = None

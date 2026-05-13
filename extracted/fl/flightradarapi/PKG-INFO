@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: FlightRadarAPI
-Version: 1.5.0
+Version: 1.5.1
 Summary: SDK for FlightRadar24
 Project-URL: Homepage, https://github.com/JeanExtreme002/FlightRadarAPI
 Project-URL: Source Code, https://github.com/JeanExtreme002/FlightRadarAPI
 Project-URL: Documentation, https://jeanextreme002.github.io/FlightRadarAPI/
 Project-URL: Bug Reports, https://github.com/JeanExtreme002/FlightRadarAPI/issues
-Author-email: Jean Loui Bernard Silva de Jesus <jeanextreme002@gmail.com>
+Author-email: Jean Loui Bernard Silva de Jesus <contact@jeanloui.dev>
 License-Expression: MIT
 License-File: LICENSE
 Keywords: aircraft,airlines,airports,api,aviation,flightradar24,flights,radar
@@ -47,7 +47,7 @@ $ pip install FlightRadarAPI
 ## Basic Usage:
 Import the class `FlightRadar24API` and create an instance of it.
 ```py
-from FlightRadar24 import FlightRadar24API
+from FlightRadarAPI import FlightRadar24API
 fr_api = FlightRadar24API()
 ```
 

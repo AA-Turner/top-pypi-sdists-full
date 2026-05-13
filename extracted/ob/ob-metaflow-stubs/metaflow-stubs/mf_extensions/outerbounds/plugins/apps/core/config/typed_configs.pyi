@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.830416                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.077618                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,44 +9,44 @@ from __future__ import annotations
 import typing
 from typing import TypedDict
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs
     import typing
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
 
 from .unified_config import CoreConfig as CoreConfig
 
 TYPE_CHECKING: bool
 
 class ResourceConfigDict(TypedDict, total=False):
-    cpu: typing.Optional[str]
-    memory: typing.Optional[str]
-    gpu: typing.Optional[str]
-    disk: typing.Optional[str]
-    shared_memory: typing.Optional[str]
+    cpu: typing.Union[str, None]
+    memory: typing.Union[str, None]
+    gpu: typing.Union[str, None]
+    disk: typing.Union[str, None]
+    shared_memory: typing.Union[str, None]
 
 class AuthConfigDict(TypedDict, total=False):
-    type: typing.Optional[str]
-    public: typing.Optional[bool]
+    type: typing.Union[str, None]
+    public: typing.Union[bool, None]
 
 class ReplicaConfigDict(TypedDict, total=False):
-    fixed: typing.Optional[int]
-    min: typing.Optional[int]
-    max: typing.Optional[int]
-    scaling_policy: typing.Optional["ScalingPolicyConfigDict"]
+    fixed: typing.Union[int, None]
+    min: typing.Union[int, None]
+    max: typing.Union[int, None]
+    scaling_policy: typing.Union["ScalingPolicyConfigDict", None]
 
 class ScalingPolicyConfigDict(TypedDict, total=False):
-    rpm: typing.Optional[int]
+    rpm: typing.Union[int, None]
 
 class DependencyConfigDict(TypedDict, total=False):
-    from_requirements_file: typing.Optional[str]
-    from_pyproject_toml: typing.Optional[str]
-    python: typing.Optional[str]
-    pypi: typing.Optional[dict]
-    conda: typing.Optional[dict]
+    from_requirements_file: typing.Union[str, None]
+    from_pyproject_toml: typing.Union[str, None]
+    python: typing.Union[str, None]
+    pypi: typing.Union[dict, None]
+    conda: typing.Union[dict, None]
 
 class PackageConfigDict(TypedDict, total=False):
-    src_paths: typing.Optional[list]
-    suffixes: typing.Optional[list]
+    src_paths: typing.Union[list, None]
+    suffixes: typing.Union[list, None]
 
 class TypedCoreConfig(object, metaclass=type):
     """
@@ -148,7 +148,7 @@ class TypedCoreConfig(object, metaclass=type):
     generate_static_url : bool, optional
         Generate a static URL for the app based on its name.
     """
-    def __init__(self, name: typing.Optional[str] = None, port: typing.Optional[int] = None, description: typing.Optional[str] = None, app_type: typing.Optional[str] = None, image: typing.Optional[str] = None, tags: typing.Optional[list] = None, secrets: typing.Optional[list] = None, compute_pools: typing.Optional[list] = None, environment: typing.Optional[dict] = None, commands: typing.Optional[list] = None, resources: typing.Optional[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ResourceConfigDict] = None, auth: typing.Optional[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.AuthConfigDict] = None, replicas: typing.Optional[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ReplicaConfigDict] = None, code_package: typing.Optional[tuple] = None, force_upgrade: typing.Optional[bool] = None, use_base_image_command: typing.Optional[bool] = None, skip_code_package: typing.Optional[bool] = None, persistence: typing.Optional[str] = None, project: typing.Optional[str] = None, branch: typing.Optional[str] = None, models: typing.Optional[list] = None, data: typing.Optional[list] = None, generate_static_url: typing.Optional[bool] = None, **kwargs):
+    def __init__(self, name: typing.Union[str, None] = None, port: typing.Union[int, None] = None, description: typing.Union[str, None] = None, app_type: typing.Union[str, None] = None, image: typing.Union[str, None] = None, tags: typing.Union[list, None] = None, secrets: typing.Union[list, None] = None, compute_pools: typing.Union[list, None] = None, environment: typing.Union[dict, None] = None, commands: typing.Union[list, None] = None, resources: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ResourceConfigDict, None] = None, auth: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.AuthConfigDict, None] = None, replicas: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ReplicaConfigDict, None] = None, code_package: typing.Union[tuple, None] = None, force_upgrade: typing.Union[bool, None] = None, use_base_image_command: typing.Union[bool, None] = None, skip_code_package: typing.Union[bool, None] = None, persistence: typing.Union[str, None] = None, project: typing.Union[str, None] = None, branch: typing.Union[str, None] = None, models: typing.Union[list, None] = None, data: typing.Union[list, None] = None, generate_static_url: typing.Union[bool, None] = None, **kwargs):
         ...
     def create_config(self) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config.CoreConfig:
         ...

@@ -38,10 +38,15 @@ class CondaStepDecorator(StepDecorator):
         "libraries": {},  # Deprecated! Use packages going forward
         "python": None,
         "disabled": None,
+        "channels": None,
     }
 
     _metaflow_home = None
     _addl_env_vars = None
+
+    # Private Vars need to be set by anything Inheritting the CondaFlowDecorator
+    _flow_decorator_name = "conda_base"
+    _allowed_environments = ["conda", "pypi", "fast-bakery", "anaconda"]
 
     # To define conda channels for the whole solve, users can specify
     # CONDA_CHANNELS in their environment. For pinning specific packages to specific
@@ -81,15 +86,15 @@ class CondaStepDecorator(StepDecorator):
         self.datastore = flow_datastore
 
         # Support flow-level decorator.
-        if "conda_base" in self.flow._flow_decorators:
-            conda_base = self.flow._flow_decorators["conda_base"][0]
-            super_attributes = conda_base.attributes
+        if self._flow_decorator_name in self.flow._flow_decorators:
+            flow_deco = self.flow._flow_decorators[self._flow_decorator_name][0]
+            super_attributes = flow_deco.attributes
             self.attributes["packages"] = {
                 **super_attributes["packages"],
                 **self.attributes["packages"],
             }
             self._attributes_with_user_values.update(
-                conda_base._attributes_with_user_values
+                flow_deco._attributes_with_user_values
             )
 
             self.attributes["python"] = (
@@ -100,6 +105,9 @@ class CondaStepDecorator(StepDecorator):
                 if self.attributes["disabled"] is not None
                 else super_attributes["disabled"]
             )
+            self.attributes["channels"] = self.attributes[
+                "channels"
+            ] or super_attributes.get("channels")
 
         # Set default for `disabled` argument.
         if not self.attributes["disabled"]:
@@ -110,15 +118,14 @@ class CondaStepDecorator(StepDecorator):
 
         # @conda uses a conda environment to create a virtual environment.
         # The conda environment can be created through micromamba.
-        _supported_virtual_envs = ["conda"]
 
         # To placate people who don't want to see a shred of conda in UX, we symlink
         # --environment=pypi to --environment=conda
-        _supported_virtual_envs.extend(["pypi"])
 
         # TODO: Hardcoded for now to support the fast bakery environment.
         # We should introduce a more robust mechanism for appending supported environments, for example from within extensions.
-        _supported_virtual_envs.extend(["fast-bakery"])
+
+        _supported_virtual_envs = [a for a in self._allowed_environments]
 
         # The --environment= requirement ensures that valid virtual environments are
         # created for every step to execute it, greatly simplifying the @conda
@@ -302,7 +309,12 @@ class CondaFlowDecorator(FlowDecorator):
         "libraries": {},  # Deprecated! Use packages going forward.
         "python": None,
         "disabled": None,
+        "channels": None,
     }
+
+    # Private Vars need to be set by anything Inheritting the CondaFlowDecorator
+    _step_decorator_name = "conda"
+    _allowed_environments = ["conda", "pypi", "fast-bakery", "anaconda"]
 
     def __init__(self, attributes=None, statically_defined=False, inserted_by=None):
         self._attributes_with_user_values = (
@@ -334,9 +346,9 @@ class CondaFlowDecorator(FlowDecorator):
         # Without this steps will not have an implicit conda step decorator on them unless the environment adds one in its decospecs.
         from metaflow import decorators
 
-        decorators._attach_decorators(flow, ["conda"])
+        decorators._attach_decorators(flow, [self._step_decorator_name])
         decorators._process_late_attached_decorator(
-            ["conda"],
+            [self._step_decorator_name],
             flow,
             graph,
             environment,
@@ -346,15 +358,13 @@ class CondaFlowDecorator(FlowDecorator):
 
         # @conda uses a conda environment to create a virtual environment.
         # The conda environment can be created through micromamba.
-        _supported_virtual_envs = ["conda"]
 
         # To placate people who don't want to see a shred of conda in UX, we symlink
         # --environment=pypi to --environment=conda
-        _supported_virtual_envs.extend(["pypi"])
 
         # TODO: Hardcoded for now to support the fast bakery environment.
         # We should introduce a more robust mechanism for appending supported environments, for example from within extensions.
-        _supported_virtual_envs.extend(["fast-bakery"])
+        _supported_virtual_envs = [a for a in self._allowed_environments]
 
         # The --environment= requirement ensures that valid virtual environments are
         # created for every step to execute it, greatly simplifying the @conda

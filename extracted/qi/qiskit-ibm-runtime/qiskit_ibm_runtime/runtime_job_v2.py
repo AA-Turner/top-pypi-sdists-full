@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2024.
+# (C) Copyright IBM 2024-2026.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -19,12 +19,12 @@ from collections.abc import Sequence
 from concurrent import futures
 import logging
 import time
+import warnings
 
 from qiskit.providers.backend import Backend
 from qiskit.primitives.containers import PrimitiveResult
 from qiskit.primitives.base.base_primitive_job import BasePrimitiveJob
 
-# pylint: disable=unused-import,cyclic-import
 from qiskit_ibm_runtime import qiskit_runtime_service
 from .exceptions import (
     RuntimeJobFailureError,
@@ -51,7 +51,22 @@ API_TO_JOB_STATUS: dict[str, JobStatus] = {
 
 
 class RuntimeJobV2(BasePrimitiveJob[PrimitiveResult, JobStatus], BaseRuntimeJob):
-    """Representation of a runtime V2 primitive execution."""
+    """Representation of a runtime V2 primitive execution.
+
+    Args:
+        backend: The backend instance used to run this job.
+        api_client: Object for connecting to the server.
+        job_id: Job ID.
+        program_id: ID of the program this job is for.
+        creation_date: Job creation date, in UTC.
+        result_decoder: A :class:`ResultDecoder` subclass used to decode job results.
+        image: Runtime image used for this job: image_name:tag.
+        service: Runtime service.
+        session_id: Job ID of the first job in a runtime session.
+        tags: Tags assigned to the job.
+        version: Primitive version.
+        private: Marks job as private.
+    """
 
     JOB_FINAL_STATES: tuple[JobStatus, ...] = ("DONE", "CANCELLED", "ERROR")
     ERROR = "ERROR"
@@ -71,22 +86,6 @@ class RuntimeJobV2(BasePrimitiveJob[PrimitiveResult, JobStatus], BaseRuntimeJob)
         version: int | None = None,
         private: bool | None = False,
     ) -> None:
-        """RuntimeJob constructor.
-
-        Args:
-            backend: The backend instance used to run this job.
-            api_client: Object for connecting to the server.
-            job_id: Job ID.
-            program_id: ID of the program this job is for.
-            creation_date: Job creation date, in UTC.
-            result_decoder: A :class:`ResultDecoder` subclass used to decode job results.
-            image: Runtime image used for this job: image_name:tag.
-            service: Runtime service.
-            session_id: Job ID of the first job in a runtime session.
-            tags: Tags assigned to the job.
-            version: Primitive version.
-            private: Marks job as private.
-        """
         BasePrimitiveJob.__init__(self, job_id=job_id)
         BaseRuntimeJob.__init__(
             self,
@@ -105,19 +104,25 @@ class RuntimeJobV2(BasePrimitiveJob[PrimitiveResult, JobStatus], BaseRuntimeJob)
         )
         self._status: JobStatus = "INITIALIZING"
 
-    def result(  # pylint: disable=arguments-differ
+    def result(
         self,
         timeout: float | None = None,
         decoder: type[ResultDecoder] | None = None,
+        poll_interval: float | None = None,
     ) -> Any:
         """Return the results of the job.
 
         Args:
             timeout: Number of seconds to wait for job.
             decoder: A :class:`ResultDecoder` subclass used to decode job results.
+            poll_interval: Number of seconds to wait between successive queries of the job's status.
+                of the job.
+
+                * For non-session jobs, the default is ``500ms``, and the floor value is ``100ms``.
+                * For session jobs, the default and the floor value are ``100ms``.
 
         Returns:
-            Runtime job result.
+            Runtime job result (post-processed if applicable).
 
         Raises:
             RuntimeJobFailureError: If the job failed.
@@ -125,7 +130,7 @@ class RuntimeJobV2(BasePrimitiveJob[PrimitiveResult, JobStatus], BaseRuntimeJob)
             RuntimeInvalidStateError: If the job was cancelled, and attempting to retrieve result.
         """
         _decoder = decoder or self._final_result_decoder
-        self.wait_for_final_state(timeout=timeout)
+        self.wait_for_final_state(timeout=timeout, poll_interval=poll_interval)
         if self._status == "ERROR":
             error_message = self._reason if self._reason else self._error_message
             if self._reason_code == 1305:
@@ -133,11 +138,10 @@ class RuntimeJobV2(BasePrimitiveJob[PrimitiveResult, JobStatus], BaseRuntimeJob)
             raise RuntimeJobFailureError(f"Unable to retrieve job result. {error_message}")
         if self._status == "CANCELLED":
             raise RuntimeInvalidStateError(
-                "Unable to retrieve result for job {}. " "Job was cancelled.".format(self.job_id())
+                f"Unable to retrieve result for job {self.job_id()}. Job was cancelled."
             )
 
         result_raw = self._api_client.job_results(job_id=self.job_id())
-
         return _decoder.decode(result_raw) if result_raw else None
 
     def cancel(self) -> None:
@@ -222,18 +226,34 @@ class RuntimeJobV2(BasePrimitiveJob[PrimitiveResult, JobStatus], BaseRuntimeJob)
                 return ""
             raise IBMRuntimeError(f"Failed to get job logs: {err}") from None
 
-    def wait_for_final_state(  # pylint: disable=arguments-differ
+    def wait_for_final_state(
         self,
         timeout: float | None = None,
+        poll_interval: float | None = None,
     ) -> None:
         """Poll for the job status from the API until the status is in a final state.
 
         Args:
             timeout: Seconds to wait for the job. If ``None``, wait indefinitely.
+            poll_interval: Number of seconds to wait between querying the service for the status
+                of the job.
+
+                * For non-session jobs, the default is ``500ms``, and the floor value is ``100ms``.
+                * For session jobs, the default and the floor value is ``100ms``.
 
         Raises:
             RuntimeJobTimeoutError: If the job does not complete within given timeout.
         """
+        # Calculate the poll interval.
+        min_poll_interval = 0.1
+        default_poll_interval = 0.1 if self._session_id else 0.5
+        if poll_interval and poll_interval < 0.1:
+            warnings.warn(
+                "The poll interval specified is lower than the minimal allowed. Using "
+                f"{min_poll_interval} as the poll interval."
+            )
+        poll_interval = max(min_poll_interval, poll_interval or default_poll_interval)
+
         try:
             start_time = time.time()
             status = self.status()
@@ -243,7 +263,7 @@ class RuntimeJobV2(BasePrimitiveJob[PrimitiveResult, JobStatus], BaseRuntimeJob)
                     raise RuntimeJobTimeoutError(
                         f"Timed out waiting for job to complete after {timeout} secs."
                     )
-                time.sleep(0.1)
+                time.sleep(poll_interval)
                 status = self.status()
         except futures.TimeoutError:
             raise RuntimeJobTimeoutError(

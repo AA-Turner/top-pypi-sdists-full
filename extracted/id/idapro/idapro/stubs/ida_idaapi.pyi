@@ -1,123 +1,123 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 class CustomIDAMemo:
     def CreateGroups(self, groups_infos: Any) -> Any:
         r"""
-                Send a request to modify the graph by creating a
-                (set of) group(s), and perform an animation.
+        Send a request to modify the graph by creating a
+        (set of) group(s), and perform an animation.
         
-                Each object in the 'groups_infos' list must be of the format:
-                {
-                  "nodes" : [<int>, <int>, <int>, ...] # The list of nodes to group
-                  "text" : <string>                    # The synthetic text for that group
-                }
+        Each object in the 'groups_infos' list must be of the format:
+        {
+          "nodes" : [<int>, <int>, <int>, ...] # The list of nodes to group
+          "text" : <string>                    # The synthetic text for that group
+        }
         
-                :param groups_infos: A list of objects that describe those groups.
-                :returns: A [<int>, <int>, ...] list of group nodes, or None (failure).
-                
+        :param groups_infos: A list of objects that describe those groups.
+        :returns: A [<int>, <int>, ...] list of group nodes, or None (failure).
+        
         """
         ...
-    def DelNodesInfos(self, nodes: Any) -> Any:
+    def DelNodesInfos(self, *nodes: Any) -> Any:
         r"""
-                Delete the properties for the given node(s).
+        Delete the properties for the given node(s).
         
-                :param nodes: A list of node IDs
-                
+        :param nodes: A list of node IDs
+        
         """
         ...
     def DeleteGroups(self, groups: Any, new_current: Any = -1) -> Any:
         r"""
-                Send a request to delete the specified groups in the graph,
-                and perform an animation.
+        Send a request to delete the specified groups in the graph,
+        and perform an animation.
         
-                :param groups: A list of group node numbers.
-                :param new_current: A node to focus on after the groups have been deleted
-                :returns: True on success, False otherwise.
-                
+        :param groups: A list of group node numbers.
+        :param new_current: A node to focus on after the groups have been deleted
+        :returns: True on success, False otherwise.
+        
         """
         ...
     def GetCurrentRendererType(self) -> Any:
         ...
-    def GetNodeInfo(self, args: Any) -> Any:
+    def GetNodeInfo(self, *args: Any) -> Any:
         r"""
-                Get the properties for the given node.
+        Get the properties for the given node.
         
-                :param ni: A node_info_t instance
-                :param node: The index of the node.
-                :returns: success
-                
+        :param ni: A node_info_t instance
+        :param node: The index of the node.
+        :returns: success
+        
         """
         ...
     def GetWidget(self) -> Any:
         r"""
-                Return the TWidget underlying this view.
+        Return the TWidget underlying this view.
         
-                :returns: The TWidget underlying this view, or None.
-                
+        :returns: The TWidget underlying this view, or None.
+        
         """
         ...
     def GetWidgetAsGraphViewer(self) -> Any:
         r"""
-                Return the graph_viewer_t underlying this view.
+        Return the graph_viewer_t underlying this view.
         
-                :returns: The graph_viewer_t underlying this view, or None.
-                
+        :returns: The graph_viewer_t underlying this view, or None.
+        
         """
         ...
     def Refresh(self) -> Any:
         r"""
-                Refreshes the view. This causes the OnRefresh() to be called
-                
+        Refreshes the view. This causes the OnRefresh() to be called
+        
         """
         ...
     def SetCurrentRendererType(self, rtype: Any) -> Any:
         r"""
-                Set the current view's renderer.
+        Set the current view's renderer.
         
-                :param rtype: The renderer type. Should be one of the idaapi.TCCRT_* values.
-                
+        :param rtype: The renderer type. Should be one of the idaapi.TCCRT_* values.
+        
         """
         ...
     def SetGroupsVisibility(self, groups: Any, expand: Any, new_current: Any = -1) -> Any:
         r"""
-                Send a request to expand/collapse the specified groups in the graph,
-                and perform an animation.
+        Send a request to expand/collapse the specified groups in the graph,
+        and perform an animation.
         
-                :param groups: A list of group node numbers.
-                :param expand: True to expand the group, False otherwise.
-                :param new_current: A node to focus on after the groups have been expanded/collapsed.
-                :returns: True on success, False otherwise.
-                
+        :param groups: A list of group node numbers.
+        :param expand: True to expand the group, False otherwise.
+        :param new_current: A node to focus on after the groups have been expanded/collapsed.
+        :returns: True on success, False otherwise.
+        
         """
         ...
     def SetNodeInfo(self, node_index: Any, node_info: Any, flags: Any) -> Any:
         r"""
-                Set the properties for the given node.
+        Set the properties for the given node.
         
-                Example usage (set second nodes's bg color to red):
-                  inst = ...
-                  p = idaapi.node_info_t()
-                  p.bg_color = 0x00ff0000
-                  inst.SetNodeInfo(1, p, idaapi.NIF_BG_COLOR)
+        Example usage (set second nodes's bg color to red):
+          inst = ...
+          p = idaapi.node_info_t()
+          p.bg_color = 0x00ff0000
+          inst.SetNodeInfo(1, p, idaapi.NIF_BG_COLOR)
         
-                :param node_index: The node index.
-                :param node_info: An idaapi.node_info_t instance.
-                :param flags: An OR'ed value of NIF_* values.
-                
+        :param node_index: The node index.
+        :param node_info: An idaapi.node_info_t instance.
+        :param flags: An OR'ed value of NIF_* values.
+        
         """
         ...
     def SetNodesInfos(self, values: Any) -> Any:
         r"""
-                Set the properties for the given nodes.
+        Set the properties for the given nodes.
         
-                Example usage (set first three nodes's bg color to purple):
-                  inst = ...
-                  p = idaapi.node_info_t()
-                  p.bg_color = 0x00ff00ff
-                  inst.SetNodesInfos({0 : p, 1 : p, 2 : p})
+        Example usage (set first three nodes's bg color to purple):
+          inst = ...
+          p = idaapi.node_info_t()
+          p.bg_color = 0x00ff00ff
+          inst.SetNodesInfos({0 : p, 1 : p, 2 : p})
         
-                :param values: A dictionary of 'int -> node_info_t' objects.
-                
+        :param values: A dictionary of 'int -> node_info_t' objects.
+        
         """
         ...
     def __delattr__(self, name: Any) -> Any:
@@ -128,27 +128,33 @@ class CustomIDAMemo:
         ...
     def __disown__(self) -> Any:
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -156,16 +162,16 @@ class CustomIDAMemo:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -182,10 +188,10 @@ class CustomIDAMemo:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -195,7 +201,7 @@ class CustomIDAMemo:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def hook(self) -> bool:
         ...
@@ -205,7 +211,7 @@ class CustomIDAMemo:
         ...
     def view_click(self, view: Any, ve: Any) -> Any:
         ...
-    def view_close(self, view: Any, args: Any) -> Any:
+    def view_close(self, view: Any, *args: Any) -> Any:
         ...
     def view_created(self, view: TWidget) -> None:
         r"""A view is being created. 
@@ -213,7 +219,7 @@ class CustomIDAMemo:
         :param view: (TWidget *)
         """
         ...
-    def view_curpos(self, view: Any, args: Any) -> Any:
+    def view_curpos(self, view: Any, *args: Any) -> Any:
         ...
     def view_dblclick(self, view: Any, ve: Any) -> Any:
         ...
@@ -237,27 +243,33 @@ class IDAPython_displayhook:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -265,16 +277,16 @@ class IDAPython_displayhook:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -283,7 +295,7 @@ class IDAPython_displayhook:
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -292,10 +304,10 @@ class IDAPython_displayhook:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -328,27 +340,33 @@ class PyIdc_cvt_int64__(pyidc_cvt_helper__):
         ...
     def __div__(self, other: Any) -> Any:
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, v: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -356,18 +374,18 @@ class PyIdc_cvt_int64__(pyidc_cvt_helper__):
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __mul__(self, other: Any) -> Any:
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __radd__(self, other: Any) -> Any:
@@ -380,7 +398,7 @@ class PyIdc_cvt_int64__(pyidc_cvt_helper__):
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __rmul__(self, other: Any) -> Any:
@@ -393,12 +411,12 @@ class PyIdc_cvt_int64__(pyidc_cvt_helper__):
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
     def __sub__(self, other: Any) -> Any:
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -419,27 +437,33 @@ class PyIdc_cvt_refclass__(pyidc_cvt_helper__):
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, v: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -447,16 +471,16 @@ class PyIdc_cvt_refclass__(pyidc_cvt_helper__):
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -465,7 +489,7 @@ class PyIdc_cvt_refclass__(pyidc_cvt_helper__):
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -474,10 +498,10 @@ class PyIdc_cvt_refclass__(pyidc_cvt_helper__):
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -496,34 +520,40 @@ class loader_input_t:
     This class is also used by file loaders scripts.
     """
     @property
-    def __idc_cvt_id__(self) -> Any: ...
+    def __idc_cvt_id__(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, pycapsule: Any = None) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -531,16 +561,16 @@ class loader_input_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -557,10 +587,10 @@ class loader_input_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -570,12 +600,12 @@ class loader_input_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def close(self) -> Any:
         r"""Closes the file"""
         ...
-    def file2base(self, pos: int, ea1: ea_t, ea2: ea_t, patchable: bool) -> Any:
+    def file2base(self, pos: int, ea1: int, ea2: int, patchable: bool) -> Any:
         r"""Load portion of file into the database
         This function will include (ea1..ea2) into the addressing space of the
         program (make it enabled)
@@ -630,7 +660,7 @@ class loader_input_t:
         :returns: Boolean
         """
         ...
-    def open_memory(self, start: ea_t, size: int) -> Any:
+    def open_memory(self, start: int, size: int) -> Any:
         r"""Create a linput for process memory (By internally calling idaapi.create_memory_linput())
         This linput will use dbg->read_memory() to read data
         
@@ -671,7 +701,7 @@ class loader_input_t:
         :param linput: the linput_t to link to
         """
         ...
-    def size(self) -> int64:
+    def size(self) -> int:
         ...
     def tell(self) -> Any:
         r"""Returns the current position"""
@@ -685,13 +715,16 @@ class object_t:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
@@ -700,15 +733,18 @@ class object_t:
     def __getitem__(self, idx: Any) -> Any:
         r"""Allow access to object attributes by index (like dictionaries)"""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, kwds: Any) -> Any:
+    def __init__(self, **kwds: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -716,16 +752,16 @@ class object_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -734,7 +770,7 @@ class object_t:
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -743,10 +779,10 @@ class object_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -765,28 +801,34 @@ class plugin_t(pyidc_opaque_object_t):
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any, kwargs: Any) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Initialize self.  See help(type(self)) for accurate signature."""
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -794,16 +836,16 @@ class plugin_t(pyidc_opaque_object_t):
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -812,7 +854,7 @@ class plugin_t(pyidc_opaque_object_t):
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -821,10 +863,10 @@ class plugin_t(pyidc_opaque_object_t):
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -847,28 +889,34 @@ class plugmod_t(pyidc_opaque_object_t):
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any, kwargs: Any) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Initialize self.  See help(type(self)) for accurate signature."""
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -876,16 +924,16 @@ class plugmod_t(pyidc_opaque_object_t):
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -894,7 +942,7 @@ class plugmod_t(pyidc_opaque_object_t):
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -903,10 +951,10 @@ class plugmod_t(pyidc_opaque_object_t):
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -919,8 +967,8 @@ class plugmod_t(pyidc_opaque_object_t):
 
 class py_clinked_object_t(pyidc_opaque_object_t):
     r"""
-        This is a utility and base class for C linked objects
-        
+    This is a utility and base class for C linked objects
+    
     """
     @property
     def clink(self) -> Any: ...
@@ -935,27 +983,33 @@ class py_clinked_object_t(pyidc_opaque_object_t):
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, lnk: Any = None) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -963,16 +1017,16 @@ class py_clinked_object_t(pyidc_opaque_object_t):
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -981,7 +1035,7 @@ class py_clinked_object_t(pyidc_opaque_object_t):
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -990,10 +1044,10 @@ class py_clinked_object_t(pyidc_opaque_object_t):
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1005,10 +1059,10 @@ class py_clinked_object_t(pyidc_opaque_object_t):
         ...
     def assign(self, other: Any) -> Any:
         r"""
-                Overwrite me.
-                This method allows you to assign an instance contents to anothers
-                :returns: Boolean
-                
+        Overwrite me.
+        This method allows you to assign an instance contents to anothers
+        :returns: Boolean
+        
         """
         ...
     def copy(self) -> Any:
@@ -1017,11 +1071,11 @@ class py_clinked_object_t(pyidc_opaque_object_t):
 
 class pyidc_cvt_helper__:
     r"""
-        This is a special helper object that helps detect which kind
-        of object is this python object wrapping and how to convert it
-        back and from IDC.
-        This object is characterized by its special attribute and its value
-        
+    This is a special helper object that helps detect which kind
+    of object is this python object wrapping and how to convert it
+    back and from IDC.
+    This object is characterized by its special attribute and its value
+    
     """
     @property
     def value(self) -> Any: ...
@@ -1031,27 +1085,33 @@ class pyidc_cvt_helper__:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, cvt_id: Any, value: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1059,16 +1119,16 @@ class pyidc_cvt_helper__:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1077,7 +1137,7 @@ class pyidc_cvt_helper__:
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -1086,10 +1146,10 @@ class pyidc_cvt_helper__:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1108,28 +1168,34 @@ class pyidc_opaque_object_t:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any, kwargs: Any) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Initialize self.  See help(type(self)) for accurate signature."""
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1137,16 +1203,16 @@ class pyidc_opaque_object_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1155,7 +1221,7 @@ class pyidc_opaque_object_t:
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -1164,10 +1230,10 @@ class pyidc_opaque_object_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1182,27 +1248,27 @@ def IDAPython_Completion(line: Any, x: Any) -> Any:
     r"""Internal utility class for auto-completion support"""
     ...
 
-def IDAPython_ExecScript(path: Any, g: Any, print_error: Any = True) -> Any:
+def IDAPython_ExecScript(path: Any, g: Any, print_error: Any = True, script_args: Any = None) -> Any:
     r"""
-        Run the specified script.
+    Run the specified script.
     
-        This function is used by the low-level plugin code.
-        
+    This function is used by the low-level plugin code.
+    
     """
     ...
 
 def IDAPython_ExecSystem(cmd: Any) -> Any:
     r"""
-        Executes a command with popen().
-        
+    Executes a command with popen().
+    
     """
     ...
 
 def IDAPython_FormatExc(etype: Any, value: Any = None, tb: Any = None, limit: Any = None) -> Any:
     r"""
-        This function is used to format an exception given the
-        values returned by a PyErr_Fetch()
-        
+    This function is used to format an exception given the
+    values returned by a PyErr_Fetch()
+    
     """
     ...
 
@@ -1211,20 +1277,20 @@ def IDAPython_GetDocstrings(obj: Any) -> Any:
 
 def IDAPython_LoadProcMod(path: Any, g: Any, print_error: Any = True) -> Any:
     r"""
-        Load processor module.
-        
+    Load processor module.
+    
     """
     ...
 
 def IDAPython_UnLoadProcMod(script: Any, g: Any, print_error: Any = True) -> Any:
     r"""
-        Unload processor module.
-        
+    Unload processor module.
+    
     """
     ...
 
 def TRUNC(ea: Any) -> Any:
-    r""" Truncate EA for the current application bitness"""
+    r"""Truncate EA for the current application bitness"""
     ...
 
 def as_UTF16(s: Any) -> Any:
@@ -1233,9 +1299,9 @@ def as_UTF16(s: Any) -> Any:
 
 def as_cstr(val: Any) -> Any:
     r"""
-        Returns a C str from the passed value. The passed value can be of type refclass (returned by a call to buffer() or byref())
-        It scans for the first \x00 and returns the string value up to that point.
-        
+    Returns a C str from the passed value. The passed value can be of type refclass (returned by a call to buffer() or byref())
+    It scans for the first \x00 and returns the string value up to that point.
+    
     """
     ...
 
@@ -1245,9 +1311,9 @@ def as_int32(v: Any) -> Any:
 
 def as_signed(v: Any, nbits: Any = 32) -> Any:
     r"""
-        Returns a number as signed. The number of bits are specified by the user.
-        The MSB holds the sign.
-        
+    Returns a number as signed. The number of bits are specified by the user.
+    The MSB holds the sign.
+    
     """
     ...
 
@@ -1261,11 +1327,11 @@ def as_unicode(s: Any) -> Any:
 
 def copy_bits(v: Any, s: Any, e: Any = -1) -> Any:
     r"""
-        Copy bits from a value
-        :param v: the value
-        :param s: starting bit (0-based)
-        :param e: ending bit
-        
+    Copy bits from a value
+    :param v: the value
+    :param s: starting bit (0-based)
+    :param e: ending bit
+    
     """
     ...
 
@@ -1293,15 +1359,15 @@ def format_basestring(_in: Any) -> str:
 
 def notify_when(when: Any, callback: Any) -> Any:
     r"""
-        Register a callback that will be called when an event happens.
-        :param when: one of NW_XXXX constants
-        :param callback: This callback prototype varies depending on the 'when' parameter:
-                         The general callback format:
-                             def notify_when_callback(nw_code)
-                         In the case of NW_OPENIDB:
-                             def notify_when_callback(nw_code, is_old_database)
-        :returns: Boolean
-        
+    Register a callback that will be called when an event happens.
+    :param when: one of NW_XXXX constants
+    :param callback: This callback prototype varies depending on the 'when' parameter:
+                     The general callback format:
+                         def notify_when_callback(nw_code)
+                     In the case of NW_OPENIDB:
+                         def notify_when_callback(nw_code, is_old_database)
+    :returns: Boolean
+    
     """
     ...
 
@@ -1331,25 +1397,25 @@ def replfun(func: Any) -> Any:
 
 def require(modulename: Any, package: Any = None) -> Any:
     r"""
-        Load, or reload a module.
+    Load, or reload a module.
     
-        When under heavy development, a user's tool might consist of multiple
-        modules. If those are imported using the standard 'import' mechanism,
-        there is no guarantee that the Python implementation will re-read
-        and re-evaluate the module's Python code. In fact, it usually doesn't.
-        What should be done instead is 'reload()'-ing that module.
+    When under heavy development, a user's tool might consist of multiple
+    modules. If those are imported using the standard 'import' mechanism,
+    there is no guarantee that the Python implementation will re-read
+    and re-evaluate the module's Python code. In fact, it usually doesn't.
+    What should be done instead is 'reload()'-ing that module.
     
-        This is a simple helper function that will do just that: In case the
-        module doesn't exist, it 'import's it, and if it does exist,
-        'reload()'s it.
+    This is a simple helper function that will do just that: In case the
+    module doesn't exist, it 'import's it, and if it does exist,
+    'reload()'s it.
     
-        The importing module (i.e., the module calling require()) will have
-        the loaded module bound to its globals(), under the name 'modulename'.
-        (If require() is called from the command line, the importing module
-        will be '__main__'.)
+    The importing module (i.e., the module calling require()) will have
+    the loaded module bound to its globals(), under the name 'modulename'.
+    (If require() is called from the command line, the importing module
+    will be '__main__'.)
     
-        For more information, see: <http://www.hexblog.com/?p=749>.
-        
+    For more information, see: <http://www.hexblog.com/?p=749>.
+    
     """
     ...
 
@@ -1365,10 +1431,10 @@ def set_script_timeout(timeout: Any) -> Any:
 
 def struct_unpack(buffer: Any, signed: Any = False, offs: Any = 0) -> Any:
     r"""
-        Unpack a buffer given its length and offset using struct.unpack_from().
-        This function will know how to unpack the given buffer by using the lookup table '__struct_unpack_table'
-        If the buffer is of unknown length then None is returned. Otherwise the unpacked value is returned.
-        
+    Unpack a buffer given its length and offset using struct.unpack_from().
+    This function will know how to unpack the given buffer by using the lookup table '__struct_unpack_table'
+    If the buffer is of unknown length then None is returned. Otherwise the unpacked value is returned.
+    
     """
     ...
 
@@ -1407,14 +1473,14 @@ SIZE_MAX: int  # 18446744073709551615
 ST_OVER_DEBUG_SEG: int  # 1
 ST_OVER_LIB_FUNC: int  # 2
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 bisect: module
 builtins: module  # <module 'builtins' (built-in)>
 ida_idaapi: module
 inspect: module
 integer_types: tuple  # (<class 'int'>,)
-os: module  # <module 'os' from '/usr/lib/python3.10/os.py'>
-re: module  # <module 're' from '/usr/lib/python3.10/re.py'>
+os: module  # <module 'os' (frozen)>
+re: module
 string_types: tuple  # (<class 'str'>,)
 struct: module
 sys: module  # <module 'sys' (built-in)>

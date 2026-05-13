@@ -58,7 +58,7 @@ class LocalLeanManager(System.Object, QuantConnect.Lean.Engine.Server.ILeanManag
         The current algorithm
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -72,7 +72,7 @@ class LocalLeanManager(System.Object, QuantConnect.Lean.Engine.Server.ILeanManag
         The system handlers
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -86,7 +86,7 @@ class LocalLeanManager(System.Object, QuantConnect.Lean.Engine.Server.ILeanManag
         The algorithm handlers
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -134,7 +134,7 @@ class LocalLeanManager(System.Object, QuantConnect.Lean.Engine.Server.ILeanManag
         Set the command handler to use, protected for testing purposes
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

@@ -16,6 +16,7 @@ from schemathesis.specs.openapi.coverage._schema import (
     CoverageContext,
     CoverageScenario,
     GeneratedValue,
+    _apply_pattern_optimizations,
     _cover_positive_for_type,
     _positive_number,
     _positive_string,
@@ -203,6 +204,13 @@ def test_negative_primitive_schemas(nctx, schema, expected):
 def test_positive_null_default_or_example_round_trips(pctx, schema):
     covered = [v.value for v in cover_schema_iter(pctx, schema)]
     assert None in covered, f"`null` default/example was dropped: {covered!r}"
+
+
+def test_unbounded_array_positive_baseline_is_non_empty(pctx):
+    # An empty list never exercises items-level keywords on the wire; coverage must emit a populated baseline first.
+    covered = cover_schema(pctx, {"type": "array", "items": {"type": "integer", "format": "int32"}})
+    assert covered
+    assert covered[0], covered
 
 
 @pytest.mark.parametrize("allow_extra_parameters", [True, False])
@@ -709,10 +717,10 @@ def test_positive_number(ctx, schema, multiple_of, values, with_multiple_of):
         (
             {"type": "array", "items": {"type": "integer"}, "maxItems": 5},
             [
+                [0],
                 [],
                 [0, 0, 0, 0, 0],
                 [0, 0, 0, 0],
-                [0],
             ],
         ),
         # Multi-branch items must be exercised individually; boundary-size arrays
@@ -739,16 +747,16 @@ def test_positive_number(ctx, schema, multiple_of, values, with_multiple_of):
                 },
             },
             [
+                [{"a": ""}],
                 [],
                 [{"a": ""}, {"a": ""}, {"a": ""}],
                 [{"a": ""}, {"a": ""}],
-                [{"a": ""}],
                 [{"b": ""}],
             ],
         ),
         (
             {"type": "array", "items": {"enum": ["FOO"]}},
-            [[], ["FOO"]],
+            [["FOO"], []],
         ),
         (
             {"type": "array", "items": {"enum": ["FOO"]}, "minItems": 1},
@@ -1280,6 +1288,23 @@ def test_positive_pattern_with_char_class_and_min_length(pctx):
     covered = cover_schema(pctx, schema)
     for value in covered:
         assert len(value) >= 3, f"Generated string {value!r} violates minLength=3"
+
+
+def test_apply_pattern_optimizations_skips_non_keyword_property_names():
+    # JSON Schema meta-schemas (e.g. Kubernetes CRD `JSONSchemaProps`) declare sub-schemas
+    # whose property *names* happen to be `pattern` / `minLength` / `maxLength`. The walker
+    # must skip these — they are sub-schema dicts, not regex strings / integer bounds.
+    bundle = {
+        "JSONSchemaProps": {
+            "type": "object",
+            "properties": {
+                "pattern": {"type": "string"},
+                "minLength": {"type": "integer", "format": "int64"},
+                "maxLength": {"type": "integer", "format": "int64"},
+            },
+        }
+    }
+    _apply_pattern_optimizations(bundle, update_quantifier)
 
 
 def test_negative_pattern_with_incompatible_length(nctx):
@@ -1893,7 +1918,7 @@ def test_large_arrays_nested(nctx):
                 "type": "array",
                 "items": {"$ref": "#/$defs/Tag"},
             },
-            [[], ["red"], ["blue"]],
+            [["red"], [], ["blue"]],
         ),
         # Nested $refs - reference pointing to another reference
         (
@@ -2500,6 +2525,14 @@ def test_ref_to_additive_schema_inherits_parent_properties():
         {"id": 0, "name": ""},
         {"name": ""},
     ]
+
+
+def test_negative_unique_items_on_scalar_param_emits_both_polarities(nctx):
+    # Scalar params with `uniqueItems` need both duplicate and unique pairs to cover both polarities.
+    schema = {"type": "integer", "uniqueItems": True}
+    covered = [v for v in cover_schema(nctx, schema) if isinstance(v, list)]
+    assert any(len(array) == 2 and array[0] == array[1] for array in covered), covered
+    assert any(len(array) == 2 and array[0] != array[1] for array in covered), covered
 
 
 def test_array_with_unique_items_enum_not_violated(pctx):

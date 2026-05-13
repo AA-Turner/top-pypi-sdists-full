@@ -133,6 +133,7 @@ class VoiceAssistantFeature(enum.IntFlag):
     TIMERS = 1 << 3
     ANNOUNCE = 1 << 4
     START_CONVERSATION = 1 << 5
+    MULTI_CHANNEL_AUDIO = 1 << 6
 
 
 class ZWaveProxyFeature(enum.IntFlag):
@@ -1384,6 +1385,7 @@ COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "valve": ValveInfo,
     "event": EventInfo,
     "update": UpdateInfo,
+    "water_heater": WaterHeaterInfo,
     "infrared": InfraredInfo,
     "radio_frequency": RadioFrequencyInfo,
 }
@@ -1840,6 +1842,7 @@ class VoiceAssistantCommand(APIModelBase):
 class VoiceAssistantAudioData(APIModelBase):
     data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
     end: bool = False
+    data2: bytes | None = None
 
 
 @_frozen_dataclass_decorator

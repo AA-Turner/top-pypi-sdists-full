@@ -15,6 +15,82 @@ import QuantConnect.Scheduling
 import QuantConnect.Securities
 import pandas
 
+QuantConnect_Research_QuantBook_UniverseHistory_T1 = typing.TypeVar("QuantConnect_Research_QuantBook_UniverseHistory_T1")
+QuantConnect_Research_QuantBook_UniverseHistory_T2 = typing.TypeVar("QuantConnect_Research_QuantBook_UniverseHistory_T2")
+QuantConnect_Research_QuantBook_PerformSelection_T1 = typing.TypeVar("QuantConnect_Research_QuantBook_PerformSelection_T1")
+QuantConnect_Research_QuantBook_PerformSelection_T2 = typing.TypeVar("QuantConnect_Research_QuantBook_PerformSelection_T2")
+
+
+class _Typed_QuantBook_UniverseHistory(typing.Generic[QuantConnect_Research_QuantBook_UniverseHistory_T1]):
+    """"""
+
+    @overload
+    def __call__(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Optional[datetime.datetime] = None, func: typing.Callable[[typing.List[QuantConnect_Research_QuantBook_UniverseHistory_T2]], typing.List[QuantConnect.Symbol]] = None, date_rule: QuantConnect.Scheduling.IDateRule = None) -> typing.Sequence[typing.Sequence[QuantConnect_Research_QuantBook_UniverseHistory_T2]]:
+        """
+        Will return the universe selection data and will optionally perform selection
+        
+        :param start: The start date
+        :param end: Optionally the end date, will default to today
+        :param func: Optionally the universe selection function
+        :param date_rule: Date rule to apply for the history data
+        :returns: Enumerable of universe selection data for each date, filtered if the func was provided.
+        """
+        ...
+
+
+class _QuantBook_UniverseHistory:
+    """"""
+
+    @overload
+    def __call__(self, universe: typing.Any, start: typing.Union[datetime.datetime, datetime.date], end: typing.Optional[datetime.datetime] = None, func: typing.Any = None, date_rule: QuantConnect.Scheduling.IDateRule = None, flatten: bool = False) -> typing.Any:
+        """
+        Will return the universe selection data and will optionally perform selection
+        
+        :param universe: The universe to fetch the data for
+        :param start: The start date
+        :param end: Optionally the end date, will default to today
+        :param func: Optionally the universe selection function
+        :param date_rule: Date rule to apply for the history data
+        :param flatten: Whether to flatten the resulting data frame.
+        For universe data, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
+        If flatten is true, the resulting data frame will contain one row per universe constituent,
+        and each property of the constituent will be a column in the data frame.
+        :returns: Enumerable of universe selection data for each date, filtered if the func was provided.
+        """
+        ...
+
+    @overload
+    def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe, start: typing.Union[datetime.datetime, datetime.date], end: typing.Optional[datetime.datetime] = None, date_rule: QuantConnect.Scheduling.IDateRule = None) -> typing.Sequence[typing.Sequence[QuantConnect.Data.BaseData]]:
+        """
+        Will return the universe selection data and will optionally perform selection
+        
+        :param universe: The universe to fetch the data for
+        :param start: The start date
+        :param end: Optionally the end date, will default to today
+        :param date_rule: Date rule to apply for the history data
+        :returns: Enumerable of universe selection data for each date, filtered if the func was provided.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Research_QuantBook_UniverseHistory_T1]) -> QuantConnect.Research._Typed_QuantBook_UniverseHistory[QuantConnect_Research_QuantBook_UniverseHistory_T1]:
+        ...
+
+
+class _Typed_QuantBook_PerformSelection(typing.Generic[QuantConnect_Research_QuantBook_PerformSelection_T1]):
+    """"""
+
+    @overload
+    def __call__(self, history: typing.List[QuantConnect_Research_QuantBook_PerformSelection_T2], process_data_point_function: typing.Callable[[QuantConnect_Research_QuantBook_PerformSelection_T2], QuantConnect_Research_QuantBook_PerformSelection_T1], get_time: typing.Callable[[QuantConnect_Research_QuantBook_PerformSelection_T2], datetime.datetime], start: typing.Union[datetime.datetime, datetime.date], end_date: typing.Union[datetime.datetime, datetime.date], date_rule: QuantConnect.Scheduling.IDateRule = None) -> typing.Sequence[QuantConnect_Research_QuantBook_PerformSelection_T1]:
+        """This Class is protected."""
+        ...
+
+
+class _QuantBook_PerformSelection:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Research_QuantBook_PerformSelection_T1]) -> QuantConnect.Research._Typed_QuantBook_PerformSelection[QuantConnect_Research_QuantBook_PerformSelection_T1]:
+        ...
+
 
 class OptionHistory(QuantConnect.Data.DataHistory[QuantConnect.Data.Slice]):
     """Class to manage information from History Request of Options"""
@@ -72,6 +148,12 @@ class FutureHistory(QuantConnect.Data.DataHistory[QuantConnect.Data.Slice]):
 
 class QuantBook(QuantConnect.Algorithm.QCAlgorithm):
     """Provides access to data for quantitative analysis"""
+
+    @property
+    def universe_history(self) -> QuantConnect.Research._QuantBook_UniverseHistory:
+        ...
+
+    perform_selection: QuantConnect.Research._QuantBook_PerformSelection
 
     def __init__(self) -> None:
         """
@@ -423,37 +505,6 @@ class QuantBook(QuantConnect.Algorithm.QCAlgorithm):
         :param fill_forward: True to fill forward missing data, false otherwise
         :param extended_market_hours: True to include extended market hours data, false otherwise
         :returns: A option_history object that contains historical option data.
-        """
-        ...
-
-    @overload
-    def universe_history(self, universe: typing.Any, start: typing.Union[datetime.datetime, datetime.date], end: typing.Optional[datetime.datetime] = None, func: typing.Any = None, date_rule: QuantConnect.Scheduling.IDateRule = None, flatten: bool = False) -> typing.Any:
-        """
-        Will return the universe selection data and will optionally perform selection
-        
-        :param universe: The universe to fetch the data for
-        :param start: The start date
-        :param end: Optionally the end date, will default to today
-        :param func: Optionally the universe selection function
-        :param date_rule: Date rule to apply for the history data
-        :param flatten: Whether to flatten the resulting data frame.
-        For universe data, the each row represents a day of data, and the data is stored in a list in a cell of the data frame.
-        If flatten is true, the resulting data frame will contain one row per universe constituent,
-        and each property of the constituent will be a column in the data frame.
-        :returns: Enumerable of universe selection data for each date, filtered if the func was provided.
-        """
-        ...
-
-    @overload
-    def universe_history(self, universe: QuantConnect.Data.UniverseSelection.Universe, start: typing.Union[datetime.datetime, datetime.date], end: typing.Optional[datetime.datetime] = None, date_rule: QuantConnect.Scheduling.IDateRule = None) -> typing.Sequence[typing.Sequence[QuantConnect.Data.BaseData]]:
-        """
-        Will return the universe selection data and will optionally perform selection
-        
-        :param universe: The universe to fetch the data for
-        :param start: The start date
-        :param end: Optionally the end date, will default to today
-        :param date_rule: Date rule to apply for the history data
-        :returns: Enumerable of universe selection data for each date, filtered if the func was provided.
         """
         ...
 

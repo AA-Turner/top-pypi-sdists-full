@@ -971,7 +971,6 @@ class Geoanalysis:
             pbar = tqdm(analysis_years, leave=False)
             for idx, year in enumerate(pbar):
                 pbar.set_description(f"Map {year}")
-                pbar.update()
 
                 df_harvest_year = df_model[df_model["Harvest Year"] == year]
 

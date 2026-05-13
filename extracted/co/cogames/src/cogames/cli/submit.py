@@ -26,7 +26,7 @@ from mettagrid.policy.prepare_policy_spec import extract_submission_archive, fin
 from mettagrid.policy.submission import POLICY_SPEC_FILENAME, SubmissionPolicySpec, write_submission_policy_spec
 from mettagrid.runner.types import PureSingleEpisodeResult
 from mettagrid.util.uri_resolvers.schemes import localize_uri, parse_uri
-from softmax.auth import DEFAULT_COGAMES_SERVER
+from softmax.auth import get_login_server
 
 DEFAULT_SUBMIT_SERVER = "https://api.observatory.softmax-research.net"
 DEFAULT_EPISODE_RUNNER_IMAGE = "ghcr.io/metta-ai/episode-runner:latest"
@@ -42,8 +42,8 @@ class UploadResult:
     pools: list[str] | None = None
 
 
-def observatory_home_url(*, login_server_url: str) -> str:
-    parsed = urlsplit(login_server_url)
+def observatory_home_url() -> str:
+    parsed = urlsplit(get_login_server())
     hostname = (parsed.hostname or "").removeprefix("api.")
     if parsed.port is None:
         netloc = hostname
@@ -461,23 +461,21 @@ def upload_submission(
         )
     upload_response.raise_for_status()
 
-    if not season:
-        console.print("[dim]Uploading policy...[/dim]")
-    else:
-        console.print(f"[dim]Uploading policy and submitting to season {season}...[/dim]")
+    console.print("[dim]Uploading policy...[/dim]")
 
     # Server checks actual S3 object size (catches old clients or misreported sizes). Only
     # the server knows the real size, so this try/except can't be replaced by a client-side check.
     try:
-        result = client.complete_policy_upload(
-            str(presigned.upload_id), submission_name, season=season, secret_env=secret_env
-        )
+        result = client.complete_policy_upload(str(presigned.upload_id), submission_name, secret_env=secret_env)
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 413:
             detail = e.response.json().get("detail", "Policy too large")
             console.print(f"[red]{detail}[/red]")
             raise typer.Exit(1) from None
         raise
+    if season:
+        console.print(f"[dim]Submitting policy to season {season}...[/dim]")
+        result.pools = client.submit_to_season(season, result.id).pools
     return UploadResult(
         policy_version_id=result.id,
         name=result.name,
@@ -491,7 +489,6 @@ def upload_policy(
     policy: str,
     name: str,
     include_files: list[str] | None = None,
-    login_server: str = DEFAULT_COGAMES_SERVER,
     server: str = DEFAULT_SUBMIT_SERVER,
     init_kwargs: dict[str, str] | None = None,
     dry_run: bool = False,
@@ -505,7 +502,7 @@ def upload_policy(
     if dry_run:
         console.print("[dim]Dry run mode - no upload[/dim]\n")
 
-    client = TournamentServerClient.from_login(server_url=server, login_server=login_server)
+    client = TournamentServerClient.from_login(server_url=server)
     if not client:
         raise typer.Exit(1)
 
@@ -531,8 +528,6 @@ def upload_policy(
                 zip_path.as_uri(),
                 "--server",
                 server,
-                "--login-server",
-                login_server,
             ]
             if validation_season:
                 cmd.extend(["--season", validation_season])

@@ -25,6 +25,7 @@ from schemathesis.generation.meta import (
 from schemathesis.openapi.checks import UseAfterFree
 from schemathesis.specs.openapi.checks import (
     ResourcePath,
+    _additional_properties_hint,
     _body_negation_becomes_valid_after_serialization,
     _is_prefix_operation,
     has_only_additional_properties_in_non_body_parameters,
@@ -107,23 +108,25 @@ def build_metadata(
     parameter=None,
     parameter_location=None,
     location=None,
+    mutations=None,
 ):
     # When the test pins a type-mutation description, also populate the structured
     # Mutation record so the case carries what the engine produces for the same case.
-    mutations: tuple[Mutation, ...] = ()
-    if description.startswith("Invalid type") and parameter is not None:
-        mutations = (
-            Mutation(
-                path=(parameter,),
-                schema_pointer=f"/properties/{parameter}",
-                channel=MutationChannel.SCHEMA,
-                operator=OperatorKind.CHANGE_TYPE,
-                keywords=("type",),
-                parameter=parameter,
-                original_value=None,
-                new_value=None,
-            ),
-        )
+    if mutations is None:
+        mutations = ()
+        if description.startswith("Invalid type") and parameter is not None:
+            mutations = (
+                Mutation(
+                    path=(parameter,),
+                    schema_pointer=f"/properties/{parameter}",
+                    channel=MutationChannel.SCHEMA,
+                    operator=OperatorKind.CHANGE_TYPE,
+                    keywords=("type",),
+                    parameter=parameter,
+                    original_value=None,
+                    new_value=None,
+                ),
+            )
     return CaseMetadata(
         generation=GenerationInfo(
             time=0.1,
@@ -230,6 +233,89 @@ def test_has_only_additional_properties_in_non_body_parameters(sample_schema, kw
     assert has_only_additional_properties_in_non_body_parameters(case) is expected
 
 
+def _mutation(operator, keywords, parameter=None):
+    return Mutation(
+        path=(parameter,) if parameter else (),
+        schema_pointer=f"/properties/{parameter}" if parameter else "",
+        channel=MutationChannel.SCHEMA if operator == OperatorKind.NEGATE_CONSTRAINTS else MutationChannel.VALUE,
+        operator=operator,
+        keywords=tuple(keywords),
+        parameter=parameter,
+        original_value=None,
+        new_value=None,
+    )
+
+
+_ADDITIONAL_PROPERTIES_MUTATION = _mutation(OperatorKind.NEGATE_CONSTRAINTS, ("additionalProperties",))
+_BODY_MIN_LENGTH_MUTATION = _mutation(OperatorKind.VALUE_VIOLATOR, ("minLength",), parameter="field")
+_PATH_PATTERN_MUTATION = _mutation(OperatorKind.VALUE_VIOLATOR, ("pattern",), parameter="id")
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "expected"),
+    [
+        pytest.param(
+            {
+                "query": {"key": 5, "unknown": 3},
+                "_meta": build_metadata(
+                    query=GenerationMode.NEGATIVE,
+                    path_parameters=GenerationMode.NEGATIVE,
+                    generation_mode=GenerationMode.NEGATIVE,
+                    parameter_location=ParameterLocation.QUERY,
+                    mutations=(_ADDITIONAL_PROPERTIES_MUTATION,),
+                ),
+            },
+            True,
+            id="phantom-path-negation-suppresses",
+        ),
+        # Issue #3730 reproducer: engine adds a nameless query param (`?=val`).
+        pytest.param(
+            {
+                "query": {"key": 5, "": "0"},
+                "_meta": build_metadata(
+                    query=GenerationMode.NEGATIVE,
+                    path_parameters=GenerationMode.NEGATIVE,
+                    generation_mode=GenerationMode.NEGATIVE,
+                    parameter_location=ParameterLocation.QUERY,
+                    mutations=(_ADDITIONAL_PROPERTIES_MUTATION,),
+                ),
+            },
+            True,
+            id="empty-name-query-extra-suppresses",
+        ),
+        pytest.param(
+            {
+                "query": {"key": 5, "unknown": 3},
+                "_meta": build_metadata(
+                    body=GenerationMode.NEGATIVE,
+                    generation_mode=GenerationMode.NEGATIVE,
+                    parameter_location=ParameterLocation.BODY,
+                    mutations=(_BODY_MIN_LENGTH_MUTATION,),
+                ),
+            },
+            False,
+            id="real-body-mutation-still-denies",
+        ),
+        pytest.param(
+            {
+                "query": {"key": 5, "unknown": 3},
+                "_meta": build_metadata(
+                    path_parameters=GenerationMode.NEGATIVE,
+                    generation_mode=GenerationMode.NEGATIVE,
+                    parameter_location=ParameterLocation.PATH,
+                    mutations=(_PATH_PATTERN_MUTATION,),
+                ),
+            },
+            False,
+            id="real-path-mutation-still-denies",
+        ),
+    ],
+)
+def test_has_only_additional_properties_mutations_aware(sample_schema, kwargs, expected):
+    case = sample_schema["/test"]["POST"].Case(**kwargs)
+    assert has_only_additional_properties_in_non_body_parameters(case) is expected
+
+
 def test_has_only_additional_properties_with_large_quantifier_pattern(ctx):
     # Patterns with large quantifiers require pattern_options with sufficient size_limit
     schema = ctx.openapi.load_schema(
@@ -260,15 +346,65 @@ def test_has_only_additional_properties_with_large_quantifier_pattern(ctx):
 
 
 @pytest.mark.parametrize(
+    ("body", "expected_hint"),
+    [
+        pytest.param({"a": 1, "b": {"x": "q"}}, None, id="declared-keys-only"),
+        pytest.param({"a": 1, "b": {"x": "q"}, "extra": "yes"}, "`extra`", id="real-extra-fires"),
+    ],
+)
+def test_additional_properties_hint_resolves_bundled_ref(ctx, body, expected_hint):
+    # Bundled `$ref` bodies must be resolved before classifying extras.
+    schema = ctx.openapi.from_full_schema(
+        {
+            "openapi": "3.0.2",
+            "info": {"title": "X", "version": "1"},
+            "paths": {
+                "/foo": {
+                    "post": {
+                        "requestBody": {
+                            "required": True,
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Foo"}}},
+                        },
+                        "responses": {"200": {"description": "OK"}},
+                    }
+                }
+            },
+            "components": {
+                "schemas": {
+                    "Foo": {
+                        "type": "object",
+                        "properties": {
+                            "a": {"type": "integer"},
+                            "b": {"$ref": "#/components/schemas/Bar"},
+                        },
+                    },
+                    "Bar": {"type": "object", "properties": {"x": {"type": "string"}}},
+                },
+            },
+        }
+    )
+    operation = schema["/foo"]["POST"]
+    case = operation.Case(body=body, media_type="application/json", method="POST")
+    hint = _additional_properties_hint(case)
+    if expected_hint is None:
+        assert hint is None, f"False positive: {hint!r}"
+    else:
+        assert hint is not None and expected_hint in hint, f"Expected mention of {expected_hint} in {hint!r}"
+
+
+@pytest.mark.parametrize(
     ("status_code", "should_raise"),
     [
         pytest.param(405, False, id="405-method-not-allowed-passes"),
+        # 409 short-circuits validation on uniqueness-gated endpoints (duplicate email etc.)
+        # before the server reaches the mutated field — treating it as "accepted" is a false positive.
+        pytest.param(409, False, id="409-conflict-passes"),
         pytest.param(200, True, id="200-still-flagged"),
     ],
 )
-def test_negative_data_rejection_status_code_405(response_factory, sample_schema, status_code, should_raise):
-    # 405 is routing-level rejection, not a data-validation outcome — supervisor
-    # warns separately when it dominates an operation.
+def test_negative_data_rejection_passes_for_rejection_status_codes(
+    response_factory, sample_schema, status_code, should_raise
+):
     response = response_factory.requests(status_code=status_code)
     operation = sample_schema["/test"]["POST"]
     case = operation.Case(

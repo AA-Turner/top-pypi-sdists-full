@@ -27,6 +27,9 @@ concurrency:
     ${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   # UTF-8 content may be interpreted as ascii and causes errors without this.
   LANG: C.UTF-8
@@ -49,6 +52,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Get Docker infos
         run: |
@@ -152,4 +157,4 @@ jobs:
           pytest -v --maxfail=2 --cov=ipyparallel ipyparallel/tests/test_ssh.py
 
       - name: Submit codecov report
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6

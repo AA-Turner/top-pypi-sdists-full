@@ -20,6 +20,11 @@ System_Collections_Concurrent_Partitioner_TSource = typing.TypeVar("System_Colle
 System_Collections_Concurrent_ConcurrentBag_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentBag_T")
 System_Collections_Concurrent_ConcurrentStack_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentStack_T")
 System_Collections_Concurrent_BlockingCollection_T = typing.TypeVar("System_Collections_Concurrent_BlockingCollection_T")
+System_Collections_Concurrent_ConcurrentDictionary_GetAlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_GetAlternateLookup_TAlternateKey")
+System_Collections_Concurrent_ConcurrentDictionary_TryGetAlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_TryGetAlternateLookup_TAlternateKey")
+System_Collections_Concurrent_ConcurrentDictionary_GetOrAdd_TArg = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_GetOrAdd_TArg")
+System_Collections_Concurrent_ConcurrentDictionary_AddOrUpdate_TArg = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_AddOrUpdate_TArg")
+System_Collections_Concurrent_Partitioner_Create_TSource = typing.TypeVar("System_Collections_Concurrent_Partitioner_Create_TSource")
 
 
 class IProducerConsumerCollection(typing.Generic[System_Collections_Concurrent_IProducerConsumerCollection_T], System.Collections.Generic.IEnumerable[System_Collections_Concurrent_IProducerConsumerCollection_T], System.Collections.ICollection, metaclass=abc.ABCMeta):
@@ -35,6 +40,82 @@ class IProducerConsumerCollection(typing.Generic[System_Collections_Concurrent_I
         ...
 
     def try_take(self, item: typing.Optional[System_Collections_Concurrent_IProducerConsumerCollection_T]) -> typing.Tuple[bool, System_Collections_Concurrent_IProducerConsumerCollection_T]:
+        ...
+
+
+class _Typed_ConcurrentDictionary_GetAlternateLookup(typing.Generic[System_Collections_Concurrent_ConcurrentDictionary_GetAlternateLookup_TAlternateKey]):
+    """"""
+
+    @overload
+    def __call__(self) -> System.Collections.Concurrent.ConcurrentDictionary.AlternateLookup[System_Collections_Concurrent_ConcurrentDictionary_GetAlternateLookup_TAlternateKey]:
+        ...
+
+
+class _ConcurrentDictionary_GetAlternateLookup:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Concurrent_ConcurrentDictionary_GetAlternateLookup_TAlternateKey]) -> System.Collections.Concurrent._Typed_ConcurrentDictionary_GetAlternateLookup[System_Collections_Concurrent_ConcurrentDictionary_GetAlternateLookup_TAlternateKey]:
+        ...
+
+
+class _Typed_ConcurrentDictionary_TryGetAlternateLookup(typing.Generic[System_Collections_Concurrent_ConcurrentDictionary_TryGetAlternateLookup_TAlternateKey]):
+    """"""
+
+    @overload
+    def __call__(self, lookup: typing.Optional[System.Collections.Concurrent.ConcurrentDictionary.AlternateLookup[System_Collections_Concurrent_ConcurrentDictionary_TryGetAlternateLookup_TAlternateKey]]) -> typing.Tuple[bool, System.Collections.Concurrent.ConcurrentDictionary.AlternateLookup[System_Collections_Concurrent_ConcurrentDictionary_TryGetAlternateLookup_TAlternateKey]]:
+        ...
+
+
+class _ConcurrentDictionary_TryGetAlternateLookup:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Concurrent_ConcurrentDictionary_TryGetAlternateLookup_TAlternateKey]) -> System.Collections.Concurrent._Typed_ConcurrentDictionary_TryGetAlternateLookup[System_Collections_Concurrent_ConcurrentDictionary_TryGetAlternateLookup_TAlternateKey]:
+        ...
+
+
+class _Typed_ConcurrentDictionary_GetOrAdd(typing.Generic[System_Collections_Concurrent_ConcurrentDictionary_GetOrAdd_TArg]):
+    """"""
+
+    @overload
+    def __call__(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_GetOrAdd_TArg], System_Collections_Concurrent_ConcurrentDictionary_TValue], factory_argument: System_Collections_Concurrent_ConcurrentDictionary_GetOrAdd_TArg) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
+        ...
+
+
+class _ConcurrentDictionary_GetOrAdd:
+    """"""
+
+    @overload
+    def __call__(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey], System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
+        ...
+
+    @overload
+    def __call__(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value: System_Collections_Concurrent_ConcurrentDictionary_TValue) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Collections_Concurrent_ConcurrentDictionary_GetOrAdd_TArg]) -> System.Collections.Concurrent._Typed_ConcurrentDictionary_GetOrAdd[System_Collections_Concurrent_ConcurrentDictionary_GetOrAdd_TArg]:
+        ...
+
+
+class _Typed_ConcurrentDictionary_AddOrUpdate(typing.Generic[System_Collections_Concurrent_ConcurrentDictionary_AddOrUpdate_TArg]):
+    """"""
+
+    @overload
+    def __call__(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, add_value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_AddOrUpdate_TArg], System_Collections_Concurrent_ConcurrentDictionary_TValue], update_value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue, System_Collections_Concurrent_ConcurrentDictionary_AddOrUpdate_TArg], System_Collections_Concurrent_ConcurrentDictionary_TValue], factory_argument: System_Collections_Concurrent_ConcurrentDictionary_AddOrUpdate_TArg) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
+        ...
+
+
+class _ConcurrentDictionary_AddOrUpdate:
+    """"""
+
+    @overload
+    def __call__(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, add_value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey], System_Collections_Concurrent_ConcurrentDictionary_TValue], update_value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue], System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
+        ...
+
+    @overload
+    def __call__(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, add_value: System_Collections_Concurrent_ConcurrentDictionary_TValue, update_value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue], System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Collections_Concurrent_ConcurrentDictionary_AddOrUpdate_TArg]) -> System.Collections.Concurrent._Typed_ConcurrentDictionary_AddOrUpdate[System_Collections_Concurrent_ConcurrentDictionary_AddOrUpdate_TArg]:
         ...
 
 
@@ -96,6 +177,22 @@ class ConcurrentDictionary(typing.Generic[System_Collections_Concurrent_Concurre
     def values(self) -> System.Collections.Generic.ICollection[System_Collections_Concurrent_ConcurrentDictionary_TValue]:
         ...
 
+    @property
+    def get_alternate_lookup(self) -> System.Collections.Concurrent._ConcurrentDictionary_GetAlternateLookup:
+        ...
+
+    @property
+    def try_get_alternate_lookup(self) -> System.Collections.Concurrent._ConcurrentDictionary_TryGetAlternateLookup:
+        ...
+
+    @property
+    def get_or_add(self) -> System.Collections.Concurrent._ConcurrentDictionary_GetOrAdd:
+        ...
+
+    @property
+    def add_or_update(self) -> System.Collections.Concurrent._ConcurrentDictionary_AddOrUpdate:
+        ...
+
     def __contains__(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey) -> bool:
         ...
 
@@ -139,14 +236,6 @@ class ConcurrentDictionary(typing.Generic[System_Collections_Concurrent_Concurre
     def __setitem__(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value: System_Collections_Concurrent_ConcurrentDictionary_TValue) -> None:
         ...
 
-    @overload
-    def add_or_update(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, add_value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey], System_Collections_Concurrent_ConcurrentDictionary_TValue], update_value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue], System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
-        ...
-
-    @overload
-    def add_or_update(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, add_value: System_Collections_Concurrent_ConcurrentDictionary_TValue, update_value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue], System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
-        ...
-
     def clear(self) -> None:
         ...
 
@@ -154,14 +243,6 @@ class ConcurrentDictionary(typing.Generic[System_Collections_Concurrent_Concurre
         ...
 
     def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]]:
-        ...
-
-    @overload
-    def get_or_add(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey], System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
-        ...
-
-    @overload
-    def get_or_add(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value: System_Collections_Concurrent_ConcurrentDictionary_TValue) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
         ...
 
     def to_array(self) -> typing.List[System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]]:
@@ -205,6 +286,9 @@ class ConcurrentQueue(typing.Generic[System_Collections_Concurrent_ConcurrentQue
         ...
 
     def __iter__(self) -> typing.Iterator[System_Collections_Concurrent_ConcurrentQueue_T]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def clear(self) -> None:
@@ -268,6 +352,41 @@ class EnumerablePartitionerOptions(IntEnum):
     NO_BUFFERING = ...
 
 
+class _Typed_Partitioner_Create(typing.Generic[System_Collections_Concurrent_Partitioner_Create_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, list: System.Collections.Generic.IList[System_Collections_Concurrent_Partitioner_Create_TSource], load_balance: bool) -> System.Collections.Concurrent.OrderablePartitioner[System_Collections_Concurrent_Partitioner_Create_TSource]:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Collections_Concurrent_Partitioner_Create_TSource], load_balance: bool) -> System.Collections.Concurrent.OrderablePartitioner[System_Collections_Concurrent_Partitioner_Create_TSource]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Collections_Concurrent_Partitioner_Create_TSource]) -> System.Collections.Concurrent.OrderablePartitioner[System_Collections_Concurrent_Partitioner_Create_TSource]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Collections_Concurrent_Partitioner_Create_TSource], partitioner_options: System.Collections.Concurrent.EnumerablePartitionerOptions) -> System.Collections.Concurrent.OrderablePartitioner[System_Collections_Concurrent_Partitioner_Create_TSource]:
+        ...
+
+
+class _Partitioner_Create:
+    """"""
+
+    @overload
+    def __call__(self, from_inclusive: int, to_exclusive: int) -> System.Collections.Concurrent.OrderablePartitioner[System.Tuple[int, int]]:
+        ...
+
+    @overload
+    def __call__(self, from_inclusive: int, to_exclusive: int, range_size: int) -> System.Collections.Concurrent.OrderablePartitioner[System.Tuple[int, int]]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Collections_Concurrent_Partitioner_Create_TSource]) -> System.Collections.Concurrent._Typed_Partitioner_Create[System_Collections_Concurrent_Partitioner_Create_TSource]:
+        ...
+
+
 class Partitioner(typing.Generic[System_Collections_Concurrent_Partitioner_TSource], System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -275,15 +394,7 @@ class Partitioner(typing.Generic[System_Collections_Concurrent_Partitioner_TSour
     def supports_dynamic_partitions(self) -> bool:
         ...
 
-    @staticmethod
-    @overload
-    def create(from_inclusive: int, to_exclusive: int) -> System.Collections.Concurrent.OrderablePartitioner[System.Tuple[int, int]]:
-        ...
-
-    @staticmethod
-    @overload
-    def create(from_inclusive: int, to_exclusive: int, range_size: int) -> System.Collections.Concurrent.OrderablePartitioner[System.Tuple[int, int]]:
-        ...
+    create: System.Collections.Concurrent._Partitioner_Create
 
     def get_dynamic_partitions(self) -> System.Collections.Generic.IEnumerable[System_Collections_Concurrent_Partitioner_TSource]:
         ...
@@ -312,6 +423,9 @@ class ConcurrentBag(typing.Generic[System_Collections_Concurrent_ConcurrentBag_T
         ...
 
     def __iter__(self) -> typing.Iterator[System_Collections_Concurrent_ConcurrentBag_T]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def add(self, item: System_Collections_Concurrent_ConcurrentBag_T) -> None:
@@ -356,6 +470,9 @@ class ConcurrentStack(typing.Generic[System_Collections_Concurrent_ConcurrentSta
         ...
 
     def __iter__(self) -> typing.Iterator[System_Collections_Concurrent_ConcurrentStack_T]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def clear(self) -> None:
@@ -432,6 +549,9 @@ class BlockingCollection(typing.Generic[System_Collections_Concurrent_BlockingCo
         ...
 
     def __iter__(self) -> typing.Iterator[System_Collections_Concurrent_BlockingCollection_T]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     @overload

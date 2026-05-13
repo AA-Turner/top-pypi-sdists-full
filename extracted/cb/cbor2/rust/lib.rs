@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 mod decoder;
 mod encoder;
 mod types;
@@ -8,6 +10,8 @@ use pyo3::prelude::pymodule;
 /// A Python module implemented in Rust.
 #[pymodule]
 mod _cbor2 {
+    use pyo3::buffer::PyBuffer;
+    use pyo3::exceptions::PyTypeError;
     use pyo3::prelude::*;
     use pyo3::sync::PyOnceLock;
     use pyo3::types::{PyBytes, PyMapping};
@@ -55,7 +59,7 @@ mod _cbor2 {
     #[pymodule_export]
     use crate::types::CBORDecodeEOF;
 
-    pub static SYS_MAXSIZE: PyOnceLock<usize> = PyOnceLock::new();
+    pub static SYS_MAXSIZE: PyOnceLock<u64> = PyOnceLock::new();
     pub static UNDEFINED: PyOnceLock<Py<UndefinedType>> = PyOnceLock::new();
     pub static BREAK_MARKER: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 
@@ -85,6 +89,9 @@ mod _cbor2 {
     /// :param allow_indefinite:
     ///     if :data:`False`, raise a :exc:`CBORDecodeError` when encountering an indefinite-length
     ///     string or container in the input stream
+    /// :param allow_duplicate_keys:
+    ///     if :data:`False`, raise a :exc:`CBORDecodeError` when a map key that has already been
+    ///     decoded in the same map is encountered
     /// :param immutable:
     ///     if :data:`True`, return immutable objects (e.g. :class:`frozenset` and :class:`tuple`)
     ///     instead of mutable objects (e.g. :class:`list` and :class:`dict`)
@@ -103,6 +110,7 @@ mod _cbor2 {
         read_size = 4096,
         max_depth = 400,
         allow_indefinite = true,
+        allow_duplicate_keys = true,
         immutable = false,
     ))]
     fn load<'py>(
@@ -115,6 +123,7 @@ mod _cbor2 {
         read_size: usize,
         max_depth: usize,
         allow_indefinite: bool,
+        allow_duplicate_keys: bool,
         immutable: bool,
     ) -> PyResult<Bound<'py, PyAny>> {
         let mut decoder = CBORDecoder::new(
@@ -127,6 +136,7 @@ mod _cbor2 {
             read_size,
             max_depth,
             allow_indefinite,
+            allow_duplicate_keys,
         )?;
         decoder.decode(py, immutable)
     }
@@ -134,7 +144,10 @@ mod _cbor2 {
     /// Deserialize an object from a bytestring.
     ///
     /// :param data:
-    ///     the bytestring to deserialize
+    ///     the bytestring (or any object implementing the buffer protocol) to deserialize
+    ///
+    ///     .. note:: Types other than :class:`bytes` will be converted to :class:`bytes`, involving
+    ///               memory copying.
     /// :param tag_hook:
     ///     callable that takes 2 arguments: the decoder instance, and the :class:`.CBORTag`
     ///     to be decoded. This callback is invoked for any tags for which there is no
@@ -156,6 +169,9 @@ mod _cbor2 {
     /// :param allow_indefinite:
     ///     if :data:`False`, raise a :exc:`CBORDecodeError` when encountering an indefinite-length
     ///     string or container in the input stream
+    /// :param allow_duplicate_keys:
+    ///     if :data:`False`, raise a :exc:`CBORDecodeError` when a map key that has already been
+    ///     decoded in the same map is encountered
     /// :param immutable:
     ///     if :data:`True`, return immutable objects (e.g. :class:`frozenset` and :class:`tuple`)
     ///     instead of mutable objects (e.g. :class:`list` and :class:`dict`)
@@ -173,23 +189,38 @@ mod _cbor2 {
         str_errors = "strict",
         max_depth = 400,
         allow_indefinite = true,
+        allow_duplicate_keys = true,
         immutable = false,
     ))]
     fn loads<'py>(
         py: Python<'py>,
-        data: Bound<'py, PyBytes>,
+        data: &Bound<'py, PyAny>,
         tag_hook: Option<&Bound<'py, PyAny>>,
         object_hook: Option<&Bound<'py, PyAny>>,
         semantic_decoders: Option<&Bound<'py, PyMapping>>,
         str_errors: &str,
         max_depth: usize,
         allow_indefinite: bool,
+        allow_duplicate_keys: bool,
         immutable: bool,
     ) -> PyResult<Bound<'py, PyAny>> {
+        let bytes = if let Ok(bytes) = data.cast::<PyBytes>() {
+            bytes.clone()
+        } else if let Ok(pybuf) = PyBuffer::<u8>::get(data) {
+            PyBytes::new_with(py, pybuf.item_count(), |target| {
+                pybuf.copy_to_slice(py, target)
+            })?
+        } else {
+            return Err(PyTypeError::new_err(format!(
+                "a bytes-like object is required, not '{}'",
+                data.get_type().qualname()?
+            )));
+        };
+
         let mut decoder = CBORDecoder::new_internal(
             py,
             None,
-            Some(data),
+            Some(bytes),
             tag_hook,
             object_hook,
             semantic_decoders,
@@ -197,6 +228,7 @@ mod _cbor2 {
             0,
             max_depth,
             allow_indefinite,
+            allow_duplicate_keys,
         )?;
         decoder.decode(py, immutable)
     }

@@ -13,7 +13,7 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class IngestFileRequest(_message.Message):
-    __slots__ = ("ingest_job_rid", "dataset_file_id", "dataset_rid", "org_rid", "workspace_rid", "handle", "timestamp_metadata", "additional_tags", "log_ingest", "data_ingest", "file_created_at")
+    __slots__ = ("ingest_job_rid", "dataset_file_id", "dataset_rid", "org_rid", "workspace_rid", "handle", "timestamp_metadata", "additional_tags", "log_ingest", "data_ingest", "file_created_at", "is_primary")
     class AdditionalTagsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -32,6 +32,7 @@ class IngestFileRequest(_message.Message):
     LOG_INGEST_FIELD_NUMBER: _ClassVar[int]
     DATA_INGEST_FIELD_NUMBER: _ClassVar[int]
     FILE_CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    IS_PRIMARY_FIELD_NUMBER: _ClassVar[int]
     ingest_job_rid: str
     dataset_file_id: str
     dataset_rid: str
@@ -43,7 +44,8 @@ class IngestFileRequest(_message.Message):
     log_ingest: LogFileIngest
     data_ingest: DataFileIngest
     file_created_at: _timestamp_pb2.Timestamp
-    def __init__(self, ingest_job_rid: _Optional[str] = ..., dataset_file_id: _Optional[str] = ..., dataset_rid: _Optional[str] = ..., org_rid: _Optional[str] = ..., workspace_rid: _Optional[str] = ..., handle: _Optional[_Union[_handle_pb2.Handle, _Mapping]] = ..., timestamp_metadata: _Optional[_Union[TimestampMetadata, _Mapping]] = ..., additional_tags: _Optional[_Mapping[str, str]] = ..., log_ingest: _Optional[_Union[LogFileIngest, _Mapping]] = ..., data_ingest: _Optional[_Union[DataFileIngest, _Mapping]] = ..., file_created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    is_primary: bool
+    def __init__(self, ingest_job_rid: _Optional[str] = ..., dataset_file_id: _Optional[str] = ..., dataset_rid: _Optional[str] = ..., org_rid: _Optional[str] = ..., workspace_rid: _Optional[str] = ..., handle: _Optional[_Union[_handle_pb2.Handle, _Mapping]] = ..., timestamp_metadata: _Optional[_Union[TimestampMetadata, _Mapping]] = ..., additional_tags: _Optional[_Mapping[str, str]] = ..., log_ingest: _Optional[_Union[LogFileIngest, _Mapping]] = ..., data_ingest: _Optional[_Union[DataFileIngest, _Mapping]] = ..., file_created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., is_primary: bool = ...) -> None: ...
 
 class LogFileIngest(_message.Message):
     __slots__ = ("log_channel",)

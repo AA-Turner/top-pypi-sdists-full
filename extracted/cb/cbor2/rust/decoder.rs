@@ -6,9 +6,9 @@ use crate::decoder::DecoderResult::{
 #[cfg(not(Py_3_15))]
 use crate::types::FrozenDict;
 use crate::types::{
-    CBORDecodeEOF, CBORDecodeError, CBORSimpleValue, CBORTag, DECIMAL_TYPE,
-    FRACTION_TYPE, IPV4ADDRESS_TYPE, IPV4INTERFACE_TYPE, IPV4NETWORK_TYPE, IPV6ADDRESS_TYPE,
-    IPV6INTERFACE_TYPE, IPV6NETWORK_TYPE, UUID_TYPE,
+    CBORDecodeEOF, CBORDecodeError, CBORSimpleValue, CBORTag, DECIMAL_TYPE, FRACTION_TYPE,
+    IPV4ADDRESS_TYPE, IPV4INTERFACE_TYPE, IPV4NETWORK_TYPE, IPV6ADDRESS_TYPE, IPV6INTERFACE_TYPE,
+    IPV6NETWORK_TYPE, UUID_TYPE,
 };
 use crate::utils::{PyImportable, create_exc_from, raise_exc_from};
 use half::f16;
@@ -63,7 +63,7 @@ enum DecoderResult<'a> {
 
 enum DisplayName<'a> {
     String(&'static str),
-    SemanticTag(usize),
+    SemanticTag(u64),
     PythonName(Bound<'a, PyAny>),
 }
 
@@ -172,6 +172,9 @@ fn require_tuple<'py>(value: Bound<'py, PyAny>, length: usize) -> PyResult<Bound
 /// :param allow_indefinite:
 ///     if :data:`False`, raise a :exc:`CBORDecodeError` when encountering an indefinite-length
 ///     string or container in the input stream
+/// :param allow_duplicate_keys:
+///     if :data:`False`, raise a :exc:`CBORDecodeError` when a map key that has already been
+///     decoded in the same map is encountered
 ///
 /// .. _CBOR: https://cbor.io/
 #[pyclass(module = "cbor2")]
@@ -187,6 +190,8 @@ pub struct CBORDecoder {
     max_depth: usize,
     #[pyo3(get)]
     allow_indefinite: bool,
+    #[pyo3(get)]
+    allow_duplicate_keys: bool,
 
     read_method: Option<Py<PyAny>>,
     buffer: Option<Py<PyBytes>>,
@@ -207,6 +212,7 @@ impl CBORDecoder {
         read_size: usize,
         max_depth: usize,
         allow_indefinite: bool,
+        allow_duplicate_keys: bool,
     ) -> PyResult<Self> {
         let available_bytes = if let Some(buffer) = buffer.as_ref() {
             buffer.len()?
@@ -222,6 +228,7 @@ impl CBORDecoder {
             read_size,
             max_depth,
             allow_indefinite,
+            allow_duplicate_keys,
             semantic_decoders: semantic_decoders.map(|d| d.clone().unbind()),
             read_method: None,
             buffer: buffer.map(Bound::unbind),
@@ -302,7 +309,7 @@ impl CBORDecoder {
         Ok((major_type, subtype))
     }
 
-    fn decode_length_finite(&mut self, py: Python<'_>, subtype: u8) -> PyResult<usize> {
+    fn decode_length_finite(&mut self, py: Python<'_>, subtype: u8) -> PyResult<u64> {
         match self.decode_length(py, subtype)? {
             Some(length) => Ok(length),
             None => Err(CBORDecodeError::new_err(
@@ -310,6 +317,20 @@ impl CBORDecoder {
             )),
         }
     }
+
+    /// Like [`decode_length`], but converts `Some(u64)` to `Some(usize)`, returning
+    /// a [`CBORDecodeError`] if the value exceeds the platform's address space.
+    fn decode_length_as_usize(&mut self, py: Python<'_>, subtype: u8) -> PyResult<Option<usize>> {
+        match self.decode_length(py, subtype)? {
+            Some(length) => usize::try_from(length).map(Some).map_err(|_| {
+                CBORDecodeError::new_err(format!(
+                    "huge item length {length} exceeds the system address space"
+                ))
+            }),
+            None => Ok(None),
+        }
+    }
+
     //
     // Decoders for major tags (0-7)
     //
@@ -320,13 +341,13 @@ impl CBORDecoder {
     ///
     /// :param subtype:
     /// :return: the length of the item, or :data:`None` to indicate an indefinite-length item
-    fn decode_length(&mut self, py: Python<'_>, subtype: u8) -> PyResult<Option<usize>> {
+    fn decode_length(&mut self, py: Python<'_>, subtype: u8) -> PyResult<Option<u64>> {
         let length = match subtype {
-            ..24 => Some(subtype as usize),
-            24 => Some(self.read_exact::<1>(py)?[0] as usize),
-            25 => Some(u16::from_be_bytes(self.read_exact(py)?) as usize),
-            26 => Some(u32::from_be_bytes(self.read_exact(py)?) as usize),
-            27 => Some(u64::from_be_bytes(self.read_exact(py)?) as usize),
+            ..24 => Some(subtype as u64),
+            24 => Some(self.read_exact::<1>(py)?[0] as u64),
+            25 => Some(u16::from_be_bytes(self.read_exact(py)?) as u64),
+            26 => Some(u32::from_be_bytes(self.read_exact(py)?) as u64),
+            27 => Some(u64::from_be_bytes(self.read_exact(py)?)),
             31 => {
                 if !self.allow_indefinite {
                     return Err(CBORDecodeError::new_err(
@@ -346,13 +367,13 @@ impl CBORDecoder {
 
     fn decode_uint<'py>(&mut self, py: Python<'py>, subtype: u8) -> PyResult<DecoderResult<'py>> {
         // Major tag 0
-        let uint = self.decode_length_finite(py, subtype)?;
+        let uint: u64 = self.decode_length_finite(py, subtype)?;
         Ok(Value(uint.into_bound_py_any(py)?))
     }
 
     fn decode_negint<'py>(&mut self, py: Python<'py>, subtype: u8) -> PyResult<DecoderResult<'py>> {
         // Major tag 1
-        let uint = self.decode_length_finite(py, subtype)?;
+        let uint: u64 = self.decode_length_finite(py, subtype)?;
         let signed_int = -(uint as i128) - 1;
         Ok(Value(signed_int.into_bound_py_any(py)?))
     }
@@ -363,7 +384,7 @@ impl CBORDecoder {
         subtype: u8,
     ) -> PyResult<DecoderResult<'py>> {
         // Major tag 2
-        match self.decode_length(py, subtype)? {
+        match self.decode_length_as_usize(py, subtype)? {
             None => {
                 // Indefinite length
                 let mut bytes = PyBytes::new(py, b"");
@@ -378,6 +399,7 @@ impl CBORDecoder {
                                     "chunk too long in an indefinite bytestring chunk: {length}"
                                 )));
                             }
+                            let length = length as usize;
                             let chunk = self.read(py, length)?;
                             bytes = bytes.add(chunk)?.cast_into()?;
                         }
@@ -412,7 +434,7 @@ impl CBORDecoder {
 
     fn decode_string<'py>(&mut self, py: Python<'py>, subtype: u8) -> PyResult<DecoderResult<'py>> {
         // Major tag 3
-        match self.decode_length(py, subtype)? {
+        match self.decode_length_as_usize(py, subtype)? {
             None => {
                 // Indefinite length
                 let mut string = PyString::new(py, "");
@@ -427,6 +449,7 @@ impl CBORDecoder {
                                     "chunk too long in an indefinite text string chunk: {length}"
                                 )));
                             }
+                            let length = length as usize;
                             let bytes = self.read(py, length)?;
                             let decoded = match self.str_errors.as_ref() {
                                 None => PyString::from_bytes(py, bytes.as_slice()),
@@ -436,9 +459,7 @@ impl CBORDecoder {
                                         intern!(py, "decode"),
                                         (intern!(py, "utf-8"), str_errors),
                                     )
-                                    .and_then(|string| {
-                                        string.cast_into().map_err(|e| PyErr::from(e))
-                                    }),
+                                    .and_then(|string| string.cast_into().map_err(PyErr::from)),
                             }?;
                             string = string.add(decoded)?.cast_into()?;
                         }
@@ -501,7 +522,7 @@ impl CBORDecoder {
         immutable: bool,
     ) -> PyResult<DecoderResult<'py>> {
         // Major tag 4
-        let optional_length = self.decode_length(py, subtype)?;
+        let optional_length = self.decode_length_as_usize(py, subtype)?;
         if immutable {
             let mut items: Vec<Bound<'py, PyAny>> = Vec::new();
             let callback: Box<DecoderCallback<'py>> = if let Some(length) = optional_length {
@@ -620,7 +641,8 @@ impl CBORDecoder {
         }
 
         let object_hook = self.object_hook.as_ref().map(|hook| hook.clone_ref(py));
-        let length_or_none = self.decode_length(py, subtype)?;
+        let allow_duplicate_keys = self.allow_duplicate_keys;
+        let length_or_none = self.decode_length_as_usize(py, subtype)?;
 
         // Return immediately if this is an empty dict
         if let Some(length) = length_or_none
@@ -638,10 +660,30 @@ impl CBORDecoder {
 
         let mut key: Option<Bound<'py, PyAny>> = None;
         if immutable {
+            let seen_keys: Option<Bound<'py, PySet>> = if allow_duplicate_keys {
+                None
+            } else {
+                Some(PySet::empty(py)?)
+            };
+            let check_duplicate = move |key: &Bound<'py, PyAny>| -> PyResult<()> {
+                let seen = seen_keys.as_ref().unwrap();
+                if seen.contains(key)? {
+                    let repr = key.repr()?;
+                    return Err(CBORDecodeError::new_err(format!(
+                        "Duplicate map key: {}",
+                        repr.to_str()?
+                    )));
+                }
+                seen.add(key.clone())
+            };
+
             let mut items: Vec<(Bound<'py, PyAny>, Bound<'py, PyAny>)> = Vec::new();
             let callback: Box<DecoderCallback<'py>> = if let Some(length) = length_or_none {
                 Box::new(move |item: Bound<'py, PyAny>, _immutable: bool| {
                     if let Some(key) = key.take() {
+                        if !allow_duplicate_keys {
+                            check_duplicate(&key)?;
+                        }
                         items.push((key, item));
                         if items.len() == length {
                             let transformed = maybe_call_object_hook(
@@ -669,8 +711,11 @@ impl CBORDecoder {
                             object_hook.as_ref(),
                             immutable,
                         )?;
-                        return Ok(CompleteFrame(transformed));
+                        Ok(CompleteFrame(transformed))
                     } else if let Some(key) = key.take() {
+                        if !allow_duplicate_keys {
+                            check_duplicate(&key)?;
+                        }
                         items.push((key, item));
                         Ok(ContinueFrame(true))
                     } else {
@@ -681,13 +726,29 @@ impl CBORDecoder {
             };
             Ok(BeginFrame(callback, true, None, DisplayName::String("map")))
         } else {
+            fn check_duplicate(key: &Bound<PyAny>, dict: &Bound<PyDict>) -> PyResult<()> {
+                if dict.contains(key)? {
+                    let repr = key.repr()?;
+                    return Err(CBORDecodeError::new_err(format!(
+                        "Duplicate map key: {}",
+                        repr.to_str()?
+                    )));
+                }
+                Ok(())
+            }
+
             let mut dict = PyDict::new(py);
             let container = dict.clone().into_any();
             let callback: Box<DecoderCallback<'py>> = if let Some(length) = length_or_none {
+                let mut count = 0usize;
                 Box::new(move |item: Bound<'py, PyAny>, _immutable: bool| {
                     if let Some(key) = key.take() {
-                        dict.set_item(key, item)?;
-                        if dict.len() == length {
+                        if !allow_duplicate_keys {
+                            check_duplicate(&key, &dict)?;
+                        }
+                        dict.set_item(&key, item)?;
+                        count += 1;
+                        if count == length {
                             let dict = replace(&mut dict, PyDict::new(py));
                             let transformed = maybe_call_object_hook(
                                 py,
@@ -714,9 +775,12 @@ impl CBORDecoder {
                             object_hook.as_ref(),
                             immutable,
                         )?;
-                        return Ok(CompleteFrame(transformed));
+                        Ok(CompleteFrame(transformed))
                     } else if let Some(key) = key.take() {
-                        dict.set_item(key, item)?;
+                        if !allow_duplicate_keys {
+                            check_duplicate(&key, &dict)?;
+                        }
+                        dict.set_item(&key, item)?;
                         Ok(ContinueFrame(true))
                     } else {
                         key = Some(item);
@@ -741,7 +805,7 @@ impl CBORDecoder {
     ) -> PyResult<DecoderResult<'py>> {
         let tagnum = self.decode_length_finite(py, subtype)?;
         if let Some(semantic_decoders) = &self.semantic_decoders {
-            match semantic_decoders.bind(py).get_item(&tagnum) {
+            match semantic_decoders.bind(py).get_item(tagnum) {
                 Ok(decoder) => {
                     let name = decoder.getattr_opt(intern!(py, NAME_ATTR))?;
 
@@ -925,7 +989,7 @@ impl CBORDecoder {
                 py,
                 CBORDecodeError::new_err(format!(
                     "expected string for tag, got {} instead",
-                    value_type.to_string()
+                    value_type
                 )),
                 Some(PyErr::from(e)),
             )
@@ -939,18 +1003,18 @@ impl CBORDecoder {
             let mut temp_str = datetime_str.to_string().replacen("Z", "+00:00", 1);
 
             // Pad any microseconds part with zeros
-            if let Some((first, second)) = temp_str.split_once('.') {
-                if let Some(index) = second.find(|c: char| !c.is_numeric()) {
-                    let (mut micros, tz_part) = second.split_at(index);
-                    // Cut off excess zeroes from the start of the microseconds part
-                    if micros.len() >= 6 {
-                        micros = &micros[..6];
-                    }
-
-                    // Reconstitute the datetime string, right-padding the microseconds part
-                    // with zeroes
-                    temp_str = format!("{first}.{micros:0<6}{tz_part}");
+            if let Some((first, second)) = temp_str.split_once('.')
+                && let Some(index) = second.find(|c: char| !c.is_numeric())
+            {
+                let (mut micros, tz_part) = second.split_at(index);
+                // Cut off excess zeroes from the start of the microseconds part
+                if micros.len() >= 6 {
+                    micros = &micros[..6];
                 }
+
+                // Reconstitute the datetime string, right-padding the microseconds part
+                // with zeroes
+                temp_str = format!("{first}.{micros:0<6}{tz_part}");
             }
 
             datetime_str = temp_str.into_pyobject(py)?;
@@ -1256,7 +1320,7 @@ impl CBORDecoder {
         } else {
             Some(PySet::empty(py)?.into_any())
         };
-        let container = set_or_none.as_ref().map(|set| set.clone());
+        let container = set_or_none.clone();
         let callback = move |item: Bound<'py, PyAny>, _immutable: bool| {
             let container: Bound<'py, PyAny> = if let Some(set) = set_or_none.take() {
                 set.call_method1(intern!(py, "update"), (item,))?;
@@ -1289,6 +1353,7 @@ impl CBORDecoder {
         read_size = 4096,
         max_depth = 400,
         allow_indefinite = true,
+        allow_duplicate_keys = true,
     ))]
     pub fn new(
         py: Python<'_>,
@@ -1300,6 +1365,7 @@ impl CBORDecoder {
         read_size: usize,
         max_depth: usize,
         allow_indefinite: bool,
+        allow_duplicate_keys: bool,
     ) -> PyResult<Self> {
         Self::new_internal(
             py,
@@ -1312,6 +1378,7 @@ impl CBORDecoder {
             read_size,
             max_depth,
             allow_indefinite,
+            allow_duplicate_keys,
         )
     }
 
@@ -1608,16 +1675,16 @@ impl CBORDecoder {
                 }
                 Ok(StringValue(string, length)) => {
                     // Conditionally add the string to the innermost string namespace
-                    if let Some(namespace) = string_namespaces.last_mut() {
-                        if match namespace.len() {
+                    if let Some(namespace) = string_namespaces.last_mut()
+                        && match namespace.len() {
                             0..24 => length >= 3,
                             24..256 => length >= 4,
                             256..65536 => length >= 5,
-                            65536..4294967296 => length >= 6,
+                            65536..=4294967295 => length >= 6,
                             _ => length >= 11,
-                        } {
-                            namespace.push(string.clone());
                         }
+                    {
+                        namespace.push(string.clone());
                     }
                     value = Some(string);
                 }
@@ -1682,13 +1749,9 @@ impl CBORDecoder {
                     // If a ValueError was raised, wrap it in a CBORDecodeError
                     return if err.is_instance_of::<CBORDecodeError>(py) {
                         Err(err)
-                    } else if err.is_instance_of::<PyValueError>(py) {
-                        Err(create_exc_from(
-                            py,
-                            CBORDecodeError::new_err(err.to_string()),
-                            Some(err),
-                        ))
-                    } else if err.is_instance_of::<PyException>(py) {
+                    } else if err.is_instance_of::<PyValueError>(py)
+                        || err.is_instance_of::<PyException>(py)
+                    {
                         Err(create_exc_from(
                             py,
                             CBORDecodeError::new_err(err.to_string()),

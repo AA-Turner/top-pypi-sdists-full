@@ -152,6 +152,76 @@ class ValidatePoliciesTestCase(unittest.TestCase):
         self.assertIn("ValidationResult", repr_str)
         self.assertIn("validation_passed=True", repr_str)
 
+    def test_id_annotation_renames_policy_id_in_validation_errors(self):
+        """Validation errors should report the @id-annotated policy id."""
+        policy_with_id = """
+            @id("alice_view_bad_entity")
+            permit(
+                principal == Usr::"alice",
+                action == Action::"view",
+                resource
+            );
+        """
+        result = validate_policies(policy_with_id, self.schema)
+
+        self.assertFalse(result.validation_passed)
+        self.assertGreater(len(result.errors), 0)
+        self.assertEqual("alice_view_bad_entity", result.errors[0].policy_id)
+
+    def test_validation_error_reports_parser_id_when_no_id_annotation(self):
+        """Un-annotated policies should surface in validation errors with
+        their parser-generated id (e.g. 'policy0'). This is the fallback when
+        no @id annotation is present.
+        """
+        policy_without_id = """
+            permit(
+                principal == Usr::"alice",
+                action == Action::"view",
+                resource
+            );
+        """
+        result = validate_policies(policy_without_id, self.schema)
+
+        self.assertFalse(result.validation_passed)
+        self.assertGreater(len(result.errors), 0)
+        self.assertEqual("policy0", result.errors[0].policy_id)
+
+    def test_validate_with_duplicate_policy_id_annotations(self):
+        """Two policies sharing the same @id annotation do not fail validation.
+
+        Per Cedar's documented semantics
+        (https://docs.cedarpolicy.com/policies/syntax-policy.html#term-parc-annotations),
+        annotations have no impact on policy evaluation and @id is not special
+        in the Cedar language. cedar-py treats @id as a labeling concern only,
+        so duplicate values are accepted — rejecting them would be a
+        cedar-py-specific behavior that diverges from Cedar and from cedar-py
+        4.8.1 (which accepted duplicates because it ignored @id entirely).
+
+        Validation runs against the parser-generated PolicyIds; the @id value
+        is only resolved when serializing ValidationError.policy_id.
+        """
+        policies = """
+            @id("dup")
+            permit(
+                principal == User::"alice",
+                action == Action::"view",
+                resource
+            );
+            @id("dup")
+            permit(
+                principal == User::"bob",
+                action == Action::"view",
+                resource
+            );
+        """
+        result = validate_policies(policies, self.schema)
+
+        self.assertTrue(
+            result.validation_passed,
+            f"validation should pass; got errors: {[str(e) for e in result.errors]}",
+        )
+        self.assertEqual([], result.errors)
+
 
 class ValidatePoliciesWithCedarSchemaTestCase(unittest.TestCase):
     """Tests for validate_policies with Cedar schema syntax (not JSON)."""

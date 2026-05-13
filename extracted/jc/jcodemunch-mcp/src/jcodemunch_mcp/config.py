@@ -34,6 +34,7 @@ ENV_VAR_MAPPING = {
     "JCODEMUNCH_CONTEXT_PROVIDERS": "context_providers",
     "JCODEMUNCH_REDACT_SOURCE_ROOT": "redact_source_root",
     "JCODEMUNCH_GIT_ROOT_IDENTITY": "git_root_identity",
+    "JCODEMUNCH_GIT_BLAME_ENABLED": "git_blame_enabled",
     "JCODEMUNCH_STATS_FILE_INTERVAL": "stats_file_interval",
     "JCODEMUNCH_SHARE_SAVINGS": "share_savings",
     "JCODEMUNCH_PERF_TELEMETRY": "perf_telemetry_enabled",
@@ -328,7 +329,7 @@ DEFAULTS = {
             "get_dependency_cycles", "get_coupling_metrics",
             "get_layer_violations", "get_cross_repo_map", "get_group_contracts",
             "get_tectonic_map", "get_signal_chains", "render_diagram",
-            "get_project_intel", "invalidate_cache", "get_watch_status",
+            "get_project_intel", "list_workspaces", "invalidate_cache", "get_watch_status",
             "analyze_perf", "tune_weights", "check_embedding_drift",
             "digest", "diff_health_radar", "get_file_risk",
             "import_runtime_signal", "get_runtime_coverage",
@@ -373,6 +374,7 @@ DEFAULTS = {
     "log_file": None,
     "redact_source_root": False,
     "git_root_identity": True,
+    "git_blame_enabled": True,
     "stats_file_interval": 3,
     "share_savings": True,
     "perf_telemetry_enabled": False,
@@ -456,6 +458,7 @@ CONFIG_TYPES = {
     "log_file": (str, type(None)),
     "redact_source_root": bool,
     "git_root_identity": bool,
+    "git_blame_enabled": bool,
     "stats_file_interval": int,
     "share_savings": bool,
     "perf_telemetry_enabled": bool,
@@ -1402,6 +1405,32 @@ def generate_template() -> str:
   //   Enable context providers for enhanced AI summarization.
   //   Set false to disable (faster indexing, less context).
 
+  // "identity_mode": "git",
+  //   How index_folder derives the repo identifier for a local path.
+  //   Existing indexes keep their current identity regardless of this
+  //   setting — this only affects NEW indexes.
+  //
+  //   Choices:
+  //     "local" (default) — repo ID is `local/<basename>-<hash>`.
+  //       No git subprocess, no remote detection. Fast and portable.
+  //       Each folder gets its own index. Works for non-git projects,
+  //       local-only clones, and simple git workflows.
+  //
+  //     "git" — repo ID is `<owner>/<repo>` derived from the origin
+  //       remote URL. Runs a git subprocess on every index/reindex.
+  //       Enables monorepo subdir merging (multiple subdirs of the
+  //       same git root share one index). Requires a git working tree
+  //       with an origin remote. Falls back to local when detection
+  //       fails.
+  //
+  //   To switch an existing index: run invalidate_cache first, then
+  //   re-index with the new mode.
+
+  // "git_root_identity": true,
+  //   Deprecated boolean alias for identity_mode. When identity_mode
+  //   is not set, `true` here is equivalent to `"identity_mode": "git"`.
+  //   Prefer identity_mode for new configurations.
+
   // === Meta Response Control ===
   // Allowlist of _meta fields to include in responses.
   // [] (default) = no _meta at all (maximum token savings).
@@ -1507,7 +1536,7 @@ def generate_template() -> str:
       "get_dependency_cycles", "get_coupling_metrics",
       "get_layer_violations", "get_cross_repo_map", "get_group_contracts",
       "get_tectonic_map", "get_signal_chains", "render_diagram",
-      "get_project_intel", "invalidate_cache"
+      "get_project_intel", "list_workspaces", "invalidate_cache"
     ]
   }},
 
@@ -1603,6 +1632,28 @@ def generate_template() -> str:
   //   DEBUG, INFO, WARNING, ERROR, CRITICAL. WARNING is default for less noise.
   // "log_file": null,
   //   Path to log file. null = write to stderr.
+
+  // === Identity & Indexing Behavior ===
+  // "git_root_identity": true,
+  //   When the indexed path lives inside a git working tree, anchor
+  //   `index_folder` at the git root. Indexing a subdir then walks the
+  //   subdir only, but file paths are stored git-root-relative — so
+  //   `index ./packages` and `index ./scripts` coalesce into one repo
+  //   index per clone. Useful for monorepos and worktrees.
+  //   Set false to revert to pre-v1.96 behavior: `local/<folder>-<hash>`
+  //   identity derived from the resolved path, with no retargeting.
+  //   Choose `false` when you deliberately want a subdir to be its own
+  //   independent index, separate from any enclosing git repo.
+  //   (v1.108.2: the git-root probe is now properly skipped when this
+  //   is false — prior versions still paid the probe cost.)
+  // "git_blame_enabled": true,
+  //   Run the git_blame context provider during indexing to attach
+  //   `last_author` and `last_modified` to each file's context. The
+  //   walk is bounded (latest 20k commits or 2 years, whichever fires
+  //   first; 10s wall-clock cap). On legacy repos with very deep
+  //   history those bounds may still not be enough — set false to
+  //   skip the probe entirely. Index still builds; only the blame
+  //   metadata is omitted.
 
   // === Privacy & Telemetry ===
   // "redact_source_root": false,

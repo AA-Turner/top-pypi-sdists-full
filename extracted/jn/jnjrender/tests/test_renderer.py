@@ -7,7 +7,7 @@ class TestRenderer(unittest.TestCase):
         template_str = "key: {{ value }}"
         context = {"value": "example"}
         result = render_jinja_to_yaml(template_str, context)
-        self.assertEqual(result["key"], "example")
+        self.assertEqual(result, "key: example")
 
 if __name__ == "__main__":
     unittest.main()

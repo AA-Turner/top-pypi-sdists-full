@@ -11,6 +11,8 @@ import numpy as np
 import pandas as pd
 from tqdm.rich import tqdm
 
+from geocif.progress import pbar as _pbar
+
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Haversine distance between two points in kilometers."""
@@ -196,7 +198,7 @@ def add_neighbor_features(
         mean_corr = np.mean([w for _, w in edges]) if edges else 0.0
         region_meta[region] = (active, mean_corr)
 
-    for (region, year), indices in tqdm(grouped_idx.items(), desc="Neighbor features", leave=False):
+    for (region, year), indices in _pbar(grouped_idx.items(), desc="Neighbor features", leave=False):
         meta = region_meta.get(region)
         if meta is None:
             out_yield_hist[indices] = yield_medians.get(region, np.nan)

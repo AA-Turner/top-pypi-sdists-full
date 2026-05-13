@@ -20,11 +20,11 @@ class InvalidForexOrderSizeAnalysis(QuantConnect.Lean.Engine.Results.Analysis.An
 
     @property
     def expected_message_text(self) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
 
@@ -44,11 +44,11 @@ class UnsupportedExerciseForIndexAndCashSettledOptionsAnalysis(QuantConnect.Lean
 
     @property
     def expected_message_text(self) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
 

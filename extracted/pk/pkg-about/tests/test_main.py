@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: Zlib
 
 import unittest
-import sys
 import os
 import copy
 import stat
 import shutil
 from pathlib import Path
+import tomllib
 
 from . import test_dir
 
@@ -27,10 +27,6 @@ class MainTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         pyproject_path = Path(__file__).resolve().parent.parent/"pyproject.toml"
-        if sys.version_info >= (3, 11):
-            import tomllib
-        else:  # pragma: no cover
-            import tomli as tomllib
         with pyproject_path.open("rb") as file:
             metadata = tomllib.load(file).get("project", {})
         cls.version_expected = metadata["version"]

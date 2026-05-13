@@ -46,18 +46,14 @@ class SessionLog:
         if self.file_name is None:
             return None
         if self.file_mode == "append":
-            self.session_log = open(
-                self.file_name, mode="a", encoding=self.file_encoding
-            )
+            self.session_log = open(self.file_name, mode="a", encoding=self.file_encoding)
         else:
-            self.session_log = open(
-                self.file_name, mode="w", encoding=self.file_encoding
-            )
+            self.session_log = open(self.file_name, mode="w", encoding=self.file_encoding)
         self._session_log_close = True
 
     def close(self) -> None:
         """Close the session_log file (if it is a file that we opened)."""
-        self.flush()
+        self._flush_buffer(final=True)
         if self.session_log and self._session_log_close:
             self.session_log.close()
             self.session_log = None
@@ -68,6 +64,17 @@ class SessionLog:
             data = data.replace(hidden_data, "********")
         return data
 
+    def _longest_partial_match(self, data: str) -> int:
+        """Return the length of the longest suffix of data that is a partial
+        prefix of any no_log value. Used to hold back data that might be the
+        start of a secret split across multiple channel reads."""
+        hold_back = 0
+        for hidden_data in self.no_log.values():
+            for partial_len in range(1, len(hidden_data)):
+                if data.endswith(hidden_data[:partial_len]):
+                    hold_back = max(hold_back, partial_len)
+        return hold_back
+
     def _read_buffer(self) -> str:
         self.slog_buffer.seek(0)
         data = self.slog_buffer.read()
@@ -75,25 +82,53 @@ class SessionLog:
         self.slog_buffer = io.StringIO()
         return data
 
-    def flush(self) -> None:
-        """Force the slog_buffer to be written out to the actual file"""
+    def _write(self, data: str) -> None:
+        """Write data to the underlying IO sink and flush it."""
+        assert self.session_log is not None
+        if isinstance(self.session_log, io.BufferedIOBase):
+            self.session_log.write(write_bytes(data, encoding=self.file_encoding))
+        else:
+            self.session_log.write(data)
 
-        if self.session_log is not None:
-            data = self._read_buffer()
+        assert isinstance(self.session_log, io.BufferedIOBase) or isinstance(
+            self.session_log, io.TextIOBase
+        )
+
+        self.session_log.flush()
+
+    def _flush_buffer(self, final: bool = False) -> None:
+        """Drain slog_buffer to the sink.
+
+        If final=False (normal write path), any trailing data that is a partial
+        prefix of a no_log value is held back in the buffer so the next write
+        can complete the match before filtering.
+
+        If final=True (close path), any held-back partial match is replaced
+        with '********' rather than exposing a fragment of the secret.
+        """
+        if self.session_log is None:
+            return
+
+        data = self._read_buffer()
+
+        if self.no_log and data:
+            hold_back = self._longest_partial_match(data)
+            if hold_back:
+                if final:
+                    data = data[:-hold_back] + "********"
+                else:
+                    self.slog_buffer.write(data[-hold_back:])
+                    data = data[:-hold_back]
             data = self.no_log_filter(data)
 
-            if isinstance(self.session_log, io.BufferedIOBase):
-                self.session_log.write(write_bytes(data, encoding=self.file_encoding))
-            else:
-                self.session_log.write(data)
+        if data:
+            self._write(data)
 
-            assert isinstance(self.session_log, io.BufferedIOBase) or isinstance(
-                self.session_log, io.TextIOBase
-            )
-
-            # Flush the underlying file
-            self.session_log.flush()
+    def flush(self) -> None:
+        """Force any buffered data to be written to the sink immediately."""
+        self._flush_buffer()
 
     def write(self, data: str) -> None:
         if len(data) > 0:
             self.slog_buffer.write(data)
+            self._flush_buffer()

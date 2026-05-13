@@ -28,7 +28,7 @@ class TestSessionWorkerOutputStyleInjection:
         # We only need the method, so create a bare instance via __new__
         # and set up minimal attributes
         worker = object.__new__(SessionWorker)
-        return worker
+        return worker  # pyright: ignore[reportReturnType]
 
     def test_output_style_injection_returns_content(self, tmp_path: Path) -> None:
         """When outputStyle is configured and valid, content is returned."""
@@ -181,10 +181,44 @@ class TestSessionWorkerOutputStyleInjection:
 # ---------------------------------------------------------------------------
 
 
+class _FakeClaudeAgentOptions:
+    """Stand-in for the real ClaudeAgentOptions when SDK is not installed."""
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+        # Ensure system_prompt attribute always exists for assertions.
+        if not hasattr(self, "system_prompt"):
+            self.system_prompt = None
+
+
+@pytest.fixture(autouse=True)
+def mock_sdk_available(request):
+    """Make SDKAgentRunner constructible even when claude-agent-sdk is absent.
+
+    The runtime check raises RuntimeError if the optional SDK package is not
+    installed. Tests in this module only exercise pure-Python helpers
+    (_get_output_style_content, _build_options) and do not require the real
+    SDK, so we patch SDK_AVAILABLE to True and provide a fake
+    ClaudeAgentOptions for tests that need to instantiate the runner.
+    """
+    if "TestSDKAgentRunnerOutputStyleInjection" in request.node.nodeid:
+        with (
+            patch("claude_mpm.services.agents.sdk_runtime.SDK_AVAILABLE", True),
+            patch(
+                "claude_mpm.services.agents.sdk_runtime.ClaudeAgentOptions",
+                _FakeClaudeAgentOptions,
+            ),
+        ):
+            yield
+    else:
+        yield
+
+
 class TestSDKAgentRunnerOutputStyleInjection:
     """Test output style injection in SDKAgentRunner."""
 
-    def test_build_options_injects_style(self, tmp_path: Path) -> None:
+    def test_build_options_injects_style(self) -> None:
         """_build_options prepends style content to the system prompt."""
         from claude_mpm.services.agents.sdk_runtime import SDKAgentRunner
 
@@ -224,7 +258,7 @@ class TestSDKAgentRunnerOutputStyleInjection:
 
         assert options.system_prompt == "# Style Only"
 
-    def test_style_id_mapping(self, tmp_path: Path) -> None:
+    def test_style_id_mapping(self) -> None:
         """Verify the reverse mapping from style IDs to types."""
         from claude_mpm.core.output_style_manager import _STYLE_ID_TO_TYPE
 

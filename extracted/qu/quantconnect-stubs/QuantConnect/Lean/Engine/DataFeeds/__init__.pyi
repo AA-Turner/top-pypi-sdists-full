@@ -180,7 +180,7 @@ class SubscriptionData(System.Object):
         Data
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -671,7 +671,7 @@ class SubscriptionSynchronizer(System.Object, QuantConnect.Lean.Engine.DataFeeds
         Event invocator for the subscription_finished event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -711,7 +711,7 @@ class Synchronizer(System.Object, QuantConnect.Lean.Engine.DataFeeds.ISynchroniz
         The algorithm instance
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -725,7 +725,7 @@ class Synchronizer(System.Object, QuantConnect.Lean.Engine.DataFeeds.ISynchroniz
         The subscription manager
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -739,7 +739,7 @@ class Synchronizer(System.Object, QuantConnect.Lean.Engine.DataFeeds.ISynchroniz
         The subscription synchronizer
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -753,7 +753,7 @@ class Synchronizer(System.Object, QuantConnect.Lean.Engine.DataFeeds.ISynchroniz
         The time slice factory
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -780,7 +780,7 @@ class Synchronizer(System.Object, QuantConnect.Lean.Engine.DataFeeds.ISynchroniz
         Gets the ITimeProvider to use. By default this will load the
         RealTimeProvider for live mode, else SubscriptionFrontierTimeProvider
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: The ITimeProvider to use.
         """
@@ -795,7 +795,7 @@ class Synchronizer(System.Object, QuantConnect.Lean.Engine.DataFeeds.ISynchroniz
         Performs additional initialization steps after algorithm initialization
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -824,7 +824,7 @@ class LiveSynchronizer(QuantConnect.Lean.Engine.DataFeeds.Synchronizer):
         Will return the amount of milliseconds that are missing for the next time pulse
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -833,7 +833,7 @@ class LiveSynchronizer(QuantConnect.Lean.Engine.DataFeeds.Synchronizer):
         Gets the ITimeProvider to use. By default this will load the
         RealTimeProvider for live mode, else SubscriptionFrontierTimeProvider
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: The ITimeProvider to use.
         """
@@ -848,7 +848,7 @@ class LiveSynchronizer(QuantConnect.Lean.Engine.DataFeeds.Synchronizer):
         Trigger new data event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param sender: Sender of the event
         :param args: Event information
@@ -860,7 +860,7 @@ class LiveSynchronizer(QuantConnect.Lean.Engine.DataFeeds.Synchronizer):
         Performs additional initialization steps after algorithm initialization
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -937,7 +937,7 @@ class DefaultDataProvider(System.Object, QuantConnect.Interfaces.IDataProvider, 
         Event invocator for the new_data_request event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -949,7 +949,7 @@ class BaseDownloaderDataProvider(QuantConnect.Lean.Engine.DataFeeds.DefaultDataP
         """
         Helper method which guarantees each requested key is downloaded only once concurrently if required based on need_to_download
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param key: A string representing where the data is stored
         :param download: The download operation we want to perform once concurrently per key
@@ -962,7 +962,7 @@ class BaseDownloaderDataProvider(QuantConnect.Lean.Engine.DataFeeds.DefaultDataP
         Get's the stream for a given file path
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -971,7 +971,7 @@ class BaseDownloaderDataProvider(QuantConnect.Lean.Engine.DataFeeds.DefaultDataP
         Main filter to determine if this file needs to be downloaded
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param file_path: File we are looking at
         :returns: True if should download.
@@ -1082,7 +1082,7 @@ class BacktestingChainProvider(System.Object, metaclass=abc.ABCMeta):
         The map file provider instance to use
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1092,7 +1092,7 @@ class BacktestingChainProvider(System.Object, metaclass=abc.ABCMeta):
         The history provider instance to use
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1101,7 +1101,7 @@ class BacktestingChainProvider(System.Object, metaclass=abc.ABCMeta):
         Initializes a new instance of the BacktestingChainProvider class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1110,7 +1110,7 @@ class BacktestingChainProvider(System.Object, metaclass=abc.ABCMeta):
         Get the contract symbols associated with the given canonical symbol and date
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param canonical_symbol: The canonical symbol
         :param date: The date to search for
@@ -1131,7 +1131,7 @@ class BacktestingChainProvider(System.Object, metaclass=abc.ABCMeta):
         Helper method to determine if a contract is expired for the requested date
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1201,7 +1201,7 @@ class DataQueueHandlerManager(System.Object, QuantConnect.Interfaces.IDataQueueH
         Frontier time provider to use
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1215,7 +1215,7 @@ class DataQueueHandlerManager(System.Object, QuantConnect.Interfaces.IDataQueueH
         Collection of data queue handles being used
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1263,7 +1263,7 @@ class DataQueueHandlerManager(System.Object, QuantConnect.Interfaces.IDataQueueH
         Creates the frontier time provider instance
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1324,7 +1324,7 @@ class BacktestingFutureChainProvider(QuantConnect.Lean.Engine.DataFeeds.Backtest
         Helper method to get the symbol to use
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1381,7 +1381,7 @@ class ApiDataProvider(QuantConnect.Lean.Engine.DataFeeds.BaseDownloaderDataProvi
         Attempt to download data using the Api for and return a FileStream of that data.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param file_path: The path to store the file
         :returns: A FileStream of the data.
@@ -1403,7 +1403,7 @@ class ApiDataProvider(QuantConnect.Lean.Engine.DataFeeds.BaseDownloaderDataProvi
         Main filter to determine if this file needs to be downloaded
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param file_path: File we are looking at
         :returns: True if should download.
@@ -1493,7 +1493,7 @@ class BaseSubscriptionDataSourceReader(System.Object, QuantConnect.Lean.Engine.D
         True if we're in live mode, false for backtesting
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1503,7 +1503,7 @@ class BaseSubscriptionDataSourceReader(System.Object, QuantConnect.Lean.Engine.D
         The data cache provider to use
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1513,7 +1513,7 @@ class BaseSubscriptionDataSourceReader(System.Object, QuantConnect.Lean.Engine.D
         The object store to use
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1534,7 +1534,7 @@ class BaseSubscriptionDataSourceReader(System.Object, QuantConnect.Lean.Engine.D
         Creates a new instance
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1542,7 +1542,7 @@ class BaseSubscriptionDataSourceReader(System.Object, QuantConnect.Lean.Engine.D
         """
         Creates a new IStreamReader for the specified subscription_data_source
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param subscription_data_source: The source to produce an IStreamReader for
         :returns: A new instance of IStreamReader to read the source, or null if there was an error.
@@ -1554,7 +1554,7 @@ class BaseSubscriptionDataSourceReader(System.Object, QuantConnect.Lean.Engine.D
         Event invocator for the invalid_source event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param source: The SubscriptionDataSource that was invalid
         :param exception: The exception if one was raised, otherwise null
@@ -1675,7 +1675,7 @@ class DataChannelProvider(System.Object, QuantConnect.Interfaces.IDataChannelPro
         Returns true if the data type for the given subscription configuration supports streaming
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1926,7 +1926,7 @@ class ProcessedDataProvider(System.Object, QuantConnect.Interfaces.IDataProvider
         Disposes of the internal data provider
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1953,7 +1953,7 @@ class TextSubscriptionDataSourceReader(QuantConnect.Lean.Engine.DataFeeds.BaseSu
         The requested subscription configuration
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -2045,7 +2045,7 @@ class AggregationManager(System.Object, QuantConnect.Data.IDataAggregator):
         Continuous UTC time provider
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -2072,7 +2072,7 @@ class AggregationManager(System.Object, QuantConnect.Data.IDataAggregator):
         Gets the consolidator to aggregate data for the given config
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2151,7 +2151,7 @@ class FileSystemDataFeed(System.Object, QuantConnect.Lean.Engine.DataFeeds.IData
         Returns a scheduled enumerator from the given arguments. It can also return the given underlying enumerator
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2160,7 +2160,7 @@ class FileSystemDataFeed(System.Object, QuantConnect.Lean.Engine.DataFeeds.IData
         Configure the enumerator with aggregation/fill-forward/filter behaviors. Returns new instance if re-configured
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2169,7 +2169,7 @@ class FileSystemDataFeed(System.Object, QuantConnect.Lean.Engine.DataFeeds.IData
         Configures the enumerator to track the last data point, if requested, and if this is a warmup enumerator
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2178,7 +2178,7 @@ class FileSystemDataFeed(System.Object, QuantConnect.Lean.Engine.DataFeeds.IData
         Creates a file based data enumerator for the given subscription request
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2196,7 +2196,7 @@ class FileSystemDataFeed(System.Object, QuantConnect.Lean.Engine.DataFeeds.IData
         Creates a universe enumerator from the Subscription request, the underlying enumerator func and the fill forward resolution (in some cases)
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2221,7 +2221,7 @@ class FileSystemDataFeed(System.Object, QuantConnect.Lean.Engine.DataFeeds.IData
         Will add a fill forward enumerator if requested
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2577,7 +2577,7 @@ class LiveTradingDataFeed(QuantConnect.Lean.Engine.DataFeeds.FileSystemDataFeed)
         Gets the BaseDataExchange to use
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2585,7 +2585,7 @@ class LiveTradingDataFeed(QuantConnect.Lean.Engine.DataFeeds.FileSystemDataFeed)
         """
         Gets the IDataQueueHandler to use by default DataQueueHandlerManager
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: The loaded IDataQueueHandler.
         """
@@ -2817,7 +2817,7 @@ class SubscriptionDataReader(System.Object, System.Collections.Generic.IEnumerat
         Event invocator for the download_failed event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: Event arguments for the download_failed event
         """
@@ -2828,7 +2828,7 @@ class SubscriptionDataReader(System.Object, System.Collections.Generic.IEnumerat
         Event invocator for the invalid_configuration_detected event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: Event arguments for the invalid_configuration_detected event
         """
@@ -2839,7 +2839,7 @@ class SubscriptionDataReader(System.Object, System.Collections.Generic.IEnumerat
         Event invocator for the new_tradable_date event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: Event arguments for the new_tradable_date event
         """
@@ -2850,7 +2850,7 @@ class SubscriptionDataReader(System.Object, System.Collections.Generic.IEnumerat
         Event invocator for the numerical_precision_limited event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: Event arguments for the numerical_precision_limited event
         """
@@ -2861,7 +2861,7 @@ class SubscriptionDataReader(System.Object, System.Collections.Generic.IEnumerat
         Event invocator for the reader_error_detected event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: Event arguments for the reader_error_detected event
         """
@@ -2872,7 +2872,7 @@ class SubscriptionDataReader(System.Object, System.Collections.Generic.IEnumerat
         Event invocator for the start_date_limited event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: Event arguments for the start_date_limited event
         """
@@ -2961,7 +2961,7 @@ class DownloaderDataProvider(QuantConnect.Lean.Engine.DataFeeds.BaseDownloaderDa
         Get's the stream for a given file path
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2970,7 +2970,7 @@ class DownloaderDataProvider(QuantConnect.Lean.Engine.DataFeeds.BaseDownloaderDa
         Main filter to determine if this file needs to be downloaded
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param file_path: File we are looking at
         :returns: True if should download.

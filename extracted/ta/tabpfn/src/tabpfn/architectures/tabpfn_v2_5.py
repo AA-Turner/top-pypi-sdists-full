@@ -5,7 +5,7 @@ the MLP hidden layer size.
 
 Note that this version does not support a KV cache.
 
-Copyright (c) Prior Labs GmbH 2025.
+Copyright (c) Prior Labs GmbH 2026.
 """
 
 from __future__ import annotations
@@ -24,7 +24,11 @@ from tabpfn.architectures.encoders.steps._ops import (
     select_features,
     torch_nanmean,
 )
-from tabpfn.architectures.interface import Architecture, ArchitectureConfig
+from tabpfn.architectures.interface import (
+    Architecture,
+    ArchitectureConfig,
+    PerformanceOptions,
+)
 from tabpfn.architectures.shared.attention_gqa_check import gqa_is_supported
 from tabpfn.architectures.shared.chunked_evaluate import chunked_evaluate_maybe_inplace
 from tabpfn.architectures.shared.column_embeddings import load_column_embeddings
@@ -564,9 +568,12 @@ class TabPFNV2p5(Architecture):
             self.input_size // 4, self.input_size
         )
         self._do_encoder_nan_check = True
-        # TODO(Phil): This is here to not fail the memory computation. We should make
-        # this a proper API.
-        self.ninp = config.emsize
+        self.emsize = config.emsize
+
+    @property
+    @override
+    def embedding_dim(self) -> int:
+        return self.emsize
 
     def _get_feature_group_embedder(self, config: TabPFNV2p5Config) -> nn.Module:
         """Get the feature group embedder."""
@@ -608,21 +615,24 @@ class TabPFNV2p5(Architecture):
         return x_BRGX
 
     @override
-    def forward(
+    def forward(  # noqa: C901
         self,
         x: torch.Tensor | dict[str, torch.Tensor],
         y: torch.Tensor | dict[str, torch.Tensor] | None,
         *,
         only_return_standard_out: bool = True,
         categorical_inds: list[list[int]] | None = None,
-        force_recompute_layer: bool = False,
-        save_peak_memory_factor: int | None = None,
+        performance_options: PerformanceOptions | None = None,
         task_type: str | None = None,
     ) -> torch.Tensor | dict[str, torch.Tensor]:
         """Perform a forward pass.
 
         See ModelInterface.forward() for the full docstring.
         """
+        if performance_options is None:
+            performance_options = self.get_default_performance_options()
+        force_recompute_layer = performance_options.force_recompute_layer
+        save_peak_memory_factor = performance_options.save_peak_memory_factor
         del categorical_inds
         if isinstance(x, dict):
             x = x["main"]

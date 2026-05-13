@@ -119,14 +119,24 @@ def main():
     if args.output is not None and os.path.isdir(args.jinja_file) and os.path.isdir(args.output):
         # If template_dir is set, find its full path under args.jinja_file
         source_dir = args.jinja_file
+        render_all_templates = True
         if template_dir:
-            found = False
+            found_dir = None
+            found_file = None
             for root, dirs, files in os.walk(args.jinja_file):
-                if (os.path.basename(root) == template_dir) or (template_name in files):
-                    source_dir = root
-                    found = True
+                if os.path.basename(root) == template_dir and found_dir is None:
+                    found_dir = root
+                if template_name in files:
+                    found_file = root
                     break
-            if not found:
+
+            if found_file:
+                source_dir = found_file
+                render_all_templates = False
+            elif found_dir:
+                source_dir = found_dir
+                render_all_templates = True
+            else:
                 print(f"Error: Template directory neither '{template_dir}' nor '{template_name}' found under '{args.jinja_file}'")
                 exit(7)  # Error code 7: Template directory not found
 
@@ -136,6 +146,10 @@ def main():
             dest_root = os.path.join(args.output, rel_path) if rel_path != "." else args.output
             os.makedirs(dest_root, exist_ok=True)
             for file in files:
+                # If exact template file exists, only copy that .j2 file.
+                # If only template directory exists, keep and render all .j2 files in it.
+                if template_name and not render_all_templates and file.endswith(".j2") and file != template_name:
+                    continue
                 src_file = os.path.join(root, file)
                 dest_file = os.path.join(dest_root, file)
                 if not os.path.exists(dest_file):
@@ -144,6 +158,8 @@ def main():
         for root, _, files in os.walk(args.output):
             for file in files:
                 if file.endswith(".j2"):
+                    if template_name and not render_all_templates and file != template_name:
+                        continue
                     jinja_file_path = os.path.join(root, file)
                     output_file_path = os.path.join(root, file.replace(".j2", ""))
                     exit_code = render_jinja_to_yaml(jinja_file_path, variables,template_name, args.yaml_file, output_file_path)

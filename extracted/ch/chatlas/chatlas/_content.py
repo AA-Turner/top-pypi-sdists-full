@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import inspect
 import warnings
 from pprint import pformat
@@ -181,6 +182,11 @@ class ContentText(Content):
         if self.text == "" or self.text.isspace():
             self.text = "[empty string]"
 
+    def __add__(self, other: object) -> "ContentText":
+        if not isinstance(other, ContentText):
+            return NotImplemented  # type: ignore[return-value]
+        return ContentText.model_construct(text=self.text + other.text)
+
     def __str__(self):
         return self.text
 
@@ -275,6 +281,18 @@ class ContentToolRequest(Content):
     extra: dict[str, object] = Field(default_factory=dict)
 
     content_type: ContentTypeEnum = "tool_request"
+
+    @field_serializer("extra")
+    @classmethod
+    def serialize_extra(cls, v: dict[str, object]) -> dict[str, object]:
+        return serialize_dict_with_bytes(v)
+
+    @field_validator("extra", mode="before")
+    @classmethod
+    def validate_extra(cls, v: object) -> object:
+        if isinstance(v, dict):
+            return validate_dict_with_bytes(v)
+        return v
 
     def __str__(self):
         args_str = self._arguments_str()
@@ -610,6 +628,18 @@ class ContentPDF(Content):
 
     content_type: ContentTypeEnum = "pdf"
 
+    @field_serializer("data")
+    @classmethod
+    def serialize_data(cls, v: bytes) -> str:
+        return base64.b64encode(v).decode("ascii")
+
+    @field_validator("data", mode="before")
+    @classmethod
+    def validate_data(cls, v: bytes | str) -> bytes:
+        if isinstance(v, str):
+            return base64.b64decode(v, validate=True)
+        return v
+
     def __str__(self):
         return f"<PDF document file={self.filename} size={len(self.data)} bytes>"
 
@@ -633,6 +663,30 @@ class ContentThinking(Content):
     extra: Optional[dict[str, Any]] = None
 
     content_type: ContentTypeEnum = "thinking"
+
+    @field_serializer("extra")
+    @classmethod
+    def serialize_extra(
+        cls, v: Optional[dict[str, Any]]
+    ) -> Optional[dict[str, Any]]:
+        if v is None:
+            return None
+        return serialize_dict_with_bytes(v)
+
+    @field_validator("extra", mode="before")
+    @classmethod
+    def validate_extra(cls, v: object) -> object:
+        if isinstance(v, dict):
+            return validate_dict_with_bytes(v)
+        return v
+
+    def __add__(self, other: object) -> "ContentThinking":
+        if not isinstance(other, ContentThinking):
+            return NotImplemented  # type: ignore[return-value]
+        return ContentThinking.model_construct(
+            thinking=self.thinking + other.thinking,
+            extra=other.extra if other.extra is not None else self.extra,
+        )
 
     def __str__(self):
         return f"<thinking>\n{self.thinking}\n</thinking>\n"
@@ -673,6 +727,14 @@ class ContentThinkingDelta(Content):
     phase: Literal["start", "body", "end"] = "body"
 
     content_type: ContentTypeEnum = "thinking_delta"
+
+    def __add__(self, other: object) -> "ContentThinkingDelta":
+        if not isinstance(other, ContentThinkingDelta):
+            return NotImplemented  # type: ignore[return-value]
+        return ContentThinkingDelta(
+            thinking=self.thinking + other.thinking,
+            phase=self.phase,
+        )
 
     def __str__(self):
         return self.thinking
@@ -789,6 +851,33 @@ ContentUnion = Union[
     ContentToolRequestFetch,
     ContentToolResponseFetch,
 ]
+
+
+BYTES_SENTINEL = "__base64_bytes__"
+
+
+def serialize_dict_with_bytes(d: dict[str, Any]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in d.items():
+        if isinstance(value, bytes):
+            result[key] = {BYTES_SENTINEL: base64.b64encode(value).decode("ascii")}
+        else:
+            result[key] = value
+    return result
+
+
+def validate_dict_with_bytes(d: dict[str, Any]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in d.items():
+        if (
+            isinstance(value, dict)
+            and set(value.keys()) == {BYTES_SENTINEL}
+            and isinstance(value[BYTES_SENTINEL], str)
+        ):
+            result[key] = base64.b64decode(value[BYTES_SENTINEL], validate=True)
+        else:
+            result[key] = value
+    return result
 
 
 def create_content(data: dict[str, Any]) -> ContentUnion:

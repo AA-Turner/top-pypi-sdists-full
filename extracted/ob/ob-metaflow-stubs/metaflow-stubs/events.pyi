@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.783126                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.015139                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ class Trigger(object, metaclass=type):
     def from_runs(cls, run_objs: typing.List["metaflow.Run"]):
         ...
     @property
-    def event(self) -> typing.Optional[metaflow.events.MetaflowEvent]:
+    def event(self) -> typing.Union[metaflow.events.MetaflowEvent, None]:
         """
         The `MetaflowEvent` object corresponding to the triggering event.
         
@@ -71,7 +71,7 @@ class Trigger(object, metaclass=type):
         """
         ...
     @property
-    def events(self) -> typing.Optional[typing.List[metaflow.events.MetaflowEvent]]:
+    def events(self) -> typing.Union[typing.List[metaflow.events.MetaflowEvent], None]:
         """
         The list of `MetaflowEvent` objects correspondings to all the triggering events.
         
@@ -82,7 +82,7 @@ class Trigger(object, metaclass=type):
         """
         ...
     @property
-    def run(self) -> typing.Optional["metaflow.Run"]:
+    def run(self) -> typing.Union["metaflow.Run", None]:
         """
         The corresponding `Run` object if the triggering event is a Metaflow run.
         
@@ -96,7 +96,7 @@ class Trigger(object, metaclass=type):
         """
         ...
     @property
-    def runs(self) -> typing.Optional[typing.List["metaflow.Run"]]:
+    def runs(self) -> typing.Union[typing.List["metaflow.Run"], None]:
         """
         The list of `Run` objects in the triggering events.
         Returns `None` if none of the triggering events are `Run` objects.

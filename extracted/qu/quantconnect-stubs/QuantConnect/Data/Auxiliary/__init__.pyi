@@ -666,7 +666,7 @@ class FactorFile(typing.Generic[QuantConnect_Data_Auxiliary_FactorFile_T], Syste
         Keeping a reversed version is more performant that reversing it each time we need it
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -703,7 +703,7 @@ class FactorFile(typing.Generic[QuantConnect_Data_Auxiliary_FactorFile_T], Syste
         Initializes a new instance of the FactorFile{T} class.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -968,7 +968,7 @@ class LocalZipMapFileProvider(System.Object, QuantConnect.Interfaces.IMapFilePro
         The cached refresh period for the map files
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -998,7 +998,7 @@ class LocalZipMapFileProvider(System.Object, QuantConnect.Interfaces.IMapFilePro
         Helper method that will clear any cached factor files in a daily basis, this is useful for live trading
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1182,7 +1182,7 @@ class LocalZipFactorFileProvider(System.Object, QuantConnect.Interfaces.IFactorF
         The cached refresh period for the factor files
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1214,7 +1214,7 @@ class LocalZipFactorFileProvider(System.Object, QuantConnect.Interfaces.IFactorF
         Helper method that will clear any cached factor files in a daily basis, this is useful for live trading
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

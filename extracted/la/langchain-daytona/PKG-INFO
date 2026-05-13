@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-daytona
-Version: 0.0.5
+Version: 0.0.6
 Summary: Daytona sandbox integration for Deep Agents
 Project-URL: Homepage, https://github.com/langchain-ai/deepagents/tree/main/libs/partners/daytona
 Project-URL: Repository, https://github.com/langchain-ai/deepagents
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <4.0,>=3.11
 Requires-Dist: daytona
-Requires-Dist: deepagents<0.6.0,>=0.5.0
+Requires-Dist: deepagents<0.7.0,>=0.6.0
 Description-Content-Type: text/markdown
 
 # langchain-daytona
@@ -25,7 +25,7 @@ Description-Content-Type: text/markdown
 [![PyPI - Version](https://img.shields.io/pypi/v/langchain-daytona?label=%20)](https://pypi.org/project/langchain-daytona/#history)
 [![PyPI - License](https://img.shields.io/pypi/l/langchain-daytona)](https://opensource.org/licenses/MIT)
 [![PyPI - Downloads](https://img.shields.io/pepy/dt/langchain-daytona)](https://pypistats.org/packages/langchain-daytona)
-[![Twitter](https://img.shields.io/twitter/url/https/twitter.com/langchain.svg?style=social&label=Follow%20%40LangChain)](https://x.com/langchain)
+[![Twitter](https://img.shields.io/twitter/url/https/twitter.com/langchain_oss.svg?style=social&label=Follow%20%40LangChain)](https://x.com/langchain_oss)
 
 Looking for the JS/TS version? Check out [LangChain.js](https://github.com/langchain-ai/langchainjs).
 

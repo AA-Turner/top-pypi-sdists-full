@@ -13,7 +13,7 @@ from ovld import (
     OvldBase,
     OvldMC,
     call_next,
-    current_code,
+    current_function,
     extend_super,
     is_ovld,
     ovld,
@@ -408,7 +408,7 @@ def test_next_abstract_ambiguity():
 
     @o.register(priority=10)
     def f(x: object):
-        return f.next(x)
+        return call_next(x)
 
     @o.register
     def f(x: CanFly):
@@ -566,6 +566,21 @@ def test_recurse_nested():
     assert f(["a", "bbb", "cc"]) == 36
 
 
+def test_recurse_generator():
+    f = Ovld()
+
+    @f.register
+    def f(xs: list):
+        for x in xs:
+            yield from recurse(x)
+
+    @f.register
+    def f(x: int):
+        yield x + 1
+
+    assert list(f([1, 2, 3])) == [2, 3, 4]
+
+
 def test_call_next():
     f = Ovld()
 
@@ -585,7 +600,7 @@ def test_call_next_unrelated():
 
     @f.register
     def f(x: int):
-        return f.next(str(x))
+        return call_next(str(x))
 
     @f.register
     def f(x: str):
@@ -636,14 +651,13 @@ def test_recurse_renamed():
 def test_call_next_must_be_called():
     f = Ovld()
 
+    @f.register
+    def f(xs: list):
+        cn = call_next
+        return [cn(x) for x in xs]
+
     with pytest.raises(UsageError, match="call_next should be called right away"):
-
-        @f.register
-        def f(xs: list):
-            cn = call_next
-            return [cn(x) for x in xs]
-
-        f.compile()
+        f([1, 2, 3])
 
 
 def test_recurse_closure():
@@ -699,7 +713,7 @@ def test_next():
         if x >= 0:
             return x
         else:
-            return f.next(x)
+            return call_next(x)
 
     @f.register
     def f(xs: list):
@@ -717,15 +731,15 @@ def test_next_long_chain():
 
     @f.register
     def f(x: int):
-        return ["A", f.next(x)]
+        return ["A", call_next(x)]
 
     @f.register
     def f(x: object):
-        return ["B", f.next(x)]
+        return ["B", call_next(x)]
 
     @f.register(priority=-1)
     def f(x: object):
-        return ["C", f.next(x)]
+        return ["C", call_next(x)]
 
     @f.register(priority=-2)
     def f(x: object):
@@ -742,7 +756,7 @@ def test_next_bottom():
         if x >= 0:
             return x
         else:
-            return f.next(x)
+            return call_next(x)
 
     @f.register
     def f(xs: list):
@@ -757,7 +771,7 @@ def test_next_different():
 
     @f.register
     def f(x: int):
-        return f.next(str(x))
+        return call_next(str(x))
 
     @f.register
     def f(x: str):
@@ -774,7 +788,7 @@ def test_next_nodispatch():
         if x >= 0:
             return x
         else:
-            return f.next(x)
+            return call_next(x)
 
     @f.register
     def f(xs: list):
@@ -792,7 +806,7 @@ def test_priority():
 
     @f.register(priority=1)
     def f(x: object):
-        return ["TOP", f.next(x)]
+        return ["TOP", call_next(x)]
 
     @f.register
     def f(xs: list):
@@ -843,11 +857,9 @@ def test_resolve():
         return x * 3
 
     f1 = f.resolve(int)
-    f2a = f.resolve(int, after=f1)
-    f2b = f.resolve(int, after=f1.__code__)
+    f2 = f.resolve(int, after=f1)
     assert f1("hello") == "hellohello"
-    assert f2a("hello") == "hellohellohello"
-    assert f2b("hello") == "hellohellohello"
+    assert f2("hello") == "hellohellohello"
 
 
 def test_resolve_special_form():
@@ -862,10 +874,10 @@ def test_resolve_special_form():
     assert f(3) == 9
 
 
-def test_current_code_special_form():
+def test_current_function_special_form():
     @ovld(priority=1)
     def f(x: int):
-        return resolve(int, after=current_code)(x)
+        return resolve(int, after=current_function)(x)
 
     @ovld(priority=0)
     def f(x: int):

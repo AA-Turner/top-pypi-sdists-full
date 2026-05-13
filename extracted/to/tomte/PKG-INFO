@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tomte
-Version: 0.7.0
+Version: 0.7.1
 Summary: A library that wraps many useful tools (linters, analysers, etc) to keep Python code clean, secure, well-documented and optimised.
 License: MIT
 License-File: LICENSE

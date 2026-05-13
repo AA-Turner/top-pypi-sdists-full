@@ -17,7 +17,7 @@ This line imports [all common QuantConnect members](https://github.com/QuantConn
 
 setup(
     name="quantconnect-stubs",
-    version="17716",
+    version="17721",
     description="Type stubs for QuantConnect's Lean",
     author="QuantConnect",
     author_email="support@quantconnect.com",
@@ -94,6 +94,7 @@ setup(
         "QuantConnect.Data.Shortable",
         "QuantConnect.Data.UniverseSelection",
         "QuantConnect.DataSource",
+        "QuantConnect.DataSource.QuiverQuant",
         "QuantConnect.DownloaderDataProvider",
         "QuantConnect.DownloaderDataProvider.Launcher",
         "QuantConnect.DownloaderDataProvider.Launcher.Models",
@@ -324,6 +325,7 @@ setup(
         "QuantConnect.Data.Shortable": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.Data.UniverseSelection": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.DataSource": ["*.py", "*.pyi", "py.typed"],
+        "QuantConnect.DataSource.QuiverQuant": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.DownloaderDataProvider": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.DownloaderDataProvider.Launcher": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.DownloaderDataProvider.Launcher.Models": ["*.py", "*.pyi", "py.typed"],

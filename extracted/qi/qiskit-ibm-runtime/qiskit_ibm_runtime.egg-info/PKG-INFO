@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qiskit-ibm-runtime
-Version: 0.46.1
+Version: 0.47.0
 Summary: IBM Quantum client for Qiskit Runtime.
 Author-email: Qiskit Development Team <qiskit@us.ibm.com>
 License: Apache 2.0
@@ -26,19 +26,17 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: requests>=2.32.4
 Requires-Dist: requests-ntlm>=1.1.0
-Requires-Dist: numpy>=1.26
+Requires-Dist: numpy>=1.26.2
 Requires-Dist: urllib3>=2.4.0
 Requires-Dist: python-dateutil>=2.9.0
-Requires-Dist: ibm-platform-services>=0.55.3
-Requires-Dist: ibm-quantum-schemas>=0.5.20260320
-Requires-Dist: pydantic>=2.7.0
+Requires-Dist: ibm-platform-services>=0.61.1
+Requires-Dist: ibm-quantum-schemas<1,>=0.7.20260419
+Requires-Dist: pydantic>=2.11.0
 Requires-Dist: qiskit>=2.2.0
-Requires-Dist: packaging
-Requires-Dist: pybase64>=1.4
+Requires-Dist: pybase64>=1.4.0
 Requires-Dist: samplomatic>=0.13.0
 Provides-Extra: common
 Requires-Dist: mypy==1.19.0; extra == "common"
-Requires-Dist: pylint==3.0.0; extra == "common"
 Requires-Dist: pproxy==2.7.8; extra == "common"
 Requires-Dist: nbqa==1.5.3; extra == "common"
 Requires-Dist: matplotlib>=2.1; extra == "common"
@@ -47,7 +45,6 @@ Requires-Dist: scipy>=1.0; extra == "common"
 Requires-Dist: nbformat>=4.4.0; extra == "common"
 Requires-Dist: nbconvert>=5.3.1; extra == "common"
 Requires-Dist: qiskit-aer>=0.17.0; extra == "common"
-Requires-Dist: black~=24.1; extra == "common"
 Requires-Dist: ruff~=0.14.10; extra == "common"
 Requires-Dist: coverage>=6.3; extra == "common"
 Requires-Dist: pylatexenc; extra == "common"
@@ -62,14 +59,46 @@ Requires-Dist: jupyter-sphinx; extra == "documentation"
 Requires-Dist: sphinxcontrib-katex==0.9.9; extra == "documentation"
 Requires-Dist: autodoc_pydantic==2.2.0; extra == "documentation"
 Requires-Dist: packaging; extra == "documentation"
+Provides-Extra: dev-legacy
+Requires-Dist: qiskit-ibm-runtime[test]; extra == "dev-legacy"
+Requires-Dist: qiskit-ibm-runtime[common]; extra == "dev-legacy"
+Requires-Dist: qiskit-ibm-runtime[style]; extra == "dev-legacy"
+Requires-Dist: qiskit-ibm-runtime[documentation]; extra == "dev-legacy"
+Requires-Dist: qiskit-ibm-runtime[visualization]; extra == "dev-legacy"
 Provides-Extra: visualization
 Requires-Dist: plotly>=5.23.0; extra == "visualization"
+Provides-Extra: performance
+Requires-Dist: qiskit-aer>=0.17.0; extra == "performance"
+Requires-Dist: scipy>=1.15; extra == "performance"
+Provides-Extra: style
+Requires-Dist: mypy==1.19.0; extra == "style"
+Requires-Dist: pre-commit>=4; extra == "style"
+Provides-Extra: style-local
+Requires-Dist: mypy==1.19.0; extra == "style-local"
+Requires-Dist: ruff~=0.14.10; extra == "style-local"
 Provides-Extra: test
-Requires-Dist: ddt!=1.4.0,!=1.4.3,>=1.2.0; extra == "test"
+Requires-Dist: ddt>=1.7.2; extra == "test"
+Requires-Dist: pytest>=8.1; extra == "test"
+Requires-Dist: pproxy==2.7.8; extra == "test"
+Requires-Dist: coverage>=7.13.5; extra == "test"
+Requires-Dist: pytest-benchmark==5.2.3; extra == "test"
+Provides-Extra: doc
+Requires-Dist: autodoc_pydantic==2.2.0; extra == "doc"
+Requires-Dist: matplotlib>=3.10; extra == "doc"
+Requires-Dist: nbconvert>=6.4.3; extra == "doc"
+Requires-Dist: nbformat>=5.0.2; extra == "doc"
+Requires-Dist: nbqa==1.5.3; extra == "doc"
+Requires-Dist: nbsphinx; extra == "doc"
+Requires-Dist: packaging; extra == "doc"
+Requires-Dist: pylatexenc; extra == "doc"
+Requires-Dist: Sphinx<9,>=8; extra == "doc"
+Requires-Dist: sphinxcontrib-katex==0.9.9; extra == "doc"
 Provides-Extra: dev
+Requires-Dist: qiskit-ibm-runtime[doc]; extra == "dev"
+Requires-Dist: qiskit-ibm-runtime[performance]; extra == "dev"
+Requires-Dist: qiskit-ibm-runtime[style_local]; extra == "dev"
+Requires-Dist: qiskit-ibm-runtime[style]; extra == "dev"
 Requires-Dist: qiskit-ibm-runtime[test]; extra == "dev"
-Requires-Dist: qiskit-ibm-runtime[common]; extra == "dev"
-Requires-Dist: qiskit-ibm-runtime[documentation]; extra == "dev"
 Requires-Dist: qiskit-ibm-runtime[visualization]; extra == "dev"
 Dynamic: license-file
 
@@ -78,7 +107,7 @@ Dynamic: license-file
 [![CI](https://github.com/Qiskit/qiskit-ibm-runtime/actions/workflows/ci.yml/badge.svg)](https://github.com/Qiskit/qiskit-ibm-runtime/actions/workflows/ci.yml)
 [![](https://img.shields.io/github/release/Qiskit/qiskit-ibm-runtime.svg?style=popout-square)](https://github.com/Qiskit/qiskit-ibm-runtime/releases)
 [![](https://img.shields.io/pypi/dm/qiskit-ibm-runtime.svg?style=popout-square)](https://pypi.org/project/qiskit-ibm-runtime/)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Coverage Status](https://coveralls.io/repos/github/Qiskit/qiskit-ibm-runtime/badge.svg?branch=main)](https://coveralls.io/github/Qiskit/qiskit-ibm-runtime?branch=main)
 
 
@@ -93,8 +122,15 @@ This module provides the interface to access the Qiskit Runtime service on IBM Q
 
 You can install this package using pip:
 
-```bash
+```sh
 pip install qiskit-ibm-runtime
+```
+
+Optional dependencies that provide additional features can be install by specifying the package
+extras `performance` and `visualization` when installing:
+
+```sh
+pip install qiskit-ibm-runtime[performance,visualization]
 ```
 
 ## Account setup
@@ -381,7 +417,7 @@ If you do not specify an instance, then the code will select one in the followin
 2. If your account has access to multiple instances, but only one can access the requested backend, the instance with access is selected.
 3. In all other cases, the code selects the first instance that has access to the backend.
 
-Priority of instance order can also be set with the ``region`` and ``plans_preference`` parameters. The official [release notes](https://docs.quantum.ibm.com/api/qiskit-ibm-runtime/release-notes#0400-2025-05-28) have examples on how these values can be used. 
+Priority of instance order can also be set with the ``region`` and ``plans_preference`` parameters. The official [release notes](https://docs.quantum.ibm.com/api/qiskit-ibm-runtime/release-notes#0400-2025-05-28) have examples on how these values can be used.
 
 ## Access your IBM Quantum backends
 

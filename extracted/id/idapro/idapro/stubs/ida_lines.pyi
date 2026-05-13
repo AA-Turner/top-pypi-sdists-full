@@ -1,10 +1,10 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""High level functions that deal with the generation of the disassembled text lines.
 
 This file also contains definitions for the syntax highlighting.
-Finally there are functions that deal with anterior/posterior user-defined lines. 
-    
+Finally there are functions that deal with anterior/posterior user-defined lines.
+
 """
 
 class user_defined_prefix_t:
@@ -16,27 +16,33 @@ class user_defined_prefix_t:
         ...
     def __disown__(self) -> Any:
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -44,16 +50,16 @@ class user_defined_prefix_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -70,10 +76,10 @@ class user_defined_prefix_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -83,7 +89,7 @@ class user_defined_prefix_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def get_user_defined_prefix(self, ea: ida_idaapi.ea_t, insn: insn_t, lnnum: int, indent: int, line: str) -> None:
         r"""This callback must be overridden by the derived class. 
@@ -98,26 +104,26 @@ class user_defined_prefix_t:
 
 def COLSTR(str: Any, tag: Any) -> Any:
     r"""
-        Utility function to create a colored line
-        :param str: The string
-        :param tag: Color tag constant. One of SCOLOR_XXXX
-        
+    Utility function to create a colored line
+    :param str: The string
+    :param tag: Color tag constant. One of SCOLOR_XXXX
+    
     """
     ...
 
-def add_extra_cmt(args: Any) -> bool:
+def add_extra_cmt(*args: Any) -> bool:
     ...
 
-def add_extra_line(args: Any) -> bool:
+def add_extra_line(*args: Any) -> bool:
     ...
 
-def add_pgm_cmt(args: Any) -> bool:
+def add_pgm_cmt(*args: Any) -> bool:
     ...
 
 def add_sourcefile(ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, filename: str) -> bool:
     ...
 
-def calc_bg_color(ea: ida_idaapi.ea_t) -> bgcolor_t:
+def calc_bg_color(ea: ida_idaapi.ea_t) -> int:
     r"""Get background color for line at 'ea' 
             
     :returns: RGB color
@@ -131,7 +137,7 @@ def calc_prefix_color(ea: ida_idaapi.ea_t) -> color_t:
     """
     ...
 
-def create_encoding_helper(args: Any) -> encoder_t:
+def create_encoding_helper(*args: Any) -> encoder_t:
     ...
 
 def del_extra_cmt(ea: ida_idaapi.ea_t, what: int) -> bool:
@@ -169,7 +175,7 @@ def get_first_free_extra_cmtidx(ea: ida_idaapi.ea_t, start: int) -> int:
 def get_sourcefile(ea: ida_idaapi.ea_t, bounds: range_t = None) -> str:
     ...
 
-def install_user_defined_prefix(args: Any) -> bool:
+def install_user_defined_prefix(*args: Any) -> bool:
     ...
 
 def requires_color_esc(c: Any) -> Any:
@@ -216,7 +222,7 @@ def tag_skipcodes(line: str) -> int:
     """
     ...
 
-def tag_strlen(line: str) -> ssize_t:
+def tag_strlen(line: str) -> int:
     r"""Calculate length of a colored string This function computes the length in unicode codepoints of a line 
             
     :returns: the number of codepoints in the line, or -1 on error
@@ -361,7 +367,7 @@ SCOLOR_VOIDOP: str  #
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
 VEL_CMT: int  # 2
 VEL_POST: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 cvar: swigvarlink
 ida_idaapi: module
 weakref: module

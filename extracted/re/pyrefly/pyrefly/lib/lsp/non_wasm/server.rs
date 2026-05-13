@@ -209,10 +209,7 @@ use lsp_types::request::WorkspaceSymbolRequest;
 use pyrefly_build::SourceDatabase;
 use pyrefly_build::handle::Handle;
 use pyrefly_config::config::ConfigSource;
-use pyrefly_config::config::SynthesizedPresetReason;
 use pyrefly_config::error_kind::Severity;
-use pyrefly_config::migration::run::MigratedConfigSource;
-use pyrefly_config::migration::run::MigratedFromKind;
 use pyrefly_python::PYTHON_EXTENSIONS;
 use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
@@ -249,7 +246,6 @@ use pyrefly_util::watch_pattern::WatchPattern;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
-use serde::Deserialize;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -309,6 +305,14 @@ use crate::lsp::non_wasm::safe_delete_file::safe_delete_file_code_action;
 use crate::lsp::non_wasm::stdlib::is_python_stdlib_file;
 use crate::lsp::non_wasm::stdlib::should_show_stdlib_error;
 use crate::lsp::non_wasm::transaction_manager::TransactionManager;
+use crate::lsp::non_wasm::type_error_display_status::TypeErrorDisplayStatus;
+pub use crate::lsp::non_wasm::type_error_display_status::TypeErrorDisplayStatusRequest;
+use crate::lsp::non_wasm::type_error_display_status::TypeErrorDisplayStatusResponse;
+use crate::lsp::non_wasm::type_error_display_status::TypeErrorDisplayStatusV2;
+use crate::lsp::non_wasm::type_error_display_status::TypeErrorDisplayStatusVersion;
+use crate::lsp::non_wasm::type_error_display_status::default_v2_response;
+use crate::lsp::non_wasm::type_error_display_status::derive_v2_response;
+use crate::lsp::non_wasm::type_error_display_status::negotiate_type_error_display_status_version;
 use crate::lsp::non_wasm::type_hierarchy::collect_class_defs;
 use crate::lsp::non_wasm::type_hierarchy::find_class_at_position_in_ast;
 use crate::lsp::non_wasm::type_hierarchy::prepare_type_hierarchy_item;
@@ -337,7 +341,6 @@ use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::lsp::FindPreference;
 use crate::state::lsp::ImportBehavior;
 use crate::state::lsp::LocalRefactorCodeAction;
-use crate::state::lsp::TypeCheckingMode;
 use crate::state::notebook::LspNotebook;
 use crate::state::require::Require;
 use crate::state::semantic_tokens::SemanticTokensLegends;
@@ -373,292 +376,6 @@ pub enum DiagnosticSource {
 pub enum DidCloseKind {
     NotebookDocument,
     TextDocument,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum TypeErrorDisplayStatus {
-    DisabledInIdeConfig,
-    EnabledInIdeConfig,
-    DisabledInConfigFile,
-    EnabledInConfigFile,
-    NoConfigFile,
-}
-
-/// Versioned wire shape for the custom
-/// `pyrefly/textDocument/typeErrorDisplayStatus` LSP request. The client
-/// declares which version it can parse via
-/// `initializationOptions.pyrefly.typeErrorDisplayStatusVersion`. The
-/// server resolves the requested value as follows: missing / null
-/// becomes `V1` (the legacy bare-string shape, the safest default for
-/// clients that didn't opt in); a known version is honored as-is; an
-/// unknown future version is clamped to `LATEST` (the newest variant
-/// this server knows about), since the client opted into a richer
-/// shape and falling back to V1 would silently strip off a feature it
-/// asked for.
-///
-/// We use an enum so the variants are exhaustive at the type level —
-/// adding a new wire shape is a Rust-side change, not a magic-number
-/// bump.
-#[derive(Clone, Copy, Debug, Deserialize, Default, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum TypeErrorDisplayStatusVersion {
-    /// Legacy bare-string response (the original
-    /// `TypeErrorDisplayStatus` enum). Returned when the client doesn't
-    /// declare a version or declares `v1`.
-    #[default]
-    V1,
-    /// Rich response: `{ version: "v2", label, tooltip, docsUrl }`.
-    V2,
-}
-
-impl TypeErrorDisplayStatusVersion {
-    /// The latest version this server can produce. A client that asks
-    /// for an unknown future version (e.g. `v3` from a VSIX newer than
-    /// the binary) gets clamped to this — the closest thing we can
-    /// offer to what the client opted into.
-    pub const LATEST: Self = Self::V2;
-}
-
-/// Resolve the wire shape from
-/// `initializationOptions.pyrefly.typeErrorDisplayStatusVersion`:
-///
-/// - field absent or explicit JSON `null` → [`V1`](TypeErrorDisplayStatusVersion::V1)
-///   (the client didn't opt in; it almost certainly only knows the
-///   legacy bare-string shape).
-/// - field is a known kebab-case version (`"v1"`, `"v2"`) → that
-///   version.
-/// - field is an unknown future version (`"v3"` from a newer VSIX) →
-///   [`LATEST`](TypeErrorDisplayStatusVersion::LATEST). The client
-///   explicitly opted into a richer shape, so V1 would silently strip
-///   off a feature they asked for.
-///
-/// Pulled out as a free function so the negotiation logic is unit-
-/// testable without constructing a full `InitializeParams`.
-fn negotiate_type_error_display_status_version(
-    initialization_options: Option<&Value>,
-) -> TypeErrorDisplayStatusVersion {
-    initialization_options
-        .and_then(|opts| opts.get("pyrefly"))
-        .and_then(|pyrefly| pyrefly.get("typeErrorDisplayStatusVersion"))
-        .filter(|v| !v.is_null())
-        .map(|v| {
-            serde_json::from_value::<TypeErrorDisplayStatusVersion>(v.clone())
-                .unwrap_or(TypeErrorDisplayStatusVersion::LATEST)
-        })
-        .unwrap_or_default()
-}
-
-/// V2 wire shape for the status-bar response. `label` drives the
-/// status-bar parenthetical (`Pyrefly (Basic)`, `Pyrefly (Legacy)`,
-/// …); `null` means show plain `Pyrefly`. `tooltip` is markdown.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TypeErrorDisplayStatusV2 {
-    /// Always `"v2"`. Lets the client dispatch on `response.version`
-    /// once it has decoded the response as an object.
-    pub version: String,
-    /// Preset name to render in parentheses, or `None` for plain
-    /// `Pyrefly`. The parenthetical is only shown when the preset was
-    /// chosen automatically — if the user explicitly set
-    /// `typeCheckingMode` themselves, this is `None` because the user
-    /// already knows what they picked.
-    pub label: Option<String>,
-    /// Markdown tooltip explaining the current state.
-    pub tooltip: String,
-    /// URL referenced from the tooltip — the IDE typically renders this
-    /// as the trailing "Docs" link in the hover.
-    pub docs_url: String,
-}
-
-/// Internal sum type covering both wire shapes. `#[serde(untagged)]`
-/// dispatches by shape: V1 deserializes from / serializes to the V1
-/// kebab-case bare string, V2 from / to the V2 struct.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(untagged)]
-pub enum TypeErrorDisplayStatusResponse {
-    V1(TypeErrorDisplayStatus),
-    V2(TypeErrorDisplayStatusV2),
-}
-
-/// Type-level binding for the custom
-/// `pyrefly/textDocument/typeErrorDisplayStatus` LSP request. Mirrors
-/// the `lsp_types::request::Request` pattern used by stock methods
-/// (e.g. `Completion`, `ProvideType`) so the wire method name lives in
-/// one place — call sites reference `TypeErrorDisplayStatusRequest::METHOD`
-/// instead of duplicating the string literal.
-pub enum TypeErrorDisplayStatusRequest {}
-
-impl lsp_types::request::Request for TypeErrorDisplayStatusRequest {
-    type Params = TextDocumentIdentifier;
-    type Result = TypeErrorDisplayStatusResponse;
-    const METHOD: &'static str = "pyrefly/textDocument/typeErrorDisplayStatus";
-}
-
-/// URL referenced from the V2 tooltip / docs link. Module-level so the
-/// derivation logic and tests share the exact string the user sees.
-const STATUS_BAR_DOCS_URL: &str = "https://pyrefly.org/en/docs/IDE/";
-
-/// Silent V2 response — plain `Pyrefly` (no parenthetical), no
-/// tooltip. Used for fallback cases where there is nothing useful to
-/// surface: the requested file isn't covered by any handle (no path
-/// resolves), or a non-`File` config source has no synthesized preset
-/// reason (a configured project shouldn't be nudged).
-///
-/// The onboarding nudge for genuine no-config states lives in the
-/// `Some(SynthesizedPresetReason::NoNearbyConfig)` branch of
-/// `derive_v2_response` (with `Basic` label + `pyrefly init` tooltip).
-fn default_v2_response() -> TypeErrorDisplayStatusV2 {
-    TypeErrorDisplayStatusV2 {
-        version: "v2".to_owned(),
-        label: None,
-        tooltip: String::new(),
-        docs_url: STATUS_BAR_DOCS_URL.to_owned(),
-    }
-}
-
-/// Pure derivation of the V2 status-bar payload. Factored out of
-/// `Server::type_error_display_status_v2` so it can be unit-tested
-/// against synthetic inputs without standing up an LSP transport.
-///
-/// Precedence (mirrors the LSP filter): the workspace kill switch is
-/// checked first, then the per-config-source rules. Both kill-switch
-/// branches surface the same `Errors Off` label so users learn the
-/// state from the status bar itself; the tooltip is the place to
-/// distinguish workspace-level from config-level disable.
-fn derive_v2_response(
-    reason: Option<SynthesizedPresetReason>,
-    source: &ConfigSource,
-    disable_type_errors_in_ide: bool,
-    workspace_disable_type_errors: bool,
-    workspace_type_checking_mode: Option<TypeCheckingMode>,
-) -> TypeErrorDisplayStatusV2 {
-    if workspace_disable_type_errors {
-        return TypeErrorDisplayStatusV2 {
-            version: "v2".to_owned(),
-            label: Some("Errors Off".to_owned()),
-            tooltip:
-                "Pyrefly diagnostics are suppressed by [`python.pyrefly.disableTypeErrors`](command:workbench.action.openSettings?[\"python.pyrefly.disableTypeErrors\"]).\n\nUnset this setting to re-enable diagnostics."
-                    .to_owned(),
-            docs_url: STATUS_BAR_DOCS_URL.to_owned(),
-        };
-    }
-    match reason {
-        Some(SynthesizedPresetReason::IdeOverride) => {
-            // The IdeOverride reason is set by the unconfigured resolver
-            // when the user explicitly chose a non-`Auto` value for the
-            // `python.pyrefly.typeCheckingMode` workspace setting AND no
-            // nearby `pyrefly.toml` was found, so we surface both facts.
-            // Fall back to `<unknown>` only if the workspace state and
-            // the reason somehow disagree — shouldn't happen in practice.
-            let value = workspace_type_checking_mode
-                .map(type_checking_mode_kebab)
-                .unwrap_or("<unknown>");
-            TypeErrorDisplayStatusV2 {
-                version: "v2".to_owned(),
-                label: None,
-                tooltip: format!(
-                    "Pyrefly is using the [`python.pyrefly.typeCheckingMode`](command:workbench.action.openSettings?[\"python.pyrefly.typeCheckingMode\"]) setting (currently: `{value}`) because no `pyrefly.toml` was found.\n\nRun `pyrefly init` to continue setting up Pyrefly.",
-                ),
-                docs_url: STATUS_BAR_DOCS_URL.to_owned(),
-            }
-        }
-        Some(SynthesizedPresetReason::Migrated(kind)) => {
-            let (location, label, preset) = match kind {
-                MigratedFromKind::Mypy(MigratedConfigSource::DedicatedFile) => {
-                    ("your `mypy.ini`", "Legacy", "legacy")
-                }
-                MigratedFromKind::Mypy(MigratedConfigSource::PyprojectToml) => (
-                    "`[tool.mypy]` in your `pyproject.toml`",
-                    "Legacy",
-                    "legacy",
-                ),
-                MigratedFromKind::Pyright(MigratedConfigSource::DedicatedFile) => {
-                    ("your `pyrightconfig.json`", "Default", "default")
-                }
-                MigratedFromKind::Pyright(MigratedConfigSource::PyprojectToml) => (
-                    "`[tool.pyright]` in your `pyproject.toml`",
-                    "Default",
-                    "default",
-                ),
-            };
-            TypeErrorDisplayStatusV2 {
-                version: "v2".to_owned(),
-                label: Some(label.to_owned()),
-                tooltip: format!(
-                    "Pyrefly is using settings imported from {location} (preset: {preset}).\n\nRun `pyrefly init` to continue setting up Pyrefly.",
-                ),
-                docs_url: STATUS_BAR_DOCS_URL.to_owned(),
-            }
-        }
-        Some(SynthesizedPresetReason::NoNearbyConfig) => TypeErrorDisplayStatusV2 {
-            version: "v2".to_owned(),
-            label: Some("Basic".to_owned()),
-            tooltip:
-                "Pyrefly is running with the `basic` preset because no `pyrefly.toml` was found.\n\nRun `pyrefly init` to continue setting up Pyrefly."
-                    .to_owned(),
-            docs_url: STATUS_BAR_DOCS_URL.to_owned(),
-        },
-        None => match source {
-            ConfigSource::File(path) if disable_type_errors_in_ide => {
-                // The in-config disable lives at one of two paths: a
-                // dedicated `pyrefly.toml` (the `disable-type-errors-in-ide`
-                // key sits at the top level), or `[tool.pyrefly]` inside
-                // a `pyproject.toml` (the key sits inside that section).
-                // Tooltip distinguishes so users know what file to open.
-                let location = if path
-                    .file_name()
-                    .is_some_and(|n| n == ConfigFile::PYPROJECT_FILE_NAME)
-                {
-                    "`[tool.pyrefly]` in this project's `pyproject.toml`"
-                } else {
-                    "this project's `pyrefly.toml`"
-                };
-                TypeErrorDisplayStatusV2 {
-                    version: "v2".to_owned(),
-                    label: Some("Errors Off".to_owned()),
-                    tooltip: format!(
-                        "Pyrefly diagnostics are suppressed by `disable-type-errors-in-ide` in {location}.\n\nRemove this config to re-enable diagnostics.",
-                    ),
-                    docs_url: STATUS_BAR_DOCS_URL.to_owned(),
-                }
-            }
-            ConfigSource::File(_) => TypeErrorDisplayStatusV2 {
-                version: "v2".to_owned(),
-                label: None,
-                tooltip: String::new(),
-                docs_url: STATUS_BAR_DOCS_URL.to_owned(),
-            },
-            _ => default_v2_response(),
-        },
-    }
-}
-
-/// Kebab-case spelling of a `TypeCheckingMode`. Matches the
-/// `#[serde(rename_all = "kebab-case")]` form the user types in
-/// `settings.json`, so the value we surface in tooltips is exactly what
-/// they would set the configuration key to.
-fn type_checking_mode_kebab(mode: TypeCheckingMode) -> &'static str {
-    match mode {
-        TypeCheckingMode::Auto => "auto",
-        TypeCheckingMode::Off => "off",
-        TypeCheckingMode::Basic => "basic",
-        TypeCheckingMode::Legacy => "legacy",
-        TypeCheckingMode::Default => "default",
-        TypeCheckingMode::Strict => "strict",
-    }
-}
-
-impl TypeErrorDisplayStatus {
-    fn is_enabled(self) -> bool {
-        match self {
-            TypeErrorDisplayStatus::DisabledInIdeConfig
-            | TypeErrorDisplayStatus::DisabledInConfigFile => false,
-            TypeErrorDisplayStatus::EnabledInIdeConfig
-            | TypeErrorDisplayStatus::EnabledInConfigFile
-            | TypeErrorDisplayStatus::NoConfigFile => true,
-        }
-    }
 }
 
 /// Interface exposed for TSP to interact with the LSP server
@@ -807,6 +524,40 @@ pub struct IoThread {
     writer: JoinHandle<std::io::Result<()>>,
 }
 
+#[cfg(windows)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum WindowsNamedPipeExpectedAccess {
+    Read,
+    Write,
+}
+
+#[cfg(windows)]
+impl WindowsNamedPipeExpectedAccess {
+    fn open(self, pipe_name: &str) -> std::io::Result<std::fs::File> {
+        use std::fs::OpenOptions;
+
+        let mut options = OpenOptions::new();
+        match self {
+            Self::Read => {
+                options.read(true);
+            }
+            Self::Write => {
+                options.write(true);
+            }
+        }
+        options.open(pipe_name)
+    }
+}
+
+#[cfg(windows)]
+fn open_windows_split_pipe_with<T>(
+    expected_access: WindowsNamedPipeExpectedAccess,
+    open_duplex: impl FnOnce() -> std::io::Result<T>,
+    open_expected: impl FnOnce(WindowsNamedPipeExpectedAccess) -> std::io::Result<T>,
+) -> std::io::Result<T> {
+    open_duplex().or_else(|_| open_expected(expected_access))
+}
+
 impl IoThread {
     pub fn join(self) -> std::io::Result<()> {
         match self.writer.join() {
@@ -817,6 +568,28 @@ impl IoThread {
 }
 
 impl Connection {
+    fn from_ipc_streams(
+        writer_stream: Box<dyn Write + Send>,
+        reader_stream: Box<dyn std::io::Read + Send>,
+    ) -> (Self, MessageReader, IoThread) {
+        let (writer_sender, writer_receiver) = crossbeam_channel::unbounded();
+        let writer = std::thread::spawn(move || {
+            let mut output = writer_stream;
+            while let Ok(msg) = writer_receiver.recv() {
+                write_lsp_message(&mut output, msg)?;
+            }
+            Ok(())
+        });
+        (
+            Self {
+                sender: writer_sender,
+                channel_receiver: None,
+            },
+            MessageReader::Stream(BufReader::new(Box::new(reader_stream))),
+            IoThread { writer },
+        )
+    }
+
     /// Create a connection that reads directly from stdin and writes to stdout.
     /// Only the writer uses a background thread; reads happen inline in the
     /// calling thread, eliminating a context switch per LSP message.
@@ -844,22 +617,18 @@ impl Connection {
     /// or a pipe name on Windows (automatically prefixed with `\\.\pipe\`).
     pub fn ipc(pipe_name: &str) -> std::io::Result<(Self, MessageReader, IoThread)> {
         let (writer_stream, reader_stream) = Self::connect_ipc(pipe_name)?;
-        let (writer_sender, writer_receiver) = crossbeam_channel::unbounded();
-        let writer = std::thread::spawn(move || {
-            let mut output = writer_stream;
-            while let Ok(msg) = writer_receiver.recv() {
-                write_lsp_message(&mut output, msg)?;
-            }
-            Ok(())
-        });
-        Ok((
-            Self {
-                sender: writer_sender,
-                channel_receiver: None,
-            },
-            MessageReader::Stream(BufReader::new(Box::new(reader_stream))),
-            IoThread { writer },
-        ))
+        Ok(Self::from_ipc_streams(writer_stream, reader_stream))
+    }
+
+    /// Create a connection over IPC endpoints that may be provided either as
+    /// one full-duplex endpoint or as separate inbound and outbound endpoints.
+    pub fn ipc_split(
+        input_pipe_name: &str,
+        output_pipe_name: &str,
+    ) -> std::io::Result<(Self, MessageReader, IoThread)> {
+        let writer_stream = Self::connect_ipc_writer(output_pipe_name)?;
+        let reader_stream = Self::connect_ipc_reader(input_pipe_name)?;
+        Ok(Self::from_ipc_streams(writer_stream, reader_stream))
     }
 
     #[cfg(unix)]
@@ -871,14 +640,78 @@ impl Connection {
         Ok((Box::new(stream), Box::new(reader)))
     }
 
+    #[cfg(unix)]
+    fn connect_ipc_reader(pipe_name: &str) -> std::io::Result<Box<dyn std::io::Read + Send>> {
+        Ok(Box::new(UnixStream::connect(pipe_name)?))
+    }
+
+    #[cfg(unix)]
+    fn connect_ipc_writer(pipe_name: &str) -> std::io::Result<Box<dyn Write + Send>> {
+        Ok(Box::new(UnixStream::connect(pipe_name)?))
+    }
+
     #[cfg(windows)]
     fn connect_ipc(
         pipe_name: &str,
     ) -> std::io::Result<(Box<dyn Write + Send>, Box<dyn std::io::Read + Send>)> {
-        use std::fs::OpenOptions;
-        let stream = OpenOptions::new().read(true).write(true).open(&pipe_name)?;
+        let stream = Self::open_windows_named_pipe(pipe_name)?;
         let reader = stream.try_clone()?;
         Ok((Box::new(stream), Box::new(reader)))
+    }
+
+    #[cfg(windows)]
+    fn connect_ipc_reader(pipe_name: &str) -> std::io::Result<Box<dyn std::io::Read + Send>> {
+        Ok(Box::new(Self::open_windows_split_named_pipe(
+            pipe_name,
+            WindowsNamedPipeExpectedAccess::Read,
+        )?))
+    }
+
+    #[cfg(windows)]
+    fn connect_ipc_writer(pipe_name: &str) -> std::io::Result<Box<dyn Write + Send>> {
+        Ok(Box::new(Self::open_windows_split_named_pipe(
+            pipe_name,
+            WindowsNamedPipeExpectedAccess::Write,
+        )?))
+    }
+
+    #[cfg(windows)]
+    fn open_windows_named_pipe(pipe_name: &str) -> std::io::Result<std::fs::File> {
+        use std::fs::OpenOptions;
+
+        OpenOptions::new().read(true).write(true).open(pipe_name)
+    }
+
+    #[cfg(windows)]
+    fn open_windows_split_named_pipe(
+        pipe_name: &str,
+        expected_access: WindowsNamedPipeExpectedAccess,
+    ) -> std::io::Result<std::fs::File> {
+        // This workaround is needed because of a few limitations on Windows.
+        //
+        // Windows named pipes do not support synchronous concurrent reads and
+        // writes on the same handle, so we cannot use a single named pipe for
+        // full-duplex communication here. Windows does support concurrent
+        // reads and writes through async APIs, but Pyrefly has a synchronous
+        // codebase, so that approach is not available to us.
+        //
+        // There is also a Node.js limitation. To work around the Windows
+        // limitation, we support using two IPC channels separately for inbound
+        // and outbound communication, similar to stdin and stdout in stdio.
+        // However, Node.js does not allow creating a Windows IPC named pipe
+        // that is only inbound or only outbound; it always creates a
+        // full-duplex pipe. Also, we cannot know how the pipe was created
+        // until we open it.
+        //
+        // Because of these two constraints, we use this workaround on
+        // Windows: we first try to open the pipe with both read and write
+        // access. If that fails, we open it only with the expected access for
+        // clients that can create a named pipe with specific access permissions.
+        open_windows_split_pipe_with(
+            expected_access,
+            || Self::open_windows_named_pipe(pipe_name),
+            |expected_access| expected_access.open(pipe_name),
+        )
     }
 
     /// Create a connection from a transport specification string.
@@ -1192,11 +1025,39 @@ fn format_diagnostic_message_for_markdown(message: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::io;
+
     use lsp_types::CodeActionKind;
 
     use super::SOURCE_FIX_ALL_PYREFLY;
     use super::format_diagnostic_message_for_markdown;
     use super::matches_fix_all_kind;
+    use crate::lsp::non_wasm::protocol::Message;
+    use crate::lsp::non_wasm::protocol::Notification;
+
+    fn notification_message(method: &str) -> Message {
+        Message::Notification(Notification {
+            method: method.to_owned(),
+            params: serde_json::Value::Null,
+            activity_key: None,
+        })
+    }
+
+    fn assert_notification_method(message: Message, expected: &str) {
+        match message {
+            Message::Notification(notification) => {
+                assert_eq!(notification.method, expected);
+            }
+            other => panic!("expected notification, got {other:?}"),
+        }
+    }
+
+    fn expect_io_error<T>(result: io::Result<T>, message: &str) -> io::Error {
+        match result {
+            Ok(_) => panic!("{message}"),
+            Err(error) => error,
+        }
+    }
 
     #[test]
     fn test_format_diagnostic_message_for_markdown() {
@@ -1257,345 +1118,398 @@ mod tests {
         assert!(!matches_fix_all_kind(&CodeActionKind::QUICKFIX));
         assert!(!matches_fix_all_kind(&CodeActionKind::REFACTOR_EXTRACT));
     }
+    #[cfg(any(unix, windows))]
+    mod ipc_transport {
+        use std::io;
+        use std::io::BufReader;
+        use std::thread;
 
-    /// Unit tests for the V2 status-bar response derivation. The test
-    /// matrix covers the four `SynthesizedPresetReason` cases plus the
-    /// configured-file branches. The full LSP integration (parsing the
-    /// version from init options, dispatching the request) is exercised
-    /// by the existing notebook_type_error_display_status tests.
-    mod v2_response {
-        use std::path::PathBuf;
+        use super::super::Connection;
+        use super::assert_notification_method;
+        use super::expect_io_error;
+        use super::notification_message;
+        use crate::lsp::non_wasm::protocol::Message;
+        use crate::lsp::non_wasm::protocol::read_lsp_message;
+        use crate::lsp::non_wasm::protocol::write_lsp_message;
 
-        use pyrefly_config::config::ConfigSource;
-        use pyrefly_config::config::SynthesizedPresetReason;
-        use pyrefly_config::migration::run::MigratedConfigSource;
-        use pyrefly_config::migration::run::MigratedFromKind;
-
-        use super::super::TypeErrorDisplayStatusVersion;
-        use super::super::derive_v2_response;
-        use crate::state::lsp::TypeCheckingMode;
-
-        #[test]
-        fn ide_override_yields_null_label() {
-            let r = derive_v2_response(
-                Some(SynthesizedPresetReason::IdeOverride),
-                &ConfigSource::Synthetic,
-                false,
-                false,
-                Some(TypeCheckingMode::Strict),
-            );
-            assert_eq!(r.label, None);
-            assert!(r.tooltip.contains("typeCheckingMode"));
-            // The current value (`strict` in kebab-case) is rendered so
-            // the user sees what the setting is currently set to.
-            assert!(
-                r.tooltip.contains("currently: `strict`"),
-                "tooltip should embed the active `typeCheckingMode` value, got: {}",
-                r.tooltip
-            );
+        #[derive(Clone, Copy)]
+        enum SplitEndpointMode {
+            Duplex,
+            Directional,
         }
 
-        #[test]
-        fn migrated_from_mypy_ini_yields_legacy_label() {
-            let r = derive_v2_response(
-                Some(SynthesizedPresetReason::Migrated(MigratedFromKind::Mypy(
-                    MigratedConfigSource::DedicatedFile,
-                ))),
-                &ConfigSource::Synthetic,
-                false,
-                false,
-                None,
-            );
-            assert_eq!(r.label.as_deref(), Some("Legacy"));
-            assert!(r.tooltip.contains("your `mypy.ini`"));
-            assert!(r.tooltip.contains("pyrefly init"));
-        }
+        #[cfg(unix)]
+        mod platform {
+            use std::io;
+            use std::net::Shutdown;
+            use std::os::unix::net::UnixListener;
+            use std::os::unix::net::UnixStream;
 
-        #[test]
-        fn migrated_from_mypy_pyproject_yields_legacy_label() {
-            let r = derive_v2_response(
-                Some(SynthesizedPresetReason::Migrated(MigratedFromKind::Mypy(
-                    MigratedConfigSource::PyprojectToml,
-                ))),
-                &ConfigSource::Synthetic,
-                false,
-                false,
-                None,
-            );
-            assert_eq!(r.label.as_deref(), Some("Legacy"));
-            assert!(r.tooltip.contains("`[tool.mypy]` in your `pyproject.toml`"));
-            assert!(!r.tooltip.contains("your `mypy.ini`"));
-        }
+            use tempfile::TempDir;
 
-        #[test]
-        fn migrated_from_pyrightconfig_yields_default_label() {
-            let r = derive_v2_response(
-                Some(SynthesizedPresetReason::Migrated(
-                    MigratedFromKind::Pyright(MigratedConfigSource::DedicatedFile),
-                )),
-                &ConfigSource::Synthetic,
-                false,
-                false,
-                None,
-            );
-            assert_eq!(r.label.as_deref(), Some("Default"));
-            assert!(r.tooltip.contains("your `pyrightconfig.json`"));
-        }
+            use super::SplitEndpointMode;
 
-        #[test]
-        fn migrated_from_pyright_pyproject_yields_default_label() {
-            let r = derive_v2_response(
-                Some(SynthesizedPresetReason::Migrated(
-                    MigratedFromKind::Pyright(MigratedConfigSource::PyprojectToml),
-                )),
-                &ConfigSource::Synthetic,
-                false,
-                false,
-                None,
-            );
-            assert_eq!(r.label.as_deref(), Some("Default"));
-            assert!(
-                r.tooltip
-                    .contains("`[tool.pyright]` in your `pyproject.toml`")
-            );
-            assert!(!r.tooltip.contains("your `pyrightconfig.json`"));
-        }
+            pub type PeerStream = UnixStream;
 
-        #[test]
-        fn no_nearby_config_yields_basic_label() {
-            let r = derive_v2_response(
-                Some(SynthesizedPresetReason::NoNearbyConfig),
-                &ConfigSource::Synthetic,
-                false,
-                false,
-                None,
-            );
-            assert_eq!(r.label.as_deref(), Some("Basic"));
-            assert!(r.tooltip.contains("basic"));
-            assert!(r.tooltip.contains("pyrefly init"));
-        }
-
-        /// A real config file with errors enabled → no parenthetical, no
-        /// onboarding tooltip. The existence of a `pyrefly.toml` means
-        /// the user is already configured; nudging them is noise.
-        #[test]
-        fn configured_file_yields_null_label_no_tooltip() {
-            let r = derive_v2_response(
-                None,
-                &ConfigSource::File(PathBuf::from("/proj/pyrefly.toml")),
-                false,
-                false,
-                None,
-            );
-            assert_eq!(r.label, None);
-            assert!(r.tooltip.is_empty());
-        }
-
-        /// `disable_type_errors_in_ide` set in a dedicated `pyrefly.toml`
-        /// → status bar shows `Pyrefly (Errors Off)` with a tooltip
-        /// pointing at `disable-type-errors-in-ide` in the project's
-        /// `pyrefly.toml`.
-        #[test]
-        fn disabled_in_pyrefly_toml_yields_errors_off_label() {
-            let r = derive_v2_response(
-                None,
-                &ConfigSource::File(PathBuf::from("/proj/pyrefly.toml")),
-                true,
-                false,
-                None,
-            );
-            assert_eq!(r.label.as_deref(), Some("Errors Off"));
-            assert!(r.tooltip.contains("disable-type-errors-in-ide"));
-            assert!(r.tooltip.contains("this project's `pyrefly.toml`"));
-            assert!(
-                !r.tooltip.contains("[tool.pyrefly]"),
-                "dedicated-file tooltip shouldn't mention the pyproject form: {}",
-                r.tooltip
-            );
-        }
-
-        /// Same `disable-type-errors-in-ide` mechanism but the config
-        /// lives in a `pyproject.toml` `[tool.pyrefly]` section. The
-        /// tooltip distinguishes so users know which file to open.
-        #[test]
-        fn disabled_in_pyproject_toml_yields_errors_off_label() {
-            let r = derive_v2_response(
-                None,
-                &ConfigSource::File(PathBuf::from("/proj/pyproject.toml")),
-                true,
-                false,
-                None,
-            );
-            assert_eq!(r.label.as_deref(), Some("Errors Off"));
-            assert!(r.tooltip.contains("disable-type-errors-in-ide"));
-            assert!(
-                r.tooltip
-                    .contains("`[tool.pyrefly]` in this project's `pyproject.toml`"),
-                "pyproject tooltip should distinguish from the dedicated-file form: {}",
-                r.tooltip
-            );
-        }
-
-        /// Workspace `disableTypeErrors = true` is the kill switch.
-        /// Status bar shows `Pyrefly (Errors Off)`; tooltip points the
-        /// user at the workspace setting (not the config) so they
-        /// know which knob to flip.
-        #[test]
-        fn workspace_kill_switch_yields_errors_off_label() {
-            let r = derive_v2_response(None, &ConfigSource::Synthetic, false, true, None);
-            assert_eq!(r.label.as_deref(), Some("Errors Off"));
-            assert!(r.tooltip.contains("python.pyrefly.disableTypeErrors"));
-        }
-
-        /// Workspace kill switch wins over every other branch — even
-        /// when a `SynthesizedPresetReason` would otherwise pick a
-        /// preset label or the in-config disable would point at the
-        /// config.
-        #[test]
-        fn workspace_kill_switch_wins_over_preset_reason() {
-            let r = derive_v2_response(
-                Some(SynthesizedPresetReason::NoNearbyConfig),
-                &ConfigSource::Synthetic,
-                false,
-                true,
-                None,
-            );
-            assert_eq!(r.label.as_deref(), Some("Errors Off"));
-            assert!(r.tooltip.contains("python.pyrefly.disableTypeErrors"));
-        }
-
-        #[test]
-        fn workspace_kill_switch_wins_over_in_config_disable() {
-            let r = derive_v2_response(
-                None,
-                &ConfigSource::File(PathBuf::from("/proj/pyrefly.toml")),
-                true,
-                true,
-                None,
-            );
-            assert_eq!(r.label.as_deref(), Some("Errors Off"));
-            assert!(r.tooltip.contains("python.pyrefly.disableTypeErrors"));
-            assert!(
-                !r.tooltip.contains("disable-type-errors-in-ide"),
-                "workspace tooltip should not mention the in-config flag when it's the workspace setting that's responsible"
-            );
-        }
-
-        /// Forward-compat regression: `TypeErrorDisplayStatusVersion`
-        /// must round-trip through serde with the kebab-case spelling
-        /// the protocol uses. If a future client sends `"v3"` and the
-        /// server doesn't know it yet, deserialization fails — the
-        /// init-time negotiator catches that and clamps to
-        /// [`LATEST`](TypeErrorDisplayStatusVersion::LATEST), since the
-        /// client explicitly opted into a richer shape and V1 would
-        /// silently strip off a feature they asked for.
-        #[test]
-        fn version_unknown_value_fails_to_deserialize() {
-            let v: Result<TypeErrorDisplayStatusVersion, _> =
-                serde_json::from_value(serde_json::json!("v3"));
-            assert!(v.is_err());
-        }
-
-        /// Pin the clamping target so a future commit that adds `V3`
-        /// remembers to bump `LATEST`.
-        #[test]
-        fn version_latest_is_v2() {
-            assert_eq!(
-                TypeErrorDisplayStatusVersion::LATEST,
-                TypeErrorDisplayStatusVersion::V2
-            );
-        }
-
-        #[test]
-        fn version_v1_v2_round_trip() {
-            let v1: TypeErrorDisplayStatusVersion =
-                serde_json::from_value(serde_json::json!("v1")).unwrap();
-            assert_eq!(v1, TypeErrorDisplayStatusVersion::V1);
-            let v2: TypeErrorDisplayStatusVersion =
-                serde_json::from_value(serde_json::json!("v2")).unwrap();
-            assert_eq!(v2, TypeErrorDisplayStatusVersion::V2);
-        }
-
-        /// Negotiation pinned end-to-end against the documented contract:
-        /// missing or explicit `null` → V1; known version → that version;
-        /// unknown future version → LATEST.
-        mod negotiate {
-            use super::super::super::TypeErrorDisplayStatusVersion;
-            use super::super::super::negotiate_type_error_display_status_version;
-
-            #[test]
-            fn missing_initialization_options_resolves_to_v1() {
-                assert_eq!(
-                    negotiate_type_error_display_status_version(None),
-                    TypeErrorDisplayStatusVersion::V1
-                );
+            pub struct SingleEndpoint {
+                pub name: String,
+                listener: UnixListener,
+                _tempdir: TempDir,
             }
 
-            #[test]
-            fn missing_pyrefly_namespace_resolves_to_v1() {
-                let opts = serde_json::json!({});
-                assert_eq!(
-                    negotiate_type_error_display_status_version(Some(&opts)),
-                    TypeErrorDisplayStatusVersion::V1
-                );
+            pub struct SplitEndpoint {
+                pub input_name: String,
+                pub output_name: String,
+                mode: SplitEndpointMode,
+                input_listener: UnixListener,
+                output_listener: UnixListener,
+                _tempdir: TempDir,
             }
 
-            #[test]
-            fn missing_field_resolves_to_v1() {
-                let opts = serde_json::json!({ "pyrefly": {} });
-                assert_eq!(
-                    negotiate_type_error_display_status_version(Some(&opts)),
-                    TypeErrorDisplayStatusVersion::V1
-                );
+            pub struct MissingSplitOutputEndpoint {
+                pub input_name: String,
+                pub output_name: String,
+                _input_listener: UnixListener,
+                _tempdir: TempDir,
             }
 
-            /// Explicit JSON `null` must resolve to V1, not LATEST.
-            /// Without the `.filter(|v| !v.is_null())` guard, deserialize
-            /// fails and the `.unwrap_or(LATEST)` branch clamps `null` to
-            /// V2 — silently upgrading older clients that send an
-            /// explicit `null` instead of omitting the field.
-            #[test]
-            fn explicit_null_resolves_to_v1() {
-                let opts =
-                    serde_json::json!({ "pyrefly": { "typeErrorDisplayStatusVersion": null } });
-                assert_eq!(
-                    negotiate_type_error_display_status_version(Some(&opts)),
-                    TypeErrorDisplayStatusVersion::V1
-                );
+            fn socket_name(tempdir: &TempDir, name: &str) -> String {
+                tempdir
+                    .path()
+                    .join(name)
+                    .to_str()
+                    .expect("temporary Unix socket path should be valid UTF-8")
+                    .to_owned()
             }
 
-            #[test]
-            fn known_v1_resolves_to_v1() {
-                let opts =
-                    serde_json::json!({ "pyrefly": { "typeErrorDisplayStatusVersion": "v1" } });
-                assert_eq!(
-                    negotiate_type_error_display_status_version(Some(&opts)),
-                    TypeErrorDisplayStatusVersion::V1
-                );
+            pub fn single_endpoint(_label: &str) -> io::Result<SingleEndpoint> {
+                let tempdir = tempfile::tempdir()?;
+                let name = socket_name(&tempdir, "single.sock");
+                let listener = UnixListener::bind(&name)?;
+                Ok(SingleEndpoint {
+                    name,
+                    listener,
+                    _tempdir: tempdir,
+                })
             }
 
-            #[test]
-            fn known_v2_resolves_to_v2() {
-                let opts =
-                    serde_json::json!({ "pyrefly": { "typeErrorDisplayStatusVersion": "v2" } });
-                assert_eq!(
-                    negotiate_type_error_display_status_version(Some(&opts)),
-                    TypeErrorDisplayStatusVersion::V2
-                );
+            pub fn accept_single_endpoint(endpoint: SingleEndpoint) -> io::Result<PeerStream> {
+                let (stream, _) = endpoint.listener.accept()?;
+                Ok(stream)
             }
 
-            /// A version newer than this server knows about clamps to
-            /// LATEST — the client opted into a richer shape, so falling
-            /// back to V1 would silently strip off a feature.
-            #[test]
-            fn unknown_future_version_clamps_to_latest() {
-                let opts =
-                    serde_json::json!({ "pyrefly": { "typeErrorDisplayStatusVersion": "v3" } });
-                assert_eq!(
-                    negotiate_type_error_display_status_version(Some(&opts)),
-                    TypeErrorDisplayStatusVersion::LATEST
-                );
+            pub fn split_endpoint(
+                label: &str,
+                mode: SplitEndpointMode,
+            ) -> io::Result<SplitEndpoint> {
+                let tempdir = tempfile::tempdir()?;
+                let input_name = socket_name(&tempdir, &format!("{label}-i.sock"));
+                let output_name = socket_name(&tempdir, &format!("{label}-o.sock"));
+                let input_listener = UnixListener::bind(&input_name)?;
+                let output_listener = UnixListener::bind(&output_name)?;
+                Ok(SplitEndpoint {
+                    input_name,
+                    output_name,
+                    mode,
+                    input_listener,
+                    output_listener,
+                    _tempdir: tempdir,
+                })
             }
+
+            pub fn accept_split_endpoint(
+                endpoint: SplitEndpoint,
+            ) -> io::Result<(PeerStream, PeerStream)> {
+                let (output_stream, _) = endpoint.output_listener.accept()?;
+                let (input_stream, _) = endpoint.input_listener.accept()?;
+                match endpoint.mode {
+                    SplitEndpointMode::Duplex => {}
+                    SplitEndpointMode::Directional => {
+                        input_stream.shutdown(Shutdown::Read)?;
+                        output_stream.shutdown(Shutdown::Write)?;
+                    }
+                }
+                Ok((input_stream, output_stream))
+            }
+
+            pub fn missing_endpoint_name(_label: &str) -> io::Result<String> {
+                let tempdir = tempfile::tempdir()?;
+                Ok(socket_name(&tempdir, "missing.sock"))
+            }
+
+            pub fn missing_split_output_endpoint() -> io::Result<MissingSplitOutputEndpoint> {
+                let tempdir = tempfile::tempdir()?;
+                let input_name = socket_name(&tempdir, "input.sock");
+                let output_name = socket_name(&tempdir, "missing-output.sock");
+                let input_listener = UnixListener::bind(&input_name)?;
+                Ok(MissingSplitOutputEndpoint {
+                    input_name,
+                    output_name,
+                    _input_listener: input_listener,
+                    _tempdir: tempdir,
+                })
+            }
+        }
+
+        #[cfg(windows)]
+        mod platform {
+            use std::ffi::OsStr;
+            use std::ffi::c_void;
+            use std::fs::File;
+            use std::io;
+            use std::os::windows::ffi::OsStrExt;
+            use std::os::windows::io::AsRawHandle;
+            use std::os::windows::io::FromRawHandle;
+            use std::ptr::null_mut;
+
+            use uuid::Uuid;
+
+            use super::SplitEndpointMode;
+
+            pub type PeerStream = File;
+
+            pub struct SingleEndpoint {
+                pub name: String,
+                pipe: File,
+            }
+
+            pub struct SplitEndpoint {
+                pub input_name: String,
+                pub output_name: String,
+                input_pipe: File,
+                output_pipe: File,
+            }
+
+            pub struct MissingSplitOutputEndpoint {
+                pub input_name: String,
+                pub output_name: String,
+                _input_pipe: File,
+            }
+
+            const ERROR_PIPE_CONNECTED: i32 = 535;
+            const PIPE_ACCESS_INBOUND: u32 = 0x0000_0001;
+            const PIPE_ACCESS_OUTBOUND: u32 = 0x0000_0002;
+            const PIPE_ACCESS_DUPLEX: u32 = 0x0000_0003;
+            const PIPE_TYPE_BYTE: u32 = 0x0000_0000;
+            const PIPE_READMODE_BYTE: u32 = 0x0000_0000;
+            const PIPE_WAIT: u32 = 0x0000_0000;
+            const INVALID_HANDLE_VALUE: *mut c_void = -1_isize as *mut c_void;
+
+            unsafe extern "system" {
+                fn CreateNamedPipeW(
+                    lp_name: *const u16,
+                    dw_open_mode: u32,
+                    dw_pipe_mode: u32,
+                    n_max_instances: u32,
+                    n_out_buffer_size: u32,
+                    n_in_buffer_size: u32,
+                    n_default_time_out: u32,
+                    lp_security_attributes: *mut c_void,
+                ) -> *mut c_void;
+
+                fn ConnectNamedPipe(h_named_pipe: *mut c_void, lp_overlapped: *mut c_void) -> i32;
+            }
+
+            fn pipe_name(label: &str) -> String {
+                format!(
+                    r"\\.\pipe\pyrefly-{label}-{}-{}",
+                    std::process::id(),
+                    Uuid::new_v4()
+                )
+            }
+
+            fn wide_null(value: &str) -> Vec<u16> {
+                OsStr::new(value).encode_wide().chain(Some(0)).collect()
+            }
+
+            fn create_named_pipe(pipe_name: &str, access: u32) -> io::Result<File> {
+                let pipe_name = wide_null(pipe_name);
+                let handle = unsafe {
+                    CreateNamedPipeW(
+                        pipe_name.as_ptr(),
+                        access,
+                        PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
+                        1,
+                        4096,
+                        4096,
+                        0,
+                        null_mut(),
+                    )
+                };
+                if handle == INVALID_HANDLE_VALUE {
+                    Err(io::Error::last_os_error())
+                } else {
+                    Ok(unsafe { File::from_raw_handle(handle) })
+                }
+            }
+
+            fn connect_named_pipe(pipe: &File) -> io::Result<()> {
+                let connected = unsafe { ConnectNamedPipe(pipe.as_raw_handle(), null_mut()) };
+                if connected != 0 {
+                    return Ok(());
+                }
+                let error = io::Error::last_os_error();
+                if error.raw_os_error() == Some(ERROR_PIPE_CONNECTED) {
+                    Ok(())
+                } else {
+                    Err(error)
+                }
+            }
+
+            pub fn single_endpoint(label: &str) -> io::Result<SingleEndpoint> {
+                let name = pipe_name(label);
+                let pipe = create_named_pipe(&name, PIPE_ACCESS_DUPLEX)?;
+                Ok(SingleEndpoint { name, pipe })
+            }
+
+            pub fn accept_single_endpoint(endpoint: SingleEndpoint) -> io::Result<PeerStream> {
+                connect_named_pipe(&endpoint.pipe)?;
+                Ok(endpoint.pipe)
+            }
+
+            pub fn split_endpoint(
+                label: &str,
+                mode: SplitEndpointMode,
+            ) -> io::Result<SplitEndpoint> {
+                let (input_access, output_access) = match mode {
+                    SplitEndpointMode::Duplex => (PIPE_ACCESS_DUPLEX, PIPE_ACCESS_DUPLEX),
+                    SplitEndpointMode::Directional => (PIPE_ACCESS_OUTBOUND, PIPE_ACCESS_INBOUND),
+                };
+                let input_name = pipe_name(&format!("{label}-input"));
+                let output_name = pipe_name(&format!("{label}-output"));
+                let input_pipe = create_named_pipe(&input_name, input_access)?;
+                let output_pipe = create_named_pipe(&output_name, output_access)?;
+                Ok(SplitEndpoint {
+                    input_name,
+                    output_name,
+                    input_pipe,
+                    output_pipe,
+                })
+            }
+
+            pub fn accept_split_endpoint(
+                endpoint: SplitEndpoint,
+            ) -> io::Result<(PeerStream, PeerStream)> {
+                connect_named_pipe(&endpoint.output_pipe)?;
+                connect_named_pipe(&endpoint.input_pipe)?;
+                Ok((endpoint.input_pipe, endpoint.output_pipe))
+            }
+
+            pub fn missing_endpoint_name(label: &str) -> io::Result<String> {
+                Ok(pipe_name(label))
+            }
+
+            pub fn missing_split_output_endpoint() -> io::Result<MissingSplitOutputEndpoint> {
+                let input_name = pipe_name("existing-input");
+                let output_name = pipe_name("missing-output");
+                let input_pipe = create_named_pipe(&input_name, PIPE_ACCESS_OUTBOUND)?;
+                Ok(MissingSplitOutputEndpoint {
+                    input_name,
+                    output_name,
+                    _input_pipe: input_pipe,
+                })
+            }
+        }
+
+        fn read_message_from_peer(
+            stream: platform::PeerStream,
+            missing_message: &str,
+        ) -> io::Result<Message> {
+            let mut reader = BufReader::new(stream);
+            read_lsp_message(&mut reader)?
+                .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, missing_message))
+        }
+
+        fn run_split_endpoint_test(mode: SplitEndpointMode, label: &str) -> io::Result<()> {
+            let endpoint = platform::split_endpoint(label, mode)?;
+            let input_name = endpoint.input_name.clone();
+            let output_name = endpoint.output_name.clone();
+            let peer = thread::spawn(move || -> io::Result<Message> {
+                let (mut input_stream, output_stream) = platform::accept_split_endpoint(endpoint)?;
+                write_lsp_message(&mut input_stream, notification_message("client/to/server"))?;
+                read_message_from_peer(output_stream, "expected a message on the output endpoint")
+            });
+
+            let (connection, mut reader, io_thread) =
+                Connection::ipc_split(&input_name, &output_name)?;
+            assert_notification_method(
+                reader
+                    .recv()
+                    .expect("expected a message from the input endpoint"),
+                "client/to/server",
+            );
+
+            connection
+                .sender
+                .send(notification_message("server/to/client"))
+                .expect("test connection should stay open");
+            drop(connection);
+            io_thread.join()?;
+
+            let outbound = peer.join().expect("split IPC peer panicked")?;
+            assert_notification_method(outbound, "server/to/client");
+            Ok(())
+        }
+
+        #[test]
+        fn test_ipc_single_endpoint_is_full_duplex() -> io::Result<()> {
+            let endpoint = platform::single_endpoint("single")?;
+            let name = endpoint.name.clone();
+            let peer = thread::spawn(move || -> io::Result<Message> {
+                let mut stream = platform::accept_single_endpoint(endpoint)?;
+                write_lsp_message(&mut stream, notification_message("client/to/server"))?;
+                read_message_from_peer(stream, "expected a message from the server writer")
+            });
+
+            let (connection, mut reader, io_thread) = Connection::ipc(&name)?;
+            assert_notification_method(
+                reader.recv().expect("expected a message from the peer"),
+                "client/to/server",
+            );
+
+            connection
+                .sender
+                .send(notification_message("server/to/client"))
+                .expect("test connection should stay open");
+            drop(connection);
+            io_thread.join()?;
+
+            let outbound = peer.join().expect("IPC peer panicked")?;
+            assert_notification_method(outbound, "server/to/client");
+            Ok(())
+        }
+
+        #[test]
+        fn test_ipc_split_uses_duplex_endpoints() -> io::Result<()> {
+            run_split_endpoint_test(SplitEndpointMode::Duplex, "duplex")
+        }
+
+        #[test]
+        fn test_ipc_split_uses_directional_endpoints() -> io::Result<()> {
+            run_split_endpoint_test(SplitEndpointMode::Directional, "directional")
+        }
+
+        #[test]
+        fn test_ipc_single_endpoint_reports_missing_endpoint() -> io::Result<()> {
+            let name = platform::missing_endpoint_name("missing-single")?;
+
+            let error = expect_io_error(Connection::ipc(&name), "missing endpoint should fail");
+
+            assert_eq!(error.kind(), io::ErrorKind::NotFound);
+            Ok(())
+        }
+
+        #[test]
+        fn test_ipc_split_reports_missing_output_endpoint() -> io::Result<()> {
+            let endpoint = platform::missing_split_output_endpoint()?;
+
+            let error = expect_io_error(
+                Connection::ipc_split(&endpoint.input_name, &endpoint.output_name),
+                "missing output endpoint should fail",
+            );
+
+            assert_eq!(error.kind(), io::ErrorKind::NotFound);
+            Ok(())
         }
     }
 }

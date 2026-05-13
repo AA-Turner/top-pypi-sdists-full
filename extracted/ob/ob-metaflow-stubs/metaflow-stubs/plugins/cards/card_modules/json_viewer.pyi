@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.871158                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.124297                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import typing
     import metaflow.plugins.cards.card_modules.card
+    import typing
 
 from .card import MetaflowCardComponent as MetaflowCardComponent
 from .card import with_default_component_id as with_default_component_id
@@ -50,7 +50,7 @@ class JSONViewer(metaflow.plugins.cards.card_modules.card.MetaflowCardComponent,
     show_copy_button : bool, default True
         Whether to show a copy-to-clipboard button.
     """
-    def __init__(self, data: typing.Any, collapsible: bool = True, max_height: typing.Optional[str] = None, show_copy_button: bool = True, title: typing.Optional[str] = None):
+    def __init__(self, data: typing.Any, collapsible: bool = True, max_height: typing.Union[str, None] = None, show_copy_button: bool = True, title: typing.Union[str, None] = None):
         ...
     def update(self, data: typing.Any):
         """
@@ -101,7 +101,7 @@ class YAMLViewer(metaflow.plugins.cards.card_modules.card.MetaflowCardComponent,
     show_copy_button : bool, default True
         Whether to show a copy-to-clipboard button.
     """
-    def __init__(self, data: typing.Any, collapsible: bool = True, max_height: typing.Optional[str] = None, show_copy_button: bool = True, title: typing.Optional[str] = None):
+    def __init__(self, data: typing.Any, collapsible: bool = True, max_height: typing.Union[str, None] = None, show_copy_button: bool = True, title: typing.Union[str, None] = None):
         ...
     def update(self, data: typing.Any):
         """

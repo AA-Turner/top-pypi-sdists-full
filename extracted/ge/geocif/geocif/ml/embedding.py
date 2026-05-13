@@ -17,6 +17,8 @@ import pandas as pd
 from scipy.stats import pearsonr
 from tqdm.rich import tqdm
 
+from geocif.progress import pbar as _pbar
+
 
 def _ccc_series(x: pd.Series, y: pd.Series) -> float:
     """Lin's Concordance Correlation Coefficient between two series."""
@@ -276,7 +278,7 @@ def get_all_features_correlation(
 
     _fn = corr_fn if corr_fn is not None else _ccc_corrwith
 
-    for region_id, group in tqdm(df_all.groupby("Region", sort=False), leave=False):
+    for region_id, group in _pbar(df_all.groupby("Region", sort=False), leave=False):
         correlations = _fn(group[numeric_cols], group["__target__"]).dropna()
         
         if correlations.empty:

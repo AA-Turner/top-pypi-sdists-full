@@ -18,6 +18,7 @@ import asyncio
 from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any
+from uuid import uuid4
 
 import pytest
 
@@ -81,6 +82,11 @@ class _CancellableJobManager:
     def __init__(self) -> None:
         self.runner_task: asyncio.Task[Any] | None = None
         self.job_types: list[str] = []
+        self._counter = 0
+
+    async def allocate_job_id(self) -> str:
+        self._counter += 1
+        return f"job_{uuid4().hex[:12]}"
 
     async def start_job(
         self,
@@ -89,11 +95,13 @@ class _CancellableJobManager:
         initial_message: str,  # noqa: ARG002 - mirrors JobManager API
         runner: Any,
         links: JobLinks | None = None,
+        job_id: str | None = None,
     ) -> _CompletedJobSnapshot:
+        job_id = job_id or await self.allocate_job_id()
         self.job_types.append(job_type)
         self.runner_task = asyncio.create_task(runner)
         return _CompletedJobSnapshot(
-            job_id=f"job_{job_type}",
+            job_id=job_id,
             links=links or JobLinks(),
             status=JobStatus.RUNNING,
         )
@@ -111,6 +119,11 @@ class _InlineJobManager:
     def __init__(self) -> None:
         self.runner_results: list[MCPToolResult] = []
         self.job_types: list[str] = []
+        self._counter = 0
+
+    async def allocate_job_id(self) -> str:
+        self._counter += 1
+        return f"job_{uuid4().hex[:12]}"
 
     async def start_job(
         self,
@@ -119,11 +132,13 @@ class _InlineJobManager:
         initial_message: str,  # noqa: ARG002 - mirrors JobManager API
         runner: Any,
         links: JobLinks | None = None,
+        job_id: str | None = None,
     ) -> _CompletedJobSnapshot:
+        job_id = job_id or await self.allocate_job_id()
         self.job_types.append(job_type)
         self.runner_results.append(await runner)
         return _CompletedJobSnapshot(
-            job_id=f"job_{job_type}",
+            job_id=job_id,
             links=links or JobLinks(),
         )
 
@@ -546,7 +561,9 @@ async def test_job_manager_classifies_status_only_cancelled_result_as_cancelled(
 
 
 @pytest.mark.asyncio
-async def test_run_with_agent_process_timeout_does_not_hang_on_stubborn_worker() -> None:
+async def test_run_with_agent_process_timeout_does_not_publish_terminal_cancel_for_stubborn_worker() -> (
+    None
+):
     store = _FakeEventStore()
     release = asyncio.Event()
     swallowed_cancel = asyncio.Event()
@@ -571,6 +588,52 @@ async def test_run_with_agent_process_timeout_does_not_hang_on_stubborn_worker()
         )
 
     assert swallowed_cancel.is_set()
-    assert _directives(store)[-1] == "cancel"
+    assert _directives(store) == ["continue"]
+
     release.set()
+    deadline = asyncio.get_running_loop().time() + 2.0
+    while _directives(store)[-1] != "cancel" and asyncio.get_running_loop().time() < deadline:
+        await asyncio.sleep(0.01)
+
+    assert _directives(store)[-1] == "cancel"
+    assert _lifecycle_statuses(store)[-1] == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_run_with_agent_process_external_cancel_waits_for_stubborn_worker_to_stop() -> None:
+    store = _FakeEventStore()
+    release = asyncio.Event()
+    swallowed_cancel = asyncio.Event()
+
+    async def _stubborn_work(_handle: Any) -> MCPToolResult:
+        try:
+            await asyncio.sleep(60)
+        except asyncio.CancelledError:
+            swallowed_cancel.set()
+            await release.wait()
+        return MCPToolResult()
+
+    task = asyncio.create_task(
+        run_with_agent_process(
+            event_store=store,
+            intent="stubborn_cancel_surface",
+            work_fn=_stubborn_work,
+        )
+    )
     await asyncio.sleep(0)
+
+    task.cancel()
+    await asyncio.wait_for(swallowed_cancel.wait(), timeout=2.0)
+    task.cancel()
+    await asyncio.sleep(1.1)
+
+    assert not task.done()
+    assert _directives(store) == ["continue"]
+
+    release.set()
+    with suppress(asyncio.CancelledError):
+        await asyncio.wait_for(task, timeout=2.0)
+
+    assert task.cancelled()
+    assert _directives(store)[-1] == "cancel"
+    assert _lifecycle_statuses(store)[-1] == "cancelled"

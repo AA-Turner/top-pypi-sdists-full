@@ -15,6 +15,11 @@ import System.Text
 import System.Threading
 import System.Threading.Tasks
 
+System_IO_UnmanagedMemoryAccessor_Read_T = typing.TypeVar("System_IO_UnmanagedMemoryAccessor_Read_T")
+System_IO_UnmanagedMemoryAccessor_ReadArray_T = typing.TypeVar("System_IO_UnmanagedMemoryAccessor_ReadArray_T")
+System_IO_UnmanagedMemoryAccessor_Write_T = typing.TypeVar("System_IO_UnmanagedMemoryAccessor_Write_T")
+System_IO_UnmanagedMemoryAccessor_WriteArray_T = typing.TypeVar("System_IO_UnmanagedMemoryAccessor_WriteArray_T")
+
 
 class SeekOrigin(IntEnum):
     """This class has no documentation."""
@@ -2650,6 +2655,82 @@ class HandleInheritability(IntEnum):
     INHERITABLE = 1
 
 
+class _Typed_UnmanagedMemoryAccessor_Read(typing.Generic[System_IO_UnmanagedMemoryAccessor_Read_T]):
+    """"""
+
+    @overload
+    def __call__(self, position: int, structure: typing.Optional[System_IO_UnmanagedMemoryAccessor_Read_T]) -> typing.Tuple[None, System_IO_UnmanagedMemoryAccessor_Read_T]:
+        ...
+
+
+class _UnmanagedMemoryAccessor_Read:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_IO_UnmanagedMemoryAccessor_Read_T]) -> System.IO._Typed_UnmanagedMemoryAccessor_Read[System_IO_UnmanagedMemoryAccessor_Read_T]:
+        ...
+
+
+class _Typed_UnmanagedMemoryAccessor_ReadArray(typing.Generic[System_IO_UnmanagedMemoryAccessor_ReadArray_T]):
+    """"""
+
+    @overload
+    def __call__(self, position: int, array: typing.List[System_IO_UnmanagedMemoryAccessor_ReadArray_T], offset: int, count: int) -> int:
+        ...
+
+
+class _UnmanagedMemoryAccessor_ReadArray:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_IO_UnmanagedMemoryAccessor_ReadArray_T]) -> System.IO._Typed_UnmanagedMemoryAccessor_ReadArray[System_IO_UnmanagedMemoryAccessor_ReadArray_T]:
+        ...
+
+
+class _Typed_UnmanagedMemoryAccessor_Write(typing.Generic[System_IO_UnmanagedMemoryAccessor_Write_T]):
+    """"""
+
+    @overload
+    def __call__(self, position: int, structure: System_IO_UnmanagedMemoryAccessor_Write_T) -> None:
+        ...
+
+
+class _UnmanagedMemoryAccessor_Write:
+    """"""
+
+    @overload
+    def __call__(self, position: int, value: bool) -> None:
+        ...
+
+    @overload
+    def __call__(self, position: int, value: int) -> None:
+        ...
+
+    @overload
+    def __call__(self, position: int, value: str) -> None:
+        ...
+
+    @overload
+    def __call__(self, position: int, value: float) -> None:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_IO_UnmanagedMemoryAccessor_Write_T]) -> System.IO._Typed_UnmanagedMemoryAccessor_Write[System_IO_UnmanagedMemoryAccessor_Write_T]:
+        ...
+
+
+class _Typed_UnmanagedMemoryAccessor_WriteArray(typing.Generic[System_IO_UnmanagedMemoryAccessor_WriteArray_T]):
+    """"""
+
+    @overload
+    def __call__(self, position: int, array: typing.List[System_IO_UnmanagedMemoryAccessor_WriteArray_T], offset: int, count: int) -> None:
+        ...
+
+
+class _UnmanagedMemoryAccessor_WriteArray:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_IO_UnmanagedMemoryAccessor_WriteArray_T]) -> System.IO._Typed_UnmanagedMemoryAccessor_WriteArray[System_IO_UnmanagedMemoryAccessor_WriteArray_T]:
+        ...
+
+
 class UnmanagedMemoryAccessor(System.Object, System.IDisposable):
     """This class has no documentation."""
 
@@ -2667,6 +2748,22 @@ class UnmanagedMemoryAccessor(System.Object, System.IDisposable):
 
     @property
     def is_open(self) -> bool:
+        ...
+
+    @property
+    def read(self) -> System.IO._UnmanagedMemoryAccessor_Read:
+        ...
+
+    @property
+    def read_array(self) -> System.IO._UnmanagedMemoryAccessor_ReadArray:
+        ...
+
+    @property
+    def write(self) -> System.IO._UnmanagedMemoryAccessor_Write:
+        ...
+
+    @property
+    def write_array(self) -> System.IO._UnmanagedMemoryAccessor_WriteArray:
         ...
 
     @overload
@@ -2729,22 +2826,6 @@ class UnmanagedMemoryAccessor(System.Object, System.IDisposable):
         ...
 
     def read_u_int_64(self, position: int) -> int:
-        ...
-
-    @overload
-    def write(self, position: int, value: bool) -> None:
-        ...
-
-    @overload
-    def write(self, position: int, value: int) -> None:
-        ...
-
-    @overload
-    def write(self, position: int, value: str) -> None:
-        ...
-
-    @overload
-    def write(self, position: int, value: float) -> None:
         ...
 
 

@@ -59,6 +59,25 @@ System_Collections_Generic_TreeSet_T = typing.TypeVar("System_Collections_Generi
 System_Collections_Generic_LinkedList_T = typing.TypeVar("System_Collections_Generic_LinkedList_T")
 System_Collections_Generic_LinkedListNode_T = typing.TypeVar("System_Collections_Generic_LinkedListNode_T")
 System_Collections_Generic_Stack_T = typing.TypeVar("System_Collections_Generic_Stack_T")
+System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate = typing.TypeVar("System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate")
+System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate = typing.TypeVar("System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate")
+System_Collections_Generic_KeyValuePair_Create_TKey = typing.TypeVar("System_Collections_Generic_KeyValuePair_Create_TKey")
+System_Collections_Generic_KeyValuePair_Create_TValue = typing.TypeVar("System_Collections_Generic_KeyValuePair_Create_TValue")
+System_Collections_Generic_List_ConvertAll_TOutput = typing.TypeVar("System_Collections_Generic_List_ConvertAll_TOutput")
+System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey = typing.TypeVar("System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey")
+System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue = typing.TypeVar("System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue")
+System_Collections_Generic_CollectionExtensions_TryAdd_TKey = typing.TypeVar("System_Collections_Generic_CollectionExtensions_TryAdd_TKey")
+System_Collections_Generic_CollectionExtensions_TryAdd_TValue = typing.TypeVar("System_Collections_Generic_CollectionExtensions_TryAdd_TValue")
+System_Collections_Generic_CollectionExtensions_Remove_TKey = typing.TypeVar("System_Collections_Generic_CollectionExtensions_Remove_TKey")
+System_Collections_Generic_CollectionExtensions_Remove_TValue = typing.TypeVar("System_Collections_Generic_CollectionExtensions_Remove_TValue")
+System_Collections_Generic_CollectionExtensions_AsReadOnly_T = typing.TypeVar("System_Collections_Generic_CollectionExtensions_AsReadOnly_T")
+System_Collections_Generic_CollectionExtensions_AsReadOnly_TKey = typing.TypeVar("System_Collections_Generic_CollectionExtensions_AsReadOnly_TKey")
+System_Collections_Generic_CollectionExtensions_AsReadOnly_TValue = typing.TypeVar("System_Collections_Generic_CollectionExtensions_AsReadOnly_TValue")
+System_Collections_Generic_CollectionExtensions_AddRange_T = typing.TypeVar("System_Collections_Generic_CollectionExtensions_AddRange_T")
+System_Collections_Generic_CollectionExtensions_InsertRange_T = typing.TypeVar("System_Collections_Generic_CollectionExtensions_InsertRange_T")
+System_Collections_Generic_CollectionExtensions_CopyTo_T = typing.TypeVar("System_Collections_Generic_CollectionExtensions_CopyTo_T")
+System_Collections_Generic_Dictionary_GetAlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Generic_Dictionary_GetAlternateLookup_TAlternateKey")
+System_Collections_Generic_Dictionary_TryGetAlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Generic_Dictionary_TryGetAlternateLookup_TAlternateKey")
 
 
 class IDictionary(typing.Generic[System_Collections_Generic_IDictionary_TKey, System_Collections_Generic_IDictionary_TValue], System.Collections.Generic.ICollection[System.Collections.Generic.KeyValuePair[System_Collections_Generic_IDictionary_TKey, System_Collections_Generic_IDictionary_TValue]], metaclass=abc.ABCMeta):
@@ -96,6 +115,36 @@ class IDictionary(typing.Generic[System_Collections_Generic_IDictionary_TKey, Sy
         ...
 
     def try_get_value(self, key: System_Collections_Generic_IDictionary_TKey, value: typing.Optional[System_Collections_Generic_IDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Generic_IDictionary_TValue]:
+        ...
+
+
+class _Typed_HashSet_GetAlternateLookup(typing.Generic[System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate]):
+    """"""
+
+    @overload
+    def __call__(self) -> System.Collections.Generic.HashSet.AlternateLookup[System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate]:
+        ...
+
+
+class _HashSet_GetAlternateLookup:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate]) -> System.Collections.Generic._Typed_HashSet_GetAlternateLookup[System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate]:
+        ...
+
+
+class _Typed_HashSet_TryGetAlternateLookup(typing.Generic[System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate]):
+    """"""
+
+    @overload
+    def __call__(self, lookup: typing.Optional[System.Collections.Generic.HashSet.AlternateLookup[System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate]]) -> typing.Tuple[bool, System.Collections.Generic.HashSet.AlternateLookup[System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate]]:
+        ...
+
+
+class _HashSet_TryGetAlternateLookup:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate]) -> System.Collections.Generic._Typed_HashSet_TryGetAlternateLookup[System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate]:
         ...
 
 
@@ -150,6 +199,14 @@ class HashSet(typing.Generic[System_Collections_Generic_HashSet_T], System.Objec
 
     @property
     def comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Generic_HashSet_T]:
+        ...
+
+    @property
+    def get_alternate_lookup(self) -> System.Collections.Generic._HashSet_GetAlternateLookup:
+        ...
+
+    @property
+    def try_get_alternate_lookup(self) -> System.Collections.Generic._HashSet_TryGetAlternateLookup:
         ...
 
     def __contains__(self, item: System_Collections_Generic_HashSet_T) -> bool:
@@ -369,6 +426,21 @@ class IReadOnlyDictionary(typing.Generic[System_Collections_Generic_IReadOnlyDic
         ...
 
 
+class _Typed_KeyValuePair_Create(typing.Generic[System_Collections_Generic_KeyValuePair_Create_TKey]):
+    """"""
+
+    @overload
+    def __call__(self, key: System_Collections_Generic_KeyValuePair_Create_TKey, value: System_Collections_Generic_KeyValuePair_Create_TValue) -> System.Collections.Generic.KeyValuePair[System_Collections_Generic_KeyValuePair_Create_TKey, System_Collections_Generic_KeyValuePair_Create_TValue]:
+        ...
+
+
+class _KeyValuePair_Create:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_KeyValuePair_Create_TKey]) -> System.Collections.Generic._Typed_KeyValuePair_Create[System_Collections_Generic_KeyValuePair_Create_TKey]:
+        ...
+
+
 class KeyValuePair(typing.Generic[System_Collections_Generic_KeyValuePair_TKey, System_Collections_Generic_KeyValuePair_TValue]):
     """This class has no documentation."""
 
@@ -379,6 +451,8 @@ class KeyValuePair(typing.Generic[System_Collections_Generic_KeyValuePair_TKey, 
     @property
     def value(self) -> System_Collections_Generic_KeyValuePair_TValue:
         ...
+
+    create: System.Collections.Generic._KeyValuePair_Create
 
     def __init__(self, key: System_Collections_Generic_KeyValuePair_TKey, value: System_Collections_Generic_KeyValuePair_TValue) -> None:
         ...
@@ -447,6 +521,21 @@ class IReadOnlySet(typing.Generic[System_Collections_Generic_IReadOnlySet_T], Sy
         ...
 
 
+class _Typed_List_ConvertAll(typing.Generic[System_Collections_Generic_List_ConvertAll_TOutput]):
+    """"""
+
+    @overload
+    def __call__(self, converter: typing.Callable[[System_Collections_Generic_List_T], System_Collections_Generic_List_ConvertAll_TOutput]) -> System.Collections.Generic.List[System_Collections_Generic_List_ConvertAll_TOutput]:
+        ...
+
+
+class _List_ConvertAll:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_List_ConvertAll_TOutput]) -> System.Collections.Generic._Typed_List_ConvertAll[System_Collections_Generic_List_ConvertAll_TOutput]:
+        ...
+
+
 class List(typing.Generic[System_Collections_Generic_List_T], System.Object, System.Collections.Generic.IList[System_Collections_Generic_List_T], System.Collections.IList, System.Collections.Generic.IReadOnlyList[System_Collections_Generic_List_T], typing.Iterable[System_Collections_Generic_List_T]):
     """This class has no documentation."""
 
@@ -473,6 +562,10 @@ class List(typing.Generic[System_Collections_Generic_List_T], System.Object, Sys
 
     @property
     def count(self) -> int:
+        ...
+
+    @property
+    def convert_all(self) -> System.Collections.Generic._List_ConvertAll:
         ...
 
     def __contains__(self, item: System_Collections_Generic_List_T) -> bool:
@@ -725,6 +818,9 @@ class IReadOnlyCollection(typing.Generic[System_Collections_Generic_IReadOnlyCol
     def count(self) -> int:
         ...
 
+    def __len__(self) -> int:
+        ...
+
 
 class NonRandomizedStringEqualityComparer(System.Object, System.Collections.Generic.IInternalStringEqualityComparer, System.Runtime.Serialization.ISerializable):
     """This class has no documentation."""
@@ -810,8 +906,139 @@ class KeyNotFoundException(System.SystemException):
         ...
 
 
+class _Typed_CollectionExtensions_GetValueOrDefault(typing.Generic[System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey]):
+    """"""
+
+    @overload
+    def __call__(self, dictionary: System.Collections.Generic.IReadOnlyDictionary[System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey, System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue], key: System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey) -> System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue:
+        ...
+
+    @overload
+    def __call__(self, dictionary: System.Collections.Generic.IReadOnlyDictionary[System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey, System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue], key: System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey, default_value: System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue) -> System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue:
+        ...
+
+
+class _CollectionExtensions_GetValueOrDefault:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey]) -> System.Collections.Generic._Typed_CollectionExtensions_GetValueOrDefault[System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey]:
+        ...
+
+
+class _Typed_CollectionExtensions_TryAdd(typing.Generic[System_Collections_Generic_CollectionExtensions_TryAdd_TKey]):
+    """"""
+
+    @overload
+    def __call__(self, dictionary: System.Collections.Generic.IDictionary[System_Collections_Generic_CollectionExtensions_TryAdd_TKey, System_Collections_Generic_CollectionExtensions_TryAdd_TValue], key: System_Collections_Generic_CollectionExtensions_TryAdd_TKey, value: System_Collections_Generic_CollectionExtensions_TryAdd_TValue) -> bool:
+        ...
+
+
+class _CollectionExtensions_TryAdd:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_TryAdd_TKey]) -> System.Collections.Generic._Typed_CollectionExtensions_TryAdd[System_Collections_Generic_CollectionExtensions_TryAdd_TKey]:
+        ...
+
+
+class _Typed_CollectionExtensions_Remove(typing.Generic[System_Collections_Generic_CollectionExtensions_Remove_TKey]):
+    """"""
+
+    @overload
+    def __call__(self, dictionary: System.Collections.Generic.IDictionary[System_Collections_Generic_CollectionExtensions_Remove_TKey, System_Collections_Generic_CollectionExtensions_Remove_TValue], key: System_Collections_Generic_CollectionExtensions_Remove_TKey, value: typing.Optional[System_Collections_Generic_CollectionExtensions_Remove_TValue]) -> typing.Tuple[bool, System_Collections_Generic_CollectionExtensions_Remove_TValue]:
+        ...
+
+
+class _CollectionExtensions_Remove:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_Remove_TKey]) -> System.Collections.Generic._Typed_CollectionExtensions_Remove[System_Collections_Generic_CollectionExtensions_Remove_TKey]:
+        ...
+
+
+class _Typed_CollectionExtensions_AsReadOnly(typing.Generic[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]):
+    """"""
+
+    @overload
+    def __call__(self, list: System.Collections.Generic.IList[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]) -> System.Collections.ObjectModel.ReadOnlyCollection[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]:
+        ...
+
+    @overload
+    def __call__(self, set: System.Collections.Generic.ISet[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]) -> System.Collections.ObjectModel.ReadOnlySet[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]:
+        ...
+
+    @overload
+    def __call__(self, dictionary: System.Collections.Generic.IDictionary[System_Collections_Generic_CollectionExtensions_AsReadOnly_TKey, System_Collections_Generic_CollectionExtensions_AsReadOnly_TValue]) -> System.Collections.ObjectModel.ReadOnlyDictionary[System_Collections_Generic_CollectionExtensions_AsReadOnly_TKey, System_Collections_Generic_CollectionExtensions_AsReadOnly_TValue]:
+        ...
+
+
+class _CollectionExtensions_AsReadOnly:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]) -> System.Collections.Generic._Typed_CollectionExtensions_AsReadOnly[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]:
+        ...
+
+
+class _Typed_CollectionExtensions_AddRange(typing.Generic[System_Collections_Generic_CollectionExtensions_AddRange_T]):
+    """"""
+
+    @overload
+    def __call__(self, list: System.Collections.Generic.List[System_Collections_Generic_CollectionExtensions_AddRange_T], *source: typing.Union[System_Collections_Generic_CollectionExtensions_AddRange_T, typing.Iterable[System_Collections_Generic_CollectionExtensions_AddRange_T]]) -> None:
+        ...
+
+
+class _CollectionExtensions_AddRange:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_AddRange_T]) -> System.Collections.Generic._Typed_CollectionExtensions_AddRange[System_Collections_Generic_CollectionExtensions_AddRange_T]:
+        ...
+
+
+class _Typed_CollectionExtensions_InsertRange(typing.Generic[System_Collections_Generic_CollectionExtensions_InsertRange_T]):
+    """"""
+
+    @overload
+    def __call__(self, list: System.Collections.Generic.List[System_Collections_Generic_CollectionExtensions_InsertRange_T], index: int, *source: typing.Union[System_Collections_Generic_CollectionExtensions_InsertRange_T, typing.Iterable[System_Collections_Generic_CollectionExtensions_InsertRange_T]]) -> None:
+        ...
+
+
+class _CollectionExtensions_InsertRange:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_InsertRange_T]) -> System.Collections.Generic._Typed_CollectionExtensions_InsertRange[System_Collections_Generic_CollectionExtensions_InsertRange_T]:
+        ...
+
+
+class _Typed_CollectionExtensions_CopyTo(typing.Generic[System_Collections_Generic_CollectionExtensions_CopyTo_T]):
+    """"""
+
+    @overload
+    def __call__(self, list: System.Collections.Generic.List[System_Collections_Generic_CollectionExtensions_CopyTo_T], destination: System.Span[System_Collections_Generic_CollectionExtensions_CopyTo_T]) -> None:
+        ...
+
+
+class _CollectionExtensions_CopyTo:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_CopyTo_T]) -> System.Collections.Generic._Typed_CollectionExtensions_CopyTo[System_Collections_Generic_CollectionExtensions_CopyTo_T]:
+        ...
+
+
 class CollectionExtensions(System.Object):
     """This class has no documentation."""
+
+    get_value_or_default: System.Collections.Generic._CollectionExtensions_GetValueOrDefault
+
+    try_add: System.Collections.Generic._CollectionExtensions_TryAdd
+
+    remove: System.Collections.Generic._CollectionExtensions_Remove
+
+    as_read_only: System.Collections.Generic._CollectionExtensions_AsReadOnly
+
+    add_range: System.Collections.Generic._CollectionExtensions_AddRange
+
+    insert_range: System.Collections.Generic._CollectionExtensions_InsertRange
+
+    copy_to: System.Collections.Generic._CollectionExtensions_CopyTo
 
 
 class Queue(typing.Generic[System_Collections_Generic_Queue_T], System.Object, System.Collections.ICollection, System.Collections.Generic.IReadOnlyCollection[System_Collections_Generic_Queue_T], typing.Iterable[System_Collections_Generic_Queue_T]):
@@ -905,6 +1132,36 @@ class IAsyncEnumerable(typing.Generic[System_Collections_Generic_IAsyncEnumerabl
     """This class has no documentation."""
 
     def get_async_enumerator(self, cancellation_token: System.Threading.CancellationToken = ...) -> System.Collections.Generic.IAsyncEnumerator[System_Collections_Generic_IAsyncEnumerable_T]:
+        ...
+
+
+class _Typed_Dictionary_GetAlternateLookup(typing.Generic[System_Collections_Generic_Dictionary_GetAlternateLookup_TAlternateKey]):
+    """"""
+
+    @overload
+    def __call__(self) -> System.Collections.Generic.Dictionary.AlternateLookup[System_Collections_Generic_Dictionary_GetAlternateLookup_TAlternateKey]:
+        ...
+
+
+class _Dictionary_GetAlternateLookup:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_Dictionary_GetAlternateLookup_TAlternateKey]) -> System.Collections.Generic._Typed_Dictionary_GetAlternateLookup[System_Collections_Generic_Dictionary_GetAlternateLookup_TAlternateKey]:
+        ...
+
+
+class _Typed_Dictionary_TryGetAlternateLookup(typing.Generic[System_Collections_Generic_Dictionary_TryGetAlternateLookup_TAlternateKey]):
+    """"""
+
+    @overload
+    def __call__(self, lookup: typing.Optional[System.Collections.Generic.Dictionary.AlternateLookup[System_Collections_Generic_Dictionary_TryGetAlternateLookup_TAlternateKey]]) -> typing.Tuple[bool, System.Collections.Generic.Dictionary.AlternateLookup[System_Collections_Generic_Dictionary_TryGetAlternateLookup_TAlternateKey]]:
+        ...
+
+
+class _Dictionary_TryGetAlternateLookup:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_Dictionary_TryGetAlternateLookup_TAlternateKey]) -> System.Collections.Generic._Typed_Dictionary_TryGetAlternateLookup[System_Collections_Generic_Dictionary_TryGetAlternateLookup_TAlternateKey]:
         ...
 
 
@@ -1059,6 +1316,14 @@ class Dictionary(typing.Generic[System_Collections_Generic_Dictionary_TKey, Syst
 
     @property
     def values(self) -> System.Collections.Generic.Dictionary.ValueCollection:
+        ...
+
+    @property
+    def get_alternate_lookup(self) -> System.Collections.Generic._Dictionary_GetAlternateLookup:
+        ...
+
+    @property
+    def try_get_alternate_lookup(self) -> System.Collections.Generic._Dictionary_TryGetAlternateLookup:
         ...
 
     def __contains__(self, key: System_Collections_Generic_Dictionary_TKey) -> bool:
@@ -1463,6 +1728,9 @@ class PriorityQueue(typing.Generic[System_Collections_Generic_PriorityQueue_TEle
             ...
 
         def __iter__(self) -> typing.Iterator[System.ValueTuple[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]]:
+            ...
+
+        def __len__(self) -> int:
             ...
 
         def get_enumerator(self) -> System.Collections.Generic.PriorityQueue.UnorderedItemsCollection.Enumerator:

@@ -6,16 +6,22 @@ import signal
 import socketserver
 import subprocess
 import sys
+import sysconfig
 import tempfile
 import threading
 import webbrowser
-from types import BuiltinFunctionType, FrameType, FunctionType, ModuleType
+from types import BuiltinFunctionType, CodeType, FrameType, FunctionType, ModuleType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 from scalene.scalene_config import scalene_date, scalene_version
 from scalene.scalene_statistics import (
+    CombinedStackKey,
+    CombinedStackRun,
     Filename,
     LineNumber,
+    NativeFrameKey,
+    PerThreadNativeStack,
+    PyFrameKey,
     ScaleneStatistics,
     StackFrame,
     StackStats,
@@ -24,6 +30,11 @@ from scalene.scalene_statistics import (
 # Cache the main thread ID to avoid repeated calls to threading.main_thread()
 # This is safe because the main thread ID never changes during program execution.
 _main_thread_id: int = cast(int, threading.main_thread().ident)
+
+# On free-threaded Python, the C fast path for frame collection iterates
+# thread states without synchronization. Use the pure-Python path instead
+# (sys._current_frames() is internally thread-safe in CPython).
+_is_free_threaded: bool = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
 
 # Try to import the fast C implementation for frame collection.
 # The C extension collects frames from threads quickly using Python C API,
@@ -34,6 +45,107 @@ try:
     _has_fast_frames = hasattr(pywhere, "collect_frames_to_record")
 except ImportError:
     _has_fast_frames = False
+
+# Native (C/C++) stack unwinder. Built as a separate Python extension that
+# wraps libunwind on Linux and _Unwind_Backtrace on macOS. Optional: if the
+# extension fails to import (e.g. minimal install, unsupported platform),
+# native stack collection is silently disabled.
+try:
+    from scalene import _scalene_unwind  # type: ignore
+
+    _native_unwind_available = bool(getattr(_scalene_unwind, "available", 0))
+    if _native_unwind_available:
+        # Pre-fault the unwinder so the first call from a signal handler
+        # doesn't trigger a lazy dlopen of libgcc_s (signal-unsafe).
+        _scalene_unwind.warmup()
+except ImportError:
+    _scalene_unwind = None
+    _native_unwind_available = False
+
+
+# Per-process intern caches for stitched-stack frame keys.
+#
+# Every CPU sample that captures a stitched stack constructs a fresh tuple of
+# PyFrameKey / NativeFrameKey instances. Without interning, two consecutive
+# samples on the same line allocate two distinct frame objects that compare
+# equal, and only the `combined_stacks` dict de-duplicates them (the one fed
+# into the timeline is retained for the lifetime of the profile). At high
+# sample rates the timeline list holds millions of these redundant objects.
+#
+# These caches ensure that equal frames share a single instance, so a tuple
+# captured twice at the same point is represented by the same Python objects
+# throughout. Combined with __slots__ on the frame dataclasses, this collapses
+# the timeline's per-run memory cost by roughly an order of magnitude.
+#
+# The caches are module-level because they belong to the profiler process (one
+# profile per process) and because add_combined_stack / add_async_await_run
+# are called from the CPU-sample sigqueue thread on a hot path — a single
+# dict lookup is cheaper than constructing a fresh dataclass instance.
+# Cleared on each ``clear_intern_caches()`` call (invoked from Scalene.start()
+# so that multiprocess runs / repeated magic-cell invocations don't leak state
+# across profiling sessions).
+_py_frame_intern: Dict[Tuple[str, str, int], PyFrameKey] = {}
+_native_frame_intern: Dict[int, NativeFrameKey] = {}
+
+
+def _intern_py_frame(filename: str, function: str, line: int) -> PyFrameKey:
+    """Return the shared PyFrameKey for (filename, function, line),
+    constructing and caching a new one on first sight. Not thread-safe by
+    design: callers are single-threaded (the sigqueue worker and the
+    CPU-sample Python handler, which are serialized by the GIL + sigqueue
+    lock). A racy double-insert would still be correctness-safe (both keys
+    hash-equal) but waste a slot.
+    """
+    key = (filename, function, line)
+    cached = _py_frame_intern.get(key)
+    if cached is None:
+        cached = PyFrameKey(filename=filename, function=function, line=line)
+        _py_frame_intern[key] = cached
+    return cached
+
+
+def _intern_native_frame(ip: int) -> NativeFrameKey:
+    """Return the shared NativeFrameKey for ``ip``, constructing one on
+    first sight. Same thread-safety caveat as _intern_py_frame."""
+    cached = _native_frame_intern.get(ip)
+    if cached is None:
+        cached = NativeFrameKey(ip=ip)
+        _native_frame_intern[ip] = cached
+    return cached
+
+
+def clear_intern_caches() -> None:
+    """Drop all cached frame-key instances. Safe to call any time the
+    profiler is between sessions. After a clear, subsequent samples
+    repopulate the caches from scratch."""
+    _py_frame_intern.clear()
+    _native_frame_intern.clear()
+    _stack_frame_intern.clear()
+
+
+# StackFrame intern cache for the memory-stacks path (parallel rationale to
+# the PyFrameKey cache above, but for the memory_stacks dict). Keyed by
+# (filename, function_name, line_number). Populated by ``intern_stack_frame``;
+# callers outside this module (notably scalene_memory_profiler) reuse it to
+# avoid reconstructing equal StackFrame objects for every malloc sample.
+_stack_frame_intern: Dict[Tuple[str, str, int], StackFrame] = {}
+
+
+def intern_stack_frame(
+    filename: str, function_name: str, line_number: int
+) -> StackFrame:
+    """Return a shared StackFrame for (filename, function_name, line_number).
+    Constructs and caches a new one on first sight."""
+    key = (filename, function_name, line_number)
+    cached = _stack_frame_intern.get(key)
+    if cached is None:
+        cached = StackFrame(
+            filename=filename,
+            function_name=function_name,
+            line_number=line_number,
+        )
+        _stack_frame_intern[key] = cached
+    return cached
 
 
 def enter_function_meta(
@@ -79,7 +191,7 @@ def compute_frames_to_record(
     # Collect frames from all threads. Use C extension if available for speed,
     # otherwise fall back to Python implementation.
     frames: List[Tuple[FrameType, int]]
-    if _has_fast_frames:
+    if _has_fast_frames and not _is_free_threaded:
         # C extension returns (thread_id, frame) tuples, main thread first
         raw_frames = pywhere.collect_frames_to_record()
         frames = [(frame, tid) for tid, frame in raw_frames]
@@ -164,10 +276,10 @@ def add_stack(
         if should_trace(Filename(f.f_code.co_filename), f.f_code.co_name):
             stk.insert(
                 0,
-                StackFrame(
-                    filename=str(f.f_code.co_filename),
-                    function_name=str(get_fully_qualified_name(f)),
-                    line_number=(
+                intern_stack_frame(
+                    str(f.f_code.co_filename),
+                    str(get_fully_qualified_name(f)),
+                    (
                         int(f.f_lineno)
                         if f.f_lineno is not None
                         else int(f.f_code.co_firstlineno)
@@ -186,6 +298,444 @@ def add_stack(
             prev_stats.c_time + c_time,
             prev_stats.cpu_samples + cpu_samples,
         )
+
+
+def install_native_stack_unwinder(sig: int) -> bool:
+    """Install the C-level sigaction handler that captures interrupted
+    native stacks. Must be called *after* CPython's per-signal trampoline
+    has been registered (i.e. after signal.signal()), because the handler
+    chains to whatever was previously installed for the signal.
+
+    Returns True on first install, False if already installed or unsupported.
+    """
+    if not _native_unwind_available:
+        return False
+    try:
+        return bool(_scalene_unwind.install_signal_unwinder(int(sig)))
+    except Exception:
+        return False
+
+
+# -------- Per-thread native stack sampling --------
+#
+# The main thread's native stack is captured via the chained signal handler
+# (install_native_stack_unwinder). Worker threads can be sampled by sending
+# them a separate signal (SIGPROF) via pthread_kill. Each thread's handler
+# captures its native stack with its thread ID into a separate ring buffer.
+
+_perthread_sampling_enabled = False
+
+# Mapping from native thread ID to Python thread ID
+# Updated by register_thread_for_sampling()
+_native_to_python_thread_id: Dict[int, int] = {}
+
+
+def install_perthread_sampler(sig: int) -> bool:
+    """Install a signal handler for per-thread native stack sampling.
+
+    Unlike install_native_stack_unwinder, this handler does NOT chain to
+    any previous handler. It should be used with SIGPROF (not the main CPU
+    sampling signal) to avoid interfering with the main sampling path.
+
+    Returns True on success, False if unsupported.
+    """
+    global _perthread_sampling_enabled
+    if not _native_unwind_available:
+        return False
+    try:
+        result = bool(_scalene_unwind.install_perthread_sampler(int(sig)))
+        _perthread_sampling_enabled = result
+        return result
+    except Exception:
+        return False
+
+
+def register_thread_for_sampling() -> int:
+    """Register the calling thread for per-thread native stack sampling.
+
+    Must be called from each worker thread that should be sampled.
+    Also records the mapping from native thread ID to Python thread ID.
+    Returns the slot index (>= 0) on success, -1 if unsupported or full.
+    """
+    global _native_to_python_thread_id
+    if not _native_unwind_available or not _perthread_sampling_enabled:
+        return -1
+    try:
+        slot = int(_scalene_unwind.register_thread())
+        if slot >= 0:
+            native_id = int(_scalene_unwind.get_thread_id())
+            python_id = threading.get_ident()
+            _native_to_python_thread_id[native_id] = python_id
+        return slot
+    except Exception:
+        return -1
+
+
+def unregister_thread_from_sampling() -> bool:
+    """Unregister the calling thread from per-thread sampling.
+
+    Should be called before thread exit to free the slot.
+    Also removes the thread ID mapping.
+    """
+    global _native_to_python_thread_id
+    if not _native_unwind_available:
+        return False
+    try:
+        # Remove from mapping
+        native_id = int(_scalene_unwind.get_thread_id())
+        _native_to_python_thread_id.pop(native_id, None)
+        return bool(_scalene_unwind.unregister_thread())
+    except Exception:
+        return False
+
+
+def signal_all_threads() -> Tuple[int, int]:
+    """Send the per-thread sampling signal to all registered threads.
+
+    Does not signal the calling thread (main thread samples via timer).
+    Returns (num_signaled, num_errors).
+    """
+    if not _native_unwind_available or not _perthread_sampling_enabled:
+        return (0, 0)
+    try:
+        result = _scalene_unwind.signal_all_threads()
+        return cast(Tuple[int, int], result)
+    except Exception:
+        return (0, 0)
+
+
+def drain_perthread_stacks() -> List[PerThreadNativeStack]:
+    """Drain per-thread native stacks captured since the last drain.
+
+    Returns a list of PerThreadNativeStack instances, one per sample.
+    Each contains the native thread ID and the stack (tuple of IPs).
+    """
+    if not _native_unwind_available:
+        return []
+    try:
+        raw_result = _scalene_unwind.drain_perthread_stacks()
+        # C extension returns list of (thread_id, (ip, ip, ...)) tuples;
+        # wrap each in a PerThreadNativeStack dataclass for type safety.
+        return [
+            PerThreadNativeStack(thread_id=tid, stack=tuple(stk))
+            for tid, stk in raw_result
+        ]
+    except Exception:
+        return []
+
+
+def get_native_thread_id() -> int:
+    """Get the native thread ID for the calling thread.
+
+    Useful for correlating per-thread samples with Python thread objects.
+    """
+    if not _native_unwind_available:
+        return 0
+    try:
+        return int(_scalene_unwind.get_thread_id())
+    except Exception:
+        return 0
+
+
+def get_python_thread_id_for_native(native_tid: int) -> Optional[int]:
+    """Get the Python thread ID corresponding to a native thread ID.
+
+    Returns None if the mapping is not found (thread not registered or
+    already unregistered).
+    """
+    return _native_to_python_thread_id.get(native_tid)
+
+
+def drain_native_stacks(
+    native_stacks: Dict[Tuple[int, ...], int],
+) -> List[Tuple[int, ...]]:
+    """Drain stacks captured by the C signal handler since the last call,
+    aggregating each into the supplied dict by hit count. Cheap and safe to
+    call from the Python-level CPU signal handler — it only does an atomic
+    load, a list build, and dict accounting.
+
+    Returns the non-empty drained tuples so the caller can use them for
+    stitched-stack assembly. The aggregation into ``native_stacks`` still
+    happens as a side effect to preserve backward compatibility.
+    """
+    if not _native_unwind_available:
+        return []
+    try:
+        captured = _scalene_unwind.drain_native_stack_buffer()
+    except Exception:
+        return []
+    nonempty: List[Tuple[int, ...]] = []
+    for stk in captured:
+        if stk:
+            native_stacks[stk] += 1
+            nonempty.append(stk)
+    return nonempty
+
+
+# Soft cap on the number of distinct stitched stacks held in
+# ScaleneStatistics.combined_stacks. Native IPs returned by libunwind in
+# CPython internals can drift between samples even within the same
+# source-level function (e.g. different bytecode dispatch positions
+# inside _PyEval_EvalFrameDefault), so without a bound the dict would
+# grow without limit on a long-running --stacks profile and every
+# --profile-interval flush would iterate the full set. Cap mirrors the
+# existing ``combined_stacks_timeline_max_runs`` cap on the timeline.
+_COMBINED_STACKS_MAX_KEYS = 10_000
+
+
+def _space_saving_increment(
+    combined_stacks: Dict[CombinedStackKey, int],
+    stats: Optional[ScaleneStatistics],
+    key: CombinedStackKey,
+) -> None:
+    """Increment ``combined_stacks[key]`` under a Space-Saving (Metwally,
+    Agrawal, El Abbadi 2005) heavy-hitter table.
+
+    Keys already in the table are always incremented. The first time a
+    key is seen, ``combined_stacks_unique_seen`` is bumped and the key is
+    inserted with count 1 if there is room. If the table is at capacity,
+    the entry with the *minimum* current count is evicted and the new
+    key takes its slot with ``count = old_min + 1``. This deterministic
+    rule guarantees that any stack whose true frequency exceeds N/cap
+    survives in the table (Metwally et al., Thm. 3.1), and bounds the
+    per-key count over-estimate by the smallest count ever evicted.
+
+    Flame charts care about *which stacks the program spent most of its
+    time in* — i.e., heavy hitters — so Space-Saving is a strictly
+    better fit here than uniform reservoir sampling (which would evict
+    a hot stack with the same probability as a one-off). It's also
+    deterministic across runs, which matters for reproducibility.
+
+    The ``HyperLogLog`` register on ``stats`` is updated on every
+    first-seen key, giving an unbiased estimate of total distinct
+    stacks observed even when the table is heavily churned. The
+    Space-Saving table answers "which stacks matter"; HLL answers "how
+    many were there in total".
+
+    When ``stats`` is None (unit tests or callers that don't track the
+    unique-seen counter), the cap is enforced by dropping rather than
+    replacing — same as the pre-Space-Saving behavior.
+    """
+    if key in combined_stacks:
+        combined_stacks[key] += 1
+        return
+    if len(combined_stacks) < _COMBINED_STACKS_MAX_KEYS:
+        combined_stacks[key] = 1
+        if stats is not None:
+            stats.combined_stacks_unique_seen += 1
+            stats.combined_stacks_hll.add(key)
+        return
+    if stats is None:
+        return  # cap enforced via drop
+    stats.combined_stacks_unique_seen += 1
+    stats.combined_stacks_hll.add(key)
+    # Evict the entry with the smallest count, then seat the new key
+    # with count = old_min + 1. The min scan is O(cap) but only runs
+    # on cap-exceeded inserts; for workloads that never overflow it
+    # never fires, and once overflow starts the typical eviction
+    # promotes one of many tied-at-min entries to a slightly higher
+    # count, naturally settling the table.
+    victim = min(combined_stacks, key=combined_stacks.__getitem__)
+    old_min = combined_stacks.pop(victim)
+    combined_stacks[key] = old_min + 1
+
+
+def add_combined_stack(
+    frame: Optional[FrameType],
+    should_trace: Callable[[Filename, str], bool],
+    native_drains: List[Tuple[int, ...]],
+    combined_stacks: Dict[CombinedStackKey, int],
+    stats: Optional[ScaleneStatistics] = None,
+    timeline: Optional[List[CombinedStackRun]] = None,
+    timeline_cap: int = 100000,
+    timestamp: float = 0.0,
+    thread_id: Optional[int] = None,
+) -> None:
+    """Build stitched Python+native stacks for the current CPU sample.
+
+    Walks ``frame`` back through ``f_back`` to build the Python chain
+    (outermost-first), filtering with ``should_trace`` so Scalene's own
+    profiler frames and other non-user code are excluded. Each native drain
+    is then appended as its own native segment, producing one stitched
+    stack per drain. Native IPs are stored unresolved; symbol resolution
+    and CPython-runtime trimming happen at JSON serialization time.
+
+    If multiple native stacks were drained for one Python handler
+    invocation, each one is attached to the same Python chain (best-effort
+    v1 policy — see STITCHED_STACK.md).
+
+    If ``timeline`` is provided, each stitched stack is also recorded as a
+    run-length-encoded timeline entry: consecutive samples with the same
+    stack key (and same thread_id) extend the trailing run's count instead
+    of appending new entries. ``timestamp`` is the wallclock time of this
+    sample. ``thread_id`` is the Python thread ID for per-thread views.
+    """
+    if not native_drains:
+        return
+
+    py_chain: List[PyFrameKey] = []
+    f: Optional[FrameType] = frame
+    while f is not None:
+        if should_trace(Filename(f.f_code.co_filename), f.f_code.co_name):
+            line = (
+                int(f.f_lineno)
+                if f.f_lineno is not None
+                else int(f.f_code.co_firstlineno)
+            )
+            py_chain.insert(
+                0,
+                _intern_py_frame(
+                    str(f.f_code.co_filename),
+                    str(get_fully_qualified_name(f)),
+                    line,
+                ),
+            )
+        f = f.f_back
+
+    py_chain_tuple: Tuple[PyFrameKey, ...] = tuple(py_chain)
+    for native_stk in native_drains:
+        # native_stk is leaf-first; the stitched layout we want is
+        # outermost-to-innermost, so the native segment appends in order
+        # native-entry -> native-leaf, which means reversing the
+        # leaf-first tuple from the unwinder.
+        native_segment: Tuple[NativeFrameKey, ...] = tuple(
+            _intern_native_frame(ip) for ip in reversed(native_stk)
+        )
+        key: CombinedStackKey = py_chain_tuple + native_segment
+        _space_saving_increment(combined_stacks, stats, key)
+        if timeline is not None:
+            # Merge with trailing run only if same stack AND same thread
+            if (
+                timeline
+                and timeline[-1].stack_key == key
+                and timeline[-1].thread_id == thread_id
+            ):
+                timeline[-1].count += 1
+            elif len(timeline) < timeline_cap:
+                timeline.append(
+                    CombinedStackRun(
+                        timestamp=timestamp, stack_key=key, count=1, thread_id=thread_id
+                    )
+                )
+            # If we hit the cap and the trailing run has a different key,
+        # we silently drop the new run; the aggregate combined_stacks
+        # still records the hit so totals remain correct.
+
+
+def add_async_await_run(
+    suspended_tasks: List[Any],
+    should_trace: Callable[[Filename, str], bool],
+    combined_stacks: Dict[CombinedStackKey, int],
+    stats: Optional[ScaleneStatistics] = None,
+    timeline: Optional[List[CombinedStackRun]] = None,
+    timeline_cap: int = 100000,
+    timestamp: float = 0.0,
+    thread_id: Optional[int] = None,
+) -> bool:
+    """Record one synthetic stitched-stack run per suspended async task.
+
+    When the main thread is sampled inside the asyncio event loop with
+    coroutines suspended, the *raw* stack is misleading: every sample
+    looks like ``_run_once -> selector.select -> epoll_wait``, attributing
+    everything to the loop. The existing per-line ``await %`` accounting
+    addresses this by crediting the lines where each suspended coroutine
+    yielded; this helper does the same for the timeline view, replacing
+    the event-loop stack with one synthetic single-frame stack per
+    suspended task at its await point.
+
+    Each task's frame is added to ``combined_stacks`` (with hit count
+    coalesced across calls) and to the RLE ``timeline`` (extending the
+    trailing run when the same task stays suspended at the same line).
+    ``thread_id`` is included in timeline entries for per-thread views.
+
+    Returns True iff at least one run was recorded — the caller uses
+    this to decide whether to skip the regular ``add_combined_stack``
+    call for this sample (avoiding double-counting).
+
+    ``suspended_tasks`` is typed as ``List[Any]`` to keep this module
+    independent of ``scalene_async`` (avoids an import cycle); each
+    element is duck-typed as a SuspendedTaskInfo namedtuple.
+    """
+    if not suspended_tasks:
+        return False
+    recorded = False
+    for task in suspended_tasks:
+        # Build the stitched stack for this task. When ``chain`` is
+        # populated (the nested-coroutine call chain captured at
+        # suspend time, outermost-first), render every frame in it; the
+        # innermost frame carries the "[await]" prefix so the timeline
+        # I/O classifier picks the run up. When ``chain`` is empty
+        # (older Pythons, edge cases), fall back to a single ``[await]``
+        # frame using the leaf info we already have.
+        chain = getattr(task, "chain", ()) or ()
+        # The task_name suffix keeps concurrent tasks awaiting at the
+        # same line distinct in the timeline (e.g. asyncio.gather of N
+        # copies produces N parallel rows rather than one merged run).
+        task_suffix = f" ({task.task_name})" if task.task_name else ""
+
+        py_frames: list[PyFrameKey] = []
+        if chain:
+            # Filter first so "is leaf" reflects the deepest frame we're
+            # actually keeping. Otherwise an inner asyncio frame that
+            # gets filtered out would steal the [await] marker from the
+            # user-code frame above it, and concurrent tasks awaiting at
+            # the same line would lose their (Task-N) suffix and collapse
+            # into a single undifferentiated row.
+            filtered: list[tuple[Filename, int, str]] = []
+            for cf, cl, cfunc in chain:
+                cf_filename = Filename(cf)
+                if not should_trace(cf_filename, ""):
+                    continue
+                filtered.append((cf_filename, cl, cfunc))
+            for i, (cf_filename, cl, cfunc) in enumerate(filtered):
+                is_leaf = i == len(filtered) - 1
+                func_label = (
+                    f"[await] {cfunc or '<await>'}{task_suffix}"
+                    if is_leaf
+                    else (cfunc or "<coroutine>")
+                )
+                py_frames.append(
+                    _intern_py_frame(
+                        str(cf_filename),
+                        func_label,
+                        int(cl),
+                    )
+                )
+
+        # Either chain was empty, or every chain frame got filtered out
+        # by should_trace — fall back to the single-frame leaf so the
+        # task still shows up in the timeline.
+        if not py_frames:
+            filename = Filename(task.filename)
+            if not should_trace(filename, ""):
+                continue
+            func_name: str = task.func_name or "<await>"
+            py_frames.append(
+                _intern_py_frame(
+                    str(filename),
+                    f"[await] {func_name}{task_suffix}",
+                    int(task.lineno),
+                )
+            )
+
+        key: CombinedStackKey = tuple(py_frames)
+        _space_saving_increment(combined_stacks, stats, key)
+        if timeline is not None:
+            # Merge with trailing run only if same stack AND same thread
+            if (
+                timeline
+                and timeline[-1].stack_key == key
+                and timeline[-1].thread_id == thread_id
+            ):
+                timeline[-1].count += 1
+            elif len(timeline) < timeline_cap:
+                timeline.append(
+                    CombinedStackRun(
+                        timestamp=timestamp, stack_key=key, count=1, thread_id=thread_id
+                    )
+                )
+        recorded = True
+    return recorded
 
 
 def on_stack(
@@ -410,11 +960,24 @@ def patch_module_functions_with_signal_blocking(
 ) -> None:
     """Patch all functions in the given module to block the specified signal during execution."""
 
+    # Record the PID of the process that installs the patches.
+    # Child processes (e.g., multiprocessing resource_tracker) inherit
+    # the patched module but should not alter their signal masks, as
+    # that can kill the resource tracker and cause BrokenPipeError when
+    # the parent tries to register shared resources (issue #1017).
+    # Use a direct reference to the builtin getpid to avoid infinite
+    # recursion when the os module itself is the one being patched.
+    _getpid = os.getpid
+    profiler_pid = _getpid()
+
     def signal_blocking_wrapper(func: Union[BuiltinFunctionType, FunctionType]) -> Any:
         """Wrap a function to block the specified signal during its execution."""
 
         @functools.wraps(func)
         def wrapped(*args: Any, **kwargs: Any) -> Any:
+            if _getpid() != profiler_pid:
+                # In a child process — skip signal blocking.
+                return func(*args, **kwargs)
             # Block the specified signal temporarily
             original_sigmask = signal.pthread_sigmask(
                 signal.SIG_BLOCK, [signal_to_block]
@@ -433,3 +996,136 @@ def patch_module_functions_with_signal_blocking(
         if isinstance(attr, (BuiltinFunctionType, FunctionType)):
             wrapped_attr = signal_blocking_wrapper(attr)
             setattr(module, attr_name, wrapped_attr)
+
+
+# --------------------------------------------------------------------------- #
+#  Allocator-opcode detection (used by the smear-suppression path in
+#  scalene_memory_profiler.process_malloc_free_samples)
+# --------------------------------------------------------------------------- #
+#
+# The C++ heap interposer stamps every malloc / free sample with the leaf
+# Python frame from ``PyFrame_GetLineNumber``. When that leaf line's
+# bytecode cannot possibly have caused the allocation (e.g. ``z = z * z``
+# on two floats — only LOAD_FAST / BINARY_OP / STORE_FAST), but raw
+# ``malloc`` *does* fire under the GIL during that line (arena resizes,
+# GC, scalene's own bookkeeping, …), the bytes get smeared onto whichever
+# arithmetic line the eval loop happened to be on. ``line_has_alloc_opcode``
+# is the predicate the memory profiler uses to detect those samples; when
+# it returns False for the leaf the profiler drops the sample from every
+# per-line accumulator (the bytes still flow into the global footprint and
+# into ``memory_stacks``, so the flame view is unaffected).
+
+# Opcode-name prefixes that mark a line as potentially-allocating. CPython
+# guarantees these prefixes are stable across releases (the individual
+# opcodes inside them shift between versions — e.g. CALL_FUNCTION_EX,
+# CALL_KW, CALL_INTRINSIC_1 — but the CLAUDE.md guidance approves
+# ``.startswith("CALL")`` and the same shape applies to the others).
+_ALLOC_OPCODE_PREFIXES: Tuple[str, ...] = (
+    "CALL",  # CALL, CALL_KW, CALL_FUNCTION_EX, CALL_INTRINSIC_*, …
+    "BUILD_",  # BUILD_LIST / TUPLE / SET / MAP / STRING / SLICE / …
+    "LIST_",  # LIST_APPEND, LIST_EXTEND, LIST_TO_TUPLE
+    "SET_",  # SET_ADD, SET_UPDATE
+    "MAP_",  # MAP_ADD
+    "DICT_",  # DICT_UPDATE, DICT_MERGE
+    "IMPORT_",  # IMPORT_NAME / FROM / STAR
+    "MAKE_",  # MAKE_FUNCTION, MAKE_CELL
+    "FORMAT_",  # FORMAT_VALUE, FORMAT_SIMPLE, FORMAT_WITH_SPEC
+)
+
+# Exact opcode names that also count as allocation-capable. Includes
+# container iteration (which may call user ``__iter__`` / ``__next__``),
+# subscript / attr access (which may call ``__getitem__`` / ``__getattr__``
+# / etc.), and various async / exception / class-build entry points.
+# Keeping this list reasonably broad addresses the list-comprehension and
+# container-op case explicitly: a list comp without an inline range() call
+# still has BUILD_LIST, GET_ITER, FOR_ITER, and LIST_APPEND on its line.
+_ALLOC_OPCODE_EXACT: frozenset[str] = frozenset(
+    {
+        "GET_ITER",
+        "GET_YIELD_FROM_ITER",
+        "FOR_ITER",
+        "GET_AWAITABLE",
+        "GET_AITER",
+        "GET_ANEXT",
+        "SEND",
+        "YIELD_VALUE",
+        "YIELD_FROM",
+        "BINARY_SUBSCR",
+        "STORE_SUBSCR",
+        "DELETE_SUBSCR",
+        "LOAD_ATTR",
+        "STORE_ATTR",
+        "DELETE_ATTR",
+        "LOAD_BUILD_CLASS",
+        "RAISE_VARARGS",
+        "RERAISE",
+        "BEFORE_WITH",
+        "BEFORE_ASYNC_WITH",
+        "WITH_EXCEPT_START",
+        "CONVERT_VALUE",
+    }
+)
+
+# Per-file cache: filename → set of source lines containing at least one
+# allocation-capable opcode. ``None`` means the source could not be read or
+# compiled — in that case we trust the leaf attribution (don't redirect).
+_file_alloc_lines_cache: Dict[str, Optional[set[int]]] = {}
+
+
+def _is_alloc_opname(opname: str) -> bool:
+    if opname in _ALLOC_OPCODE_EXACT:
+        return True
+    return any(opname.startswith(prefix) for prefix in _ALLOC_OPCODE_PREFIXES)
+
+
+def _collect_alloc_lines(code: CodeType, out: set[int]) -> None:
+    """Walk a code object (and nested code consts) and record every
+    source line that carries at least one allocation-capable opcode."""
+    import dis  # local import: only used at serialization time
+
+    last_line: Optional[int] = None
+    for instr in dis.get_instructions(code):
+        # Python 3.13+ exposes ``Instruction.line_number`` (int|None on
+        # every instr). Older Pythons only set ``starts_line`` on the
+        # first instr per source line; propagate it forward manually.
+        ln = getattr(instr, "line_number", None)
+        if ln is None:
+            sl = getattr(instr, "starts_line", None)
+            if isinstance(sl, int):
+                last_line = sl
+        else:
+            last_line = ln
+        if last_line is not None and _is_alloc_opname(instr.opname):
+            out.add(last_line)
+    for const in getattr(code, "co_consts", ()):
+        if hasattr(const, "co_code"):
+            _collect_alloc_lines(const, out)
+
+
+def line_has_alloc_opcode(filename: str, lineno: int) -> bool:
+    """Return True if ``filename:lineno`` carries an allocation-capable
+    opcode. Sources that cannot be compiled are treated as "yes" so we
+    leave their attribution alone."""
+    if not filename or lineno <= 0:
+        return False
+    sentinel = _file_alloc_lines_cache
+    cached = _file_alloc_lines_cache.get(filename, sentinel)
+    if cached is sentinel:
+        import linecache  # local: only used at serialization time
+
+        alloc_lines: Optional[set[int]] = set()
+        try:
+            src = linecache.getlines(filename)
+            if src:
+                code = compile("".join(src), filename, "exec")
+                assert alloc_lines is not None
+                _collect_alloc_lines(code, alloc_lines)
+            else:
+                alloc_lines = None
+        except (SyntaxError, ValueError, TypeError, OSError):
+            alloc_lines = None
+        _file_alloc_lines_cache[filename] = alloc_lines
+        cached = alloc_lines
+    if cached is None:
+        return True
+    return lineno in cached

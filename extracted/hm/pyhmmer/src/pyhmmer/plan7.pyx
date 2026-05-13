@@ -55,6 +55,7 @@ cimport libeasel.scorematrix
 cimport libeasel.getopts
 cimport libeasel.vec
 cimport libhmmer
+cimport libhmmer.emit
 cimport libhmmer.generic
 cimport libhmmer.impl
 cimport libhmmer.impl.io
@@ -2272,6 +2273,15 @@ cdef class HMM:
         Returns:
             `~pyhmmer.plan7.HMM`: A new HMM generated at random.
 
+        Example:
+            Generate a random, ungapped HMM for the DNA alphabet, using a
+            random number generator initialized with a fixed seed, with 100
+            nodes::
+
+                >>> dna = easel.Alphabet.dna()
+                >>> rng = easel.Randomness(42)
+                >>> hmm = HMM.sample(dna, M=100, randomness=rng, ungapped=True)
+
         Hint:
             This constructor is only useful for testing and should not be
             used in production code.
@@ -3123,6 +3133,200 @@ cdef class HMM:
             raise AllocationError("P7_HMM", sizeof(P7_HMM))
         return new
 
+    cpdef DigitalSequence emit_sequence(self, RandomnessOrSeed randomness = None):
+        """Emit a sequence from a core HMM.
+
+        Arguments:
+            randomness (`~pyhmmer.easel.Randomness`, `int` or `None`): The
+                random number generator to use for sampling, or a seed to
+                initialize a generator. If `None` or ``0`` given, create
+                a new random number generator with a random seed.
+
+        Returns:
+            `~pyhmmer.easel.DigitalSequence`: A sequence in digital mode sampled
+            from the HMM. Only the `~pyhmmer.easel.DigitalSequence.sequence`
+            field will be initialized.
+
+        Example:
+            Generate a random sequence with a fixed seed::
+
+                >>> seq = thioesterase.emit_sequence(randomness=42)
+                >>> seq.alphabet.decode(seq.sequence)
+                'RALFFLHPGTGAVGCYSQLADE...'
+
+            Generate a sequence from a given random number generator::
+
+                >>> rng = easel.Randomness(123)
+                >>> seq1 = thioesterase.emit_sequence(rng)
+                >>> seq2 = thioesterase.emit_sequence(rng)
+                >>> seq1.sequence != seq2.sequence
+                True
+
+        Note:
+            By default, the ``hmmemit`` executable uses the linear congruential
+            generator, corresponding to a `~pyhmmer.easel.Randomness` created
+            with ``fast=True``. If either a seed or `None` is passed as the
+            ``randomness`` argument, the new `~pyhmmer.easel.Randomness` will
+            be created with ``fast=True`` as well.
+
+        See Also:
+            - `Profile.emit_sequence`, which allows generating random sequences
+              from an implicit search profile rather than from the core model.
+            - `HMM.emit_alignment`, which generates an alignment of random
+              sequences emitted from the core model rather than single
+              individual sequences.
+
+        .. versionadded:: 0.12.1
+
+        """
+        assert self._hmm != NULL
+
+        cdef int             status
+        cdef Randomness      rng
+        cdef DigitalSequence sequence = DigitalSequence(self.alphabet)
+
+        if RandomnessOrSeed is Randomness:
+            rng = randomness
+        else:
+            rng = Randomness(randomness, fast=True)
+
+        with nogil:
+            status = libhmmer.emit.p7_CoreEmit(rng._rng, self._hmm, sequence._sq, NULL)
+        assert sequence._sq != NULL
+        if status == libeasel.eslOK:
+            return sequence
+        elif status == libeasel.eslECORRUPT:
+            raise RuntimeError("illegal state reached")
+        elif status == libeasel.eslEMEM:
+            raise AllocationError("ESL_SQ", sizeof(ESL_SQ))
+        else:
+            raise UnexpectedError(status, "p7_CoreEmit")
+
+    cpdef DigitalMSA emit_alignment(self, uint32_t N, RandomnessOrSeed randomness = None):
+        """Emit a sequence from a core HMM.
+
+        Arguments:
+            N (`int`): The number of sequences (i.e. rows) to generate for
+                the alignment.
+            randomness (`~pyhmmer.easel.Randomness`, `int` or `None`): The
+                random number generator to use for sampling, or a seed to
+                initialize a generator. If `None` or ``0`` given, create
+                a new random number generator with a random seed.
+
+        Returns:
+            `~pyhmmer.easel.DigitalMSA`: A MSA in digital mode composed of
+            ``N`` sequences sampled from the HMM.
+
+        Example:
+            Generate a random sequence with a fixed seed::
+
+                >>> seq = thioesterase.emit_sequence(randomness=42)
+                >>> seq.alphabet.decode(seq.sequence)
+                'RALFFLHPGTGAVGCYSQLADE...'
+
+            Generate a sequence from a given random number generator::
+
+                >>> rng = easel.Randomness(123)
+                >>> seq1 = thioesterase.emit_sequence(rng)
+                >>> seq2 = thioesterase.emit_sequence(rng)
+                >>> seq1.sequence != seq2.sequence
+                True
+
+        Note:
+            By default, the ``hmmemit`` executable uses the linear congruential
+            generator, corresponding to a `~pyhmmer.easel.Randomness` created
+            with ``fast=True``. If either a seed or `None` is passed as the
+            ``randomness`` argument, the new `~pyhmmer.easel.Randomness` will
+            be created with ``fast=True`` as well.
+
+        See Also:
+            - `Profile.emit_sequence`, which allows generating random sequences
+              from an implicit search profile rather than from the core model.
+            - `HMM.emit_sequence`, which allows generating random sequences from
+              the core model of the HMM rather than from the a search profile.
+
+        .. versionadded:: 0.12.1
+
+        """
+        assert self._hmm != NULL
+
+        cdef uint32_t             i
+        cdef int                  status
+        cdef Randomness           rng
+        cdef ESL_SQ**             sequences = NULL
+        cdef P7_TRACE**           traces    = NULL
+        cdef DigitalMSA           msa       = DigitalMSA.__new__(DigitalMSA, self.alphabet)
+
+        if RandomnessOrSeed is Randomness:
+            rng = randomness
+        else:
+            rng = Randomness(randomness, fast=True)
+
+        try:
+            with nogil:
+                # Allocate buffers for traces and sequences
+                sequences = <ESL_SQ**> calloc(sizeof(ESL_SQ*), N)
+                if not sequences:
+                    raise AllocationError("ESL_SQ*", sizeof(ESL_SQ*), N)
+                traces = <P7_TRACE**> calloc(sizeof(P7_TRACE*), N)
+                if not traces:
+                    raise AllocationError("P7_TRACE*", sizeof(P7_TRACE*), N)
+                # Initialize traces and sequences
+                for i in range(N):
+                    sequences[i] = libeasel.sq.esl_sq_CreateDigital(self.alphabet._abc)
+                    if not sequences[i]:
+                        raise AllocationError("ESL_SQ", sizeof(ESL_SQ))
+                    traces[i] = libhmmer.p7_trace.p7_trace_Create()
+                    if not traces[i]:
+                        raise AllocationError("P7_TRACE", sizeof(P7_TRACE))
+                # Name each row of the alignment from the HMM name
+                for i in range(N):
+                    status = libeasel.sq.esl_sq_FormatName(
+                        sequences[i],
+                        "%s-sample%d",
+                        self._hmm.name,
+                        i+1
+                    )
+                    if status != libeasel.eslOK:
+                        raise UnexpectedError(status, "esl_sq_FormatName")
+                # Generate random sequences and traces
+                for i in range(N):
+                    status = libhmmer.emit.p7_CoreEmit(
+                        rng._rng,
+                        self._hmm,
+                        sequences[i],
+                        traces[i]
+                    )
+                    if status == libeasel.eslECORRUPT:
+                        raise RuntimeError("illegal state reached")
+                    elif status == libeasel.eslEMEM:
+                        raise AllocationError("ESL_SQ", sizeof(ESL_SQ))
+                    elif status != libeasel.eslOK:
+                        raise UnexpectedError(status, "p7_CoreEmit")
+                # Align sequences
+                status = libhmmer.tracealign.p7_tracealign_Seqs(
+                    sequences,
+                    traces,
+                    N,
+                    self._hmm.M,
+                    libhmmer.p7_ALL_CONSENSUS_COLS | libhmmer.p7_DIGITIZE,
+                    self._hmm,
+                    &msa._msa
+                )
+                if status != libeasel.eslOK:
+                    raise UnexpectedError(status, "p7_tracealign_Seqs")
+        finally:
+            # Ensure temporary sequences and traces are cleared
+            for i in range(N):
+                if sequences:
+                    libeasel.sq.esl_sq_Destroy(sequences[i])
+                if traces:
+                    libhmmer.p7_trace.p7_trace_Destroy(traces[i])
+            free(sequences)
+            free(traces)
+
+        return msa
+
     cpdef VectorF match_occupancy(self):
         """Calculate the match occupancy for each match state.
 
@@ -3421,7 +3625,7 @@ cdef class HMM:
         cdef int            status
         cdef str            funcname
         cdef P7_HMM*        hm       = self._hmm
-        
+
         with _FileobjWriter(fh) as fw:
             if binary:
                 funcname = "p7_hmmfile_WriteBinary"
@@ -3493,7 +3697,7 @@ cdef class HMMFile:
         # check if the file is in binary format before
         # we actually open it with fopen_obj, otherwise
         # the Windows background thread may start piping
-        # and we cannot peek without a potential race 
+        # and we cannot peek without a potential race
         # condition
         magic_bytes = fh_.peek(4)[:4]
         if not isinstance(magic_bytes, bytes):
@@ -4256,7 +4460,7 @@ cdef class OptimizedProfile:
             return NotImplemented
 
         cdef char[eslERRBUFSIZE] errbuf
-        cdef int                 status 
+        cdef int                 status
         cdef OptimizedProfile    op     = <OptimizedProfile> other
 
         status = libhmmer.impl.p7_oprofile.p7_oprofile_Compare(self._om, op._om, 0.0, errbuf)
@@ -4282,6 +4486,16 @@ cdef class OptimizedProfile:
         """
         assert self._om != NULL
         return self._om.M
+
+    @property
+    def allocM(self):
+        """`int`: The allocated length of the profile (maximum length).
+
+        .. versionadded:: 0.12.1
+
+        """
+        assert self._om != NULL
+        return self._om.allocM
 
     @property
     def L(self):
@@ -4701,7 +4915,7 @@ cdef class OptimizedProfile:
 
         """
         assert self._om != NULL
-       
+
         cdef int            status
         cdef _FileobjWriter fwp
         cdef _FileobjWriter fwf
@@ -5101,15 +5315,15 @@ cdef class OptimizedProfileBlock:
         assert self._block != NULL
 
         cdef OptimizedProfileBlock new = OptimizedProfileBlock.__new__(OptimizedProfileBlock, self.alphabet)
-        
+
         new._storage = self._storage.copy()
         new._block = libhmmer.impl.p7_oprofile.p7_oprofile_CreateBlock(self._block.count)
         if new._block == NULL:
             raise AllocationError("P7_OM_BLOCK", sizeof(P7_OM_BLOCK))
-        
+
         memcpy(new._block.list, self._block.list, self._block.count * sizeof(ESL_SQ*))
         new._block.count = self._block.count
-        
+
         new._locks = <PyThread_type_lock*> calloc(self._block.count, sizeof(PyThread_type_lock))
         if new._locks == NULL:
             raise AllocationError("PyThread_type_lock", sizeof(PyThread_type_lock), new._block.count)
@@ -7633,6 +7847,16 @@ cdef class Profile:
         return self._gm.M
 
     @property
+    def allocM(self):
+        """`int`: The allocated length of the profile (maximum length).
+
+        .. versionadded:: 0.12.1
+
+        """
+        assert self._gm != NULL
+        return self._gm.allocM
+
+    @property
     def L(self):
         """`int`: The current configured target sequence length.
         """
@@ -7779,8 +8003,11 @@ cdef class Profile:
                 libhmmer.modelconfig.p7_ReconfigUnihit(self._gm, self._gm.L)
 
     @property
-    def transition_scores(self):
-        r"""`~pyhmmer.easel.MatrixF`: The transition lod scores of the model.
+    def emission_scores(self):
+        r"""`~pyhmmer.easel.MatrixF`: The emission lod scores of the model.
+
+        Note that this is a hand-indexed 3-dimensional tensor, with shape
+        :math:`(K_p, M_{alloc}, 2)`. The last two dimensions are flattened.
 
         .. versionadded:: 0.12.0
 
@@ -7789,20 +8016,10 @@ cdef class Profile:
 
         cdef size_t  i
         cdef MatrixF mat = MatrixF.__new__(MatrixF)
-        mat._m = mat._shape[0] = self._gm.M
-        mat._n = mat._shape[1] = libhmmer.p7_profile.p7P_NTRANS
+        mat._m = mat._shape[0] = self.alphabet._abc.Kp
+        mat._n = mat._shape[1] = (self._gm.allocM + 1) * libhmmer.p7_profile.p7P_NR
         mat._owner = self
-
-        # NOTE: since tsc is hand indexed, it is stored as a 1D float array,
-        #       not 2D, so we need to allocated mat.data and assign the pointer
-        #       to mat[0] instead
-        mat._data = <void**> calloc(self._gm.M, sizeof(float*))
-        if mat._data == NULL:
-            raise AllocationError("float*", sizeof(float*), self._gm.M)
-
-        mat._data[0] = <void*> self._gm.tsc
-        for i in range(mat._m):
-            mat._data[i] = mat._data[0] + i * mat._n * sizeof(float)
+        mat._data = <void**> self._gm.rsc
 
         return mat
 
@@ -7883,6 +8100,96 @@ cdef class Profile:
             return new
         else:
             raise UnexpectedError(status, "p7_profile_Copy")
+
+    cpdef DigitalSequence emit_sequence(self, HMM hmm, Background background=None, RandomnessOrSeed randomness=None):
+        """Emit a sequence from the implicit search profile.
+
+        The core model consists only of the homologous states (between the
+        begin and end states of a HMMER Plan7 model). The profile includes the
+        nonhomologous N, C, and J states, local/glocal and uni/multihit
+        algorithm configuration, and the target length model. Therefore
+        sequences sampled from a profile may include nonhomologous as well as
+        homologous sequences, and may contain more than one homologous sequence
+        segment. By default, the profile is in multihit local mode, and the
+        target sequence length is configured for L=400.
+
+        Arguments:
+            HMM (`~pyhmmer.plan7.HMM`): The HMM accompanying this profile,
+                which contains core probabilities.
+            background (`~pyhmmer.plan7.Background` or `None`): The background
+                frequencies of the null1 model.
+            randomness (`~pyhmmer.easel.Randomness`, `int` or `None`): The
+                random number generator to use for sampling, or a seed to
+                initialize a generator. If `None` or ``0`` given, create
+                a new random number generator with a random seed.
+
+        Returns:
+            `~pyhmmer.easel.DigitalSequence`: A sequence in digital mode sampled
+            from the HMM. Only the `~pyhmmer.easel.DigitalSequence.sequence`
+            field will be initialized.
+
+        Example:
+            >>> hmm = thioesterase
+            >>> bg = Background(hmm.alphabet)
+            >>> profile = hmm.to_profile(bg, L=400, multihit=True, local=True)
+            >>> rng = easel.Randomness(42)
+            >>> seq = profile.emit_sequence(hmm, bg, rng)
+
+        Note:
+            By default, the ``hmmemit`` executable uses the linear congruential
+            generator, corresponding to a `~pyhmmer.easel.Randomness` created
+            with ``fast=True``. If either a seed or `None` is passed as the
+            ``randomness`` argument, the new `~pyhmmer.easel.Randomness` will
+            be created with ``fast=True`` as well.
+
+        See Also:
+            - `HMM.emit_sequence`, which allows generating random sequences from
+              the core model of the HMM rather than from the a search profile.
+            - `HMM.emit_alignment`, which generates an alignment of random
+              sequences emitted from the core model rather than single
+              individual sequences.
+
+        .. versionadded:: 0.12.1
+
+        """
+        assert self._gm != NULL
+
+        cdef int             status
+        cdef Randomness      rng
+        cdef Background      bg
+        cdef DigitalSequence sequence = DigitalSequence(self.alphabet)
+
+        if hmm.alphabet != self.alphabet:
+            raise AlphabetMismatch(self.alphabet, hmm.alphabet)
+
+        if RandomnessOrSeed is Randomness:
+            rng = randomness
+        else:
+            rng = Randomness(randomness, fast=True)
+
+        if background is None:
+            bg = Background(self.alphabet)
+        else:
+            bg = background
+
+        with nogil:
+            status = libhmmer.emit.p7_ProfileEmit(
+                rng._rng,
+                hmm._hmm,
+                self._gm,
+                bg._bg,
+                sequence._sq,
+                NULL
+            )
+        assert sequence._sq != NULL
+        if status == libeasel.eslOK:
+            return sequence
+        elif status == libeasel.eslECORRUPT:
+            raise RuntimeError("illegal state reached")
+        elif status == libeasel.eslEMEM:
+            raise AllocationError("ESL_SQ", sizeof(ESL_SQ))
+        else:
+            raise UnexpectedError(status, "p7_ProfileEmit")
 
     cpdef OptimizedProfile to_optimized(self):
         """Convert the profile to a platform-specific optimized profile.

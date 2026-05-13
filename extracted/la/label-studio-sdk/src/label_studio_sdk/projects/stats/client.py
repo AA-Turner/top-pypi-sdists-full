@@ -4,17 +4,25 @@ import typing
 
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
+from ...types.data_quality_agreement_confusion_matrix import DataQualityAgreementConfusionMatrix
+from ...types.data_quality_agreement_dimensions import DataQualityAgreementDimensions
+from ...types.data_quality_agreement_distribution import DataQualityAgreementDistribution
 from ...types.label_distribution_counts_response import LabelDistributionCountsResponse
 from ...types.label_distribution_structure_response import LabelDistributionStructureResponse
 from .raw_client import AsyncRawStatsClient, RawStatsClient
 from .types.agreement_annotator_stats_response import AgreementAnnotatorStatsResponse
 from .types.agreement_annotators_stats_response import AgreementAnnotatorsStatsResponse
 from .types.data_filters_stats_response import DataFiltersStatsResponse
+from .types.data_quality_agreement_confusion_matrix_stats_request_mode import (
+    DataQualityAgreementConfusionMatrixStatsRequestMode,
+)
 from .types.finished_tasks_stats_response import FinishedTasksStatsResponse
 from .types.iaa_stats_response import IaaStatsResponse
 from .types.lead_time_stats_response import LeadTimeStatsResponse
 from .types.member_performance_rows_stats_request_table import MemberPerformanceRowsStatsRequestTable
 from .types.member_performance_rows_stats_response import MemberPerformanceRowsStatsResponse
+from .types.member_performance_summary_stats_request_table import MemberPerformanceSummaryStatsRequestTable
+from .types.member_performance_summary_stats_response import MemberPerformanceSummaryStatsResponse
 from .types.model_version_annotator_agreement_stats_response import ModelVersionAnnotatorAgreementStatsResponse
 from .types.model_version_ground_truth_agreement_stats_response import ModelVersionGroundTruthAgreementStatsResponse
 from .types.model_version_prediction_agreement_stats_response import ModelVersionPredictionAgreementStatsResponse
@@ -41,6 +49,133 @@ class StatsClient:
         RawStatsClient
         """
         return self._raw_client
+
+    def data_quality_agreement_confusion_matrix(
+        self,
+        id: int,
+        *,
+        from_name: typing.Optional[str] = None,
+        mode: typing.Optional[DataQualityAgreementConfusionMatrixStatsRequestMode] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> DataQualityAgreementConfusionMatrix:
+        """
+        <Card href="https://humansignal.com/goenterprise">
+                <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
+                <p style="margin-top: 10px; font-size: 14px;">
+                    This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
+                </p>
+            </Card>
+        Returns label confusion matrix with precision, recall, and top confusion pairs. In `ground_truth` mode the matrix is directional: rows are GT labels (actual), columns are annotator labels (predicted). In `all` and `accepted` modes — where no canonical "actual vs predicted" axis exists — the matrix is symmetric. When a task has multiple GT annotations the most recently updated one is used. `top_confusion_pairs.rate` is the share of off-diagonal mass.
+
+        Parameters
+        ----------
+        id : int
+
+        from_name : typing.Optional[str]
+            From name
+
+        mode : typing.Optional[DataQualityAgreementConfusionMatrixStatsRequestMode]
+            Mode
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DataQualityAgreementConfusionMatrix
+
+
+        Examples
+        --------
+        from label_studio_sdk import LabelStudio
+
+        client = LabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+        client.projects.stats.data_quality_agreement_confusion_matrix(
+            id=1,
+        )
+        """
+        _response = self._raw_client.data_quality_agreement_confusion_matrix(
+            id, from_name=from_name, mode=mode, request_options=request_options
+        )
+        return _response.data
+
+    def data_quality_agreement_dimensions(
+        self, id: int, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> typing.List[DataQualityAgreementDimensions]:
+        """
+        <Card href="https://humansignal.com/goenterprise">
+                <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
+                <p style="margin-top: 10px; font-size: 14px;">
+                    This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
+                </p>
+            </Card>
+        Returns per-dimension agreement scores for active dimensions.
+
+        Parameters
+        ----------
+        id : int
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.List[DataQualityAgreementDimensions]
+
+
+        Examples
+        --------
+        from label_studio_sdk import LabelStudio
+
+        client = LabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+        client.projects.stats.data_quality_agreement_dimensions(
+            id=1,
+        )
+        """
+        _response = self._raw_client.data_quality_agreement_dimensions(id, request_options=request_options)
+        return _response.data
+
+    def data_quality_agreement_distribution(
+        self, id: int, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DataQualityAgreementDistribution:
+        """
+        <Card href="https://humansignal.com/goenterprise">
+                <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
+                <p style="margin-top: 10px; font-size: 14px;">
+                    This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
+                </p>
+            </Card>
+        Returns average agreement, a 10-bucket histogram of `Task.precomputed_agreement` (filled on-the-fly from V2 dimension matrices when null), `low_agreement_count`, and `total_tasks`. The low-agreement threshold is `LseProject.agreement_threshold` (the same project setting Data Manager filters and review-routing rules consume); changing that setting moves the count for this endpoint as well.
+
+        Parameters
+        ----------
+        id : int
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DataQualityAgreementDistribution
+
+
+        Examples
+        --------
+        from label_studio_sdk import LabelStudio
+
+        client = LabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+        client.projects.stats.data_quality_agreement_distribution(
+            id=1,
+        )
+        """
+        _response = self._raw_client.data_quality_agreement_distribution(id, request_options=request_options)
+        return _response.data
 
     def model_version_annotator_agreement(
         self, id: int, model_version: str, *, request_options: typing.Optional[RequestOptions] = None
@@ -614,7 +749,7 @@ class StatsClient:
         id : int
 
         ids : typing.Optional[str]
-            Comma-separated user IDs to include. When omitted, members are derived from the project.
+            Comma-separated participant IDs: numeric user IDs and/or synthetic members as <code>model:&lt;version&gt;</code> (annotations table only). When omitted, members and distinct model versions are derived from the project.
 
         ordering : typing.Optional[str]
             Sort field; prefix with "-" for descending (e.g. "-finished").
@@ -634,7 +769,7 @@ class StatsClient:
         Returns
         -------
         MemberPerformanceRowsStatsResponse
-            Member performance rows for one page plus summary aggregates.
+            Member performance rows for one page (footer totals: member_performance_summary).
 
         Examples
         --------
@@ -649,6 +784,57 @@ class StatsClient:
         """
         _response = self._raw_client.member_performance_rows(
             id, ids=ids, ordering=ordering, page=page, page_size=page_size, table=table, request_options=request_options
+        )
+        return _response.data
+
+    def member_performance_summary(
+        self,
+        id: int,
+        *,
+        ids: typing.Optional[str] = None,
+        table: typing.Optional[MemberPerformanceSummaryStatsRequestTable] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> MemberPerformanceSummaryStatsResponse:
+        """
+        <Card href="https://humansignal.com/goenterprise">
+                <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
+                <p style="margin-top: 10px; font-size: 14px;">
+                    This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
+                </p>
+            </Card>
+        Footer / Total aggregates for annotation or review member tables. Use with paginated <code>member_performance_rows</code>. Guarded by <code>fflag_feat_lse_project_dashboards_v3_members_short</code>.
+
+        Parameters
+        ----------
+        id : int
+
+        ids : typing.Optional[str]
+            Comma-separated participant IDs: numeric user IDs and/or <code>model:&lt;version&gt;</code> for annotations. When omitted, derived from the project.
+
+        table : typing.Optional[MemberPerformanceSummaryStatsRequestTable]
+            Which table: "annotations" or "reviews".
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        MemberPerformanceSummaryStatsResponse
+            Summary aggregates (avg_*, sum_*, count_paused).
+
+        Examples
+        --------
+        from label_studio_sdk import LabelStudio
+
+        client = LabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+        client.projects.stats.member_performance_summary(
+            id=1,
+        )
+        """
+        _response = self._raw_client.member_performance_summary(
+            id, ids=ids, table=table, request_options=request_options
         )
         return _response.data
 
@@ -1016,6 +1202,157 @@ class AsyncStatsClient:
         AsyncRawStatsClient
         """
         return self._raw_client
+
+    async def data_quality_agreement_confusion_matrix(
+        self,
+        id: int,
+        *,
+        from_name: typing.Optional[str] = None,
+        mode: typing.Optional[DataQualityAgreementConfusionMatrixStatsRequestMode] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> DataQualityAgreementConfusionMatrix:
+        """
+        <Card href="https://humansignal.com/goenterprise">
+                <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
+                <p style="margin-top: 10px; font-size: 14px;">
+                    This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
+                </p>
+            </Card>
+        Returns label confusion matrix with precision, recall, and top confusion pairs. In `ground_truth` mode the matrix is directional: rows are GT labels (actual), columns are annotator labels (predicted). In `all` and `accepted` modes — where no canonical "actual vs predicted" axis exists — the matrix is symmetric. When a task has multiple GT annotations the most recently updated one is used. `top_confusion_pairs.rate` is the share of off-diagonal mass.
+
+        Parameters
+        ----------
+        id : int
+
+        from_name : typing.Optional[str]
+            From name
+
+        mode : typing.Optional[DataQualityAgreementConfusionMatrixStatsRequestMode]
+            Mode
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DataQualityAgreementConfusionMatrix
+
+
+        Examples
+        --------
+        import asyncio
+
+        from label_studio_sdk import AsyncLabelStudio
+
+        client = AsyncLabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.projects.stats.data_quality_agreement_confusion_matrix(
+                id=1,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.data_quality_agreement_confusion_matrix(
+            id, from_name=from_name, mode=mode, request_options=request_options
+        )
+        return _response.data
+
+    async def data_quality_agreement_dimensions(
+        self, id: int, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> typing.List[DataQualityAgreementDimensions]:
+        """
+        <Card href="https://humansignal.com/goenterprise">
+                <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
+                <p style="margin-top: 10px; font-size: 14px;">
+                    This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
+                </p>
+            </Card>
+        Returns per-dimension agreement scores for active dimensions.
+
+        Parameters
+        ----------
+        id : int
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.List[DataQualityAgreementDimensions]
+
+
+        Examples
+        --------
+        import asyncio
+
+        from label_studio_sdk import AsyncLabelStudio
+
+        client = AsyncLabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.projects.stats.data_quality_agreement_dimensions(
+                id=1,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.data_quality_agreement_dimensions(id, request_options=request_options)
+        return _response.data
+
+    async def data_quality_agreement_distribution(
+        self, id: int, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DataQualityAgreementDistribution:
+        """
+        <Card href="https://humansignal.com/goenterprise">
+                <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
+                <p style="margin-top: 10px; font-size: 14px;">
+                    This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
+                </p>
+            </Card>
+        Returns average agreement, a 10-bucket histogram of `Task.precomputed_agreement` (filled on-the-fly from V2 dimension matrices when null), `low_agreement_count`, and `total_tasks`. The low-agreement threshold is `LseProject.agreement_threshold` (the same project setting Data Manager filters and review-routing rules consume); changing that setting moves the count for this endpoint as well.
+
+        Parameters
+        ----------
+        id : int
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DataQualityAgreementDistribution
+
+
+        Examples
+        --------
+        import asyncio
+
+        from label_studio_sdk import AsyncLabelStudio
+
+        client = AsyncLabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.projects.stats.data_quality_agreement_distribution(
+                id=1,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.data_quality_agreement_distribution(id, request_options=request_options)
+        return _response.data
 
     async def model_version_annotator_agreement(
         self, id: int, model_version: str, *, request_options: typing.Optional[RequestOptions] = None
@@ -1687,7 +2024,7 @@ class AsyncStatsClient:
         id : int
 
         ids : typing.Optional[str]
-            Comma-separated user IDs to include. When omitted, members are derived from the project.
+            Comma-separated participant IDs: numeric user IDs and/or synthetic members as <code>model:&lt;version&gt;</code> (annotations table only). When omitted, members and distinct model versions are derived from the project.
 
         ordering : typing.Optional[str]
             Sort field; prefix with "-" for descending (e.g. "-finished").
@@ -1707,7 +2044,7 @@ class AsyncStatsClient:
         Returns
         -------
         MemberPerformanceRowsStatsResponse
-            Member performance rows for one page plus summary aggregates.
+            Member performance rows for one page (footer totals: member_performance_summary).
 
         Examples
         --------
@@ -1730,6 +2067,65 @@ class AsyncStatsClient:
         """
         _response = await self._raw_client.member_performance_rows(
             id, ids=ids, ordering=ordering, page=page, page_size=page_size, table=table, request_options=request_options
+        )
+        return _response.data
+
+    async def member_performance_summary(
+        self,
+        id: int,
+        *,
+        ids: typing.Optional[str] = None,
+        table: typing.Optional[MemberPerformanceSummaryStatsRequestTable] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> MemberPerformanceSummaryStatsResponse:
+        """
+        <Card href="https://humansignal.com/goenterprise">
+                <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
+                <p style="margin-top: 10px; font-size: 14px;">
+                    This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
+                </p>
+            </Card>
+        Footer / Total aggregates for annotation or review member tables. Use with paginated <code>member_performance_rows</code>. Guarded by <code>fflag_feat_lse_project_dashboards_v3_members_short</code>.
+
+        Parameters
+        ----------
+        id : int
+
+        ids : typing.Optional[str]
+            Comma-separated participant IDs: numeric user IDs and/or <code>model:&lt;version&gt;</code> for annotations. When omitted, derived from the project.
+
+        table : typing.Optional[MemberPerformanceSummaryStatsRequestTable]
+            Which table: "annotations" or "reviews".
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        MemberPerformanceSummaryStatsResponse
+            Summary aggregates (avg_*, sum_*, count_paused).
+
+        Examples
+        --------
+        import asyncio
+
+        from label_studio_sdk import AsyncLabelStudio
+
+        client = AsyncLabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.projects.stats.member_performance_summary(
+                id=1,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.member_performance_summary(
+            id, ids=ids, table=table, request_options=request_options
         )
         return _response.data
 

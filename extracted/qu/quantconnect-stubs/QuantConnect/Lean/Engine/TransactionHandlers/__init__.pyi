@@ -112,7 +112,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         orders are processed they are moved into the Orders queue awaiting the brokerage response.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -126,7 +126,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         The _cancelPendingOrders instance will help to keep track of CancelPending orders and their Status
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -173,7 +173,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         Gets the amount of time since the last call to algorithm.Portfolio.ProcessFill(fill)
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -183,7 +183,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         Gets current time UTC. This is here to facilitate testing
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -311,7 +311,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         the order requests
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -343,7 +343,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         This procedure is needed to meet brokerage precision requirements.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -355,7 +355,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         This procedure is needed to meet brokerage precision requirements.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -364,7 +364,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         Primary thread entry point to launch the transaction thread.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -380,7 +380,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         """
         Wait for the order to be handled by the _processingThreads
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param ticket: The OrderTicket expecting to be submitted
         """
@@ -396,7 +396,7 @@ class BacktestingTransactionHandler(QuantConnect.Lean.Engine.TransactionHandlers
         Gets current time UTC. This is here to facilitate testing
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -415,7 +415,7 @@ class BacktestingTransactionHandler(QuantConnect.Lean.Engine.TransactionHandlers
         For backtesting order requests will be processed by the algorithm thread
         sequentially at wait_for_order_submission and process_synchronous_events
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -432,7 +432,7 @@ class BacktestingTransactionHandler(QuantConnect.Lean.Engine.TransactionHandlers
         For backtesting we will submit the order ourselves
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param ticket: The OrderTicket expecting to be submitted
         """

@@ -41,7 +41,7 @@ class OptionContractUniverse(QuantConnect.Data.UniverseSelection.UserDefinedUniv
         Event invocator for the UserDefinedUniverse.collection_changed event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: The notify collection changed event arguments
         """

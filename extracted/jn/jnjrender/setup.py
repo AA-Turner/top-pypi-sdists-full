@@ -9,7 +9,7 @@ setup(
     name="jnjrender",
     version=__version__,
     packages=find_packages(),
-    description="An utility to render Jinja2 templates in rendered text, taking a yaml environment ",
+    description="CLI tool to render Jinja2 templates with YAML variables, with auto-selection from template libraries",
     author="Andrea Michelotti",
     install_requires=[
         "jinja2",

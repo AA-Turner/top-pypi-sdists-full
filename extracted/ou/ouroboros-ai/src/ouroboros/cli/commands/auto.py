@@ -20,8 +20,13 @@ from ouroboros.auto.adapters import (
     load_seed,
     save_seed,
 )
+from ouroboros.auto.domain_profile import DEFAULT_REGISTRY
 from ouroboros.auto.interview_driver import AutoInterviewDriver
 from ouroboros.auto.pipeline import AutoPipeline, AutoPipelineResult
+
+# Import the built-in profile package once so CLI domain activation sees
+# production registrations, not just profiles manually loaded by tests.
+import ouroboros.auto.profiles  # noqa: F401,E402
 from ouroboros.auto.progress import AutoProgressCallback, AutoProgressEvent
 from ouroboros.auto.provenance import resolve_provenance
 from ouroboros.auto.resume_render import render_resume_lines
@@ -175,6 +180,18 @@ def auto_command(
             ),
         ),
     ] = False,
+    domain: Annotated[
+        str | None,
+        typer.Option(
+            "--domain",
+            hidden=True,
+            help=(
+                "Explicitly activate a domain profile by name (e.g. 'coding'). "
+                "Overrides auto-detection. Use 'ooo auto --domain coding <goal>' "
+                "to force the coding profile regardless of cwd."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Run an A-grade-gated auto pipeline.
 
@@ -220,9 +237,12 @@ def auto_command(
                 reconcile_source=reconcile_source,
                 pipeline_timeout_seconds=timeout,
                 complete_product=complete_product,
+                domain=domain,
                 progress_callback=_make_progress_renderer(quiet=quiet),
             )
         )
+    except typer.Exit:
+        raise
     except Exception as exc:
         print_error(f"Auto pipeline failed: {exc}")
         raise typer.Exit(1) from exc
@@ -263,6 +283,7 @@ async def _run_auto(
     reconcile_source: str | None = None,
     pipeline_timeout_seconds: float | None = None,
     complete_product: bool = False,
+    domain: str | None = None,
     progress_callback: AutoProgressCallback | None = None,
 ) -> AutoPipelineResult:
     store = AutoStore()
@@ -347,14 +368,51 @@ async def _run_auto(
         if pipeline_timeout_seconds is not None:
             state.pipeline_timeout_seconds = float(pipeline_timeout_seconds)
 
+    # 3-step domain profile activation (PR-3, Q00/ouroboros#809 P3):
+    # 1. --domain explicit flag wins.
+    # 2. Otherwise, auto-detect from cwd via DEFAULT_REGISTRY.detect_best.
+    # 3. Otherwise, None (current baked-in behavior remains in charge).
+    if domain is not None:
+        active_profile = DEFAULT_REGISTRY.get(domain)
+        if active_profile is None:
+            print_error(
+                f"Unknown domain profile: {domain!r}. Register it with DEFAULT_REGISTRY before use."
+            )
+            raise typer.Exit(1)
+        state.active_domain_profile_name = active_profile.name
+    elif not resume:
+        active_profile = DEFAULT_REGISTRY.detect_best(Path(state.cwd))
+        state.active_domain_profile_name = active_profile.name if active_profile else None
+    else:
+        # Resume preserves the session-start profile unless the operator
+        # explicitly passes --domain to intentionally retarget it.
+        pass
+
     if runtime == "opencode":
-        opencode_mode = state.opencode_mode or get_opencode_mode()
+        # Q00/ouroboros#782 review-7 BLOCKING #3 + review-8 BLOCKING #1: keep
+        # the un-demoted opencode_mode for the Ralph handoff so a CLI launched
+        # from *inside* an OpenCode plugin session can still dispatch the new
+        # ``--complete-product`` Ralph loop via the plugin ``_subagent``
+        # envelope (matching the MCP entrypoint's behavior). The historical
+        # CLI demotion to ``subprocess`` was uniform and therefore disabled
+        # the plugin Ralph contract introduced by this PR.
+        #
+        # Persist the un-demoted value as ``state.ralph_opencode_mode`` and
+        # honor a previously persisted value on resume — ``state.opencode_mode``
+        # itself stores the demoted form (used by authoring/run-handoff
+        # handlers), so it cannot serve as a source of truth for plugin Ralph.
+        ralph_opencode_mode = (
+            state.ralph_opencode_mode or state.opencode_mode or get_opencode_mode()
+        )
+        opencode_mode = ralph_opencode_mode
         if opencode_mode == "plugin":
             opencode_mode = "subprocess"
     else:
         opencode_mode = None
+        ralph_opencode_mode = None
     state.runtime_backend = runtime
     state.opencode_mode = opencode_mode
+    state.ralph_opencode_mode = ralph_opencode_mode
     state.skip_run = skip_run
     if incoming_provenance is not None:
         if resume and state.provenance is None:
@@ -389,7 +447,11 @@ async def _run_auto(
         timeout_seconds=state.phase_timeout_seconds(AutoPhase.INTERVIEW),
     )
     ralph_handler = (
-        RalphHandler(agent_runtime_backend=runtime, opencode_mode=opencode_mode)
+        # Q00/ouroboros#782 review-7/8/10: pass the un-demoted
+        # ``ralph_opencode_mode`` so an OpenCode plugin session can take the
+        # plugin ``_subagent`` dispatch path. ``opencode_mode`` (demoted) is
+        # still correct for the authoring/run-handoff handlers above.
+        RalphHandler(agent_runtime_backend=runtime, opencode_mode=ralph_opencode_mode)
         if complete_product
         else None
     )

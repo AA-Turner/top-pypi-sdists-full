@@ -1,17 +1,18 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.782303                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.013007                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow.decorators
     import metaflow.user_decorators.mutable_flow
     import metaflow.user_decorators.user_flow_decorator
+    import typing
+    import metaflow.decorators
     import metaflow.flowspec
 
 from ..exception import MetaflowException as MetaflowException
@@ -47,7 +48,7 @@ class FlowMutatorMeta(type, metaclass=type):
         """
         ...
     @classmethod
-    def get_decorator_name(mcs, decorator_type: type) -> typing.Optional[str]:
+    def get_decorator_name(mcs, decorator_type: type) -> typing.Union[str, None]:
         """
         Get the minimally unique classpath name for a decorator type.
         
@@ -85,9 +86,15 @@ class FlowMutator(object, metaclass=FlowMutatorMeta):
         ...
     def __mro_entries__(self, bases):
         ...
-    def __call__(self, flow_spec: typing.Optional["metaflow.flowspec.FlowSpecMeta"] = None) -> "metaflow.flowspec.FlowSpecMeta":
+    def __call__(self, flow_spec: typing.Union["metaflow.flowspec.FlowSpecMeta", None] = None) -> "metaflow.flowspec.FlowSpecMeta":
         ...
     def __str__(self):
+        ...
+    @classmethod
+    def extract_args_kwargs_from_decorator_spec(cls, deco_spec: str) -> typing.Tuple[typing.List[typing.Any], typing.Dict[str, typing.Any]]:
+        ...
+    @classmethod
+    def parse_decorator_spec(cls, deco_spec: str) -> "FlowMutator":
         ...
     def init(self, *args, **kwargs):
         """
@@ -131,6 +138,40 @@ class FlowMutator(object, metaclass=FlowMutatorMeta):
         ----------
         mutable_flow : metaflow.user_decorators.mutable_flow.MutableFlow
             A representation of this flow
+        """
+        ...
+    def add_to_package(self):
+        """
+        Called to add custom files needed by this flow mutator. This hook will be
+        called in the `MetaflowPackage` class where metaflow compiles the code package
+        tarball. This hook can return one of two things (the first is for backwards
+        compatibility -- generally use the second when you implement your mutator):
+          - a generator yielding a tuple of `(file_path, arcname)` to add files to
+            the code package. `file_path` is the path to the file on the local filesystem
+            and `arcname` is the path relative to the packaged code.
+          - a generator yielding a tuple of `(content, arcname, type)` where:
+            - type is one of
+            ContentType.{USER_CONTENT, CODE_CONTENT, MODULE_CONTENT, OTHER_CONTENT}
+            - for USER_CONTENT:
+              - the file will be included relative to the directory containing the
+                user's flow file.
+              - content: path to the file to include
+              - arcname: path relative to the directory containing the user's flow file
+            - for CODE_CONTENT:
+              - the file will be included relative to the code directory in the package.
+                This will be the directory containing `metaflow`.
+              - content: path to the file to include
+              - arcname: path relative to the code directory in the package
+            - for MODULE_CONTENT:
+              - the module will be added to the code package as a python module. It will
+                be accessible as usual (import <module_name>)
+              - content: name of the module
+              - arcname: None (ignored)
+            - for OTHER_CONTENT:
+              - the file will be included relative to any other configuration/metadata
+                files for the flow
+              - content: path to the file to include
+              - arcname: path relative to the config directory in the package
         """
         ...
     ...

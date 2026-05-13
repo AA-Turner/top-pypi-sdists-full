@@ -1,6 +1,8 @@
 import pytest
 import io
 
+from notion_client.helpers import is_full_view
+
 
 @pytest.mark.vcr()
 def test_pages_create(client, parent_page_id):
@@ -59,6 +61,12 @@ def test_blocks_children_list(client, page_id):
     response = client.blocks.children.list(block_id=page_id)
     assert response["object"] == "list"
     assert response["type"] == "block"
+
+
+@pytest.mark.vcr()
+def test_blocks_meeting_notes_query(client):
+    response = client.blocks.meeting_notes.query()
+    assert response["object"] == "list"
 
 
 @pytest.mark.vcr()
@@ -200,6 +208,88 @@ def test_data_sources_list_templates(client, data_source_id):
 
 
 @pytest.mark.vcr()
+def test_views_list(client, database_id):
+    response = client.views.list(database_id=database_id)
+    assert response["object"] == "list"
+    assert response["type"] == "view"
+
+
+@pytest.mark.vcr()
+def test_views_create(client, database_id, data_source_id):
+    response = client.views.create(
+        database_id=database_id,
+        data_source_id=data_source_id,
+        name="Test View",
+        type="table",
+    )
+    assert response["object"] == "view"
+    assert is_full_view(response)
+    assert response["name"] == "Test View"
+
+    # cleanup
+    client.views.delete(view_id=response["id"])
+
+
+@pytest.mark.vcr()
+def test_views_retrieve(client, view_id):
+    response = client.views.retrieve(view_id=view_id)
+    assert response["object"] == "view"
+    assert is_full_view(response)
+    assert response["id"] == view_id
+
+
+@pytest.mark.vcr()
+def test_views_update(client, view_id):
+    response = client.views.update(view_id=view_id, name="Updated View")
+    assert response["object"] == "view"
+    assert is_full_view(response)
+    assert response["name"] == "Updated View"
+
+
+@pytest.mark.vcr()
+def test_views_delete(client, database_id, data_source_id):
+    view = client.views.create(
+        database_id=database_id,
+        data_source_id=data_source_id,
+        name="View to Delete",
+        type="table",
+    )
+    response = client.views.delete(view_id=view["id"])
+    assert response["object"] == "view"
+
+
+@pytest.mark.vcr()
+def test_views_queries_create(client, view_id):
+    response = client.views.queries.create(view_id=view_id)
+    assert response["object"] == "view_query"
+    assert response["view_id"] == view_id
+
+
+@pytest.mark.vcr()
+def test_views_queries_results(client, view_id):
+    query = client.views.queries.create(view_id=view_id)
+    response = client.views.queries.results(view_id=view_id, query_id=query["id"])
+    assert response["object"] == "list"
+    assert response["type"] == "page"
+
+
+@pytest.mark.vcr()
+def test_views_queries_delete(client, view_id):
+    query = client.views.queries.create(view_id=view_id)
+    response = client.views.queries.delete(view_id=view_id, query_id=query["id"])
+    assert response["object"] == "view_query"
+    assert response["deleted"] is True
+
+
+@pytest.mark.vcr()
+def test_custom_emojis_list(client):
+    response = client.custom_emojis.list()
+    assert response["object"] == "list"
+    assert response["type"] == "custom_emoji"
+    assert isinstance(response["results"], list)
+
+
+@pytest.mark.vcr()
 def test_comments_create(client, page_id):
     parent = {"page_id": page_id}
     rich_text = [
@@ -226,6 +316,77 @@ def test_comments_retrieve(client, comment_id):
     response = client.comments.retrieve(comment_id=comment_id)
     assert response["object"] == "comment"
     assert response["id"] == comment_id
+
+
+@pytest.mark.vcr()
+def test_comments_update(client, comment_id):
+    rich_text = [{"text": {"content": "Updated comment."}}]
+    response = client.comments.update(comment_id=comment_id, rich_text=rich_text)
+    assert response["object"] == "comment"
+    assert response["id"] == comment_id
+    assert response["rich_text"][0]["plain_text"] == "Updated comment."
+
+
+@pytest.mark.vcr()
+def test_comments_delete(client, comment_id):
+    response = client.comments.delete(comment_id=comment_id)
+    assert response["object"] == "comment"
+    assert response["id"] == comment_id
+
+
+# Markdown endpoints require a public (OAuth) integration, so we can't record cassettes
+# with our internal integration token. Using mocks instead.
+def test_pages_retrieve_markdown(client, mocker):
+    mock_response = {
+        "object": "page_markdown",
+        "id": "abc123",
+        "markdown": "# Hello",
+        "truncated": False,
+        "unknown_block_ids": [],
+    }
+    mock_request = mocker.patch.object(client, "request", return_value=mock_response)
+
+    response = client.pages.retrieve_markdown(page_id="abc123", include_transcript=True)
+
+    assert response["object"] == "page_markdown"
+    mock_request.assert_called_once_with(
+        path="pages/abc123/markdown",
+        method="GET",
+        query={"include_transcript": True},
+        auth=None,
+    )
+
+
+# Markdown endpoints require a public (OAuth) integration, so we can't record cassettes
+# with our internal integration token. Using mocks instead.
+def test_pages_update_markdown(client, mocker):
+    mock_response = {
+        "object": "page_markdown",
+        "id": "abc123",
+        "markdown": "## New Section\n\nHello from markdown.",
+        "truncated": False,
+        "unknown_block_ids": [],
+    }
+    mock_request = mocker.patch.object(client, "request", return_value=mock_response)
+
+    response = client.pages.update_markdown(
+        page_id="abc123",
+        type="insert_content",
+        insert_content={"content": "## New Section\n\nHello from markdown."},
+    )
+
+    assert response["object"] == "page_markdown"
+    mock_request.assert_called_once_with(
+        path="pages/abc123/markdown",
+        method="PATCH",
+        body={
+            "type": "insert_content",
+            "insert_content": {
+                "content": "## New Section\n\nHello from markdown.",
+            },
+        },
+        auth=None,
+    )
 
 
 @pytest.mark.vcr()

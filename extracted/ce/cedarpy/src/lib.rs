@@ -136,7 +136,7 @@ fn is_authorized_batch(requests: Vec<HashMap<String, String>>,
 
     // parse schema
     let t_start_schema = Instant::now();
-    let schema = make_schema(&schema, verbose);
+    let schema = make_schema(&schema, verbose, &mut errs);
     let t_parse_schema_duration = t_start_schema.elapsed();
 
     // load entities
@@ -235,9 +235,11 @@ fn to_request_args(request: &HashMap<String, String>) -> RequestArgs {
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct DiagnosticsSer {
-    /// `PolicyId`s of the policies that contributed to the decision.
-    /// If no policies applied to the request, this set will be empty.
-    reason: HashSet<PolicyId>,
+    /// Ids of the policies that contributed to the decision. Each entry is the
+    /// `@id` annotation value if the matched policy carries one, otherwise the
+    /// parser-generated id (e.g., `policy0`). If no policies applied to the
+    /// request, this set will be empty.
+    reason: HashSet<String>,
     /// Errors that occurred during authorization. The errors should be
     /// treated as unordered, since policies may be evaluated in any order.
     errors: Vec<String>,
@@ -289,8 +291,19 @@ pub struct ValidationResultSer {
 }
 
 impl AuthzResponse {
-    /// Create a new `AuthzResponse`
-    pub fn new(response: Response, metrics: HashMap<String, u128>, correlation_id: Option<String>) -> Self {
+    /// Create a new `AuthzResponse`.
+    ///
+    /// `policy_set` is the parsed `PolicySet` that produced `response`; it is
+    /// used to resolve each matched `PolicyId` to its `@id` annotation (if
+    /// present) before serialization. Annotations are inert in Cedar policy
+    /// evaluation; this is a pure labeling step on the response.
+    pub fn new(response: Response,
+               policy_set: &PolicySet,
+               metrics: HashMap<String, u128>,
+               correlation_id: Option<String>) -> Self {
+        let reason = response.diagnostics().reason()
+            .map(|pid| resolve_display_id(policy_set, pid))
+            .collect();
         Self {
             decision: match response.decision() {
                 Decision::Allow => DecisionSer::Allow,
@@ -298,7 +311,7 @@ impl AuthzResponse {
             },
             correlation_id,
             diagnostics: DiagnosticsSer{
-                reason: response.diagnostics().reason().cloned().collect(),
+                reason,
                 errors: response.diagnostics().errors().cloned().map(|e|e.to_string()).collect(),
             },
             metrics,
@@ -335,7 +348,7 @@ fn execute_authorization_request(
             (String::from("build_request_duration_micros"), build_request_duration.as_micros()),
             (String::from("authz_duration_micros"), t_authz.elapsed().as_micros()),
         ]);
-        let authz_response = AuthzResponse::new(ans, metrics,
+        let authz_response = AuthzResponse::new(ans, policy_set, metrics,
                                                 request_args.correlation_id.clone());
         Ok(authz_response)
     } else {
@@ -356,7 +369,7 @@ fn make_entities(entities_str: String, schema: &Option<Schema>, errs: &mut Vec<E
     }
 }
 
-fn make_schema(schema_str: &Option<String>, verbose: bool) -> Option<Schema> {
+fn make_schema(schema_str: &Option<String>, verbose: bool, errs: &mut Vec<Error>) -> Option<Schema> {
     let schema: Option<Schema> = match &schema_str {
         None => None,
         Some(schema_src) => {
@@ -377,6 +390,7 @@ fn make_schema(schema_str: &Option<String>, verbose: bool) -> Option<Schema> {
                         if verbose {
                             println!("!!! could not construct schema from JSON: {}", json_err);
                         }
+                        errs.push(Error::msg(format!("failed to parse schema from JSON: {}", json_err)));
                         None
                     }
                 }
@@ -387,12 +401,13 @@ fn make_schema(schema_str: &Option<String>, verbose: bool) -> Option<Schema> {
                         if verbose {
                             println!("!!! could not construct schema from str: {}", str_err);
                         }
+                        errs.push(Error::msg(format!("failed to parse schema from Cedar: {}", str_err)));
                         None
                     }
                 }
             }
         }
-    };    
+    };
     schema
 }
 
@@ -401,6 +416,33 @@ fn load_entities(entities_str: String, schema: Option<&Schema>) -> Result<Entiti
     return Entities::from_json_str(&entities_str, schema).context(format!(
         "failed to parse entities from:\n{}", entities_str)
     );
+}
+
+/// Resolve a policy's display id: the value of its `@id` annotation if
+/// present and non-empty, otherwise the parser-generated `PolicyId` as a
+/// string.
+///
+/// Per the Cedar docs, `@id` (no value) is equivalent to `@id("")` — a valid
+/// but empty string. cedar-py treats `@id` as a labeling concern, so an empty
+/// annotation value is unhelpful as a display id and falls through to the
+/// parser id. This is a deliberate cedar-py choice; it differs from
+/// cedar-policy-cli's `rename_from_id_annotation`, which would rename the
+/// policy to the empty string.
+///
+/// `Policy::annotations()` returns raw `&str` keys, so we can match on `"id"`
+/// without paying Cedar's identifier-parse cost (which `PolicySet::annotation`
+/// would incur per lookup). Static policies and template-linked policies both
+/// resolve via `policy_set.policy(pid)`; if neither exists for `pid`, the
+/// caller-supplied `PolicyId` is rendered verbatim.
+fn resolve_display_id(policy_set: &PolicySet, pid: &PolicyId) -> String {
+    if let Some(p) = policy_set.policy(pid) {
+        if let Some((_, v)) = p.annotations().find(|(k, _)| *k == "id") {
+            if !v.is_empty() {
+                return v.to_string();
+            }
+        }
+    }
+    pid.to_string()
 }
 
 /// Validate Cedar policies against a schema and return a JSON result.
@@ -470,16 +512,16 @@ fn validate_policies(policies: String, schema: String) -> String {
     let validator = Validator::new(cedar_schema);
     let validation_result = validator.validate(&policy_set, ValidationMode::default());
 
-    // Convert to serializable result
+    // Convert to serializable result, resolving each policy id to its `@id`
+    // annotation if present. Validation runs against parser-generated ids;
+    // this is a labeling step on the error surface.
     let result = ValidationResultSer {
         validation_passed: validation_result.validation_passed(),
         errors: validation_result
             .validation_errors()
-            .map(|e| {
-                ValidationErrorSer {
-                    policy_id: e.policy_id().to_string(),
-                    error: e.to_string(),
-                }
+            .map(|e| ValidationErrorSer {
+                policy_id: resolve_display_id(&policy_set, e.policy_id()),
+                error: e.to_string(),
             })
             .collect(),
     };

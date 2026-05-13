@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2025.
+# (C) Copyright IBM 2025-2026.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -23,11 +23,11 @@ from qiskit_ibm_runtime.noise_learner_v3.converters.version_0_2 import (
     noise_learner_v3_result_from_0_2,
     noise_learner_v3_result_to_0_2,
 )
-from qiskit_ibm_runtime.noise_learner_v3.noise_learner_v3_result import (  # type: ignore[attr-defined]
+from qiskit_ibm_runtime.results.noise_learner_v3 import (  # type: ignore[attr-defined]
     NoiseLearnerV3Result,
     NoiseLearnerV3Results,
 )
-from qiskit_ibm_runtime.options import NoiseLearnerV3Options
+from qiskit_ibm_runtime.options_models import NoiseLearnerV3Options
 
 from ....ibm_test_case import IBMTestCase
 
@@ -49,8 +49,8 @@ class TestConverters(IBMTestCase):
 
         options = NoiseLearnerV3Options()
         options.layer_pair_depths = [2, 4, 10]
-        options.init_qubits = False
-        options.rep_delay = 10**-6
+        options.execution.init_qubits = False
+        options.execution.rep_delay = 10**-6
         options.post_selection.enable = True
         options.post_selection.strategy = "edge"
         options.post_selection.x_pulse_type = "xslow"
@@ -95,7 +95,6 @@ class TestConverters(IBMTestCase):
 
     def test_converting_invalid_results(self):
         """Test that converting results raises when results are invalid."""
-
         generators = [
             QubitSparsePauliList.from_list(["IX", "XX"]),
             QubitSparsePauliList.from_list(["XI"]),

@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: prime
-Version: 0.6.3
+Version: 0.6.4
 Summary: Prime Intellect CLI + SDK
 Project-URL: Homepage, https://github.com/PrimeIntellect-ai/prime-cli
 Project-URL: Documentation, https://github.com/PrimeIntellect-ai/prime-cli#readme
 Project-URL: Repository, https://github.com/PrimeIntellect-ai/prime-cli.git
-Project-URL: Changelog, https://github.com/PrimeIntellect-ai/prime-cli/blob/main/CHANGELOG.md
+Project-URL: Changelog, https://github.com/PrimeIntellect-ai/prime/releases
 Author-email: Prime Intellect <contact@primeintellect.ai>
 License-Expression: MIT
 License-File: LICENSE
@@ -19,14 +19,16 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: <3.14,>=3.10
+Requires-Python: >=3.10
 Requires-Dist: build>=1.0.0
 Requires-Dist: cryptography>=41.0.0
 Requires-Dist: gitignore-parser>=0.1.13
 Requires-Dist: httpx>=0.25.0
-Requires-Dist: prime-evals>=0.1.3
-Requires-Dist: prime-sandboxes>=0.2.23
+Requires-Dist: prime-evals>=0.2.1
+Requires-Dist: prime-sandboxes>=0.2.26
 Requires-Dist: prime-tunnel>=0.1.0
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pyyaml>=6.0.0
@@ -36,7 +38,7 @@ Requires-Dist: textual>=6.1.0
 Requires-Dist: toml>=0.10.0
 Requires-Dist: tomli>=2.0.0
 Requires-Dist: typer>=0.9.0
-Requires-Dist: verifiers>=0.1.12.dev6
+Requires-Dist: verifiers>=0.1.14
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == 'dev'
 Requires-Dist: ruff>=0.13.1; extra == 'dev'
@@ -189,6 +191,9 @@ prime env list
 
 # View environment details
 prime env info <environment-name>
+
+# Inspect environment source without downloading the archive
+prime env inspect <environment-name>
 
 # Install an environment locally
 prime env install <environment-name>

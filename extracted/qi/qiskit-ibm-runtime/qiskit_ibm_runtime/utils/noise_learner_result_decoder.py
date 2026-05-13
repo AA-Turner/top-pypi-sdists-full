@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2024.
+# (C) Copyright IBM 2024-2026.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -20,17 +20,16 @@ from .noise_learner_result import LayerError, NoiseLearnerResult, PauliLindbladE
 from .result_decoder import ResultDecoder
 
 if TYPE_CHECKING:
-    from qiskit_ibm_runtime.noise_learner_v3.noise_learner_v3_result import NoiseLearnerV3Results
+    from qiskit_ibm_runtime.results.noise_learner_v3 import NoiseLearnerV3Results
 
 
 class NoiseLearnerResultDecoder(ResultDecoder):
-    """Class used to decode noise learner results"""
+    """Class used to decode noise learner results."""
 
     @classmethod
     def decode(cls, raw_result: str) -> NoiseLearnerResult | NoiseLearnerV3Results:
         """Convert the result to NoiseLearnerResult."""
         if "schema_version" in raw_result:
-            # pylint: disable=import-outside-toplevel
             from qiskit_ibm_runtime.noise_learner_v3.noise_learner_v3_decoders import (
                 NoiseLearnerV3ResultDecoder,
             )

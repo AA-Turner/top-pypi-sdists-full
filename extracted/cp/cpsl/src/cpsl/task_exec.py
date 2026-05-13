@@ -49,9 +49,12 @@ def _retry_on_errors(retry_for: list[Type[Exception]], exc: BaseException) -> bo
 
 def _parse_integration_credential(ic: Any) -> Any:
     """Re-import helper to avoid circular dep on runner.py at module level."""
-    from .integration import IntegrationCredentials, KNOWN_SECRET_INTEGRATIONS
+    from .integration import IntegrationCredentials, KNOWN_SECRET_INTEGRATIONS, MODE_PIPEDREAM
 
-    is_secret = ic.type in KNOWN_SECRET_INTEGRATIONS
+    is_secret = ic.type in KNOWN_SECRET_INTEGRATIONS or ic.token_type in {
+        "fields",
+        MODE_PIPEDREAM,
+    }
     secret_fields: dict[str, str] = {}
     if is_secret and ic.access_token:
         try:

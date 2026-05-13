@@ -1,21 +1,26 @@
 from __future__ import annotations
 
 import contextlib
+import os
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-import mysql.connector
 import pytest
 
 from pytest_databases._service import DockerService, ServiceContainer
 from pytest_databases.helpers import get_xdist_worker_num
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
-
-    from mysql.connector.abstracts import MySQLConnectionAbstract
+    from collections.abc import Generator, Iterator
 
     from pytest_databases.types import XdistIsolationLevel
+
+
+def _output_to_bytes(output: bytes | Iterator[bytes]) -> bytes:
+    if isinstance(output, bytes):
+        return output
+    return b"".join(output)
 
 
 @dataclass
@@ -35,6 +40,26 @@ def platform() -> str:
     return "linux/x86_64"
 
 
+@pytest.fixture(scope="session")
+def mysql_user() -> str:
+    return os.getenv("MYSQL_USER", "app")
+
+
+@pytest.fixture(scope="session")
+def mysql_password() -> str:
+    return os.getenv("MYSQL_PASSWORD", "super-secret")
+
+
+@pytest.fixture(scope="session")
+def mysql_root_password() -> str:
+    return os.getenv("MYSQL_ROOT_PASSWORD", "super-secret")
+
+
+@pytest.fixture(scope="session")
+def mysql_database() -> str:
+    return os.getenv("MYSQL_DATABASE", "db")
+
+
 @contextlib.contextmanager
 def _provide_mysql_service(
     docker_service: DockerService,
@@ -42,35 +67,22 @@ def _provide_mysql_service(
     name: str,
     isolation_level: XdistIsolationLevel,
     platform: str,
+    user: str,
+    password: str,
+    root_password: str,
+    database: str,
 ) -> Generator[MySQLService, None, None]:
-    user = "app"
-    password = "super-secret"
-    root_password = "super-secret"
-    database = "db"
-
     def check(_service: ServiceContainer) -> bool:
-        try:
-            conn = mysql.connector.connect(
-                host=_service.host,
-                port=_service.port,
-                user=user,
-                database=database,
-                password=password,
-            )
-        except (mysql.connector.errors.OperationalError, mysql.connector.errors.InterfaceError) as exc:
-            msg = getattr(exc, "msg", str(exc))
-            if "Lost connection" in msg:
-                return False
-            raise
+        container_name = f"pytest_databases_{name}"
+        container = docker_service._get_container(container_name)
+        if not container:
+            return False
 
-        try:
-            with conn.cursor() as cursor:
-                cursor.execute("select 1 as is_available")
-                resp = cursor.fetchone()
-            return resp is not None and resp[0] == 1  # type: ignore
-        finally:
-            with contextlib.suppress(Exception):
-                conn.close()
+        # Attempt to run a simple SELECT 1 to ensure the server is fully ready
+        res = container.exec_run(
+            ["mysql", "--user=root", f"--password={root_password}", "-e", "SELECT 1"],
+        )
+        return res.exit_code == 0
 
     worker_num = get_xdist_worker_num()
     db_name = "pytest_databases"
@@ -94,28 +106,67 @@ def _provide_mysql_service(
             "MYSQL_ROOT_HOST": "%",
             "LANG": "C.UTF-8",
         },
-        timeout=60,
-        pause=0.5,
-        exec_after_start=(
-            f'mysql --user=root --password={root_password} -e "CREATE DATABASE {db_name};'
-            f"GRANT ALL PRIVILEGES ON *.* TO '{user}'@'%'; "
-            'FLUSH PRIVILEGES;"'
-        ),
+        timeout=120,
+        pause=1.0,
         transient=isolation_level == "server",
         platform=platform,
     ) as service:
+        # The check() above only verifies root can SELECT 1; that signal is true
+        # before mysql has finished provisioning the app user and applying our
+        # post-start grants. Verify the app user can actually reach db_name
+        # before yielding so tests don't race the fixture into 'access denied'.
+        container_name = f"pytest_databases_{name}"
+        container = docker_service._get_container(container_name)
+        if container is None:
+            msg = f"MySQL container {container_name!r} disappeared after startup"
+            raise RuntimeError(msg)
+
+        setup_sql = (
+            f"CREATE DATABASE IF NOT EXISTS {db_name}; "
+            f"GRANT ALL PRIVILEGES ON *.* TO '{user}'@'%'; "
+            "FLUSH PRIVILEGES;"
+        )
+        verify_cmd = [
+            "mysql",
+            f"--user={user}",
+            f"--password={password}",
+            db_name,
+            "-e",
+            "SELECT 1",
+        ]
+        last_err: bytes = b""
+        for attempt in range(15):
+            setup_res = container.exec_run(
+                ["mysql", "--user=root", f"--password={root_password}", "-e", setup_sql],
+            )
+            if setup_res.exit_code == 0:
+                verify_res = container.exec_run(verify_cmd)
+                if verify_res.exit_code == 0:
+                    break
+                last_err = _output_to_bytes(verify_res.output)
+            else:
+                last_err = _output_to_bytes(setup_res.output)
+            time.sleep(1 + attempt * 0.5)
+        else:
+            msg = (
+                f"MySQL fixture {name!r}: user {user!r} could not reach database "
+                f"{db_name!r} after 15 attempts. Last output: {last_err!r}"
+            )
+            raise RuntimeError(msg)
+
         yield MySQLService(
-            db=db_name,
             host=service.host,
             port=service.port,
+            container=service.container,
+            db=db_name,
             user=user,
             password=password,
         )
 
 
 @pytest.fixture(scope="session")
-def mysql_service(mysql_8_service: MySQLService) -> MySQLService:
-    return mysql_8_service
+def mysql_service(mysql_84_service: MySQLService) -> MySQLService:
+    return mysql_84_service
 
 
 @pytest.fixture(scope="session")
@@ -123,6 +174,10 @@ def mysql_56_service(
     docker_service: DockerService,
     xdist_mysql_isolation_level: XdistIsolationLevel,
     platform: str,
+    mysql_user: str,
+    mysql_password: str,
+    mysql_root_password: str,
+    mysql_database: str,
 ) -> Generator[MySQLService, None, None]:
     with _provide_mysql_service(
         image="mysql:5.6",
@@ -130,6 +185,10 @@ def mysql_56_service(
         docker_service=docker_service,
         isolation_level=xdist_mysql_isolation_level,
         platform=platform,
+        user=mysql_user,
+        password=mysql_password,
+        root_password=mysql_root_password,
+        database=mysql_database,
     ) as service:
         yield service
 
@@ -139,6 +198,10 @@ def mysql_57_service(
     docker_service: DockerService,
     xdist_mysql_isolation_level: XdistIsolationLevel,
     platform: str,
+    mysql_user: str,
+    mysql_password: str,
+    mysql_root_password: str,
+    mysql_database: str,
 ) -> Generator[MySQLService, None, None]:
     with _provide_mysql_service(
         image="mysql:5.7",
@@ -146,6 +209,10 @@ def mysql_57_service(
         docker_service=docker_service,
         isolation_level=xdist_mysql_isolation_level,
         platform=platform,
+        user=mysql_user,
+        password=mysql_password,
+        root_password=mysql_root_password,
+        database=mysql_database,
     ) as service:
         yield service
 
@@ -155,6 +222,10 @@ def mysql_8_service(
     docker_service: DockerService,
     xdist_mysql_isolation_level: XdistIsolationLevel,
     platform: str,
+    mysql_user: str,
+    mysql_password: str,
+    mysql_root_password: str,
+    mysql_database: str,
 ) -> Generator[MySQLService, None, None]:
     with _provide_mysql_service(
         image="mysql:8",
@@ -162,46 +233,57 @@ def mysql_8_service(
         docker_service=docker_service,
         isolation_level=xdist_mysql_isolation_level,
         platform=platform,
+        user=mysql_user,
+        password=mysql_password,
+        root_password=mysql_root_password,
+        database=mysql_database,
     ) as service:
         yield service
 
 
 @pytest.fixture(scope="session")
-def mysql_56_connection(mysql_56_service: MySQLService) -> Generator[MySQLConnectionAbstract, None, None]:
-    with mysql.connector.connect(
-        host=mysql_56_service.host,
-        port=mysql_56_service.port,
-        user=mysql_56_service.user,
-        database=mysql_56_service.db,
-        password=mysql_56_service.password,
-    ) as conn:
-        yield conn  # type: ignore
+def mysql_84_service(
+    docker_service: DockerService,
+    xdist_mysql_isolation_level: XdistIsolationLevel,
+    platform: str,
+    mysql_user: str,
+    mysql_password: str,
+    mysql_root_password: str,
+    mysql_database: str,
+) -> Generator[MySQLService, None, None]:
+    with _provide_mysql_service(
+        image="mysql:8.4",
+        name="mysql-8.4",
+        docker_service=docker_service,
+        isolation_level=xdist_mysql_isolation_level,
+        platform=platform,
+        user=mysql_user,
+        password=mysql_password,
+        root_password=mysql_root_password,
+        database=mysql_database,
+    ) as service:
+        yield service
 
 
 @pytest.fixture(scope="session")
-def mysql_57_connection(mysql_57_service: MySQLService) -> Generator[MySQLConnectionAbstract, None, None]:
-    with mysql.connector.connect(
-        host=mysql_57_service.host,
-        port=mysql_57_service.port,
-        user=mysql_57_service.user,
-        database=mysql_57_service.db,
-        password=mysql_57_service.password,
-    ) as conn:
-        yield conn  # type: ignore
-
-
-@pytest.fixture(scope="session")
-def mysql_connection(mysql_8_connection: MySQLConnectionAbstract) -> MySQLConnectionAbstract:
-    return mysql_8_connection
-
-
-@pytest.fixture(scope="session")
-def mysql_8_connection(mysql_8_service: MySQLService) -> Generator[MySQLConnectionAbstract, None, None]:
-    with mysql.connector.connect(
-        host=mysql_8_service.host,
-        port=mysql_8_service.port,
-        user=mysql_8_service.user,
-        database=mysql_8_service.db,
-        password=mysql_8_service.password,
-    ) as conn:
-        yield conn  # type: ignore
+def mysql_96_service(
+    docker_service: DockerService,
+    xdist_mysql_isolation_level: XdistIsolationLevel,
+    platform: str,
+    mysql_user: str,
+    mysql_password: str,
+    mysql_root_password: str,
+    mysql_database: str,
+) -> Generator[MySQLService, None, None]:
+    with _provide_mysql_service(
+        image="mysql:9.6",
+        name="mysql-9.6",
+        docker_service=docker_service,
+        isolation_level=xdist_mysql_isolation_level,
+        platform=platform,
+        user=mysql_user,
+        password=mysql_password,
+        root_password=mysql_root_password,
+        database=mysql_database,
+    ) as service:
+        yield service

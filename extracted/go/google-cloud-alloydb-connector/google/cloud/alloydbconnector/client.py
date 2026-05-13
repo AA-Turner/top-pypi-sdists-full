@@ -16,18 +16,20 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
+from typing import Optional
+from typing import Union
 
 from cryptography import x509
+
 from google.api_core.client_options import ClientOptions
 from google.api_core.gapic_v1.client_info import ClientInfo
 from google.auth.credentials import TokenState
 from google.auth.transport import requests
 import google.cloud.alloydb_v1beta as v1beta
-from google.protobuf import duration_pb2
-
 from google.cloud.alloydbconnector.connection_info import ConnectionInfo
 from google.cloud.alloydbconnector.version import __version__ as version
+from google.protobuf import duration_pb2
 
 if TYPE_CHECKING:
     from google.auth.credentials import Credentials
@@ -94,10 +96,10 @@ class AlloyDBClient:
         # API, even from multiple threads, need to be made to a single-event
         # loop. See https://github.com/GoogleCloudPlatform/alloydb-python-connector/issues/435
         # for more details.
-        self._is_sync = False
+        self._client: Union[v1beta.AlloyDBAdminClient, v1beta.AlloyDBAdminAsyncClient]
         if client:
             self._client = client
-        elif driver == "pg8000":
+        elif driver == "pg8000" or driver == "psycopg":
             self._client = v1beta.AlloyDBAdminClient(
                 credentials=credentials,
                 transport="grpc",
@@ -109,7 +111,6 @@ class AlloyDBClient:
                     user_agent=user_agent,
                 ),
             )
-            self._is_sync = True
         else:
             self._client = v1beta.AlloyDBAdminAsyncClient(
                 credentials=credentials,
@@ -126,7 +127,11 @@ class AlloyDBClient:
         self._credentials = credentials
         # asyncpg does not currently support using metadata exchange
         # only use metadata exchange for pg8000 driver
-        self._use_metadata = True if driver == "pg8000" else False
+        use_metadata = True
+        if driver in ("asyncpg", None):
+            use_metadata = False
+
+        self._use_metadata = use_metadata
         self._user_agent = user_agent
 
     async def _get_metadata(
@@ -158,7 +163,7 @@ class AlloyDBClient:
         )
 
         req = v1beta.GetConnectionInfoRequest(parent=parent)
-        if self._is_sync:
+        if isinstance(self._client, v1beta.AlloyDBAdminClient):
             resp = self._client.get_connection_info(request=req)
         else:
             resp = await self._client.get_connection_info(request=req)
@@ -208,11 +213,11 @@ class AlloyDBClient:
             public_key=pub_key,
             use_metadata_exchange=self._use_metadata,
         )
-        if self._is_sync:
+        if isinstance(self._client, v1beta.AlloyDBAdminClient):
             resp = self._client.generate_client_certificate(request=req)
         else:
             resp = await self._client.generate_client_certificate(request=req)
-        return (resp.ca_cert, resp.pem_certificate_chain)
+        return (resp.ca_cert, list(resp.pem_certificate_chain))
 
     async def get_connection_info(
         self,

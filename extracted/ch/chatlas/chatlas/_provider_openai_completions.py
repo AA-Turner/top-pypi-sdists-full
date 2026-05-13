@@ -25,6 +25,7 @@ from ._content import (
     ContentPDF,
     ContentText,
     ContentThinking,
+    ContentThinkingDelta,
     ContentToolRequest,
     ContentToolResult,
 )
@@ -64,17 +65,32 @@ def ChatOpenAICompletions(
     kwargs: Optional["ChatClientArgs"] = None,
 ) -> Chat["SubmitInputArgs", ChatCompletion]:
     """
-    Chat with an OpenAI-compatible model (via the Completions API).
+    Chat with an OpenAI-compatible model (via the Chat Completions API).
 
-    This function exists mainly for historical reasons; new code should
-    prefer `ChatOpenAI()`, which uses the newer Responses API.
+    Use this function to connect to any OpenAI-compatible backend, including
+    third-party inference engines like vLLM, Ollama, LiteLLM, and others.
+    The Chat Completions API (`/v1/chat/completions`) is the universally
+    adopted standard across the open-source ecosystem.
 
-    This function may also be useful for using an "OpenAI-compatible model"
-    hosted by another provider (e.g., vLLM, Ollama, etc.) that supports the
-    OpenAI Completions API.
+    For the OpenAI-specific Responses API, use [](`~chatlas.ChatOpenAI`)
+    instead.
 
     Parameters
     ----------
+    base_url
+        The base URL to the endpoint; the default uses OpenAI. Set this to
+        your server's URL for third-party backends (e.g.,
+        ``"http://localhost:8000/v1"`` for a local vLLM server).
+    system_prompt
+        A system prompt to set the behavior of the assistant.
+    model
+        The model to use for the chat.
+    api_key
+        The API key to use for authentication. You generally should not supply
+        this directly, but instead set the `OPENAI_API_KEY` environment
+        variable.
+    seed
+        Optional seed for reproducible output.
     preserve_thinking
         If True, reasoning content returned by the model is included when
         sending conversation history back to the API. If False (the default),
@@ -212,7 +228,7 @@ class OpenAICompletionsProvider(
 
         reasoning = getattr(delta, "reasoning_content", None)
         if reasoning is not None:
-            return ContentThinking(thinking=reasoning)
+            return ContentThinkingDelta(thinking=reasoning)
 
         text = delta.content
         if text is None:
@@ -276,7 +292,8 @@ class OpenAICompletionsProvider(
                         if self._preserve_thinking:
                             reasoning_content = (reasoning_content or "") + x.thinking
                     elif isinstance(x, ContentText):
-                        content_parts.append({"type": "text", "text": x.text})
+                        if x.text:
+                            content_parts.append({"type": "text", "text": x.text})
                     elif isinstance(x, ContentJson):
                         text = orjson.dumps(x.value).decode("utf-8")
                         content_parts.append({"type": "text", "text": text})
@@ -391,7 +408,7 @@ class OpenAICompletionsProvider(
         if reasoning:
             contents.append(ContentThinking(thinking=reasoning))
 
-        if message.content is not None:
+        if message.content:
             if has_data_model:
                 data = message.content
                 # Some providers (e.g., Cloudflare) may already provide a dict

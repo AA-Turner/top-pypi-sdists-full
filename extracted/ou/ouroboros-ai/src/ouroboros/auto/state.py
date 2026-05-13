@@ -6,10 +6,16 @@ from dataclasses import asdict, dataclass, field, fields
 from datetime import UTC, datetime
 from enum import StrEnum
 import json
+import logging
+import os
 from pathlib import Path
 import time
 from typing import Any
 from uuid import uuid4
+
+from ouroboros.auto.recovery_plan import AutoRecoveryPlan
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class AutoPhase(StrEnum):
@@ -24,6 +30,26 @@ class AutoPhase(StrEnum):
     RALPH_HANDOFF = "ralph_handoff"
     EVALUATE = "evaluate"
     UNSTUCK_LATERAL = "unstuck_lateral"
+    # RFC #809 Phase 2.2 originally specified a third recovery phase
+    # ``SEED_REGENERATE`` that would re-enter SEED_GENERATION with a
+    # ``[lateral_repair]`` ledger entry, automatically rewriting the Seed's
+    # acceptance criteria when persona lateral also failed. P2.2b
+    # deliberately does NOT wire this phase: an automatic AC rewrite when
+    # the run cannot satisfy the user's stated bar is a reward-hacking
+    # surface (the system silently downgrades the spec the user explicitly
+    # agreed to in the interview, then declares success against the
+    # downgraded spec). Ouroboros's spec-first invariant — "define what
+    # should be built before telling AI what to build" — keeps the spec
+    # owned by the human. P2.2b instead exhausts the deterministic
+    # recovery budget (rounds + fingerprint + persona-once + wall-clock)
+    # and surfaces a BLOCKED with the two operator choices that are
+    # actually functional today (re-interview, abandon) rather than
+    # mutating the Seed. An earlier draft of this comment advertised a
+    # third "relax AC" path; that was dropped because late-phase resume
+    # reconstructs the Seed from ``state.seed_artifact`` and ignores
+    # edits to the on-disk seed file — the cue in ``pipeline.py``
+    # (``_RECOVERY_BLOCKED_CHOICES``) is the source of truth and lists
+    # only the two functional paths.
     COMPLETE = "complete"
     BLOCKED = "blocked"
     FAILED = "failed"
@@ -56,8 +82,8 @@ class SeedOrigin(StrEnum):
 
 
 DEFAULT_TIMEOUT_SECONDS_BY_PHASE: dict[str, int] = {
-    AutoPhase.INTERVIEW.value: 120,
-    AutoPhase.SEED_GENERATION.value: 120,
+    AutoPhase.INTERVIEW.value: 600,
+    AutoPhase.SEED_GENERATION.value: 300,
     AutoPhase.REVIEW.value: 90,
     AutoPhase.REPAIR.value: 90,
     AutoPhase.RUN.value: 60,
@@ -65,10 +91,74 @@ DEFAULT_TIMEOUT_SECONDS_BY_PHASE: dict[str, int] = {
     AutoPhase.UNSTUCK_LATERAL.value: 60,
 }
 
+
+def _apply_phase_timeout_env_overrides(
+    defaults: dict[str, int],
+) -> dict[str, int]:
+    """Merge ``OUROBOROS_PHASE_TIMEOUT_<PHASE>_SECONDS`` overrides into ``defaults``.
+
+    Each phase listed in ``defaults`` may be overridden via an environment
+    variable named ``OUROBOROS_PHASE_TIMEOUT_<PHASE_UPPERCASE>_SECONDS`` (for
+    example ``OUROBOROS_PHASE_TIMEOUT_INTERVIEW_SECONDS=900``). Invalid values
+    (non-integer, non-positive) are ignored with a warning rather than raising
+    so a typo in the shell cannot crash module import.
+    """
+    overridden = dict(defaults)
+    for phase_value in defaults:
+        env_name = f"OUROBOROS_PHASE_TIMEOUT_{phase_value.upper()}_SECONDS"
+        raw = os.environ.get(env_name)
+        if raw is None:
+            continue
+        try:
+            parsed = int(raw)
+        except (TypeError, ValueError):
+            _LOGGER.warning("Ignoring %s=%r: must be a positive integer", env_name, raw)
+            continue
+        if parsed <= 0:
+            _LOGGER.warning("Ignoring %s=%r: must be a positive integer", env_name, raw)
+            continue
+        overridden[phase_value] = parsed
+    return overridden
+
+
+DEFAULT_TIMEOUT_SECONDS_BY_PHASE = _apply_phase_timeout_env_overrides(
+    DEFAULT_TIMEOUT_SECONDS_BY_PHASE
+)
+
+# RFC #809 Phase 2.2b — closed-loop recovery cap. Three EVALUATE rounds is
+# the SeedRepairer convention re-applied to the EVALUATE ⇄ UNSTUCK_LATERAL
+# retry cycle. Past three rounds the failure mode is structural rather
+# than a transient grading miss; the pipeline blocks for human review
+# (with the two functional operator choices documented at
+# ``_RECOVERY_BLOCKED_CHOICES`` in ``pipeline.py``: re-interview or
+# abandon) instead of burning more LLM budget or — worse — silently
+# rewriting the Seed (see the SEED_REGENERATE deferral comment on
+# ``AutoPhase``).
+MAX_EVALUATE_ROUNDS: int = 3
+
+# RFC #809 Phase 2.2b — closed allowlists for the durable recovery-loop
+# fields. ``_validate_loaded`` rejects any state file whose persisted
+# values fall outside these sets so a hand-edited or corrupted
+# checkpoint surfaces a clean ValueError at load time instead of a
+# delayed runtime crash deep inside ``_run_evaluate`` /
+# ``_run_lateral``. ``_VALID_RECOVERY_PERSONAS`` mirrors
+# ``ouroboros.resilience.lateral.ThinkingPersona.value``; duplicated as
+# string literals to keep ``state.py`` independent of the resilience
+# module's import graph (state has no other dependency on resilience).
+# ``_VALID_RECOVERY_GUARD_TAGS`` mirrors the tags written by the three
+# guard sites in ``pipeline.py``.
+_VALID_RECOVERY_PERSONAS: frozenset[str] = frozenset(
+    {"hacker", "architect", "researcher", "simplifier", "contrarian"}
+)
+_VALID_RECOVERY_GUARD_TAGS: frozenset[str] = frozenset(
+    {"round_budget", "duplicate_fingerprint", "personas_exhausted"}
+)
+
 # Top-level pipeline deadline (Q00/ouroboros#779). Default of 7200s (2h) covers
-# a typical product-bootstrap chain — interview ≤ 120s × 12 rounds + seed gen
-# 120s + review/repair ≤ 90s × 5 + run kick-off + ralph 10 generations × 5–15
-# min — with ~2× headroom and stays well under "user has gone home" scenarios.
+# a typical product-bootstrap chain — interview ≤ 600s (one LLM call per round
+# across up to 12 rounds, capped at the phase budget) + seed gen ≤ 300s +
+# review/repair ≤ 90s × 5 + run kick-off + ralph 10 generations × 5–15 min —
+# with headroom, and stays well under "user has gone home" scenarios.
 DEFAULT_PIPELINE_TIMEOUT_SECONDS: float = 7200.0
 MIN_PIPELINE_TIMEOUT_SECONDS: float = 60.0
 MAX_PIPELINE_TIMEOUT_SECONDS: float = 86400.0
@@ -215,7 +305,16 @@ _ALLOWED_TRANSITIONS: dict[AutoPhase, set[AutoPhase]] = {
         AutoPhase.BLOCKED,
         AutoPhase.FAILED,
     },
+    # RFC #809 Phase 2.2b — UNSTUCK_LATERAL is no longer a terminal advisory
+    # phase. It now dispatches one of two outcomes inside the bounded
+    # retry budget: back to EVALUATE for another round under a different
+    # persona, or BLOCKED when a recovery guard trips
+    # (``MAX_EVALUATE_ROUNDS``, duplicate failure fingerprint, persona
+    # exhaustion, or wall-clock budget). SEED_REGENERATE is deliberately
+    # not part of this set — see the ``AutoPhase`` comment block above for
+    # the spec-first rationale behind that omission.
     AutoPhase.UNSTUCK_LATERAL: {
+        AutoPhase.EVALUATE,
         AutoPhase.COMPLETE,
         AutoPhase.BLOCKED,
         AutoPhase.FAILED,
@@ -294,6 +393,18 @@ class AutoPipelineState:
     ralph_job_id: str | None = None
     ralph_lineage_id: str | None = None
     ralph_dispatch_mode: str | None = None
+    # Q00/ouroboros#782 review-8: preserve the un-demoted OpenCode mode used
+    # to construct the Ralph handler across resume. ``state.opencode_mode`` may
+    # be demoted from plugin→subprocess for authoring/run-handoff handlers, but
+    # Ralph still needs the original plugin mode to return a subagent envelope.
+    ralph_opencode_mode: str | None = None
+    # Q00/ouroboros#782: best-effort mirror of the linked Ralph job's most
+    # recent observation, populated from mcp.job.* events. Defaults keep legacy
+    # state files compatible and let status surfaces render the handoff gap.
+    ralph_job_status: str | None = None
+    ralph_last_event_at: float | None = None
+    ralph_stop_reason: str | None = None
+    ralph_current_generation: int | None = None
     # Q00/ouroboros#773: persisted intent for ``--complete-product`` /
     # ``complete_product=True``. The flag is durable session state — not a
     # per-invocation argument — so a session originally started with
@@ -338,6 +449,14 @@ class AutoPipelineState:
     # ``REQUIRED_SECTIONS`` at construction time by the MCP handler — only
     # known section keys with non-empty string values land here.
     user_preferences: dict[str, str] = field(default_factory=dict)
+    # Active domain profile name resolved at session start (#809 P3).
+    # The DomainProfile instance itself is not stored here because it contains
+    # callables that are not JSON-serializable. Downstream phases recover the
+    # profile via ``DEFAULT_REGISTRY.get(active_domain_profile_name)`` and
+    # prefer the profile's ``safe_defaults`` over the hardcoded coding-domain
+    # fallback. None means no profile was activated, so legacy state files load
+    # unchanged.
+    active_domain_profile_name: str | None = None
     # QA verdict captured during the EVALUATE phase (RFC #809 Phase 2.1).
     # Persisted so a resumed session reuses the verdict without re-invoking
     # the LLM-driven judge when the underlying artifact has not changed.
@@ -375,6 +494,42 @@ class AutoPipelineState:
     last_lateral_approach_summary: str | None = None
     last_lateral_text: str | None = None
     lateral_input_hash: str | None = None
+    # RFC #809 Phase 2.2b — closed-loop recovery counters. Persisted so a
+    # resumed session does not re-roll the budget after a process restart.
+    #
+    # ``evaluate_round`` counts entries into the EVALUATE phase (post-Ralph
+    # or post-SEED_REGENERATE). ``MAX_EVALUATE_ROUNDS`` (3) caps the loop.
+    #
+    # ``failure_fingerprints`` accumulates a deterministic fingerprint of
+    # each EVALUATE failure (sha256 over differences + suggestions). Two
+    # consecutive identical fingerprints means the recovery loop is not
+    # making material progress on the failure surface, so the pipeline
+    # transitions to BLOCKED rather than spending another LLM budget cycle.
+    #
+    # ``personas_invoked`` lists ``ThinkingPersona.value`` strings of every
+    # persona already routed in this session. The lateral router skips
+    # personas already in this list and finally returns ``None`` (no
+    # persona left to try) when all five are exhausted, which the pipeline
+    # treats as BLOCKED.
+    evaluate_round: int = 0
+    failure_fingerprints: list[str] = field(default_factory=list)
+    personas_invoked: list[str] = field(default_factory=list)
+    # RFC #809 Phase 2.2b — sticky "guard tripped" flag. Set to a short
+    # tag identifying *which* recovery guard exhausted the budget the
+    # first time one of them blocked the pipeline (one of
+    # ``"round_budget"``, ``"duplicate_fingerprint"``, ``"personas_exhausted"``).
+    # ``_run_evaluate`` and ``_run_lateral`` both inspect this on entry
+    # so a ``--resume`` after a guard-driven BLOCKED does NOT re-enter
+    # the cache-fast-path or spend another persona slot — the surface
+    # had been declared exhausted, and silently un-exhausting it would
+    # undermine the guard contract. Cleared only on a successful
+    # forward transition out of the recovery loop (e.g. COMPLETE), so a
+    # fresh artifact reaching EVALUATE through a deliberate operator
+    # workflow can start over with a clean budget.
+    recovery_guard_tripped: str | None = None
+    # Typed artifact for the next automated recovery step. Current PRs persist
+    # this plan after QA/lateral failure; a follow-up redispatch PR consumes it.
+    last_recovery_plan: dict[str, Any] | None = None
 
     def phase_timeout_seconds(self, phase: AutoPhase) -> float:
         """Return the configured timeout for ``phase`` in seconds.
@@ -518,6 +673,16 @@ class AutoPipelineState:
         from ouroboros.auto.pipeline import _recoverable_phase_for_tool  # noqa: PLC0415
 
         if self.phase == AutoPhase.COMPLETE:
+            return AutoResumeCapability.NONE
+
+        # RFC #809 Phase 2.2b — a session whose recovery guard has tripped
+        # cannot make forward progress on --resume. ``_run_evaluate`` and
+        # ``_run_lateral`` both short-circuit to BLOCKED immediately when
+        # ``recovery_guard_tripped`` is set; advertising the session as
+        # resumable in this state would be a user-facing contract bug
+        # (CLI/MCP status surfaces would tell the operator "you can
+        # --resume" when --resume produces an identical blocker).
+        if self.recovery_guard_tripped is not None:
             return AutoResumeCapability.NONE
 
         if self.phase not in {AutoPhase.BLOCKED, AutoPhase.FAILED}:
@@ -675,6 +840,11 @@ class AutoPipelineState:
         payload.setdefault("ralph_job_id", None)
         payload.setdefault("ralph_lineage_id", None)
         payload.setdefault("ralph_dispatch_mode", None)
+        payload.setdefault("ralph_opencode_mode", None)
+        payload.setdefault("ralph_job_status", None)
+        payload.setdefault("ralph_last_event_at", None)
+        payload.setdefault("ralph_stop_reason", None)
+        payload.setdefault("ralph_current_generation", None)
         payload.setdefault("complete_product", False)
         payload.setdefault("provenance", None)
         payload.setdefault("auto_answer_log", [])
@@ -695,13 +865,25 @@ class AutoPipelineState:
         payload.setdefault("last_lateral_approach_summary", None)
         payload.setdefault("last_lateral_text", None)
         payload.setdefault("lateral_input_hash", None)
+        payload.setdefault("active_domain_profile_name", None)
+        # RFC #809 Phase 2.2b — closed-loop recovery counters. Default the
+        # three new fields so a pre-P2.2b state file loads as a fresh
+        # recovery budget (round 0, no fingerprints, no personas tried).
+        # Without these setdefaults a legacy resume would raise the
+        # "state is missing required fields" guard below.
+        payload.setdefault("evaluate_round", 0)
+        payload.setdefault("failure_fingerprints", [])
+        payload.setdefault("personas_invoked", [])
+        payload.setdefault("recovery_guard_tripped", None)
+        payload.setdefault("last_recovery_plan", None)
         # Convert the persisted ``deadline_at_epoch`` (epoch seconds) back into
         # a monotonic-clock value usable from this process. If the companion
         # epoch field is present, derive ``deadline_at`` from the offset
         # between ``time.monotonic()`` and ``time.time()`` so the absolute
         # deadline survives a process restart. If both fields are missing
-        # (legacy state file or never-armed session), leave them None and let
-        # ``arm_deadline()`` decide when to set them.
+        # (legacy state file or never-armed non-terminal session), arm a fresh
+        # deadline after construction so resumed sessions still honor the
+        # top-level timeout contract.
         epoch_value = payload.get("deadline_at_epoch")
         if isinstance(epoch_value, int | float) and not isinstance(epoch_value, bool):
             now_epoch = time.time()
@@ -733,6 +915,12 @@ class AutoPipelineState:
         ):
             state.arm_deadline()
         state._validate_loaded()
+        if (
+            state.deadline_at is None
+            and state.deadline_at_epoch is None
+            and not state.is_terminal()
+        ):
+            state.arm_deadline()
         return state
 
     def _validate_loaded(self) -> None:
@@ -776,6 +964,25 @@ class AutoPipelineState:
                 continue
             if isinstance(value, bool) or not isinstance(value, int | float):
                 msg = f"{field_name} must be a number or null"
+                raise ValueError(msg)
+
+        # Q00/ouroboros#782 ralph mirror fields. ``ralph_last_event_at`` is a
+        # ``time.monotonic()``-domain reading set by the listener; persisted
+        # values from a prior process are still numerically valid for sorting
+        # but must not be reused as live monotonic deltas across processes.
+        if self.ralph_last_event_at is not None:
+            if isinstance(self.ralph_last_event_at, bool) or not isinstance(
+                self.ralph_last_event_at, int | float
+            ):
+                msg = "ralph_last_event_at must be a number or null"
+                raise ValueError(msg)
+        if self.ralph_current_generation is not None:
+            if (
+                isinstance(self.ralph_current_generation, bool)
+                or not isinstance(self.ralph_current_generation, int)
+                or self.ralph_current_generation < 0
+            ):
+                msg = "ralph_current_generation must be a non-negative integer or null"
                 raise ValueError(msg)
 
         for field_name in (
@@ -891,6 +1098,47 @@ class AutoPipelineState:
         ):
             msg = "lateral_input_hash must be a non-empty string or null"
             raise ValueError(msg)
+        # RFC #809 Phase 2.2b — recovery-loop field validation. These four
+        # fields are durable state; once malformed they would crash deep
+        # inside ``_run_evaluate`` (``state.evaluate_round += 1`` on a
+        # string) or ``_run_lateral`` (``ThinkingPersona(value)`` on a
+        # bogus persona). Reject at load time instead.
+        if (
+            isinstance(self.evaluate_round, bool)
+            or not isinstance(self.evaluate_round, int)
+            or self.evaluate_round < 0
+        ):
+            msg = "evaluate_round must be a non-negative integer"
+            raise ValueError(msg)
+        if not isinstance(self.failure_fingerprints, list) or any(
+            not isinstance(item, str) or not item.strip() for item in self.failure_fingerprints
+        ):
+            msg = "failure_fingerprints must be a list of non-empty strings"
+            raise ValueError(msg)
+        if not isinstance(self.personas_invoked, list) or any(
+            not isinstance(item, str) or item not in _VALID_RECOVERY_PERSONAS
+            for item in self.personas_invoked
+        ):
+            msg = (
+                "personas_invoked entries must be ThinkingPersona values "
+                f"({sorted(_VALID_RECOVERY_PERSONAS)})"
+            )
+            raise ValueError(msg)
+        if self.last_recovery_plan is not None:
+            try:
+                AutoRecoveryPlan.from_dict(self.last_recovery_plan)
+            except Exception as exc:
+                msg = "last_recovery_plan must be a valid AutoRecoveryPlan object or null"
+                raise ValueError(msg) from exc
+        if self.recovery_guard_tripped is not None and (
+            not isinstance(self.recovery_guard_tripped, str)
+            or self.recovery_guard_tripped not in _VALID_RECOVERY_GUARD_TAGS
+        ):
+            msg = (
+                "recovery_guard_tripped must be one of "
+                f"{sorted(_VALID_RECOVERY_GUARD_TAGS)} or null"
+            )
+            raise ValueError(msg)
         if self.provenance is not None:
             if not isinstance(self.provenance, dict):
                 msg = "provenance must be an object or null"
@@ -927,10 +1175,14 @@ class AutoPipelineState:
             "ralph_job_id",
             "ralph_lineage_id",
             "ralph_dispatch_mode",
+            "ralph_opencode_mode",
+            "ralph_job_status",
+            "ralph_stop_reason",
             "last_grade",
             "pending_question",
             "last_tool_name",
             "last_error",
+            "active_domain_profile_name",
         )
         for field_name in optional_string_fields:
             value = getattr(self, field_name)

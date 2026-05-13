@@ -328,6 +328,7 @@ async def post_traces(
     background_tasks: BackgroundTasks,
     content_type: Optional[str] = Header(default=None),
     content_encoding: Optional[str] = Header(default=None),
+    x_project_name: Optional[str] = Header(default=None),
 ) -> Response:
     if content_type != "application/x-protobuf":
         raise HTTPException(
@@ -352,7 +353,7 @@ async def post_traces(
             detail="Request body is invalid ExportTraceServiceRequest",
             status_code=422,
         )
-    background_tasks.add_task(_add_spans, req, request.state)
+    background_tasks.add_task(_add_spans, req, request.state, x_project_name)
 
     # "The server MUST use the same Content-Type in the response as it received in the request"
     response_message = ExportTraceServiceResponse()
@@ -460,6 +461,16 @@ class TraceNoteData(V1RoutesBaseModel):
         min_length=1,
         description="The note text to add to the trace",
     )
+    identifier: str = Field(
+        default="",
+        description=(
+            "Optional caller-supplied identifier. When non-empty, the note is upserted "
+            "on (trace_id, name='note', identifier) — repeated calls with the same "
+            "identifier overwrite the existing note. When omitted or empty, the server "
+            "stamps a unique 'px-trace-note:<uuid>' identifier so each call appends a "
+            "new note."
+        ),
+    )
 
 
 class CreateTraceNoteRequestBody(RequestBody[TraceNoteData]):
@@ -480,12 +491,12 @@ class CreateTraceNoteResponseBody(ResponseBody[InsertedTraceAnnotation]):
     operation_id="createTraceNote",
     summary="Create a trace note",
     description=(
-        "Add a note annotation to a trace. Each call appends a new note with an "
-        "auto-generated UUIDv4 identifier, so multiple notes accumulate on the same "
-        "trace. Structured annotations, by contrast, are keyed by (name, trace_id, "
-        "identifier) — re-writing the same key overwrites the existing annotation, "
-        "so to keep multiple structured annotations with the same name on a trace you "
-        "must supply distinct identifiers."
+        "Add a note annotation to a trace. By default each call appends a new note "
+        "with an auto-generated UUIDv4 identifier, so multiple notes accumulate on "
+        "the same trace. Callers may supply a non-empty `identifier` to upsert on "
+        "(trace_id, name='note', identifier) — repeated calls with the same "
+        "identifier overwrite the existing note, matching the semantics of "
+        "structured annotations."
     ),
     responses=add_errors_to_responses([{"status_code": 404, "description": "Trace not found"}]),
     response_description="Trace note created successfully",
@@ -512,24 +523,34 @@ async def create_trace_note(
                 detail=f"Trace with ID {note_data.trace_id} not found",
             )
 
-        note_identifier = get_note_identifier("px-trace-note")
+        note_identifier = note_data.identifier or get_note_identifier("px-trace-note")
+        values = {
+            "trace_rowid": trace_rowid,
+            "name": "note",
+            "label": None,
+            "score": None,
+            "explanation": note_data.note,
+            "annotator_kind": "HUMAN",
+            "metadata_": dict(),
+            "identifier": note_identifier,
+            "source": "API",
+            "user_id": user_id,
+        }
 
-        result = await session.execute(
-            insert(models.TraceAnnotation)
-            .values(
-                trace_rowid=trace_rowid,
-                name="note",
-                label=None,
-                score=None,
-                explanation=note_data.note,
-                annotator_kind="HUMAN",
-                metadata_=dict(),
-                identifier=note_identifier,
-                source="API",
-                user_id=user_id,
+        if note_data.identifier:
+            dialect = SupportedSQLDialect(session.bind.dialect.name)
+            result = await session.execute(
+                insert_on_conflict(
+                    values,
+                    dialect=dialect,
+                    table=models.TraceAnnotation,
+                    unique_by=("name", "trace_rowid", "identifier"),
+                ).returning(models.TraceAnnotation.id)
             )
-            .returning(models.TraceAnnotation.id)
-        )
+        else:
+            result = await session.execute(
+                insert(models.TraceAnnotation).values(**values).returning(models.TraceAnnotation.id)
+            )
         annotation_id = result.scalar_one()
 
     request.state.event_queue.put(TraceAnnotationInsertEvent((annotation_id,)))
@@ -538,9 +559,25 @@ async def create_trace_note(
     )
 
 
-async def _add_spans(req: ExportTraceServiceRequest, state: State) -> None:
+async def _add_spans(
+    req: ExportTraceServiceRequest,
+    state: State,
+    project_name_header: Optional[str] = None,
+) -> None:
+    """Ingest spans from an OTLP ExportTraceServiceRequest.
+
+    The project name is resolved in the following order of precedence:
+    1. The ``x-project-name`` HTTP header (if provided).
+    2. The ``openinference.project.name`` OTLP resource attribute on each
+       ``ResourceSpans`` message.
+    3. The server default project (``DEFAULT_PROJECT_NAME``).
+    """
     for resource_spans in req.resource_spans:
-        project_name = get_project_name(resource_spans.resource.attributes)
+        project_name = (
+            project_name_header
+            if project_name_header is not None
+            else get_project_name(resource_spans.resource.attributes)
+        )
         for scope_span in resource_spans.scope_spans:
             for otlp_span in scope_span.spans:
                 span = await run_in_threadpool(decode_otlp_span, otlp_span)

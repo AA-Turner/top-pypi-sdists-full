@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.827371                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.073775                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.dependencies
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
     import typing
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.dependencies
 
 from .app_config import AppConfig as AppConfig
 from .utils import TODOException as TODOException
@@ -45,6 +45,6 @@ class BakingStatus(tuple, metaclass=type):
 class ImageBakingException(Exception, metaclass=type):
     ...
 
-def bake_deployment_image(app_config: metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config.AppConfig, cache_file_path: str, logger: typing.Optional[typing.Callable[[str], typing.Any]] = None) -> BakingStatus:
+def bake_deployment_image(app_config: metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config.AppConfig, cache_file_path: str, logger: typing.Union[typing.Callable[[str], typing.Any], None] = None) -> BakingStatus:
     ...
 

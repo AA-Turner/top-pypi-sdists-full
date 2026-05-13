@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: doipclient
-Version: 1.2.0
+Version: 1.2.1
 Summary: A Diagnostic over IP (DoIP) client implementing ISO-13400-2.
 Home-page: https://github.com/jacobschaer/python-doipclient
 Author: Jacob Schaer
+License: MIT
 Keywords: uds,14229,iso-14229,diagnostic,automotive,13400,iso-13400,doip
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Scientific/Engineering :: Interface Engine/Protocol Translator
 Requires-Python: >=3.6
@@ -18,6 +18,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
+Dynamic: license
 Dynamic: license-file
 Dynamic: requires-python
 Dynamic: summary

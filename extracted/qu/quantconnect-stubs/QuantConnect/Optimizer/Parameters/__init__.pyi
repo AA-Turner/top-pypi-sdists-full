@@ -23,7 +23,7 @@ class OptimizationParameter(System.Object, metaclass=abc.ABCMeta):
         Create an instance of OptimizationParameter based on configuration
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: parameter name
         """
@@ -159,7 +159,7 @@ class OptimizationParameterEnumerator(typing.Generic[QuantConnect_Optimizer_Para
         The target optimization parameter to enumerate
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -169,7 +169,7 @@ class OptimizationParameterEnumerator(typing.Generic[QuantConnect_Optimizer_Para
         The current enumeration state
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -184,7 +184,7 @@ class OptimizationParameterEnumerator(typing.Generic[QuantConnect_Optimizer_Para
         ...
 
     def __init__(self, optimization_parameter: QuantConnect_Optimizer_Parameters_OptimizationParameterEnumerator_T) -> None:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
     def dispose(self) -> None:

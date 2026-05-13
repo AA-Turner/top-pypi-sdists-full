@@ -6,6 +6,9 @@ import QuantConnect.Configuration
 import System
 import System.Collections.Generic
 
+QuantConnect_Configuration_Config_GetValue_T = typing.TypeVar("QuantConnect_Configuration_Config_GetValue_T")
+QuantConnect_Configuration_Config_TryGetValue_T = typing.TypeVar("QuantConnect_Configuration_Config_TryGetValue_T")
+
 
 class ToolboxArgumentParser(System.Object):
     """Command Line arguments parser for Toolbox configuration"""
@@ -21,8 +24,71 @@ class ToolboxArgumentParser(System.Object):
         ...
 
 
+class _Typed_Config_GetValue(typing.Generic[QuantConnect_Configuration_Config_GetValue_T]):
+    """"""
+
+    @overload
+    def __call__(self, key: str, default_value: QuantConnect_Configuration_Config_GetValue_T = ...) -> QuantConnect_Configuration_Config_GetValue_T:
+        """
+        Gets a value from configuration and converts it to the requested type, assigning a default if
+        the configuration is null or empty
+        
+        :param key: Search key from the config file
+        :param default_value: The default value to use if not found in configuration
+        :returns: Converted value of the config setting.
+        """
+        ...
+
+
+class _Config_GetValue:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Configuration_Config_GetValue_T]) -> QuantConnect.Configuration._Typed_Config_GetValue[QuantConnect_Configuration_Config_GetValue_T]:
+        ...
+
+
+class _Typed_Config_TryGetValue(typing.Generic[QuantConnect_Configuration_Config_TryGetValue_T]):
+    """"""
+
+    @overload
+    def __call__(self, key: str, value: typing.Optional[QuantConnect_Configuration_Config_TryGetValue_T]) -> typing.Tuple[bool, QuantConnect_Configuration_Config_TryGetValue_T]:
+        """
+        Tries to find the specified key and parse it as a T, using
+        default(T) if unable to locate the key or unable to parse it
+        
+        :param key: The configuration key
+        :param value: The output value. If the key is found and parsed successfully, it will be the parsed value, else default(T).
+        :returns: True on successful parse or if they key is not found. False only when key is found but fails to parse.
+        """
+        ...
+
+    @overload
+    def __call__(self, key: str, default_value: QuantConnect_Configuration_Config_TryGetValue_T, value: typing.Optional[QuantConnect_Configuration_Config_TryGetValue_T]) -> typing.Tuple[bool, QuantConnect_Configuration_Config_TryGetValue_T]:
+        """
+        Tries to find the specified key and parse it as a T, using
+        default_value if unable to locate the key or unable to parse it
+        
+        :param key: The configuration key
+        :param default_value: The default value to use on key not found or unsuccessful parse
+        :param value: The output value. If the key is found and parsed successfully, it will be the parsed value, else default_value.
+        :returns: True on successful parse or if they key is not found and using default_value. False only when key is found but fails to parse.
+        """
+        ...
+
+
+class _Config_TryGetValue:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Configuration_Config_TryGetValue_T]) -> QuantConnect.Configuration._Typed_Config_TryGetValue[QuantConnect_Configuration_Config_TryGetValue_T]:
+        ...
+
+
 class Config(System.Object):
     """Configuration class loads the required external setup variables to launch the Lean engine."""
+
+    get_value: QuantConnect.Configuration._Config_GetValue
+
+    try_get_value: QuantConnect.Configuration._Config_TryGetValue
 
     @staticmethod
     @overload

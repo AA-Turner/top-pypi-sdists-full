@@ -18,7 +18,7 @@ from typing_extensions import deprecated
 
 from sentence_transformers.base.modality_types import PairableInput, PairInput
 from sentence_transformers.base.model import BaseModel
-from sentence_transformers.base.modules import Transformer
+from sentence_transformers.base.modules import Dense, Transformer
 from sentence_transformers.cross_encoder.fit_mixin import FitMixin
 from sentence_transformers.cross_encoder.model_card import CrossEncoderModelCardData
 from sentence_transformers.cross_encoder.modules.logit_score import LogitScore
@@ -140,6 +140,7 @@ class CrossEncoder(BaseModel, FitMixin):
     model_card_data_class = CrossEncoderModelCardData
     default_huggingface_organization: str | None = "cross-encoder"
     _model_card_model_id_placeholder = "cross_encoder_model_id"
+    model_type: str = "CrossEncoder"
 
     @cross_encoder_init_args_decorator
     def __init__(
@@ -336,7 +337,7 @@ class CrossEncoder(BaseModel, FitMixin):
                     scores = sum(scores, [])
 
             elif convert_to_tensor:
-                scores = torch.tensor([], device=self.model.device)
+                scores = torch.tensor([], device=self.device)
             elif convert_to_numpy:
                 scores = np.array([])
             else:
@@ -400,37 +401,36 @@ class CrossEncoder(BaseModel, FitMixin):
 
     def get_default_activation_fn(self) -> Callable:
         activation_fn_path = None
-        if hasattr(self.config, "sentence_transformers") and "activation_fn" in self.config.sentence_transformers:
-            activation_fn_path = self.config.sentence_transformers["activation_fn"]
+        config = self.config
+        if hasattr(config, "sentence_transformers") and "activation_fn" in config.sentence_transformers:
+            activation_fn_path = config.sentence_transformers["activation_fn"]
 
         # Backwards compatibility with <v4.0: we stored the activation_fn under 'sbert_ce_default_activation_function'
         elif (
-            hasattr(self.config, "sbert_ce_default_activation_function")
-            and self.config.sbert_ce_default_activation_function is not None
+            hasattr(config, "sbert_ce_default_activation_function")
+            and config.sbert_ce_default_activation_function is not None
         ):
-            activation_fn_path = self.config.sbert_ce_default_activation_function
-            del self.config.sbert_ce_default_activation_function
+            activation_fn_path = config.sbert_ce_default_activation_function
+            del config.sbert_ce_default_activation_function
 
         if activation_fn_path is not None:
             resolved = self._resolve_activation_fn(activation_fn_path)
             if resolved is not None:
                 return resolved
 
-        if self.config.num_labels == 1:
+        if self.num_labels == 1:
             return nn.Sigmoid()
         return nn.Identity()
 
     @property
-    def config(self) -> PretrainedConfig:
-        return self[0].model.config
-
-    @property
-    def model(self) -> PreTrainedModel:
-        return self[0].model
+    def model(self) -> PreTrainedModel | None:
+        return self.transformers_model
 
     @property
     def num_labels(self) -> int:
         for module in reversed(self):
+            if isinstance(module, Dense) and module.module_output_name == "scores":
+                return module.out_features
             if isinstance(module, Transformer):
                 return module.model.config.num_labels
             if isinstance(module, LogitScore):
@@ -586,6 +586,12 @@ class CrossEncoder(BaseModel, FitMixin):
                 Defaults to None.
             chunk_size (int, optional): Size of chunks for multiprocessing. If None, a sensible default is calculated.
                 Only used when ``pool`` is not None or ``device`` is a list. Defaults to None.
+            **kwargs: Additional keyword arguments forwarded to the model's ``preprocess`` and ``forward``. A notable
+                one is ``processing_kwargs``, which lets you override the processor kwargs configured on the
+                underlying :class:`~sentence_transformers.base.modules.Transformer` for this call only (e.g.
+                ``processing_kwargs={"text": {"max_length": 256, "truncation": True}}``). See
+                :meth:`Transformer.preprocess <sentence_transformers.base.modules.Transformer.preprocess>` for the
+                accepted structure.
 
         Returns:
             Union[List[torch.Tensor], np.ndarray, torch.Tensor]: Predictions for the passed input pairs.
@@ -659,7 +665,7 @@ class CrossEncoder(BaseModel, FitMixin):
 
         # Here, device is either a single device string (e.g., "cuda:0", "cpu") for single-process encoding or None
         if device is None:
-            device = self.model.device
+            device = str(self.device)
 
         self.to(device)
 

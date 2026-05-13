@@ -596,9 +596,18 @@ def _update_schema_pattern(
     schema: dict[str, Any], update_pattern: Callable[[str, int | None, int | None], str]
 ) -> None:
     pattern = schema.get("pattern")
+    # Meta-schemas (e.g. Kubernetes CRD `JSONSchemaProps`) carry property *names*
+    # `pattern` / `minLength` / `maxLength` whose values are sub-schema dicts; skip
+    # optimization unless these slots actually hold a regex string and integer bounds.
+    if not isinstance(pattern, str) or not pattern:
+        return
     min_length = schema.get("minLength")
     max_length = schema.get("maxLength")
-    if pattern and (min_length or max_length):
+    if not isinstance(min_length, int) or isinstance(min_length, bool):
+        min_length = None
+    if not isinstance(max_length, int) or isinstance(max_length, bool):
+        max_length = None
+    if min_length or max_length:
         new_pattern = update_pattern(pattern, min_length, max_length)
         if new_pattern != pattern:
             schema.pop("minLength", None)
@@ -723,6 +732,15 @@ def _resolve_sub_schema(ctx: CoverageContext, sub: JsonSchema) -> JsonSchema:
         return sub
 
 
+def _has_array_sibling(sub_schemas: list) -> bool:
+    for sub in sub_schemas:
+        if isinstance(sub, dict):
+            ty = sub.get("type")
+            if ty == "array" or (isinstance(ty, list) and "array" in ty):
+                return True
+    return False
+
+
 def _merge_with_parent_context(parent: JsonSchemaObject, sub: JsonSchema) -> JsonSchema:
     if not isinstance(sub, dict):
         return sub
@@ -752,7 +770,7 @@ def _cover_positive_for_type(
     if ty == "object" or ty == "array":
         template_schema = _get_template_schema(schema, ty, ctx)
         template = ctx.generate_from_schema(template_schema)
-    elif "properties" in schema or "required" in schema:
+    elif _implies_object_type(schema):
         template_schema = _get_template_schema(schema, "object", ctx)
         template = ctx.generate_from_schema(template_schema)
     else:
@@ -786,8 +804,23 @@ def _cover_positive_for_type(
                         parent_validator = make_validator_for(schema)
                     except Exception:
                         pass
+                # For non-body params, an empty bare string serializes to the same wire form as an
+                # empty array (`?p=`), so the string branch never disambiguates from a sibling array
+                # branch. Force non-empty strings.
+                disambiguate_string_branch = (
+                    ctx.location != ParameterLocation.BODY
+                    and isinstance(sub_schemas, list)
+                    and _has_array_sibling(sub_schemas)
+                )
                 for idx, sub_schema in enumerate(sub_schemas):
                     effective = _resolve_sub_schema(ctx, sub_schema)
+                    if (
+                        disambiguate_string_branch
+                        and isinstance(effective, dict)
+                        and effective.get("type") == "string"
+                        and "minLength" not in effective
+                    ):
+                        effective = {**effective, "minLength": 1}
                     if isinstance(effective, dict) and "properties" in effective:
                         # See GH-3584
                         # Sub-schema defines its own properties — treat as a complete type, do not inject parent properties.
@@ -888,7 +921,7 @@ def _cover_positive_for_type(
                         _positive_object(ctx, _with_effective_required(schema), cast(dict, template)),
                         schema,
                     )
-            elif "properties" in schema or "required" in schema:
+            elif _implies_object_type(schema):
                 yield from _filter_against_combinators(
                     _positive_object(ctx, _with_effective_required(schema), cast(dict, template)),
                     schema,
@@ -1532,6 +1565,21 @@ def _get_properties(schema: JsonSchema, ctx: CoverageContext) -> JsonSchema:
 _FAST_PATH_KEYS = frozenset({"properties", "required", "type"})
 
 
+_OBJECT_ONLY_KEYWORDS = ("properties", "required", "patternProperties", "propertyNames", "dependencies")
+
+
+def _implies_object_type(schema: JsonSchemaObject) -> bool:
+    # `additionalProperties: {schema}` implicitly types the value as an object even when
+    # `type: object` is omitted (common in Azure swagger 2.0 tag maps); without this the
+    # positive object generator never runs and the keyword stays uncovered.
+    if any(key in schema for key in _OBJECT_ONLY_KEYWORDS):
+        return True
+    additional = schema.get("additionalProperties")
+    if isinstance(additional, dict):
+        return True
+    return False
+
+
 def _get_template_schema(schema: JsonSchemaObject, ty: str, ctx: CoverageContext) -> JsonSchemaObject:
     if ty == "object":
         properties = schema.get("properties")
@@ -1555,7 +1603,8 @@ def _get_template_schema(schema: JsonSchemaObject, ty: str, ctx: CoverageContext
             if schema_keys <= _FAST_PATH_KEYS:
                 required_for_template = [k for k in required if k in all_properties]
             else:
-                required_for_template = list(all_properties)
+                # `{"not": {}}` marks a property as forbidden; requiring it makes the template unsatisfiable.
+                required_for_template = [k for k, v in all_properties.items() if v != {"not": {}}]
             return {
                 **schema,
                 "required": required_for_template,
@@ -1875,8 +1924,18 @@ def _positive_array(
             and seen.insert(default)
         ):
             yield PositiveValue(default, scenario=CoverageScenario.DEFAULT_VALUE, description="Default value")
-    elif seen.insert(template):
-        yield PositiveValue(template, scenario=CoverageScenario.VALID_ARRAY, description="Valid array")
+    else:
+        # An empty template skips every items-level keyword on the wire; surface a non-empty
+        # baseline first so the recorder sees items satisfied.
+        items = schema.get("items")
+        if not template and isinstance(items, dict) and items:
+            for item in cover_schema_iter(ctx, items):
+                candidate = [item.value]
+                if seen.insert(candidate):
+                    yield PositiveValue(candidate, scenario=CoverageScenario.VALID_ARRAY, description="Valid array")
+                    break
+        if seen.insert(template):
+            yield PositiveValue(template, scenario=CoverageScenario.VALID_ARRAY, description="Valid array")
 
     # Boundary and near-boundary sizes
     min_items = schema.get("minItems")
@@ -2279,6 +2338,32 @@ def _negative_unique_items(ctx: CoverageContext, schema: JsonSchemaObject) -> Ge
         description="Non-unique items",
         location=ctx.current_path,
     )
+    # When the declared type forbids arrays (e.g. Kubernetes paints `uniqueItems: true`
+    # onto every scalar query parameter), also emit a 2-element unique-array case so
+    # the uniqueItems-valid branch is exercised alongside the duplicate above. Schemas
+    # that already admit arrays don't need this — positive generation covers them.
+    if "array" not in get_type(schema):
+        # Restrict items to scalars so the pair survives round-tripping through repeated
+        # query/header/path values; nested objects/arrays collapse into a single slot.
+        pair_schema = {
+            **schema,
+            "type": "array",
+            "items": {"type": ["null", "boolean", "string", "number", "integer"]},
+            "minItems": 2,
+            "maxItems": 2,
+            "uniqueItems": True,
+        }
+        try:
+            pair = jsonify(ctx.generate_from_schema(pair_schema))
+        except (InvalidArgument, Unsatisfiable):
+            return
+        if isinstance(pair, list) and len(pair) == 2 and pair[0] != pair[1]:
+            yield NegativeValue(
+                pair,
+                scenario=CoverageScenario.UNIQUE_ITEMS_ARRAY,
+                description="Unique items array",
+                location=ctx.current_path,
+            )
 
 
 def _negative_required(

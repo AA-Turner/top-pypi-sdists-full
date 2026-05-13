@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pynput
-Version: 1.8.1
+Version: 1.8.2
 Summary: Monitor and control user input devices
 Home-page: https://github.com/moses-palmer/pynput
 Author: Moses Palmér
@@ -30,6 +30,17 @@ Requires-Dist: pyobjc-framework-Quartz>=8.0; sys_platform == "darwin"
 Requires-Dist: evdev>=1.3; "linux" in sys_platform
 Requires-Dist: python-xlib>=0.17; "linux" in sys_platform
 Requires-Dist: enum34; python_version == "2.7"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 pynput
 ======
@@ -470,6 +481,13 @@ To register a number of global hotkeys, use the convenience class
 
 Release Notes
 =============
+
+v1.8.2 (2026-05-12) - Include missing ``injected`` parameter on *macOS*
+-----------------------------------------------------------------------
+*  Add the ``injected`` argument where missing on *macOS*. Thanks to
+   *inchargeautomation-lab*!
+*  Do not emit duplicate scroll events on *Windows*. Thanks to *mxschmitt*!
+
 
 v1.8.1 (2025-03-17) - Various fixes
 -----------------------------------

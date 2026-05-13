@@ -507,6 +507,8 @@ def get_tinybird_service_datasources() -> List[Dict[str, Any]]:
                 {"name": "ch_written_bytes", "type": "UInt64"},
                 {"name": "ch_cpu_time", "type": "Float32"},
                 {"name": "rate_limited", "type": "UInt8"},
+                {"name": "ips", "type": "SimpleAggregateFunction(groupUniqArrayArray, Array(String))"},
+                {"name": "tokens", "type": "SimpleAggregateFunction(groupUniqArrayArray, Array(String))"},
             ],
         },
         {

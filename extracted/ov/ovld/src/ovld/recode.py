@@ -17,7 +17,7 @@ from .utils import MISSING, NameDatabase, SpecialForm, UsageError, is_dependent,
 recurse = SpecialForm("recurse")
 call_next = SpecialForm("call_next")
 resolve = SpecialForm("resolve")
-current_code = SpecialForm("current_code")
+current_function = SpecialForm("current_function")
 
 
 dispatch_template = """
@@ -309,7 +309,7 @@ class NameConverter(ast.NodeTransformer):
         self.mapping = mapping
         self.ovld_mangled = mapping[recurse]
         self.map_mangled = mapping[resolve]
-        self.code_mangled = mapping[current_code]
+        self.func_mangled = mapping[current_function]
         self.count = count()
 
     def is_special(self, name, *kinds):
@@ -369,7 +369,7 @@ class NameConverter(ast.NodeTransformer):
         ]
 
         if cn:
-            type_parts.insert(0, ast.Name(id=self.code_mangled, ctx=ast.Load()))
+            type_parts.insert(0, ast.Name(id=self.func_mangled, ctx=ast.Load()))
         method = ast.Subscript(
             value=ast.Name(id=self.map_mangled, ctx=ast.Load()),
             slice=ast.Tuple(
@@ -415,6 +415,43 @@ def _search_names(co, specials, glb, closure=None):
     return {k: list(_search(co, v, glb, closure)) for k, v in specials.items()}
 
 
+def lazy_recode(fn, ovld, syms, newname):
+    idx = next(_current)
+    key = f"__OVLD_LAZY_{idx}"
+    result = None
+
+    def trigger(*args, **kwargs):
+        recoded = recode(fn, ovld, syms, newname, target=result)
+        result.__code__ = recoded.__code__
+        result.__defaults__ = recoded.__defaults__
+        result.__kwdefaults__ = recoded.__kwdefaults__
+        result.__annotations__ = recoded.__annotations__
+        del fn.__globals__[key]
+        return result(*args, **kwargs)
+
+    fn.__globals__[key] = trigger
+
+    if inspect.isgeneratorfunction(fn):
+        bootstrap_src = (
+            f"def __BOOTSTRAP__(*args, **kwargs): yield from {key}(*args, **kwargs)"
+        )
+    else:
+        bootstrap_src = f"def __BOOTSTRAP__(*args, **kwargs): return {key}(*args, **kwargs)"
+    bootstrap_module = compile(bootstrap_src, "<lazy_bootstrap>", "exec")
+    bootstrap_code = next(c for c in bootstrap_module.co_consts if isinstance(c, CodeType))
+
+    result = FunctionType(
+        rename_code(bootstrap_code, newname),
+        fn.__globals__,
+        newname,
+        None,
+        None,
+    )
+    result.__wrapped__ = fn
+    result.__dict__.update(fn.__dict__)
+    return result
+
+
 def adapt_function(fn, ovld, newname):
     """Create a copy of the function with a different name."""
     syms = _search_names(
@@ -423,13 +460,16 @@ def adapt_function(fn, ovld, newname):
             recurse: (recurse, ovld, ovld.dispatch),
             call_next: (call_next,),
             resolve: (resolve,),
-            current_code: (current_code,),
+            current_function: (current_function,),
         },
         fn.__globals__,
         fn.__closure__,
     )
     if any(syms.values()):
-        return recode(fn, ovld, syms, newname)
+        if fn.__closure__:
+            return recode(fn, ovld, syms, newname)
+        else:
+            return lazy_recode(fn, ovld, syms, newname)
     else:
         return rename_function(fn, newname)
 
@@ -460,10 +500,10 @@ def closure_wrap(tree, fname, names):
     return ast.Module(body=[wrap], type_ignores=[])
 
 
-def recode(fn, ovld, syms, newname):
+def recode(fn, ovld, syms, newname, target=None):
     ovld_mangled = f"___OVLD{ovld.id}"
-    map_mangled = f"___MAP{ovld.id}"
-    code_mangled = f"___CODE{next(_current)}"
+    map_mangled = f"___OVLD_MAP{ovld.id}"
+    func_mangled = f"___OVLD_FUNC{next(_current)}"
     try:
         src = inspect.getsource(fn)
     except OSError:  # pragma: no cover
@@ -478,7 +518,7 @@ def recode(fn, ovld, syms, newname):
     mapping = {
         recurse: ovld_mangled,
         resolve: map_mangled,
-        current_code: code_mangled,
+        current_function: func_mangled,
     }
     for special, symbols in syms.items():
         for sym in symbols:
@@ -522,5 +562,5 @@ def recode(fn, ovld, syms, newname):
     new_fn.__globals__["__SUBTLER_TYPE"] = subtler_type
     new_fn.__globals__[ovld_mangled] = ovld.dispatch
     new_fn.__globals__[map_mangled] = ovld.map
-    new_fn.__globals__[code_mangled] = new_fn.__code__
+    new_fn.__globals__[func_mangled] = target or new_fn
     return new_fn

@@ -332,7 +332,7 @@ class FutureUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.Un
         Defines the future chain universe filter
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -376,7 +376,7 @@ class OpenInterestFutureUniverseSelectionModel(QuantConnect.Algorithm.Framework.
         Defines the future chain universe filter
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -732,7 +732,7 @@ class OptionUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.Un
         Defines the option chain universe filter
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

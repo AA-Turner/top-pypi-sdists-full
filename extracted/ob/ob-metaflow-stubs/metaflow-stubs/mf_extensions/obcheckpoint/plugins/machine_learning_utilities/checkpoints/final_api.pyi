@@ -1,15 +1,15 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.790924                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.025127                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
     import metaflow
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
 
 from ..datastructures import CheckpointArtifact as CheckpointArtifact
 from .constructors import load_checkpoint as load_checkpoint
@@ -30,7 +30,7 @@ class Checkpoint(object, metaclass=type):
     def __init__(self, temp_dir_root = None, init_dir = False):
         ...
     @property
-    def directory(self) -> typing.Optional[str]:
+    def directory(self) -> typing.Union[str, None]:
         """
         The directory where a checkpoint is loaded
         """
@@ -72,7 +72,7 @@ class Checkpoint(object, metaclass=type):
         ...
     def __exit__(self, exc_type, exc_val, exc_tb):
         ...
-    def list(self, name: typing.Optional[str] = None, task: typing.Union["metaflow.Task", str, None] = None, attempt: typing.Union[int, str, None] = None, full_namespace: bool = False, as_dict: bool = True) -> typing.List[typing.Union[typing.Dict, metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.CheckpointArtifact]]:
+    def list(self, name: typing.Union[str, None] = None, task: typing.Union["metaflow.Task", str, None] = None, attempt: typing.Union[int, str, None] = None, full_namespace: bool = False, as_dict: bool = True) -> typing.List[typing.Union[typing.Dict, metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.CheckpointArtifact]]:
         """
         lists the checkpoints in the current task or the specified task.
         
@@ -116,7 +116,7 @@ class Checkpoint(object, metaclass=type):
         List[Dict]
         """
         ...
-    def load(self, reference: typing.Union[str, typing.Dict, metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.CheckpointArtifact], path: typing.Optional[str] = None):
+    def load(self, reference: typing.Union[str, typing.Dict, metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.CheckpointArtifact], path: typing.Union[str, None] = None):
         """
         loads a checkpoint reference from the datastore. (resembles a read op)
         

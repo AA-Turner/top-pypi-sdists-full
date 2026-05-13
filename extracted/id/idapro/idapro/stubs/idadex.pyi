@@ -1,4 +1,4 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 class Dex:
     ACCESS_FLAGS: dict
@@ -29,27 +29,33 @@ class Dex:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -57,16 +63,16 @@ class Dex:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -75,7 +81,7 @@ class Dex:
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -84,10 +90,10 @@ class Dex:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -146,14 +152,17 @@ class Dex:
 
 class char:
     value: getset_descriptor
-    def __bool__(self) -> Any:
+    def __bool__(self) -> bool:
         r"""True if self else False"""
+        ...
+    def __buffer__(self, flags: Any) -> Any:
+        r"""Return a buffer object that exposes the underlying memory of the object."""
         ...
     def __ctype_be__(self, *args: Any, **kwargs: Any) -> Any:
         ...
     def __ctype_le__(self, *args: Any, **kwargs: Any) -> Any:
         ...
-    def __ctypes_from_outparam__(self, *args: Any, **kwargs: Any) -> Any:
+    def __ctypes_from_outparam__(self) -> Any:
         ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
@@ -161,28 +170,34 @@ class char:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any, kwargs: Any) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Initialize self.  See help(type(self)) for accurate signature."""
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -190,24 +205,24 @@ class char:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
-    def __reduce__(self, *args: Any, **kwargs: Any) -> Any:
+    def __reduce__(self) -> Any:
         ...
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -218,10 +233,10 @@ class char:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -233,11 +248,14 @@ class char:
         ...
 
 class dex_field:
-    ctype: CField  # <Field type=c_uint, ofs=0, size=4>
-    maddr: CField  # <Field type=c_ulong, ofs=16, size=8>
-    name: CField  # <Field type=c_uint, ofs=4, size=4>
-    type: CField  # <Field type=c_uint, ofs=8, size=4>
-    def __ctypes_from_outparam__(self, *args: Any, **kwargs: Any) -> Any:
+    ctype: CField  # <Field type=c_ulong, ofs=0, size=4>
+    maddr: CField  # <Field type=c_ulonglong, ofs=16, size=8>
+    name: CField  # <Field type=c_ulong, ofs=4, size=4>
+    type: CField  # <Field type=c_ulong, ofs=8, size=4>
+    def __buffer__(self, flags: Any) -> Any:
+        r"""Return a buffer object that exposes the underlying memory of the object."""
+        ...
+    def __ctypes_from_outparam__(self) -> Any:
         ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
@@ -245,28 +263,34 @@ class dex_field:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any, kwargs: Any) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Initialize self.  See help(type(self)) for accurate signature."""
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -274,24 +298,24 @@ class dex_field:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
-    def __reduce__(self, *args: Any, **kwargs: Any) -> Any:
+    def __reduce__(self) -> Any:
         ...
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -302,10 +326,10 @@ class dex_field:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -319,22 +343,25 @@ class dex_field:
 class dex_method:
     HAS_CODE: int  # 2
     IS_LOCAL: int  # 1
-    access_flags: CField  # <Field type=c_uint, ofs=164, size=4>
-    catchHData: CField  # <Field type=c_ulong, ofs=192, size=8>
-    cname: CField  # <Field type=c_uint, ofs=16, size=4>
-    defaddr: CField  # <Field type=c_ulong, ofs=8, size=8>
-    endAddr: CField  # <Field type=c_ulong, ofs=176, size=8>
-    flags: CField  # <Field type=c_uint, ofs=0, size=4>
-    id: CField  # <Field type=c_uint, ofs=20, size=4>
+    access_flags: CField  # <Field type=c_ulong, ofs=164, size=4>
+    catchHData: CField  # <Field type=c_ulonglong, ofs=192, size=8>
+    cname: CField  # <Field type=c_ulong, ofs=16, size=4>
+    defaddr: CField  # <Field type=c_ulonglong, ofs=8, size=8>
+    endAddr: CField  # <Field type=c_ulonglong, ofs=176, size=8>
+    flags: CField  # <Field type=c_ulong, ofs=0, size=4>
+    id: CField  # <Field type=c_ulong, ofs=20, size=4>
     nparams: CField  # <Field type=c_ushort, ofs=32, size=2>
-    proto_params: CField  # <Field type=c_uint_Array_32, ofs=36, size=128>
-    proto_ret: CField  # <Field type=c_uint, ofs=24, size=4>
-    proto_shorty: CField  # <Field type=c_uint, ofs=28, size=4>
+    proto_params: CField  # <Field type=c_ulong_Array_32, ofs=36, size=128>
+    proto_ret: CField  # <Field type=c_ulong, ofs=24, size=4>
+    proto_shorty: CField  # <Field type=c_ulong, ofs=28, size=4>
     reg_out: CField  # <Field type=c_ushort, ofs=188, size=2>
     reg_params: CField  # <Field type=c_ushort, ofs=186, size=2>
     reg_total: CField  # <Field type=c_ushort, ofs=184, size=2>
-    startAddr: CField  # <Field type=c_ulong, ofs=168, size=8>
-    def __ctypes_from_outparam__(self, *args: Any, **kwargs: Any) -> Any:
+    startAddr: CField  # <Field type=c_ulonglong, ofs=168, size=8>
+    def __buffer__(self, flags: Any) -> Any:
+        r"""Return a buffer object that exposes the underlying memory of the object."""
+        ...
+    def __ctypes_from_outparam__(self) -> Any:
         ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
@@ -342,28 +369,34 @@ class dex_method:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any, kwargs: Any) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Initialize self.  See help(type(self)) for accurate signature."""
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -371,24 +404,24 @@ class dex_method:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
-    def __reduce__(self, *args: Any, **kwargs: Any) -> Any:
+    def __reduce__(self) -> Any:
         ...
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -399,10 +432,10 @@ class dex_method:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -417,14 +450,17 @@ class dex_method:
 
 class ea_t:
     value: getset_descriptor
-    def __bool__(self) -> Any:
+    def __bool__(self) -> bool:
         r"""True if self else False"""
+        ...
+    def __buffer__(self, flags: Any) -> Any:
+        r"""Return a buffer object that exposes the underlying memory of the object."""
         ...
     def __ctype_be__(self, *args: Any, **kwargs: Any) -> Any:
         ...
     def __ctype_le__(self, *args: Any, **kwargs: Any) -> Any:
         ...
-    def __ctypes_from_outparam__(self, *args: Any, **kwargs: Any) -> Any:
+    def __ctypes_from_outparam__(self) -> Any:
         ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
@@ -432,28 +468,34 @@ class ea_t:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any, kwargs: Any) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Initialize self.  See help(type(self)) for accurate signature."""
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -461,24 +503,24 @@ class ea_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
-    def __reduce__(self, *args: Any, **kwargs: Any) -> Any:
+    def __reduce__(self) -> Any:
         ...
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -489,10 +531,10 @@ class ea_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -504,9 +546,12 @@ class ea_t:
         ...
 
 class longname_director_t:
-    node: CField  # <Field type=c_ulong, ofs=1, size=8>
+    node: CField  # <Field type=c_ulonglong, ofs=1, size=8>
     zero: CField  # <Field type=c_ubyte, ofs=0, size=1>
-    def __ctypes_from_outparam__(self, *args: Any, **kwargs: Any) -> Any:
+    def __buffer__(self, flags: Any) -> Any:
+        r"""Return a buffer object that exposes the underlying memory of the object."""
+        ...
+    def __ctypes_from_outparam__(self) -> Any:
         ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
@@ -514,28 +559,34 @@ class longname_director_t:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any, kwargs: Any) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Initialize self.  See help(type(self)) for accurate signature."""
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -543,24 +594,24 @@ class longname_director_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
-    def __reduce__(self, *args: Any, **kwargs: Any) -> Any:
+    def __reduce__(self) -> Any:
         ...
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -571,10 +622,10 @@ class longname_director_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -587,14 +638,17 @@ class longname_director_t:
 
 class uint16:
     value: getset_descriptor
-    def __bool__(self) -> Any:
+    def __bool__(self) -> bool:
         r"""True if self else False"""
+        ...
+    def __buffer__(self, flags: Any) -> Any:
+        r"""Return a buffer object that exposes the underlying memory of the object."""
         ...
     def __ctype_be__(self, *args: Any, **kwargs: Any) -> Any:
         ...
     def __ctype_le__(self, *args: Any, **kwargs: Any) -> Any:
         ...
-    def __ctypes_from_outparam__(self, *args: Any, **kwargs: Any) -> Any:
+    def __ctypes_from_outparam__(self) -> Any:
         ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
@@ -602,28 +656,34 @@ class uint16:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any, kwargs: Any) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Initialize self.  See help(type(self)) for accurate signature."""
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -631,24 +691,24 @@ class uint16:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
-    def __reduce__(self, *args: Any, **kwargs: Any) -> Any:
+    def __reduce__(self) -> Any:
         ...
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -659,10 +719,10 @@ class uint16:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -675,14 +735,17 @@ class uint16:
 
 class uint32:
     value: getset_descriptor
-    def __bool__(self) -> Any:
+    def __bool__(self) -> bool:
         r"""True if self else False"""
+        ...
+    def __buffer__(self, flags: Any) -> Any:
+        r"""Return a buffer object that exposes the underlying memory of the object."""
         ...
     def __ctype_be__(self, *args: Any, **kwargs: Any) -> Any:
         ...
     def __ctype_le__(self, *args: Any, **kwargs: Any) -> Any:
         ...
-    def __ctypes_from_outparam__(self, *args: Any, **kwargs: Any) -> Any:
+    def __ctypes_from_outparam__(self) -> Any:
         ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
@@ -690,28 +753,34 @@ class uint32:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any, kwargs: Any) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Initialize self.  See help(type(self)) for accurate signature."""
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -719,24 +788,24 @@ class uint32:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
-    def __reduce__(self, *args: Any, **kwargs: Any) -> Any:
+    def __reduce__(self) -> Any:
         ...
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -747,10 +816,10 @@ class uint32:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -763,14 +832,17 @@ class uint32:
 
 class uint64:
     value: getset_descriptor
-    def __bool__(self) -> Any:
+    def __bool__(self) -> bool:
         r"""True if self else False"""
+        ...
+    def __buffer__(self, flags: Any) -> Any:
+        r"""Return a buffer object that exposes the underlying memory of the object."""
         ...
     def __ctype_be__(self, *args: Any, **kwargs: Any) -> Any:
         ...
     def __ctype_le__(self, *args: Any, **kwargs: Any) -> Any:
         ...
-    def __ctypes_from_outparam__(self, *args: Any, **kwargs: Any) -> Any:
+    def __ctypes_from_outparam__(self) -> Any:
         ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
@@ -778,28 +850,34 @@ class uint64:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any, kwargs: Any) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Initialize self.  See help(type(self)) for accurate signature."""
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -807,24 +885,24 @@ class uint64:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
-    def __reduce__(self, *args: Any, **kwargs: Any) -> Any:
+    def __reduce__(self) -> Any:
         ...
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -835,10 +913,10 @@ class uint64:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -851,14 +929,17 @@ class uint64:
 
 class uint8:
     value: getset_descriptor
-    def __bool__(self) -> Any:
+    def __bool__(self) -> bool:
         r"""True if self else False"""
+        ...
+    def __buffer__(self, flags: Any) -> Any:
+        r"""Return a buffer object that exposes the underlying memory of the object."""
         ...
     def __ctype_be__(self, *args: Any, **kwargs: Any) -> Any:
         ...
     def __ctype_le__(self, *args: Any, **kwargs: Any) -> Any:
         ...
-    def __ctypes_from_outparam__(self, *args: Any, **kwargs: Any) -> Any:
+    def __ctypes_from_outparam__(self) -> Any:
         ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
@@ -866,28 +947,34 @@ class uint8:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any, kwargs: Any) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Initialize self.  See help(type(self)) for accurate signature."""
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -895,24 +982,24 @@ class uint8:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
-    def __reduce__(self, *args: Any, **kwargs: Any) -> Any:
+    def __reduce__(self) -> Any:
         ...
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -923,10 +1010,10 @@ class uint8:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -939,14 +1026,17 @@ class uint8:
 
 class ushort:
     value: getset_descriptor
-    def __bool__(self) -> Any:
+    def __bool__(self) -> bool:
         r"""True if self else False"""
+        ...
+    def __buffer__(self, flags: Any) -> Any:
+        r"""Return a buffer object that exposes the underlying memory of the object."""
         ...
     def __ctype_be__(self, *args: Any, **kwargs: Any) -> Any:
         ...
     def __ctype_le__(self, *args: Any, **kwargs: Any) -> Any:
         ...
-    def __ctypes_from_outparam__(self, *args: Any, **kwargs: Any) -> Any:
+    def __ctypes_from_outparam__(self) -> Any:
         ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
@@ -954,28 +1044,34 @@ class ushort:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any, kwargs: Any) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Initialize self.  See help(type(self)) for accurate signature."""
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -983,24 +1079,24 @@ class ushort:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
-    def __reduce__(self, *args: Any, **kwargs: Any) -> Any:
+    def __reduce__(self) -> Any:
         ...
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -1011,10 +1107,10 @@ class ushort:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().

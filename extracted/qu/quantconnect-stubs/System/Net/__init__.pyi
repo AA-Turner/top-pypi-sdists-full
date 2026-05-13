@@ -538,6 +538,9 @@ class CookieCollection(System.Object, System.Collections.Generic.ICollection[Sys
     def __iter__(self) -> typing.Iterator[System.Net.Cookie]:
         ...
 
+    def __len__(self) -> int:
+        ...
+
     @overload
     def add(self, cookie: System.Net.Cookie) -> None:
         ...

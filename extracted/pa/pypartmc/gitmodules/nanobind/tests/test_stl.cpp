@@ -534,4 +534,8 @@ NB_MODULE(test_stl_ext, m) {
     nb::class_<IDHavingEvent>(m, "IDHavingEvent")
         .def(nb::init<>())
         .def_rw("id", &IDHavingEvent::id);
+
+    // Test some esoteric "None"-ish types
+    m.def("takes_nullptr", [](std::nullptr_t) { return "nullptr"; });
+    m.def("takes_monostate", [](std::monostate) { return "monostate"; });
 }

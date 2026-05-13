@@ -138,7 +138,7 @@ class SynchronizingBaseDataEnumerator(QuantConnect.Lean.Engine.DataFeeds.Enumera
         Gets the Timestamp for the data
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -343,7 +343,7 @@ class SplitEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.Enume
         The current instance being used
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -353,7 +353,7 @@ class SplitEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.Enume
         The associated configuration
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -382,7 +382,7 @@ class SplitEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.Enume
         Initializes the factor file to use
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -437,7 +437,7 @@ class FillForwardEnumerator(System.Object, System.Collections.Generic.IEnumerato
         Whether to use strict daily end times
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -447,7 +447,7 @@ class FillForwardEnumerator(System.Object, System.Collections.Generic.IEnumerato
         The exchange used to determine when to insert fill forward data
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -494,7 +494,7 @@ class FillForwardEnumerator(System.Object, System.Collections.Generic.IEnumerato
         Determines whether or not fill forward is required, and if true, will produce the new fill forward data
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param fill_forward_resolution: 
         :param previous: The last piece of data emitted by this enumerator
@@ -616,7 +616,7 @@ class AuxiliaryDataEnumerator(System.Object, System.Collections.Generic.IEnumera
         The associated data configuration
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -647,7 +647,7 @@ class AuxiliaryDataEnumerator(System.Object, System.Collections.Generic.IEnumera
         Initializes the underlying tradable data event providers
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -664,7 +664,7 @@ class AuxiliaryDataEnumerator(System.Object, System.Collections.Generic.IEnumera
         Handle a new tradable date, drives the ITradableDateEventProvider instances
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -682,7 +682,7 @@ class DelistingEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.E
         The delisting date
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -696,7 +696,7 @@ class DelistingEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.E
         The current instance being used
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -706,7 +706,7 @@ class DelistingEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.E
         The associated configuration
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -735,7 +735,7 @@ class DelistingEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.E
         Initializes the factor file to use
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -989,7 +989,7 @@ class MappingEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.Enu
         The associated configuration
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -999,7 +999,7 @@ class MappingEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.Enu
         The current instance being used
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1028,7 +1028,7 @@ class MappingEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.Enu
         Initializes the map file to use
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1042,7 +1042,7 @@ class DividendEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.En
         The current instance being used
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1052,7 +1052,7 @@ class DividendEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.En
         The associated configuration
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1081,7 +1081,7 @@ class DividendEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.En
         Initializes the factor file to use
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1103,7 +1103,7 @@ class SynchronizingEnumerator(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_
         Initializes a new instance of the SynchronizingEnumerator{T} class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param enumerators: The enumerators to be synchronized. NOTE: Assumes the same time zone for all data
         """
@@ -1115,7 +1115,7 @@ class SynchronizingEnumerator(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_
         Initializes a new instance of the SynchronizingEnumerator{T} class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param enumerators: The enumerators to be synchronized. NOTE: Assumes the same time zone for all data
         """
@@ -1130,7 +1130,7 @@ class SynchronizingEnumerator(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_
         Gets the Timestamp for the data
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1236,7 +1236,7 @@ class LiveFillForwardEnumerator(QuantConnect.Lean.Engine.DataFeeds.Enumerators.F
         Determines whether or not fill forward is required, and if true, will produce the new fill forward data
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param fill_forward_resolution: 
         :param previous: The last piece of data emitted by this enumerator
@@ -1366,7 +1366,7 @@ class SynchronizingSliceEnumerator(QuantConnect.Lean.Engine.DataFeeds.Enumerator
         Gets the Timestamp for the data
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

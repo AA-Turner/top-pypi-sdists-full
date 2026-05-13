@@ -4,6 +4,7 @@ import abc
 import datetime
 import typing
 
+import Common.Util
 import QuantConnect
 import QuantConnect.Data
 import QuantConnect.Data.Consolidators
@@ -15,6 +16,7 @@ import QuantConnect.Securities
 import QuantConnect.Util
 import System
 import System.Collections.Generic
+import System.Collections.Immutable
 import System.Drawing
 import System.IO
 import System.Text
@@ -41,6 +43,61 @@ QuantConnect_Util_ListComparer_T = typing.TypeVar("QuantConnect_Util_ListCompare
 QuantConnect_Util_ConcurrentSet_T = typing.TypeVar("QuantConnect_Util_ConcurrentSet_T")
 QuantConnect_Util__EventContainer_Callable = typing.TypeVar("QuantConnect_Util__EventContainer_Callable")
 QuantConnect_Util__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Util__EventContainer_ReturnType")
+QuantConnect_Util_Ref_Create_T = typing.TypeVar("QuantConnect_Util_Ref_Create_T")
+QuantConnect_Util_Ref_CreateReadOnly_T = typing.TypeVar("QuantConnect_Util_Ref_CreateReadOnly_T")
+QuantConnect_Util_KeyStringSynchronizer_Execute_T = typing.TypeVar("QuantConnect_Util_KeyStringSynchronizer_Execute_T")
+QuantConnect_Util_LinqExtensions_ToReadOnlyDictionary_K = typing.TypeVar("QuantConnect_Util_LinqExtensions_ToReadOnlyDictionary_K")
+QuantConnect_Util_LinqExtensions_ToReadOnlyDictionary_V = typing.TypeVar("QuantConnect_Util_LinqExtensions_ToReadOnlyDictionary_V")
+QuantConnect_Util_LinqExtensions_ToHashSet_T = typing.TypeVar("QuantConnect_Util_LinqExtensions_ToHashSet_T")
+QuantConnect_Util_LinqExtensions_ToHashSet_TResult = typing.TypeVar("QuantConnect_Util_LinqExtensions_ToHashSet_TResult")
+QuantConnect_Util_LinqExtensions_ToList_T = typing.TypeVar("QuantConnect_Util_LinqExtensions_ToList_T")
+QuantConnect_Util_LinqExtensions_ToList_TResult = typing.TypeVar("QuantConnect_Util_LinqExtensions_ToList_TResult")
+QuantConnect_Util_LinqExtensions_ToArray_T = typing.TypeVar("QuantConnect_Util_LinqExtensions_ToArray_T")
+QuantConnect_Util_LinqExtensions_ToArray_TResult = typing.TypeVar("QuantConnect_Util_LinqExtensions_ToArray_TResult")
+QuantConnect_Util_LinqExtensions_ToImmutableArray_T = typing.TypeVar("QuantConnect_Util_LinqExtensions_ToImmutableArray_T")
+QuantConnect_Util_LinqExtensions_ToImmutableArray_TResult = typing.TypeVar("QuantConnect_Util_LinqExtensions_ToImmutableArray_TResult")
+QuantConnect_Util_LinqExtensions_IsNullOrEmpty_T = typing.TypeVar("QuantConnect_Util_LinqExtensions_IsNullOrEmpty_T")
+QuantConnect_Util_LinqExtensions_Median_T = typing.TypeVar("QuantConnect_Util_LinqExtensions_Median_T")
+QuantConnect_Util_LinqExtensions_Median_TProperty = typing.TypeVar("QuantConnect_Util_LinqExtensions_Median_TProperty")
+QuantConnect_Util_LinqExtensions_BinarySearch_TItem = typing.TypeVar("QuantConnect_Util_LinqExtensions_BinarySearch_TItem")
+QuantConnect_Util_LinqExtensions_BinarySearch_TSearch = typing.TypeVar("QuantConnect_Util_LinqExtensions_BinarySearch_TSearch")
+QuantConnect_Util_LinqExtensions_Memoize_T = typing.TypeVar("QuantConnect_Util_LinqExtensions_Memoize_T")
+QuantConnect_Util_LinqExtensions_Range_T = typing.TypeVar("QuantConnect_Util_LinqExtensions_Range_T")
+QuantConnect_Util_LinqExtensions_GroupAdjacentBy_T = typing.TypeVar("QuantConnect_Util_LinqExtensions_GroupAdjacentBy_T")
+QuantConnect_Util_LinqExtensions_AreDifferent_T = typing.TypeVar("QuantConnect_Util_LinqExtensions_AreDifferent_T")
+QuantConnect_Util_LinqExtensions_AsEnumerable_T = typing.TypeVar("QuantConnect_Util_LinqExtensions_AsEnumerable_T")
+QuantConnect_Util_LinqExtensions_GetValueOrDefault_K = typing.TypeVar("QuantConnect_Util_LinqExtensions_GetValueOrDefault_K")
+QuantConnect_Util_LinqExtensions_GetValueOrDefault_V = typing.TypeVar("QuantConnect_Util_LinqExtensions_GetValueOrDefault_V")
+QuantConnect_Util_LinqExtensions_DoForEach_T = typing.TypeVar("QuantConnect_Util_LinqExtensions_DoForEach_T")
+QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TKey = typing.TypeVar("QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TKey")
+QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TValue = typing.TypeVar("QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TValue")
+QuantConnect_Util_LinqExtensions_ToDataDictionary_TSource = typing.TypeVar("QuantConnect_Util_LinqExtensions_ToDataDictionary_TSource")
+QuantConnect_Util_LinqExtensions_ToDataDictionary_TValue = typing.TypeVar("QuantConnect_Util_LinqExtensions_ToDataDictionary_TValue")
+QuantConnect_Util_XElementExtensions_Get_T = typing.TypeVar("QuantConnect_Util_XElementExtensions_Get_T")
+QuantConnect_Util_Composer_Single_T = typing.TypeVar("QuantConnect_Util_Composer_Single_T")
+QuantConnect_Util_Composer_AddPart_T = typing.TypeVar("QuantConnect_Util_Composer_AddPart_T")
+QuantConnect_Util_Composer_GetPart_T = typing.TypeVar("QuantConnect_Util_Composer_GetPart_T")
+QuantConnect_Util_Composer_GetParts_T = typing.TypeVar("QuantConnect_Util_Composer_GetParts_T")
+QuantConnect_Util_Composer_GetExportedTypes_T = typing.TypeVar("QuantConnect_Util_Composer_GetExportedTypes_T")
+QuantConnect_Util_Composer_GetExportedValueByTypeName_T = typing.TypeVar("QuantConnect_Util_Composer_GetExportedValueByTypeName_T")
+QuantConnect_Util_Composer_GetExportedValues_T = typing.TypeVar("QuantConnect_Util_Composer_GetExportedValues_T")
+QuantConnect_Util_EnumeratorExtensions_Where_T = typing.TypeVar("QuantConnect_Util_EnumeratorExtensions_Where_T")
+QuantConnect_Util_EnumeratorExtensions_Select_T = typing.TypeVar("QuantConnect_Util_EnumeratorExtensions_Select_T")
+QuantConnect_Util_EnumeratorExtensions_Select_TResult = typing.TypeVar("QuantConnect_Util_EnumeratorExtensions_Select_TResult")
+QuantConnect_Util_EnumeratorExtensions_SelectMany_T = typing.TypeVar("QuantConnect_Util_EnumeratorExtensions_SelectMany_T")
+QuantConnect_Util_EnumeratorExtensions_SelectMany_TResult = typing.TypeVar("QuantConnect_Util_EnumeratorExtensions_SelectMany_TResult")
+QuantConnect_Util_ObjectActivator_Clone_T = typing.TypeVar("QuantConnect_Util_ObjectActivator_Clone_T")
+QuantConnect_Util_ExpressionBuilder_MakePropertyOrFieldSelector_T = typing.TypeVar("QuantConnect_Util_ExpressionBuilder_MakePropertyOrFieldSelector_T")
+QuantConnect_Util_ExpressionBuilder_MakeBinaryComparisonLambda_T = typing.TypeVar("QuantConnect_Util_ExpressionBuilder_MakeBinaryComparisonLambda_T")
+QuantConnect_Util_ExpressionBuilder_OfType_T = typing.TypeVar("QuantConnect_Util_ExpressionBuilder_OfType_T")
+QuantConnect_Util_ExpressionBuilder_Single_T = typing.TypeVar("QuantConnect_Util_ExpressionBuilder_Single_T")
+QuantConnect_Util_ComparisonOperator_Compare_T = typing.TypeVar("QuantConnect_Util_ComparisonOperator_Compare_T")
+QuantConnect_Util_PythonUtil_ToAction_T1 = typing.TypeVar("QuantConnect_Util_PythonUtil_ToAction_T1")
+QuantConnect_Util_PythonUtil_ToAction_T2 = typing.TypeVar("QuantConnect_Util_PythonUtil_ToAction_T2")
+QuantConnect_Util_PythonUtil_ToFunc_T1 = typing.TypeVar("QuantConnect_Util_PythonUtil_ToFunc_T1")
+QuantConnect_Util_PythonUtil_ToFunc_T2 = typing.TypeVar("QuantConnect_Util_PythonUtil_ToFunc_T2")
+QuantConnect_Util_PythonUtil_ToFunc_T3 = typing.TypeVar("QuantConnect_Util_PythonUtil_ToFunc_T3")
+QuantConnect_Util_PythonUtil_CreateInstanceOrWrapper_T = typing.TypeVar("QuantConnect_Util_PythonUtil_CreateInstanceOrWrapper_T")
 
 
 class StreamReaderExtensions(System.Object):
@@ -138,6 +195,49 @@ class IReadOnlyRef(typing.Generic[QuantConnect_Util_IReadOnlyRef_T], metaclass=a
         ...
 
 
+class _Typed_Ref_Create(typing.Generic[QuantConnect_Util_Ref_Create_T]):
+    """"""
+
+    @overload
+    def __call__(self, getter: typing.Callable[[], QuantConnect_Util_Ref_Create_T], setter: typing.Callable[[QuantConnect_Util_Ref_Create_T], typing.Any]) -> QuantConnect.Util.Ref[QuantConnect_Util_Ref_Create_T]:
+        """Creates a new Ref{T} instance"""
+        ...
+
+    @overload
+    def __call__(self, initial_value: QuantConnect_Util_Ref_Create_T) -> QuantConnect.Util.Ref[QuantConnect_Util_Ref_Create_T]:
+        """
+        Creates a new Ref{T} instance by closing over
+        the specified initial_value variable.
+        NOTE: This won't close over the variable input to the function,
+        but rather a copy of the variable. This reference will use it's
+        own storage.
+        """
+        ...
+
+
+class _Ref_Create:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_Ref_Create_T]) -> QuantConnect.Util._Typed_Ref_Create[QuantConnect_Util_Ref_Create_T]:
+        ...
+
+
+class _Typed_Ref_CreateReadOnly(typing.Generic[QuantConnect_Util_Ref_CreateReadOnly_T]):
+    """"""
+
+    @overload
+    def __call__(self, getter: typing.Callable[[], QuantConnect_Util_Ref_CreateReadOnly_T]) -> QuantConnect.Util.IReadOnlyRef[QuantConnect_Util_Ref_CreateReadOnly_T]:
+        """Creates a new IReadOnlyRef{T} instance"""
+        ...
+
+
+class _Ref_CreateReadOnly:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_Ref_CreateReadOnly_T]) -> QuantConnect.Util._Typed_Ref_CreateReadOnly[QuantConnect_Util_Ref_CreateReadOnly_T]:
+        ...
+
+
 class Ref(typing.Generic[QuantConnect_Util_Ref_T], System.Object, QuantConnect.Util.IReadOnlyRef[QuantConnect_Util_Ref_T]):
     """Represents a reference to any value, T"""
 
@@ -149,6 +249,10 @@ class Ref(typing.Generic[QuantConnect_Util_Ref_T], System.Object, QuantConnect.U
     @value.setter
     def value(self, value: QuantConnect_Util_Ref_T) -> None:
         ...
+
+    create: QuantConnect.Util._Ref_Create
+
+    create_read_only: QuantConnect.Util._Ref_CreateReadOnly
 
     def __init__(self, getter: typing.Callable[[], QuantConnect_Util_Ref_T], setter: typing.Callable[[QuantConnect_Util_Ref_T], typing.Any]) -> None:
         """
@@ -177,7 +281,7 @@ class SecurityIdentifierJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[
         Converts as security identifier to a string
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: The input value to be converted before serialziation
         :returns: A new instance of TResult that is to be serialzied.
@@ -190,7 +294,7 @@ class SecurityIdentifierJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[
         Converts the input string to a security identifier
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: The deserialized value that needs to be converted to T
         :returns: The converted value.
@@ -215,7 +319,7 @@ class StringDecimalJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[float
         Converts a decimal to a string
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: The input value to be converted before serialization
         :returns: String representation of the decimal.
@@ -228,7 +332,7 @@ class StringDecimalJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[float
         Converts the input string to a decimal
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: The deserialized value that needs to be converted to T
         :returns: The converted value.
@@ -298,10 +402,25 @@ class ComparisonOperatorTypes(IntEnum):
     """Checks left-hand operand is less or equal to its right-hand operand"""
 
 
-class KeyStringSynchronizer(System.Object):
-    """Helper class to synchronize execution based on a string key"""
+class _Typed_KeyStringSynchronizer_Execute(typing.Generic[QuantConnect_Util_KeyStringSynchronizer_Execute_T]):
+    """"""
 
-    def execute(self, key: str, single_execution: bool, action: typing.Callable[[], typing.Any]) -> None:
+    @overload
+    def __call__(self, key: str, action: typing.Callable[[], QuantConnect_Util_KeyStringSynchronizer_Execute_T]) -> QuantConnect_Util_KeyStringSynchronizer_Execute_T:
+        """
+        Execute the given function synchronously with any other thread using the same key
+        
+        :param key: The synchronization key
+        :param action: The function to execute
+        """
+        ...
+
+
+class _KeyStringSynchronizer_Execute:
+    """"""
+
+    @overload
+    def __call__(self, key: str, single_execution: bool, action: typing.Callable[[], typing.Any]) -> None:
         """
         Execute the given action synchronously with any other thread using the same key
         
@@ -311,9 +430,458 @@ class KeyStringSynchronizer(System.Object):
         """
         ...
 
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_KeyStringSynchronizer_Execute_T]) -> QuantConnect.Util._Typed_KeyStringSynchronizer_Execute[QuantConnect_Util_KeyStringSynchronizer_Execute_T]:
+        ...
+
+
+class KeyStringSynchronizer(System.Object):
+    """Helper class to synchronize execution based on a string key"""
+
+    @property
+    def execute(self) -> QuantConnect.Util._KeyStringSynchronizer_Execute:
+        ...
+
+
+class _Typed_LinqExtensions_ToReadOnlyDictionary(typing.Generic[QuantConnect_Util_LinqExtensions_ToReadOnlyDictionary_K]):
+    """"""
+
+    @overload
+    def __call__(self, enumerable: typing.List[System.Collections.Generic.KeyValuePair[QuantConnect_Util_LinqExtensions_ToReadOnlyDictionary_K, QuantConnect_Util_LinqExtensions_ToReadOnlyDictionary_V]]) -> typing.Dict[QuantConnect_Util_LinqExtensions_ToReadOnlyDictionary_K, QuantConnect_Util_LinqExtensions_ToReadOnlyDictionary_V]:
+        """
+        Creates a new read-only dictionary from the key value pairs
+        
+        :param enumerable: The IEnumerable of KeyValuePair instances to convert to a dictionary
+        :returns: A read-only dictionary holding the same data as the enumerable.
+        """
+        ...
+
+
+class _LinqExtensions_ToReadOnlyDictionary:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_LinqExtensions_ToReadOnlyDictionary_K]) -> QuantConnect.Util._Typed_LinqExtensions_ToReadOnlyDictionary[QuantConnect_Util_LinqExtensions_ToReadOnlyDictionary_K]:
+        ...
+
+
+class _Typed_LinqExtensions_ToHashSet(typing.Generic[QuantConnect_Util_LinqExtensions_ToHashSet_T]):
+    """"""
+
+    @overload
+    def __call__(self, enumerable: typing.List[QuantConnect_Util_LinqExtensions_ToHashSet_T], selector: typing.Callable[[QuantConnect_Util_LinqExtensions_ToHashSet_T], QuantConnect_Util_LinqExtensions_ToHashSet_TResult]) -> System.Collections.Generic.HashSet[QuantConnect_Util_LinqExtensions_ToHashSet_TResult]:
+        """
+        Creates a new HashSet{T} from the elements in the specified enumerable
+        
+        :param enumerable: The items to be placed into the enumerable
+        :param selector: Selects items from the enumerable to be placed into the HashSet{T}
+        :returns: A new HashSet{T} containing the items in the enumerable.
+        """
+        ...
+
+
+class _LinqExtensions_ToHashSet:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_LinqExtensions_ToHashSet_T]) -> QuantConnect.Util._Typed_LinqExtensions_ToHashSet[QuantConnect_Util_LinqExtensions_ToHashSet_T]:
+        ...
+
+
+class _Typed_LinqExtensions_ToList(typing.Generic[QuantConnect_Util_LinqExtensions_ToList_T]):
+    """"""
+
+    @overload
+    def __call__(self, enumerable: typing.List[QuantConnect_Util_LinqExtensions_ToList_T], selector: typing.Callable[[QuantConnect_Util_LinqExtensions_ToList_T], QuantConnect_Util_LinqExtensions_ToList_TResult]) -> typing.List[QuantConnect_Util_LinqExtensions_ToList_TResult]:
+        """
+        Creates a new IList{T} from the projected elements in the specified enumerable
+        
+        :param enumerable: The items to be placed into the list
+        :param selector: Selects items from the enumerable to be placed into the List{T}
+        :returns: A new List{T} containing the items in the enumerable.
+        """
+        ...
+
+
+class _LinqExtensions_ToList:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_LinqExtensions_ToList_T]) -> QuantConnect.Util._Typed_LinqExtensions_ToList[QuantConnect_Util_LinqExtensions_ToList_T]:
+        ...
+
+
+class _Typed_LinqExtensions_ToArray(typing.Generic[QuantConnect_Util_LinqExtensions_ToArray_T]):
+    """"""
+
+    @overload
+    def __call__(self, enumerable: typing.List[QuantConnect_Util_LinqExtensions_ToArray_T], selector: typing.Callable[[QuantConnect_Util_LinqExtensions_ToArray_T], QuantConnect_Util_LinqExtensions_ToArray_TResult]) -> typing.List[QuantConnect_Util_LinqExtensions_ToArray_TResult]:
+        """
+        Creates a new array from the projected elements in the specified enumerable
+        
+        :param enumerable: The items to be placed into the array
+        :param selector: Selects items from the enumerable to be placed into the array
+        :returns: A new array containing the items in the enumerable.
+        """
+        ...
+
+
+class _LinqExtensions_ToArray:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_LinqExtensions_ToArray_T]) -> QuantConnect.Util._Typed_LinqExtensions_ToArray[QuantConnect_Util_LinqExtensions_ToArray_T]:
+        ...
+
+
+class _Typed_LinqExtensions_ToImmutableArray(typing.Generic[QuantConnect_Util_LinqExtensions_ToImmutableArray_T]):
+    """"""
+
+    @overload
+    def __call__(self, enumerable: typing.List[QuantConnect_Util_LinqExtensions_ToImmutableArray_T], selector: typing.Callable[[QuantConnect_Util_LinqExtensions_ToImmutableArray_T], QuantConnect_Util_LinqExtensions_ToImmutableArray_TResult]) -> System.Collections.Immutable.ImmutableArray[QuantConnect_Util_LinqExtensions_ToImmutableArray_TResult]:
+        """
+        Creates a new immutable array from the projected elements in the specified enumerable
+        
+        :param enumerable: The items to be placed into the array
+        :param selector: Selects items from the enumerable to be placed into the array
+        :returns: A new array containing the items in the enumerable.
+        """
+        ...
+
+
+class _LinqExtensions_ToImmutableArray:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_LinqExtensions_ToImmutableArray_T]) -> QuantConnect.Util._Typed_LinqExtensions_ToImmutableArray[QuantConnect_Util_LinqExtensions_ToImmutableArray_T]:
+        ...
+
+
+class _Typed_LinqExtensions_IsNullOrEmpty(typing.Generic[QuantConnect_Util_LinqExtensions_IsNullOrEmpty_T]):
+    """"""
+
+    @overload
+    def __call__(self, enumerable: typing.List[QuantConnect_Util_LinqExtensions_IsNullOrEmpty_T]) -> bool:
+        """
+        Returns true if the specified enumerable is null or has no elements
+        
+        :param enumerable: The enumerable to check for a value
+        :returns: True if the enumerable has elements, false otherwise.
+        """
+        ...
+
+
+class _LinqExtensions_IsNullOrEmpty:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_LinqExtensions_IsNullOrEmpty_T]) -> QuantConnect.Util._Typed_LinqExtensions_IsNullOrEmpty[QuantConnect_Util_LinqExtensions_IsNullOrEmpty_T]:
+        ...
+
+
+class _Typed_LinqExtensions_Median(typing.Generic[QuantConnect_Util_LinqExtensions_Median_T]):
+    """"""
+
+    @overload
+    def __call__(self, enumerable: typing.List[QuantConnect_Util_LinqExtensions_Median_T]) -> QuantConnect_Util_LinqExtensions_Median_T:
+        """
+        Gets the median value in the collection
+        
+        :param enumerable: The enumerable of items to search
+        :returns: The median value, throws InvalidOperationException if no items are present.
+        """
+        ...
+
+    @overload
+    def __call__(self, collection: typing.List[QuantConnect_Util_LinqExtensions_Median_T], selector: typing.Callable[[QuantConnect_Util_LinqExtensions_Median_T], QuantConnect_Util_LinqExtensions_Median_TProperty]) -> QuantConnect_Util_LinqExtensions_Median_TProperty:
+        """
+        Gets the median value in the collection
+        
+        :param collection: The collection of items to search
+        :param selector: Function used to select a value from collection items
+        :returns: The median value, throws InvalidOperationException if no items are present.
+        """
+        ...
+
+
+class _LinqExtensions_Median:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_LinqExtensions_Median_T]) -> QuantConnect.Util._Typed_LinqExtensions_Median[QuantConnect_Util_LinqExtensions_Median_T]:
+        ...
+
+
+class _Typed_LinqExtensions_BinarySearch(typing.Generic[QuantConnect_Util_LinqExtensions_BinarySearch_TItem]):
+    """"""
+
+    @overload
+    def __call__(self, list: typing.List[QuantConnect_Util_LinqExtensions_BinarySearch_TItem], value: QuantConnect_Util_LinqExtensions_BinarySearch_TSearch, comparer: typing.Callable[[QuantConnect_Util_LinqExtensions_BinarySearch_TSearch, QuantConnect_Util_LinqExtensions_BinarySearch_TItem], int]) -> int:
+        """
+        Performs a binary search on the specified collection.
+        
+        :param list: The list to be searched.
+        :param value: The value to search for.
+        :param comparer: The comparer that is used to compare the value with the list items.
+        :returns: The index of the item if found, otherwise the bitwise complement where the value should be per MSDN specs.
+        """
+        ...
+
+    @overload
+    def __call__(self, list: typing.List[QuantConnect_Util_LinqExtensions_BinarySearch_TItem], value: QuantConnect_Util_LinqExtensions_BinarySearch_TItem) -> int:
+        """
+        Performs a binary search on the specified collection.
+        
+        :param list: The list to be searched.
+        :param value: The value to search for.
+        :returns: The index of the item if found, otherwise the bitwise complement where the value should be per MSDN specs.
+        """
+        ...
+
+    @overload
+    def __call__(self, list: typing.List[QuantConnect_Util_LinqExtensions_BinarySearch_TItem], value: QuantConnect_Util_LinqExtensions_BinarySearch_TItem, comparer: System.Collections.Generic.IComparer[QuantConnect_Util_LinqExtensions_BinarySearch_TItem]) -> int:
+        """
+        Performs a binary search on the specified collection.
+        
+        :param list: The list to be searched.
+        :param value: The value to search for.
+        :param comparer: The comparer that is used to compare the value with the list items.
+        :returns: The index of the item if found, otherwise the bitwise complement where the value should be per MSDN specs.
+        """
+        ...
+
+
+class _LinqExtensions_BinarySearch:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_LinqExtensions_BinarySearch_TItem]) -> QuantConnect.Util._Typed_LinqExtensions_BinarySearch[QuantConnect_Util_LinqExtensions_BinarySearch_TItem]:
+        ...
+
+
+class _Typed_LinqExtensions_Memoize(typing.Generic[QuantConnect_Util_LinqExtensions_Memoize_T]):
+    """"""
+
+    @overload
+    def __call__(self, enumerable: typing.List[QuantConnect_Util_LinqExtensions_Memoize_T]) -> typing.Sequence[QuantConnect_Util_LinqExtensions_Memoize_T]:
+        """
+        Wraps the specified enumerable such that it will only be enumerated once
+        
+        :param enumerable: The source enumerable to be wrapped
+        :returns: A new enumerable that can be enumerated multiple times without re-enumerating the source enumerable.
+        """
+        ...
+
+
+class _LinqExtensions_Memoize:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_LinqExtensions_Memoize_T]) -> QuantConnect.Util._Typed_LinqExtensions_Memoize[QuantConnect_Util_LinqExtensions_Memoize_T]:
+        ...
+
+
+class _Typed_LinqExtensions_Range(typing.Generic[QuantConnect_Util_LinqExtensions_Range_T]):
+    """"""
+
+    @overload
+    def __call__(self, start: QuantConnect_Util_LinqExtensions_Range_T, end: QuantConnect_Util_LinqExtensions_Range_T, incrementer: typing.Callable[[QuantConnect_Util_LinqExtensions_Range_T], QuantConnect_Util_LinqExtensions_Range_T], include_end_point: bool = False) -> typing.Sequence[QuantConnect_Util_LinqExtensions_Range_T]:
+        """
+        Produces the an enumerable of the range of values between start and end using the specified
+        incrementing function
+        
+        :param start: The start of the range
+        :param end: The end of the range, non-inclusive by default
+        :param incrementer: The incrementing function, with argument of the current item
+        :param include_end_point: True to emit the end point, false otherwise
+        :returns: An enumerable of the range of items between start and end.
+        """
+        ...
+
+
+class _LinqExtensions_Range:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_LinqExtensions_Range_T]) -> QuantConnect.Util._Typed_LinqExtensions_Range[QuantConnect_Util_LinqExtensions_Range_T]:
+        ...
+
+
+class _Typed_LinqExtensions_GroupAdjacentBy(typing.Generic[QuantConnect_Util_LinqExtensions_GroupAdjacentBy_T]):
+    """"""
+
+    @overload
+    def __call__(self, enumerable: typing.List[QuantConnect_Util_LinqExtensions_GroupAdjacentBy_T], grouper: typing.Callable[[QuantConnect_Util_LinqExtensions_GroupAdjacentBy_T, QuantConnect_Util_LinqExtensions_GroupAdjacentBy_T], bool]) -> typing.Sequence[typing.Sequence[QuantConnect_Util_LinqExtensions_GroupAdjacentBy_T]]:
+        """
+        Groups adjacent elements of the enumerale using the specified grouper function
+        
+        :param enumerable: The source enumerable to be grouped
+        :param grouper: A function that accepts the previous value and the next value and returns
+        true if the next value belongs in the same group as the previous value, otherwise returns false
+        :returns: A new enumerable of the groups defined by grouper. These groups don't have a key
+        and are only grouped by being emitted separately from this enumerable.
+        """
+        ...
+
+
+class _LinqExtensions_GroupAdjacentBy:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_LinqExtensions_GroupAdjacentBy_T]) -> QuantConnect.Util._Typed_LinqExtensions_GroupAdjacentBy[QuantConnect_Util_LinqExtensions_GroupAdjacentBy_T]:
+        ...
+
+
+class _Typed_LinqExtensions_AreDifferent(typing.Generic[QuantConnect_Util_LinqExtensions_AreDifferent_T]):
+    """"""
+
+    @overload
+    def __call__(self, left: System.Collections.Generic.ISet[QuantConnect_Util_LinqExtensions_AreDifferent_T], right: System.Collections.Generic.ISet[QuantConnect_Util_LinqExtensions_AreDifferent_T]) -> bool:
+        """
+        Determines if there are any differences between the left and right collections.
+        This method uses sets to improve performance and also uses lazy evaluation so if a
+        difference is found, true is immediately returned and evaluation is halted.
+        
+        :param left: The left set
+        :param right: The right set
+        :returns: True if there are any differences between the two sets, false otherwise.
+        """
+        ...
+
+
+class _LinqExtensions_AreDifferent:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_LinqExtensions_AreDifferent_T]) -> QuantConnect.Util._Typed_LinqExtensions_AreDifferent[QuantConnect_Util_LinqExtensions_AreDifferent_T]:
+        ...
+
+
+class _Typed_LinqExtensions_AsEnumerable(typing.Generic[QuantConnect_Util_LinqExtensions_AsEnumerable_T]):
+    """"""
+
+    @overload
+    def __call__(self, enumerator: System.Collections.Generic.IEnumerator[QuantConnect_Util_LinqExtensions_AsEnumerable_T]) -> typing.Sequence[QuantConnect_Util_LinqExtensions_AsEnumerable_T]:
+        """
+        Converts an IEnumerator{T} to an IEnumerable{T}
+        
+        :param enumerator: The enumerator to convert to an enumerable
+        :returns: An enumerable wrapping the specified enumerator.
+        """
+        ...
+
+
+class _LinqExtensions_AsEnumerable:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_LinqExtensions_AsEnumerable_T]) -> QuantConnect.Util._Typed_LinqExtensions_AsEnumerable[QuantConnect_Util_LinqExtensions_AsEnumerable_T]:
+        ...
+
+
+class _Typed_LinqExtensions_GetValueOrDefault(typing.Generic[QuantConnect_Util_LinqExtensions_GetValueOrDefault_K]):
+    """"""
+
+    @overload
+    def __call__(self, dictionary: System.Collections.Generic.IDictionary[QuantConnect_Util_LinqExtensions_GetValueOrDefault_K, QuantConnect_Util_LinqExtensions_GetValueOrDefault_V], key: QuantConnect_Util_LinqExtensions_GetValueOrDefault_K, default_value: QuantConnect_Util_LinqExtensions_GetValueOrDefault_V = ...) -> QuantConnect_Util_LinqExtensions_GetValueOrDefault_V:
+        """
+        Gets the value associated with the specified key or provided default value if key is not found.
+        
+        :param dictionary: The dictionary instance
+        :param key: Lookup key
+        :param default_value: Default value
+        :returns: Value associated with the specified key or  default value.
+        """
+        ...
+
+
+class _LinqExtensions_GetValueOrDefault:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_LinqExtensions_GetValueOrDefault_K]) -> QuantConnect.Util._Typed_LinqExtensions_GetValueOrDefault[QuantConnect_Util_LinqExtensions_GetValueOrDefault_K]:
+        ...
+
+
+class _Typed_LinqExtensions_DoForEach(typing.Generic[QuantConnect_Util_LinqExtensions_DoForEach_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: typing.List[QuantConnect_Util_LinqExtensions_DoForEach_T], action: typing.Callable[[QuantConnect_Util_LinqExtensions_DoForEach_T], typing.Any]) -> None:
+        """
+        Performs an action for each element in collection source
+        
+        :param source: Collection source
+        :param action: An action to perform
+        """
+        ...
+
+
+class _LinqExtensions_DoForEach:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_LinqExtensions_DoForEach_T]) -> QuantConnect.Util._Typed_LinqExtensions_DoForEach[QuantConnect_Util_LinqExtensions_DoForEach_T]:
+        ...
+
+
+class _Typed_LinqExtensions_ToReadOnlyExtendedDictionary(typing.Generic[QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TKey]):
+    """"""
+
+    @overload
+    def __call__(self, dictionary: System.Collections.Generic.IDictionary[QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TKey, QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TValue]) -> Common.Util.ReadOnlyExtendedDictionary[QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TKey, QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TValue]:
+        """Converts a dictionary to a ReadOnlyExtendedDictionary"""
+        ...
+
+    @overload
+    def __call__(self, source: typing.List[QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TValue], key_selector: typing.Callable[[QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TValue], QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TKey]) -> Common.Util.ReadOnlyExtendedDictionary[QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TKey, QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TValue]:
+        """Creates a ReadOnlyExtendedDictionary from an IEnumerable according to specified key selector"""
+        ...
+
+
+class _LinqExtensions_ToReadOnlyExtendedDictionary:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TKey]) -> QuantConnect.Util._Typed_LinqExtensions_ToReadOnlyExtendedDictionary[QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TKey]:
+        ...
+
+
+class _Typed_LinqExtensions_ToDataDictionary(typing.Generic[QuantConnect_Util_LinqExtensions_ToDataDictionary_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: typing.List[QuantConnect_Util_LinqExtensions_ToDataDictionary_TSource], key_selector: typing.Callable[[QuantConnect_Util_LinqExtensions_ToDataDictionary_TSource], QuantConnect.Symbol], value_selector: typing.Callable[[QuantConnect_Util_LinqExtensions_ToDataDictionary_TSource], QuantConnect_Util_LinqExtensions_ToDataDictionary_TValue]) -> QuantConnect.Data.Market.DataDictionary[QuantConnect_Util_LinqExtensions_ToDataDictionary_TValue]:
+        """Creates a DataDictionary from an IEnumerable according to specified key and value selectors"""
+        ...
+
+
+class _LinqExtensions_ToDataDictionary:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_LinqExtensions_ToDataDictionary_TSource]) -> QuantConnect.Util._Typed_LinqExtensions_ToDataDictionary[QuantConnect_Util_LinqExtensions_ToDataDictionary_TSource]:
+        ...
+
 
 class LinqExtensions(System.Object):
     """Provides more extension methods for the enumerable types"""
+
+    to_read_only_dictionary: QuantConnect.Util._LinqExtensions_ToReadOnlyDictionary
+
+    to_hash_set: QuantConnect.Util._LinqExtensions_ToHashSet
+
+    to_list: QuantConnect.Util._LinqExtensions_ToList
+
+    to_array: QuantConnect.Util._LinqExtensions_ToArray
+
+    to_immutable_array: QuantConnect.Util._LinqExtensions_ToImmutableArray
+
+    is_null_or_empty: QuantConnect.Util._LinqExtensions_IsNullOrEmpty
+
+    median: QuantConnect.Util._LinqExtensions_Median
+
+    binary_search: QuantConnect.Util._LinqExtensions_BinarySearch
+
+    memoize: QuantConnect.Util._LinqExtensions_Memoize
+
+    range: QuantConnect.Util._LinqExtensions_Range
+
+    group_adjacent_by: QuantConnect.Util._LinqExtensions_GroupAdjacentBy
+
+    are_different: QuantConnect.Util._LinqExtensions_AreDifferent
+
+    as_enumerable: QuantConnect.Util._LinqExtensions_AsEnumerable
+
+    get_value_or_default: QuantConnect.Util._LinqExtensions_GetValueOrDefault
+
+    do_for_each: QuantConnect.Util._LinqExtensions_DoForEach
+
+    to_read_only_extended_dictionary: QuantConnect.Util._LinqExtensions_ToReadOnlyExtendedDictionary
+
+    to_data_dictionary: QuantConnect.Util._LinqExtensions_ToDataDictionary
 
 
 class LeanData(System.Object):
@@ -774,7 +1342,7 @@ class ColorJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[System.Drawin
         Converts a .NET Color to a hexadecimal as a string
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: The input value to be converted before serialization
         :returns: Hexadecimal number as a string. If .NET Color is null, returns default #000000.
@@ -787,7 +1355,7 @@ class ColorJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[System.Drawin
         Converts the input string to a .NET Color object
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: The deserialized value that needs to be converted to T
         :returns: The converted value.
@@ -834,8 +1402,32 @@ class SeriesJsonConverter:
         ...
 
 
+class _Typed_XElementExtensions_Get(typing.Generic[QuantConnect_Util_XElementExtensions_Get_T]):
+    """"""
+
+    @overload
+    def __call__(self, element: typing.Any, name: str) -> QuantConnect_Util_XElementExtensions_Get_T:
+        """
+        Gets the value from the element and converts it to the specified type.
+        
+        :param element: The element to access
+        :param name: The attribute name to access on the element
+        :returns: The converted value.
+        """
+        ...
+
+
+class _XElementExtensions_Get:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_XElementExtensions_Get_T]) -> QuantConnect.Util._Typed_XElementExtensions_Get[QuantConnect_Util_XElementExtensions_Get_T]:
+        ...
+
+
 class XElementExtensions(System.Object):
     """Provides extension methods for the XML to LINQ types"""
+
+    get: QuantConnect.Util._XElementExtensions_Get
 
 
 class StreamReaderEnumerable(System.Object, typing.Iterable[str], System.IDisposable):
@@ -916,7 +1508,7 @@ class RateGate(System.Object, System.IDisposable):
         Releases unmanaged resources held by an instance of this class.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param is_disposing: Whether this object is being disposed.
         """
@@ -1166,7 +1758,7 @@ class CircularQueue(typing.Generic[QuantConnect_Util_CircularQueue_T], System.Ob
         Event invocator for the circle_completed evet
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1341,6 +1933,9 @@ class MemoizingEnumerable(typing.Generic[QuantConnect_Util_MemoizingEnumerable_T
     def __iter__(self) -> typing.Iterator[QuantConnect_Util_MemoizingEnumerable_T]:
         ...
 
+    def __len__(self) -> int:
+        ...
+
     def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect_Util_MemoizingEnumerable_T]:
         """
         Returns an enumerator that iterates through the collection.
@@ -1465,11 +2060,175 @@ class ChartPointJsonConverter:
         ...
 
 
+class _Typed_Composer_Single(typing.Generic[QuantConnect_Util_Composer_Single_T]):
+    """"""
+
+    @overload
+    def __call__(self, predicate: typing.Callable[[QuantConnect_Util_Composer_Single_T], bool]) -> QuantConnect_Util_Composer_Single_T:
+        """
+        Gets the export matching the predicate
+        
+        :param predicate: Function used to pick which imported instance to return, if null the first instance is returned
+        :returns: The only export matching the specified predicate.
+        """
+        ...
+
+
+class _Composer_Single:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_Composer_Single_T]) -> QuantConnect.Util._Typed_Composer_Single[QuantConnect_Util_Composer_Single_T]:
+        ...
+
+
+class _Typed_Composer_AddPart(typing.Generic[QuantConnect_Util_Composer_AddPart_T]):
+    """"""
+
+    @overload
+    def __call__(self, instance: QuantConnect_Util_Composer_AddPart_T) -> None:
+        """
+        Adds the specified instance to this instance to allow it to be recalled via GetExportedValueByTypeName
+        
+        :param instance: The instance to add
+        """
+        ...
+
+
+class _Composer_AddPart:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_Composer_AddPart_T]) -> QuantConnect.Util._Typed_Composer_AddPart[QuantConnect_Util_Composer_AddPart_T]:
+        ...
+
+
+class _Typed_Composer_GetPart(typing.Generic[QuantConnect_Util_Composer_GetPart_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> QuantConnect_Util_Composer_GetPart_T:
+        """Gets the first type T instance if any"""
+        ...
+
+    @overload
+    def __call__(self, filter: typing.Callable[[QuantConnect_Util_Composer_GetPart_T], bool]) -> QuantConnect_Util_Composer_GetPart_T:
+        """Gets the first type T instance if any"""
+        ...
+
+
+class _Composer_GetPart:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_Composer_GetPart_T]) -> QuantConnect.Util._Typed_Composer_GetPart[QuantConnect_Util_Composer_GetPart_T]:
+        ...
+
+
+class _Typed_Composer_GetParts(typing.Generic[QuantConnect_Util_Composer_GetParts_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> typing.Sequence[QuantConnect_Util_Composer_GetParts_T]:
+        """Gets all parts of type T instance if any"""
+        ...
+
+
+class _Composer_GetParts:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_Composer_GetParts_T]) -> QuantConnect.Util._Typed_Composer_GetParts[QuantConnect_Util_Composer_GetParts_T]:
+        ...
+
+
+class _Typed_Composer_GetExportedTypes(typing.Generic[QuantConnect_Util_Composer_GetExportedTypes_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> typing.Sequence[typing.Type]:
+        """Will return all loaded types that are assignable to T type"""
+        ...
+
+
+class _Composer_GetExportedTypes:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_Composer_GetExportedTypes_T]) -> QuantConnect.Util._Typed_Composer_GetExportedTypes[QuantConnect_Util_Composer_GetExportedTypes_T]:
+        ...
+
+
+class _Typed_Composer_GetExportedValueByTypeName(typing.Generic[QuantConnect_Util_Composer_GetExportedValueByTypeName_T]):
+    """"""
+
+    @overload
+    def __call__(self, type_name: str, force_type_name_on_existing: bool = True) -> QuantConnect_Util_Composer_GetExportedValueByTypeName_T:
+        """
+        Extension method to searches the composition container for an export that has a matching type name. This function
+        will first try to match on Type.AssemblyQualifiedName, then Type.FullName, and finally on Type.Name
+        
+        This method will not throw if multiple types are found matching the name, it will just return the first one it finds.
+        
+        :param type_name: The name of the type to find. This can be an assembly qualified name, a full name, or just the type's name
+        :param force_type_name_on_existing: When false, if any existing instance of type T is found, it will be returned even if type name doesn't match.
+        This is useful in cases where a single global instance is desired, like for IDataAggregator
+        :returns: The export instance.
+        """
+        ...
+
+
+class _Composer_GetExportedValueByTypeName:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_Composer_GetExportedValueByTypeName_T]) -> QuantConnect.Util._Typed_Composer_GetExportedValueByTypeName[QuantConnect_Util_Composer_GetExportedValueByTypeName_T]:
+        ...
+
+
+class _Typed_Composer_GetExportedValues(typing.Generic[QuantConnect_Util_Composer_GetExportedValues_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> typing.Sequence[QuantConnect_Util_Composer_GetExportedValues_T]:
+        """Gets all exports of type T"""
+        ...
+
+
+class _Composer_GetExportedValues:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_Composer_GetExportedValues_T]) -> QuantConnect.Util._Typed_Composer_GetExportedValues[QuantConnect_Util_Composer_GetExportedValues_T]:
+        ...
+
+
 class Composer(System.Object):
     """Provides methods for obtaining exported MEF instances"""
 
     INSTANCE: QuantConnect.Util.Composer
     """Gets the singleton instance"""
+
+    @property
+    def single(self) -> QuantConnect.Util._Composer_Single:
+        ...
+
+    @property
+    def add_part(self) -> QuantConnect.Util._Composer_AddPart:
+        ...
+
+    @property
+    def get_part(self) -> QuantConnect.Util._Composer_GetPart:
+        ...
+
+    @property
+    def get_parts(self) -> QuantConnect.Util._Composer_GetParts:
+        ...
+
+    @property
+    def get_exported_types(self) -> QuantConnect.Util._Composer_GetExportedTypes:
+        ...
+
+    @property
+    def get_exported_value_by_type_name(self) -> QuantConnect.Util._Composer_GetExportedValueByTypeName:
+        ...
+
+    @property
+    def get_exported_values(self) -> QuantConnect.Util._Composer_GetExportedValues:
+        ...
 
     def __init__(self) -> None:
         """
@@ -1575,7 +2334,7 @@ class WorkerThread(System.Object, System.IDisposable):
         Creates a new instance, which internally launches a new worker thread
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1592,8 +2351,62 @@ class WorkerThread(System.Object, System.IDisposable):
         ...
 
 
+class _Typed_EnumeratorExtensions_Where(typing.Generic[QuantConnect_Util_EnumeratorExtensions_Where_T]):
+    """"""
+
+    @overload
+    def __call__(self, enumerator: System.Collections.Generic.IEnumerator[QuantConnect_Util_EnumeratorExtensions_Where_T], predicate: typing.Callable[[QuantConnect_Util_EnumeratorExtensions_Where_T], bool]) -> System.Collections.Generic.IEnumerator[QuantConnect_Util_EnumeratorExtensions_Where_T]:
+        """Filter the enumerator using the specified predicate"""
+        ...
+
+
+class _EnumeratorExtensions_Where:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_EnumeratorExtensions_Where_T]) -> QuantConnect.Util._Typed_EnumeratorExtensions_Where[QuantConnect_Util_EnumeratorExtensions_Where_T]:
+        ...
+
+
+class _Typed_EnumeratorExtensions_Select(typing.Generic[QuantConnect_Util_EnumeratorExtensions_Select_T]):
+    """"""
+
+    @overload
+    def __call__(self, enumerator: System.Collections.Generic.IEnumerator[QuantConnect_Util_EnumeratorExtensions_Select_T], selector: typing.Callable[[QuantConnect_Util_EnumeratorExtensions_Select_T], QuantConnect_Util_EnumeratorExtensions_Select_TResult]) -> System.Collections.Generic.IEnumerator[QuantConnect_Util_EnumeratorExtensions_Select_TResult]:
+        """Project the enumerator using the specified selector"""
+        ...
+
+
+class _EnumeratorExtensions_Select:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_EnumeratorExtensions_Select_T]) -> QuantConnect.Util._Typed_EnumeratorExtensions_Select[QuantConnect_Util_EnumeratorExtensions_Select_T]:
+        ...
+
+
+class _Typed_EnumeratorExtensions_SelectMany(typing.Generic[QuantConnect_Util_EnumeratorExtensions_SelectMany_T]):
+    """"""
+
+    @overload
+    def __call__(self, enumerator: System.Collections.Generic.IEnumerator[QuantConnect_Util_EnumeratorExtensions_SelectMany_T], selector: typing.Callable[[QuantConnect_Util_EnumeratorExtensions_SelectMany_T], System.Collections.Generic.IEnumerator[QuantConnect_Util_EnumeratorExtensions_SelectMany_TResult]]) -> System.Collections.Generic.IEnumerator[QuantConnect_Util_EnumeratorExtensions_SelectMany_TResult]:
+        """Project the enumerator using the specified selector"""
+        ...
+
+
+class _EnumeratorExtensions_SelectMany:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_EnumeratorExtensions_SelectMany_T]) -> QuantConnect.Util._Typed_EnumeratorExtensions_SelectMany[QuantConnect_Util_EnumeratorExtensions_SelectMany_T]:
+        ...
+
+
 class EnumeratorExtensions(System.Object):
     """Provides convenience of linq extension methods for IEnumerator{T} types"""
+
+    where: QuantConnect.Util._EnumeratorExtensions_Where
+
+    select: QuantConnect.Util._EnumeratorExtensions_Select
+
+    select_many: QuantConnect.Util._EnumeratorExtensions_SelectMany
 
 
 class TypeChangeJsonConverter(typing.Generic[QuantConnect_Util_TypeChangeJsonConverter_T, QuantConnect_Util_TypeChangeJsonConverter_TResult], metaclass=abc.ABCMeta):
@@ -1608,7 +2421,7 @@ class TypeChangeJsonConverter(typing.Generic[QuantConnect_Util_TypeChangeJsonCon
         True will populate TResult object returned by convert(TResult) with json properties
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1627,7 +2440,7 @@ class TypeChangeJsonConverter(typing.Generic[QuantConnect_Util_TypeChangeJsonCon
         Convert the input value to a value to be serialized
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: The input value to be converted before serialziation
         :returns: A new instance of TResult that is to be serialzied.
@@ -1640,7 +2453,7 @@ class TypeChangeJsonConverter(typing.Generic[QuantConnect_Util_TypeChangeJsonCon
         Converts the input value to be deserialized
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: The deserialized value that needs to be converted to T
         :returns: The converted value.
@@ -1652,7 +2465,7 @@ class TypeChangeJsonConverter(typing.Generic[QuantConnect_Util_TypeChangeJsonCon
         Creates an instance of the un-projected type to be deserialized
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param type: The input object type, this is the data held in the token
         :param token: The input data to be converted into a T
@@ -1746,8 +2559,36 @@ class ReaderWriterLockSlimExtensions(System.Object):
         ...
 
 
+class _Typed_ObjectActivator_Clone(typing.Generic[QuantConnect_Util_ObjectActivator_Clone_T]):
+    """"""
+
+    @overload
+    def __call__(self, instance_to_clone: QuantConnect_Util_ObjectActivator_Clone_T) -> QuantConnect_Util_ObjectActivator_Clone_T:
+        """Clones the specified instance and then casts it to T before returning"""
+        ...
+
+
+class _ObjectActivator_Clone:
+    """"""
+
+    @overload
+    def __call__(self, instance_to_clone: typing.Any) -> System.Object:
+        """
+        Clones the specified instance using reflection
+        
+        :param instance_to_clone: The instance to be cloned
+        :returns: A field/property wise, non-recursive clone of the instance.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_ObjectActivator_Clone_T]) -> QuantConnect.Util._Typed_ObjectActivator_Clone[QuantConnect_Util_ObjectActivator_Clone_T]:
+        ...
+
+
 class ObjectActivator(System.Object):
     """Provides methods for creating new instances of objects"""
+
+    clone: QuantConnect.Util._ObjectActivator_Clone
 
     @staticmethod
     def add_activator(key: typing.Type, value: typing.Callable[[typing.List[System.Object]], System.Object]) -> None:
@@ -1756,16 +2597,6 @@ class ObjectActivator(System.Object):
         
         :param key: The key of the method to add
         :param value: The value of the method to add
-        """
-        ...
-
-    @staticmethod
-    def clone(instance_to_clone: typing.Any) -> System.Object:
-        """
-        Clones the specified instance using reflection
-        
-        :param instance_to_clone: The instance to be cloned
-        :returns: A field/property wise, non-recursive clone of the instance.
         """
         ...
 
@@ -1911,8 +2742,121 @@ class ListComparer(typing.Generic[QuantConnect_Util_ListComparer_T], System.Obje
         ...
 
 
+class _Typed_ExpressionBuilder_MakePropertyOrFieldSelector(typing.Generic[QuantConnect_Util_ExpressionBuilder_MakePropertyOrFieldSelector_T]):
+    """"""
+
+    @overload
+    def __call__(self, property_or_field: str) -> typing.Any:
+        """
+        Constructs a selector of the form: x => x.property_or_field where x is an instance of 'type'
+        
+        :param property_or_field: The name of the property or field to bind to
+        :returns: A new lambda expression that represents accessing the property or field on 'type'.
+        """
+        ...
+
+
+class _ExpressionBuilder_MakePropertyOrFieldSelector:
+    """"""
+
+    @overload
+    def __call__(self, type: typing.Type, property_or_field: str) -> typing.Any:
+        """
+        Constructs a selector of the form: x => x.property_or_field where x is an instance of 'type'
+        
+        :param type: The type of the parameter in the expression
+        :param property_or_field: The name of the property or field to bind to
+        :returns: A new lambda expression that represents accessing the property or field on 'type'.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_ExpressionBuilder_MakePropertyOrFieldSelector_T]) -> QuantConnect.Util._Typed_ExpressionBuilder_MakePropertyOrFieldSelector[QuantConnect_Util_ExpressionBuilder_MakePropertyOrFieldSelector_T]:
+        ...
+
+
+class _Typed_ExpressionBuilder_MakeBinaryComparisonLambda(typing.Generic[QuantConnect_Util_ExpressionBuilder_MakeBinaryComparisonLambda_T]):
+    """"""
+
+    @overload
+    def __call__(self, type: typing.Any) -> typing.Any:
+        """
+        Constructs a lambda expression that accepts two parameters of type t and applies
+        the specified binary comparison and returns the boolean result.
+        """
+        ...
+
+
+class _ExpressionBuilder_MakeBinaryComparisonLambda:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_ExpressionBuilder_MakeBinaryComparisonLambda_T]) -> QuantConnect.Util._Typed_ExpressionBuilder_MakeBinaryComparisonLambda[QuantConnect_Util_ExpressionBuilder_MakeBinaryComparisonLambda_T]:
+        ...
+
+
+class _Typed_ExpressionBuilder_OfType(typing.Generic[QuantConnect_Util_ExpressionBuilder_OfType_T]):
+    """"""
+
+    @overload
+    def __call__(self, expression: typing.Any) -> typing.Sequence[QuantConnect_Util_ExpressionBuilder_OfType_T]:
+        """
+        Returns all the expressions of the specified type in the given expression tree
+        
+        :param expression: The expression to search
+        :returns: All expressions of the given type in the specified expression.
+        """
+        ...
+
+
+class _ExpressionBuilder_OfType:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_ExpressionBuilder_OfType_T]) -> QuantConnect.Util._Typed_ExpressionBuilder_OfType[QuantConnect_Util_ExpressionBuilder_OfType_T]:
+        ...
+
+
+class _Typed_ExpressionBuilder_Single(typing.Generic[QuantConnect_Util_ExpressionBuilder_Single_T]):
+    """"""
+
+    @overload
+    def __call__(self, expression: typing.Any) -> QuantConnect_Util_ExpressionBuilder_Single_T:
+        """
+        Returns the single expression of the specified type or throws if none or more than one expression
+        of the specified type is contained within the expression.
+        
+        :param expression: The expression to search
+        :returns: Expression of the specified type.
+        """
+        ...
+
+    @overload
+    def __call__(self, expressions: typing.List[Expression]) -> QuantConnect_Util_ExpressionBuilder_Single_T:
+        """
+        Returns the single expression of the specified type or throws if none or more than one expression
+        of the specified type is contained within the expression.
+        
+        :param expressions: The expressions to search
+        :returns: Expression of the specified type.
+        """
+        ...
+
+
+class _ExpressionBuilder_Single:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_ExpressionBuilder_Single_T]) -> QuantConnect.Util._Typed_ExpressionBuilder_Single[QuantConnect_Util_ExpressionBuilder_Single_T]:
+        ...
+
+
 class ExpressionBuilder(System.Object):
     """Provides methods for constructing expressions at runtime"""
+
+    make_property_or_field_selector: QuantConnect.Util._ExpressionBuilder_MakePropertyOrFieldSelector
+
+    make_binary_comparison_lambda: QuantConnect.Util._ExpressionBuilder_MakeBinaryComparisonLambda
+
+    of_type: QuantConnect.Util._ExpressionBuilder_OfType
+
+    single: QuantConnect.Util._ExpressionBuilder_Single
 
     @staticmethod
     def as_enumerable(expression: typing.Any) -> typing.Sequence[Expression]:
@@ -1929,20 +2873,34 @@ class ExpressionBuilder(System.Object):
         """Determines whether or not the specified type is a binary comparison."""
         ...
 
-    @staticmethod
-    def make_property_or_field_selector(type: typing.Type, property_or_field: str) -> typing.Any:
+
+class _Typed_ComparisonOperator_Compare(typing.Generic[QuantConnect_Util_ComparisonOperator_Compare_T]):
+    """"""
+
+    @overload
+    def __call__(self, op: QuantConnect.Util.ComparisonOperatorTypes, arg_1: QuantConnect_Util_ComparisonOperator_Compare_T, arg_2: QuantConnect_Util_ComparisonOperator_Compare_T) -> bool:
         """
-        Constructs a selector of the form: x => x.property_or_field where x is an instance of 'type'
+        Compares two values using given operator
         
-        :param type: The type of the parameter in the expression
-        :param property_or_field: The name of the property or field to bind to
-        :returns: A new lambda expression that represents accessing the property or field on 'type'.
+        :param op: Comparison operator
+        :param arg_1: The first value
+        :param arg_2: The second value
+        :returns: Returns true if its left-hand operand meets the operator value to its right-hand operand, false otherwise.
         """
+        ...
+
+
+class _ComparisonOperator_Compare:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_ComparisonOperator_Compare_T]) -> QuantConnect.Util._Typed_ComparisonOperator_Compare[QuantConnect_Util_ComparisonOperator_Compare_T]:
         ...
 
 
 class ComparisonOperator(System.Object):
     """Utility Comparison Operator class"""
+
+    compare: QuantConnect.Util._ComparisonOperator_Compare
 
 
 class ConcurrentSet(typing.Generic[QuantConnect_Util_ConcurrentSet_T], System.Object, System.Collections.Generic.ISet[QuantConnect_Util_ConcurrentSet_T], typing.Iterable[QuantConnect_Util_ConcurrentSet_T]):
@@ -1962,6 +2920,9 @@ class ConcurrentSet(typing.Generic[QuantConnect_Util_ConcurrentSet_T], System.Ob
         ...
 
     def __iter__(self) -> typing.Iterator[QuantConnect_Util_ConcurrentSet_T]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def add(self, item: QuantConnect_Util_ConcurrentSet_T) -> bool:
@@ -2126,11 +3087,102 @@ class OptionPayoff(System.Object):
         ...
 
 
+class _Typed_PythonUtil_ToAction(typing.Generic[QuantConnect_Util_PythonUtil_ToAction_T1]):
+    """"""
+
+    @overload
+    def __call__(self, py_object: typing.Any) -> typing.Callable[[QuantConnect_Util_PythonUtil_ToAction_T1], typing.Any]:
+        """
+        Encapsulates a python method with a System.Action{T1}
+        
+        :param py_object: The python method
+        :returns: A System.Action{T1} that encapsulates the python method.
+        """
+        ...
+
+    @overload
+    def __call__(self, py_object: typing.Any) -> typing.Callable[[QuantConnect_Util_PythonUtil_ToAction_T1, QuantConnect_Util_PythonUtil_ToAction_T2], typing.Any]:
+        """
+        Encapsulates a python method with a System.Action{T1, T2}
+        
+        :param py_object: The python method
+        :returns: A System.Action{T1, T2} that encapsulates the python method.
+        """
+        ...
+
+
+class _PythonUtil_ToAction:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_PythonUtil_ToAction_T1]) -> QuantConnect.Util._Typed_PythonUtil_ToAction[QuantConnect_Util_PythonUtil_ToAction_T1]:
+        ...
+
+
+class _Typed_PythonUtil_ToFunc(typing.Generic[QuantConnect_Util_PythonUtil_ToFunc_T1]):
+    """"""
+
+    @overload
+    def __call__(self, py_object: typing.Any) -> typing.Callable[[QuantConnect_Util_PythonUtil_ToFunc_T1], QuantConnect_Util_PythonUtil_ToFunc_T2]:
+        """
+        Encapsulates a python method with a System.Func{T1, T2}
+        
+        :param py_object: The python method
+        :returns: A System.Func{T1, T2} that encapsulates the python method.
+        """
+        ...
+
+    @overload
+    def __call__(self, py_object: typing.Any) -> typing.Callable[[QuantConnect_Util_PythonUtil_ToFunc_T1, QuantConnect_Util_PythonUtil_ToFunc_T2], QuantConnect_Util_PythonUtil_ToFunc_T3]:
+        """
+        Encapsulates a python method with a System.Func{T1, T2, T3}
+        
+        :param py_object: The python method
+        :returns: A System.Func{T1, T2, T3} that encapsulates the python method.
+        """
+        ...
+
+
+class _PythonUtil_ToFunc:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_PythonUtil_ToFunc_T1]) -> QuantConnect.Util._Typed_PythonUtil_ToFunc[QuantConnect_Util_PythonUtil_ToFunc_T1]:
+        ...
+
+
+class _Typed_PythonUtil_CreateInstanceOrWrapper(typing.Generic[QuantConnect_Util_PythonUtil_CreateInstanceOrWrapper_T]):
+    """"""
+
+    @overload
+    def __call__(self, py_object: typing.Any, create_wrapper: typing.Callable[[typing.Any], QuantConnect_Util_PythonUtil_CreateInstanceOrWrapper_T]) -> QuantConnect_Util_PythonUtil_CreateInstanceOrWrapper_T:
+        """
+        Attempts to convert a PyObject into a pure C# instance of t.
+        If conversion fails, a wrapper instance is created/>.
+        
+        :param py_object: The Python object to convert.
+        :param create_wrapper: Factory function used to create a wrapper around the Python object
+        :returns: A pure C# instance if conversion is possible, otherwise a wrapper instance.
+        """
+        ...
+
+
+class _PythonUtil_CreateInstanceOrWrapper:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Util_PythonUtil_CreateInstanceOrWrapper_T]) -> QuantConnect.Util._Typed_PythonUtil_CreateInstanceOrWrapper[QuantConnect_Util_PythonUtil_CreateInstanceOrWrapper_T]:
+        ...
+
+
 class PythonUtil(System.Object):
     """Collection of utils for python objects processing"""
 
     exception_line_shift: int
     """The python exception stack trace line shift to use"""
+
+    to_action: QuantConnect.Util._PythonUtil_ToAction
+
+    to_func: QuantConnect.Util._PythonUtil_ToFunc
+
+    create_instance_or_wrapper: QuantConnect.Util._PythonUtil_CreateInstanceOrWrapper
 
     @staticmethod
     def convert_to_symbols(input: typing.Any) -> typing.Sequence[QuantConnect.Symbol]:
@@ -2366,7 +3418,7 @@ class MarketHoursDatabaseJsonConverter(QuantConnect.Util.TypeChangeJsonConverter
         Convert the input value to a value to be serialzied
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: The input value to be converted before serialziation
         :returns: A new instance of TResult that is to be serialzied.
@@ -2379,7 +3431,7 @@ class MarketHoursDatabaseJsonConverter(QuantConnect.Util.TypeChangeJsonConverter
         Converts the input value to be deserialized
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: The deserialized value that needs to be converted to T
         :returns: The converted value.
@@ -2391,7 +3443,7 @@ class MarketHoursDatabaseJsonConverter(QuantConnect.Util.TypeChangeJsonConverter
         Creates an instance of the un-projected type to be deserialized
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param type: The input object type, this is the data held in the token
         :param token: The input data to be converted into a T
@@ -2418,7 +3470,7 @@ class DoubleUnixSecondsDateTimeJsonConverter(QuantConnect.Util.TypeChangeJsonCon
         Convert the input value to a value to be serialzied
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: The input value to be converted before serialziation
         :returns: A new instance of TResult that is to be serialzied.
@@ -2431,7 +3483,7 @@ class DoubleUnixSecondsDateTimeJsonConverter(QuantConnect.Util.TypeChangeJsonCon
         Converts the input value to be deserialized
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: The deserialized value that needs to be converted to T
         :returns: The converted value.

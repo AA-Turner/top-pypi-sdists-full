@@ -30,9 +30,7 @@ import six
 import objc
 import HIServices
 
-from CoreFoundation import (
-    CFRelease
-)
+from CoreFoundation import CFRelease
 
 from Quartz import (
     CFMachPortCreateRunLoopSource,
@@ -49,7 +47,8 @@ from Quartz import (
     kCGEventTapOptionDefault,
     kCGEventTapOptionListenOnly,
     kCGHeadInsertEventTap,
-    kCGSessionEventTap)
+    kCGSessionEventTap,
+)
 
 
 from . import AbstractListener
@@ -85,17 +84,21 @@ class CarbonExtra(object):
     """A class exposing some missing functionality from *Carbon* as class
     attributes.
     """
+
     _Carbon = ctypes.cdll.LoadLibrary(ctypes.util.find_library('Carbon'))
 
     _Carbon.TISCopyCurrentKeyboardInputSource.argtypes = []
     _Carbon.TISCopyCurrentKeyboardInputSource.restype = ctypes.c_void_p
 
     _Carbon.TISCopyCurrentASCIICapableKeyboardLayoutInputSource.argtypes = []
-    _Carbon.TISCopyCurrentASCIICapableKeyboardLayoutInputSource.restype = \
+    _Carbon.TISCopyCurrentASCIICapableKeyboardLayoutInputSource.restype = (
         ctypes.c_void_p
+    )
 
     _Carbon.TISGetInputSourceProperty.argtypes = [
-        ctypes.c_void_p, ctypes.c_void_p]
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+    ]
     _Carbon.TISGetInputSourceProperty.restype = ctypes.c_void_p
 
     _Carbon.LMGetKbdType.argtypes = []
@@ -111,29 +114,30 @@ class CarbonExtra(object):
         ctypes.POINTER(ctypes.c_uint32),
         ctypes.c_uint8,
         ctypes.POINTER(ctypes.c_uint8),
-        ctypes.c_uint16 * 4]
+        ctypes.c_uint16 * 4,
+    ]
     _Carbon.UCKeyTranslate.restype = ctypes.c_uint32
 
-    TISCopyCurrentKeyboardInputSource = \
+    TISCopyCurrentKeyboardInputSource = (
         _Carbon.TISCopyCurrentKeyboardInputSource
+    )
 
-    TISCopyCurrentASCIICapableKeyboardLayoutInputSource = \
+    TISCopyCurrentASCIICapableKeyboardLayoutInputSource = (
         _Carbon.TISCopyCurrentASCIICapableKeyboardLayoutInputSource
+    )
 
     kTISPropertyUnicodeKeyLayoutData = ctypes.c_void_p.in_dll(
-        _Carbon, 'kTISPropertyUnicodeKeyLayoutData')
+        _Carbon, 'kTISPropertyUnicodeKeyLayoutData'
+    )
 
-    TISGetInputSourceProperty = \
-        _Carbon.TISGetInputSourceProperty
+    TISGetInputSourceProperty = _Carbon.TISGetInputSourceProperty
 
-    LMGetKbdType = \
-        _Carbon.LMGetKbdType
+    LMGetKbdType = _Carbon.LMGetKbdType
 
     kUCKeyActionDisplay = 3
     kUCKeyTranslateNoDeadKeysBit = 0
 
-    UCKeyTranslate = \
-        _Carbon.UCKeyTranslate
+    UCKeyTranslate = _Carbon.UCKeyTranslate
 
 
 @contextlib.contextmanager
@@ -143,13 +147,16 @@ def keycode_context():
     """
     keyboard_type, layout_data = None, None
     for source in [
-            CarbonExtra.TISCopyCurrentKeyboardInputSource,
-            CarbonExtra.TISCopyCurrentASCIICapableKeyboardLayoutInputSource]:
+        CarbonExtra.TISCopyCurrentKeyboardInputSource,
+        CarbonExtra.TISCopyCurrentASCIICapableKeyboardLayoutInputSource,
+    ]:
         with _wrapped(source()) as keyboard:
             keyboard_type = CarbonExtra.LMGetKbdType()
-            layout = _wrap_value(CarbonExtra.TISGetInputSourceProperty(
-                keyboard,
-                CarbonExtra.kTISPropertyUnicodeKeyLayoutData))
+            layout = _wrap_value(
+                CarbonExtra.TISGetInputSourceProperty(
+                    keyboard, CarbonExtra.kTISPropertyUnicodeKeyLayoutData
+                )
+            )
             layout_data = layout.bytes().tobytes() if layout else None
             if keyboard is not None and layout_data is not None:
                 break
@@ -157,8 +164,7 @@ def keycode_context():
 
 
 def keycode_to_string(context, keycode, modifier_state=0):
-    """Converts a keycode to a string.
-    """
+    """Converts a keycode to a string."""
     LENGTH = 4
 
     keyboard_type, layout_data = context
@@ -176,10 +182,9 @@ def keycode_to_string(context, keycode, modifier_state=0):
         ctypes.byref(dead_key_state),
         LENGTH,
         ctypes.byref(length),
-        unicode_string)
-    return u''.join(
-        six.unichr(unicode_string[i])
-        for i in range(length.value))
+        unicode_string,
+    )
+    return ''.join(six.unichr(unicode_string[i]) for i in range(length.value))
 
 
 def get_unicode_to_keycode_map():
@@ -190,7 +195,8 @@ def get_unicode_to_keycode_map():
     with keycode_context() as context:
         return {
             keycode_to_string(context, keycode): keycode
-            for keycode in range(128)}
+            for keycode in range(128)
+        }
 
 
 class ListenerMixin(object):
@@ -199,6 +205,7 @@ class ListenerMixin(object):
     Subclasses should set a value for :attr:`_EVENTS` and implement
     :meth:`_handle_message`.
     """
+
     #: The events that we listen to
     _EVENTS = tuple()
 
@@ -210,7 +217,8 @@ class ListenerMixin(object):
         if not self.IS_TRUSTED:
             self._log.warning(
                 'This process is not trusted! Input event monitoring will not '
-                'be possible until it is added to accessibility clients.')
+                'be possible until it is added to accessibility clients.'
+            )
 
         self._loop = None
         try:
@@ -219,12 +227,10 @@ class ListenerMixin(object):
                 self._mark_ready()
                 return
 
-            loop_source = CFMachPortCreateRunLoopSource(
-                None, tap, 0)
+            loop_source = CFMachPortCreateRunLoopSource(None, tap, 0)
             self._loop = CFRunLoopGetCurrent()
 
-            CFRunLoopAddSource(
-                self._loop, loop_source, kCFRunLoopDefaultMode)
+            CFRunLoopAddSource(self._loop, loop_source, kCFRunLoopDefaultMode)
             CGEventTapEnable(tap, True)
 
             self._mark_ready()
@@ -232,8 +238,7 @@ class ListenerMixin(object):
             # pylint: disable=W0702; we want to silence errors
             try:
                 while self.running:
-                    result = CFRunLoopRunInMode(
-                        kCFRunLoopDefaultMode, 1, False)
+                    result = CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1, False)
                     try:
                         if result != kCFRunLoopRunTimedOut:
                             break
@@ -267,14 +272,13 @@ class ListenerMixin(object):
         return CGEventTapCreate(
             kCGSessionEventTap,
             kCGHeadInsertEventTap,
-            kCGEventTapOptionListenOnly if (
-                True
-                and not self.suppress
-                and self._intercept is None)
+            kCGEventTapOptionListenOnly
+            if (True and not self.suppress and self._intercept is None)
             else kCGEventTapOptionDefault,
             self._EVENTS,
             self._handler,
-            None)
+            None,
+        )
 
     @AbstractListener._emitter
     def _handler(self, proxy, event_type, event, refcon):
@@ -283,9 +287,9 @@ class ListenerMixin(object):
         This method will call the callbacks registered on initialisation.
         """
         # An injected event will have a Unix process ID attached
-        is_injected = (CGEventGetIntegerValueField(
-            event,
-            kCGEventSourceUnixProcessID)) != 0
+        is_injected = (
+            CGEventGetIntegerValueField(event, kCGEventSourceUnixProcessID)
+        ) != 0
 
         self._handle_message(proxy, event_type, event, refcon, is_injected)
         if self._intercept is not None:

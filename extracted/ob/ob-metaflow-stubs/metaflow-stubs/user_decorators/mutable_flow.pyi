@@ -1,19 +1,21 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.805720                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.044737                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.parameters
-    import metaflow.flowspec
     import functools
-    import metaflow.user_configs.config_parameters
+    import metaflow.parameters
+    import metaflow.user_decorators.user_flow_decorator
     import typing
+    import metaflow.decorators
     import metaflow.user_decorators.mutable_step
+    import metaflow.flowspec
+    import metaflow.user_configs.config_parameters
 
 from ..exception import MetaflowException as MetaflowException
 from ..user_configs.config_parameters import ConfigValue as ConfigValue
@@ -21,7 +23,7 @@ from ..user_configs.config_parameters import ConfigValue as ConfigValue
 TYPE_CHECKING: bool
 
 class MutableFlow(object, metaclass=type):
-    def __init__(self, flow_spec: "metaflow.flowspec.FlowSpec", pre_mutate: bool = False, statically_defined: bool = False, inserted_by: typing.Optional[str] = None):
+    def __init__(self, flow_spec: "metaflow.flowspec.FlowSpec", pre_mutate: bool = False, statically_defined: bool = False, inserted_by: typing.Union[str, None] = None):
         ...
     @property
     def decorator_specs(self) -> typing.Generator[typing.Tuple[str, str, typing.List[typing.Any], typing.Dict[str, typing.Any]], None, None]:
@@ -42,8 +44,34 @@ class MutableFlow(object, metaclass=type):
         Yields
         ------
         str, str, List[Any], Dict[str, Any]
-            A tuple containing the decorator name, it's fully qualified name,
+            A tuple containing the decorator name, its fully qualified name,
             a list of positional arguments, and a dictionary of keyword arguments.
+        """
+        ...
+    def has_decorator(self, name: str) -> bool:
+        """
+        Check whether this flow has at least one decorator with the given name.
+        
+        Parameters
+        ----------
+        name : str
+            The decorator name (short) or fully qualified name (contains a period).
+        """
+        ...
+    def get_decorator_specs(self, name: str) -> typing.List[typing.Tuple[str, str, typing.List[typing.Any], typing.Dict[str, typing.Any]]]:
+        """
+        Return all spec tuples matching the given name.
+        
+        Parameters
+        ----------
+        name : str
+            The decorator name (short) or fully qualified name (contains a period).
+        
+        Returns
+        -------
+        List[Tuple[str, str, List[Any], Dict[str, Any]]]
+            A list of (short_name, fq_name, args, kwargs) tuples. Empty list if
+            no decorators match.
         """
         ...
     @property
@@ -72,6 +100,9 @@ class MutableFlow(object, metaclass=type):
         ```
         can be used to add an environment decorator to the `start` step.
         
+        If you want to access a particular configuration value, you can use the getattr
+        method or simply <MutableFlow>.step_name.
+        
         Yields
         ------
         Tuple[str, ConfigValue]
@@ -82,6 +113,9 @@ class MutableFlow(object, metaclass=type):
     def parameters(self) -> typing.Generator[typing.Tuple[str, "metaflow.parameters.Parameter"], None, None]:
         """
         Iterate over all the parameters in this flow.
+        
+        If you want to access a particular parameter, you can use the getattr method or
+        simply <MutableFlow>.step_name.
         
         Yields
         ------
@@ -94,6 +128,9 @@ class MutableFlow(object, metaclass=type):
         """
         Iterate over all the steps in this flow. The order of the steps
         returned is not guaranteed.
+        
+        If you want to access a particular step, you can use the getattr method or simply
+        <MutableFlow>.step_name.
         
         Yields
         ------
@@ -135,10 +172,10 @@ class MutableFlow(object, metaclass=type):
             Returns True if the parameter was removed
         """
         ...
-    def add_decorator(self, deco_type: typing.Union[functools.partial, str], deco_args: typing.Optional[typing.List[typing.Any]] = None, deco_kwargs: typing.Optional[typing.Dict[str, typing.Any]] = None, duplicates: int = 1):
+    def add_decorator(self, deco_type: typing.Union[functools.partial, "metaflow.user_decorators.user_flow_decorator.FlowMutator", str], deco_args: typing.Union[typing.List[typing.Any], None] = None, deco_kwargs: typing.Union[typing.Dict[str, typing.Any], None] = None, duplicates: int = 1) -> typing.Union["metaflow.decorators.FlowDecorator", "metaflow.user_decorators.user_flow_decorator.FlowMutator", None]:
         """
-        Add a Metaflow flow-decorator to a flow. You can only add decorators in the
-        `pre_mutate` method.
+        Add a Metaflow flow-decorator or a FlowMutator to a flow. You can only add
+        decorators in the `pre_mutate` method.
         
         You can either add the decorator itself or its decorator specification for it
         (the same you would get back from decorator_specs). You can also mix and match
@@ -175,12 +212,15 @@ class MutableFlow(object, metaclass=type):
             if the newly added decorator is *static* (ie: defined directly in the code).
             If not, it is ignored.
         
+        You can also add a FlowMutator class. The new FlowMutator will have its
+        ``external_init()`` called immediately and its ``pre_mutate`` will be called after
+        all previously existing FlowMutators have called pre-mutate.
+        
         Parameters
         ----------
-        deco_type : Union[partial, str]
-            The decorator class to add to this flow. If using a string, you cannot specify
-            additional arguments as all argument will be parsed from the decorator
-            specification.
+        deco_type : Union[partial, FlowMutator, str]
+            The decorator class to add to this flow. Can be a FlowDecorator partial,
+            a FlowMutator subclass, or a string decorator specification.
         deco_args : List[Any], optional, default None
             Positional arguments to pass to the decorator.
         deco_kwargs : Dict[str, Any], optional, default None
@@ -190,14 +230,22 @@ class MutableFlow(object, metaclass=type):
             - `MutableFlow.IGNORE`: Ignore the decorator if it already exists.
             - `MutableFlow.ERROR`: Raise an error if the decorator already exists.
             - `MutableFlow.OVERRIDE`: Remove the existing decorator and add this one.
+        
+        Returns
+        -------
+        Optional[Union[FlowDecorator, FlowMutator]]
+            The decorator that was added or None if none was added due to duplicate handling.
         """
         ...
-    def remove_decorator(self, deco_name: str, deco_args: typing.Optional[typing.List[typing.Any]] = None, deco_kwargs: typing.Optional[typing.Dict[str, typing.Any]] = None) -> bool:
+    def remove_decorator(self, deco_name: str, deco_args: typing.Union[typing.List[typing.Any], None] = None, deco_kwargs: typing.Union[typing.Dict[str, typing.Any], None] = None) -> bool:
         """
         Remove a flow-level decorator. To remove a decorator, you can pass the decorator
         specification (obtained from `decorator_specs` for example).
         Note that if multiple decorators share the same decorator specification
         (very rare), they will all be removed.
+        
+        FlowMutators cannot be removed because they are processed during iteration.
+        Attempting to remove a FlowMutator will raise an error.
         
         You can only remove decorators in the `pre_mutate` method.
         

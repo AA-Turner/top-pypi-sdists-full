@@ -117,9 +117,7 @@ def test_anthropic_web_search_citations():
     """Test that citations from web search are preserved on the completion."""
     chat = chat_func()
     chat.register_tool(tool_web_search())
-    chat.chat(
-        "When was ggplot2 1.0.0 released to CRAN? Answer in YYYY-MM-DD format."
-    )
+    chat.chat("When was ggplot2 1.0.0 released to CRAN? Answer in YYYY-MM-DD format.")
 
     # Get the turn and verify citations are on the completion
     turn = chat.get_last_turn()
@@ -131,15 +129,63 @@ def test_anthropic_web_search_citations():
     assert len(text_blocks) > 0
 
     # At least one text block should have citations from web search
-    has_citations = any(
-        getattr(block, "citations", None) for block in text_blocks
-    )
+    has_citations = any(getattr(block, "citations", None) for block in text_blocks)
     assert has_citations, "Expected citations on text blocks from web search"
 
 
 @pytest.mark.vcr
 def test_data_extraction():
     assert_data_extraction(chat_func)
+
+
+@pytest.mark.vcr
+def test_stream_with_data_model():
+    from chatlas._content import ContentJson
+
+    chat = chat_func()
+
+    class Person(BaseModel):
+        name: str
+        age: int
+
+    chunks = list(chat.stream("John, age 15, won first prize", data_model=Person))
+    result = "".join(chunks)
+    person = Person.model_validate_json(result)
+    assert person == Person(name="John", age=15)
+
+    turn = chat.get_last_turn()
+    assert turn is not None
+    assert len(turn.contents) == 1
+    assert isinstance(turn.contents[0], ContentJson)
+    assert turn.contents[0].value == {"name": "John", "age": 15}
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+async def test_stream_async_with_data_model():
+    from chatlas._content import ContentJson
+
+    chat = chat_func()
+
+    class Person(BaseModel):
+        name: str
+        age: int
+
+    chunks = [
+        chunk
+        async for chunk in await chat.stream_async(
+            "John, age 15, won first prize", data_model=Person
+        )
+    ]
+    result = "".join(chunks)
+    person = Person.model_validate_json(result)
+    assert person == Person(name="John", age=15)
+
+    turn = chat.get_last_turn()
+    assert turn is not None
+    assert len(turn.contents) == 1
+    assert isinstance(turn.contents[0], ContentJson)
+    assert turn.contents[0].value == {"name": "John", "age": 15}
 
 
 @pytest.mark.vcr
@@ -237,7 +283,9 @@ def test_anthropic_nested_data_model_extraction():
 
         classifications: list[Classification]
 
-    text = "The new quantum computing breakthrough could revolutionize the tech industry."
+    text = (
+        "The new quantum computing breakthrough could revolutionize the tech industry."
+    )
 
     chat = chat_func(system_prompt="You are a friendly but terse assistant.")
     data = chat.chat_structured(text, data_model=Classifications)

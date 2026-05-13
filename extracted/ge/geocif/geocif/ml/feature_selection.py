@@ -4,6 +4,8 @@ os.environ["MPLBACKEND"] = "Agg"
 
 import numpy as np
 from tqdm.rich import tqdm
+
+from geocif.progress import pbar as _pbar
 from sklearn.ensemble import RandomForestRegressor
 from collections import Counter
 from pathlib import Path
@@ -190,7 +192,7 @@ def select_features(
             return np.mean(scores)
 
         nrange = [5,10,15,20,25,30]
-        scores = [eval_n(N) for N in tqdm(nrange)]
+        scores = [eval_n(N) for N in _pbar(nrange)]
         best = nrange[np.argmax(scores)]
         selected = shap_df["feature"].head(best).tolist()
 
@@ -235,7 +237,7 @@ def select_features(
 
         class RFECVProg(RFECV):
             def _fit(self, X, y):
-                with tqdm(total=X.shape[1]) as p:
+                with _pbar(total=X.shape[1]) as p:
                     orig = self.scorer_
                     def wrap(*a, **k):
                         p.update(1)
@@ -266,25 +268,25 @@ def select_features(
         selected = X_clean.columns[sfm.get_support()].tolist()
 
     elif method == "gOMP":
-        # Generalised Orthogonal Matching Pursuit (Tsagris et al. 2020)
-        # Uses BIC stopping by default; selects parsimonious feature sets
+        # Generalised Orthogonal Matching Pursuit (Tsagris et al. 2020).
+        # Permissive config: bypass BIC and just take the top-N residual-
+        # correlated features up to the cap.
         sel, X_out, selected = gomp_select(
             X_clean, y,
             outcome="continuous",
-            stopping="bic",
+            stopping="max_features",
             association="auto",
-            max_features=min(30, X_clean.shape[1]),
-            bic_delta=2.0,
+            max_features=min(500, X_clean.shape[1]),
             verbose=True,
         )
         if len(selected) == 0:
-            # fallback: relax to LRT with generous alpha
+            # fallback: LRT with a generous alpha
             sel, X_out, selected = gomp_select(
                 X_clean, y,
                 outcome="continuous",
                 stopping="lrt",
-                alpha=0.05,
-                max_features=min(30, X_clean.shape[1]),
+                alpha=0.20,
+                max_features=min(500, X_clean.shape[1]),
                 verbose=True,
             )
 

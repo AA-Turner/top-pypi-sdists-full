@@ -23,11 +23,11 @@ class InvalidStopLimitOrderLimitPriceAnalysis(QuantConnect.Lean.Engine.Results.A
 
     @property
     def expected_message_text(self) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
 
@@ -47,11 +47,11 @@ class InvalidStopMarketOrderPriceAnalysis(QuantConnect.Lean.Engine.Results.Analy
 
     @property
     def expected_message_text(self) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
 
@@ -71,11 +71,11 @@ class InvalidStopLimitOrderPriceAnalysis(QuantConnect.Lean.Engine.Results.Analys
 
     @property
     def expected_message_text(self) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
 

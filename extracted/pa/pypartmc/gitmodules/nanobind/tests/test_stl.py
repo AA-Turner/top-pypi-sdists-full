@@ -879,3 +879,7 @@ def test74_variant_implicit_conversions():
     assert event.id is None
     event.id = t.BasicID1(78)
     assert type(event.id) is t.BasicID1
+
+def test75_weird_nones():
+    assert t.takes_nullptr(None) == "nullptr"
+    assert t.takes_monostate(None) == "monostate"

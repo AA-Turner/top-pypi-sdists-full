@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tradingeconomics
-Version: 4.5.9
+Version: 4.5.10
 Summary: Trading Economics API
 Home-page: https://github.com/tradingeconomics/tradingeconomics-python
 Download-URL: https://github.com/tradingeconomics/tradingeconomics-python/tree/main/dist
@@ -9,14 +9,22 @@ Author-email: support@tradingeconomics.com
 License: MIT
 Keywords: tradingeconomics,data
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.2
-Classifier: Programming Language :: Python :: 3.3
-Classifier: Programming Language :: Python :: 3.4
 Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Office/Business :: Financial :: Point-Of-Sale
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: pandas
-Requires-Dist: websocket-client
+Requires-Dist: pandas<4,>=2.0
+Requires-Dist: websocket-client>=1.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -28,6 +36,7 @@ Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
 Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
 
 =====================

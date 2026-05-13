@@ -335,10 +335,9 @@ inline void *type_get_slot(handle h, int slot_id) {
 }
 
 template <typename Visitor> struct def_visitor {
-  protected:
     // Ensure def_visitor<T> can only be derived from, not constructed
     // directly
-    def_visitor() {
+    ~def_visitor() {
         static_assert(std::is_base_of_v<def_visitor, Visitor>,
                       "def_visitor uses CRTP: def_visitor<T> should be "
                       "a base of T");

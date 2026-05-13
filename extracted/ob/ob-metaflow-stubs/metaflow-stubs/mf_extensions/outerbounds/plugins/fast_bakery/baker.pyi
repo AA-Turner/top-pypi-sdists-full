@@ -1,13 +1,13 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.799241                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.036270                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import metaflow.exception
     import metaflow.mf_extensions.outerbounds.plugins.fast_bakery.fast_bakery
@@ -28,7 +28,7 @@ class BakerException(metaflow.exception.MetaflowException, metaclass=type):
         ...
     ...
 
-def bake_image(cache_file_path: str, ref: typing.Optional[str] = None, python: typing.Optional[str] = None, pypi_packages: typing.Optional[typing.Dict[str, str]] = None, conda_packages: typing.Optional[typing.Dict[str, str]] = None, base_image: typing.Optional[str] = None, logger: typing.Optional[typing.Callable[[str], typing.Any]] = None, fast_bakery_url: typing.Optional[str] = None) -> metaflow.mf_extensions.outerbounds.plugins.fast_bakery.fast_bakery.FastBakeryApiResponse:
+def bake_image(cache_file_path: str, ref: typing.Union[str, None] = None, python: typing.Union[str, None] = None, pypi_packages: typing.Union[typing.Dict[str, str], None] = None, conda_packages: typing.Union[typing.Dict[str, str], None] = None, base_image: typing.Union[str, None] = None, logger: typing.Union[typing.Callable[[str], typing.Any], None] = None, fast_bakery_url: typing.Union[str, None] = None, channels: typing.Union[list, None] = None) -> metaflow.mf_extensions.outerbounds.plugins.fast_bakery.fast_bakery.FastBakeryApiResponse:
     """
     Bakes a Docker image with the specified dependencies.
     

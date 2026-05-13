@@ -11,6 +11,7 @@ import System.Diagnostics.Tracing
 
 System_Diagnostics_Tracing__EventContainer_Callable = typing.TypeVar("System_Diagnostics_Tracing__EventContainer_Callable")
 System_Diagnostics_Tracing__EventContainer_ReturnType = typing.TypeVar("System_Diagnostics_Tracing__EventContainer_ReturnType")
+System_Diagnostics_Tracing_EventSource_Write_T = typing.TypeVar("System_Diagnostics_Tracing_EventSource_Write_T")
 
 
 class EventSourceSettings(IntEnum):
@@ -41,88 +42,6 @@ class EventLevel(IntEnum):
     VERBOSE = 5
 
 
-class EventKeywords(IntEnum):
-    """This class has no documentation."""
-
-    NONE = ...
-
-    ALL = ...
-
-    MICROSOFT_TELEMETRY = ...
-
-    WDI_CONTEXT = ...
-
-    WDI_DIAGNOSTIC = ...
-
-    SQM = ...
-
-    AUDIT_FAILURE = ...
-
-    AUDIT_SUCCESS = ...
-
-    CORRELATION_HINT = ...
-
-    EVENT_LOG_CLASSIC = ...
-
-
-class EventChannel(IntEnum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    ADMIN = 16
-
-    OPERATIONAL = 17
-
-    ANALYTIC = 18
-
-    DEBUG = 19
-
-
-class EventManifestOptions(IntEnum):
-    """This class has no documentation."""
-
-    NONE = ...
-
-    STRICT = ...
-
-    ALL_CULTURES = ...
-
-    ONLY_IF_NEEDED_FOR_REGISTRATION = ...
-
-    ALLOW_EVENT_SOURCE_OVERRIDE = ...
-
-
-class EventCommand(IntEnum):
-    """This class has no documentation."""
-
-    UPDATE = 0
-
-    SEND_MANIFEST = -1
-
-    ENABLE = -2
-
-    DISABLE = -3
-
-
-class EventCommandEventArgs(System.EventArgs):
-    """This class has no documentation."""
-
-    @property
-    def command(self) -> System.Diagnostics.Tracing.EventCommand:
-        ...
-
-    @property
-    def arguments(self) -> System.Collections.Generic.IDictionary[str, str]:
-        ...
-
-    def disable_event(self, event_id: int) -> bool:
-        ...
-
-    def enable_event(self, event_id: int) -> bool:
-        ...
-
-
 class EventOpcode(IntEnum):
     """This class has no documentation."""
 
@@ -147,6 +66,30 @@ class EventOpcode(IntEnum):
     SEND = 9
 
     RECEIVE = 240
+
+
+class EventKeywords(IntEnum):
+    """This class has no documentation."""
+
+    NONE = ...
+
+    ALL = ...
+
+    MICROSOFT_TELEMETRY = ...
+
+    WDI_CONTEXT = ...
+
+    WDI_DIAGNOSTIC = ...
+
+    SQM = ...
+
+    AUDIT_FAILURE = ...
+
+    AUDIT_SUCCESS = ...
+
+    CORRELATION_HINT = ...
+
+    EVENT_LOG_CLASSIC = ...
 
 
 class EventTags(IntEnum):
@@ -211,6 +154,99 @@ class EventSourceOptions:
         ...
 
 
+class _Typed_EventSource_Write(typing.Generic[System_Diagnostics_Tracing_EventSource_Write_T]):
+    """"""
+
+    @overload
+    def __call__(self, event_name: str, data: System_Diagnostics_Tracing_EventSource_Write_T) -> None:
+        ...
+
+    @overload
+    def __call__(self, event_name: str, options: System.Diagnostics.Tracing.EventSourceOptions, data: System_Diagnostics_Tracing_EventSource_Write_T) -> None:
+        ...
+
+    @overload
+    def __call__(self, event_name: str, options: System.Diagnostics.Tracing.EventSourceOptions, data: System_Diagnostics_Tracing_EventSource_Write_T) -> None:
+        ...
+
+    @overload
+    def __call__(self, event_name: str, options: System.Diagnostics.Tracing.EventSourceOptions, activity_id: System.Guid, related_activity_id: System.Guid, data: System_Diagnostics_Tracing_EventSource_Write_T) -> None:
+        ...
+
+
+class _EventSource_Write:
+    """"""
+
+    @overload
+    def __call__(self, event_name: str) -> None:
+        ...
+
+    @overload
+    def __call__(self, event_name: str, options: System.Diagnostics.Tracing.EventSourceOptions) -> None:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Diagnostics_Tracing_EventSource_Write_T]) -> System.Diagnostics.Tracing._Typed_EventSource_Write[System_Diagnostics_Tracing_EventSource_Write_T]:
+        ...
+
+
+class EventChannel(IntEnum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    ADMIN = 16
+
+    OPERATIONAL = 17
+
+    ANALYTIC = 18
+
+    DEBUG = 19
+
+
+class EventManifestOptions(IntEnum):
+    """This class has no documentation."""
+
+    NONE = ...
+
+    STRICT = ...
+
+    ALL_CULTURES = ...
+
+    ONLY_IF_NEEDED_FOR_REGISTRATION = ...
+
+    ALLOW_EVENT_SOURCE_OVERRIDE = ...
+
+
+class EventCommand(IntEnum):
+    """This class has no documentation."""
+
+    UPDATE = 0
+
+    SEND_MANIFEST = -1
+
+    ENABLE = -2
+
+    DISABLE = -3
+
+
+class EventCommandEventArgs(System.EventArgs):
+    """This class has no documentation."""
+
+    @property
+    def command(self) -> System.Diagnostics.Tracing.EventCommand:
+        ...
+
+    @property
+    def arguments(self) -> System.Collections.Generic.IDictionary[str, str]:
+        ...
+
+    def disable_event(self, event_id: int) -> bool:
+        ...
+
+    def enable_event(self, event_id: int) -> bool:
+        ...
+
+
 class EventSource(System.Object, System.IDisposable):
     """This class has no documentation."""
 
@@ -242,6 +278,10 @@ class EventSource(System.Object, System.IDisposable):
         ...
 
     CURRENT_THREAD_ACTIVITY_ID: System.Guid
+
+    @property
+    def write(self) -> System.Diagnostics.Tracing._EventSource_Write:
+        ...
 
     @overload
     def __init__(self) -> None:
@@ -342,14 +382,6 @@ class EventSource(System.Object, System.IDisposable):
         ...
 
     def to_string(self) -> str:
-        ...
-
-    @overload
-    def write(self, event_name: str) -> None:
-        ...
-
-    @overload
-    def write(self, event_name: str, options: System.Diagnostics.Tracing.EventSourceOptions) -> None:
         ...
 
     @overload

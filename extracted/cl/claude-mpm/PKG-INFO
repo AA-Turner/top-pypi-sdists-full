@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: claude-mpm
-Version: 6.3.1
+Version: 6.3.10
 Summary: Claude Code workflow and agent management framework - Multi-agent orchestration, skills system, MCP integration, session management, and semantic code search for AI-powered development
 Author-email: Bob Matsuoka <bob@matsuoka.com>
 Maintainer: Claude MPM Team
@@ -10,7 +10,7 @@ Project-URL: Repository, https://github.com/bobmatnyc/claude-mpm.git
 Project-URL: Issues, https://github.com/bobmatnyc/claude-mpm/issues
 Project-URL: Documentation, https://github.com/bobmatnyc/claude-mpm/blob/main/README.md
 Keywords: claude,claude-code,anthropic,ai-agents,multi-agent,workflow-automation,agent-orchestration,developer-tools,cli-tools,mcp,model-context-protocol,skills-system,session-management,semantic-search,code-search,google-workspace,gmail-api,google-calendar,google-drive,google-tasks,github-integration,ticket-management,ai-development,code-generation,devops,automation
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 6 - Mature
 Classifier: Environment :: Console
 Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
@@ -498,6 +498,49 @@ claude-mpm cleanup-memory
 **💡 Update Checking**: Claude MPM automatically checks for updates and verifies Claude Code compatibility on startup. Configure in `~/.claude-mpm/configuration.yaml` or see [docs/update-checking.md](docs/update-checking.md).
 
 [→ Complete usage examples: User Guide](docs/user/user-guide.md)
+
+---
+
+## Model Configuration
+
+Claude MPM lets you pin any agent — including the Planner — to a specific model tier or full model name via `~/.claude-mpm/config/configuration.yaml`.
+
+### Tier aliases
+
+| Alias | Resolves to |
+|-------|-------------|
+| `haiku` | `claude-3-5-haiku-20241022` |
+| `sonnet` | `claude-sonnet-4-5` |
+| `opus` | `claude-opus-4-7` |
+
+Full Anthropic model names (e.g. `claude-opus-4-7`) are also accepted in place of an alias.
+
+### Priority order (highest to lowest)
+
+1. Explicit `model=` argument in an `Agent` tool call
+2. `models.agents.<agent-name>` in `configuration.yaml`
+3. `model:` field in the agent's frontmatter (`.claude/agents/*.md`)
+4. Built-in resource-tier defaults
+
+### Example configuration
+
+```yaml
+# ~/.claude-mpm/config/configuration.yaml
+
+models:
+  # Override the Planner agent's model
+  planning: sonnet
+
+  # Override individual agents by name
+  agents:
+    researcher: haiku
+    engineer: claude-sonnet-4-5
+    qa: haiku
+```
+
+`models.planning` is a shortcut for the Planner agent specifically. `models.agents.<name>` applies to any agent whose `agent_id` (or filename without `.md`) matches `<name>`.
+
+Project-level overrides can be placed in `.claude-mpm/configuration.yaml` inside the repository root; they take precedence over the global file for that project.
 
 ---
 

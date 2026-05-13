@@ -24,7 +24,7 @@ class SynchronizingHistoryProvider(QuantConnect.Data.HistoryProviderBase, metacl
     The market hours database
     
     
-    This codeEntityType is protected.
+    This Field is protected.
     """
 
     @property
@@ -46,7 +46,7 @@ class SynchronizingHistoryProvider(QuantConnect.Data.HistoryProviderBase, metacl
         Enumerates the subscriptions into slices
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -55,7 +55,7 @@ class SynchronizingHistoryProvider(QuantConnect.Data.HistoryProviderBase, metacl
         Creates a subscription to process the history request
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -65,7 +65,7 @@ class SynchronizingHistoryProvider(QuantConnect.Data.HistoryProviderBase, metacl
         Retrieves the appropriate SecurityExchange based on the data type and symbol.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param exchange: The default exchange instance.
         :param data_type: The type of data being processed.
@@ -87,7 +87,7 @@ class SubscriptionDataReaderHistoryProvider(QuantConnect.Lean.Engine.HistoricalD
         Manager used to allow or deny access to a requested datasource for specific users
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -110,7 +110,7 @@ class SubscriptionDataReaderHistoryProvider(QuantConnect.Lean.Engine.HistoricalD
         Gets the intraday data enumerator if any
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

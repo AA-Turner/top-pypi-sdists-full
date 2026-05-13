@@ -172,6 +172,10 @@ class Table(FilterElement, component='table.js'):
 
         *Added in version 2.0.0*
 
+        *Since version 3.12.0:
+        Any DataFrame index other than an unnamed ``RangeIndex`` is auto-included as column(s).
+        Pass ``df.reset_index(drop=True)`` to drop the index instead.
+
         :param df: Pandas DataFrame
         :param columns: list of column objects (defaults to the columns of the dataframe)
         :param column_defaults: optional default column properties
@@ -292,6 +296,9 @@ class Table(FilterElement, component='table.js'):
     def _pandas_df_to_rows_and_columns(df: 'pd.DataFrame') -> tuple[list[dict], list[dict]]:
         import pandas as pd  # pylint: disable=import-outside-toplevel
 
+        if not isinstance(df.index, pd.RangeIndex) or df.index.name is not None:
+            df = df.reset_index()
+
         def is_special_dtype(dtype):
             return (pd.api.types.is_datetime64_any_dtype(dtype) or
                     pd.api.types.is_timedelta64_dtype(dtype) or
@@ -372,12 +379,13 @@ class Table(FilterElement, component='table.js'):
     def selection(self, value: Literal[None, 'single', 'multiple']) -> None:
         self._props['selection'] = value or 'none'
 
-    def set_selection(self, value: Literal[None, 'single', 'multiple']) -> None:
+    def set_selection(self, value: Literal[None, 'single', 'multiple']) -> Self:
         """Set the selection type.
 
         *Added in version 2.11.0*
         """
         self.selection = value
+        return self
 
     @property
     def pagination(self) -> dict:
@@ -398,13 +406,15 @@ class Table(FilterElement, component='table.js'):
         """Set fullscreen mode."""
         self._props['fullscreen'] = value
 
-    def set_fullscreen(self, value: bool) -> None:
+    def set_fullscreen(self, value: bool) -> Self:
         """Set fullscreen mode."""
         self.is_fullscreen = value
+        return self
 
-    def toggle_fullscreen(self) -> None:
+    def toggle_fullscreen(self) -> Self:
         """Toggle fullscreen mode."""
         self.is_fullscreen = not self.is_fullscreen
+        return self
 
     def add_rows(self, rows: list[dict]) -> None:
         """Add rows to the table."""

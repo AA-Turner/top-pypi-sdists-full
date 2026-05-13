@@ -130,7 +130,7 @@ class LiveCustomDataSubscriptionEnumeratorFactory(System.Object, QuantConnect.Da
         Gets the ISubscriptionDataSourceReader for the specified source
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

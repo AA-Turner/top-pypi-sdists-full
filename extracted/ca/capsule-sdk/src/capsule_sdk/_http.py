@@ -367,7 +367,7 @@ class HttpClient:
 
         req_headers: dict[str, str] = {"X-Request-Id": request_id}
         if self._signer:
-            sig, ts = self._signer.sign_request(self._config.tenant_id, body_bytes)
+            sig, ts = self._signer.sign_request(self._config.tenant_id, request_id)
             req_headers["X-KMS-Signature"] = sig
             req_headers["X-KMS-Timestamp"] = ts
 

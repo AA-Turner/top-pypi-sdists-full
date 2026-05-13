@@ -17,7 +17,8 @@
 #include <random>
 #include <vector>
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_template_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 #include "StateVectorCudaManaged.hpp"
 #include "TestHelpers.hpp"
@@ -1062,7 +1063,7 @@ TEST_CASE("Generators::applyGeneratorDoubleExcitation_GPU",
     // clang-format off
     /* For convenience, the DoubleExcitation* matrices were generated from PennyLane and formatted as follows:
         ```python
-            mat = qml.matrix(qml.DoubleExcitation(a, wires=[0,1,2,3]).generator())
+            mat = qp.matrix(qp.DoubleExcitation(a, wires=[0,1,2,3]).generator())
             def cpp_format(arr):
                 s = ""
                 for i in arr:

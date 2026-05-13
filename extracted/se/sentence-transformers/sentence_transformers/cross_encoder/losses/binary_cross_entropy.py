@@ -3,7 +3,7 @@ from __future__ import annotations
 from torch import Tensor, nn
 
 from sentence_transformers.cross_encoder.model import CrossEncoder
-from sentence_transformers.util import fullname
+from sentence_transformers.util import batch_to_device, fullname
 
 
 class BinaryCrossEntropyLoss(nn.Module):
@@ -39,11 +39,11 @@ class BinaryCrossEntropyLoss(nn.Module):
 
         Inputs:
             +-------------------------------------------------+----------------------------------------+-------------------------------+
-            | Texts                                           | Labels                                 | Number of Model Output Labels |
+            | Inputs                                          | Labels                                 | Number of Model Output Labels |
             +=================================================+========================================+===============================+
             | (anchor, positive/negative) pairs               | 1 if positive, 0 if negative           | 1                             |
             +-------------------------------------------------+----------------------------------------+-------------------------------+
-            | (sentence_A, sentence_B) pairs                  | float similarity score between 0 and 1 | 1                             |
+            | (input_A, input_B) pairs                        | float similarity score between 0 and 1 | 1                             |
             +-------------------------------------------------+----------------------------------------+-------------------------------+
 
         Recommendations:
@@ -100,7 +100,7 @@ class BinaryCrossEntropyLoss(nn.Module):
 
         pairs = list(zip(inputs[0], inputs[1]))
         inputs = self.model.preprocess(pairs, prompt=prompt, task=task)
-        inputs = inputs.to(self.model.device)
+        inputs = batch_to_device(inputs, self.model.device)
         outputs = self.model(inputs)
         logits = outputs["scores"].view(-1)
         logits = self.activation_fn(logits)

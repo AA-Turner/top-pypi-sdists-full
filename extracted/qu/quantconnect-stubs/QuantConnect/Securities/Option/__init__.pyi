@@ -455,7 +455,7 @@ class Option(QuantConnect.Securities.Security, QuantConnect.Securities.IDerivati
         Creates instance of the Option class.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -980,7 +980,7 @@ class OptionStrategyPositionGroupBuyingPowerModel(QuantConnect.Securities.Positi
         Used by QuantConnect.Securities.Positions.PositionGroupBuyingPowerModel.GetReservedBuyingPowerImpact to get the contemplated groups margin.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1980,7 +1980,7 @@ class OptionPortfolioModel(QuantConnect.Securities.SecurityPortfolioModel):
         Helper method to determine the close trade profit
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2302,7 +2302,7 @@ class QLOptionPriceModel(QuantConnect.Securities.Option.OptionPriceModel):
         An implied volatility approximation by Newton-Raphson method. Return 0 if result is not converged
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param price: current price of the option
         :param initial_guess: initial guess of the IV

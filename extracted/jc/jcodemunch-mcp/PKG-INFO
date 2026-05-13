@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jcodemunch-mcp
-Version: 1.107.1
+Version: 1.108.7
 Summary: Token-efficient MCP server for source code exploration via tree-sitter AST parsing
 Project-URL: Homepage, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Repository, https://github.com/jgravelle/jcodemunch-mcp
@@ -129,6 +129,7 @@ Index once. Query cheaply. Keep moving.
 | [LANGUAGE_SUPPORT.md](LANGUAGE_SUPPORT.md) | Supported languages and parsing details |
 | [CONTEXT_PROVIDERS.md](CONTEXT_PROVIDERS.md) | dbt, Git, and custom context provider docs |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common issues and fixes |
+| [AGENT_INSTALL_UNIVERSAL.md](AGENT_INSTALL_UNIVERSAL.md) | Paste-and-go prompt for installing jCodemunch guidance into agent/IDE clients without a first-class `jcm install` target (Codex CLI, Cline, JetBrains AI, Aider, etc.). For Claude Code, Cursor, Windsurf, Continue — use `jcm install <client>` instead. |
 
 ---
 ## Compact output — the second token axis (MUNCH)

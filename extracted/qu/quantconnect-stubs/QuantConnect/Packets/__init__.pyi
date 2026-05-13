@@ -308,7 +308,7 @@ class PythonEnvironmentPacket(QuantConnect.Packets.Packet, metaclass=abc.ABCMeta
         Default constructor for a PythonEnvironmentPacket
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param type: 
         """
@@ -813,7 +813,7 @@ class DebugPacket(QuantConnect.Packets.Packet):
         Constructor for inherited types
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param packet_type: The type of packet to create
         """
@@ -1362,7 +1362,7 @@ class HistoryResult(System.Object, metaclass=abc.ABCMeta):
         Initializes a new instance of the HistoryResult class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param type: The type of history result
         """

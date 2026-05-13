@@ -449,6 +449,9 @@ class PositionGroupCollection(System.Object, typing.Sequence[QuantConnect.Securi
     def __iter__(self) -> typing.Iterator[QuantConnect.Securities.Positions.IPositionGroup]:
         ...
 
+    def __len__(self) -> int:
+        ...
+
     def add(self, group: QuantConnect.Securities.Positions.IPositionGroup) -> QuantConnect.Securities.Positions.PositionGroupCollection:
         """
         Creates a new PositionGroupCollection that contains all of the position groups
@@ -529,6 +532,9 @@ class PositionCollection(System.Object, typing.Iterable[QuantConnect.Securities.
         ...
 
     def __iter__(self) -> typing.Iterator[QuantConnect.Securities.Positions.IPosition]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def clear(self) -> None:
@@ -614,7 +620,7 @@ class SecurityPositionGroupModel(QuantConnect.ExtendedDictionary[QuantConnect.Se
         Get's the single security position group buying power model to use
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -639,7 +645,7 @@ class SecurityPositionGroupModel(QuantConnect.ExtendedDictionary[QuantConnect.Se
         Gets all the available position group keys
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -649,7 +655,7 @@ class SecurityPositionGroupModel(QuantConnect.ExtendedDictionary[QuantConnect.Se
         Gets all the available position groups
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -697,7 +703,7 @@ class SecurityPositionGroupModel(QuantConnect.ExtendedDictionary[QuantConnect.Se
         Get the position group resolver instance to use
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: The position group resolver instance.
         """
@@ -900,7 +906,7 @@ class NullSecurityPositionGroupModel(QuantConnect.Securities.Positions.SecurityP
         Get the position group resolver instance to use
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: The position group resolver instance.
         """
@@ -1420,7 +1426,7 @@ class PositionGroupBuyingPowerModel(System.Object, QuantConnect.Securities.Posit
         Gets the percentage of portfolio buying power to leave as a buffer
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1429,7 +1435,7 @@ class PositionGroupBuyingPowerModel(System.Object, QuantConnect.Securities.Posit
         Initializes a new instance of the PositionGroupBuyingPowerModel class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param required_free_buying_power_percent: The percentage of portfolio buying power to leave as a buffer
         """
@@ -1461,7 +1467,7 @@ class PositionGroupBuyingPowerModel(System.Object, QuantConnect.Securities.Posit
         Used by get_reserved_buying_power_impact to get the contemplated groups margin.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1532,7 +1538,7 @@ class PositionGroupBuyingPowerModel(System.Object, QuantConnect.Securities.Posit
         """
         Helper function to compute the order fees associated with executing market orders for the specified position_group
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1595,7 +1601,7 @@ class PositionGroupBuyingPowerModel(System.Object, QuantConnect.Securities.Posit
         fails.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1604,7 +1610,7 @@ class PositionGroupBuyingPowerModel(System.Object, QuantConnect.Securities.Posit
         Helper function to convert a CashAmount to the account currency
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1616,7 +1622,7 @@ class PositionGroupBuyingPowerModel(System.Object, QuantConnect.Securities.Posit
         and message creation.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1685,7 +1691,7 @@ class SecurityPositionGroupBuyingPowerModel(QuantConnect.Securities.Positions.Po
         Additionally check initial margin requirements if the algorithm only has default position groups
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1896,6 +1902,9 @@ class PositionGroup(System.Object, QuantConnect.Securities.Positions.IPositionGr
         ...
 
     def __iter__(self) -> typing.Iterator[QuantConnect.Securities.Positions.IPosition]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     @staticmethod

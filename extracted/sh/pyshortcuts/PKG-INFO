@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyshortcuts
-Version: 1.9.7
+Version: 1.9.8
 Summary: Create desktop and Start Menu shortcuts for python scripts
 Author-email: Matthew Newville <matt.newville@gmail.com>
 License-Expression: MIT

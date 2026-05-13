@@ -13,7 +13,7 @@ import schemathesis
 from schemathesis.checks import CheckContext, CheckFunction
 from schemathesis.core import media_types, string_to_boolean
 from schemathesis.core.failures import AcceptedNegativeData, Failure
-from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS, get_type
+from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS, get_type, maybe_resolve_bundled
 from schemathesis.core.mutations import OperatorKind
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transport import Response
@@ -637,10 +637,13 @@ def _additional_properties_hint(case: Case) -> str | None:
         if alternative.media_type != case.media_type:
             continue
         raw = alternative.raw_schema
-        if not isinstance(raw, dict) or raw.get("additionalProperties") is False:
+        if not isinstance(raw, dict):
+            return None
+        resolved = maybe_resolve_bundled(raw)
+        if resolved.get("additionalProperties") is False:
             return None
 
-        extra = set(case.body.keys()) - set(raw.get("properties", {}).keys())
+        extra = set(case.body.keys()) - set(resolved.get("properties", {}).keys())
         if not extra:
             return None
 
@@ -759,7 +762,15 @@ def has_only_additional_properties_in_non_body_parameters(case: Case) -> bool:
     if meta is None or not isinstance(case.operation.schema, OpenApiSchema):
         # Ignore manually created cases
         return False
-    if (ParameterLocation.BODY in meta.components and meta.components[ParameterLocation.BODY].mode.is_negative) or (
+    # Component-mode flags overestimate negation: the engine flips a location's mode
+    # to negative whenever it tries to negate, even when it falls back to positive
+    # (e.g. path params that can't be negated). When per-case mutation metadata is
+    # available, trust the actually-targeted location over the coarse flags.
+    phase_data = meta.phase.data
+    if isinstance(phase_data, FuzzingPhaseData) and phase_data.mutations:
+        if phase_data.parameter_location in (ParameterLocation.BODY, ParameterLocation.PATH):
+            return False
+    elif (ParameterLocation.BODY in meta.components and meta.components[ParameterLocation.BODY].mode.is_negative) or (
         ParameterLocation.PATH in meta.components and meta.components[ParameterLocation.PATH].mode.is_negative
     ):
         # Body or path negations always imply other negations

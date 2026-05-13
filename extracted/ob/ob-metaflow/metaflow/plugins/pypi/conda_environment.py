@@ -19,8 +19,10 @@ from metaflow.metaflow_config import get_pinned_conda_libs
 from metaflow.metaflow_environment import MetaflowEnvironment
 from metaflow.packaging_sys import ContentType
 
+
 from . import MAGIC_FILE, _datastore_packageroot
 from .utils import conda_platform
+from .conda_decorator import CondaStepDecorator
 
 
 class CondaEnvironmentException(MetaflowException):
@@ -318,9 +320,9 @@ class CondaEnvironment(MetaflowEnvironment):
 
     def is_disabled(self, step):
         for decorator in step.decorators:
-            # @conda decorator is guaranteed to exist thanks to self.decospecs
-            if decorator.name in ["conda", "pypi"]:
-                # handle @conda/@pypi(disabled=True)
+            # @conda/@anaconda decorator is guaranteed to exist thanks to self.decospecs
+            if decorator.name == "pypi" or isinstance(decorator, CondaStepDecorator):
+                # handle @conda/@pypi/@anaconda(disabled=True)
                 disabled = decorator.attributes["disabled"]
                 return str(disabled).lower() == "true"
         return False
@@ -329,16 +331,25 @@ class CondaEnvironment(MetaflowEnvironment):
     def get_environment(self, step):
         environment = {}
         for decorator in step.decorators:
-            # @conda decorator is guaranteed to exist thanks to self.decospecs
-            if decorator.name in ["conda", "pypi"]:
-                # handle @conda/@pypi(disabled=True)
+            # @conda/@anaconda decorator is guaranteed to exist thanks to self.decospecs
+            if decorator.name == "pypi" or isinstance(decorator, CondaStepDecorator):
+                # handle @conda/@pypi/@anaconda(disabled=True)
                 disabled = decorator.attributes["disabled"]
                 if not disabled or str(disabled).lower() == "false":
-                    environment[decorator.name] = {
+                    # Anaconda packages are conda packages — map to the "conda" key
+                    env_key = (
+                        "conda"
+                        if isinstance(decorator, CondaStepDecorator)
+                        else decorator.name
+                    )
+                    # Only include channels/python/platform/packages when explicitly set, so that
+                    # existing @conda environments keep the same cache hash.
+                    env_dict = {
                         k: copy.deepcopy(decorator.attributes[k])
                         for k in decorator.attributes
-                        if k not in ("disabled", "libraries")
+                        if k in ("python", "packages", "platform", "channels")
                     }
+                    environment[env_key] = env_dict
                 else:
                     return {}
         # Resolve conda environment for @pypi's Python, falling back on @conda's
@@ -411,7 +422,7 @@ class CondaEnvironment(MetaflowEnvironment):
             # PyPI registries, the usage of environment variable `GOOGLE_APPLICATION_CREDENTIALS`
             # demands that `keyrings.google-artifactregistry-auth` has to be installed
             # and available in the underlying python environment.
-            
+
             # commenting this out per https://outerboundsco.slack.com/archives/C040K733FND/p1719262399355449
             # this should be a temporary workaround. Need to find a better fix
             # if os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):

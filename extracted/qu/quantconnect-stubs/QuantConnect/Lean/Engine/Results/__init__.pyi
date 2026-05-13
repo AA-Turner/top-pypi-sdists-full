@@ -140,7 +140,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         The main loop update interval
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -150,7 +150,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         The chart update interval
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -163,7 +163,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         """
         The last position consumed from the ITransactionHandler.order_events by get_delta_orders
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -176,7 +176,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         """
         The last position consumed from the TradeBuilder.closed_trades by get_delta_trades
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -190,7 +190,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         The last position consumed from the ITransactionHandler.order_events while determining delta order events
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -204,7 +204,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Serializer settings to use
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -218,7 +218,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         The current aggregated equity bar for sampling.
         It will be aggregated with values from the get_portfolio_value
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -255,7 +255,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         True if the exit has been triggered
         
         
-        This codeEntityType is protected.
+        This Field is protected.
         """
         ...
 
@@ -269,7 +269,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Event set when exit is triggered
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -279,7 +279,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         The log store instance
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -289,7 +289,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Algorithms performance related chart names
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -299,7 +299,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Lock to be used when accessing the chart collection
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -309,7 +309,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         The algorithm project id
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -323,7 +323,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         The maximum amount of RAM (in MB) this algorithm is allowed to utilize
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -337,7 +337,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         The algorithm unique compilation id
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -352,7 +352,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         This is the deploy id for live, backtesting id for backtesting
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -366,7 +366,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         The result handler start time
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -375,7 +375,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         """
         Customizable dynamic statistics IAlgorithm.runtime_statistics
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -385,7 +385,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         State of the algorithm
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -399,7 +399,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         The handler responsible for communicating messages to listeners
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -413,7 +413,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         The transaction handler used to get the algorithms Orders information
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -428,7 +428,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Used to calculate the portfolio return
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -442,7 +442,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         The algorithm instance
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -456,7 +456,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Algorithm currency symbol, used in charting
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -470,7 +470,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Closing portfolio value. Used to calculate daily performance.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -484,7 +484,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Cumulative max portfolio value. Used to calculate drawdown underwater.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -498,7 +498,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Sampling period for timespans between resamples of the charting equity.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -512,7 +512,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         How frequently the backtests push messages to the browser.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -526,7 +526,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Directory location to store results
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -540,7 +540,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         The map file provider instance to use
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -553,7 +553,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Creates a new instance
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -562,7 +562,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Save an algorithm message to the log store. Uses a different timestamped method of adding messaging to interweve debug and logging messages.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param message: String message to store
         """
@@ -594,7 +594,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Will generate the statistics results and update the provided runtime statistics
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -606,7 +606,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         to generate the results.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: The current statistics.
         """
@@ -617,7 +617,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Gets the algorithm runtime statistics
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -626,7 +626,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Gets the algorithm state data
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -635,7 +635,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Gets the current benchmark value
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -644,7 +644,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Gets the orders generated starting from the provided ITransactionHandler.order_events position
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: The delta orders.
         """
@@ -655,7 +655,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Gets the trades generated starting from the provided TradeBuilder.closed_trades position,
         which is determined by the last_trade_id and the Trade.id
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: The delta trades.
         """
@@ -666,7 +666,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Gets the algorithm net return
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -675,7 +675,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Gets the current portfolio value
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -684,7 +684,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Gets the full path for a results file
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param filename: The filename to add to the path
         :returns: The full path, including the filename.
@@ -696,7 +696,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Gets the current Server statistics
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -726,7 +726,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Logs of the same type are batched together one per line and are sent out
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -735,7 +735,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Purge/clear any outstanding messages in message queue.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -744,7 +744,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Result handler update method
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -764,7 +764,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Add a sample to the chart specified by the chart_name, and series_name.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param chart_name: String chart name to place the sample.
         :param series_name: Series name for the chart.
@@ -780,7 +780,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Sample the current benchmark performance directly with a time-value pair.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param time: Time of the sample.
         :param value: Current benchmark value.
@@ -792,7 +792,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Sample estimated strategy capacity
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param time: Time of the sample
         """
@@ -803,7 +803,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Sample drawdown of equity of the strategy
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param time: Time of the sample
         :param current_portfolio_value: Current equity value
@@ -815,7 +815,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Sample the current equity of the strategy directly with time and using
         the current algorithm equity value in current_algorithm_equity
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param time: Equity candlestick end time
         """
@@ -826,7 +826,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Sample portfolio exposure long/short ratios by security type
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param time: Time of the sample
         :param current_portfolio_value: Current value of the portfolio
@@ -838,7 +838,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Sample the current daily performance directly with a time-value pair.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param time: Time of the sample.
         :param value: Current daily performance value.
@@ -850,7 +850,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Sample portfolio turn over of the strategy
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param time: Time of the sample
         :param current_portfolio_value: Current equity value
@@ -862,7 +862,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Sample assets sales volume
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param time: Time of the sample
         """
@@ -905,7 +905,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Sets the algorithm state data
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -914,7 +914,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Stops the update runner task
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -923,7 +923,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Save insight results to persistent storage
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -932,7 +932,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Stores the order events
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param utc_time: The utc date associated with these order events
         :param order_events: The order events to store
@@ -944,7 +944,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Save the snapshot of the total results to storage.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param packet: Packet to store.
         """
@@ -955,7 +955,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Sets or updates a custom summary statistic
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: The statistic name
         :param value: The statistic value
@@ -967,7 +967,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Helper method to get the total trade count statistic
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -975,16 +975,16 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         """
         Updates the current equity bar with the current equity value from get_portfolio_value
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
     def update_benchmark_value(self, time: typing.Union[datetime.datetime, datetime.date], force: bool = False) -> None:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
     def update_portfolio_values(self, time: typing.Union[datetime.datetime, datetime.date], force: bool = False) -> None:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
 
@@ -1170,7 +1170,7 @@ class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         Whether or not to run the results analysis at the end of the backtest.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1205,7 +1205,7 @@ class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         to false in the configuration.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1262,7 +1262,7 @@ class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         The main processing method steps through the messaging queue and processes the messages one by one.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1290,7 +1290,7 @@ class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         Add a sample to the chart specified by the chart_name, and series_name.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param chart_name: String chart name to place the sample.
         :param series_index: Type of chart we should create if it doesn't already exist.
@@ -1306,7 +1306,7 @@ class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         Sample estimated strategy capacity
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param time: Time of the sample
         """
@@ -1317,7 +1317,7 @@ class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         Add a range of samples from the users algorithms to the end of our current list.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param updates: Chart updates since the last request.
         """
@@ -1328,7 +1328,7 @@ class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         Send a final analysis result back to the IDE.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1376,7 +1376,7 @@ class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         Save the snapshot of the total results to storage.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param packet: Packet to store.
         """
@@ -1416,7 +1416,7 @@ class RegressionResultHandler(QuantConnect.Lean.Engine.Results.BacktestingResult
         Save an algorithm message to the log store. Uses a different timestamped method of adding messaging to interweve debug and logging messages.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param message: String message to store
         """
@@ -1429,7 +1429,7 @@ class RegressionResultHandler(QuantConnect.Lean.Engine.Results.BacktestingResult
         dedicated solely to the algorithm's behavior, void of all QuantConnect.Logging.Log messages
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1508,7 +1508,7 @@ class RegressionResultHandler(QuantConnect.Lean.Engine.Results.BacktestingResult
         Runs on date changes, use this to log TPV and holdings values each day
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1553,7 +1553,7 @@ class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         Escape the chartname so that it can be saved to a file system
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param chart_name: The name of a chart
         :returns: The name of the chart will all escape all characters except RFC 2396 unreserved characters.
@@ -1630,7 +1630,7 @@ class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         Live trading result handler thread.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1657,7 +1657,7 @@ class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         Add a sample to the chart specified by the chart_name, and series_name.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param chart_name: String chart name to place the sample.
         :param series_name: Series name for the chart.
@@ -1673,7 +1673,7 @@ class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         Add a range of samples from the users algorithms to the end of our current list.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param updates: Chart updates since the last request.
         """
@@ -1694,7 +1694,7 @@ class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         Send a final analysis result back to the IDE.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1721,7 +1721,7 @@ class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         Assigns the next earliest status update time
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1747,7 +1747,7 @@ class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         Stores the order events
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param utc_time: The utc date associated with these order events
         :param order_events: The order events to store
@@ -1759,7 +1759,7 @@ class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         Save the snapshot of the total results to storage.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param packet: Packet to store.
         """
@@ -1774,11 +1774,11 @@ class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         ...
 
     def update_benchmark_value(self, time: typing.Union[datetime.datetime, datetime.date], force: bool = False) -> None:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
     def update_portfolio_values(self, time: typing.Union[datetime.datetime, datetime.date], force: bool = False) -> None:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
 

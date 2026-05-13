@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chatlas
-Version: 0.17.0
+Version: 0.18.0
 Summary: A simple and consistent interface for chatting with LLMs
 Project-URL: Homepage, https://posit-dev.github.io/chatlas
 Project-URL: Documentation, https://posit-dev.github.io/chatlas

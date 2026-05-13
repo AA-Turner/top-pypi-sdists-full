@@ -96,7 +96,8 @@ set(NB_SUFFIX_S       ${NB_SUFFIX_S}       CACHE INTERNAL "")
 set(NB_ABI            ${NB_ABI}            CACHE INTERNAL "")
 set(NB_FREE_THREADED  ${NB_FREE_THREADED} CACHE INTERNAL "")
 
-get_filename_component(NB_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+get_filename_component(NB_DIR "${CMAKE_CURRENT_LIST_FILE}" REALPATH)
+get_filename_component(NB_DIR "${NB_DIR}" PATH)
 get_filename_component(NB_DIR "${NB_DIR}" PATH)
 
 set(NB_DIR      ${NB_DIR} CACHE INTERNAL "")
@@ -191,6 +192,7 @@ function (nanobind_build_library TARGET_NAME)
     ${NB_DIR}/include/nanobind/stl/vector.h
     ${NB_DIR}/include/nanobind/eigen/dense.h
     ${NB_DIR}/include/nanobind/eigen/sparse.h
+    ${NB_DIR}/include/nanobind/eigen/tensor.h
 
     ${NB_DIR}/src/buffer.h
     ${NB_DIR}/src/hash.h
@@ -326,7 +328,10 @@ endfunction()
 
 function (nanobind_compile_options name)
   if (MSVC)
-    target_compile_options(${name} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:/bigobj /MP>)
+    target_compile_options(${name} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:/bigobj>)
+  endif()
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    target_compile_options(${name} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:/MP>)
   endif()
 endfunction()
 

@@ -143,7 +143,7 @@ class CryptoFutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
         Gets the margin cash available for a trade
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param portfolio: The algorithm's portfolio
         :param security: The security to be traded
@@ -159,7 +159,7 @@ class CryptoFutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
         Override in subclasses to include supplementary collateral currencies.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param portfolio: The algorithm's portfolio
         :param security: The crypto future security
@@ -173,7 +173,7 @@ class CryptoFutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
         Determines whether the given security shares collateral with another crypto future.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param portfolio: The algorithm's portfolio
         :param collateral_currency: The collateral cash for the current security
@@ -204,7 +204,7 @@ class BinanceCryptoFutureMarginModel(QuantConnect.Securities.CryptoFuture.Crypto
         For coin futures (e.g. BTCUSD), only the primary collateral (base currency) is used.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param portfolio: The algorithm's portfolio
         :param security: The crypto future security
@@ -219,7 +219,7 @@ class BinanceCryptoFutureMarginModel(QuantConnect.Securities.CryptoFuture.Crypto
         pool regardless of quote currency (USDT, USDC, etc.).
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

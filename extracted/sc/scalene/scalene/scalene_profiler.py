@@ -73,7 +73,10 @@ from scalene.find_browser import find_browser
 from scalene.get_module_details import _get_module_details
 from scalene.redirect_python import redirect_python
 from scalene.scalene_accelerator import ScaleneAccelerator
-from scalene.scalene_arguments import ScaleneArguments
+from scalene.scalene_arguments import (
+    CHILD_PROPAGATED_ARGS,
+    ScaleneArguments,
+)
 from scalene.scalene_async import ScaleneAsync
 from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_cpu_profiler import ScaleneCPUProfiler
@@ -97,6 +100,7 @@ from scalene.scalene_statistics import (
     Filename,
     LineNumber,
     MemcpyProfilingSample,
+    PerThreadNativeStack,
     ProfilingSample,
     ScaleneStatistics,
 )
@@ -115,12 +119,21 @@ from scalene.scalene_tracer import (
 from scalene.scalene_tracing import ScaleneTracing
 from scalene.scalene_utility import (
     add_stack,
+    clear_intern_caches,
     compute_frames_to_record,
+    drain_native_stacks,
+    drain_perthread_stacks,
     enter_function_meta,
     generate_html,
     get_fully_qualified_name,
+    get_native_thread_id,
+    install_native_stack_unwinder,
+    install_perthread_sampler,
     on_stack,
     patch_module_functions_with_signal_blocking,
+    register_thread_for_sampling,
+    signal_all_threads,
+    unregister_thread_from_sampling,
 )
 from scalene.time_info import TimeInfo, get_times
 
@@ -145,6 +158,19 @@ def require_python(version: tuple[int, int]) -> None:
 
 
 require_python((MINIMUM_PYTHON_VERSION_MAJOR, MINIMUM_PYTHON_VERSION_MINOR))
+
+
+# Re-entry guards for memory signal handlers. malloc_signal_handler (and
+# free_signal_handler) call _should_trace, which constructs a pathlib.Path
+# whose internals call into the signal_blocking_wrapper-patched os module.
+# Allocations inside that path can re-trigger the malloc-sampling signal,
+# and on --use-legacy-tracer runs PyEval_SetTrace adds another way for the
+# handler to recurse via the trace callback. Either way the Python stack
+# can overflow (issue #1038). The guard drops the inner sample rather
+# than re-entering. Plain module-level bools are sufficient: Python signal
+# handlers registered via signal.signal() only ever run on the main thread.
+_in_malloc_handler = False
+_in_free_handler = False
 
 
 class Scalene:
@@ -196,7 +222,7 @@ class Scalene:
 
     __args = ScaleneArguments()
     __signals = ScaleneSignals()
-    __signal_manager: ScaleneSignalManager[Any] = ScaleneSignalManager()
+    __signal_manager: ScaleneSignalManager = ScaleneSignalManager()
     __stats = ScaleneStatistics()
     __memory_profiler = ScaleneMemoryProfiler(__stats)
     __output = ScaleneOutput()
@@ -253,10 +279,10 @@ class Scalene:
     child_pids: set[int] = set()  # Needs to be unmangled to be accessed by shims
 
     # Signal queues for allocations, memcpy, and async
-    __alloc_sigq: ScaleneSigQueue[Any]
-    __memcpy_sigq: ScaleneSigQueue[Any]
-    __async_sigq: ScaleneSigQueue[Any]
-    __sigqueues: list[ScaleneSigQueue[Any]]
+    __alloc_sigq: ScaleneSigQueue
+    __memcpy_sigq: ScaleneSigQueue
+    __async_sigq: ScaleneSigQueue
+    __sigqueues: list[ScaleneSigQueue]
 
     client_timer: ScaleneClientTimer = ScaleneClientTimer()
 
@@ -301,6 +327,7 @@ class Scalene:
         import scalene.replacement_pjoin
         import scalene.replacement_signal_fns
         import scalene.replacement_thread_join
+        import scalene.replacement_thread_start
 
         if sys.platform != "win32":
             import scalene.replacement_fork
@@ -380,33 +407,9 @@ class Scalene:
                 tempfile.mkdtemp(prefix="scalene")
             )
             Scalene.__pid = 0
-            cmdline = ""
-            # Pass along commands from the invoking command line.
-            if "off" in Scalene.__args and Scalene.__args.off:
-                cmdline += " --off"
-            # Only pass along options that are valid for the 'run' subcommand
-            if getattr(Scalene.__args, "use_virtual_time", False):
-                cmdline += " --use-virtual-time"
-            if getattr(Scalene.__args, "gpu", False):
-                cmdline += " --gpu"
-            if getattr(Scalene.__args, "memory", False):
-                cmdline += " --memory"
-            # Note: --cpu is now --cpu-only; only pass if we are CPU-only (no memory/gpu)
-            if (
-                getattr(Scalene.__args, "cpu", False)
-                and not getattr(Scalene.__args, "memory", False)
-                and not getattr(Scalene.__args, "gpu", False)
-            ):
-                cmdline += " --cpu-only"
-            # Add the --program-path so children know which files to profile.
-            if Scalene.__program_path:
-                path_str = str(Scalene.__program_path)
-                if sys.platform == "win32":
-                    cmdline += f' --program-path="{path_str}"'
-                else:
-                    cmdline += f" --program-path='{path_str}'"
-            # Add the --pid field so we can propagate it to the child.
-            cmdline += f" --pid={os.getpid()} ---"
+            cmdline = Scalene._build_child_cmdline(
+                Scalene.__args, Scalene.__program_path, os.getpid()
+            )
             # Build the commands to pass along other arguments
             environ = ScalenePreload.get_preload_environ(Scalene.__args)
             if sys.platform == "win32":
@@ -437,6 +440,54 @@ class Scalene:
         return cast(
             "tuple[Filename, LineNumber, ByteCodeIndex]", Scalene.__last_profiled
         )
+
+    @staticmethod
+    def _build_child_cmdline(
+        args: argparse.Namespace, program_path: str, parent_pid: int
+    ) -> str:
+        """Build the Scalene command-line to embed in the python alias script.
+
+        The python alias wraps subprocess invocations of Python so that
+        child processes (e.g. pytest-xdist workers, multiprocessing pools)
+        are themselves profiled. Scope-affecting flags must be forwarded
+        so the child applies the same filters; otherwise (issue #1022) the
+        child silently drops every sample.
+
+        The set of forwarded flags is declared in
+        scalene_arguments.CHILD_PROPAGATED_ARGS — add entries there for new
+        scope-affecting flags rather than editing this method.
+        """
+
+        def quote(value: str) -> str:
+            if sys.platform == "win32":
+                return f'"{value}"'
+            return f"'{value}'"
+
+        parts = []
+        for spec in CHILD_PROPAGATED_ARGS:
+            value = getattr(args, spec.attr, None)
+            if spec.takes_value:
+                if value:
+                    parts.append(f"{spec.flag}={quote(str(value))}")
+            else:
+                emit = (not value) if spec.invert else bool(value)
+                if emit:
+                    parts.append(spec.flag)
+
+        # --cpu-only is derived: it's the run-subcommand spelling for "CPU
+        # sampling on, neither memory nor GPU profiling enabled". There is
+        # no standalone --cpu flag on the run subcommand to forward.
+        if (
+            getattr(args, "cpu", False)
+            and not getattr(args, "memory", False)
+            and not getattr(args, "gpu", False)
+        ):
+            parts.append("--cpu-only")
+
+        if program_path:
+            parts.append(f"--program-path={quote(str(program_path))}")
+        parts.append(f"--pid={parent_pid} ---")
+        return " " + " ".join(parts)
 
     if sys.platform != "win32":
         __orig_setitimer = signal.setitimer
@@ -627,6 +678,22 @@ class Scalene:
         this_frame: FrameType | None,
     ) -> None:
         """Handle allocation signals."""
+        # Drop the sample if we're already inside this handler — see the
+        # _in_malloc_handler comment above and issue #1038.
+        global _in_malloc_handler
+        if _in_malloc_handler:
+            return
+        _in_malloc_handler = True
+        try:
+            Scalene._malloc_signal_handler_body(signum, this_frame)
+        finally:
+            _in_malloc_handler = False
+
+    @staticmethod
+    def _malloc_signal_handler_body(
+        signum: SignumType,
+        this_frame: FrameType | None,
+    ) -> None:
         if not Scalene.__args.memory:
             # This should never happen, but we fail gracefully.
             return
@@ -634,6 +701,12 @@ class Scalene:
 
         if this_frame:
             enter_function_meta(this_frame, Scalene._should_trace, Scalene.__stats)
+        # Note: per-sample call-stack capture is now performed synchronously
+        # in C++ inside process_malloc (see whereInPythonWithStack). The
+        # Python-side async-signal handler no longer captures stacks, since
+        # by the time it runs the true allocator frame may have already
+        # returned — giving misleading attribution.
+        #
         # Walk the stack till we find a line of code in a file we are tracing.
         found_frame = False
         f = this_frame
@@ -656,14 +729,23 @@ class Scalene:
         if not invalidated and this_frame and not (on_stack(this_frame, fname, lineno)):
             Scalene.update_profiled()
         pywhere.set_last_profiled_invalidated_false()
-        # In the setprofile callback, we rely on
-        # __last_profiled always having the same memory address.
-        # This is an optimization to not have to traverse the Scalene profiler
-        # object's dictionary every time we want to update the last profiled line.
+        # Per-line malloc attribution (n_mallocs / the memory timeline
+        # sparkline) is driven by __last_profiled, updated from this async
+        # handler. That means it reflects the frame Python was executing
+        # when the handler fired — not necessarily the exact allocator
+        # line, if the allocator was a short-lived function that already
+        # returned. The memory flame-chart view is unaffected: it uses the
+        # synchronously-captured stack in the sample record (item.stack in
+        # process_malloc_free_samples).
         #
-        # A previous change to this code set Scalene.__last_profiled = [fname, lineno, lasti],
-        # which created a new list object and set the __last_profiled attribute to the new list. This
-        # made the object held in `pywhere.cpp` out of date, and caused the profiler to not update the last profiled line.
+        # A previous change tried to publish __last_profiled from C++
+        # inside process_malloc for perfect per-line accuracy, but
+        # PyList_SetItem on slots the sys.monitoring LINE callback holds
+        # borrowed references to segfaulted under Linux 3.13; reverted.
+        #
+        # The [:] in-place assignment (not plain =) matters: pywhere.cpp
+        # caches a pointer to this list and depends on its identity
+        # remaining stable.
         Scalene.__last_profiled[:] = [
             Filename(f.f_code.co_filename),
             (
@@ -687,9 +769,17 @@ class Scalene:
         this_frame: FrameType | None,
     ) -> None:
         """Handle free signals."""
-        if this_frame:
-            enter_function_meta(this_frame, Scalene._should_trace, Scalene.__stats)
-        Scalene.__alloc_sigq.put([0])
+        # Same recursion-guard story as malloc_signal_handler — see #1038.
+        global _in_free_handler
+        if _in_free_handler:
+            return
+        _in_free_handler = True
+        try:
+            if this_frame:
+                enter_function_meta(this_frame, Scalene._should_trace, Scalene.__stats)
+            Scalene.__alloc_sigq.put([0])
+        finally:
+            _in_free_handler = False
         del this_frame
 
     @staticmethod
@@ -731,6 +821,32 @@ class Scalene:
             alloc_sigq,
             memcpy_sigq,
         )
+        # If --stacks was requested, install a C-level sigaction handler on
+        # the CPU sampling signal that captures the interrupted thread's
+        # native stack into a lock-free ring buffer. The Python-level
+        # cpu_signal_handler drains the buffer on each invocation. This
+        # must run *after* the Python handler is registered above, so we
+        # chain to CPython's signal trampoline rather than replacing it.
+        # If --stacks was requested, install a C-level sigaction handler on
+        # the CPU sampling signal that captures the interrupted thread's
+        # native stack into a lock-free ring buffer. The Python-level
+        # cpu_signal_handler drains the buffer on each invocation. This
+        # must run *after* the Python handler is registered above, so we
+        # chain to CPython's signal trampoline rather than replacing it.
+        # Use the signal manager's view of the CPU signal — Scalene.__signals
+        # is a separate ScaleneSignals instance that may not reflect the
+        # virtual-vs-real-time choice driven by --use-virtual-time.
+        if Scalene.__args.stacks and sys.platform != "win32":
+            install_native_stack_unwinder(
+                Scalene.__signal_manager.get_signals().cpu_signal
+            )
+            # Install per-thread sampler on SIGPROF for worker thread stacks.
+            # This allows capturing native stacks from threads other than main.
+            # SIGPROF doesn't interfere with SIGVTALRM (CPU sampling) or
+            # SIGALRM (real-time mode).
+            install_perthread_sampler(signal.SIGPROF)
+            # Register the main thread so we track it in diagnostics
+            register_thread_for_sampling()
 
     @staticmethod
     def cpu_signal_handler(
@@ -770,6 +886,43 @@ class Scalene:
             else:
                 gpu_load, gpu_mem_used = (0.0, 0.0)
 
+            # Drain native (C/C++) stacks captured by our C-level sigaction
+            # handler. Those stacks reflect the *interrupted* user code (e.g.
+            # numpy mid-call), unlike anything we could unwind from here —
+            # by the time this Python handler runs, the interrupted C call
+            # has already returned to the bytecode interpreter.
+            native_drains: list[tuple[int, ...]] = []
+            perthread_drains: list[PerThreadNativeStack] = []
+            if Scalene.__args.stacks:
+                native_drains = drain_native_stacks(Scalene.__stats.native_stacks)
+                # Also trigger per-thread sampling for worker threads
+                # and drain their stacks. This captures native stacks
+                # from threads that aren't the main thread.
+                signal_all_threads()
+                perthread_drains = drain_perthread_stacks()
+
+            # Async profiling snapshot: if the main thread is currently
+            # blocked in the event loop, capture the list of suspended
+            # coroutines now (before _process_cpu_sample). The list flows
+            # into both (a) the async sigqueue, which drives per-line
+            # await% attribution, and (b) the stitched-stack timeline,
+            # which uses it to replace the misleading event-loop stack
+            # with one synthetic await frame per suspended task.
+            #
+            # Use this_frame (the raw signal handler frame) for the event
+            # loop check — compute_frames_to_record filters out non-user
+            # frames, but the event loop frames are exactly what we need.
+            suspended: list[Any] | None = None
+            if (
+                Scalene.__args.async_profile
+                and ScaleneAsync._enabled
+                and this_frame is not None
+                and ScaleneAsync.is_in_event_loop(this_frame)
+            ):
+                snapshot = ScaleneAsync.get_suspended_snapshot()
+                if snapshot:
+                    suspended = snapshot
+
             # Process this CPU sample.
             frames = compute_frames_to_record(Scalene._should_trace)
             Scalene._process_cpu_sample(
@@ -780,6 +933,9 @@ class Scalene:
                 gpu_mem_used,
                 Scalene.__last_signal_time,
                 Scalene.__is_thread_sleeping,
+                native_drains,
+                suspended_async_tasks=suspended,
+                perthread_drains=perthread_drains,
             )
             # Advance library profiler schedules (e.g., torch profiler
             # periodic flush) to keep memory bounded.
@@ -787,20 +943,10 @@ class Scalene:
             if Scalene.__torch_profiler is not None:
                 Scalene.__torch_profiler.step()
 
-            # Async profiling: when the main thread is in the event loop,
-            # snapshot suspended coroutines for await-time attribution.
-            # Use this_frame (the raw signal handler frame) since
-            # compute_frames_to_record filters out non-user frames,
-            # and the event loop frames (selectors, asyncio) are
-            # exactly the ones we need to detect.
-            if Scalene.__args.async_profile and ScaleneAsync._enabled:
-                check_frame = this_frame
-                if check_frame is not None and ScaleneAsync.is_in_event_loop(
-                    check_frame
-                ):
-                    suspended = ScaleneAsync.get_suspended_snapshot()
-                    if suspended:
-                        Scalene.__async_sigq.put((suspended,))
+            # Per-line await% attribution still flows through the async
+            # sigqueue (separate from the timeline view).
+            if suspended:
+                Scalene.__async_sigq.put((suspended,))
 
             elapsed = now.wallclock - Scalene.__last_signal_time.wallclock
             # Store the latest values as the previously recorded values.
@@ -975,14 +1121,22 @@ class Scalene:
         gpu_mem_used: float,
         prev: TimeInfo,
         is_thread_sleeping: dict[int, bool],
+        native_drains: list[tuple[int, ...]] | None = None,
+        suspended_async_tasks: list[Any] | None = None,
+        perthread_drains: list[PerThreadNativeStack] | None = None,
     ) -> None:
         """Handle interrupts for CPU profiling.
 
         Delegates to ScaleneCPUProfiler for the actual processing.
         """
-        # Check if it's time to print profiling info
+        # Check if it's time to print profiling info.
+        # Clamp __next_output_time to "now + interval" rather than letting
+        # it slip behind by adding to the previous deadline. If a single
+        # output ever takes longer than profile_interval, the unclamped
+        # version would re-trigger output on every subsequent CPU sample
+        # (signal storm) and starve the user thread completely.
         if now.wallclock >= Scalene.__next_output_time:
-            Scalene.__next_output_time += Scalene.__args.profile_interval
+            Scalene.__next_output_time = now.wallclock + Scalene.__args.profile_interval
             stats = Scalene.__stats
             with contextlib.ExitStack() as stack:
                 _ = [stack.enter_context(s.lock) for s in Scalene.__sigqueues]
@@ -1001,6 +1155,9 @@ class Scalene:
             Scalene._should_trace,
             Scalene.__last_cpu_interval,
             Scalene.__args.stacks,
+            native_drains or [],
+            suspended_async_tasks=suspended_async_tasks,
+            perthread_drains=perthread_drains or [],
         )
 
     @staticmethod
@@ -1076,6 +1233,11 @@ class Scalene:
                 file=sys.stderr,
             )
             sys.exit(1)
+        # Drop any frame-key intern cache carried over from a prior session
+        # (Jupyter magic cells, repeated profile runs in the same process,
+        # etc.). Must happen before we start sampling so the cache reflects
+        # only the current run.
+        clear_intern_caches()
         Scalene.__stats.start_clock()
         Scalene.enable_signals()
         Scalene.__start_time = time.monotonic_ns()
@@ -1103,10 +1265,20 @@ class Scalene:
         if Scalene.__args.async_profile:
             ScaleneAsync.disable()
 
-        if Scalene.__args.memory:
+        # Flip p_scalene_done back to true so the allocator interposer
+        # stops recording — in particular, allocations made while we
+        # serialize the profile to JSON must not land in the profile
+        # itself. Called unconditionally (not gated on --memory) so the
+        # invariant "no allocations are tracked after stop()" holds even
+        # on code paths that exit through term_signal_handler or other
+        # non-standard shutdown routes. When libscalene isn't preloaded
+        # (CPU-only mode), set_scalene_done_true is a no-op by design.
+        try:
             from scalene import pywhere  # type: ignore
 
             pywhere.set_scalene_done_true()
+        except ImportError:
+            pass
 
         Scalene._disable_signals()
         Scalene.__stats.stop_clock()
@@ -1375,6 +1547,17 @@ class Scalene:
         # Leaving here in case of reversion
         # sys.settrace(None)
         stats = Scalene.__stats
+        # Drain any remaining malloc/free/NEWLINE records from the mapfile
+        # that haven't been read yet (records only get read when a malloc or
+        # free signal fires; if the program's net allocation stays below the
+        # sampling threshold, records accumulate unread).
+        if Scalene.__memory_profiler:
+            Scalene.__memory_profiler.process_malloc_free_samples(
+                Scalene.__start_time,
+                Scalene.__args,
+                Scalene.__invalidate_mutex,
+                Scalene.__invalidate_queue,
+            )
         last_file, last_line, _ = Scalene.last_profiled_tuple()
         stats.memory_stats.memory_malloc_count[last_file][last_line] += 1
         stats.memory_stats.memory_aggregate_footprint[last_file][
@@ -1560,14 +1743,29 @@ class Scalene:
     @staticmethod
     def _register_files_to_profile() -> None:
         """Tells the pywhere module, which tracks memory, which files to profile."""
+        import scalene as _scalene_pkg
         from scalene import pywhere  # type: ignore
 
         profile_only_list = Scalene.__args.profile_only.split(",")
+
+        # Pass the canonical path of the installed scalene package so the C++
+        # TraceConfig can exclude Scalene-internal frames via an absolute-path
+        # prefix match, not just a parent-directory-name heuristic. The
+        # fallback "scalene" parent-directory check stays in place; this is
+        # additive belt-and-suspenders.
+        scalene_pkg_path: str | None = None
+        try:
+            scalene_pkg_file = getattr(_scalene_pkg, "__file__", None)
+            if scalene_pkg_file:
+                scalene_pkg_path = os.path.realpath(os.path.dirname(scalene_pkg_file))
+        except (TypeError, ValueError, OSError):
+            scalene_pkg_path = None
 
         pywhere.register_files_to_profile(
             list(Scalene.__files_to_profile) + profile_only_list,
             Scalene.__program_path,
             Scalene.__args.profile_all,
+            scalene_pkg_path,
         )
 
     @staticmethod

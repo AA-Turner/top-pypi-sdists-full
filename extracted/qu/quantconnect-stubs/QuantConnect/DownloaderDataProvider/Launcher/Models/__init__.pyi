@@ -9,6 +9,8 @@ import QuantConnect.Data
 import QuantConnect.DownloaderDataProvider.Launcher.Models
 import System
 
+QuantConnect_DownloaderDataProvider_Launcher_Models_BaseDataDownloadConfig_ParseEnum_TEnum = typing.TypeVar("QuantConnect_DownloaderDataProvider_Launcher_Models_BaseDataDownloadConfig_ParseEnum_TEnum")
+
 
 class BrokerageDataDownloader(System.Object, QuantConnect.IDataDownloader, System.IDisposable):
     """Class for downloading data from a brokerage."""
@@ -27,6 +29,30 @@ class BrokerageDataDownloader(System.Object, QuantConnect.IDataDownloader, Syste
         :param data_downloader_get_parameters: model class for passing in parameters for historical data
         :returns: Enumerable of base data for this symbol.
         """
+        ...
+
+
+class _Typed_BaseDataDownloadConfig_ParseEnum(typing.Generic[QuantConnect_DownloaderDataProvider_Launcher_Models_BaseDataDownloadConfig_ParseEnum_TEnum]):
+    """"""
+
+    @overload
+    def __call__(self, value: str) -> QuantConnect_DownloaderDataProvider_Launcher_Models_BaseDataDownloadConfig_ParseEnum_TEnum:
+        """
+        Parses a string value into an enum of the specified type.
+        
+        
+        This Class is protected.
+        
+        :param value: The string value to parse.
+        :returns: The parsed enum value.
+        """
+        ...
+
+
+class _BaseDataDownloadConfig_ParseEnum:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_DownloaderDataProvider_Launcher_Models_BaseDataDownloadConfig_ParseEnum_TEnum]) -> QuantConnect.DownloaderDataProvider.Launcher.Models._Typed_BaseDataDownloadConfig_ParseEnum[QuantConnect_DownloaderDataProvider_Launcher_Models_BaseDataDownloadConfig_ParseEnum_TEnum]:
         ...
 
 
@@ -102,13 +128,15 @@ class BaseDataDownloadConfig(System.Object, metaclass=abc.ABCMeta):
     def symbols(self, value: typing.Sequence[QuantConnect.Symbol]) -> None:
         ...
 
+    parse_enum: QuantConnect.DownloaderDataProvider.Launcher.Models._BaseDataDownloadConfig_ParseEnum
+
     @overload
     def __init__(self) -> None:
         """
         Initializes a new instance of the BaseDataDownloadConfig class.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -118,7 +146,7 @@ class BaseDataDownloadConfig(System.Object, metaclass=abc.ABCMeta):
         Initializes a new instance of the DataDownloadConfig class with the specified parameters.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param tick_type: The type of tick data to be downloaded.
         :param security_type: The type of security for which data is being downloaded.
@@ -136,7 +164,7 @@ class BaseDataDownloadConfig(System.Object, metaclass=abc.ABCMeta):
         Parses a string to a DateTime using a specific date format.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param date: The date string to parse.
         :returns: The parsed DateTime value.

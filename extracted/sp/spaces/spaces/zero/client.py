@@ -122,7 +122,7 @@ def schedule(
         info("ZeroGPU client warning", message, level='warning')
 
     zerogpu_config = config.get_config()
-    gpu_size = gpu_size if gpu_size is not None else default_gpu_size
+    gpu_size = gpu_size if gpu_size is not None else default_gpu_size()
     duration_seconds = duration.seconds if duration is not None else DEFAULT_SCHEDULE_DURATION
     if gpu_size != 'xlarge':
         duration_seconds *= zerogpu_config['duration_factor']

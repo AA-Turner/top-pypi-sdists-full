@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.784399                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.016785                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from ..plugins.checkpoint_datastores.coreweave import coreweave_checkpoints as c
 from ..plugins.aws.assume_role_decorator import assume_role as assume_role
 from .... import ob_internal as ob_internal
 from ..plugins.apps.core.app_deploy_decorator import app_deploy as app_deploy
+from ..plugins.anaconda_models.decorator import anaconda_models as anaconda_models
 from .... import apps as apps
 from ....metaflow_current import current as current
 

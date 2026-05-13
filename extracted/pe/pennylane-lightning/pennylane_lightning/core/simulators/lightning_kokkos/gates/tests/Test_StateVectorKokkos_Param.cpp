@@ -21,7 +21,9 @@
 #include <utility>
 #include <vector>
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_template_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
+#include <catch2/matchers/catch_matchers_vector.hpp>
 
 #include "ConstantUtil.hpp"
 #include "Error.hpp"
@@ -489,7 +491,7 @@ TEMPLATE_TEST_CASE("StateVectorKokkos::applyOperation param "
             Kokkos::HostSpace{}, sv_gate.getView());
 
         std::vector<ComplexT> expected_result{
-            // Generated using Pennylane (qml.ctrl)
+            // Generated using Pennylane (qp.ctrl)
             ComplexT{0.35355339, 0.0},        ComplexT{0.35355339, 0.0},
             ComplexT{0.35355339, 0.0},        ComplexT{0.35355339, 0.0},
             ComplexT{0.35355339, 0.0},        ComplexT{0.35355339, 0.0},
@@ -2644,8 +2646,9 @@ TEMPLATE_TEST_CASE("Sample", "[StateVectorKokkosManaged_Param]", float,
 
     // compare estimated probabilities to real probabilities
     SECTION("No wires provided:") {
-        REQUIRE_THAT(probabilities,
-                     Catch::Approx(expected_probabilities).margin(.05));
+        REQUIRE_THAT(
+            probabilities,
+            Catch::Matchers::Approx(expected_probabilities).margin(.05));
     }
 }
 

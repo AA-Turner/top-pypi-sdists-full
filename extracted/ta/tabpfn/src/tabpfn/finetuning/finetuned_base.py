@@ -1,3 +1,5 @@
+#  Copyright (c) Prior Labs GmbH 2026.
+
 """Abstract base class for fine-tuning TabPFN models.
 
 This module provides the FinetunedTabPFNBase class, which contains shared
@@ -31,6 +33,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from tqdm.auto import tqdm
 
+from tabpfn.architectures.interface import PerformanceOptions
 from tabpfn.finetuning._torch_compat import GradScaler, autocast, sdpa_kernel_context
 from tabpfn.finetuning.data_util import (
     ClassifierBatch,
@@ -320,6 +323,9 @@ class FinetunedTabPFNBase(BaseEstimator, ABC):
     ) -> dict[str, Any]:
         """Return a deep-copy of base_config with an optional n_estimators override."""
         config = copy.deepcopy(base_config)
+        existing_inference_config = dict(config.get("inference_config", {}) or {})
+        existing_inference_config["ENABLE_GPU_PREPROCESSING"] = False
+        config["inference_config"] = existing_inference_config
         if n_estimators_override is not None:
             config["n_estimators"] = n_estimators_override
         return config
@@ -331,9 +337,9 @@ class FinetunedTabPFNBase(BaseEstimator, ABC):
     ) -> dict[str, Any]:
         """Return eval config with n_estimators override and subsample setting."""
         config = self._build_estimator_config(base_config, n_estimators_override)
-        existing = dict(config.get("inference_config", {}) or {})
-        existing["SUBSAMPLE_SAMPLES"] = self.n_inference_subsample_samples
-        config["inference_config"] = existing
+        config["inference_config"]["SUBSAMPLE_SAMPLES"] = (
+            self.n_inference_subsample_samples
+        )
         return config
 
     def _training_forward(self, *args: Any, **kwargs: Any) -> Any:
@@ -634,15 +640,18 @@ class FinetunedTabPFNBase(BaseEstimator, ABC):
         self.finetuned_estimator_ = self._create_estimator(finetuning_estimator_config)
         self._setup_estimator()
 
-        X, y, _, _ = ensure_compatible_fit_inputs_sklearn(
-            X,
-            y,
-            estimator=self.finetuned_estimator_,
-            ensure_y_numeric=self._model_type == "regressor",
+        X_validated, y_validated, self.feature_names_in_, self.n_features_in_ = (
+            ensure_compatible_fit_inputs_sklearn(
+                X,
+                y,
+                estimator=self.finetuned_estimator_,
+                ensure_y_numeric=self._model_type == "regressor",
+            )
         )
-
         self.X_ = X
         self.y_ = y
+        X, y = X_validated, y_validated
+
         if X_val is not None and y_val is not None:
             X_train, y_train = X, y
             X_val, y_val, _, _ = ensure_compatible_fit_inputs_sklearn(
@@ -663,8 +672,10 @@ class FinetunedTabPFNBase(BaseEstimator, ABC):
         self.finetuned_estimator_._initialize_model_variables()
         self.finetuned_estimator_.model_.to(self.device)
 
-        if self.use_activation_checkpointing:
-            self.finetuned_estimator_.model_.recompute_layer = True  # type: ignore
+        finetuning_performance_options = PerformanceOptions(
+            force_recompute_layer=self.use_activation_checkpointing,
+            use_chunkwise_inference=False,
+        )
 
         # --- DDP model wrapping ---
         model_for_optimization = self.finetuned_estimator_.model_
@@ -848,6 +859,7 @@ class FinetunedTabPFNBase(BaseEstimator, ABC):
                     batch.y_context,
                     batch.cat_indices,
                     batch.configs,
+                    performance_options=finetuning_performance_options,
                 )
 
                 if using_ddp:

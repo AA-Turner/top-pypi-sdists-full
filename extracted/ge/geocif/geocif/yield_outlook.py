@@ -525,29 +525,71 @@ def _plot_combined_map_mape(df, df_mape, dg_sub, country, crop, model,
         plt.close(fig)
 
 
-def _stage_sort_key(name):
-    """Sort stage names chronologically by window length.
+_MONTH_ORDER = {
+    "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
+    "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
+}
 
-    Pre-Season stages sort first (before any in-season stage), ordered
-    by their init month: "Pre-Season (init Jan)" < "Pre-Season (init Feb)" < ...
+
+def _infer_planting_month(stage_names):
+    """Return the planting month inferred from pre-season Stage Names.
+
+    Pre-season init months always form a contiguous block in the calendar
+    (set by ``utils.get_pre_season_init_months``); planting is the calendar
+    month immediately after the latest init in the block, with year wrap.
+
+    Returns ``None`` when no Pre-Season stages are present — callers fall
+    back to the legacy ordering.
     """
-    _month_order = {
-        "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
-        "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
-    }
+    import re
+
+    months = set()
+    for name in stage_names:
+        if isinstance(name, str) and name.startswith("Pre-Season"):
+            match = re.search(r"init (\w+)", name)
+            if match:
+                mn = _MONTH_ORDER.get(match.group(1))
+                if mn:
+                    months.add(mn)
+    if not months:
+        return None
+    for candidate in range(1, 13):
+        prev = 12 if candidate == 1 else candidate - 1
+        if candidate not in months and prev in months:
+            return candidate
+    return None
+
+
+def _stage_sort_key(name, planting_month=None):
+    """Sort stage names chronologically.
+
+    Pre-Season stages sort first (before any in-season stage). When
+    ``planting_month`` is provided, init months are ordered by
+    "months-before-planting" descending — i.e. earliest forecast first,
+    latest pre-season init right before planting last. Works for any
+    hemisphere / cross-year season.
+
+    When ``planting_month`` is ``None``, falls back to the legacy
+    hardcoded wrap-around (assumes ~March planting) for backward
+    compatibility with callers that haven't been updated.
+    """
+    import re
+
     if name.startswith("Pre-Season") or name.startswith("In-Season"):
-        import re
         match = re.search(r"init (\w+)", name)
         if match:
-            m = _month_order.get(match.group(1), 0)
-            # Pre-season months wrap around the year boundary:
-            # Sep(-15) < Oct(-14) < ... < Feb(-10) < Mar(-9=in-season)
+            m = _MONTH_ORDER.get(match.group(1), 0)
+            if planting_month is not None and 1 <= planting_month <= 12:
+                # Months-before-planting (mod 12); negate so ascending sort
+                # puts the *earliest* (furthest-from-planting) init first.
+                return -((planting_month - m) % 12)
+            # Legacy fallback — March-planting wrap.
             return m - 24 if m >= 7 else m - 12
         return -1
     parts = name.split("-")
     if len(parts) == 2:
-        s = _month_order.get(parts[0].strip().split()[0], 0)
-        e = _month_order.get(parts[1].strip().split()[0], 0)
+        s = _MONTH_ORDER.get(parts[0].strip().split()[0], 0)
+        e = _MONTH_ORDER.get(parts[1].strip().split()[0], 0)
         return (s - e) % 12 if s >= e else s - e + 12
     return 0
 
@@ -742,7 +784,9 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook):
     df["MAPE"] = (df[pred_col] - df[obs_col]).abs() / df[obs_col] * 100
     df["RMSE_sq"] = (df[pred_col] - df[obs_col]) ** 2
 
-    stages_sorted = sorted(df["Stage Name"].dropna().unique(), key=_stage_sort_key)
+    _stage_names = df["Stage Name"].dropna().unique()
+    _planting = _infer_planting_month(_stage_names)
+    stages_sorted = sorted(_stage_names, key=lambda s: _stage_sort_key(s, _planting))
     if len(stages_sorted) < 2:
         return
 
@@ -936,8 +980,10 @@ def _plot_feature_selection_by_stage(df_features, country, crop, model, dir_outl
 
     df_long = pd.DataFrame(rows)
 
-    # Sort stages chronologically
-    stages_sorted = sorted(df_long["Stage Name"].unique(), key=_stage_sort_key)
+    # Sort stages chronologically (planting-month-aware for pre-season inits)
+    _stage_names = df_long["Stage Name"].unique()
+    _planting = _infer_planting_month(_stage_names)
+    stages_sorted = sorted(_stage_names, key=lambda s: _stage_sort_key(s, _planting))
     friendly_labels = [friendly_stage_label(s) for s in stages_sorted]
 
     # Pivot: count of features per (stage, type)
@@ -1753,6 +1799,24 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
 
             # Restore
             parser.set("ML", "run_time_steps", "auto")
+        elif run_time_steps == "lag_only":
+            # Both passes like auto, with a worker-side flag forcing
+            # feature selection to keep only lag-yield columns. Baseline
+            # mode: no CID features at all.
+            parser.set("ML", "lag_only_features", "True")
+            parser.set("ML", "run_time_steps", "pre_season")
+            logger.info("Lag-only mode — Pass 1: Pre-season")
+            gc.execute_models(inputs, logger_obj, parser,
+                              loop_fn=loop_fn, desc="Pre-season models (lag-only)")
+
+            parser.set("ML", "run_time_steps", "all")
+            logger.info("Lag-only mode — Pass 2: In-season")
+            gc.execute_models(inputs, logger_obj, parser,
+                              loop_fn=loop_fn, desc="In-season models (lag-only)")
+
+            # Restore
+            parser.set("ML", "run_time_steps", "lag_only")
+            parser.set("ML", "lag_only_features", "False")
         else:
             gc.execute_models(inputs, logger_obj, parser, loop_fn=loop_fn)
 
@@ -1813,8 +1877,10 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
 
             # Determine which stages to produce maps for (outlook maps
             # are only meaningful for in-season stages, not pre-season)
+            _stage_names = df_current["Stage Name"].dropna().unique()
+            _planting = _infer_planting_month(_stage_names)
             available_stages = sorted(
-                df_current["Stage Name"].dropna().unique(), key=_stage_sort_key
+                _stage_names, key=lambda s: _stage_sort_key(s, _planting)
             )
             in_season_stages = [
                 s for s in available_stages
@@ -2004,10 +2070,14 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     df_table["Region"] = [
                         f"{r} ({prod_pct.get(r, 0):.1f}%)" for r in df_table["Region"]
                     ]
-                cols_order = [
-                    "Predicted Yield", "lower CI", "upper CI",
-                    "Last Obs Yield", "Last Obs Year",
-                ]
+                ci_has_values = (
+                    df_table["lower CI"].notna().any()
+                    or df_table["upper CI"].notna().any()
+                )
+                cols_order = ["Predicted Yield"]
+                if ci_has_values:
+                    cols_order += ["lower CI", "upper CI"]
+                cols_order += ["Last Obs Yield", "Last Obs Year"]
                 diag.yield_table(
                     df_table[["Region"] + cols_order],
                     out_path=plot_dir / f"yield_table_{country_lower}_{crop}_{model}.png",

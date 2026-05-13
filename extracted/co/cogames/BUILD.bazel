@@ -47,8 +47,6 @@ py_library(
         "@pyenv//:questionary",
         "@pyenv//:typer",
         "@pyenv//:rich",
-        "@pyenv//:fastapi",
-        "@pyenv//:uvicorn",
         "@pyenv//:httpx",
         "@pyenv//:anthropic",
         "@pyenv//:openai",

@@ -1,13 +1,13 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.802376                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.040156                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils
     import typing
@@ -99,7 +99,7 @@ class UnitParser(object, metaclass=type):
         ...
     def process(self, value: str):
         ...
-    def parse(self, value: typing.Optional[str]):
+    def parse(self, value: typing.Union[str, None]):
         ...
     @staticmethod
     def validation_wrapper_fn(metric_name: str):

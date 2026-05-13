@@ -22,6 +22,11 @@ from scalene.scalene_statistics import (
     MemcpyProfilingSample,
     ProfilingSample,
     ScaleneStatistics,
+    StackFrame,
+)
+from scalene.scalene_utility import (
+    intern_stack_frame,
+    line_has_alloc_opcode,
 )
 
 
@@ -113,6 +118,15 @@ class ScaleneMemoryProfiler:
                     # Skip empty/malformed samples but continue processing
                     # (don't break - there may be more valid samples)
                     continue
+                # Split into the 9 required fields plus an optional trailing
+                # stack field. The stack field (when present) starts with
+                # '|' and contains no unescaped commas, so maxsplit=9 keeps
+                # it intact even if filenames or the stack itself contained
+                # extra punctuation.
+                parts = count_str.split(",", 9)
+                if len(parts) < 9:
+                    # Malformed sample - skip and continue.
+                    continue
                 try:
                     (
                         action,
@@ -124,14 +138,39 @@ class ScaleneMemoryProfiler:
                         reported_fname,
                         reported_lineno,
                         bytei_str,
-                    ) = count_str.split(",")
+                    ) = parts[:9]
                 except ValueError:
-                    # Malformed sample - skip and continue
                     continue
+                stack_field = parts[9] if len(parts) == 10 else ""
                 if int(curr_pid) != int(pid):
                     continue
-                if int(reported_lineno) == -1:
-                    continue
+                stack_tuple: Optional[Tuple[StackFrame, ...]] = None
+                if stack_field and stack_field.startswith("|"):
+                    # Format: "|file1;lineno1|file2;lineno2|..." (leaf-first).
+                    # Reverse so the resulting tuple is outermost-first to
+                    # match the add_stack convention used elsewhere.
+                    frames: List[StackFrame] = []
+                    for segment in stack_field.split("|"):
+                        if not segment:
+                            continue
+                        sep = segment.rfind(";")
+                        if sep <= 0:
+                            continue
+                        fn = segment[:sep]
+                        try:
+                            ln = int(segment[sep + 1 :])
+                        except ValueError:
+                            continue
+                        frames.append(
+                            intern_stack_frame(
+                                filename=fn,
+                                function_name="",
+                                line_number=ln,
+                            )
+                        )
+                    frames.reverse()
+                    if frames:
+                        stack_tuple = tuple(frames)
                 profiling_sample = ProfilingSample(
                     action=action,
                     alloc_time=int(alloc_time_str),
@@ -141,6 +180,7 @@ class ScaleneMemoryProfiler:
                     filename=Filename(reported_fname),
                     lineno=LineNumber(int(reported_lineno)),
                     bytecode_index=ByteCodeIndex(int(bytei_str)),
+                    stack=stack_tuple,
                 )
                 arr.append(profiling_sample)
 
@@ -213,7 +253,10 @@ class ScaleneMemoryProfiler:
                 and item.count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1
             ):
                 with invalidate_mutex:
-                    last_file, last_line = invalidate_queue.pop(0)
+                    if invalidate_queue:
+                        last_file, last_line = invalidate_queue.pop(0)
+                    else:
+                        continue
 
                 mem_stats.memory_malloc_count[last_file][last_line] += 1
                 mem_stats.memory_aggregate_footprint[last_file][
@@ -227,10 +270,63 @@ class ScaleneMemoryProfiler:
             fname = item.filename
             lineno = item.lineno
 
+            # Smear suppression. The C++ interposer stamps every sample
+            # with the leaf user frame from ``whereInPython``, but
+            # CPython internals (arena resizes, GC, scalene's own
+            # bookkeeping under the GIL) emit raw mallocs whose bytes
+            # land on whichever leaf line the eval loop happens to be
+            # on. If that line's bytecode cannot have caused the alloc
+            # (no CALL / BUILD_ / LIST_ / … opcode — see
+            # ``line_has_alloc_opcode``), the sample is "smear".
+            #
+            # Earlier versions redirected smear up the captured stack
+            # to the nearest alloc-capable caller. That puts the bytes
+            # on whatever call site is currently active, which is
+            # misleading: e.g. ``x = doit2(x)`` is a CALL but doit2
+            # never allocates — the bytes really come from heap state
+            # set up by doit1 in a prior frame that's no longer on the
+            # stack. For the same reason, the captured stack itself
+            # isn't trustworthy here: it records which user frames
+            # were active at the moment of the malloc, none of which
+            # caused it. So we drop the sample from every per-line
+            # accumulator *and* from ``memory_stacks``. The bytes are
+            # still counted in the global running footprint (so the
+            # global peak / sparkline are accurate), but no line,
+            # function, or flame-chart path takes the blame.
+            leaf_can_alloc = line_has_alloc_opcode(fname, lineno)
+
+            count = item.count / self.BYTES_PER_MB
+            if not leaf_can_alloc:
+                # Keep the running per-item ``curr`` accurate so the
+                # next legitimate sparkline sample reflects the right
+                # footprint. Everything else (memory_stacks, per-line
+                # accumulators, allocs / last_malloc tracking) skips
+                # this sample.
+                if is_malloc:
+                    curr += count
+                else:
+                    curr -= count
+                continue
+
             # Add the byte index to the set for this line (if it's not there already).
             stats.bytei_map[fname][lineno].add(item.bytecode_index)
-            count = item.count / self.BYTES_PER_MB
             if is_malloc:
+                # Attribute the sampled bytes to the Python call stack
+                # captured *synchronously* in C++ inside process_malloc
+                # (item.stack). Unlike the old async signal-time capture,
+                # this stack reflects exactly where the allocation occurred,
+                # so short-lived allocator frames don't disappear.
+                #
+                # We deliberately do NOT populate function_name here:
+                # looking up enclosing-def names requires reading source
+                # files via linecache, which allocates. Since this code
+                # runs on the Scalene sigqueue worker thread, any heap
+                # allocation it causes would be observed by the
+                # interposer and show up as an artifact in the user's
+                # profile. Name resolution happens at JSON serialization
+                # time instead (see scalene_json.py), off the hot path.
+                if item.stack:
+                    stats.memory_stacks[item.stack] += count
                 allocs += count
                 curr += count
                 assert curr <= mem_stats.max_footprint

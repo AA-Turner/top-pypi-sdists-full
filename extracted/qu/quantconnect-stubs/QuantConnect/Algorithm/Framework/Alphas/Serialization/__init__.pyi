@@ -257,7 +257,7 @@ class InsightJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnec
         Convert the input value to a value to be serialized
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: The input value to be converted before serialization
         :returns: A new instance of TResult that is to be serialized.
@@ -270,7 +270,7 @@ class InsightJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnec
         Converts the input value to be deserialized
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: The deserialized value that needs to be converted to T
         :returns: The converted value.

@@ -121,6 +121,28 @@ CURRENT_VERSIONS: dict[str, dict[str, str]] = {
         "go_router": "14.6.2",
         "riverpod": "2.6.1",
     },
+    "expo": {
+        # React Native + Web via Expo. Pinning to currently shipping SDK 52
+        # which uses RN 0.76 and react-native-web 0.19.
+        "expo": "52.0.20",
+        "react": "18.3.1",
+        "react_native": "0.76.5",
+        "react_native_web": "0.19.13",
+        "react_dom": "18.3.1",
+        "expo_router": "4.0.16",
+        "expo_constants": "17.0.3",
+        "expo_status_bar": "2.0.0",
+        "expo_secure_store": "14.0.0",
+        "expo_image": "2.0.4",
+        "typescript": "5.7.2",
+        "metro": "0.81.0",
+        "babel_preset_expo": "12.0.4",
+        "react_native_safe_area_context": "4.12.0",
+        "react_native_screens": "4.4.0",
+        "react_native_gesture_handler": "2.20.2",
+        "axios": "1.7.9",
+        "react_native_reanimated": "3.16.5",
+    },
 }
 
 
@@ -160,13 +182,17 @@ class GeneratedFile:
 STACK_KEYWORDS: dict[str, list[str]] = {
     "fastapi": ["fastapi", "python web", "jwt python", "sqlmodel", "alembic"],
     "django": ["django", "drf", "django rest"],
-    "react": ["react", "jsx", "tsx", "vite", "next.js", "nextjs"],
+    "react": ["react ", " react", "vite react", "react typescript", "react ts"],
+    "nextjs": ["next.js", "nextjs", "next js"],
+    "react-native-web": [
+        "react native", "react-native", "expo", "expo-router", "expo router",
+        "react native web", "react-native-web", "react native + web",
+    ],
     "go-microservices": ["go microservice", "golang service", "gin", "go ecommerce"],
     "rust-axum": ["rust axum", "rust analytics", "tokio rust"],
     "spring-boot": ["spring boot", "java api", "spring banking"],
     "android-compose": ["jetpack compose", "kotlin android", "android app"],
     "ios-swift": ["ios swift", "swiftui", "swift app"],
-    "react-native": ["react native", "expo"],
     "flutter": ["flutter", "dart app"],
     "dotnet": [".net", "asp.net", "c# api"],
     "laravel": ["laravel", "php api"],
@@ -177,50 +203,137 @@ STACK_KEYWORDS: dict[str, list[str]] = {
 }
 
 
+# Priority order — earlier entries win when both match. Specific cross-platform
+# / mobile-first stacks win over generic web frameworks so "React Native with
+# Web support" routes to react-native-web (Expo) rather than plain React.
+_STACK_PRIORITY: tuple[str, ...] = (
+    "react-native-web",
+    "flutter",
+    "android-compose",
+    "ios-swift",
+    "nextjs",
+    "rust-axum",
+    "go-microservices",
+    "spring-boot",
+    "fastapi",
+    "django",
+    "rails",
+    "laravel",
+    "dotnet",
+    "graphql",
+    "react",
+    "kubernetes",
+    "cpp",
+)
+
+
 def detect_stack(task: str) -> str:
-    """Pick the best stack template for a task description."""
+    """Pick the best stack template for a task description.
+
+    Iterates in `_STACK_PRIORITY` order — the first stack whose keywords
+    appear at least once wins. This prevents "React" from outscoring
+    "React Native" just because the word "react" appears more times.
+    """
     lower = task.lower()
-    best, best_score = "fastapi", 0
-    for stack, kws in STACK_KEYWORDS.items():
-        score = sum(1 for kw in kws if kw in lower)
-        if score > best_score:
-            best, best_score = stack, score
-    return best
+    for stack in _STACK_PRIORITY:
+        kws = STACK_KEYWORDS.get(stack, [])
+        if any(kw in lower for kw in kws):
+            return stack
+    return "fastapi"
 
 
 _BUILD_VERBS = (
     "build", "create", "make", "scaffold", "implement", "set up",
     "set-up", "setup", "generate a", "produce a", "develop a",
-    "code a", "write a",
+    "develop the", "design the", "design a", "design an", "architect a",
+    "ship a", "ship an", "deliver a", "deliver an",
+    "code a", "write a", "produce", "develop",
 )
+
+
+_BUILD_TASK_HEADER_RE = re.compile(
+    r"(?im)^(?:\s*(?:\d+\.\s+|[-*]\s+)?)?(?:build|create|make|scaffold|implement|develop)\s+(?:a|an)\s+",
+)
+
+
+def decompose_multi_build_request(task: str) -> list[tuple[str, str]]:
+    """Find multiple distinct build sub-tasks in a single mega-prompt.
+
+    Returns [(label, sub_task)]. If only one task is found (or none look
+    independent), returns a single-entry list with the whole task.
+
+    Detection: splits on "Build a ..." / "Create a ..." / "Make a ..."
+    headers at line starts. Each chunk from one header to the next becomes
+    one sub-task. Useful for prompts like "Build X. Build Y. Build Z."
+    """
+    if not task:
+        return []
+    matches = list(_BUILD_TASK_HEADER_RE.finditer(task))
+    if len(matches) < 2:
+        return [("project", task.strip())]
+    chunks: list[tuple[str, str]] = []
+    for i, m in enumerate(matches):
+        start = m.start()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(task)
+        chunk = task[start:end].strip()
+        # Per-chunk threshold is lenient — once we've established the prompt
+        # is multi-task, even a one-line "Build a X" header is real work.
+        if len(chunk) < 25:
+            continue
+        # Build a meaningful label from the first 6 words of the chunk
+        first_line = chunk.split("\n", 1)[0]
+        label_words = re.findall(r"[A-Za-z+#.]+", first_line)[:8]
+        label = "-".join(w.lower() for w in label_words if len(w) > 1) or f"task-{i+1}"
+        label = label[:60]
+        chunks.append((label, chunk))
+    if not chunks:
+        return [("project", task.strip())]
+    return chunks
 
 
 def looks_like_build_request(task: str, min_chars: int = 60) -> bool:
     """Return True when `task` looks like a multi-file project build request.
 
-    Strong path: prompt mentions a build verb AND any known stack keyword
-    (e.g. "build a FastAPI backend") — always routes regardless of length.
-    Soft path: prompt mentions a build verb AND a generic project noun
-    (backend, frontend, microservice, app, service) AND is at least
-    `min_chars` long — filters out "build an api" type one-liners.
+    Path 1 (strict): prompt mentions a build verb AND a known stack keyword.
+    Path 2 (medium): prompt mentions a build verb AND a generic project
+    noun (backend, frontend, microservice, app, service) AND is at least
+    `min_chars` long.
+    Path 3 (loose): prompt is long (>400 chars) AND contains a stack
+    keyword AND mentions any of [platform, system, application, service,
+    saas, backend, frontend, dashboard, mobile]. Catches platform-spec
+    prompts like "Design a modern SaaS platform with FastAPI..." that
+    don't use the literal "Build a" pattern.
     """
     if not task:
         return False
     lower = task.lower()
     has_verb = any(v in lower for v in _BUILD_VERBS)
-    if not has_verb:
-        return False
-    # Strong stack signal — confidently routed regardless of length.
-    for kws in STACK_KEYWORDS.values():
-        if any(kw in lower for kw in kws):
-            return True
-    if len(task) < min_chars:
-        return False
+    # Path 1: build verb + stack keyword (any length)
+    if has_verb:
+        for kws in STACK_KEYWORDS.values():
+            if any(kw in lower for kw in kws):
+                return True
+    # Path 2: build verb + project noun + min length
     project_nouns = (
         "backend", "frontend", "microservice", "microservices",
         "mobile app", "web app", "rest api", "graphql api",
     )
-    return any(n in lower for n in project_nouns)
+    if has_verb and len(task) >= min_chars:
+        if any(n in lower for n in project_nouns):
+            return True
+    # Path 3: long platform-spec prompts without an explicit build verb
+    if len(task) >= 400:
+        platform_nouns = (
+            "platform", "system", "application", "service", "saas",
+            "dashboard", "backend", "frontend", "mobile app", "web app",
+        )
+        has_platform = any(n in lower for n in platform_nouns)
+        has_stack = any(
+            kw in lower for kws in STACK_KEYWORDS.values() for kw in kws
+        )
+        if has_platform and has_stack:
+            return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -598,30 +711,89 @@ def plan_react_frontend() -> list[FileSpec]:
     ]
 
 
+def _spec_mentions_backend(task: str) -> str | None:
+    """Return the backend framework keyword the spec mentions, if any.
+
+    Used so a primarily-frontend spec (RN + Web, React, Flutter) that ALSO
+    requests a backend produces both halves instead of only the frontend.
+
+    Uses regex word boundaries so e.g. "login" doesn't accidentally match
+    "gin", and "raining" doesn't match "rain".
+    """
+    lower = task.lower()
+    if re.search(r"\bfastapi\b", lower) or re.search(r"\bdjango\b", lower):
+        return "fastapi"
+    if "python" in lower and "backend" in lower:
+        return "fastapi"
+    if re.search(r"\bspring[- ]boot\b", lower):
+        return "spring-boot"
+    if re.search(r"\b(go microservice|golang backend|go backend|gin framework)\b", lower):
+        return "go-microservices"
+    if re.search(r"\baxum\b", lower) or re.search(r"\bactix\b", lower):
+        return "rust-axum"
+    return None
+
+
+def _backend_plan_for(name: str) -> list[FileSpec]:
+    if name == "fastapi":
+        return plan_fastapi_jwt()
+    if name == "spring-boot":
+        return plan_spring_boot()
+    if name == "go-microservices":
+        return plan_go_microservices()
+    if name == "rust-axum":
+        return plan_rust_axum()
+    return []
+
+
 def plan_for_task(task: str) -> tuple[str, list[FileSpec]]:
-    """Pick a stack and produce the file plan for a task."""
+    """Pick a stack and produce the file plan.
+
+    Multi-stack rule: if the picked primary stack is a frontend/mobile
+    framework but the spec also names a backend framework, the returned
+    plan is the union of both. This matches what users mean when they
+    say "Build a React Native app with a FastAPI backend."
+    """
     stack = detect_stack(task)
     if stack == "fastapi":
         files = plan_fastapi_jwt()
         if any(k in task.lower() for k in ["react", "frontend", "typescript ui"]):
             files = files + plan_react_frontend()
         return stack, files
+
+    primary_files: list[FileSpec]
     if stack == "react":
-        return stack, plan_react_frontend()
-    if stack == "go-microservices":
+        primary_files = plan_react_frontend()
+    elif stack == "react-native-web":
+        primary_files = plan_react_native_web()
+    elif stack == "go-microservices":
         return stack, plan_go_microservices()
-    if stack == "android-compose":
-        return stack, plan_android_compose()
-    if stack == "rust-axum":
+    elif stack == "android-compose":
+        primary_files = plan_android_compose()
+    elif stack == "rust-axum":
         return stack, plan_rust_axum()
-    if stack == "spring-boot":
+    elif stack == "spring-boot":
         return stack, plan_spring_boot()
-    if stack == "ios-swift":
-        return stack, plan_ios_swift()
-    if stack == "flutter":
-        return stack, plan_flutter()
-    # Default fallback: still produce a usable scaffold
-    return stack, plan_fastapi_jwt()
+    elif stack == "ios-swift":
+        primary_files = plan_ios_swift()
+    elif stack == "flutter":
+        primary_files = plan_flutter()
+    else:
+        return stack, plan_fastapi_jwt()
+
+    # Multi-stack: append backend plan if the spec names one. The backend
+    # files live under `backend/` so they don't collide with frontend files.
+    backend_name = _spec_mentions_backend(task)
+    if backend_name:
+        backend_files = _backend_plan_for(backend_name)
+        # Prefix backend file paths with `backend/` so they coexist with
+        # the frontend in the same project root.
+        for f in backend_files:
+            if not f.path.startswith("backend/") and not f.path.startswith("frontend/"):
+                f.path = f"backend/{f.path}"
+        return f"{stack}+{backend_name}", primary_files + backend_files
+
+    return stack, primary_files
 
 
 # ---------------------------------------------------------------------------
@@ -1802,6 +1974,425 @@ def plan_ios_swift() -> list[FileSpec]:
 
 
 # ---------------------------------------------------------------------------
+# React Native + Web (Expo) plan
+# ---------------------------------------------------------------------------
+
+
+def plan_react_native_web() -> list[FileSpec]:
+    """Expo SDK 52 + expo-router + react-native-web. Single codebase for
+    iOS, Android, and Web with SSR via the Metro web bundler. All current
+    versions pinned."""
+    v = CURRENT_VERSIONS["expo"]
+    package_json = json.dumps(
+        {
+            "name": "app",
+            "version": "0.1.0",
+            "main": "expo-router/entry",
+            "scripts": {
+                "start": "expo start",
+                "android": "expo start --android",
+                "ios": "expo start --ios",
+                "web": "expo start --web",
+                "build:web": "expo export --platform web",
+                "lint": "expo lint",
+                "test": "jest --watchAll=false",
+                "typecheck": "tsc --noEmit",
+            },
+            "dependencies": {
+                "expo": f"^{v['expo']}",
+                "expo-constants": f"^{v['expo_constants']}",
+                "expo-router": f"^{v['expo_router']}",
+                "expo-status-bar": f"^{v['expo_status_bar']}",
+                "expo-secure-store": f"^{v['expo_secure_store']}",
+                "expo-image": f"^{v['expo_image']}",
+                "react": v["react"],
+                "react-dom": v["react_dom"],
+                "react-native": v["react_native"],
+                "react-native-web": f"^{v['react_native_web']}",
+                "react-native-safe-area-context": v["react_native_safe_area_context"],
+                "react-native-screens": v["react_native_screens"],
+                "react-native-gesture-handler": f"~{v['react_native_gesture_handler']}",
+                "react-native-reanimated": f"~{v['react_native_reanimated']}",
+                "axios": f"^{v['axios']}",
+            },
+            "devDependencies": {
+                "@babel/core": "^7.25.0",
+                "@types/react": "~18.3.12",
+                "babel-preset-expo": f"^{v['babel_preset_expo']}",
+                "jest": "^29.7.0",
+                "jest-expo": f"~{v['expo']}",
+                "@testing-library/react-native": "^12.9.0",
+                "@testing-library/jest-native": "^5.4.3",
+                "react-test-renderer": v["react"],  # peer of @testing-library/react-native
+                "typescript": f"^{v['typescript']}",
+            },
+            "private": True,
+        },
+        indent=2,
+    ) + "\n"
+
+    app_json = json.dumps(
+        {
+            "expo": {
+                "name": "AppName",
+                "slug": "appname",
+                "version": "1.0.0",
+                "orientation": "portrait",
+                "icon": "./assets/icon.png",
+                "scheme": "appname",
+                "userInterfaceStyle": "automatic",
+                "splash": {
+                    "image": "./assets/splash.png",
+                    "resizeMode": "contain",
+                    "backgroundColor": "#ffffff",
+                },
+                "ios": {"supportsTablet": True, "bundleIdentifier": "com.example.appname"},
+                "android": {
+                    "adaptiveIcon": {
+                        "foregroundImage": "./assets/adaptive-icon.png",
+                        "backgroundColor": "#ffffff",
+                    },
+                    "package": "com.example.appname",
+                },
+                "web": {
+                    "bundler": "metro",
+                    "output": "static",
+                    "favicon": "./assets/favicon.png",
+                },
+                "plugins": ["expo-router", "expo-secure-store"],
+                "experiments": {"typedRoutes": True},
+            }
+        },
+        indent=2,
+    ) + "\n"
+
+    babel_config = textwrap.dedent(
+        """\
+        module.exports = function (api) {
+          api.cache(true);
+          return {
+            presets: ['babel-preset-expo'],
+            plugins: ['react-native-reanimated/plugin'],
+          };
+        };
+        """
+    )
+
+    metro_config = textwrap.dedent(
+        """\
+        const { getDefaultConfig } = require('expo/metro-config');
+        const config = getDefaultConfig(__dirname);
+        module.exports = config;
+        """
+    )
+
+    tsconfig = json.dumps(
+        {
+            "extends": "expo/tsconfig.base",
+            "compilerOptions": {
+                "strict": True,
+                "noUnusedLocals": True,
+                "noUnusedParameters": True,
+                "noFallthroughCasesInSwitch": True,
+                "paths": {"@/*": ["./*"]},
+            },
+            "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+        },
+        indent=2,
+    ) + "\n"
+
+    expo_env = "/// <reference types=\"expo/types\" />\n// NOTE: This file should not be edited and should be in your git ignore.\n"
+
+    gitignore = textwrap.dedent(
+        """\
+        node_modules/
+        .expo/
+        dist/
+        web-build/
+        npm-debug.*
+        *.jks
+        *.p8
+        *.p12
+        *.key
+        *.mobileprovision
+        *.orig.*
+        .env*.local
+        .env
+        .DS_Store
+        # Expo router auto-generated types
+        expo-env.d.ts
+        """
+    )
+
+    ci = textwrap.dedent(
+        """\
+        name: ci
+        on:
+          push: { branches: [main] }
+          pull_request: { branches: [main] }
+        jobs:
+          test:
+            runs-on: ubuntu-latest
+            steps:
+              - uses: actions/checkout@v4
+              - uses: actions/setup-node@v4
+                with: { node-version: "20", cache: npm }
+              - run: npm ci
+              - run: npm run typecheck
+              - run: npm test
+              - run: npm run build:web
+        """
+    )
+
+    return [
+        FileSpec(path="package.json", role="Expo SDK 52 + react-native-web pinned",
+                 language="json", template=package_json),
+        FileSpec(
+            path=".npmrc",
+            role="legacy-peer-deps so Expo SDK 52 + RN 0.76 resolve cleanly",
+            language="text",
+            template="legacy-peer-deps=true\nfund=false\naudit=false\n",
+        ),
+        FileSpec(path="app.json", role="Expo app config with web bundler enabled",
+                 language="json", template=app_json),
+        FileSpec(path="babel.config.js", role="Babel preset-expo + reanimated plugin",
+                 language="javascript", template=babel_config),
+        FileSpec(path="metro.config.js", role="Metro bundler defaults",
+                 language="javascript", template=metro_config),
+        FileSpec(path="tsconfig.json", role="TS strict + path alias + expo types",
+                 language="json", template=tsconfig),
+        FileSpec(path="expo-env.d.ts", role="Expo TS type reference",
+                 language="typescript", template=expo_env),
+        FileSpec(path=".gitignore", role="Expo / Node gitignore", language="text",
+                 template=gitignore),
+        FileSpec(path=".github/workflows/ci.yml", role="CI: typecheck + test + web build",
+                 language="yaml", template=ci),
+        FileSpec(path="README.md", role="App overview, run on iOS/Android/Web, deploy",
+                 language="markdown"),
+
+        # ── Expo Router app/ tree (file-based routing for iOS/Android/Web) ──
+        FileSpec(
+            path="app/_layout.tsx",
+            role=(
+                "Root layout using expo-router Stack. Must wrap with "
+                "GestureHandlerRootView + SafeAreaProvider + AuthProvider. "
+                "Uses react-native StyleSheet, NOT styled-components."
+            ),
+            language="typescript",
+            must_contain=[
+                "from 'expo-router'",
+                "Stack",
+                "SafeAreaProvider",
+                "GestureHandlerRootView",
+                "AuthProvider",
+            ],
+            must_not_contain=["from 'react-router-dom'", "styled-components"],
+        ),
+        FileSpec(
+            path="app/index.tsx",
+            role=(
+                "Landing route. Uses react-native primitives (View, Text, "
+                "Pressable) — NOT HTML elements (div, span, button). "
+                "Uses expo-router Link or router.push for navigation."
+            ),
+            language="typescript",
+            must_contain=[
+                "from 'react-native'",
+                "View",
+                "Text",
+                "from 'expo-router'",
+            ],
+            must_not_contain=["<div", "<span", "<button", "className=", "react-router"],
+        ),
+        FileSpec(
+            path="app/(auth)/login.tsx",
+            role=(
+                "Polished login screen — React Native TextInput, Pressable, Text. "
+                "Uses useAuth().signIn(email, password). keyboardType=email-address. "
+                "Visual polish: StyleSheet.create with named colors/spacing, "
+                "ActivityIndicator while submitting, error Text in red when "
+                "auth fails, KeyboardAvoidingView for iOS, rounded inputs with "
+                "border + padding, primary button with hover/pressed states. "
+                "Responsive: max-width on web/tablet via useWindowDimensions."
+            ),
+            language="typescript",
+            must_contain=[
+                "from 'react-native'",
+                "TextInput",
+                "useAuth",
+                "useState",
+                "keyboardType",
+                "StyleSheet.create",
+                "ActivityIndicator",
+                "KeyboardAvoidingView",
+            ],
+            must_not_contain=["<input", "<form", "<button", "className=", "<div"],
+        ),
+        FileSpec(
+            path="app/(auth)/register.tsx",
+            role="Register screen mirroring login with TextInput + Pressable",
+            language="typescript",
+            must_contain=["from 'react-native'", "TextInput", "useAuth", "useState"],
+            must_not_contain=["<input", "<form", "<div", "className="],
+        ),
+        FileSpec(
+            path="app/(auth)/_layout.tsx",
+            role="Auth route group layout via expo-router Stack",
+            language="typescript",
+            must_contain=["from 'expo-router'", "Stack"],
+        ),
+        FileSpec(
+            path="app/(tabs)/_layout.tsx",
+            role="Tabs layout using expo-router Tabs + ionicons",
+            language="typescript",
+            must_contain=["from 'expo-router'", "Tabs"],
+        ),
+        FileSpec(
+            path="app/(tabs)/dashboard.tsx",
+            role=(
+                "Dashboard tab — React Native FlatList of campaigns from API. "
+                "Responsive: useWindowDimensions for tablet/web breakpoints. "
+                "Use Platform.OS to branch behaviour only when needed."
+            ),
+            language="typescript",
+            must_contain=[
+                "from 'react-native'",
+                "FlatList",
+                "useWindowDimensions",
+                "Platform",
+            ],
+            must_not_contain=["<div", "<table", "className="],
+        ),
+        FileSpec(
+            path="app/(tabs)/settings.tsx",
+            role="Settings tab — Switch components, profile edit, logout button",
+            language="typescript",
+            must_contain=["from 'react-native'", "Switch", "useAuth"],
+            must_not_contain=["<div", "<input", "className="],
+        ),
+
+        # ── Shared modules ─────────────────────────────────────────
+        FileSpec(
+            path="context/AuthContext.tsx",
+            role=(
+                "Auth provider exposing signIn(email,password), signUp, signOut, "
+                "user. Tokens stored via expo-secure-store on native, "
+                "AsyncStorage / localStorage fallback on web via Platform.OS."
+            ),
+            language="typescript",
+            must_contain=[
+                "createContext",
+                "useAuth",
+                "signIn",
+                "signUp",
+                "signOut",
+                "Platform.OS",
+                "expo-secure-store",
+            ],
+            must_not_contain=["document.", "<div"],
+        ),
+        FileSpec(
+            path="services/api.ts",
+            role=(
+                "axios instance with baseURL from process.env.EXPO_PUBLIC_API_URL "
+                "and Authorization header injected from stored token. "
+                "No DOM dependencies — must work on RN + Web."
+            ),
+            language="typescript",
+            must_contain=[
+                "axios",
+                "EXPO_PUBLIC_API_URL",
+                "Authorization",
+                "Bearer",
+            ],
+            must_not_contain=["window.", "document.", "localStorage.getItem('token')  // unsafe"],
+        ),
+        FileSpec(
+            path="components/Button.tsx",
+            role=(
+                "Polished cross-platform Button — Pressable with hover/pressed "
+                "visual feedback via pressed style fn. Variants: primary, "
+                "secondary, destructive. Loading state shows ActivityIndicator. "
+                "Disabled state dims opacity. NO HTML, NO className — "
+                "StyleSheet.create with named color/spacing tokens."
+            ),
+            language="typescript",
+            must_contain=[
+                "Pressable",
+                "StyleSheet.create",
+                "ActivityIndicator",
+                "pressed",
+                "disabled",
+            ],
+            must_not_contain=["<button", "className=", "<div"],
+        ),
+        FileSpec(
+            path="components/TextField.tsx",
+            role=(
+                "Polished labelled TextInput. View + Text label + TextInput + "
+                "error Text in red below. Visual: rounded border, focused "
+                "ring colour via onFocus/onBlur state, placeholder colour, "
+                "padding for touch targets, accessible labels."
+            ),
+            language="typescript",
+            must_contain=[
+                "TextInput",
+                "from 'react-native'",
+                "StyleSheet.create",
+                "onFocus",
+                "onBlur",
+            ],
+            must_not_contain=["<input", "<label", "className="],
+        ),
+        FileSpec(
+            path="hooks/useResponsive.ts",
+            role=(
+                "useResponsive() returning { isPhone, isTablet, isDesktop } via "
+                "useWindowDimensions breakpoints (768, 1024)."
+            ),
+            language="typescript",
+            must_contain=["useWindowDimensions", "isPhone", "isTablet", "isDesktop"],
+        ),
+
+        # ── Tests (Jest + @testing-library/react-native) ────────────
+        FileSpec(
+            path="__tests__/auth.test.tsx",
+            role=(
+                "Tests for login form: renders TextInput, validates email "
+                "format, calls signIn on submit. Uses @testing-library/react-native."
+            ),
+            language="typescript",
+            must_contain=[
+                "@testing-library/react-native",
+                "render",
+                "fireEvent",
+                "expect",
+            ],
+            must_not_contain=["@testing-library/react'", "jsdom"],
+        ),
+        FileSpec(
+            path="jest.config.js",
+            role="jest-expo preset",
+            language="javascript",
+            template=textwrap.dedent("""\
+                module.exports = {
+                  preset: 'jest-expo',
+                  transformIgnorePatterns: [
+                    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg))',
+                  ],
+                };
+                """),
+        ),
+        FileSpec(
+            path=".env.example",
+            role="Example env vars — only EXPO_PUBLIC_* are exposed at runtime",
+            language="env",
+            template="EXPO_PUBLIC_API_URL=http://localhost:8000\n",
+        ),
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Flutter plan
 # ---------------------------------------------------------------------------
 
@@ -2023,6 +2614,183 @@ def validate_file(spec: FileSpec, content: str) -> list[str]:
         if forbidden.lower() in content.lower():
             errors.append(f"contains forbidden token: {forbidden!r}")
     return errors
+
+
+# ---------------------------------------------------------------------------
+# Task compression for very long inputs
+# ---------------------------------------------------------------------------
+
+
+_LONG_TASK_THRESHOLD = 2000
+"""Char count above which the task is compressed to a brief before being
+embedded into per-file LLM prompts. Below this, the full task is passed."""
+
+_COMPRESSION_CHUNK_SIZE = 40_000
+"""Maximum chars per compression LLM call. ~40K chars ≈ ~10K tokens, leaves
+comfortable headroom in a 32K-token context window for the prompt template
+and the generated brief. Inputs larger than this are chunked and
+map-reduced into a single final brief."""
+
+_HARD_INPUT_CAP = 2_000_000
+"""Absolute char limit beyond which input is head/tail-truncated even
+before chunking, to avoid pathological loop counts. 2M chars ≈ ~500K
+tokens — far larger than any realistic prompt."""
+
+
+def _build_compression_prompt(task: str) -> str:
+    return textwrap.dedent(
+        f"""\
+        You are condensing a long project specification into a structured
+        technical brief that will guide code generation. Preserve EVERY
+        feature, integration, and cross-cutting requirement the user
+        mentioned — do not summarise away features. Use bullet lists.
+
+        ## Input specification
+        {task.strip()}
+
+        ## Output format (fill in exactly this template — keep ALL items)
+        PROJECT: <one-line summary of what to build>
+        STACK:
+        - <every technology / library / framework mentioned, one per line>
+        AUTH: <auth scheme + any special requirements>
+        FEATURES:
+        - <EVERY feature the user wants, one per line — do not omit any>
+        INTEGRATIONS:
+        - <EVERY external API / service to wire up, one per line>
+        CROSS-CUTTING:
+        - <EVERY observability / security / performance / compliance line>
+        TENANCY: <single-tenant or multi-tenant + brief notes>
+        DEPLOYMENT: <docker/k8s/cloud target + any infra notes>
+        DATA:
+        - <data stores, queues, caches, object storage>
+
+        Do NOT collapse multiple features into one line. Do NOT skip
+        features that seem similar. The next stage will use this brief
+        verbatim and only see what is in it.
+
+        Output ONLY the filled brief. No prose, no markdown fences, no
+        commentary before or after.
+        """
+    )
+
+
+def _chunk_text(text: str, max_chunk_chars: int) -> list[str]:
+    """Split `text` into chunks at most `max_chunk_chars` long, preferring
+    paragraph and line boundaries so semantic units stay intact."""
+    if len(text) <= max_chunk_chars:
+        return [text]
+    chunks: list[str] = []
+    remaining = text
+    while len(remaining) > max_chunk_chars:
+        cut = max_chunk_chars
+        # Prefer a paragraph break, then a sentence break, then a newline,
+        # then a space. Search backward from the max position.
+        for delim in ("\n\n", ". ", "\n", " "):
+            idx = remaining.rfind(delim, max_chunk_chars // 2, max_chunk_chars)
+            if idx != -1:
+                cut = idx + len(delim)
+                break
+        chunks.append(remaining[:cut].strip())
+        remaining = remaining[cut:]
+    if remaining.strip():
+        chunks.append(remaining.strip())
+    return chunks
+
+
+def _head_tail_truncate(task: str) -> str:
+    """Last-resort fallback: keep the most-signal bookends of the input."""
+    head = task[:1500]
+    tail = task[-1000:] if len(task) > 2500 else ""
+    if tail:
+        return f"{head}\n\n... [middle omitted] ...\n\n{tail}".strip()
+    return head.strip()
+
+
+def compress_task_brief(task: str, generate: GenerateFn) -> str:
+    """Reduce any-size spec to a ~500-token compact brief.
+
+    Strategy:
+      - Below `_LONG_TASK_THRESHOLD` (2K chars): return unchanged.
+      - Up to `_COMPRESSION_CHUNK_SIZE` (40K chars): one LLM compression call.
+      - Larger: split into chunks at paragraph boundaries, summarise each
+        chunk separately (map step), then summarise the concatenated
+        mini-summaries into the final brief (reduce step).
+      - `_HARD_INPUT_CAP` (2M chars): head/tail-truncate before chunking
+        so we never spawn a pathological number of map calls.
+      - Any exception or obviously-bad output: fall back to head/tail
+        truncation. Function never raises.
+    """
+    if not task or len(task) < _LONG_TASK_THRESHOLD:
+        return task
+
+    working = task
+    if len(working) > _HARD_INPUT_CAP:
+        working = _head_tail_truncate(working[:_HARD_INPUT_CAP])
+
+    # Map step: chunked compression for inputs that won't fit one call.
+    if len(working) > _COMPRESSION_CHUNK_SIZE:
+        chunks = _chunk_text(working, _COMPRESSION_CHUNK_SIZE)
+        mini_briefs: list[str] = []
+        for chunk in chunks:
+            try:
+                mb = strip_code_fences(generate(_build_chunk_summary_prompt(chunk)))
+            except Exception:
+                mb = ""
+            if mb and len(mb) > 50:
+                mini_briefs.append(mb)
+        if not mini_briefs:
+            return _head_tail_truncate(working)
+        # Reduce step: compress the concatenated mini-briefs into the
+        # final structured brief. If the concatenation itself is large
+        # we recurse — but the chunked map step is guaranteed to shrink
+        # input each round so we converge in O(log n) passes.
+        joined = "\n\n".join(mini_briefs)
+        return compress_task_brief(joined, generate)
+
+    # Single-call path: input fits in one LLM compression call.
+    try:
+        brief = strip_code_fences(generate(_build_compression_prompt(working)))
+    except Exception:
+        return _head_tail_truncate(working)
+    # A comprehensive brief that preserves all features can legitimately be
+    # 60–80% of the original size for a feature-rich spec. Only reject as
+    # "not a brief" if the model returned nothing useful or longer than input.
+    if not brief or len(brief) < 100 or len(brief) > len(working) * 1.05:
+        return _head_tail_truncate(working)
+    return brief
+
+
+def _build_chunk_summary_prompt(chunk: str) -> str:
+    """Map-step prompt: extract structured signal from one chunk."""
+    return textwrap.dedent(
+        f"""\
+        You are extracting key requirements from ONE chunk of a larger
+        project specification. Other chunks will be summarised separately
+        and the summaries combined later.
+
+        ## Chunk
+        {chunk.strip()}
+
+        ## Output format
+        Extract any of the following that appear in this chunk. Use exactly
+        this template, leaving sections blank if nothing applies. Be terse.
+
+        TECH:
+        - <technology / library mentioned, one per line>
+        FEATURES:
+        - <feature requirement, one per line>
+        INTEGRATIONS:
+        - <external service or API, one per line>
+        SECURITY:
+        - <security/auth requirement, one per line>
+        PERFORMANCE:
+        - <performance/scalability requirement, one per line>
+        OTHER:
+        - <anything else worth carrying forward, one per line>
+
+        Output ONLY the filled template. No prose, no fences, no commentary.
+        """
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -2266,6 +3034,171 @@ def build_lint_fix_prompt(
 
 
 # ---------------------------------------------------------------------------
+# Runtime validation (install + test pass)
+# ---------------------------------------------------------------------------
+
+
+def _run_command(cmd: list[str], cwd: Path, timeout: int = 300) -> tuple[int, str]:
+    """Run a subprocess command, return (returncode, combined-output)."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            cmd, cwd=str(cwd), capture_output=True, text=True, timeout=timeout
+        )
+        out = (result.stdout or "") + (result.stderr or "")
+        return result.returncode, out
+    except subprocess.TimeoutExpired:
+        return 124, f"Command timed out after {timeout}s: {' '.join(cmd)}"
+    except FileNotFoundError:
+        return 127, f"Tool not found: {cmd[0]}"
+    except OSError as exc:
+        return 1, f"Failed to run {' '.join(cmd)}: {exc}"
+
+
+def validate_node_project(out_dir: Path, log: Callable[[str], None] | None = None
+                          ) -> dict:
+    """Run `npm install` + `npm test` in a Node project root. Returns a
+    diagnostic dict the orchestrator uses to decide whether to regen.
+
+    Returns: {ran: bool, install_ok: bool, test_ok: bool, errors: [str]}.
+    """
+    import shutil
+
+    def _log(msg: str) -> None:
+        if log:
+            log(msg)
+
+    if not (out_dir / "package.json").exists():
+        return {"ran": False, "reason": "no package.json"}
+    if not shutil.which("npm"):
+        return {"ran": False, "reason": "npm not installed"}
+
+    _log("  ▶ npm install")
+    code, install_log = _run_command(
+        ["npm", "install", "--no-fund", "--no-audit", "--silent",
+         "--legacy-peer-deps"],
+        out_dir, timeout=300,
+    )
+    install_ok = code == 0
+    errors: list[str] = []
+    if not install_ok:
+        # Keep the most signal-dense tail of the npm log for the regen prompt
+        errors.append("npm install failed:\n" + install_log[-2000:])
+
+    test_ok = False
+    test_log = ""
+    if install_ok:
+        _log("  ▶ npm test")
+        code, test_log = _run_command(
+            ["npm", "test", "--silent", "--", "--passWithNoTests"],
+            out_dir, timeout=180,
+        )
+        test_ok = code == 0
+        if not test_ok:
+            errors.append("npm test failed:\n" + test_log[-2000:])
+
+    return {
+        "ran": True,
+        "install_ok": install_ok,
+        "test_ok": test_ok,
+        "errors": errors,
+    }
+
+
+def validate_python_project(out_dir: Path, log: Callable[[str], None] | None = None
+                            ) -> dict:
+    """Run `pip install -e .` + `pytest` in a Python project root."""
+    import shutil
+
+    def _log(msg: str) -> None:
+        if log:
+            log(msg)
+
+    has_pyproject = (out_dir / "pyproject.toml").exists()
+    if not has_pyproject:
+        return {"ran": False, "reason": "no pyproject.toml"}
+    if not shutil.which("pip") and not shutil.which("pip3"):
+        return {"ran": False, "reason": "pip not installed"}
+
+    pip = "pip" if shutil.which("pip") else "pip3"
+    # Use a temp venv to avoid contaminating the user's env
+    import subprocess, sys
+    venv_path = out_dir / ".sage" / "venv"
+    venv_path.parent.mkdir(parents=True, exist_ok=True)
+    if not venv_path.exists():
+        _log("  ▶ creating .sage/venv")
+        code, log_text = _run_command(
+            [sys.executable, "-m", "venv", str(venv_path)], out_dir, timeout=120
+        )
+        if code != 0:
+            return {"ran": False, "reason": f"venv create failed: {log_text[:500]}"}
+
+    venv_pip = venv_path / "bin" / "pip"
+    if not venv_pip.exists():
+        venv_pip = venv_path / "Scripts" / "pip.exe"
+    _log("  ▶ pip install -e .[dev]")
+    code, install_log = _run_command(
+        [str(venv_pip), "install", "-q", "-e", ".[dev]"], out_dir, timeout=600
+    )
+    install_ok = code == 0
+    errors: list[str] = []
+    if not install_ok:
+        errors.append("pip install failed:\n" + install_log[-2000:])
+
+    test_ok = False
+    if install_ok:
+        venv_pytest = venv_path / "bin" / "pytest"
+        if not venv_pytest.exists():
+            venv_pytest = venv_path / "Scripts" / "pytest.exe"
+        _log("  ▶ pytest")
+        code, test_log = _run_command(
+            [str(venv_pytest), "-q", "--no-header"], out_dir, timeout=300
+        )
+        test_ok = code == 0
+        if not test_ok:
+            errors.append("pytest failed:\n" + test_log[-2000:])
+
+    return {
+        "ran": True,
+        "install_ok": install_ok,
+        "test_ok": test_ok,
+        "errors": errors,
+    }
+
+
+def build_runtime_fix_prompt(
+    error_text: str,
+    relevant_files: dict[str, str],
+) -> str:
+    """Prompt the model with actual install/test errors so it can fix them."""
+    files_block = "\n\n".join(
+        f"## {p}\n```\n{c[:2500]}\n```" for p, c in relevant_files.items()
+    )
+    return textwrap.dedent(
+        f"""\
+        Your generated project fails install or test. Fix it.
+
+        ## Error output
+        ```
+        {error_text[:3000]}
+        ```
+
+        ## Relevant project files
+        {files_block}
+
+        ## Required fix
+        Identify which file(s) need to change to clear this error. Output
+        a JSON object mapping each file path to its new full content:
+
+        {{"path/to/file.ext": "<new full file contents>", ...}}
+
+        Output ONLY the JSON. No prose, no markdown fences. Only include
+        files that need to change.
+        """
+    )
+
+
+# ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
 
@@ -2330,6 +3263,24 @@ def build_project(
     out_dir = out_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # Compress long inputs to a compact brief before per-file generation.
+    # The full task remains available for stack detection (above) and for
+    # writing into the README so nothing is lost.
+    if len(task) >= _LONG_TASK_THRESHOLD:
+        log(f"  Task is {len(task)} chars — compressing to brief...")
+        brief = compress_task_brief(task, generate)
+        log(f"  Compressed: {len(brief)} chars")
+        # Internal artifact — goes into hidden .sage/ subdir to keep the
+        # project root clean.
+        sage_meta_dir = out_dir / ".sage"
+        sage_meta_dir.mkdir(parents=True, exist_ok=True)
+        (sage_meta_dir / "PROJECT_BRIEF.md").write_text(
+            "# Project Brief\n\n" + brief + "\n\n---\n\n# Original Spec\n\n" + task,
+            encoding="utf-8",
+        )
+    else:
+        brief = task
+
     report: dict = {
         "stack": stack,
         "out_dir": str(out_dir),
@@ -2337,6 +3288,8 @@ def build_project(
         "template_count": 0,
         "llm_count": 0,
         "review_failures": 0,
+        "task_chars": len(task),
+        "brief_chars": len(brief),
     }
 
     for spec in files:
@@ -2350,7 +3303,7 @@ def build_project(
             log(f"  ✓ {spec.path} (template)")
             continue
 
-        prompt = build_file_prompt(task, spec, tree, stack, versions)
+        prompt = build_file_prompt(brief, spec, tree, stack, versions)
         content = strip_code_fences(generate(prompt))
 
         # Deterministic re-attempts if the validator catches a violation.
@@ -2371,7 +3324,7 @@ def build_project(
         review_score = None
         review_notes = ""
         if max_review_passes > 0:
-            review = parse_review_response(generate(build_review_prompt(task, spec, content)))
+            review = parse_review_response(generate(build_review_prompt(brief, spec, content)))
             review_score = review.score
             review_notes = review.notes
             if review.score < review_threshold and review.gaps:
@@ -2382,7 +3335,7 @@ def build_project(
                 )
                 content = strip_code_fences(generate(gap_prompt))
                 review = parse_review_response(
-                    generate(build_review_prompt(task, spec, content))
+                    generate(build_review_prompt(brief, spec, content))
                 )
                 review_score = review.score
                 review_notes = review.notes
@@ -2457,6 +3410,72 @@ def build_project(
                 f"({len(diagnostics)} diag, {len(undefined)} undef)"
             )
 
+    # ── Runtime install + test pass ────────────────────────────────────
+    # Run `npm install` + `npm test` for Node projects and `pip install`
+    # + `pytest` for Python projects. Any failures get one regen pass with
+    # the actual error log fed back to the model.
+    report["install_ok"] = None
+    report["tests_ok"] = None
+    runtime_errors: list[str] = []
+
+    if (out_dir / "package.json").exists():
+        node_diag = validate_node_project(out_dir, log=log)
+        if node_diag.get("ran"):
+            report["install_ok"] = node_diag["install_ok"]
+            report["tests_ok"] = node_diag["test_ok"]
+            runtime_errors.extend(node_diag.get("errors", []))
+
+    backend_root = out_dir / "backend"
+    if backend_root.exists() and (backend_root / "pyproject.toml").exists():
+        py_diag = validate_python_project(backend_root, log=log)
+        if py_diag.get("ran"):
+            report["backend_install_ok"] = py_diag["install_ok"]
+            report["backend_tests_ok"] = py_diag["test_ok"]
+            runtime_errors.extend(py_diag.get("errors", []))
+    elif (out_dir / "pyproject.toml").exists():
+        py_diag = validate_python_project(out_dir, log=log)
+        if py_diag.get("ran"):
+            report["install_ok"] = py_diag["install_ok"]
+            report["tests_ok"] = py_diag["test_ok"]
+            runtime_errors.extend(py_diag.get("errors", []))
+
+    # If runtime checks failed, give the model one chance to fix them
+    # using the actual error output. Reads the most-likely-relevant files
+    # (package.json, jest config, tests) into the prompt.
+    if runtime_errors:
+        report["runtime_fixes"] = 0
+        for err in runtime_errors[:2]:  # cap to avoid runaway regen loops
+            relevant: dict[str, str] = {}
+            for candidate in (
+                "package.json", ".npmrc", "jest.config.js",
+                "backend/pyproject.toml",
+                "pyproject.toml",
+                "__tests__/auth.test.tsx",
+                "backend/tests/test_auth.py",
+                "tests/test_auth.py",
+            ):
+                p = out_dir / candidate
+                if p.exists():
+                    relevant[candidate] = p.read_text("utf-8", errors="replace")
+            try:
+                raw = generate(build_runtime_fix_prompt(err, relevant))
+                import json as _json
+                # Find JSON block tolerantly
+                start = raw.find("{")
+                end = raw.rfind("}")
+                if start != -1 and end != -1 and end > start:
+                    fixes = _json.loads(raw[start : end + 1])
+                    if isinstance(fixes, dict):
+                        for path, new_content in fixes.items():
+                            if isinstance(new_content, str) and len(new_content) > 10:
+                                target = out_dir / path
+                                target.parent.mkdir(parents=True, exist_ok=True)
+                                target.write_text(new_content, encoding="utf-8")
+                                report["runtime_fixes"] += 1
+                                log(f"  ⚒ runtime-fix wrote {path}")
+            except Exception as exc:
+                log(f"  runtime-fix skipped: {exc}")
+
     return report
 
 
@@ -2490,6 +3509,9 @@ __all__ = [
     "build_integrity_fix_prompt",
     "build_project",
     "build_review_prompt",
+    "build_runtime_fix_prompt",
+    "compress_task_brief",
+    "decompose_multi_build_request",
     "detect_stack",
     "looks_like_build_request",
     "parse_review_response",
@@ -2500,8 +3522,11 @@ __all__ = [
     "plan_go_microservices",
     "plan_ios_swift",
     "plan_react_frontend",
+    "plan_react_native_web",
     "plan_rust_axum",
     "plan_spring_boot",
     "strip_code_fences",
     "validate_file",
+    "validate_node_project",
+    "validate_python_project",
 ]

@@ -1,25 +1,26 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.843261                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.104234                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import io
-import metaflow
 import abc
+import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.metaflow_environment
-    import io
     import metaflow.exception
+    import io
+    import metaflow.metaflow_environment
     import abc
 
 from ...exception import MetaflowException as MetaflowException
 from ...metaflow_config import get_pinned_conda_libs as get_pinned_conda_libs
 from ...packaging_sys import ContentType as ContentType
 from .utils import conda_platform as conda_platform
+from .conda_decorator import CondaStepDecorator as CondaStepDecorator
 
 MAGIC_FILE: str
 

@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 import logging
 import math
 from typing import Any
+from uuid import uuid4
 
 from ouroboros.core.types import Result
 from ouroboros.mcp.errors import MCPServerError, MCPToolError
@@ -43,9 +44,13 @@ from ouroboros.ralph_loop import (
 MAX_RALPH_GENERATIONS = 10
 MIN_PER_ITERATION_TIMEOUT_SECONDS = 30.0
 MAX_PER_ITERATION_TIMEOUT_SECONDS = 7200.0
+MIN_MAX_TOTAL_SECONDS = 1.0
+MAX_MAX_TOTAL_SECONDS = 86400.0
 MIN_PROGRESS_WINDOW = 2  # smallest window where strict-decrease / repeat checks are meaningful
 MIN_MAX_TOTAL_SECONDS = 1.0
 MAX_MAX_TOTAL_SECONDS = 86400.0
+
+logger = logging.getLogger(__name__)
 
 logger = logging.getLogger(__name__)
 
@@ -360,9 +365,9 @@ class RalphHandler:
             project_dir=arguments.get("project_dir"),
             max_generations=max_generations,
             per_iteration_timeout_seconds=per_iteration_timeout_seconds,
+            max_total_seconds=max_total_seconds,
             oscillation_window=oscillation_window,
             grade_regression_window=grade_regression_window,
-            max_total_seconds=max_total_seconds,
         )
 
         if should_dispatch_via_plugin(self.agent_runtime_backend, self.opencode_mode):
@@ -381,9 +386,9 @@ class RalphHandler:
                 project_dir=config.project_dir,
                 max_generations=config.max_generations,
                 per_iteration_timeout_seconds=config.per_iteration_timeout_seconds,
+                max_total_seconds=config.max_total_seconds,
                 oscillation_window=config.oscillation_window,
                 grade_regression_window=config.grade_regression_window,
-                max_total_seconds=config.max_total_seconds,
             )
             await self._event_store.initialize()
             await emit_subagent_dispatched_event(
@@ -404,9 +409,24 @@ class RalphHandler:
 
         runner = RalphLoopRunner(self._evolve_handler)
 
-        async def _run_loop() -> MCPToolResult:
+        async def _run_loop(handle) -> MCPToolResult:
+            if handle.should_cancel():
+                return MCPToolResult(
+                    content=(
+                        MCPContentItem(
+                            type=ContentType.TEXT,
+                            text="Ralph loop cancelled before restart work began.",
+                        ),
+                    ),
+                    is_error=True,
+                    meta={"status": "cancelled"},
+                )
             result = await runner.run(config)
             return result.to_tool_result()
+
+        job_id = await self._job_manager.allocate_job_id()
+        agent_process_id = f"ralph:{config.lineage_id}:{uuid4().hex[:12]}"
+        agent_cancel_key = f"mcp_job:{job_id}"
 
         snapshot = await self._job_manager.start_job(
             job_type="ralph",
@@ -414,9 +434,12 @@ class RalphHandler:
             runner=run_with_agent_process(
                 event_store=self._event_store,
                 intent="ralph",
-                work_fn=lambda _handle: _run_loop(),
+                work_fn=_run_loop,
+                process_id=agent_process_id,
+                cancel_key=agent_cancel_key,
             ),
             links=JobLinks(lineage_id=config.lineage_id),
+            job_id=job_id,
         )
 
         text = (

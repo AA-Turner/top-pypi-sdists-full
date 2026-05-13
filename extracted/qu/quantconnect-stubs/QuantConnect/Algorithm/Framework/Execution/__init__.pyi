@@ -53,7 +53,7 @@ class ExecutionModel(QuantConnect.Python.BasePythonWrapper[QuantConnect_Algorith
         If true, orders should be submitted asynchronously.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -121,7 +121,7 @@ class SpreadExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionM
         Determines if the current spread is equal or tighter than preset level
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -137,7 +137,7 @@ class StandardDeviationExecutionModel(QuantConnect.Algorithm.Framework.Execution
         Symbol Data for this Execution Model
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
 
         @property
@@ -210,7 +210,7 @@ class StandardDeviationExecutionModel(QuantConnect.Algorithm.Framework.Execution
         Determines if it's safe to remove the associated symbol data
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -229,7 +229,7 @@ class StandardDeviationExecutionModel(QuantConnect.Algorithm.Framework.Execution
         away from the mean in the favorable direction.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -242,7 +242,7 @@ class VolumeWeightedAveragePriceExecutionModel(QuantConnect.Algorithm.Framework.
         Symbol data for this Execution Model
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
 
         @property
@@ -300,7 +300,7 @@ class VolumeWeightedAveragePriceExecutionModel(QuantConnect.Algorithm.Framework.
         Determines if it's safe to remove the associated symbol data
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -318,7 +318,7 @@ class VolumeWeightedAveragePriceExecutionModel(QuantConnect.Algorithm.Framework.
         Determines if the current price is better than VWAP
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.825529                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.071212                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ class BakingStats(object, metaclass=type):
     def __init__(self, stats):
         ...
     @property
-    def solver_stats(self) -> typing.Optional[metaflow.mf_extensions.outerbounds.plugins.fast_bakery.fast_bakery.SolverStats]:
+    def solver_stats(self) -> typing.Union[metaflow.mf_extensions.outerbounds.plugins.fast_bakery.fast_bakery.SolverStats, None]:
         ...
     ...
 
@@ -37,16 +37,16 @@ class FastBakeryApiResponse(object, metaclass=type):
     def __init__(self, response):
         ...
     @property
-    def python_path(self) -> typing.Optional[str]:
+    def python_path(self) -> typing.Union[str, None]:
         ...
     @property
-    def container_image(self) -> typing.Optional[str]:
+    def container_image(self) -> typing.Union[str, None]:
         ...
     @property
     def success(self) -> bool:
         ...
     @property
-    def baking_stats(self) -> typing.Optional[metaflow.mf_extensions.outerbounds.plugins.fast_bakery.fast_bakery.BakingStats]:
+    def baking_stats(self) -> typing.Union[metaflow.mf_extensions.outerbounds.plugins.fast_bakery.fast_bakery.BakingStats, None]:
         ...
     @property
     def failure(self) -> bool:
@@ -61,6 +61,10 @@ class FastBakery(object, metaclass=type):
     def pypi_packages(self, packages: typing.Dict[str, str]):
         ...
     def conda_packages(self, packages: typing.Dict[str, str]):
+        ...
+    def default_conda_channel(self, channel: str):
+        ...
+    def conda_channels(self, channels: list):
         ...
     def base_image(self, image: str):
         ...

@@ -22,6 +22,15 @@ System_Threading_CancellationToken = typing.Any
 System_Threading_AsyncLocal_T = typing.TypeVar("System_Threading_AsyncLocal_T")
 System_Threading_AsyncLocalValueChangedArgs_T = typing.TypeVar("System_Threading_AsyncLocalValueChangedArgs_T")
 System_Threading_ThreadLocal_T = typing.TypeVar("System_Threading_ThreadLocal_T")
+System_Threading_Interlocked_Exchange_T = typing.TypeVar("System_Threading_Interlocked_Exchange_T")
+System_Threading_Interlocked_CompareExchange_T = typing.TypeVar("System_Threading_Interlocked_CompareExchange_T")
+System_Threading_Interlocked_And_T = typing.TypeVar("System_Threading_Interlocked_And_T")
+System_Threading_Interlocked_Or_T = typing.TypeVar("System_Threading_Interlocked_Or_T")
+System_Threading_LazyInitializer_EnsureInitialized_T = typing.TypeVar("System_Threading_LazyInitializer_EnsureInitialized_T")
+System_Threading_Volatile_Read_T = typing.TypeVar("System_Threading_Volatile_Read_T")
+System_Threading_Volatile_Write_T = typing.TypeVar("System_Threading_Volatile_Write_T")
+System_Threading_ThreadPool_QueueUserWorkItem_TState = typing.TypeVar("System_Threading_ThreadPool_QueueUserWorkItem_TState")
+System_Threading_ThreadPool_UnsafeQueueUserWorkItem_TState = typing.TypeVar("System_Threading_ThreadPool_UnsafeQueueUserWorkItem_TState")
 
 
 class ThreadAbortException(System.SystemException):
@@ -268,69 +277,131 @@ class Mutex(System.Threading.WaitHandle):
         ...
 
 
+class _Typed_Interlocked_Exchange(typing.Generic[System_Threading_Interlocked_Exchange_T]):
+    """"""
+
+    @overload
+    def __call__(self, location_1: System_Threading_Interlocked_Exchange_T, value: System_Threading_Interlocked_Exchange_T) -> System_Threading_Interlocked_Exchange_T:
+        ...
+
+
+class _Interlocked_Exchange:
+    """"""
+
+    @overload
+    def __call__(self, location_1: int, value: int) -> int:
+        ...
+
+    @overload
+    def __call__(self, location_1: float, value: float) -> float:
+        ...
+
+    @overload
+    def __call__(self, location_1: System.IntPtr, value: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @overload
+    def __call__(self, location_1: System.UIntPtr, value: System.UIntPtr) -> System.UIntPtr:
+        ...
+
+    @overload
+    def __call__(self, location_1: typing.Any, value: typing.Any) -> System.Object:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Threading_Interlocked_Exchange_T]) -> System.Threading._Typed_Interlocked_Exchange[System_Threading_Interlocked_Exchange_T]:
+        ...
+
+
+class _Typed_Interlocked_CompareExchange(typing.Generic[System_Threading_Interlocked_CompareExchange_T]):
+    """"""
+
+    @overload
+    def __call__(self, location_1: System_Threading_Interlocked_CompareExchange_T, value: System_Threading_Interlocked_CompareExchange_T, comparand: System_Threading_Interlocked_CompareExchange_T) -> System_Threading_Interlocked_CompareExchange_T:
+        ...
+
+
+class _Interlocked_CompareExchange:
+    """"""
+
+    @overload
+    def __call__(self, location_1: int, value: int, comparand: int) -> int:
+        ...
+
+    @overload
+    def __call__(self, location_1: float, value: float, comparand: float) -> float:
+        ...
+
+    @overload
+    def __call__(self, location_1: System.IntPtr, value: System.IntPtr, comparand: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @overload
+    def __call__(self, location_1: System.UIntPtr, value: System.UIntPtr, comparand: System.UIntPtr) -> System.UIntPtr:
+        ...
+
+    @overload
+    def __call__(self, location_1: typing.Any, value: typing.Any, comparand: typing.Any) -> System.Object:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Threading_Interlocked_CompareExchange_T]) -> System.Threading._Typed_Interlocked_CompareExchange[System_Threading_Interlocked_CompareExchange_T]:
+        ...
+
+
+class _Typed_Interlocked_And(typing.Generic[System_Threading_Interlocked_And_T]):
+    """"""
+
+    @overload
+    def __call__(self, location_1: System_Threading_Interlocked_And_T, value: System_Threading_Interlocked_And_T) -> System_Threading_Interlocked_And_T:
+        ...
+
+
+class _Interlocked_And:
+    """"""
+
+    @overload
+    def __call__(self, location_1: int, value: int) -> int:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Threading_Interlocked_And_T]) -> System.Threading._Typed_Interlocked_And[System_Threading_Interlocked_And_T]:
+        ...
+
+
+class _Typed_Interlocked_Or(typing.Generic[System_Threading_Interlocked_Or_T]):
+    """"""
+
+    @overload
+    def __call__(self, location_1: System_Threading_Interlocked_Or_T, value: System_Threading_Interlocked_Or_T) -> System_Threading_Interlocked_Or_T:
+        ...
+
+
+class _Interlocked_Or:
+    """"""
+
+    @overload
+    def __call__(self, location_1: int, value: int) -> int:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Threading_Interlocked_Or_T]) -> System.Threading._Typed_Interlocked_Or[System_Threading_Interlocked_Or_T]:
+        ...
+
+
 class Interlocked(System.Object):
     """This class has no documentation."""
+
+    exchange: System.Threading._Interlocked_Exchange
+
+    compare_exchange: System.Threading._Interlocked_CompareExchange
+
+    And: System.Threading._Interlocked_And
+
+    Or: System.Threading._Interlocked_Or
 
     @staticmethod
     def add(location_1: int, value: int) -> int:
         ...
 
     @staticmethod
-    def And(location1: int, value: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def compare_exchange(location_1: int, value: int, comparand: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def compare_exchange(location_1: float, value: float, comparand: float) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def compare_exchange(location_1: System.IntPtr, value: System.IntPtr, comparand: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def compare_exchange(location_1: System.UIntPtr, value: System.UIntPtr, comparand: System.UIntPtr) -> System.UIntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def compare_exchange(location_1: typing.Any, value: typing.Any, comparand: typing.Any) -> System.Object:
-        ...
-
-    @staticmethod
     def decrement(location: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def exchange(location_1: int, value: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def exchange(location_1: float, value: float) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def exchange(location_1: System.IntPtr, value: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def exchange(location_1: System.UIntPtr, value: System.UIntPtr) -> System.UIntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def exchange(location_1: typing.Any, value: typing.Any) -> System.Object:
         ...
 
     @staticmethod
@@ -343,10 +414,6 @@ class Interlocked(System.Object):
 
     @staticmethod
     def memory_barrier_process_wide() -> None:
-        ...
-
-    @staticmethod
-    def Or(location1: int, value: int) -> int:
         ...
 
     @staticmethod
@@ -548,8 +615,41 @@ class ManualResetEventSlim(System.Object, System.IDisposable):
         ...
 
 
+class _Typed_LazyInitializer_EnsureInitialized(typing.Generic[System_Threading_LazyInitializer_EnsureInitialized_T]):
+    """"""
+
+    @overload
+    def __call__(self, target: System_Threading_LazyInitializer_EnsureInitialized_T) -> System_Threading_LazyInitializer_EnsureInitialized_T:
+        ...
+
+    @overload
+    def __call__(self, target: System_Threading_LazyInitializer_EnsureInitialized_T, value_factory: typing.Callable[[], System_Threading_LazyInitializer_EnsureInitialized_T]) -> System_Threading_LazyInitializer_EnsureInitialized_T:
+        ...
+
+    @overload
+    def __call__(self, target: System_Threading_LazyInitializer_EnsureInitialized_T, initialized: bool, sync_lock: typing.Any) -> System_Threading_LazyInitializer_EnsureInitialized_T:
+        ...
+
+    @overload
+    def __call__(self, target: System_Threading_LazyInitializer_EnsureInitialized_T, initialized: bool, sync_lock: typing.Any, value_factory: typing.Callable[[], System_Threading_LazyInitializer_EnsureInitialized_T]) -> System_Threading_LazyInitializer_EnsureInitialized_T:
+        ...
+
+    @overload
+    def __call__(self, target: System_Threading_LazyInitializer_EnsureInitialized_T, sync_lock: typing.Any, value_factory: typing.Callable[[], System_Threading_LazyInitializer_EnsureInitialized_T]) -> System_Threading_LazyInitializer_EnsureInitialized_T:
+        ...
+
+
+class _LazyInitializer_EnsureInitialized:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Threading_LazyInitializer_EnsureInitialized_T]) -> System.Threading._Typed_LazyInitializer_EnsureInitialized[System_Threading_LazyInitializer_EnsureInitialized_T]:
+        ...
+
+
 class LazyInitializer(System.Object):
     """This class has no documentation."""
+
+    ensure_initialized: System.Threading._LazyInitializer_EnsureInitialized
 
 
 class AsyncFlowControl(System.IEquatable[System_Threading_AsyncFlowControl], System.IDisposable):
@@ -821,61 +921,85 @@ class Timer(System.MarshalByRefObject, System.Threading.ITimer):
         ...
 
 
+class _Typed_Volatile_Read(typing.Generic[System_Threading_Volatile_Read_T]):
+    """"""
+
+    @overload
+    def __call__(self, location: System_Threading_Volatile_Read_T) -> System_Threading_Volatile_Read_T:
+        ...
+
+
+class _Volatile_Read:
+    """"""
+
+    @overload
+    def __call__(self, location: bool) -> bool:
+        ...
+
+    @overload
+    def __call__(self, location: int) -> int:
+        ...
+
+    @overload
+    def __call__(self, location: float) -> float:
+        ...
+
+    @overload
+    def __call__(self, location: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @overload
+    def __call__(self, location: System.UIntPtr) -> System.UIntPtr:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Threading_Volatile_Read_T]) -> System.Threading._Typed_Volatile_Read[System_Threading_Volatile_Read_T]:
+        ...
+
+
+class _Typed_Volatile_Write(typing.Generic[System_Threading_Volatile_Write_T]):
+    """"""
+
+    @overload
+    def __call__(self, location: System_Threading_Volatile_Write_T, value: System_Threading_Volatile_Write_T) -> None:
+        ...
+
+
+class _Volatile_Write:
+    """"""
+
+    @overload
+    def __call__(self, location: bool, value: bool) -> None:
+        ...
+
+    @overload
+    def __call__(self, location: int, value: int) -> None:
+        ...
+
+    @overload
+    def __call__(self, location: float, value: float) -> None:
+        ...
+
+    @overload
+    def __call__(self, location: System.IntPtr, value: System.IntPtr) -> None:
+        ...
+
+    @overload
+    def __call__(self, location: System.UIntPtr, value: System.UIntPtr) -> None:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Threading_Volatile_Write_T]) -> System.Threading._Typed_Volatile_Write[System_Threading_Volatile_Write_T]:
+        ...
+
+
 class Volatile(System.Object):
     """This class has no documentation."""
 
-    @staticmethod
-    @overload
-    def read(location: bool) -> bool:
-        ...
+    read: System.Threading._Volatile_Read
 
-    @staticmethod
-    @overload
-    def read(location: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def read(location: float) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def read(location: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def read(location: System.UIntPtr) -> System.UIntPtr:
-        ...
+    write: System.Threading._Volatile_Write
 
     @staticmethod
     def read_barrier() -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write(location: bool, value: bool) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write(location: int, value: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write(location: float, value: float) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write(location: System.IntPtr, value: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write(location: System.UIntPtr, value: System.UIntPtr) -> None:
         ...
 
     @staticmethod
@@ -914,10 +1038,56 @@ class RegisteredWaitHandle(System.MarshalByRefObject):
         ...
 
 
+class _Typed_ThreadPool_QueueUserWorkItem(typing.Generic[System_Threading_ThreadPool_QueueUserWorkItem_TState]):
+    """"""
+
+    @overload
+    def __call__(self, call_back: typing.Callable[[System_Threading_ThreadPool_QueueUserWorkItem_TState], typing.Any], state: System_Threading_ThreadPool_QueueUserWorkItem_TState, prefer_local: bool) -> bool:
+        ...
+
+
+class _ThreadPool_QueueUserWorkItem:
+    """"""
+
+    @overload
+    def __call__(self, call_back: typing.Callable[[System.Object], typing.Any]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, call_back: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> bool:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Threading_ThreadPool_QueueUserWorkItem_TState]) -> System.Threading._Typed_ThreadPool_QueueUserWorkItem[System_Threading_ThreadPool_QueueUserWorkItem_TState]:
+        ...
+
+
 class IThreadPoolWorkItem(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     def execute(self) -> None:
+        ...
+
+
+class _Typed_ThreadPool_UnsafeQueueUserWorkItem(typing.Generic[System_Threading_ThreadPool_UnsafeQueueUserWorkItem_TState]):
+    """"""
+
+    @overload
+    def __call__(self, call_back: typing.Callable[[System_Threading_ThreadPool_UnsafeQueueUserWorkItem_TState], typing.Any], state: System_Threading_ThreadPool_UnsafeQueueUserWorkItem_TState, prefer_local: bool) -> bool:
+        ...
+
+
+class _ThreadPool_UnsafeQueueUserWorkItem:
+    """"""
+
+    @overload
+    def __call__(self, call_back: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __call__(self, call_back: System.Threading.IThreadPoolWorkItem, prefer_local: bool) -> bool:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Threading_ThreadPool_UnsafeQueueUserWorkItem_TState]) -> System.Threading._Typed_ThreadPool_UnsafeQueueUserWorkItem[System_Threading_ThreadPool_UnsafeQueueUserWorkItem_TState]:
         ...
 
 
@@ -929,6 +1099,10 @@ class ThreadPool(System.Object):
     COMPLETED_WORK_ITEM_COUNT: int
 
     PENDING_WORK_ITEM_COUNT: int
+
+    queue_user_work_item: System.Threading._ThreadPool_QueueUserWorkItem
+
+    unsafe_queue_user_work_item: System.Threading._ThreadPool_UnsafeQueueUserWorkItem
 
     @staticmethod
     def bind_handle(os_handle: System.Runtime.InteropServices.SafeHandle) -> bool:
@@ -944,16 +1118,6 @@ class ThreadPool(System.Object):
 
     @staticmethod
     def get_min_threads(worker_threads: typing.Optional[int], completion_port_threads: typing.Optional[int]) -> typing.Tuple[None, int, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def queue_user_work_item(call_back: typing.Callable[[System.Object], typing.Any]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def queue_user_work_item(call_back: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> bool:
         ...
 
     @staticmethod
@@ -976,16 +1140,6 @@ class ThreadPool(System.Object):
 
     @staticmethod
     def unsafe_queue_native_overlapped(overlapped: typing.Any) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def unsafe_queue_user_work_item(call_back: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def unsafe_queue_user_work_item(call_back: System.Threading.IThreadPoolWorkItem, prefer_local: bool) -> bool:
         ...
 
     @staticmethod

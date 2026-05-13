@@ -1,13 +1,13 @@
 [project]
 name = "tach"
-version = "0.34.1"
+version = "0.35.0"
 authors = [
     { name = "Caelean Barnes", email = "caeleanb@gmail.com" },
     { name = "Evan Doyle", email = "evanmdoyle@gmail.com" },
 ]
 description = "A Python tool to maintain a modular package architecture."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -16,7 +16,6 @@ classifiers = [
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -35,7 +34,6 @@ dependencies = [
     "GitPython~=3.1",
     "networkx>=2.6,<4.0",
     "pydot>=2,<5",
-    "stdlib-list>=0.10.0; python_version < '3.10'",
 ]
 keywords = [
     'python',
@@ -53,23 +51,22 @@ keywords = [
 [dependency-groups]
 dev = [
     # Setup
-    "pip==26.0.1",
+    "pip==26.1.1",
     # Code Quality
     "basedpyright>=1.31.7",
-    "ruff==0.15.6",
+    "ruff==0.15.12",
     # Build/Release
     "setuptools==82.0.1",
     "twine==6.2.0",
-    "build==1.4.0",
+    "build==1.5.0",
     "gnumake>=4.4.1",
     # Tests
-    "pytest==8.4.2",
+    "pytest==9.0.3",
     "pytest-mock==3.15.1",
-    "coverage==7.10.7",
+    "coverage==7.14.0",
     # Rust
-    "maturin==1.12.6",
-    "rustup<1.29.0.1 ; sys_platform != 'win32' and python_version < '3.10'", # last version with 3.9 support
-    "rustup>=1.29.0.1 ; sys_platform != 'win32' and python_version >= '3.10'", # https://github.com/konstin/rustup-pypi/issues/5
+    "maturin==1.13.3",
+    "rustup>=1.29.0.1 ; sys_platform != 'win32'", # https://github.com/konstin/rustup-pypi/issues/5
 ]
 vscode = [
     "nodejs-wheel>=22.20.0",
@@ -78,12 +75,10 @@ vscode = [
     "python-jsonrpc-server",
 ]
 docs = [
-    "mkdocs>=1.5.0",
-    "mkdocs-material>=9.5.0",
     "pymdown-extensions>=10.0",
-    "mkdocs-social-plugin>=0.1.0 ; python_version >= '3.11'",
     "pillow",
     "cairosvg",
+    "zensical>=0.0.2",
 ]
 
 
@@ -100,7 +95,7 @@ default-groups = ["dev", "vscode", "docs"]
 [tool.ruff]
 src = ["python"]
 exclude = ["python/tests/example"]
-target-version = "py39"
+target-version = "py310"
 extend-exclude = [
     "pw",
 ]
@@ -117,10 +112,10 @@ exempt-modules = ["typing", "typing_extensions"]
 [tool.pyright]
 include = ["python", "vscode"]
 # https://github.com/DetachHead/basedpyright/issues/31
-ignore = ["pw", "vscode/bundled", "vscode/.nox", "vscode/node_modules"]
-exclude = ["pw", "vscode/bundled", "vscode/.nox", "vscode/node_modules"]
+ignore = ["pw", "vscode/bundled", "vscode/.nox", "vscode/node_modules", "python/tests/example/syntax_error_fixture/**"]
+exclude = ["pw", "vscode/bundled", "vscode/.nox", "vscode/node_modules", "python/tests/example/syntax_error_fixture/**"]
 executionEnvironments = [{ root = "python" }, { root = "vscode" }]
-pythonVersion = "3.9"
+pythonVersion = "3.10"
 reportImplicitStringConcatenation = false # conflicts with ruff formatter
 
 

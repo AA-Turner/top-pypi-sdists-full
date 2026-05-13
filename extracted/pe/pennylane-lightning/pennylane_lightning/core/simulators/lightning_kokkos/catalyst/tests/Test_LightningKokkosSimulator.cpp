@@ -21,7 +21,8 @@
 #include <variant>
 #include <vector>
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
 
 #include "LightningKokkosSimulator.hpp"
 #include "QuantumDevice.hpp"
@@ -77,15 +78,41 @@ TEST_CASE("LightningKokkosSimulator::unit_tests", "[unit tests]") {
         std::unique_ptr<LKSimulator> LKsim = std::make_unique<LKSimulator>();
         std::vector<intptr_t> Qs = LKsim->AllocateQubits(1);
         REQUIRE_NOTHROW(LKsim->StartTapeRecording());
-        REQUIRE_THROWS_WITH(
-            LKsim->StartTapeRecording(),
-            Catch::Matchers::Contains("Cannot re-activate the cache manager"));
+        REQUIRE_THROWS_WITH(LKsim->StartTapeRecording(),
+                            Catch::Matchers::ContainsSubstring(
+                                "Cannot re-activate the cache manager"));
         REQUIRE_NOTHROW(LKsim->StopTapeRecording());
         REQUIRE_THROWS_WITH(
             LKsim->StopTapeRecording(),
-            Catch::Matchers::Contains(
+            Catch::Matchers::ContainsSubstring(
                 "Cannot stop an already stopped cache manager"));
     }
+}
+
+TEST_CASE("Test Qubit Reuse", "[qubit reuse]") {
+    std::unique_ptr<LKSimulator> LKsim = std::make_unique<LKSimulator>();
+    std::vector<intptr_t> Qs = LKsim->AllocateQubits(2);
+    intptr_t Q = LKsim->AllocateQubit();
+
+    LKsim->PauliMeasure("XYZ", {Qs[0], Qs[1], Q});
+    LKsim->PauliMeasure("Z", {Q});
+    LKsim->ReleaseQubit(Q);
+    REQUIRE_NOTHROW(Q = LKsim->AllocateQubit());
+
+    LKsim->PauliMeasure("Z", {Qs[0]});
+    LKsim->ReleaseQubit(Qs[0]);
+    LKsim->PauliMeasure("Z", {Qs[1]});
+    LKsim->ReleaseQubit(Qs[1]);
+    REQUIRE_NOTHROW(Qs = LKsim->AllocateQubits(2));
+
+    LKsim->NamedOperation("PauliX", {}, {Q}, false);
+
+    std::vector<double> probs(2);
+    DataView<double, 1> probs_view(probs);
+    LKsim->PartialProbs(probs_view, {Q});
+
+    CHECK(probs[0] == Approx(0.0).margin(1e-6));
+    CHECK(probs[1] == Approx(1.0).margin(1e-6));
 }
 
 TEST_CASE("LightningKokkosSimulator::GateSet", "[GateSet]") {
@@ -732,7 +759,8 @@ TEST_CASE("LightningKokkosSimulator::GateSet", "[GateSet]") {
 
         REQUIRE_THROWS_WITH(
             LKsim->NamedOperation("Hadamard", {}, {Qs[0]}, false, {Qs[1]}, {}),
-            Catch::Contains("Controlled wires/values size mismatch"));
+            Catch::Matchers::ContainsSubstring(
+                "Controlled wires/values size mismatch"));
         std::vector<std::complex<double>> matrix{
             {-0.6709485262524046, -0.6304426335363695},
             {-0.14885403153998722, 0.3608498832392019},
@@ -741,7 +769,8 @@ TEST_CASE("LightningKokkosSimulator::GateSet", "[GateSet]") {
         };
         REQUIRE_THROWS_WITH(
             LKsim->MatrixOperation(matrix, {Qs[0]}, false, {Qs[1]}, {}),
-            Catch::Contains("Controlled wires/values size mismatch"));
+            Catch::Matchers::ContainsSubstring(
+                "Controlled wires/values size mismatch"));
     }
 
     SECTION("Controlled GlobalPhase (multi-qubit)") {
@@ -823,6 +852,40 @@ TEST_CASE("LightningKokkosSimulator::GateSet", "[GateSet]") {
         CHECK(state[0] == PLApproxComplex(c1).epsilon(1e-5));
         CHECK(state[1] == PLApproxComplex(c2).epsilon(1e-5));
     }
-}
 
-TEST_CASE("Test mismatch controlled wires", "[]") {}
+    SECTION("Test PauliRot") {
+        std::unique_ptr<LKSimulator> LKsim = std::make_unique<LKSimulator>();
+        constexpr std::size_t n_qubits = 1;
+        std::vector<intptr_t> Qs = LKsim->AllocateQubits(n_qubits);
+
+        LKsim->NamedOperation("PauliRot", {0.5}, {Qs[0]}, false, {}, {},
+                              /*pauli_string=*/{"X"});
+
+        std::vector<std::complex<double>> state(1U << LKsim->GetNumQubits());
+        DataView<std::complex<double>, 1> view(state);
+        LKsim->State(view);
+
+        CHECK(
+            state[0] ==
+            PLApproxComplex(std::complex<double>{0.96891242, 0}).epsilon(1e-5));
+        CHECK(state[1] == PLApproxComplex(std::complex<double>{0, -0.24740396})
+                              .epsilon(1e-5));
+    }
+
+    SECTION("Test PauliRot runtime failures") {
+        std::unique_ptr<LKSimulator> LKsim = std::make_unique<LKSimulator>();
+        constexpr std::size_t n_qubits = 2;
+        std::vector<intptr_t> Qs = LKsim->AllocateQubits(n_qubits);
+
+        REQUIRE_THROWS_WITH(LKsim->NamedOperation("PauliRot", {0.5}, {Qs[0]},
+                                                  false, {}, {}, {"X", "Y"}),
+                            Catch::Matchers::ContainsSubstring(
+                                "PauliRot operation requires one string"));
+
+        REQUIRE_THROWS_WITH(LKsim->NamedOperation("PauliRot", {0.5}, {Qs[0]},
+                                                  false, {Qs[1]}, {false},
+                                                  {"XY"}),
+                            Catch::Matchers::ContainsSubstring(
+                                "Controlled PauliRot is not supported"));
+    }
+}

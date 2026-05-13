@@ -1,16 +1,21 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Type information in IDA.
 
 In IDA, types are represented by and manipulated through tinfo_t objects.
-A tinfo_t can represent a simple type (e.g., `int`, `float`), a complex type (a structure, enum, union, typedef), or even an array, or a function prototype.
+
+A tinfo_t can represent a simple type (e.g., `int`, `float`), a complex type
+(a structure, enum, union, typedef), or even an array, or a function prototype.
+
 The key types in this file are:
 
 * til_t - a type info library. Holds type information in serialized form.
 * tinfo_t - information about a type (simple, complex, ...)
 
 
-# Glossary
+Glossary
+--------
+
 All throughout this file, there are certain terms that will keep appearing:
 
 * udt: "user-defined type": a structure or union - but not enums. See udt_type_data_t
@@ -18,29 +23,68 @@ All throughout this file, there are certain terms that will keep appearing:
 * edm: "enum member": i.e., an enumeration member - i.e., an enumerator. See edm_t
 
 
-# Under the hood
-The tinfo_t type provides a lot of useful methods already, but it's possible to achieve even more by retrieving its contents into the container classes:
+Under the hood
+--------------
 
-* udt_type_data_t - for structures & unions. See tinfo_t::get_udt_details . Essentially, a vector of udm_t
-* enum_type_data_t - for enumerations. See tinfo_t::get_enum_details . Essentially, a vector of edm_t
+The tinfo_t type provides a lot of useful methods already, but it's possible to
+achieve even more by retrieving its contents into the container classes:
+
+* udt_type_data_t - for structures & unions. See tinfo_t::get_udt_details.
+  Essentially, a vector of udm_t
+* enum_type_data_t - for enumerations. See tinfo_t::get_enum_details.
+  Essentially, a vector of edm_t
 * ptr_type_data_t - for pointers. See tinfo_t::get_ptr_details
 * array_type_data_t - for arrays. See tinfo_t::get_array_details
 * func_type_data_t - for function prototypes. See tinfo_t::get_func_details
 * bitfield_type_data_t - for bitfields. See tinfo_t::get_bitfield_details
 
 
-# Attached & detached tinfo_t objects
-tinfo_t objects can be attached to a til_t library, or can be created without using any til_t.
-Here is an example, assigning a function prototype:
-func_type_data_t func_info;
-funcarg_t argc; argc.name = "argc"; argc.type = tinfo_t(BT_INT); func_info.push_back(argc);
-funcarg_t argv; argc.name = "argv"; argc.type = tinfo_t("const char **"); func_info.push_back(argv)
-tinfo_t tif; if ( tif.create_func(func_info) ) { ea_t ea = // get address of "main" apply_tinfo(ea, tif, TINFO_DEFINITE); }
-This code manipulates a "detached" tinfo_t object, which does not depend on any til_t file. However, any complex type will require a til_t file. In IDA, there is always a default til_t file for each idb file. This til_t file can be specified by nullptr.
-On the other hand, the following code manipulates an "attached" tinfo_t object, and any operation that modifies it, will also modify it in the hosting til_t:
-tinfo_t tif; Load type from the "Local Types" til_t. Note: we could have used `get_idati()` instead of nullptr if ( tif.get_named_type(nullptr, "my_struct_t") ) tif.add_udm("extra_field", "unsigned long long");
-You can check if a tinfo_t instance is attached to a type in a til_t file by calling tinfo_t::is_typeref 
-    
+Attached & detached tinfo_t objects
+------------------------------------
+
+tinfo_t objects can be attached to a til_t library, or can be created without
+using any til_t.
+
+Here is an example, assigning a function prototype::
+
+    func_type_data_t func_info;
+    funcarg_t argc;
+    argc.name = "argc";
+    argc.type = tinfo_t(BT_INT);
+    func_info.push_back(argc);
+    funcarg_t argv;
+    argc.name = "argv";
+    argc.type = tinfo_t("const char **");
+    func_info.push_back(argv)
+    tinfo_t tif;
+    if ( tif.create_func(func_info) ) {
+        ea_t ea = // get address of "main"
+        apply_tinfo(ea, tif, TINFO_DEFINITE);
+    }
+
+This code manipulates a "detached" tinfo_t object, which does not depend on any
+til_t file. However, any complex type will require a til_t file. In IDA, there
+is always a default til_t file for each idb file. This til_t file can be
+specified by nullptr.
+
+On the other hand, the following code manipulates an "attached" tinfo_t object,
+and any operation that modifies it, will also modify it in the hosting til_t::
+
+    tinfo_t tif;
+    # Load type from the "Local Types" til_t.
+    # Note: we could have used `get_idati()` instead of nullptr
+    if ( tif.get_named_type(nullptr, "my_struct_t") )
+        tif.add_udm("extra_field", "unsigned long long");
+
+You can check if a tinfo_t instance is attached to a type in a til_t file by
+calling tinfo_t::is_typeref.
+
+.. tip::
+   The `IDA Domain API <https://ida-domain.docs.hex-rays.com/>`_ simplifies
+   common tasks and provides better type hints, while remaining fully compatible
+   with IDAPython for advanced use cases.
+
+   For type operations, see :mod:`ida_domain.types`.
 """
 
 class aloc_visitor_t:
@@ -55,8 +99,11 @@ class aloc_visitor_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -64,15 +111,18 @@ class aloc_visitor_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -89,7 +139,7 @@ class aloc_visitor_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -109,7 +159,7 @@ class aloc_visitor_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -119,7 +169,7 @@ class aloc_visitor_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def visit_location(self, v: argloc_t, off: int, size: int) -> int:
         ...
@@ -133,19 +183,25 @@ class argloc_t:
         ...
     def __eq__(self, r: argloc_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, r: argloc_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, r: argloc_t) -> bool:
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -159,7 +215,7 @@ class argloc_t:
         ...
     def __ne__(self, r: argloc_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -179,7 +235,7 @@ class argloc_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -189,19 +245,19 @@ class argloc_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def advance(self, delta: int) -> bool:
         r"""Move the location to point 'delta' bytes further.
         
         """
         ...
-    def align_reg_high(self, size: size_t, _slotsize: size_t) -> None:
+    def align_reg_high(self, size: int, _slotsize: int) -> None:
         r"""Set register offset to align it to the upper part of _SLOTSIZE.
         
         """
         ...
-    def align_stkoff_high(self, size: size_t, _slotsize: size_t) -> None:
+    def align_stkoff_high(self, size: int, _slotsize: int) -> None:
         r"""Set stack offset to align to the upper part of _SLOTSIZE.
         
         """
@@ -228,7 +284,7 @@ class argloc_t:
         
         """
         ...
-    def get_biggest(self) -> argloc_t:
+    def get_biggest(self) -> biggest_t:
         r"""Get largest element in internal union.
         
         """
@@ -381,9 +437,9 @@ class argloc_t:
 
 class argpart_t(argloc_t):
     @property
-    def off(self) -> Any: ...
+    def off(self) -> int: ...
     @property
-    def size(self) -> Any: ...
+    def size(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -392,19 +448,25 @@ class argpart_t(argloc_t):
         ...
     def __eq__(self, r: argloc_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, r: argloc_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, r: argloc_t) -> bool:
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -418,7 +480,7 @@ class argpart_t(argloc_t):
         ...
     def __ne__(self, r: argloc_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -438,7 +500,7 @@ class argpart_t(argloc_t):
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -448,19 +510,19 @@ class argpart_t(argloc_t):
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def advance(self, delta: int) -> bool:
         r"""Move the location to point 'delta' bytes further.
         
         """
         ...
-    def align_reg_high(self, size: size_t, _slotsize: size_t) -> None:
+    def align_reg_high(self, size: int, _slotsize: int) -> None:
         r"""Set register offset to align it to the upper part of _SLOTSIZE.
         
         """
         ...
-    def align_stkoff_high(self, size: size_t, _slotsize: size_t) -> None:
+    def align_stkoff_high(self, size: int, _slotsize: int) -> None:
         r"""Set stack offset to align to the upper part of _SLOTSIZE.
         
         """
@@ -497,7 +559,7 @@ class argpart_t(argloc_t):
         
         """
         ...
-    def get_biggest(self) -> argloc_t:
+    def get_biggest(self) -> biggest_t:
         r"""Get largest element in internal union.
         
         """
@@ -657,8 +719,11 @@ class argpartvec_t:
         ...
     def __eq__(self, r: argpartvec_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -666,14 +731,17 @@ class argpartvec_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> udm_t:
+    def __getitem__(self, i: int) -> argpart_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -681,7 +749,7 @@ class argpartvec_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[argpart_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -694,7 +762,7 @@ class argpartvec_t:
         ...
     def __ne__(self, r: argpartvec_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -708,7 +776,7 @@ class argpartvec_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: argpart_t) -> None:
+    def __setitem__(self, i: int, v: argpart_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
@@ -716,7 +784,7 @@ class argpartvec_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -726,17 +794,17 @@ class argpartvec_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: argpart_t) -> bool:
         ...
     def append(self, x: argpart_t) -> None:
         ...
-    def at(self, _idx: size_t) -> udm_t:
+    def at(self, _idx: int) -> argpart_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> uint64:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -744,35 +812,35 @@ class argpartvec_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> uint64:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: argpartvec_t) -> None:
         ...
-    def extract(self) -> udm_t:
+    def extract(self) -> argpart_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: argpart_t) -> bool:
         ...
-    def inject(self, s: argpart_t, len: size_t) -> None:
+    def inject(self, s: argpart_t, len: int) -> None:
         ...
     def insert(self, it: argpart_t, x: argpart_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> udm_t:
+    def push_back(self, *args: Any) -> argpart_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -783,7 +851,7 @@ class argpartvec_t:
 
 class argtinfo_helper_t:
     @property
-    def reserved(self) -> Any: ...
+    def reserved(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -795,8 +863,11 @@ class argtinfo_helper_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -804,15 +875,18 @@ class argtinfo_helper_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -829,7 +903,7 @@ class argtinfo_helper_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -849,7 +923,7 @@ class argtinfo_helper_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -859,15 +933,15 @@ class argtinfo_helper_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def has_delay_slot(self, arg0: ida_idaapi.ea_t) -> bool:
-        r"""The call instruction with a delay slot?.
+        r"""The call instruction with a delay slot?
         
         """
         ...
     def is_stkarg_load(self, insn: insn_t, src: int, dst: int) -> bool:
-        r"""Is the current insn a stkarg load?. if yes:
+        r"""Is the current insn a stkarg load? if yes:
         * src: index of the source operand in insn_t::ops
         * dst: index of the destination operand in insn_t::ops insn_t::ops[dst].addr is expected to have the stack offset 
         
@@ -888,11 +962,11 @@ class argtinfo_helper_t:
 
 class array_type_data_t:
     @property
-    def base(self) -> Any: ...
+    def base(self) -> int: ...
     @property
-    def elem_type(self) -> Any: ...
+    def elem_type(self) -> tinfo_t: ...
     @property
-    def nelems(self) -> Any: ...
+    def nelems(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -902,8 +976,11 @@ class array_type_data_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -911,15 +988,18 @@ class array_type_data_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, b: size_t = 0, n: size_t = 0) -> Any:
+    def __init__(self, b: int = 0, n: int = 0) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -936,7 +1016,7 @@ class array_type_data_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -956,7 +1036,7 @@ class array_type_data_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -966,7 +1046,7 @@ class array_type_data_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def swap(self, r: array_type_data_t) -> None:
         r"""set this = r and r = this
@@ -976,11 +1056,11 @@ class array_type_data_t:
 
 class bitfield_type_data_t:
     @property
-    def is_unsigned(self) -> Any: ...
+    def is_unsigned(self) -> bool: ...
     @property
-    def nbytes(self) -> Any: ...
+    def nbytes(self) -> int: ...
     @property
-    def width(self) -> Any: ...
+    def width(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -989,19 +1069,25 @@ class bitfield_type_data_t:
         ...
     def __eq__(self, r: bitfield_type_data_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, r: bitfield_type_data_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, r: bitfield_type_data_t) -> bool:
         ...
-    def __init__(self, _nbytes: uchar = 0, _width: uchar = 0, _is_unsigned: bool = False) -> Any:
+    def __init__(self, _nbytes: int = 0, _width: int = 0, _is_unsigned: bool = False) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1015,7 +1101,7 @@ class bitfield_type_data_t:
         ...
     def __ne__(self, r: bitfield_type_data_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1035,7 +1121,7 @@ class bitfield_type_data_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1045,7 +1131,7 @@ class bitfield_type_data_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def compare(self, r: bitfield_type_data_t) -> int:
         ...
@@ -1058,13 +1144,13 @@ class callregs_t:
     FPREGS: int  # 1
     GPREGS: int  # 0
     @property
-    def fpregs(self) -> Any: ...
+    def fpregs(self) -> intvec_t: ...
     @property
-    def gpregs(self) -> Any: ...
+    def gpregs(self) -> intvec_t: ...
     @property
-    def nregs(self) -> Any: ...
+    def nregs(self) -> int: ...
     @property
-    def policy(self) -> Any: ...
+    def policy(self) -> argreg_policy_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -1074,8 +1160,11 @@ class callregs_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -1083,15 +1172,18 @@ class callregs_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1108,7 +1200,7 @@ class callregs_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1128,7 +1220,7 @@ class callregs_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1138,7 +1230,7 @@ class callregs_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def append_registers(self, kind: reg_kind_t, first_reg: int, last_reg: int) -> None:
         ...
@@ -1189,8 +1281,11 @@ class const_aloc_visitor_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -1198,15 +1293,18 @@ class const_aloc_visitor_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1223,7 +1321,7 @@ class const_aloc_visitor_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1243,7 +1341,7 @@ class const_aloc_visitor_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1253,18 +1351,18 @@ class const_aloc_visitor_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def visit_location(self, v: argloc_t, off: int, size: int) -> int:
         ...
 
 class custom_callcnv_t:
     @property
-    def abibits(self) -> Any: ...
+    def abibits(self) -> int: ...
     @property
-    def flags(self) -> Any: ...
+    def flags(self) -> int: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -1276,8 +1374,11 @@ class custom_callcnv_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -1285,15 +1386,18 @@ class custom_callcnv_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1310,7 +1414,7 @@ class custom_callcnv_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1330,7 +1434,7 @@ class custom_callcnv_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1340,7 +1444,7 @@ class custom_callcnv_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def calc_arglocs(self, fti: func_type_data_t) -> bool:
         r"""Calculate the argument locations. This function must fill all fti->at(i).argloc instances. It may be called for variadic functions too, in calc_varglocs fails. 
@@ -1349,7 +1453,7 @@ class custom_callcnv_t:
         :returns: success
         """
         ...
-    def calc_purged_bytes(self, args: Any) -> int:
+    def calc_purged_bytes(self, *args: Any) -> int:
         r"""Calculate the number of purged bytes 
                 
         :param fti: function prototype
@@ -1373,14 +1477,14 @@ class custom_callcnv_t:
         :returns: success
         """
         ...
-    def decorate_name(self, name: str, should_decorate: bool, cc: callcnv_t, type: tinfo_t) -> str:
+    def decorate_name(self, name: str, should_decorate: bool, cc: callcnv_t, type: tinfo_t) -> bool:
         r"""Function to be overloaded for custom calling conventions.
         
         Decorate a function name. Some compilers decorate names depending on the calling convention. This function provides the means to handle it for custom callcnvs. Please note that this is about name decoration (C), not name mangling (C++). 
                 
         """
         ...
-    def find_varargs(self, fti: func_type_data_t, call_ea: ida_idaapi.ea_t, blk: mblock_t) -> ssize_t:
+    def find_varargs(self, fti: func_type_data_t, call_ea: ida_idaapi.ea_t, blk: mblock_t) -> int:
         r"""Discover variadic arguments. This function is called only for variadic functions. It is currently used by the decompiler. 
                 
         :param fti: function prototype. find_varargs() should append the discovered variadic arguments to it.
@@ -1422,9 +1526,9 @@ class custom_callcnv_t:
 
 class custom_data_type_info_t:
     @property
-    def dtid(self) -> Any: ...
+    def dtid(self) -> int: ...
     @property
-    def fid(self) -> Any: ...
+    def fid(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -1434,8 +1538,11 @@ class custom_data_type_info_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -1443,15 +1550,18 @@ class custom_data_type_info_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1468,7 +1578,7 @@ class custom_data_type_info_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1488,7 +1598,7 @@ class custom_data_type_info_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1498,16 +1608,16 @@ class custom_data_type_info_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class edm_t:
     @property
-    def cmt(self) -> Any: ...
+    def cmt(self) -> str: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def value(self) -> Any: ...
+    def value(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -1516,8 +1626,11 @@ class edm_t:
         ...
     def __eq__(self, r: edm_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -1525,10 +1638,13 @@ class edm_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         r"""Create an enumerator, with the specified name and value
         
         This constructor has the following signatures:
@@ -1542,7 +1658,7 @@ class edm_t:
         :param edm:   An enum member to copy
         """
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1558,7 +1674,7 @@ class edm_t:
         ...
     def __ne__(self, r: edm_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1578,7 +1694,7 @@ class edm_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1588,11 +1704,11 @@ class edm_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def empty(self) -> bool:
         ...
-    def get_tid(self) -> tid_t:
+    def get_tid(self) -> int:
         ...
     def swap(self, r: edm_t) -> None:
         ...
@@ -1606,8 +1722,11 @@ class edmvec_t:
         ...
     def __eq__(self, r: edmvec_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -1615,14 +1734,17 @@ class edmvec_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> udm_t:
+    def __getitem__(self, i: int) -> edm_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1630,7 +1752,7 @@ class edmvec_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[edm_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -1643,7 +1765,7 @@ class edmvec_t:
         ...
     def __ne__(self, r: edmvec_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1657,7 +1779,7 @@ class edmvec_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: edm_t) -> None:
+    def __setitem__(self, i: int, v: edm_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
@@ -1665,7 +1787,7 @@ class edmvec_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1675,17 +1797,17 @@ class edmvec_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: edm_t) -> bool:
         ...
     def append(self, x: edm_t) -> None:
         ...
-    def at(self, _idx: size_t) -> udm_t:
+    def at(self, _idx: int) -> edm_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> uint64:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -1693,35 +1815,35 @@ class edmvec_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> uint64:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: edmvec_t) -> None:
         ...
-    def extract(self) -> udm_t:
+    def extract(self) -> edm_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: edm_t) -> bool:
         ...
-    def inject(self, s: edm_t, len: size_t) -> None:
+    def inject(self, s: edm_t, len: int) -> None:
         ...
     def insert(self, it: edm_t, x: edm_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> udm_t:
+    def push_back(self, *args: Any) -> edm_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -1732,11 +1854,11 @@ class edmvec_t:
 
 class enum_member_t:
     @property
-    def cmt(self) -> Any: ...
+    def cmt(self) -> str: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def value(self) -> Any: ...
+    def value(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -1745,8 +1867,11 @@ class enum_member_t:
         ...
     def __eq__(self, r: edm_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -1754,10 +1879,13 @@ class enum_member_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         r"""Create an enumerator, with the specified name and value
         
         This constructor has the following signatures:
@@ -1771,7 +1899,7 @@ class enum_member_t:
         :param edm:   An enum member to copy
         """
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1787,7 +1915,7 @@ class enum_member_t:
         ...
     def __ne__(self, r: edm_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1807,7 +1935,7 @@ class enum_member_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1817,11 +1945,11 @@ class enum_member_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def empty(self) -> bool:
         ...
-    def get_tid(self) -> tid_t:
+    def get_tid(self) -> int:
         ...
     def swap(self, r: edm_t) -> None:
         ...
@@ -1835,8 +1963,11 @@ class enum_member_vec_t:
         ...
     def __eq__(self, r: edmvec_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -1844,14 +1975,17 @@ class enum_member_vec_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> udm_t:
+    def __getitem__(self, i: int) -> edm_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1859,7 +1993,7 @@ class enum_member_vec_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[edm_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -1872,7 +2006,7 @@ class enum_member_vec_t:
         ...
     def __ne__(self, r: edmvec_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -1886,7 +2020,7 @@ class enum_member_vec_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: edm_t) -> None:
+    def __setitem__(self, i: int, v: edm_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
@@ -1894,7 +2028,7 @@ class enum_member_vec_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1904,17 +2038,17 @@ class enum_member_vec_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: edm_t) -> bool:
         ...
     def append(self, x: edm_t) -> None:
         ...
-    def at(self, _idx: size_t) -> udm_t:
+    def at(self, _idx: int) -> edm_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> uint64:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -1922,35 +2056,35 @@ class enum_member_vec_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> uint64:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: edmvec_t) -> None:
         ...
-    def extract(self) -> udm_t:
+    def extract(self) -> edm_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: edm_t) -> bool:
         ...
-    def inject(self, s: edm_t, len: size_t) -> None:
+    def inject(self, s: edm_t, len: int) -> None:
         ...
     def insert(self, it: edm_t, x: edm_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> udm_t:
+    def push_back(self, *args: Any) -> edm_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -1961,11 +2095,11 @@ class enum_member_vec_t:
 
 class enum_type_data_t(edmvec_t):
     @property
-    def bte(self) -> Any: ...
+    def bte(self) -> bte_t: ...
     @property
-    def group_sizes(self) -> Any: ...
+    def group_sizes(self) -> intvec_t: ...
     @property
-    def taenum_bits(self) -> Any: ...
+    def taenum_bits(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -1974,8 +2108,11 @@ class enum_type_data_t(edmvec_t):
         ...
     def __eq__(self, r: edmvec_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -1983,14 +2120,17 @@ class enum_type_data_t(edmvec_t):
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> udm_t:
+    def __getitem__(self, i: int) -> edm_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -1998,7 +2138,7 @@ class enum_type_data_t(edmvec_t):
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[edm_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -2011,7 +2151,7 @@ class enum_type_data_t(edmvec_t):
         ...
     def __ne__(self, r: edmvec_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2025,7 +2165,7 @@ class enum_type_data_t(edmvec_t):
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: edm_t) -> None:
+    def __setitem__(self, i: int, v: edm_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
@@ -2033,7 +2173,7 @@ class enum_type_data_t(edmvec_t):
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2043,9 +2183,9 @@ class enum_type_data_t(edmvec_t):
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def add_constant(self, name: str, value: uint64, cmt: str = None) -> None:
+    def add_constant(self, name: str, value: int, cmt: str = None) -> None:
         r"""add constant for regular enum
         
         """
@@ -2054,34 +2194,34 @@ class enum_type_data_t(edmvec_t):
         ...
     def all_constants(self) -> Any:
         r"""
-                Generate tupples of all constants except of bitmasks.
-                Each tupple is:
-                [0] constant index
-                [1] enum member index of group start
-                [2] group size
-                In case of regular enum the second element of tupple is 0 and the third element of tupple is the number of enum members.
-                
+        Generate tupples of all constants except of bitmasks.
+        Each tupple is:
+        [0] constant index
+        [1] enum member index of group start
+        [2] group size
+        In case of regular enum the second element of tupple is 0 and the third element of tupple is the number of enum members.
+        
         """
         ...
     def all_groups(self, skip_trivial: Any = False) -> Any:
         r"""
-                Generate tuples for bitmask enum groups.
-                Each tupple is:
-                [0] enum member index of group start
-                [1] group size
-                Tupples may include or not the group with 1 element.
-                
+        Generate tuples for bitmask enum groups.
+        Each tupple is:
+        [0] enum member index of group start
+        [1] group size
+        Tupples may include or not the group with 1 element.
+        
         """
         ...
     def append(self, x: edm_t) -> None:
         ...
-    def at(self, _idx: size_t) -> udm_t:
+    def at(self, _idx: int) -> edm_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> uint64:
+    def begin(self, *args: Any) -> qvector:
         ...
-    def calc_mask(self) -> uint64:
+    def calc_mask(self) -> int:
         ...
     def calc_nbytes(self) -> int:
         r"""get the width of enum in bytes
@@ -2094,37 +2234,27 @@ class enum_type_data_t(edmvec_t):
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> uint64:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: edmvec_t) -> None:
         ...
-    def extract(self) -> udm_t:
+    def extract(self) -> edm_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
-    def find_member(self, args: Any) -> ssize_t:
-        r"""This function has the following signatures:
-        
-            0. find_member(name: str, from: size_t=0, to: size_t=size_t(-1)) -> ssize_t
-            1. find_member(value: uint64, serial: uchar, from: size_t=0, to: size_t=size_t(-1), vmask: uint64=uint64(-1)) -> ssize_t
-        
-        # 0: find_member(name: str, from: size_t=0, to: size_t=size_t(-1)) -> ssize_t
-        
-        find member (constant or bmask) by name
-        
-        
-        # 1: find_member(value: uint64, serial: uchar, from: size_t=0, to: size_t=size_t(-1), vmask: uint64=uint64(-1)) -> ssize_t
-        
-        find member (constant or bmask) by value
-        
-        
-        """
+    @overload
+    def find_member(self, name: str, from_: int = 0, to: int = ...) -> int:
+        r"""find member (constant or bmask) by name"""
+        ...
+    @overload
+    def find_member(self, value: int, serial: int, from_: int = 0, to: int = ..., vmask: int = ...) -> int:
+        r"""find member (constant or bmask) by value"""
         ...
     def front(self) -> Any:
         ...
-    def get_constant_group(self, args: Any) -> Any:
+    def get_constant_group(self, *args: Any) -> Any:
         r"""get group parameters for the constant, valid for bitmask enum 
                 
         :param group_start_index: index of the group mask
@@ -2139,29 +2269,29 @@ class enum_type_data_t(edmvec_t):
         :returns: radix or 1 for BTE_CHAR
         """
         ...
-    def get_max_serial(self, value: uint64) -> uchar:
+    def get_max_serial(self, value: int) -> int:
         r"""return the maximum serial for the value
         
         """
         ...
-    def get_serial(self, index: size_t) -> uchar:
+    def get_serial(self, index: int) -> int:
         r"""returns serial for the constant
         
         """
         ...
-    def get_value_repr(self, repr: value_repr_t) -> tinfo_code_t:
+    def get_value_repr(self, repr: value_repr_t) -> int:
         r"""get enum radix and other representation info 
                 
         :param repr: value display info
         """
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: edm_t) -> bool:
         ...
     def has_lzero(self) -> bool:
         ...
-    def inject(self, s: edm_t, len: size_t) -> None:
+    def inject(self, s: edm_t, len: int) -> None:
         ...
     def insert(self, it: edm_t, x: edm_t) -> qvector:
         ...
@@ -2176,7 +2306,7 @@ class enum_type_data_t(edmvec_t):
         ...
     def is_dec(self) -> bool:
         ...
-    def is_group_mask_at(self, idx: size_t) -> bool:
+    def is_group_mask_at(self, idx: int) -> bool:
         r"""is the enum member at IDX a non-trivial group mask? a trivial group consist of one bit and has just one member, which can be considered as a mask or a bitfield constant 
                 
         :param idx: index
@@ -2204,13 +2334,13 @@ class enum_type_data_t(edmvec_t):
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> udm_t:
+    def push_back(self, *args: Any) -> edm_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def set_enum_radix(self, radix: int, sign: bool) -> None:
         r"""Set radix to display constants 
@@ -2225,7 +2355,7 @@ class enum_type_data_t(edmvec_t):
         
         """
         ...
-    def set_value_repr(self, repr: value_repr_t) -> None:
+    def set_value_repr(self, repr: value_repr_t) -> int:
         r"""set enum radix and other representation info 
                 
         :param repr: value display info
@@ -2245,15 +2375,15 @@ class enum_type_data_t(edmvec_t):
 
 class func_type_data_t(funcargvec_t):
     @property
-    def flags(self) -> Any: ...
+    def flags(self) -> int: ...
     @property
-    def retloc(self) -> Any: ...
+    def retloc(self) -> argloc_t: ...
     @property
-    def rettype(self) -> Any: ...
+    def rettype(self) -> tinfo_t: ...
     @property
-    def spoiled(self) -> Any: ...
+    def spoiled(self) -> reginfovec_t: ...
     @property
-    def stkargs(self) -> Any: ...
+    def stkargs(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -2262,8 +2392,11 @@ class func_type_data_t(funcargvec_t):
         ...
     def __eq__(self, r: funcargvec_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -2271,14 +2404,17 @@ class func_type_data_t(funcargvec_t):
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> udm_t:
+    def __getitem__(self, i: int) -> funcarg_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2286,7 +2422,7 @@ class func_type_data_t(funcargvec_t):
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[funcarg_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -2299,7 +2435,7 @@ class func_type_data_t(funcargvec_t):
         ...
     def __ne__(self, r: funcargvec_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2313,7 +2449,7 @@ class func_type_data_t(funcargvec_t):
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: funcarg_t) -> None:
+    def __setitem__(self, i: int, v: funcarg_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
@@ -2321,7 +2457,7 @@ class func_type_data_t(funcargvec_t):
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2331,17 +2467,17 @@ class func_type_data_t(funcargvec_t):
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: funcarg_t) -> bool:
         ...
     def append(self, x: funcarg_t) -> None:
         ...
-    def at(self, _idx: size_t) -> udm_t:
+    def at(self, _idx: int) -> funcarg_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> uint64:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -2354,17 +2490,17 @@ class func_type_data_t(funcargvec_t):
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> uint64:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: funcargvec_t) -> None:
         ...
-    def extract(self) -> udm_t:
+    def extract(self) -> funcarg_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
-    def find_argument(self, args: Any) -> ssize_t:
+    def find_argument(self, *args: Any) -> int:
         r"""find argument by name
         
         """
@@ -2373,9 +2509,11 @@ class func_type_data_t(funcargvec_t):
         ...
     def get_call_method(self) -> int:
         ...
+    def get_cc(self) -> callcnv_t:
+        ...
     def get_explicit_cc(self) -> callcnv_t:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def guess_cc(self, purged: int, cc_flags: int) -> callcnv_t:
         r"""Guess function calling convention use the following info: argument locations and 'stkargs' 
@@ -2384,7 +2522,7 @@ class func_type_data_t(funcargvec_t):
         ...
     def has(self, x: funcarg_t) -> bool:
         ...
-    def inject(self, s: funcarg_t, len: size_t) -> None:
+    def inject(self, s: funcarg_t, len: int) -> None:
         ...
     def insert(self, it: funcarg_t, x: funcarg_t) -> qvector:
         ...
@@ -2414,13 +2552,13 @@ class func_type_data_t(funcargvec_t):
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> udm_t:
+    def push_back(self, *args: Any) -> funcarg_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def set_cc(self, cc: callcnv_t) -> None:
         ...
@@ -2433,15 +2571,15 @@ class func_type_data_t(funcargvec_t):
 
 class funcarg_t:
     @property
-    def argloc(self) -> Any: ...
+    def argloc(self) -> argloc_t: ...
     @property
-    def cmt(self) -> Any: ...
+    def cmt(self) -> str: ...
     @property
-    def flags(self) -> Any: ...
+    def flags(self) -> int: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def type(self) -> Any: ...
+    def type(self) -> tinfo_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -2450,8 +2588,11 @@ class funcarg_t:
         ...
     def __eq__(self, r: funcarg_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -2459,10 +2600,13 @@ class funcarg_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         r"""Create a function argument, with the specified name and type.
         
         This constructor has the following signatures:
@@ -2484,7 +2628,7 @@ class funcarg_t:
         :param funcarg: a funcarg_t to copy
         """
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2500,7 +2644,7 @@ class funcarg_t:
         ...
     def __ne__(self, r: funcarg_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2520,7 +2664,7 @@ class funcarg_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2530,7 +2674,7 @@ class funcarg_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class funcargvec_t:
@@ -2542,8 +2686,11 @@ class funcargvec_t:
         ...
     def __eq__(self, r: funcargvec_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -2551,14 +2698,17 @@ class funcargvec_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> udm_t:
+    def __getitem__(self, i: int) -> funcarg_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2566,7 +2716,7 @@ class funcargvec_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[funcarg_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -2579,7 +2729,7 @@ class funcargvec_t:
         ...
     def __ne__(self, r: funcargvec_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2593,7 +2743,7 @@ class funcargvec_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: funcarg_t) -> None:
+    def __setitem__(self, i: int, v: funcarg_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
@@ -2601,7 +2751,7 @@ class funcargvec_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2611,17 +2761,17 @@ class funcargvec_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: funcarg_t) -> bool:
         ...
     def append(self, x: funcarg_t) -> None:
         ...
-    def at(self, _idx: size_t) -> udm_t:
+    def at(self, _idx: int) -> funcarg_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> uint64:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -2629,35 +2779,35 @@ class funcargvec_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> uint64:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: funcargvec_t) -> None:
         ...
-    def extract(self) -> udm_t:
+    def extract(self) -> funcarg_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: funcarg_t) -> bool:
         ...
-    def inject(self, s: funcarg_t, len: size_t) -> None:
+    def inject(self, s: funcarg_t, len: int) -> None:
         ...
     def insert(self, it: funcarg_t, x: funcarg_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> udm_t:
+    def push_back(self, *args: Any) -> funcarg_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -2676,8 +2826,11 @@ class ida_lowertype_helper_t(lowertype_helper_t):
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -2685,15 +2838,18 @@ class ida_lowertype_helper_t(lowertype_helper_t):
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, _tif: tinfo_t, _ea: ida_idaapi.ea_t, _pb: int) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2710,7 +2866,7 @@ class ida_lowertype_helper_t(lowertype_helper_t):
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2730,7 +2886,7 @@ class ida_lowertype_helper_t(lowertype_helper_t):
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2740,7 +2896,7 @@ class ida_lowertype_helper_t(lowertype_helper_t):
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def func_has_stkframe_hole(self, candidate: tinfo_t, candidate_data: func_type_data_t) -> bool:
         ...
@@ -2757,8 +2913,11 @@ class lowertype_helper_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -2766,15 +2925,18 @@ class lowertype_helper_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any, kwargs: Any) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2791,7 +2953,7 @@ class lowertype_helper_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2811,7 +2973,7 @@ class lowertype_helper_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2821,7 +2983,7 @@ class lowertype_helper_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def func_has_stkframe_hole(self, candidate: tinfo_t, candidate_data: func_type_data_t) -> bool:
         ...
@@ -2840,8 +3002,11 @@ class predicate_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -2849,15 +3014,18 @@ class predicate_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2874,7 +3042,7 @@ class predicate_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2894,7 +3062,7 @@ class predicate_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2904,24 +3072,24 @@ class predicate_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def should_display(self, til: til_t, name: str, type: type_t, fields: p_list) -> bool:
+    def should_display(self, til: til_t, name: str, type: bytes, fields: p_list) -> bool:
         ...
 
 class ptr_type_data_t:
     @property
-    def based_ptr_size(self) -> Any: ...
+    def based_ptr_size(self) -> int: ...
     @property
-    def closure(self) -> Any: ...
+    def closure(self) -> tinfo_t: ...
     @property
-    def delta(self) -> Any: ...
+    def delta(self) -> int: ...
     @property
-    def obj_type(self) -> Any: ...
+    def obj_type(self) -> tinfo_t: ...
     @property
-    def parent(self) -> Any: ...
+    def parent(self) -> tinfo_t: ...
     @property
-    def taptr_bits(self) -> Any: ...
+    def taptr_bits(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -2930,8 +3098,11 @@ class ptr_type_data_t:
         ...
     def __eq__(self, r: ptr_type_data_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -2939,12 +3110,15 @@ class ptr_type_data_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -2960,7 +3134,7 @@ class ptr_type_data_t:
         ...
     def __ne__(self, r: ptr_type_data_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -2980,7 +3154,7 @@ class ptr_type_data_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -2990,7 +3164,7 @@ class ptr_type_data_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def is_code_ptr(self) -> bool:
         r"""Are we pointing to code?
@@ -3005,17 +3179,20 @@ class ptr_type_data_t:
         """
         ...
 
-class reginfovec_t:
+class qvector_simd_info_vec_t:
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, r: reginfovec_t) -> bool:
+    def __eq__(self, r: qvector_simd_info_vec_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -3023,14 +3200,17 @@ class reginfovec_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> udm_t:
+    def __getitem__(self, i: int) -> simd_info_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -3038,7 +3218,7 @@ class reginfovec_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[simd_info_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -3049,9 +3229,9 @@ class reginfovec_t:
     def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, r: reginfovec_t) -> bool:
+    def __ne__(self, r: qvector_simd_info_vec_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -3065,7 +3245,7 @@ class reginfovec_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: reg_info_t) -> None:
+    def __setitem__(self, i: int, v: simd_info_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
@@ -3073,7 +3253,7 @@ class reginfovec_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -3083,17 +3263,17 @@ class reginfovec_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def add_unique(self, x: reg_info_t) -> bool:
+    def add_unique(self, x: simd_info_t) -> bool:
         ...
-    def append(self, args: Any) -> None:
+    def append(self, x: simd_info_t) -> None:
         ...
-    def at(self, i: size_t) -> udm_t:
+    def at(self, _idx: int) -> simd_info_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> uint64:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -3101,35 +3281,174 @@ class reginfovec_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> uint64:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
-    def extend(self, x: reginfovec_t) -> None:
+    def extend(self, x: qvector_simd_info_vec_t) -> None:
         ...
-    def extract(self) -> udm_t:
+    def extract(self) -> simd_info_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
+        ...
+    def has(self, x: simd_info_t) -> bool:
+        ...
+    def inject(self, s: simd_info_t, len: int) -> None:
+        ...
+    def insert(self, it: simd_info_t, x: simd_info_t) -> qvector:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, *args: Any) -> simd_info_t:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, *args: Any) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: qvector_simd_info_vec_t) -> None:
+        ...
+    def truncate(self) -> None:
+        ...
+
+class reginfovec_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: reginfovec_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> reg_info_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __iter__(self) -> Iterator[reg_info_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: reginfovec_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __setitem__(self, i: int, v: reg_info_t) -> None:
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def add_unique(self, x: reg_info_t) -> bool:
+        ...
+    def append(self, *args: Any) -> None:
+        ...
+    def at(self, i: int) -> reg_info_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> qvector:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> qvector:
+        ...
+    def erase(self, *args: Any) -> qvector:
+        ...
+    def extend(self, x: reginfovec_t) -> None:
+        ...
+    def extract(self) -> reg_info_t:
+        ...
+    def find(self, *args: Any) -> qvector:
+        ...
+    def front(self) -> Any:
+        ...
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: reg_info_t) -> bool:
         ...
-    def inject(self, s: reg_info_t, len: size_t) -> None:
+    def inject(self, s: reg_info_t, len: int) -> None:
         ...
     def insert(self, it: reg_info_t, x: reg_info_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> udm_t:
+    def push_back(self, *args: Any) -> reg_info_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -3140,11 +3459,11 @@ class reginfovec_t:
 
 class regobj_t:
     @property
-    def regidx(self) -> Any: ...
+    def regidx(self) -> int: ...
     @property
-    def relocate(self) -> Any: ...
+    def relocate(self) -> int: ...
     @property
-    def value(self) -> Any: ...
+    def value(self) -> bytevec_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -3154,8 +3473,11 @@ class regobj_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -3163,15 +3485,18 @@ class regobj_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -3188,7 +3513,7 @@ class regobj_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -3208,7 +3533,7 @@ class regobj_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -3218,7 +3543,7 @@ class regobj_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def size(self) -> int:
         ...
@@ -3233,8 +3558,11 @@ class regobjs_t(regobjvec_t):
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -3242,17 +3570,20 @@ class regobjs_t(regobjvec_t):
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> udm_t:
+    def __getitem__(self, i: int) -> regobj_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -3260,7 +3591,7 @@ class regobjs_t(regobjvec_t):
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[regobj_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -3274,7 +3605,7 @@ class regobjs_t(regobjvec_t):
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -3288,7 +3619,7 @@ class regobjs_t(regobjvec_t):
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: regobj_t) -> None:
+    def __setitem__(self, i: int, v: regobj_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
@@ -3296,7 +3627,7 @@ class regobjs_t(regobjvec_t):
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -3306,15 +3637,15 @@ class regobjs_t(regobjvec_t):
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def append(self, x: regobj_t) -> None:
         ...
-    def at(self, _idx: size_t) -> udm_t:
+    def at(self, _idx: int) -> regobj_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> uint64:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -3322,31 +3653,31 @@ class regobjs_t(regobjvec_t):
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> uint64:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: regobjvec_t) -> None:
         ...
-    def extract(self) -> udm_t:
+    def extract(self) -> regobj_t:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
-    def inject(self, s: regobj_t, len: size_t) -> None:
+    def inject(self, s: regobj_t, len: int) -> None:
         ...
     def insert(self, it: regobj_t, x: regobj_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> udm_t:
+    def push_back(self, *args: Any) -> regobj_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -3365,8 +3696,11 @@ class regobjvec_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -3374,17 +3708,20 @@ class regobjvec_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> udm_t:
+    def __getitem__(self, i: int) -> regobj_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -3392,7 +3729,7 @@ class regobjvec_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[regobj_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -3406,7 +3743,7 @@ class regobjvec_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -3420,7 +3757,7 @@ class regobjvec_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: regobj_t) -> None:
+    def __setitem__(self, i: int, v: regobj_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
@@ -3428,7 +3765,7 @@ class regobjvec_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -3438,15 +3775,15 @@ class regobjvec_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def append(self, x: regobj_t) -> None:
         ...
-    def at(self, _idx: size_t) -> udm_t:
+    def at(self, _idx: int) -> regobj_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> uint64:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -3454,31 +3791,31 @@ class regobjvec_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> uint64:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: regobjvec_t) -> None:
         ...
-    def extract(self) -> udm_t:
+    def extract(self) -> regobj_t:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
-    def inject(self, s: regobj_t, len: size_t) -> None:
+    def inject(self, s: regobj_t, len: int) -> None:
         ...
     def insert(self, it: regobj_t, x: regobj_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> udm_t:
+    def push_back(self, *args: Any) -> regobj_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -3489,9 +3826,9 @@ class regobjvec_t:
 
 class rrel_t:
     @property
-    def off(self) -> Any: ...
+    def off(self) -> int: ...
     @property
-    def reg(self) -> Any: ...
+    def reg(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -3501,8 +3838,11 @@ class rrel_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -3510,15 +3850,18 @@ class rrel_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -3535,7 +3878,7 @@ class rrel_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -3555,7 +3898,7 @@ class rrel_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -3565,7 +3908,7 @@ class rrel_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class scattered_aloc_t(argpartvec_t):
@@ -3577,8 +3920,11 @@ class scattered_aloc_t(argpartvec_t):
         ...
     def __eq__(self, r: argpartvec_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -3586,14 +3932,17 @@ class scattered_aloc_t(argpartvec_t):
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> udm_t:
+    def __getitem__(self, i: int) -> argpart_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -3601,7 +3950,7 @@ class scattered_aloc_t(argpartvec_t):
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[argpart_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -3614,7 +3963,7 @@ class scattered_aloc_t(argpartvec_t):
         ...
     def __ne__(self, r: argpartvec_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -3628,7 +3977,7 @@ class scattered_aloc_t(argpartvec_t):
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: argpart_t) -> None:
+    def __setitem__(self, i: int, v: argpart_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
@@ -3636,7 +3985,7 @@ class scattered_aloc_t(argpartvec_t):
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -3646,17 +3995,17 @@ class scattered_aloc_t(argpartvec_t):
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: argpart_t) -> bool:
         ...
     def append(self, x: argpart_t) -> None:
         ...
-    def at(self, _idx: size_t) -> udm_t:
+    def at(self, _idx: int) -> argpart_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> uint64:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -3664,35 +4013,35 @@ class scattered_aloc_t(argpartvec_t):
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> uint64:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: argpartvec_t) -> None:
         ...
-    def extract(self) -> udm_t:
+    def extract(self) -> argpart_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: argpart_t) -> bool:
         ...
-    def inject(self, s: argpart_t, len: size_t) -> None:
+    def inject(self, s: argpart_t, len: int) -> None:
         ...
     def insert(self, it: argpart_t, x: argpart_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> udm_t:
+    def push_back(self, *args: Any) -> argpart_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -3703,24 +4052,28 @@ class scattered_aloc_t(argpartvec_t):
 
 class simd_info_t:
     @property
-    def memtype(self) -> Any: ...
+    def SIMD_VARIADIC(self) -> Any: ...
     @property
-    def name(self) -> Any: ...
+    def memtype(self) -> bytes: ...
     @property
-    def size(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def tif(self) -> Any: ...
+    def size(self) -> int: ...
+    @property
+    def tif(self) -> tinfo_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> bool:
-        r"""Return self==value."""
+    def __eq__(self, r: simd_info_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -3728,15 +4081,15 @@ class simd_info_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
-        r"""Return hash(self)."""
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init__(self, args: Any) -> Any:
-        ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -3750,10 +4103,9 @@ class simd_info_t:
     def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> bool:
-        r"""Return self!=value."""
+    def __ne__(self, r: simd_info_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -3773,7 +4125,7 @@ class simd_info_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -3783,20 +4135,161 @@ class simd_info_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def is_variadic(self) -> bool:
         ...
     def match_pattern(self, pattern: simd_info_t) -> bool:
         ...
 
+class simd_info_vec_t(qvector_simd_info_vec_t):
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: qvector_simd_info_vec_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> simd_info_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __iter__(self) -> Iterator[simd_info_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: qvector_simd_info_vec_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __setitem__(self, i: int, v: simd_info_t) -> None:
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def add_unique(self, x: simd_info_t) -> bool:
+        ...
+    def append(self, x: simd_info_t) -> None:
+        ...
+    def at(self, _idx: int) -> simd_info_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> qvector:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> qvector:
+        ...
+    def erase(self, *args: Any) -> qvector:
+        ...
+    def extend(self, x: qvector_simd_info_vec_t) -> None:
+        ...
+    def extract(self) -> simd_info_t:
+        ...
+    def find(self, *args: Any) -> qvector:
+        ...
+    def front(self) -> Any:
+        ...
+    def grow(self, *args: Any) -> None:
+        ...
+    def has(self, x: simd_info_t) -> bool:
+        ...
+    def inject(self, s: simd_info_t, len: int) -> None:
+        ...
+    def insert(self, it: simd_info_t, x: simd_info_t) -> qvector:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, *args: Any) -> simd_info_t:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, *args: Any) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: qvector_simd_info_vec_t) -> None:
+        ...
+    def truncate(self) -> None:
+        ...
+
 class stkarg_area_info_t:
     @property
-    def cb(self) -> Any: ...
+    def cb(self) -> int: ...
     @property
-    def linkage_area(self) -> Any: ...
+    def linkage_area(self) -> int: ...
     @property
-    def shadow_size(self) -> Any: ...
+    def shadow_size(self) -> int: ...
     @property
-    def stkarg_offset(self) -> Any: ...
+    def stkarg_offset(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -3806,8 +4299,11 @@ class stkarg_area_info_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -3815,15 +4311,18 @@ class stkarg_area_info_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -3840,7 +4339,7 @@ class stkarg_area_info_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -3860,7 +4359,7 @@ class stkarg_area_info_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -3870,7 +4369,7 @@ class stkarg_area_info_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class text_sink_t:
@@ -3885,8 +4384,11 @@ class text_sink_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -3894,15 +4396,18 @@ class text_sink_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -3919,7 +4424,7 @@ class text_sink_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -3939,7 +4444,7 @@ class text_sink_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -3949,14 +4454,14 @@ class text_sink_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class til_symbol_t:
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def til(self) -> Any: ...
+    def til(self) -> til_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -3966,8 +4471,11 @@ class til_symbol_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -3975,15 +4483,18 @@ class til_symbol_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, n: str = None, t: til_t = None) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -4000,7 +4511,7 @@ class til_symbol_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -4020,7 +4531,7 @@ class til_symbol_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -4030,26 +4541,26 @@ class til_symbol_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class til_t:
     @property
-    def cc(self) -> Any: ...
+    def cc(self) -> compiler_info_t: ...
     @property
-    def desc(self) -> Any: ...
+    def desc(self) -> int: ...
     @property
-    def flags(self) -> Any: ...
+    def flags(self) -> int: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> int: ...
     @property
-    def nbases(self) -> Any: ...
+    def nbases(self) -> int: ...
     @property
-    def nrefs(self) -> Any: ...
+    def nrefs(self) -> int: ...
     @property
-    def nstreams(self) -> Any: ...
+    def nstreams(self) -> int: ...
     @property
-    def streams(self) -> Any: ...
+    def streams(self) -> til_stream_t: ...
     @property
     def type_names(self) -> Any: ...
     def __delattr__(self, name: Any) -> Any:
@@ -4060,8 +4571,11 @@ class til_t:
         ...
     def __eq__(self, r: til_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -4069,12 +4583,15 @@ class til_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -4090,7 +4607,7 @@ class til_t:
         ...
     def __ne__(self, r: til_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -4110,7 +4627,7 @@ class til_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -4120,7 +4637,7 @@ class til_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def base(self, n: int) -> til_t:
         ...
@@ -4131,14 +4648,14 @@ class til_t:
         :returns: the found til_t, or nullptr
         """
         ...
-    def get_named_type(self, name: Any) -> bool:
+    def get_named_type(self, name: Any) -> Any:
         r"""Retrieves a tinfo_t representing the named type in this type library.
         
         :param name: a type name
         :returns: a new tinfo_t object, or None if not found
         """
         ...
-    def get_numbered_type(self, ordinal: Any) -> Any:
+    def get_numbered_type(self, ordinal: Any) -> Union[Tuple[bytes, bytes, str, str, int], None]:
         r"""Retrieves a tinfo_t representing the numbered type in this type library.
         
         :param ordinal: a type ordinal
@@ -4185,43 +4702,43 @@ class til_t:
 
 class til_type_ref_t:
     @property
-    def bf_bitoff(self) -> Any: ...
+    def bf_bitoff(self) -> int: ...
     @property
-    def bucket_start(self) -> Any: ...
+    def bucket_start(self) -> int: ...
     @property
-    def cb(self) -> Any: ...
+    def cb(self) -> int: ...
     @property
-    def cursor(self) -> Any: ...
+    def cursor(self) -> tif_cursor_t: ...
     @property
-    def edm(self) -> Any: ...
+    def edm(self) -> edm_t: ...
     @property
-    def fa(self) -> Any: ...
+    def fa(self) -> funcarg_t: ...
     @property
-    def is_detached(self) -> Any: ...
+    def is_detached(self) -> bool: ...
     @property
-    def is_forward(self) -> Any: ...
+    def is_forward(self) -> bool: ...
     @property
-    def is_writable(self) -> Any: ...
+    def is_writable(self) -> bool: ...
     @property
-    def kind(self) -> Any: ...
+    def kind(self) -> bytes: ...
     @property
-    def last_udm_offset(self) -> Any: ...
+    def last_udm_offset(self) -> int: ...
     @property
-    def memidx(self) -> Any: ...
+    def memidx(self) -> int: ...
     @property
-    def nmembers(self) -> Any: ...
+    def nmembers(self) -> int: ...
     @property
-    def offset(self) -> Any: ...
+    def offset(self) -> int: ...
     @property
-    def ordinal(self) -> Any: ...
+    def ordinal(self) -> int: ...
     @property
-    def tif(self) -> Any: ...
+    def tif(self) -> tinfo_t: ...
     @property
-    def total_size(self) -> Any: ...
+    def total_size(self) -> int: ...
     @property
-    def udm(self) -> Any: ...
+    def udm(self) -> udm_t: ...
     @property
-    def unpadded_size(self) -> Any: ...
+    def unpadded_size(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -4231,8 +4748,11 @@ class til_type_ref_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -4240,15 +4760,18 @@ class til_type_ref_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -4265,7 +4788,7 @@ class til_type_ref_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -4285,7 +4808,7 @@ class til_type_ref_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -4295,7 +4818,7 @@ class til_type_ref_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def clear(self) -> None:
         ...
@@ -4326,17 +4849,23 @@ class tinfo_t:
         ...
     def __eq__(self, r: tinfo_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, r: tinfo_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, r: tinfo_t) -> bool:
         ...
-    def __init__(self, args: Any, ordinal: Any = None, name: Any = None, tid: Any = None, til: Any = None) -> Any:
+    def __init__(self, *args: Any, ordinal: Any = None, name: Any = None, tid: Any = None, til: Any = None) -> Any:
         r"""Create a type object with the provided argumens.
         
         This constructor has the following signatures:
@@ -4371,7 +4900,7 @@ class tinfo_t:
         :param pt_flags: Parsing flags
         """
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -4385,7 +4914,7 @@ class tinfo_t:
         ...
     def __ne__(self, r: tinfo_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -4404,7 +4933,7 @@ class tinfo_t:
         ...
     def __str__(self) -> str:
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -4414,9 +4943,9 @@ class tinfo_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def add_edm(self, args: Any) -> Any:
+    def add_edm(self, *args: Any) -> Any:
         r"""Add an enumerator to the current enumeration.
         
         When creating a new enumeration from scratch, you might
@@ -4439,7 +4968,7 @@ class tinfo_t:
                           the edm sorting order, it is silently ignored.
         """
         ...
-    def add_funcarg(self, farg: funcarg_t, etf_flags: uint = 0, idx: ssize_t = -1) -> tinfo_code_t:
+    def add_funcarg(self, farg: funcarg_t, etf_flags: int = 0, idx: int = -1) -> int:
         r"""Add a function argument. 
                 
         :param farg: argument to add
@@ -4447,7 +4976,7 @@ class tinfo_t:
         :param idx: the index in the funcarg array where the new funcarg should be placed. if the specified index cannot be honored because it would spoil the funcarg sorting order, it is silently ignored.
         """
         ...
-    def add_udm(self, args: Any) -> Any:
+    def add_udm(self, *args: Any) -> Any:
         r"""Add a member to the current structure/union.
         
         When creating a new structure/union from scratch, you might
@@ -4478,14 +5007,19 @@ class tinfo_t:
                           the udm sorting order, it is silently ignored.
         """
         ...
-    def append_covered(self, out: rangeset_t, offset: uint64 = 0) -> bool:
+    def append_covered(self, out: rangeset_t, offset: int = 0) -> bool:
         r"""Calculate set of covered bytes for the type 
                 
         :param out: pointer to the output buffer. covered bytes will be appended to it.
-        :param offset: delta in bytes to add to all calculations. used internally during recurion.
+        :param offset: delta in bytes to add to all calculations. used internally during recursion.
         """
         ...
-    def calc_enum_mask(self) -> uint64:
+    def build_anon_type_name(self) -> bool:
+        r"""Generate a name like $hex_numbers based on the field types and names.
+        
+        """
+        ...
+    def calc_enum_mask(self) -> int:
         ...
     def calc_gaps(self, out: rangeset_t) -> bool:
         r"""Calculate set of padding bytes for the type 
@@ -4540,31 +5074,31 @@ class tinfo_t:
         ...
     def copy(self) -> tinfo_t:
         ...
-    def copy_type(self, args: Any) -> tinfo_code_t:
+    def copy_type(self, *args: Any) -> int:
         ...
-    def create_array(self, args: Any) -> bool:
+    def create_array(self, *args: Any) -> bool:
         ...
-    def create_bitfield(self, args: Any) -> bool:
+    def create_bitfield(self, *args: Any) -> bool:
         ...
-    def create_enum(self, args: Any) -> bool:
+    def create_enum(self, *args: Any) -> bool:
         r"""Create an empty enum.
         
         """
         ...
-    def create_forward_decl(self, til: til_t, decl_type: type_t, name: str, ntf_flags: int = 0) -> tinfo_code_t:
+    def create_forward_decl(self, til: til_t, decl_type: bytes, name: str, ntf_flags: int = 0) -> int:
         r"""Create a forward declaration. decl_type: BTF_STRUCT, BTF_UNION, or BTF_ENUM 
                 
         """
         ...
-    def create_func(self, args: Any) -> bool:
+    def create_func(self, *args: Any) -> bool:
         ...
-    def create_ptr(self, args: Any) -> bool:
+    def create_ptr(self, *args: Any) -> bool:
         ...
-    def create_simple_type(self, decl_type: type_t) -> bool:
+    def create_simple_type(self, decl_type: bytes) -> bool:
         ...
-    def create_typedef(self, args: Any) -> None:
+    def create_typedef(self, *args: Any) -> None:
         ...
-    def create_udt(self, args: Any) -> bool:
+    def create_udt(self, *args: Any) -> bool:
         r"""Create an empty structure/union.
         
         """
@@ -4579,7 +5113,7 @@ class tinfo_t:
         
         """
         ...
-    def del_edm(self, args: Any) -> Any:
+    def del_edm(self, *args: Any) -> Any:
         r"""Delete an enumerator with the specified name
         or the specified index, in the specified tinfo_t object.
         
@@ -4601,7 +5135,7 @@ class tinfo_t:
         :returns: TERR_OK in case of success, or another TERR_* value in case of error
         """
         ...
-    def del_edms(self, idx1: size_t, idx2: size_t, etf_flags: uint = 0) -> tinfo_code_t:
+    def del_edms(self, idx1: int, idx2: int, etf_flags: int = 0) -> int:
         r"""Delete enum members 
                 
         :param idx1: index in edmvec_t
@@ -4609,9 +5143,9 @@ class tinfo_t:
         :param etf_flags: etf_flag_t Delete enum members in [idx1, idx2)
         """
         ...
-    def del_funcarg(self, idx: size_t, etf_flags: uint = 0) -> tinfo_code_t:
+    def del_funcarg(self, idx: int, etf_flags: int = 0) -> int:
         ...
-    def del_funcargs(self, idx1: size_t, idx2: size_t, etf_flags: uint = 0) -> tinfo_code_t:
+    def del_funcargs(self, idx1: int, idx2: int, etf_flags: int = 0) -> int:
         r"""Delete function arguments 
                 
         :param idx1: index in funcargvec_t
@@ -4619,33 +5153,23 @@ class tinfo_t:
         :param etf_flags: etf_flag_t Delete function arguments in [idx1, idx2)
         """
         ...
-    def del_udm(self, index: size_t, etf_flags: uint = 0) -> tinfo_code_t:
+    def del_udm(self, index: int, etf_flags: int = 0) -> int:
         r"""Delete a structure/union member.
         
         """
         ...
-    def del_udms(self, idx1: size_t, idx2: size_t, etf_flags: uint = 0) -> tinfo_code_t:
+    def del_udms(self, idx1: int, idx2: int, etf_flags: int = 0) -> int:
         r"""Delete structure/union members in the range [idx1, idx2)
         
         """
         ...
-    def deserialize(self, args: Any) -> bool:
-        r"""This function has the following signatures:
-        
-            0. deserialize(til: const til_t *, ptype: const type_t **, pfields: const p_list **=nullptr, pfldcmts: const p_list **=nullptr, cmt: str=nullptr) -> bool
-            1. deserialize(til: const til_t *, ptype: const qtype *, pfields: const qtype *=nullptr, pfldcmts: const qtype *=nullptr, cmt: str=nullptr) -> bool
-        
-        # 0: deserialize(til: const til_t *, ptype: const type_t **, pfields: const p_list **=nullptr, pfldcmts: const p_list **=nullptr, cmt: str=nullptr) -> bool
-        
-        Deserialize a type string into a tinfo_t object.
-        
-        
-        # 1: deserialize(til: const til_t *, ptype: const qtype *, pfields: const qtype *=nullptr, pfldcmts: const qtype *=nullptr, cmt: str=nullptr) -> bool
-        
-        Deserialize a type string into a tinfo_t object.
-        
-        
-        """
+    @overload
+    def deserialize(self, til: til_t, ptype: bytes, pfields: p_list = None, pfldcmts: p_list = None, cmt: str = None) -> bool:
+        r"""Deserialize a type string into a tinfo_t object."""
+        ...
+    @overload
+    def deserialize(self, til: til_t, ptype: qtype, pfields: qtype = None, pfldcmts: qtype = None, cmt: str = None) -> bool:
+        r"""Deserialize a type string into a tinfo_t object."""
         ...
     def detach(self) -> bool:
         r"""Detach tinfo_t from the underlying type. After calling this finction, tinfo_t will lose its link to the underlying named or numbered type (if any) and will become a reference to a unique type. After that, any modifications to tinfo_t will affect only its type. 
@@ -4657,7 +5181,7 @@ class tinfo_t:
         
         """
         ...
-    def edit_edm(self, args: Any) -> tinfo_code_t:
+    def edit_edm(self, *args: Any) -> int:
         r"""Change constant value and/or bitmask 
                 
         :param idx: index in edmvec_t
@@ -4673,7 +5197,7 @@ class tinfo_t:
         ...
     def equals_to(self, r: tinfo_t) -> bool:
         ...
-    def expand_udt(self, idx: size_t, delta: adiff_t, etf_flags: uint = 0) -> tinfo_code_t:
+    def expand_udt(self, idx: int, delta: int, etf_flags: int = 0) -> int:
         r"""Expand/shrink a structure by adding/removing a gap before the specified member.
         For regular structures, either the gap can be accommodated by aligning the next member with an alignment directive, or an explicit "gap" member will be inserted. Also note that it is impossible to add a gap at the end of a regular structure.
         When it comes to fixed-layout structures, there is no need to either add new "gap" members or align existing members, since all members have a fixed offset. It is possible to add a gap at the end of a fixed-layout structure, by passing `-1` as index.
@@ -4683,18 +5207,11 @@ class tinfo_t:
         :param etf_flags: etf_flag_t
         """
         ...
-    def find_edm(self, args: Any) -> ssize_t:
+    def find_edm(self, *args: Any) -> int:
         ...
-    def find_udm(self, args: Any) -> int:
-        r"""This function has the following signatures:
-        
-            0. find_udm(udm: udm_t *, strmem_flags: int) -> int
-            1. find_udm(offset: uint64, strmem_flags: int=0) -> int
-            2. find_udm(name: str, strmem_flags: int=0) -> int
-        
-        # 0: find_udm(udm: udm_t *, strmem_flags: int) -> int
-        
-        BTF_STRUCT,BTF_UNION: Find a udt member.
+    @overload
+    def find_udm(self, udm: udm_t, strmem_flags: int) -> int:
+        r"""BTF_STRUCT,BTF_UNION: Find a udt member.
         * at the specified offset (STRMEM_OFFSET)
         * with the specified index (STRMEM_INDEX)
         * with the specified type (STRMEM_TYPE)
@@ -4703,31 +5220,25 @@ class tinfo_t:
         
         
         :returns: the index of the found member or -1
-        
-        # 1: find_udm(offset: uint64, strmem_flags: int=0) -> int
-        
-        BTF_STRUCT,BTF_UNION: Find an udt member at the specified offset 
-                
-        :returns: the index of the found member or -1
-        
-        # 2: find_udm(name: str, strmem_flags: int=0) -> int
-        
-        BTF_STRUCT,BTF_UNION: Find an udt member by name 
-                
-        :returns: the index of the found member or -1
-        
         """
         ...
-    def find_udt_member(self, args: Any) -> int:
-        r"""This function has the following signatures:
-        
-            0. find_udm(udm: udm_t *, strmem_flags: int) -> int
-            1. find_udm(offset: uint64, strmem_flags: int=0) -> int
-            2. find_udm(name: str, strmem_flags: int=0) -> int
-        
-        # 0: find_udm(udm: udm_t *, strmem_flags: int) -> int
-        
-        BTF_STRUCT,BTF_UNION: Find a udt member.
+    @overload
+    def find_udm(self, offset: int, strmem_flags: int = 0) -> int:
+        r"""BTF_STRUCT,BTF_UNION: Find an udt member at the specified offset 
+                
+        :returns: the index of the found member or -1
+        """
+        ...
+    @overload
+    def find_udm(self, name: str, strmem_flags: int = 0) -> int:
+        r"""BTF_STRUCT,BTF_UNION: Find an udt member by name 
+                
+        :returns: the index of the found member or -1
+        """
+        ...
+    @overload
+    def find_udt_member(self, udm: udm_t, strmem_flags: int) -> int:
+        r"""BTF_STRUCT,BTF_UNION: Find a udt member.
         * at the specified offset (STRMEM_OFFSET)
         * with the specified index (STRMEM_INDEX)
         * with the specified type (STRMEM_TYPE)
@@ -4736,22 +5247,23 @@ class tinfo_t:
         
         
         :returns: the index of the found member or -1
-        
-        # 1: find_udm(offset: uint64, strmem_flags: int=0) -> int
-        
-        BTF_STRUCT,BTF_UNION: Find an udt member at the specified offset 
-                
-        :returns: the index of the found member or -1
-        
-        # 2: find_udm(name: str, strmem_flags: int=0) -> int
-        
-        BTF_STRUCT,BTF_UNION: Find an udt member by name 
-                
-        :returns: the index of the found member or -1
-        
         """
         ...
-    def force_tid(self) -> tid_t:
+    @overload
+    def find_udt_member(self, offset: int, strmem_flags: int = 0) -> int:
+        r"""BTF_STRUCT,BTF_UNION: Find an udt member at the specified offset 
+                
+        :returns: the index of the found member or -1
+        """
+        ...
+    @overload
+    def find_udt_member(self, name: str, strmem_flags: int = 0) -> int:
+        r"""BTF_STRUCT,BTF_UNION: Find an udt member by name 
+                
+        :returns: the index of the found member or -1
+        """
+        ...
+    def force_tid(self) -> int:
         r"""Get the type tid. Create if it does not exist yet. If the type comes from a base til, the type will be copied to the local til and a new tid will be created for it. (if the type comes from a base til, it does not have a tid yet). If the type comes from the local til, this function is equivalent to get_tid() 
                 
         :returns: tid or BADADDR
@@ -4803,7 +5315,7 @@ class tinfo_t:
         
         """
         ...
-    def get_by_edm_name(self, mname: str, til: til_t = None) -> ssize_t:
+    def get_by_edm_name(self, mname: str, til: til_t = None) -> int:
         r"""Retrieve enum tinfo using enum member name 
                 
         :param mname: enum type member name
@@ -4811,17 +5323,22 @@ class tinfo_t:
         :returns: member index, otherwise returns -1. If the function fails, THIS object becomes empty.
         """
         ...
-    def get_declalign(self) -> uchar:
+    def get_cc(self) -> callcnv_t:
+        r"""BT_FUNC or BT_PTR BT_FUNC: Get calling convention
+        
+        """
+        ...
+    def get_declalign(self) -> int:
         r"""Get declared alignment of the type.
         
         """
         ...
-    def get_decltype(self) -> type_t:
+    def get_decltype(self) -> bytes:
         r"""Get declared type (without resolving type references; they are returned as is). Obviously this is a very fast function and should be used instead of get_realtype() if possible. Please note that for typerefs this function will return BTF_TYPEDEF. To determine if a typeref is a typedef, use is_typedef() 
                 
         """
         ...
-    def get_edm(self, args: Any) -> Any:
+    def get_edm(self, *args: Any) -> Tuple[int, 'edm_t']:
         r"""Retrieve an enumerator with either the specified name
         or the specified index, in the specified tinfo_t object.
         
@@ -4835,7 +5352,7 @@ class tinfo_t:
         :returns: a tuple (int, edm_t), or (-1, None) if member not found
         """
         ...
-    def get_edm_by_name(self, mname: str, til: til_t = None) -> ssize_t:
+    def get_edm_by_name(self, mname: str, til: til_t = None) -> int:
         r"""Retrieve enum tinfo using enum member name 
                 
         :param mname: enum type member name
@@ -4843,9 +5360,9 @@ class tinfo_t:
         :returns: member index, otherwise returns -1. If the function fails, THIS object becomes empty.
         """
         ...
-    def get_edm_by_tid(self, edm: edm_t, tid: tid_t) -> ssize_t:
+    def get_edm_by_tid(self, edm: edm_t, tid: int) -> int:
         ...
-    def get_edm_by_value(self, value: int, bmask: int = 18446744073709551615, serial: int = 0) -> Any:
+    def get_edm_by_value(self, value: int, bmask: int = 18446744073709551615, serial: int = 0) -> Tuple[int, 'edm_t']:
         r"""Retrieve an enumerator with the specified value,
         in the specified tinfo_t object.
         
@@ -4853,14 +5370,14 @@ class tinfo_t:
         :returns: a tuple (int, edm_t), or (-1, None) if member not found
         """
         ...
-    def get_edm_tid(self, idx: size_t) -> tid_t:
+    def get_edm_tid(self, idx: int) -> int:
         r"""Get enum member TID 
                 
         :param idx: enum member index
         :returns: tid or BADADDR The tid is used to collect xrefs to the member, it can be passed to xref-related functions instead of the address.
         """
         ...
-    def get_enum_base_type(self) -> type_t:
+    def get_enum_base_type(self) -> bytes:
         r"""Get enum base type (convert enum to integer type) Returns BT_UNK if failed to convert 
                 
         """
@@ -4882,7 +5399,7 @@ class tinfo_t:
         :returns: radix or 1 for BTE_CHAR enum_type_data_t::get_enum_radix()
         """
         ...
-    def get_enum_repr(self, repr: value_repr_t) -> tinfo_code_t:
+    def get_enum_repr(self, repr: value_repr_t) -> int:
         r"""Set the representation of enum members. 
                 
         :param repr: value_repr_t
@@ -4910,7 +5427,7 @@ class tinfo_t:
         :returns: the name of the last type in the chain (TYPEn). if there is no chain, returns TYPE1
         """
         ...
-    def get_forward_type(self) -> type_t:
+    def get_forward_type(self) -> bytes:
         r"""Get type of a forward declaration. For a forward declaration this function returns its base type. In other cases it returns BT_UNK 
                 
         """
@@ -4931,14 +5448,14 @@ class tinfo_t:
         :param pfn: function
         """
         ...
-    def get_innermost_member_type(self, bitoffset: uint64) -> tinfo_t:
+    def get_innermost_member_type(self, bitoffset: int) -> tinfo_t:
         r"""Get the innermost member type at the given offset 
                 
         :param bitoffset: bit offset into the structure
         :returns: the: innermost member type
         """
         ...
-    def get_innermost_udm(self, bitoffset: uint64) -> tinfo_t:
+    def get_innermost_udm(self, bitoffset: int) -> tinfo_t:
         r"""Get the innermost member at the given offset 
                 
         :param bitoffset: bit offset into the structure
@@ -4952,24 +5469,14 @@ class tinfo_t:
         :returns: false if no member functions exist
         """
         ...
-    def get_modifiers(self) -> type_t:
+    def get_modifiers(self) -> bytes:
         ...
-    def get_named_type(self, args: Any) -> bool:
-        r"""This function has the following signatures:
-        
-            0. get_named_type(til: const til_t *, name: str, decl_type: type_t=BTF_TYPEDEF, resolve: bool=true, try_ordinal: bool=true) -> bool
-            1. get_named_type(name: str, decl_type: type_t=BTF_TYPEDEF, resolve: bool=true, try_ordinal: bool=true) -> bool
-        
-        # 0: get_named_type(til: const til_t *, name: str, decl_type: type_t=BTF_TYPEDEF, resolve: bool=true, try_ordinal: bool=true) -> bool
-        
-        Create a tinfo_t object for an existing named type. 
-                
-        
-        # 1: get_named_type(name: str, decl_type: type_t=BTF_TYPEDEF, resolve: bool=true, try_ordinal: bool=true) -> bool
-        
-        
-        """
+    @overload
+    def get_named_type(self, til: til_t, name: str, decl_type: bytes = ..., resolve: bool = True, try_ordinal: bool = True) -> bool:
+        r"""Create a tinfo_t object for an existing named type."""
         ...
+    @overload
+    def get_named_type(self, name: str, decl_type: bytes = ..., resolve: bool = True, try_ordinal: bool = True) -> bool: ...
     def get_nargs(self) -> int:
         r"""BT_FUNC or BT_PTR BT_FUNC: Calculate number of arguments (-1 - error)
         
@@ -4991,22 +5498,12 @@ class tinfo_t:
         
         """
         ...
-    def get_numbered_type(self, args: Any) -> Any:
-        r"""This function has the following signatures:
-        
-            0. get_numbered_type(til: const til_t *, ordinal: int, decl_type: type_t=BTF_TYPEDEF, resolve: bool=true) -> bool
-            1. get_numbered_type(ordinal: int, decl_type: type_t=BTF_TYPEDEF, resolve: bool=true) -> bool
-        
-        # 0: get_numbered_type(til: const til_t *, ordinal: int, decl_type: type_t=BTF_TYPEDEF, resolve: bool=true) -> bool
-        
-        Create a tinfo_t object for an existing ordinal type. 
-                
-        
-        # 1: get_numbered_type(ordinal: int, decl_type: type_t=BTF_TYPEDEF, resolve: bool=true) -> bool
-        
-        
-        """
+    @overload
+    def get_numbered_type(self, til: til_t, ordinal: int, decl_type: bytes = ..., resolve: bool = True) -> bool:
+        r"""Create a tinfo_t object for an existing ordinal type."""
         ...
+    @overload
+    def get_numbered_type(self, ordinal: int, decl_type: bytes = ..., resolve: bool = True) -> bool: ...
     def get_onemember_type(self) -> tinfo_t:
         r"""For objects consisting of one member entirely: return type of the member.
         
@@ -5037,7 +5534,7 @@ class tinfo_t:
         
         """
         ...
-    def get_realtype(self, full: bool = False) -> type_t:
+    def get_realtype(self, full: bool = False) -> bytes:
         r"""Get the resolved base type. Deserialization options:
         * if full=true, the referenced type will be deserialized fully, this may not always be desirable (slows down things)
         * if full=false, we just return the base type, the referenced type will be resolved again later if necessary (this may lead to multiple resolvings of the same type) imho full=false is a better approach because it does not perform unnecessary actions just in case. however, in some cases the caller knows that it is very likely that full type info will be required. in those cases full=true makes sense 
@@ -5056,7 +5553,7 @@ class tinfo_t:
         
         """
         ...
-    def get_size(self, p_effalign: uint32 = None, gts_code: int = 0) -> int:
+    def get_size(self, p_effalign: int = None, gts_code: int = 0) -> int:
         r"""Get the type size in bytes. 
                 
         :param p_effalign: buffer for the alignment value
@@ -5064,7 +5561,7 @@ class tinfo_t:
         :returns: BADSIZE in case of problems
         """
         ...
-    def get_stkvar(self, insn: insn_t, x: op_t, v: int) -> ssize_t:
+    def get_stkvar(self, insn: insn_t, x: op_t, v: int) -> int:
         r"""Retrieve frame tinfo for a stack variable 
                 
         :param insn: the instruction
@@ -5078,7 +5575,7 @@ class tinfo_t:
                 
         """
         ...
-    def get_tid(self) -> tid_t:
+    def get_tid(self) -> int:
         r"""Get the type tid Each type in the local type library has a so-called `tid` associated with it. The tid is used to collect xrefs to the type. The tid is created when the type is created in the local type library and does not change afterwards. It can be passed to xref-related functions instead of the address. 
                 
         :returns: tid or BADADDR
@@ -5089,7 +5586,7 @@ class tinfo_t:
         
         """
         ...
-    def get_type_by_tid(self, tid: tid_t) -> bool:
+    def get_type_by_tid(self, tid: int) -> bool:
         ...
     def get_type_cmt(self) -> int:
         r"""Get type comment 
@@ -5098,7 +5595,7 @@ class tinfo_t:
         """
         ...
     def get_type_name(self) -> bool:
-        r"""Does a type refer to a name?. If yes, fill the provided buffer with the type name and return true. Names are returned for numbered types too: either a user-defined nice name or, if a user-provided name does not exist, an ordinal name (like #xx, see create_numbered_type_name()). 
+        r"""Does a type refer to a name? If yes, fill the provided buffer with the type name and return true. Names are returned for numbered types too: either a user-defined nice name or, if a user-provided name does not exist, an ordinal name (like #xx, see create_numbered_type_name()). 
                 
         """
         ...
@@ -5107,7 +5604,7 @@ class tinfo_t:
         
         """
         ...
-    def get_udm(self, args: Any) -> Any:
+    def get_udm(self, *args: Any) -> Union[Tuple[int, 'udm_t'], Tuple[None, None]]:
         r"""Retrieve a structure/union member with either the specified name
         or the specified index, in the specified tinfo_t object.
         
@@ -5129,9 +5626,9 @@ class tinfo_t:
         :returns: a tuple (int, udm_t), or (-1, None) if member not found
         """
         ...
-    def get_udm_by_tid(self, udm: udm_t, tid: tid_t) -> ssize_t:
+    def get_udm_by_tid(self, udm: udm_t, tid: int) -> int:
         ...
-    def get_udm_tid(self, idx: size_t) -> tid_t:
+    def get_udm_tid(self, idx: int) -> int:
         r"""Get udt member TID 
                 
         :param idx: the index of udt the member
@@ -5224,7 +5721,7 @@ class tinfo_t:
         """
         ...
     def is_correct(self) -> bool:
-        r"""Is the type object correct?. It is possible to create incorrect types. For example, we can define a function that returns an enum and then delete the enum type. If this function returns false, the type should not be used in disassembly. Please note that this function does not verify all involved types: for example, pointers to undefined types are permitted. 
+        r"""Is the type object correct? It is possible to create incorrect types. For example, we can define a function that returns an enum and then delete the enum type. If this function returns false, the type should not be used in disassembly. Please note that this function does not verify all involved types: for example, pointers to undefined types are permitted. 
                 
         """
         ...
@@ -5459,7 +5956,7 @@ class tinfo_t:
         """
         ...
     def is_forward_decl(self) -> bool:
-        r"""Is this a forward declaration?. Forward declarations are placeholders: the type definition does not exist 
+        r"""Is this a forward declaration? Forward declarations are placeholders: the type definition does not exist 
                 
         """
         ...
@@ -5475,7 +5972,7 @@ class tinfo_t:
         """
         ...
     def is_from_subtil(self) -> bool:
-        r"""Was the named type found in some base type library (not the top level type library)?. If yes, it usually means that the type comes from some loaded type library, not the local type library for the database 
+        r"""Was the named type found in some base type library (not the top level type library)? If yes, it usually means that the type comes from some loaded type library, not the local type library for the database 
                 
         """
         ...
@@ -5491,6 +5988,11 @@ class tinfo_t:
         ...
     def is_high_func(self) -> bool:
         r"""BT_FUNC: Is high level type?
+        
+        """
+        ...
+    def is_iface(self) -> bool:
+        r"""Is an interface?
         
         """
         ...
@@ -5562,8 +6064,8 @@ class tinfo_t:
         """
         ...
     def is_punknown(self) -> bool:
-        r"""Is "_UNKNOWN *"?. This function does not check the pointer attributes and type modifiers.
-        
+        r"""Is "_UNKNOWN *"? This function does not check the pointer attributes and type modifiers 
+                
         """
         ...
     def is_purging_cc(self) -> bool:
@@ -5572,8 +6074,8 @@ class tinfo_t:
         """
         ...
     def is_pvoid(self) -> bool:
-        r"""Is "void *"?. This function does not check the pointer attributes and type modifiers.
-        
+        r"""Is "void *"? This function does not check the pointer attributes and type modifiers 
+                
         """
         ...
     def is_scalar(self) -> bool:
@@ -5622,12 +6124,12 @@ class tinfo_t:
         """
         ...
     def is_typedef(self) -> bool:
-        r"""Is this a typedef?. This function will return true for a reference to a local type that is declared as a typedef. 
+        r"""Is this a typedef? This function will return true for a reference to a local type that is declared as a typedef. 
                 
         """
         ...
     def is_typeref(self) -> bool:
-        r"""Is this type a type reference?.
+        r"""Is this type a type reference?
         
         """
         ...
@@ -5636,7 +6138,7 @@ class tinfo_t:
         
         """
         ...
-    def is_udm_by_til(self, idx: size_t) -> bool:
+    def is_udm_by_til(self, idx: int) -> bool:
         r"""Was the member created due to the type system 
                 
         :param idx: index of the member
@@ -5821,7 +6323,7 @@ class tinfo_t:
         
         """
         ...
-    def read_bitfield_value(self, v: uint64, bitoff: int) -> uint64:
+    def read_bitfield_value(self, v: int, bitoff: int) -> int:
         ...
     def remove_ptr_or_array(self) -> bool:
         r"""Replace the current type with the ptr obj or array element. This function performs one of the following conversions:
@@ -5832,7 +6334,7 @@ class tinfo_t:
                 
         """
         ...
-    def rename_edm(self, idx: size_t, name: str, etf_flags: uint = 0) -> tinfo_code_t:
+    def rename_edm(self, idx: int, name: str, etf_flags: int = 0) -> int:
         r"""Rename a enum member 
                 
         :param idx: index in edmvec_t
@@ -5840,7 +6342,7 @@ class tinfo_t:
         :param etf_flags: etf_flag_t ETF_FORCENAME may be used in case of TERR_ALIEN_NAME
         """
         ...
-    def rename_funcarg(self, index: size_t, name: str, etf_flags: uint = 0) -> tinfo_code_t:
+    def rename_funcarg(self, index: int, name: str, etf_flags: int = 0) -> int:
         r"""Rename a function argument. The new name must be unique. 
                 
         :param index: argument index in the function array
@@ -5848,19 +6350,19 @@ class tinfo_t:
         :param etf_flags: etf_flag_t
         """
         ...
-    def rename_type(self, name: str, ntf_flags: int = 0) -> tinfo_code_t:
+    def rename_type(self, name: str, ntf_flags: int = 0) -> int:
         r"""Rename a type 
                 
         :param name: new type name
         :param ntf_flags: Flags for named types
         """
         ...
-    def rename_udm(self, index: size_t, name: str, etf_flags: uint = 0) -> tinfo_code_t:
+    def rename_udm(self, index: int, name: str, etf_flags: int = 0) -> int:
         r"""Rename a structure/union member. The new name must be unique. 
                 
         """
         ...
-    def requires_qualifier(self, name: str, offset: uint64) -> bool:
+    def requires_qualifier(self, name: str, offset: int) -> bool:
         r"""Requires full qualifier? (name is not unique) 
                 
         :param name: field name
@@ -5868,9 +6370,9 @@ class tinfo_t:
         :returns: if the name is not unique, returns true
         """
         ...
-    def save_type(self, args: Any) -> tinfo_code_t:
+    def save_type(self, *args: Any) -> int:
         ...
-    def serialize(self, args: Any) -> Any:
+    def serialize(self, *args: Any) -> Any:
         r"""Serialize tinfo_t object into a type string.
         
         """
@@ -5888,9 +6390,9 @@ class tinfo_t:
         ...
     def set_const(self) -> None:
         ...
-    def set_declalign(self, declalign: uchar) -> bool:
+    def set_declalign(self, declalign: int) -> bool:
         ...
-    def set_edm_cmt(self, idx: size_t, cmt: str, etf_flags: uint = 0) -> tinfo_code_t:
+    def set_edm_cmt(self, idx: int, cmt: str, etf_flags: int = 0) -> int:
         r"""Set a comment for an enum member. Such comments are always considered as repeatable. 
                 
         :param idx: index in edmvec_t
@@ -5898,9 +6400,9 @@ class tinfo_t:
         :param etf_flags: etf_flag_t
         """
         ...
-    def set_enum_is_bitmask(self, args: Any) -> tinfo_code_t:
+    def set_enum_is_bitmask(self, *args: Any) -> int:
         ...
-    def set_enum_radix(self, radix: int, sign: bool, etf_flags: uint = 0) -> None:
+    def set_enum_radix(self, radix: int, sign: bool, etf_flags: int = 0) -> int:
         r"""Set enum radix to display constants 
                 
         :param radix: radix 2, 4, 8, 16, with the special case 1 to display as character
@@ -5908,38 +6410,38 @@ class tinfo_t:
         :param etf_flags: etf_flag_t
         """
         ...
-    def set_enum_repr(self, repr: value_repr_t, etf_flags: uint = 0) -> tinfo_code_t:
+    def set_enum_repr(self, repr: value_repr_t, etf_flags: int = 0) -> int:
         r"""Set the representation of enum members. 
                 
         :param repr: value_repr_t
         :param etf_flags: etf_flag_t
         """
         ...
-    def set_enum_sign(self, sign: type_sign_t, etf_flags: uint = 0) -> tinfo_code_t:
+    def set_enum_sign(self, sign: type_sign_t, etf_flags: int = 0) -> int:
         r"""Set enum sign 
                 
         :param sign: type_sign_t
         :param etf_flags: etf_flag_t
         """
         ...
-    def set_enum_width(self, nbytes: int, etf_flags: uint = 0) -> tinfo_code_t:
+    def set_enum_width(self, nbytes: int, etf_flags: int = 0) -> int:
         r"""Set the width of enum base type 
                 
         :param nbytes: width of enum base type, allowed values: 0 (unspecified),1,2,4,8,16,32,64
         :param etf_flags: etf_flag_t
         """
         ...
-    def set_fixed_struct(self, on: bool = True) -> tinfo_code_t:
+    def set_fixed_struct(self, on: bool = True) -> int:
         r"""Declare struct member offsets as fixed. For such structures, IDA will not recalculate the member offsets. If a member does not fit into its place anymore, it will be deleted. This function works only with structures (not unions). 
                 
         """
         ...
-    def set_func_cc(self, cc: callcnv_t, etf_flags: uint = 0) -> tinfo_code_t:
+    def set_func_cc(self, cc: callcnv_t, etf_flags: int = 0) -> int:
         r"""Set function calling convention.
         
         """
         ...
-    def set_func_retloc(self, argloc: argloc_t, etf_flags: uint = 0) -> tinfo_code_t:
+    def set_func_retloc(self, argloc: argloc_t, etf_flags: int = 0) -> int:
         r"""Set location of function return value. 
                 
         :param argloc: new location for the return value
@@ -5947,7 +6449,7 @@ class tinfo_t:
         :returns: tinfo_code_t
         """
         ...
-    def set_func_rettype(self, tif: tinfo_t, etf_flags: uint = 0) -> tinfo_code_t:
+    def set_func_rettype(self, tif: tinfo_t, etf_flags: int = 0) -> int:
         r"""Set function return type . 
                 
         :param tif: new type for the return type
@@ -5955,7 +6457,7 @@ class tinfo_t:
         :returns: tinfo_code_t
         """
         ...
-    def set_funcarg_loc(self, index: size_t, argloc: argloc_t, etf_flags: uint = 0) -> tinfo_code_t:
+    def set_funcarg_loc(self, index: int, argloc: argloc_t, etf_flags: int = 0) -> int:
         r"""Set location of a function argument. 
                 
         :param index: argument index in the function array
@@ -5964,7 +6466,7 @@ class tinfo_t:
         :returns: tinfo_code_t
         """
         ...
-    def set_funcarg_type(self, index: size_t, tif: tinfo_t, etf_flags: uint = 0) -> tinfo_code_t:
+    def set_funcarg_type(self, index: int, tif: tinfo_t, etf_flags: int = 0) -> int:
         r"""Set type of a function argument. 
                 
         :param index: argument index in the function array
@@ -5973,27 +6475,32 @@ class tinfo_t:
         :returns: tinfo_code_t
         """
         ...
+    def set_iface(self, on: bool = True) -> int:
+        r"""Declare struct as an interface. This function works only with structures (not unions). 
+                
+        """
+        ...
     def set_methods(self, methods: udtmembervec_t) -> bool:
         r"""BT_COMPLEX: set the list of member functions. This function consumes 'methods' (makes it empty). 
                 
         :returns: false if this type is not a udt, or if the given list is empty
         """
         ...
-    def set_modifiers(self, mod: type_t) -> None:
+    def set_modifiers(self, mod: bytes) -> None:
         ...
-    def set_named_type(self, til: til_t, name: str, ntf_flags: int = 0) -> tinfo_code_t:
+    def set_named_type(self, til: til_t, name: str, ntf_flags: int = 0) -> int:
         ...
-    def set_numbered_type(self, til: til_t, ord: int, ntf_flags: int = 0, name: str = None) -> tinfo_code_t:
+    def set_numbered_type(self, til: til_t, ord: int, ntf_flags: int = 0, name: str = None) -> int:
         ...
-    def set_struct_size(self, new_size: size_t) -> tinfo_code_t:
+    def set_struct_size(self, new_size: int) -> int:
         r"""Explicitly specify the struct size. This function works only with fixed structures. The new struct size can be equal or higher the unpadded struct size (IOW, all existing members should fit into the specified size). 
                 
         :param new_size: new structure size in bytes
         """
         ...
-    def set_symbol_type(self, til: til_t, name: str, ntf_flags: int = 0) -> tinfo_code_t:
+    def set_symbol_type(self, til: til_t, name: str, ntf_flags: int = 0) -> int:
         ...
-    def set_tuple(self, on: bool = True) -> None:
+    def set_tuple(self, on: bool = True) -> int:
         r"""Declare struct as a tuple. Currently, tuples in IDA behave the same way as structures but they are returned in a different manner from functions. Also, 2 different tuples having the same members are considered to be equal. This function works only with structures (not unions). 
                 
         """
@@ -6003,34 +6510,34 @@ class tinfo_t:
                 
         """
         ...
-    def set_type_alignment(self, declalign: uchar, etf_flags: uint = 0) -> tinfo_code_t:
+    def set_type_alignment(self, declalign: int, etf_flags: int = 0) -> int:
         r"""Set type alignment.
         
         """
         ...
-    def set_type_cmt(self, cmt: str, is_regcmt: bool = False, etf_flags: uint = 0) -> tinfo_code_t:
+    def set_type_cmt(self, cmt: str, is_regcmt: bool = False, etf_flags: int = 0) -> int:
         r"""Set type comment This function works only for non-trivial types 
                 
         """
         ...
-    def set_udm_by_til(self, idx: size_t, on: bool = True, etf_flags: uint = 0) -> tinfo_code_t:
+    def set_udm_by_til(self, idx: int, on: bool = True, etf_flags: int = 0) -> int:
         r"""The member is created due to the type system 
                 
         :param idx: index of the member
         :param etf_flags: etf_flag_t
         """
         ...
-    def set_udm_cmt(self, index: size_t, cmt: str, is_regcmt: bool = False, etf_flags: uint = 0) -> tinfo_code_t:
+    def set_udm_cmt(self, index: int, cmt: str, is_regcmt: bool = False, etf_flags: int = 0) -> int:
         r"""Set a comment for a structure/union member. A member may have just one comment, and it is either repeatable or regular. 
                 
         """
         ...
-    def set_udm_repr(self, index: size_t, repr: value_repr_t, etf_flags: uint = 0) -> tinfo_code_t:
+    def set_udm_repr(self, index: int, repr: value_repr_t, etf_flags: int = 0) -> int:
         r"""Set the representation of a structure/union member.
         
         """
         ...
-    def set_udm_type(self, index: size_t, tif: tinfo_t, etf_flags: uint = 0, repr: value_repr_t = None) -> tinfo_code_t:
+    def set_udm_type(self, index: int, tif: tinfo_t, etf_flags: int = 0, repr: value_repr_t = None) -> int:
         r"""Set type of a structure/union member. 
                 
         :param index: member index in the udm array
@@ -6040,12 +6547,12 @@ class tinfo_t:
         :returns: tinfo_code_t
         """
         ...
-    def set_udt_alignment(self, sda: int, etf_flags: uint = 0) -> tinfo_code_t:
+    def set_udt_alignment(self, sda: int, etf_flags: int = 0) -> int:
         r"""Set declared structure alignment (sda) This alignment supersedes the alignment returned by get_declalign() and is really used when calculating the struct layout. However, the effective structure alignment may differ from `sda` because of packing. The type editing functions (they accept etf_flags) may overwrite this attribute. 
                 
         """
         ...
-    def set_udt_pack(self, pack: int, etf_flags: uint = 0) -> tinfo_code_t:
+    def set_udt_pack(self, pack: int, etf_flags: int = 0) -> int:
         r"""Set structure packing. The value controls how little a structure member alignment can be. Example: if pack=1, then it is possible to align a double to a byte. __attribute__((aligned(1))) double x; However, if pack=3, a double will be aligned to 8 (2**3) even if requested to be aligned to a byte. pack==0 will have the same effect. The type editing functions (they accept etf_flags) may overwrite this attribute. 
                 
         """
@@ -6057,12 +6564,12 @@ class tinfo_t:
         
         """
         ...
-    def write_bitfield_value(self, dst: uint64, v: uint64, bitoff: int) -> uint64:
+    def write_bitfield_value(self, dst: int, v: int, bitoff: int) -> int:
         ...
 
 class tinfo_visitor_t:
     @property
-    def state(self) -> Any: ...
+    def state(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -6074,8 +6581,11 @@ class tinfo_visitor_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -6083,15 +6593,18 @@ class tinfo_visitor_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, s: int = 0) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -6108,7 +6621,7 @@ class tinfo_visitor_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -6128,7 +6641,7 @@ class tinfo_visitor_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -6138,7 +6651,7 @@ class tinfo_visitor_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def apply_to(self, tif: tinfo_t, out: type_mods_t = None, name: str = None, cmt: str = None) -> int:
         r"""Call this function to initiate the traversal.
@@ -6158,9 +6671,9 @@ class tinfo_visitor_t:
 
 class type_attr_t:
     @property
-    def key(self) -> Any: ...
+    def key(self) -> str: ...
     @property
-    def value(self) -> Any: ...
+    def value(self) -> bytevec_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -6170,23 +6683,29 @@ class type_attr_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, r: type_attr_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -6202,7 +6721,7 @@ class type_attr_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -6222,7 +6741,7 @@ class type_attr_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -6232,7 +6751,7 @@ class type_attr_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class type_attrs_t:
@@ -6245,8 +6764,11 @@ class type_attrs_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -6254,17 +6776,20 @@ class type_attrs_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> udm_t:
+    def __getitem__(self, i: int) -> type_attr_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -6272,7 +6797,7 @@ class type_attrs_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[type_attr_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -6286,7 +6811,7 @@ class type_attrs_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -6300,7 +6825,7 @@ class type_attrs_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: type_attr_t) -> None:
+    def __setitem__(self, i: int, v: type_attr_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
@@ -6308,7 +6833,7 @@ class type_attrs_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -6318,15 +6843,15 @@ class type_attrs_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def append(self, x: type_attr_t) -> None:
         ...
-    def at(self, _idx: size_t) -> udm_t:
+    def at(self, _idx: int) -> type_attr_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> uint64:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -6334,31 +6859,31 @@ class type_attrs_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> uint64:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: type_attrs_t) -> None:
         ...
-    def extract(self) -> udm_t:
+    def extract(self) -> type_attr_t:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
-    def inject(self, s: type_attr_t, len: size_t) -> None:
+    def inject(self, s: type_attr_t, len: int) -> None:
         ...
     def insert(self, it: type_attr_t, x: type_attr_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> udm_t:
+    def push_back(self, *args: Any) -> type_attr_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -6369,13 +6894,13 @@ class type_attrs_t:
 
 class type_mods_t:
     @property
-    def cmt(self) -> Any: ...
+    def cmt(self) -> str: ...
     @property
-    def flags(self) -> Any: ...
+    def flags(self) -> int: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def type(self) -> Any: ...
+    def type(self) -> tinfo_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -6385,8 +6910,11 @@ class type_mods_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -6394,15 +6922,18 @@ class type_mods_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -6419,7 +6950,7 @@ class type_mods_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -6439,7 +6970,7 @@ class type_mods_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -6449,7 +6980,7 @@ class type_mods_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def clear(self) -> None:
         ...
@@ -6475,15 +7006,15 @@ class type_mods_t:
 
 class typedef_type_data_t:
     @property
-    def is_ordref(self) -> Any: ...
+    def is_ordref(self) -> bool: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def ordinal(self) -> Any: ...
+    def ordinal(self) -> int: ...
     @property
-    def resolve(self) -> Any: ...
+    def resolve(self) -> bool: ...
     @property
-    def til(self) -> Any: ...
+    def til(self) -> til_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -6493,8 +7024,11 @@ class typedef_type_data_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -6502,15 +7036,18 @@ class typedef_type_data_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -6527,7 +7064,7 @@ class typedef_type_data_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -6547,7 +7084,7 @@ class typedef_type_data_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -6557,30 +7094,30 @@ class typedef_type_data_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def swap(self, r: typedef_type_data_t) -> None:
         ...
 
 class udm_t:
     @property
-    def cmt(self) -> Any: ...
+    def cmt(self) -> str: ...
     @property
-    def effalign(self) -> Any: ...
+    def effalign(self) -> int: ...
     @property
-    def fda(self) -> Any: ...
+    def fda(self) -> int: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def offset(self) -> Any: ...
+    def offset(self) -> int: ...
     @property
-    def repr(self) -> Any: ...
+    def repr(self) -> value_repr_t: ...
     @property
-    def size(self) -> Any: ...
+    def size(self) -> int: ...
     @property
-    def tafld_bits(self) -> Any: ...
+    def tafld_bits(self) -> int: ...
     @property
-    def type(self) -> Any: ...
+    def type(self) -> tinfo_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -6589,8 +7126,11 @@ class udm_t:
         ...
     def __eq__(self, r: udm_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -6598,10 +7138,13 @@ class udm_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         r"""Create a structure/union member, with the specified name and type.
         
         This constructor has the following signatures:
@@ -6625,7 +7168,7 @@ class udm_t:
                to specify correct offsets.
         """
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -6640,7 +7183,7 @@ class udm_t:
         ...
     def __ne__(self, r: udm_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -6660,7 +7203,7 @@ class udm_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -6670,9 +7213,9 @@ class udm_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def begin(self) -> uint64:
+    def begin(self) -> int:
         ...
     def can_be_dtor(self) -> bool:
         ...
@@ -6692,7 +7235,7 @@ class udm_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self) -> uint64:
+    def end(self) -> int:
         ...
     def is_anonymous_udm(self) -> bool:
         ...
@@ -6757,8 +7300,11 @@ class udm_visitor_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -6766,15 +7312,18 @@ class udm_visitor_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -6791,7 +7340,7 @@ class udm_visitor_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -6811,7 +7360,7 @@ class udm_visitor_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -6821,9 +7370,9 @@ class udm_visitor_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def visit_udm(self, tid: tid_t, tif: tinfo_t, udt: udt_type_data_t, idx: ssize_t) -> int:
+    def visit_udm(self, tid: int, tif: tinfo_t, udt: udt_type_data_t, idx: int) -> int:
         r""":param tid: udt tid
         :param tif: udt type info (may be nullptr for corrupted idbs)
         :param udt: udt type data (may be nullptr for corrupted idbs)
@@ -6833,23 +7382,23 @@ class udm_visitor_t:
 
 class udt_member_t:
     @property
-    def cmt(self) -> Any: ...
+    def cmt(self) -> str: ...
     @property
-    def effalign(self) -> Any: ...
+    def effalign(self) -> int: ...
     @property
-    def fda(self) -> Any: ...
+    def fda(self) -> int: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def offset(self) -> Any: ...
+    def offset(self) -> int: ...
     @property
-    def repr(self) -> Any: ...
+    def repr(self) -> value_repr_t: ...
     @property
-    def size(self) -> Any: ...
+    def size(self) -> int: ...
     @property
-    def tafld_bits(self) -> Any: ...
+    def tafld_bits(self) -> int: ...
     @property
-    def type(self) -> Any: ...
+    def type(self) -> tinfo_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -6858,8 +7407,11 @@ class udt_member_t:
         ...
     def __eq__(self, r: udm_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -6867,10 +7419,13 @@ class udt_member_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         r"""Create a structure/union member, with the specified name and type.
         
         This constructor has the following signatures:
@@ -6894,7 +7449,7 @@ class udt_member_t:
                to specify correct offsets.
         """
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -6909,7 +7464,7 @@ class udt_member_t:
         ...
     def __ne__(self, r: udm_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -6929,7 +7484,7 @@ class udt_member_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -6939,9 +7494,9 @@ class udt_member_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def begin(self) -> uint64:
+    def begin(self) -> int:
         ...
     def can_be_dtor(self) -> bool:
         ...
@@ -6961,7 +7516,7 @@ class udt_member_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self) -> uint64:
+    def end(self) -> int:
         ...
     def is_anonymous_udm(self) -> bool:
         ...
@@ -7016,21 +7571,21 @@ class udt_member_t:
 
 class udt_type_data_t(udtmembervec_t, udtmembervec_template_t):
     @property
-    def effalign(self) -> Any: ...
+    def effalign(self) -> int: ...
     @property
-    def is_union(self) -> Any: ...
+    def is_union(self) -> bool: ...
     @property
-    def pack(self) -> Any: ...
+    def pack(self) -> int: ...
     @property
-    def sda(self) -> Any: ...
+    def sda(self) -> int: ...
     @property
-    def taudt_bits(self) -> Any: ...
+    def taudt_bits(self) -> int: ...
     @property
-    def total_size(self) -> Any: ...
+    def total_size(self) -> int: ...
     @property
-    def unpadded_size(self) -> Any: ...
+    def unpadded_size(self) -> int: ...
     @property
-    def version(self) -> Any: ...
+    def version(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -7039,8 +7594,11 @@ class udt_type_data_t(udtmembervec_t, udtmembervec_template_t):
         ...
     def __eq__(self, r: udtmembervec_template_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -7048,14 +7606,17 @@ class udt_type_data_t(udtmembervec_t, udtmembervec_template_t):
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> udm_t:
+    def __getitem__(self, i: int) -> udm_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -7063,7 +7624,7 @@ class udt_type_data_t(udtmembervec_t, udtmembervec_template_t):
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[udm_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -7076,7 +7637,7 @@ class udt_type_data_t(udtmembervec_t, udtmembervec_template_t):
         ...
     def __ne__(self, r: udtmembervec_template_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -7090,7 +7651,7 @@ class udt_type_data_t(udtmembervec_t, udtmembervec_template_t):
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: udm_t) -> None:
+    def __setitem__(self, i: int, v: udm_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
@@ -7098,7 +7659,7 @@ class udt_type_data_t(udtmembervec_t, udtmembervec_template_t):
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -7108,9 +7669,9 @@ class udt_type_data_t(udtmembervec_t, udtmembervec_template_t):
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def add_member(self, _name: str, _type: tinfo_t, _offset: uint64 = 0) -> udm_t:
+    def add_member(self, _name: str, _type: tinfo_t, _offset: int = 0) -> udm_t:
         r"""Add a new member to a structure or union. This function just pushes a new member to the back of the structure/union member vector.
         
         :param _name: Member name. Must not be nullptr.
@@ -7123,49 +7684,45 @@ class udt_type_data_t(udtmembervec_t, udtmembervec_template_t):
         ...
     def append(self, x: udm_t) -> None:
         ...
-    def at(self, _idx: size_t) -> udm_t:
+    def at(self, _idx: int) -> udm_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> uint64:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
     def clear(self) -> None:
         ...
+    def deduplicate_members(self) -> bool:
+        r"""Rename members with the same names. This function finds duplicate member names and renames them by adding a numeric suffix like _2, _3, etc. Also, it renames destructors by substituting ~ by dtr_. 
+                
+        :returns: true if renamed a member
+        """
+        ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> uint64:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: udtmembervec_template_t) -> None:
         ...
     def extract(self) -> udm_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
-    def find_member(self, args: Any) -> ssize_t:
-        r"""This function has the following signatures:
-        
-            0. find_member(pattern_udm: udm_t *, strmem_flags: int) -> ssize_t
-            1. find_member(name: str) -> ssize_t
-            2. find_member(bit_offset: uint64) -> ssize_t
-        
-        # 0: find_member(pattern_udm: udm_t *, strmem_flags: int) -> ssize_t
-        
-        tinfo_t::find_udm 
+    @overload
+    def find_member(self, pattern_udm: udm_t, strmem_flags: int) -> int:
+        r"""tinfo_t::find_udm 
                 
         :returns: the index of the found member or -1
-        
-        # 1: find_member(name: str) -> ssize_t
-        
-        
-        # 2: find_member(bit_offset: uint64) -> ssize_t
-        
-        
         """
         ...
+    @overload
+    def find_member(self, name: str) -> int: ...
+    @overload
+    def find_member(self, bit_offset: int) -> int: ...
     def front(self) -> Any:
         ...
     def get_best_fit_member(self, disp: Any) -> Any:
@@ -7175,11 +7732,11 @@ class udt_type_data_t(udtmembervec_t, udtmembervec_template_t):
         :returns: a tuple (int, udm_t), or (-1, None) if member not found
         """
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: udm_t) -> bool:
         ...
-    def inject(self, s: udm_t, len: size_t) -> None:
+    def inject(self, s: udm_t, len: int) -> None:
         ...
     def insert(self, it: udm_t, x: udm_t) -> qvector:
         ...
@@ -7187,7 +7744,9 @@ class udt_type_data_t(udtmembervec_t, udtmembervec_template_t):
         ...
     def is_fixed(self) -> bool:
         ...
-    def is_last_baseclass(self, idx: size_t) -> bool:
+    def is_iface(self) -> bool:
+        ...
+    def is_last_baseclass(self, idx: int) -> bool:
         ...
     def is_msstruct(self) -> bool:
         ...
@@ -7199,15 +7758,17 @@ class udt_type_data_t(udtmembervec_t, udtmembervec_template_t):
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> udm_t:
+    def push_back(self, *args: Any) -> udm_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def set_fixed(self, on: bool = True) -> None:
+        ...
+    def set_iface(self, on: bool = True) -> None:
         ...
     def set_tuple(self, on: bool = True) -> None:
         ...
@@ -7229,8 +7790,11 @@ class udtmembervec_t(udtmembervec_template_t):
         ...
     def __eq__(self, r: udtmembervec_template_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -7238,14 +7802,17 @@ class udtmembervec_t(udtmembervec_template_t):
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> udm_t:
+    def __getitem__(self, i: int) -> udm_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -7253,7 +7820,7 @@ class udtmembervec_t(udtmembervec_template_t):
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[udm_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -7266,7 +7833,7 @@ class udtmembervec_t(udtmembervec_template_t):
         ...
     def __ne__(self, r: udtmembervec_template_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -7280,7 +7847,7 @@ class udtmembervec_t(udtmembervec_template_t):
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: udm_t) -> None:
+    def __setitem__(self, i: int, v: udm_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
@@ -7288,7 +7855,7 @@ class udtmembervec_t(udtmembervec_template_t):
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -7298,17 +7865,17 @@ class udtmembervec_t(udtmembervec_template_t):
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: udm_t) -> bool:
         ...
     def append(self, x: udm_t) -> None:
         ...
-    def at(self, _idx: size_t) -> udm_t:
+    def at(self, _idx: int) -> udm_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> uint64:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -7316,35 +7883,35 @@ class udtmembervec_t(udtmembervec_template_t):
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> uint64:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: udtmembervec_template_t) -> None:
         ...
     def extract(self) -> udm_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: udm_t) -> bool:
         ...
-    def inject(self, s: udm_t, len: size_t) -> None:
+    def inject(self, s: udm_t, len: int) -> None:
         ...
     def insert(self, it: udm_t, x: udm_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> udm_t:
+    def push_back(self, *args: Any) -> udm_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -7362,8 +7929,11 @@ class udtmembervec_template_t:
         ...
     def __eq__(self, r: udtmembervec_template_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -7371,14 +7941,17 @@ class udtmembervec_template_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> udm_t:
+    def __getitem__(self, i: int) -> udm_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -7386,7 +7959,7 @@ class udtmembervec_template_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[udm_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -7399,7 +7972,7 @@ class udtmembervec_template_t:
         ...
     def __ne__(self, r: udtmembervec_template_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -7413,7 +7986,7 @@ class udtmembervec_template_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: udm_t) -> None:
+    def __setitem__(self, i: int, v: udm_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
@@ -7421,7 +7994,7 @@ class udtmembervec_template_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -7431,17 +8004,17 @@ class udtmembervec_template_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: udm_t) -> bool:
         ...
     def append(self, x: udm_t) -> None:
         ...
-    def at(self, _idx: size_t) -> udm_t:
+    def at(self, _idx: int) -> udm_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> uint64:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -7449,35 +8022,35 @@ class udtmembervec_template_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> uint64:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: udtmembervec_template_t) -> None:
         ...
     def extract(self) -> udm_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: udm_t) -> bool:
         ...
-    def inject(self, s: udm_t, len: size_t) -> None:
+    def inject(self, s: udm_t, len: int) -> None:
         ...
     def insert(self, it: udm_t, x: udm_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> udm_t:
+    def push_back(self, *args: Any) -> udm_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -7488,15 +8061,15 @@ class udtmembervec_template_t:
 
 class valstr_t:
     @property
-    def info(self) -> Any: ...
+    def info(self) -> valinfo_t: ...
     @property
-    def length(self) -> Any: ...
+    def length(self) -> int: ...
     @property
-    def members(self) -> Any: ...
+    def members(self) -> valstrs_t: ...
     @property
-    def oneline(self) -> Any: ...
+    def oneline(self) -> str: ...
     @property
-    def props(self) -> Any: ...
+    def props(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -7506,8 +8079,11 @@ class valstr_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -7515,15 +8091,18 @@ class valstr_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -7540,7 +8119,7 @@ class valstr_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -7560,7 +8139,7 @@ class valstr_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -7570,7 +8149,7 @@ class valstr_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class valstrs_t(valstrvec_t):
@@ -7583,8 +8162,11 @@ class valstrs_t(valstrvec_t):
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -7592,17 +8174,20 @@ class valstrs_t(valstrvec_t):
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> udm_t:
+    def __getitem__(self, i: int) -> valstr_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -7610,7 +8195,7 @@ class valstrs_t(valstrvec_t):
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[valstr_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -7624,7 +8209,7 @@ class valstrs_t(valstrvec_t):
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -7638,7 +8223,7 @@ class valstrs_t(valstrvec_t):
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: valstr_t) -> None:
+    def __setitem__(self, i: int, v: valstr_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
@@ -7646,7 +8231,7 @@ class valstrs_t(valstrvec_t):
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -7656,15 +8241,15 @@ class valstrs_t(valstrvec_t):
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def append(self, x: valstr_t) -> None:
         ...
-    def at(self, _idx: size_t) -> udm_t:
+    def at(self, _idx: int) -> valstr_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> uint64:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -7672,31 +8257,31 @@ class valstrs_t(valstrvec_t):
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> uint64:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: valstrvec_t) -> None:
         ...
-    def extract(self) -> udm_t:
+    def extract(self) -> valstr_t:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
-    def inject(self, s: valstr_t, len: size_t) -> None:
+    def inject(self, s: valstr_t, len: int) -> None:
         ...
     def insert(self, it: valstr_t, x: valstr_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> udm_t:
+    def push_back(self, *args: Any) -> valstr_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -7715,8 +8300,11 @@ class valstrvec_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -7724,17 +8312,20 @@ class valstrvec_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> udm_t:
+    def __getitem__(self, i: int) -> valstr_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -7742,7 +8333,7 @@ class valstrvec_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[valstr_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -7756,7 +8347,7 @@ class valstrvec_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -7770,7 +8361,7 @@ class valstrvec_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: valstr_t) -> None:
+    def __setitem__(self, i: int, v: valstr_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
@@ -7778,7 +8369,7 @@ class valstrvec_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -7788,15 +8379,15 @@ class valstrvec_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def append(self, x: valstr_t) -> None:
         ...
-    def at(self, _idx: size_t) -> udm_t:
+    def at(self, _idx: int) -> valstr_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> uint64:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -7804,31 +8395,31 @@ class valstrvec_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> uint64:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: valstrvec_t) -> None:
         ...
-    def extract(self) -> udm_t:
+    def extract(self) -> valstr_t:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
-    def inject(self, s: valstr_t, len: size_t) -> None:
+    def inject(self, s: valstr_t, len: int) -> None:
         ...
     def insert(self, it: valstr_t, x: valstr_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> udm_t:
+    def push_back(self, *args: Any) -> valstr_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -7839,19 +8430,19 @@ class valstrvec_t:
 
 class value_repr_t:
     @property
-    def ap(self) -> Any: ...
+    def ap(self) -> array_parameters_t: ...
     @property
-    def bits(self) -> Any: ...
+    def bits(self) -> int: ...
     @property
-    def cd(self) -> Any: ...
+    def cd(self) -> custom_data_type_info_t: ...
     @property
-    def delta(self) -> Any: ...
+    def delta(self) -> int: ...
     @property
-    def ri(self) -> Any: ...
+    def ri(self) -> refinfo_t: ...
     @property
-    def strtype(self) -> Any: ...
+    def strtype(self) -> int: ...
     @property
-    def type_ordinal(self) -> Any: ...
+    def type_ordinal(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -7861,8 +8452,11 @@ class value_repr_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -7870,15 +8464,18 @@ class value_repr_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -7895,7 +8492,7 @@ class value_repr_t:
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -7914,7 +8511,7 @@ class value_repr_t:
         ...
     def __str__(self) -> str:
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -7924,15 +8521,15 @@ class value_repr_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def clear(self) -> None:
         ...
     def empty(self) -> bool:
         ...
-    def from_opinfo(self, flags: flags64_t, afl: aflags_t, opinfo: opinfo_t, _ap: array_parameters_t) -> bool:
+    def from_opinfo(self, flags: int, afl: aflags_t, opinfo: opinfo_t, _ap: array_parameters_t) -> bool:
         ...
-    def get_vtype(self) -> uint64:
+    def get_vtype(self) -> int:
         ...
     def has_lzeroes(self) -> bool:
         ...
@@ -7954,7 +8551,7 @@ class value_repr_t:
         ...
     def is_typref(self) -> bool:
         ...
-    def parse_value_repr(self, args: Any) -> bool:
+    def parse_value_repr(self, *args: Any) -> bool:
         ...
     def set_ap(self, _ap: array_parameters_t) -> None:
         ...
@@ -7964,7 +8561,7 @@ class value_repr_t:
         ...
     def set_tabform(self, on: bool) -> None:
         ...
-    def set_vtype(self, vt: uint64) -> None:
+    def set_vtype(self, vt: int) -> None:
         ...
     def swap(self, r: value_repr_t) -> None:
         ...
@@ -8008,7 +8605,7 @@ def append_argloc(out: qtype, vloc: argloc_t) -> bool:
     """
     ...
 
-def append_tinfo_covered(out: rangeset_t, typid: typid_t, offset: uint64) -> bool:
+def append_tinfo_covered(out: rangeset_t, typid: typid_t, offset: int) -> bool:
     ...
 
 def apply_callee_tinfo(caller: ida_idaapi.ea_t, tif: tinfo_t) -> bool:
@@ -8114,20 +8711,10 @@ def calc_number_of_children(loc: argloc_t, tif: tinfo_t, dont_deref_ptr: bool = 
     """
     ...
 
-def calc_retloc(args: Any) -> bool:
-    r"""This function has the following signatures:
-    
-        0. calc_retloc(fti: func_type_data_t *) -> bool
-        1. calc_retloc(retloc: argloc_t *, rettype: const tinfo_t &, cc: callcnv_t) -> bool
-    
-    # 0: calc_retloc(fti: func_type_data_t *) -> bool
-    
-    
-    # 1: calc_retloc(retloc: argloc_t *, rettype: const tinfo_t &, cc: callcnv_t) -> bool
-    
-    
-    """
-    ...
+@overload
+def calc_retloc(fti: func_type_data_t) -> bool: ...
+@overload
+def calc_retloc(retloc: argloc_t, rettype: tinfo_t, cc: callcnv_t) -> bool: ...
 
 def calc_tinfo_gaps(out: rangeset_t, typid: typid_t) -> bool:
     ...
@@ -8143,29 +8730,10 @@ def calc_type_size(til: til_t, type: bytes) -> Any:
 def calc_varglocs(fti: func_type_data_t, regs: regobjs_t, stkargs: relobj_t, nfixed: int) -> bool:
     ...
 
-def choose_local_tinfo(ti: til_t, title: str, func: local_tinfo_predicate_t = None, def_ord: int = 0, ud: void = None) -> int:
-    r"""Choose a type from the local type library. 
-            
-    :param ti: pointer to til
-    :param title: title of listbox to display
-    :param func: predicate to select types to display (maybe nullptr)
-    :param def_ord: ordinal to position cursor before choose
-    :param ud: user data
-    :returns: == 0 means nothing is chosen, otherwise an ordinal number
-    """
+def choose_local_tinfo(arg1: til_t, arg2: str, arg3: til_tinfo_predicate_t, arg4: int, arg5: Any) -> int:
     ...
 
-def choose_local_tinfo_and_delta(delta: int32, ti: til_t, title: str, func: local_tinfo_predicate_t = None, def_ord: int = 0, ud: void = None) -> int:
-    r"""Choose a type from the local type library and specify the pointer shift value. 
-            
-    :param delta: pointer shift value
-    :param ti: pointer to til
-    :param title: title of listbox to display
-    :param func: predicate to select types to display (maybe nullptr)
-    :param def_ord: ordinal to position cursor before choose
-    :param ud: user data
-    :returns: == 0 means nothing is chosen, otherwise an ordinal number
-    """
+def choose_local_tinfo_and_delta(arg1: int, arg2: til_t, arg3: str, arg4: til_tinfo_predicate_t, arg5: int, arg6: Any) -> int:
     ...
 
 def choose_named_type(out_sym: til_symbol_t, root_til: til_t, title: str, ntf_flags: int, predicate: predicate_t = None) -> bool:
@@ -8212,7 +8780,7 @@ def copy_named_type(dsttil: til_t, srctil: til_t, name: str) -> int:
 def copy_tinfo_t(_this: tinfo_t, r: tinfo_t) -> None:
     ...
 
-def create_enum_type(enum_name: str, ei: enum_type_data_t, enum_width: int, sign: type_sign_t, convert_to_bitmask: bool, enum_cmt: str = None) -> tid_t:
+def create_enum_type(enum_name: str, ei: enum_type_data_t, enum_width: int, sign: type_sign_t, convert_to_bitmask: bool, enum_cmt: str = None) -> int:
     r"""Create type enum 
             
     :param enum_name: type name
@@ -8231,10 +8799,10 @@ def create_numbered_type_name(ord: int) -> str:
     """
     ...
 
-def create_tinfo(_this: tinfo_t, bt: type_t, bt2: type_t, ptr: void) -> bool:
+def create_tinfo(_this: tinfo_t, bt: bytes, bt2: bytes, ptr: Any) -> bool:
     ...
 
-def decorate_name(args: Any) -> str:
+def decorate_name(*args: Any) -> str:
     r"""Decorate/undecorate a C symbol name. 
             
     :param out: output buffer
@@ -8285,7 +8853,7 @@ def del_vftable_ea(ordinal: int) -> bool:
     """
     ...
 
-def deref_ptr(ptr_ea: ea_t, tif: tinfo_t, closure_obj: ea_t = None) -> bool:
+def deref_ptr(ptr_ea: int, tif: tinfo_t, closure_obj: int = None) -> bool:
     r"""Dereference a pointer. 
             
     :param ptr_ea: in/out parameter
@@ -8297,7 +8865,7 @@ def deref_ptr(ptr_ea: ea_t, tif: tinfo_t, closure_obj: ea_t = None) -> bool:
     """
     ...
 
-def deserialize_tinfo(tif: tinfo_t, til: til_t, ptype: type_t, pfields: p_list, pfldcmts: p_list, cmt: str = None) -> bool:
+def deserialize_tinfo(tif: tinfo_t, til: til_t, ptype: bytes, pfields: p_list, pfldcmts: p_list, cmt: str = None) -> bool:
     ...
 
 def detach_tinfo_t(_this: tinfo_t) -> bool:
@@ -8324,7 +8892,7 @@ def end_type_updating(utp: update_type_t) -> None:
     """
     ...
 
-def extract_argloc(vloc: argloc_t, ptype: type_t, forbid_stkoff: bool) -> bool:
+def extract_argloc(vloc: argloc_t, ptype: bytes, forbid_stkoff: bool) -> bool:
     r"""Deserialize an argument location. Argument FORBID_STKOFF checks location type. It can be used, for example, to check the return location of a function that cannot return a value in the stack 
             
     """
@@ -8412,8 +8980,8 @@ def get_arg_addrs(caller: ida_idaapi.ea_t) -> Any:
     """
     ...
 
-def get_base_type(t: type_t) -> type_t:
-    r"""Get get basic type bits (TYPE_BASE_MASK)
+def get_base_type(t: bytes) -> bytes:
+    r"""Get basic type bits (TYPE_BASE_MASK)
     
     """
     ...
@@ -8469,7 +9037,7 @@ def get_custom_callcnvs(names: qstrvec_t, codes: callcnvs_t) -> int:
     """
     ...
 
-def get_enum_member_expr(tif: tinfo_t, serial: int, value: uint64) -> str:
+def get_enum_member_expr(tif: tinfo_t, serial: int, value: int) -> str:
     r"""Return a C expression that can be used to represent an enum member. If the value does not correspond to any single enum member, this function tries to find a bitwise combination of enum members that correspond to it. If more than half of value bits do not match any enum members, it fails. 
             
     :param tif: enumeration type
@@ -8479,7 +9047,7 @@ def get_enum_member_expr(tif: tinfo_t, serial: int, value: uint64) -> str:
     """
     ...
 
-def get_full_type(t: type_t) -> type_t:
+def get_full_type(t: bytes) -> bytes:
     r"""Get basic type bits + type flags (TYPE_FULL_MASK)
     
     """
@@ -8492,7 +9060,7 @@ def get_idainfo_by_type(tif: tinfo_t) -> Any:
     """
     ...
 
-def get_idainfo_by_udm(args: Any) -> bool:
+def get_idainfo_by_udm(*args: Any) -> bool:
     r"""Calculate IDA info from udt member 
             
     :param udm: udt member
@@ -8506,7 +9074,7 @@ def get_idati() -> til_t:
     """
     ...
 
-def get_named_type(til: til_t, name: str, ntf_flags: int) -> bool:
+def get_named_type(til: til_t, name: str, ntf_flags: int) -> Any:
     r"""Get a type data by its name.
     
     :param til: Type library
@@ -8516,14 +9084,14 @@ def get_named_type(til: til_t, name: str, ntf_flags: int) -> bool:
     """
     ...
 
-def get_named_type64(til: til_t, name: str, ntf_flags: int = 0) -> Any:
+def get_named_type64(til: til_t, name: str, ntf_flags: int = 0) -> Union[Tuple[int, bytes, bytes, str, str, int, int], None]:
     r"""Get a named type from a type library.
     
     Please use til_t.get_named_type instead.
     """
     ...
 
-def get_named_type_tid(name: str) -> tid_t:
+def get_named_type_tid(name: str) -> int:
     r"""Get named local type TID 
             
     :param name: type name
@@ -8531,7 +9099,7 @@ def get_named_type_tid(name: str) -> tid_t:
     """
     ...
 
-def get_numbered_type(til: til_t, ordinal: int) -> Any:
+def get_numbered_type(til: til_t, ordinal: int) -> Union[Tuple[bytes, bytes, str, str, int], None]:
     r"""Get a type from a type library, by its ordinal
     
     Please use til_t.get_numbered_type instead.
@@ -8560,7 +9128,7 @@ def get_ordinal_limit(ti: til_t = None) -> int:
     """
     ...
 
-def get_scalar_bt(size: int) -> type_t:
+def get_scalar_bt(size: int) -> bytes:
     ...
 
 def get_stkarg_area_info(out: stkarg_area_info_t, cc: callcnv_t) -> bool:
@@ -8572,7 +9140,7 @@ def get_stkarg_area_info(out: stkarg_area_info_t, cc: callcnv_t) -> bool:
 def get_stock_tinfo(tif: tinfo_t, id: stock_type_id_t) -> bool:
     ...
 
-def get_tid_name(tid: tid_t) -> str:
+def get_tid_name(tid: int) -> str:
     r"""Get a type name for the specified TID 
             
     :param tid: type TID
@@ -8580,7 +9148,7 @@ def get_tid_name(tid: tid_t) -> str:
     """
     ...
 
-def get_tid_ordinal(tid: tid_t) -> int:
+def get_tid_ordinal(tid: int) -> int:
     r"""Get type ordinal number for TID 
             
     :param tid: type/enum constant/udt member TID
@@ -8594,10 +9162,10 @@ def get_tinfo_attr(typid: typid_t, key: str, bv: bytevec_t, all_attrs: bool) -> 
 def get_tinfo_attrs(typid: typid_t, tav: type_attrs_t, include_ref_attrs: bool) -> bool:
     ...
 
-def get_tinfo_by_edm_name(tif: tinfo_t, til: til_t, mname: str) -> ssize_t:
+def get_tinfo_by_edm_name(tif: tinfo_t, til: til_t, mname: str) -> int:
     ...
 
-def get_tinfo_by_flags(out: tinfo_t, flags: flags64_t) -> bool:
+def get_tinfo_by_flags(out: tinfo_t, flags: int) -> bool:
     r"""Get tinfo object that corresponds to data flags 
             
     :param out: type info
@@ -8605,22 +9173,22 @@ def get_tinfo_by_flags(out: tinfo_t, flags: flags64_t) -> bool:
     """
     ...
 
-def get_tinfo_details(typid: typid_t, bt2: type_t, buf: void) -> bool:
+def get_tinfo_details(typid: typid_t, bt2: bytes, buf: Any) -> bool:
     ...
 
-def get_tinfo_pdata(outptr: void, typid: typid_t, what: int) -> int:
+def get_tinfo_pdata(outptr: Any, typid: typid_t, what: int) -> int:
     ...
 
 def get_tinfo_property(typid: typid_t, gta_prop: int) -> int:
     ...
 
-def get_tinfo_property4(typid: typid_t, gta_prop: int, p1: size_t, p2: size_t, p3: size_t, p4: size_t) -> int:
+def get_tinfo_property4(typid: typid_t, gta_prop: int, p1: int, p2: int, p3: int, p4: int) -> int:
     ...
 
-def get_tinfo_size(p_effalign: uint32, typid: typid_t, gts_code: int) -> int:
+def get_tinfo_size(p_effalign: int, typid: typid_t, gts_code: int) -> int:
     ...
 
-def get_type_flags(t: type_t) -> type_t:
+def get_type_flags(t: bytes) -> bytes:
     r"""Get type flags (TYPE_FLAGS_MASK)
     
     """
@@ -8632,7 +9200,7 @@ def get_type_ordinal(ti: til_t, name: str) -> int:
     """
     ...
 
-def get_udm_by_fullname(udm: udm_t, fullname: str) -> ssize_t:
+def get_udm_by_fullname(udm: udm_t, fullname: str) -> int:
     r"""Get udt member by full name 
             
     :param udm: member, can be NULL
@@ -8663,7 +9231,7 @@ def guess_func_cc(fti: func_type_data_t, npurged: int, cc_flags: int) -> callcnv
     """
     ...
 
-def guess_tinfo(out: tinfo_t, id: tid_t) -> int:
+def guess_tinfo(out: tinfo_t, id: int) -> int:
     r"""Generate a type information about the id from the disassembly. id can be a structure/union/enum id or an address. 
             
     :returns: one of Guess tinfo codes
@@ -8676,8 +9244,7 @@ def idc_get_local_type(ordinal: int, flags: int) -> str:
 def idc_get_local_type_name(ordinal: int) -> str:
     ...
 
-def idc_get_local_type_raw(ordinal: Any) -> Any:
-    r"""    """
+def idc_get_local_type_raw(ordinal: Any) -> Tuple[bytes, bytes]:
     ...
 
 def idc_get_type(ea: ida_idaapi.ea_t) -> str:
@@ -8689,31 +9256,29 @@ def idc_get_type_raw(ea: ida_idaapi.ea_t) -> Any:
 def idc_guess_type(ea: ida_idaapi.ea_t) -> str:
     ...
 
-def idc_parse_decl(til: til_t, decl: str, flags: int) -> Any:
-    r"""    """
+def idc_parse_decl(til: til_t, decl: str, flags: int) -> Tuple[str, bytes, bytes]:
     ...
 
 def idc_parse_types(input: str, flags: int) -> int:
     ...
 
 def idc_print_type(type: bytes, fields: bytes, name: str, flags: int) -> str:
-    r"""    """
     ...
 
 def idc_set_local_type(ordinal: int, dcl: str, flags: int) -> int:
     ...
 
-def inf_big_arg_align(args: Any) -> bool:
+def inf_big_arg_align(*args: Any) -> bool:
     ...
 
-def inf_huge_arg_align(args: Any) -> bool:
+def inf_huge_arg_align(*args: Any) -> bool:
     ...
 
-def inf_pack_stkargs(args: Any) -> bool:
+def inf_pack_stkargs(*args: Any) -> bool:
     ...
 
 def is_code_far(cm: cm_t) -> bool:
-    r"""Does the given model specify far code?.
+    r"""Does the given model specify far code?
     
     """
     ...
@@ -8731,7 +9296,7 @@ def is_custom_callcnv(cc: callcnv_t) -> bool:
     ...
 
 def is_data_far(cm: cm_t) -> bool:
-    r"""Does the given model specify far data?.
+    r"""Does the given model specify far data?
     
     """
     ...
@@ -8766,31 +9331,31 @@ def is_one_bit_mask(mask: int) -> bool:
     """
     ...
 
-def is_ordinal_name(name: str, ord: uint32 = None) -> bool:
+def is_ordinal_name(name: str, ord: int = None) -> bool:
     r"""Check if the name is an ordinal name. Ordinal names have the following format: '#' + set_de(ord) 
             
     """
     ...
 
 def is_purging_cc(cc: callcnv_t) -> bool:
-    r"""Does the calling convention clean the stack arguments upon return?. 
+    r"""Does the calling convention clean the stack arguments upon return? 
             
     """
     ...
 
-def is_restype_enum(til: til_t, type: type_t) -> bool:
+def is_restype_enum(til: til_t, type: bytes) -> bool:
     ...
 
-def is_restype_struct(til: til_t, type: type_t) -> bool:
+def is_restype_struct(til: til_t, type: bytes) -> bool:
     ...
 
-def is_restype_struni(til: til_t, type: type_t) -> bool:
+def is_restype_struni(til: til_t, type: bytes) -> bool:
     ...
 
-def is_restype_void(til: til_t, type: type_t) -> bool:
+def is_restype_void(til: til_t, type: bytes) -> bool:
     ...
 
-def is_sdacl_byte(t: type_t) -> bool:
+def is_sdacl_byte(t: bytes) -> bool:
     r"""Identify an sdacl byte. The first sdacl byte has the following format: 11xx000x. The sdacl bytes are appended to udt fields. They indicate the start of type attributes (as the tah-bytes do). The sdacl bytes are used in the udt headers instead of the tah-byte. This is done for compatibility with old databases, they were already using sdacl bytes in udt headers and as udt field postfixes. (see "sdacl-typeattrs" in the type bit definitions) 
             
     """
@@ -8802,37 +9367,37 @@ def is_swift_cc(cc: callcnv_t) -> bool:
     """
     ...
 
-def is_tah_byte(t: type_t) -> bool:
+def is_tah_byte(t: bytes) -> bool:
     r"""The TAH byte (type attribute header byte) denotes the start of type attributes. (see "tah-typeattrs" in the type bit definitions) 
             
     """
     ...
 
-def is_type_arithmetic(t: type_t) -> bool:
+def is_type_arithmetic(t: bytes) -> bool:
     r"""Is the type an arithmetic type? (floating or integral)
     
     """
     ...
 
-def is_type_array(t: type_t) -> bool:
+def is_type_array(t: bytes) -> bool:
     r"""See BT_ARRAY.
     
     """
     ...
 
-def is_type_bitfld(t: type_t) -> bool:
+def is_type_bitfld(t: bytes) -> bool:
     r"""See BT_BITFIELD.
     
     """
     ...
 
-def is_type_bool(t: type_t) -> bool:
+def is_type_bool(t: bytes) -> bool:
     r"""See BTF_BOOL.
     
     """
     ...
 
-def is_type_char(t: type_t) -> bool:
+def is_type_char(t: bytes) -> bool:
     r"""Does the type specify a char value? (signed or unsigned, see Basic type: integer)
     
     """
@@ -8846,217 +9411,217 @@ def is_type_choosable(ti: til_t, ordinal: int) -> bool:
     """
     ...
 
-def is_type_complex(t: type_t) -> bool:
+def is_type_complex(t: bytes) -> bool:
     r"""See BT_COMPLEX.
     
     """
     ...
 
-def is_type_const(t: type_t) -> bool:
+def is_type_const(t: bytes) -> bool:
     r"""See BTM_CONST.
     
     """
     ...
 
-def is_type_double(t: type_t) -> bool:
+def is_type_double(t: bytes) -> bool:
     r"""See BTF_DOUBLE.
     
     """
     ...
 
-def is_type_enum(t: type_t) -> bool:
+def is_type_enum(t: bytes) -> bool:
     r"""See BTF_ENUM.
     
     """
     ...
 
-def is_type_ext_arithmetic(t: type_t) -> bool:
+def is_type_ext_arithmetic(t: bytes) -> bool:
     r"""Is the type an extended arithmetic type? (arithmetic or enum)
     
     """
     ...
 
-def is_type_ext_integral(t: type_t) -> bool:
+def is_type_ext_integral(t: bytes) -> bool:
     r"""Is the type an extended integral type? (integral or enum)
     
     """
     ...
 
-def is_type_float(t: type_t) -> bool:
+def is_type_float(t: bytes) -> bool:
     r"""See BTF_FLOAT.
     
     """
     ...
 
-def is_type_floating(t: type_t) -> bool:
+def is_type_floating(t: bytes) -> bool:
     r"""Is the type a floating point type?
     
     """
     ...
 
-def is_type_func(t: type_t) -> bool:
+def is_type_func(t: bytes) -> bool:
     r"""See BT_FUNC.
     
     """
     ...
 
-def is_type_int(bt: type_t) -> bool:
+def is_type_int(bt: bytes) -> bool:
     r"""Does the type_t specify one of the basic types in Basic type: integer?
     
     """
     ...
 
-def is_type_int128(t: type_t) -> bool:
+def is_type_int128(t: bytes) -> bool:
     r"""Does the type specify a 128-bit value? (signed or unsigned, see Basic type: integer)
     
     """
     ...
 
-def is_type_int16(t: type_t) -> bool:
+def is_type_int16(t: bytes) -> bool:
     r"""Does the type specify a 16-bit value? (signed or unsigned, see Basic type: integer)
     
     """
     ...
 
-def is_type_int32(t: type_t) -> bool:
+def is_type_int32(t: bytes) -> bool:
     r"""Does the type specify a 32-bit value? (signed or unsigned, see Basic type: integer)
     
     """
     ...
 
-def is_type_int64(t: type_t) -> bool:
+def is_type_int64(t: bytes) -> bool:
     r"""Does the type specify a 64-bit value? (signed or unsigned, see Basic type: integer)
     
     """
     ...
 
-def is_type_integral(t: type_t) -> bool:
+def is_type_integral(t: bytes) -> bool:
     r"""Is the type an integral type (char/short/int/long/bool)?
     
     """
     ...
 
-def is_type_ldouble(t: type_t) -> bool:
+def is_type_ldouble(t: bytes) -> bool:
     r"""See BTF_LDOUBLE.
     
     """
     ...
 
-def is_type_paf(t: type_t) -> bool:
+def is_type_paf(t: bytes) -> bool:
     r"""Is the type a pointer, array, or function type?
     
     """
     ...
 
-def is_type_partial(t: type_t) -> bool:
+def is_type_partial(t: bytes) -> bool:
     r"""Identifies an unknown or void type with a known size (see Basic type: unknown & void)
     
     """
     ...
 
-def is_type_ptr(t: type_t) -> bool:
+def is_type_ptr(t: bytes) -> bool:
     r"""See BT_PTR.
     
     """
     ...
 
-def is_type_ptr_or_array(t: type_t) -> bool:
+def is_type_ptr_or_array(t: bytes) -> bool:
     r"""Is the type a pointer or array type?
     
     """
     ...
 
-def is_type_struct(t: type_t) -> bool:
+def is_type_struct(t: bytes) -> bool:
     r"""See BTF_STRUCT.
     
     """
     ...
 
-def is_type_struni(t: type_t) -> bool:
+def is_type_struni(t: bytes) -> bool:
     r"""Is the type a struct or union?
     
     """
     ...
 
-def is_type_sue(t: type_t) -> bool:
+def is_type_sue(t: bytes) -> bool:
     r"""Is the type a struct/union/enum?
     
     """
     ...
 
-def is_type_tbyte(t: type_t) -> bool:
+def is_type_tbyte(t: bytes) -> bool:
     r"""See BTF_FLOAT.
     
     """
     ...
 
-def is_type_typedef(t: type_t) -> bool:
+def is_type_typedef(t: bytes) -> bool:
     r"""See BTF_TYPEDEF.
     
     """
     ...
 
-def is_type_uchar(t: type_t) -> bool:
+def is_type_uchar(t: bytes) -> bool:
     r"""See BTF_UCHAR.
     
     """
     ...
 
-def is_type_uint(t: type_t) -> bool:
+def is_type_uint(t: bytes) -> bool:
     r"""See BTF_UINT.
     
     """
     ...
 
-def is_type_uint128(t: type_t) -> bool:
+def is_type_uint128(t: bytes) -> bool:
     r"""See BTF_UINT128.
     
     """
     ...
 
-def is_type_uint16(t: type_t) -> bool:
+def is_type_uint16(t: bytes) -> bool:
     r"""See BTF_UINT16.
     
     """
     ...
 
-def is_type_uint32(t: type_t) -> bool:
+def is_type_uint32(t: bytes) -> bool:
     r"""See BTF_UINT32.
     
     """
     ...
 
-def is_type_uint64(t: type_t) -> bool:
+def is_type_uint64(t: bytes) -> bool:
     r"""See BTF_UINT64.
     
     """
     ...
 
-def is_type_union(t: type_t) -> bool:
+def is_type_union(t: bytes) -> bool:
     r"""See BTF_UNION.
     
     """
     ...
 
-def is_type_unknown(t: type_t) -> bool:
+def is_type_unknown(t: bytes) -> bool:
     r"""See BT_UNKNOWN.
     
     """
     ...
 
-def is_type_void(t: type_t) -> bool:
+def is_type_void(t: bytes) -> bool:
     r"""See BTF_VOID.
     
     """
     ...
 
-def is_type_volatile(t: type_t) -> bool:
+def is_type_volatile(t: bytes) -> bool:
     r"""See BTM_VOLATILE.
     
     """
     ...
 
-def is_typeid_last(t: type_t) -> bool:
+def is_typeid_last(t: bytes) -> bool:
     r"""Is the type_t the last byte of type declaration? (there are no additional bytes after a basic type, see _BT_LAST_BASIC) 
             
     """
@@ -9134,13 +9699,13 @@ def optimize_argloc(vloc: argloc_t, size: int, gaps: rangeset_t) -> bool:
     """
     ...
 
-def pack_idcobj_to_bv(obj: idc_value_t, tif: tinfo_t, bytes: relobj_t, objoff: void, pio_flags: int = 0) -> error_t:
+def pack_idcobj_to_bv(obj: idc_value_t, tif: tinfo_t, bytes: relobj_t, objoff: Any, pio_flags: int = 0) -> int:
     r"""Write a typed idc object to the byte vector. Byte vector may be non-empty, this function will append data to it 
             
     """
     ...
 
-def pack_idcobj_to_idb(obj: idc_value_t, tif: tinfo_t, ea: ida_idaapi.ea_t, pio_flags: int = 0) -> error_t:
+def pack_idcobj_to_idb(obj: idc_value_t, tif: tinfo_t, ea: ida_idaapi.ea_t, pio_flags: int = 0) -> int:
     r"""Write a typed idc object to the database.
     
     """
@@ -9227,7 +9792,7 @@ def print_type(ea: ida_idaapi.ea_t, prtype_flags: int) -> str:
     """
     ...
 
-def read_tinfo_bitfield_value(typid: typid_t, v: uint64, bitoff: int) -> uint64:
+def read_tinfo_bitfield_value(typid: typid_t, v: int, bitoff: int) -> int:
     ...
 
 def register_custom_callcnv(cnv_incref: custom_callcnv_t) -> custom_callcnv_t:
@@ -9249,7 +9814,7 @@ def remove_pointer(tif: tinfo_t) -> tinfo_t:
     """
     ...
 
-def remove_tinfo_pointer(tif: tinfo_t, name: str, til: til_t) -> Any:
+def remove_tinfo_pointer(tif: tinfo_t, name: str, til: til_t) -> Tuple[bool, str]:
     r"""Remove pointer of a type. (i.e. convert "char *" into "char"). Optionally remove
     the "lp" (or similar) prefix of the input name. If the input type is not a
     pointer, then fail.
@@ -9270,10 +9835,10 @@ def replace_ordinal_typerefs(til: til_t, tif: tinfo_t) -> int:
     """
     ...
 
-def resolve_typedef(til: til_t, type: type_t) -> type_t:
+def resolve_typedef(til: til_t, type: bytes) -> bytes:
     ...
 
-def save_tinfo(tif: tinfo_t, til: til_t, ord: size_t, name: str, ntf_flags: int) -> tinfo_code_t:
+def save_tinfo(tif: tinfo_t, til: til_t, ord: int, name: str, ntf_flags: int) -> int:
     ...
 
 def score_tinfo(tif: tinfo_t) -> int:
@@ -9323,7 +9888,7 @@ def set_compiler_string(compstr: str, user_level: bool) -> bool:
     """
     ...
 
-def set_numbered_type(ti: til_t, ordinal: int, ntf_flags: int, name: str, type: type_t, fields: p_list = None, cmt: str = None, fldcmts: p_list = None, sclass: sclass_t = None) -> tinfo_code_t:
+def set_numbered_type(ti: til_t, ordinal: int, ntf_flags: int, name: str, type: bytes, fields: p_list = None, cmt: str = None, fldcmts: p_list = None, sclass: sclass_t = None) -> int:
     ...
 
 def set_tinfo_attr(tif: tinfo_t, ta: type_attr_t, may_overwrite: bool) -> bool:
@@ -9332,10 +9897,10 @@ def set_tinfo_attr(tif: tinfo_t, ta: type_attr_t, may_overwrite: bool) -> bool:
 def set_tinfo_attrs(tif: tinfo_t, ta: type_attrs_t) -> bool:
     ...
 
-def set_tinfo_property(tif: tinfo_t, sta_prop: int, x: size_t) -> int:
+def set_tinfo_property(tif: tinfo_t, sta_prop: int, x: int) -> int:
     ...
 
-def set_tinfo_property4(tif: tinfo_t, sta_prop: int, p1: size_t, p2: size_t, p3: size_t, p4: size_t) -> int:
+def set_tinfo_property4(tif: tinfo_t, sta_prop: int, p1: int, p2: int, p3: int, p4: int) -> int:
     ...
 
 def set_type_alias(ti: til_t, src_ordinal: int, dst_ordinal: int) -> bool:
@@ -9373,7 +9938,7 @@ def store_til(ti: til_t, tildir: str, name: str) -> bool:
     """
     ...
 
-def stroff_as_size(plen: int, tif: tinfo_t, value: asize_t) -> bool:
+def stroff_as_size(plen: int, tif: tinfo_t, value: int) -> bool:
     r"""Should display a structure offset expression as the structure size?
     
     """
@@ -9385,25 +9950,28 @@ def switch_to_golang() -> None:
     """
     ...
 
-def tinfo_errstr(code: tinfo_code_t) -> str:
+def tinfo_errstr(code: int) -> str:
     r"""Helper function to convert an error code into a printable string. Additional arguments are handled using the functions from err.h 
             
     """
     ...
 
-def udt_type_data_t__find_member(_this: udt_type_data_t, udm: udm_t, strmem_flags: int) -> ssize_t:
+def udt_type_data_t__deduplicate_members(_this: udt_type_data_t) -> bool:
     ...
 
-def udt_type_data_t__get_best_fit_member(_this: udt_type_data_t, disp: asize_t) -> ssize_t:
+def udt_type_data_t__find_member(_this: udt_type_data_t, udm: udm_t, strmem_flags: int) -> int:
     ...
 
-def unpack_idcobj_from_bv(obj: idc_value_t, tif: tinfo_t, bytes: bytevec_t, pio_flags: int = 0) -> error_t:
+def udt_type_data_t__get_best_fit_member(_this: udt_type_data_t, disp: int) -> int:
+    ...
+
+def unpack_idcobj_from_bv(obj: idc_value_t, tif: tinfo_t, bytes: bytevec_t, pio_flags: int = 0) -> int:
     r"""Read a typed idc object from the byte vector.
     
     """
     ...
 
-def unpack_idcobj_from_idb(obj: idc_value_t, tif: tinfo_t, ea: ida_idaapi.ea_t, off0: bytevec_t, pio_flags: int = 0) -> error_t:
+def unpack_idcobj_from_idb(obj: idc_value_t, tif: tinfo_t, ea: ida_idaapi.ea_t, off0: bytevec_t, pio_flags: int = 0) -> int:
     r"""Collection of register objects.
     
     Read a typed idc object from the database 
@@ -9443,7 +10011,7 @@ def use_golang_cc() -> bool:
     """
     ...
 
-def value_repr_t__from_opinfo(_this: value_repr_t, flags: flags64_t, afl: aflags_t, opinfo: opinfo_t, ap: array_parameters_t) -> bool:
+def value_repr_t__from_opinfo(_this: value_repr_t, flags: int, afl: aflags_t, opinfo: opinfo_t, ap: array_parameters_t) -> bool:
     ...
 
 def value_repr_t__print_(_this: value_repr_t, colored: bool) -> str:
@@ -9462,7 +10030,7 @@ def verify_argloc(vloc: argloc_t, size: int, gaps: rangeset_t) -> int:
 def verify_tinfo(typid: typid_t) -> int:
     ...
 
-def visit_stroff_udms(sfv: udm_visitor_t, path: tid_t, disp: adiff_t, appzero: bool) -> adiff_t:
+def visit_stroff_udms(sfv: udm_visitor_t, path: int, disp: int, appzero: bool) -> int:
     r"""Visit structure fields in a stroff expression or in a reference to a struct data variable. This function can be used to enumerate all components of an expression like 'a.b.c'. 
             
     :param sfv: visitor object
@@ -9476,7 +10044,7 @@ def visit_stroff_udms(sfv: udm_visitor_t, path: tid_t, disp: adiff_t, appzero: b
 def visit_subtypes(visitor: tinfo_visitor_t, out: type_mods_t, tif: tinfo_t, name: str, cmt: str) -> int:
     ...
 
-def write_tinfo_bitfield_value(typid: typid_t, dst: uint64, v: uint64, bitoff: int) -> uint64:
+def write_tinfo_bitfield_value(typid: typid_t, dst: int, v: int, bitoff: int) -> int:
     ...
 
 ABS_NO: int  # 1
@@ -9746,6 +10314,7 @@ HTI_MAC: int  # 128
 HTI_NDC: int  # 2048
 HTI_NER: int  # 512
 HTI_NOBASE: int  # 1048576
+HTI_NO_MANGLE: int  # 16777216
 HTI_NWR: int  # 256
 HTI_PAK: int  # 28672
 HTI_PAK1: int  # 4096
@@ -9761,6 +10330,8 @@ HTI_SEMICOLON: int  # 2097152
 HTI_STANDALONE: int  # 4194304
 HTI_TST: int  # 32
 HTI_UNP: int  # 16
+HTI_VOID_OK: int  # 8388608
+MAX_ARRAY_NELEMS: int  # 2147483647
 MAX_DECL_ALIGN: int  # 15
 MAX_ENUM_SERIAL: int  # 255
 MAX_FUNC_ARGS: int  # 256
@@ -9781,6 +10352,7 @@ PDF_DEF_BASE: int  # 4
 PDF_DEF_FWD: int  # 2
 PDF_HEADER_CMT: int  # 8
 PDF_INCL_DEPS: int  # 1
+PDF_NO_ANON_NAME: int  # 16
 PIO_IGNORE_PTRS: int  # 8
 PIO_NOATTR_FAIL: int  # 4
 PRALOC_STKOFF: int  # 2
@@ -9810,6 +10382,7 @@ PT_FILE: int  # 65536
 PT_HIGH: int  # 128
 PT_LOWER: int  # 256
 PT_NDC: int  # 2
+PT_NO_MANGLE: int  # 131072
 PT_PACKMASK: int  # 112
 PT_RAWARGS: int  # 1024
 PT_RELAXED: int  # 4096
@@ -9820,6 +10393,7 @@ PT_STANDALONE: int  # 4194304
 PT_SYMBOL: int  # 32768
 PT_TYP: int  # 4
 PT_VAR: int  # 8
+PT_VOID_OK: int  # 65536
 RESERVED_BYTE: int  # 255
 SC_AUTO: int  # 5
 SC_EXT: int  # 2
@@ -9918,6 +10492,7 @@ TAPTR_RESTRICT: int  # 96
 TAPTR_SHIFTED: int  # 128
 TAUDT_CPPOBJ: int  # 128
 TAUDT_FIXED: int  # 1024
+TAUDT_IFACE: int  # 4096
 TAUDT_MSSTRUCT: int  # 32
 TAUDT_TUPLE: int  # 2048
 TAUDT_UNALIGNED: int  # 64
@@ -10013,10 +10588,11 @@ TYPID_SHIFT: int  # 9
 UTP_ENUM: int  # 0
 UTP_STRUCT: int  # 1
 VALSTR_OPEN: int  # 1
+VTBL_LAYOUT_SUFFIX: str  # _layout
 VTBL_MEMNAME: str  # __vftable
 VTBL_SUFFIX: str  # _vtbl
-annotations: _Feature
-cvar: _wrap_cvar  # <ida_typeinf._wrap_cvar object at 0x717729c18fd0>
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
+cvar: _wrap_cvar
 ida_idaapi: module
 ida_idp: module
 no_sign: int  # 0

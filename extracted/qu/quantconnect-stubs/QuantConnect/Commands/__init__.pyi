@@ -81,7 +81,7 @@ class BaseCommand(System.Object, QuantConnect.Commands.ICommand, metaclass=abc.A
         Creats symbol using symbol properties.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param ticker: The string ticker symbol
         :param security_type: The security type of the ticker. If security_type == Option, then a canonical symbol is created
@@ -212,7 +212,7 @@ class BaseCommandHandler(System.Object, QuantConnect.Commands.ICommandHandler, m
     Command json settings
     
     
-    This codeEntityType is protected.
+    This Field is protected.
     """
 
     @property
@@ -221,7 +221,7 @@ class BaseCommandHandler(System.Object, QuantConnect.Commands.ICommandHandler, m
         The algorithm instance
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -234,7 +234,7 @@ class BaseCommandHandler(System.Object, QuantConnect.Commands.ICommandHandler, m
         Acknowledge a command that has been executed
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param command: The command that was executed
         :param command_result_packet: The result
@@ -250,7 +250,7 @@ class BaseCommandHandler(System.Object, QuantConnect.Commands.ICommandHandler, m
         Get the commands to run
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -272,7 +272,7 @@ class BaseCommandHandler(System.Object, QuantConnect.Commands.ICommandHandler, m
         Helper method to create a callback command
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -527,7 +527,7 @@ class FileCommandHandler(QuantConnect.Commands.BaseCommandHandler):
         Acknowledge a command that has been executed
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param command: The command that was executed
         :param command_result_packet: The result
@@ -548,7 +548,7 @@ class FileCommandHandler(QuantConnect.Commands.BaseCommandHandler):
         Gets the next command in the queue
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: The next command in the queue, if present, null if no commands present.
         """
@@ -564,7 +564,7 @@ class Command(DynamicObject):
         Useful to string representation in python
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 

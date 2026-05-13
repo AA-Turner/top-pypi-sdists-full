@@ -30,6 +30,27 @@ QuantConnect_Python_BasePythonWrapper = typing.Any
 QuantConnect_Python_BasePythonWrapper_TInterface = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_TInterface")
 QuantConnect_Python__EventContainer_Callable = typing.TypeVar("QuantConnect_Python__EventContainer_Callable")
 QuantConnect_Python__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Python__EventContainer_ReturnType")
+QuantConnect_Python_PandasConverter_GetDataFrame_T = typing.TypeVar("QuantConnect_Python_PandasConverter_GetDataFrame_T")
+QuantConnect_Python_PandasConverter_ConcatDataFrames_T = typing.TypeVar("QuantConnect_Python_PandasConverter_ConcatDataFrames_T")
+QuantConnect_Python_BasePythonWrapper_GetProperty_T = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_GetProperty_T")
+QuantConnect_Python_BasePythonWrapper_InvokeMethod_T = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_InvokeMethod_T")
+QuantConnect_Python_BasePythonWrapper_InvokeMethodAndEnumerate_T = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_InvokeMethodAndEnumerate_T")
+QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetDictionary_TKey = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetDictionary_TKey")
+QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetDictionary_TValue = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetDictionary_TValue")
+QuantConnect_Python_BasePythonWrapper_InvokeMethodWithOutParameters_T = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_InvokeMethodWithOutParameters_T")
+QuantConnect_Python_BasePythonWrapper_InvokeMethodAndWrapResult_T = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_InvokeMethodAndWrapResult_T")
+QuantConnect_Python_BasePythonWrapper_TryInvokePythonOverride_T = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_TryInvokePythonOverride_T")
+QuantConnect_Python_BasePythonWrapper_InvokeMethod_PythonRuntimeChecker_TResult = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_InvokeMethod_PythonRuntimeChecker_TResult")
+QuantConnect_Python_BasePythonWrapper_InvokeMethodAndEnumerate_PythonRuntimeChecker_TItem = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_InvokeMethodAndEnumerate_PythonRuntimeChecker_TItem")
+QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetDictionary_PythonRuntimeChecker_TKey = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetDictionary_PythonRuntimeChecker_TKey")
+QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetDictionary_PythonRuntimeChecker_TValue = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetDictionary_PythonRuntimeChecker_TValue")
+QuantConnect_Python_BasePythonWrapper_InvokeMethodAndWrapResult_PythonRuntimeChecker_TResult = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_InvokeMethodAndWrapResult_PythonRuntimeChecker_TResult")
+QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetOutParameters_PythonRuntimeChecker_TResult = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetOutParameters_PythonRuntimeChecker_TResult")
+QuantConnect_Python_BasePythonWrapper_Convert_PythonRuntimeChecker_T = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_Convert_PythonRuntimeChecker_T")
+QuantConnect_Python_BasePythonWrapper_ConvertAndDispose_PythonRuntimeChecker_T = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_ConvertAndDispose_PythonRuntimeChecker_T")
+QuantConnect_Python_PythonWrapper_ValidateImplementationOf_TInterface = typing.TypeVar("QuantConnect_Python_PythonWrapper_ValidateImplementationOf_TInterface")
+QuantConnect_Python_PythonWrapper_InvokeMethod_T = typing.TypeVar("QuantConnect_Python_PythonWrapper_InvokeMethod_T")
+QuantConnect_Python_PythonWrapper_Invoke_T = typing.TypeVar("QuantConnect_Python_PythonWrapper_Invoke_T")
 
 
 class PandasData(System.Object):
@@ -141,14 +162,30 @@ class RiskFreeInterestRateModelPythonWrapper(QuantConnect.Python.BasePythonWrapp
         ...
 
 
-class PandasConverter(System.Object):
-    """Collection of methods that converts lists of objects in pandas.DataFrame"""
+class _Typed_PandasConverter_GetDataFrame(typing.Generic[QuantConnect_Python_PandasConverter_GetDataFrame_T]):
+    """"""
 
-    @staticmethod
-    def concat_data_frames(data_frames: typing.List[typing.Any], sort: bool = True, dropna: bool = True) -> typing.Any:
+    @overload
+    def __call__(self, data: typing.List[QuantConnect_Python_PandasConverter_GetDataFrame_T], symbol_only_index: bool = False, force_multi_value_symbol: bool = False, flatten: bool = False) -> pandas.DataFrame:
+        """
+        Converts an enumerable of IBaseData in a pandas.DataFrame
+        
+        :param data: Enumerable of Slice
+        :param symbol_only_index: Whether to make the index only the symbol, without time or any other index levels
+        :param force_multi_value_symbol: Useful when the data contains points for multiple symbols.
+        If false and symbol_only_index is true, it will assume there is a single point for each symbol,
+        and will apply performance improvements for the data frame generation.
+        :param flatten: Whether to flatten collections into rows and columns
+        :returns: PyObject containing a pandas.DataFrame.
+        """
         ...
 
-    def get_data_frame(self, data: typing.List[QuantConnect.Data.Slice], flatten: bool = False, data_type: typing.Type = None) -> pandas.DataFrame:
+
+class _PandasConverter_GetDataFrame:
+    """"""
+
+    @overload
+    def __call__(self, data: typing.List[QuantConnect.Data.Slice], flatten: bool = False, data_type: typing.Type = None) -> pandas.DataFrame:
         """
         Converts an enumerable of Slice in a pandas.DataFrame
         
@@ -159,6 +196,49 @@ class PandasConverter(System.Object):
         :returns: PyObject containing a pandas.DataFrame.
         """
         ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_PandasConverter_GetDataFrame_T]) -> QuantConnect.Python._Typed_PandasConverter_GetDataFrame[QuantConnect_Python_PandasConverter_GetDataFrame_T]:
+        ...
+
+
+class _Typed_PandasConverter_ConcatDataFrames(typing.Generic[QuantConnect_Python_PandasConverter_ConcatDataFrames_T]):
+    """"""
+
+    @overload
+    def __call__(self, data_frames: typing.List[typing.Any], keys: typing.List[QuantConnect_Python_PandasConverter_ConcatDataFrames_T], names: typing.List[str], sort: bool = True, dropna: bool = True) -> typing.Any:
+        """
+        Concatenates multiple data frames
+        
+        :param data_frames: The data frames to concatenate
+        :param keys: Optional new keys for a new multi-index level that would be added
+        to index each individual data frame in the resulting one
+        :param names: The optional names of the new index level (and the existing ones if they need to be changed)
+        :param sort: Whether to sort the resulting data frame
+        :param dropna: Whether to drop columns containing NA values only (Nan, None, etc)
+        :returns: A new data frame result from concatenating the input.
+        """
+        ...
+
+
+class _PandasConverter_ConcatDataFrames:
+    """"""
+
+    @overload
+    def __call__(self, data_frames: typing.List[typing.Any], sort: bool = True, dropna: bool = True) -> typing.Any:
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_PandasConverter_ConcatDataFrames_T]) -> QuantConnect.Python._Typed_PandasConverter_ConcatDataFrames[QuantConnect_Python_PandasConverter_ConcatDataFrames_T]:
+        ...
+
+
+class PandasConverter(System.Object):
+    """Collection of methods that converts lists of objects in pandas.DataFrame"""
+
+    @property
+    def get_data_frame(self) -> QuantConnect.Python._PandasConverter_GetDataFrame:
+        ...
+
+    concat_data_frames: QuantConnect.Python._PandasConverter_ConcatDataFrames
 
     @overload
     def get_indicator_data_frame(self, data: typing.Any) -> pandas.DataFrame:
@@ -412,7 +492,7 @@ class FillModelPythonWrapper(QuantConnect.Orders.Fills.FillModel):
         Get the minimum and maximum price for this security in the last bar:
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param asset: Security asset we're checking
         :param direction: The order direction, decides whether to pick bid or ask
@@ -590,11 +670,204 @@ class DataConsolidatorPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantC
         ...
 
 
+class _Typed_BasePythonWrapper_GetProperty(typing.Generic[QuantConnect_Python_BasePythonWrapper_GetProperty_T]):
+    """"""
+
+    @overload
+    def __call__(self, property_name: str) -> QuantConnect_Python_BasePythonWrapper_GetProperty_T:
+        """
+        Gets the Python instance property with the specified name
+        
+        :param property_name: The name of the property
+        """
+        ...
+
+
+class _BasePythonWrapper_GetProperty:
+    """"""
+
+    @overload
+    def __call__(self, property_name: str) -> typing.Any:
+        """
+        Gets the Python instance property with the specified name
+        
+        :param property_name: The name of the property
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_BasePythonWrapper_GetProperty_T]) -> QuantConnect.Python._Typed_BasePythonWrapper_GetProperty[QuantConnect_Python_BasePythonWrapper_GetProperty_T]:
+        ...
+
+
+class _Typed_BasePythonWrapper_InvokeMethod(typing.Generic[QuantConnect_Python_BasePythonWrapper_InvokeMethod_T]):
+    """"""
+
+    @overload
+    def __call__(self, method_name: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> QuantConnect_Python_BasePythonWrapper_InvokeMethod_T:
+        """
+        Invokes the specified method with the specified arguments
+        
+        :param method_name: The name of the method
+        :param args: The arguments to call the method with
+        :returns: The returned valued converted to the given type.
+        """
+        ...
+
+
+class _BasePythonWrapper_InvokeMethod:
+    """"""
+
+    @overload
+    def __call__(self, method_name: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> typing.Any:
+        """
+        Invokes the specified method with the specified arguments
+        
+        :param method_name: The name of the method
+        :param args: The arguments to call the method with
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_BasePythonWrapper_InvokeMethod_T]) -> QuantConnect.Python._Typed_BasePythonWrapper_InvokeMethod[QuantConnect_Python_BasePythonWrapper_InvokeMethod_T]:
+        ...
+
+
+class _Typed_BasePythonWrapper_InvokeMethodAndEnumerate(typing.Generic[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndEnumerate_T]):
+    """"""
+
+    @overload
+    def __call__(self, method_name: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> typing.Sequence[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndEnumerate_T]:
+        """
+        Invokes the specified method with the specified arguments and iterates over the returned values
+        
+        :param method_name: The name of the method
+        :param args: The arguments to call the method with
+        :returns: The returned valued converted to the given type.
+        """
+        ...
+
+
+class _BasePythonWrapper_InvokeMethodAndEnumerate:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndEnumerate_T]) -> QuantConnect.Python._Typed_BasePythonWrapper_InvokeMethodAndEnumerate[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndEnumerate_T]:
+        ...
+
+
+class _Typed_BasePythonWrapper_InvokeMethodAndGetDictionary(typing.Generic[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetDictionary_TKey]):
+    """"""
+
+    @overload
+    def __call__(self, method_name: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Collections.Generic.Dictionary[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetDictionary_TKey, QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetDictionary_TValue]:
+        """
+        Invokes the specified method with the specified arguments and iterates over the returned values
+        
+        :param method_name: The name of the method
+        :param args: The arguments to call the method with
+        :returns: The returned valued converted to the given type.
+        """
+        ...
+
+
+class _BasePythonWrapper_InvokeMethodAndGetDictionary:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetDictionary_TKey]) -> QuantConnect.Python._Typed_BasePythonWrapper_InvokeMethodAndGetDictionary[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetDictionary_TKey]:
+        ...
+
+
+class _Typed_BasePythonWrapper_InvokeMethodWithOutParameters(typing.Generic[QuantConnect_Python_BasePythonWrapper_InvokeMethodWithOutParameters_T]):
+    """"""
+
+    @overload
+    def __call__(self, method_name: str, out_parameters_types: typing.List[typing.Type], out_parameters: typing.Optional[typing.List[System.Object]], *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> typing.Tuple[QuantConnect_Python_BasePythonWrapper_InvokeMethodWithOutParameters_T, typing.List[System.Object]]:
+        """
+        Invokes the specified method with the specified arguments and out parameters
+        
+        :param method_name: The name of the method
+        :param out_parameters_types: The types of the out parameters
+        :param out_parameters: The out parameters values
+        :param args: The arguments to call the method with
+        :returns: The returned valued converted to the given type.
+        """
+        ...
+
+
+class _BasePythonWrapper_InvokeMethodWithOutParameters:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_BasePythonWrapper_InvokeMethodWithOutParameters_T]) -> QuantConnect.Python._Typed_BasePythonWrapper_InvokeMethodWithOutParameters[QuantConnect_Python_BasePythonWrapper_InvokeMethodWithOutParameters_T]:
+        ...
+
+
+class _Typed_BasePythonWrapper_InvokeMethodAndWrapResult(typing.Generic[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndWrapResult_T]):
+    """"""
+
+    @overload
+    def __call__(self, method_name: str, wrap_result: typing.Callable[[typing.Any], QuantConnect_Python_BasePythonWrapper_InvokeMethodAndWrapResult_T], *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> QuantConnect_Python_BasePythonWrapper_InvokeMethodAndWrapResult_T:
+        """
+        Invokes the specified method with the specified arguments and wraps the result
+        by calling the given function if the result is not a C# object
+        
+        :param method_name: The name of the method
+        :param wrap_result: Method that wraps a Python object in the corresponding Python Wrapper
+        :param args: The arguments to call the method with
+        :returns: The returned value wrapped using the given method if the result is not a C# object.
+        """
+        ...
+
+
+class _BasePythonWrapper_InvokeMethodAndWrapResult:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndWrapResult_T]) -> QuantConnect.Python._Typed_BasePythonWrapper_InvokeMethodAndWrapResult[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndWrapResult_T]:
+        ...
+
+
+class _Typed_BasePythonWrapper_TryInvokePythonOverride(typing.Generic[QuantConnect_Python_BasePythonWrapper_TryInvokePythonOverride_T]):
+    """"""
+
+    @overload
+    def __call__(self, method_name: str, result: typing.Optional[QuantConnect_Python_BasePythonWrapper_TryInvokePythonOverride_T], *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> typing.Tuple[bool, QuantConnect_Python_BasePythonWrapper_TryInvokePythonOverride_T]:
+        """
+        Attempts to invoke the method if it has been overridden in Python.
+        
+        
+        This Class is protected.
+        
+        :param method_name: The name of the method to call on the Python instance.
+        :param result: When this method returns, contains the method result if the call succeeded.
+        :param args: The arguments to pass to the Python method.
+        :returns: true if the Python method was successfully invoked, otherwise, false.
+        """
+        ...
+
+
+class _BasePythonWrapper_TryInvokePythonOverride:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_BasePythonWrapper_TryInvokePythonOverride_T]) -> QuantConnect.Python._Typed_BasePythonWrapper_TryInvokePythonOverride[QuantConnect_Python_BasePythonWrapper_TryInvokePythonOverride_T]:
+        ...
+
+
 class BasePythonWrapper(typing.Generic[QuantConnect_Python_BasePythonWrapper_TInterface], System.Object, System.IEquatable[QuantConnect_Python_BasePythonWrapper], System.IDisposable):
     """Base class for Python wrapper classes"""
 
     class PythonRuntimeChecker(System.Object):
         """Set of helper methods to invoke Python methods with runtime checks for return values and out parameter's conversions."""
+
+        invoke_method: QuantConnect.Python._BasePythonWrapper.PythonRuntimeChecker_InvokeMethod
+
+        invoke_method_and_enumerate: QuantConnect.Python._BasePythonWrapper.PythonRuntimeChecker_InvokeMethodAndEnumerate
+
+        invoke_method_and_get_dictionary: QuantConnect.Python._BasePythonWrapper.PythonRuntimeChecker_InvokeMethodAndGetDictionary
+
+        invoke_method_and_wrap_result: QuantConnect.Python._BasePythonWrapper.PythonRuntimeChecker_InvokeMethodAndWrapResult
+
+        invoke_method_and_get_out_parameters: QuantConnect.Python._BasePythonWrapper.PythonRuntimeChecker_InvokeMethodAndGetOutParameters
+
+        convert: QuantConnect.Python._BasePythonWrapper.PythonRuntimeChecker_Convert
+
+        convert_and_dispose: QuantConnect.Python._BasePythonWrapper.PythonRuntimeChecker_ConvertAndDispose
 
     @property
     def instance(self) -> typing.Any:
@@ -602,8 +875,36 @@ class BasePythonWrapper(typing.Generic[QuantConnect_Python_BasePythonWrapper_TIn
         Gets the underlying python instance
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
+        ...
+
+    @property
+    def get_property(self) -> QuantConnect.Python._BasePythonWrapper_GetProperty:
+        ...
+
+    @property
+    def invoke_method(self) -> QuantConnect.Python._BasePythonWrapper_InvokeMethod:
+        ...
+
+    @property
+    def invoke_method_and_enumerate(self) -> QuantConnect.Python._BasePythonWrapper_InvokeMethodAndEnumerate:
+        ...
+
+    @property
+    def invoke_method_and_get_dictionary(self) -> QuantConnect.Python._BasePythonWrapper_InvokeMethodAndGetDictionary:
+        ...
+
+    @property
+    def invoke_method_with_out_parameters(self) -> QuantConnect.Python._BasePythonWrapper_InvokeMethodWithOutParameters:
+        ...
+
+    @property
+    def invoke_method_and_wrap_result(self) -> QuantConnect.Python._BasePythonWrapper_InvokeMethodAndWrapResult:
+        ...
+
+    @property
+    def try_invoke_python_override(self) -> QuantConnect.Python._BasePythonWrapper_TryInvokePythonOverride:
         ...
 
     @overload
@@ -677,29 +978,12 @@ class BasePythonWrapper(typing.Generic[QuantConnect_Python_BasePythonWrapper_TIn
         """
         ...
 
-    def get_property(self, property_name: str) -> typing.Any:
-        """
-        Gets the Python instance property with the specified name
-        
-        :param property_name: The name of the property
-        """
-        ...
-
     def has_attr(self, name: str) -> bool:
         """
         Determines whether the Python instance has the specified attribute
         
         :param name: The attribute name
         :returns: Whether the Python instance has the specified attribute.
-        """
-        ...
-
-    def invoke_method(self, method_name: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> typing.Any:
-        """
-        Invokes the specified method with the specified arguments
-        
-        :param method_name: The name of the method
-        :param args: The arguments to call the method with
         """
         ...
 
@@ -736,7 +1020,7 @@ class BasePythonWrapper(typing.Generic[QuantConnect_Python_BasePythonWrapper_TIn
         Sets the python instance and sets the validate interface flag
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param instance: The underlying python instance
         :param validate_interface: Whether to perform validations for interface implementation
@@ -1182,21 +1466,47 @@ class OptionAssignmentModelPythonWrapper(QuantConnect.Python.BasePythonWrapper[Q
         ...
 
 
-class PythonWrapper(System.Object):
-    """Provides extension methods for managing python wrapper classes"""
+class _Typed_PythonWrapper_ValidateImplementationOf(typing.Generic[QuantConnect_Python_PythonWrapper_ValidateImplementationOf_TInterface]):
+    """"""
 
-    @staticmethod
-    def invoke(method: typing.Any, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> typing.Any:
+    @overload
+    def __call__(self, model: typing.Any) -> typing.Any:
         """
-        Invokes the given PyObject method with the specified arguments
+        Validates that the specified PyObject completely implements the provided interface type
         
-        :param method: The method to invoke
-        :param args: The arguments to call the method with
+        :param model: The model implementing the interface type
         """
         ...
 
-    @staticmethod
-    def invoke_method(model: typing.Any, method_name: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> None:
+
+class _PythonWrapper_ValidateImplementationOf:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_PythonWrapper_ValidateImplementationOf_TInterface]) -> QuantConnect.Python._Typed_PythonWrapper_ValidateImplementationOf[QuantConnect_Python_PythonWrapper_ValidateImplementationOf_TInterface]:
+        ...
+
+
+class _Typed_PythonWrapper_InvokeMethod(typing.Generic[QuantConnect_Python_PythonWrapper_InvokeMethod_T]):
+    """"""
+
+    @overload
+    def __call__(self, model: typing.Any, method_name: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> QuantConnect_Python_PythonWrapper_InvokeMethod_T:
+        """
+        Invokes the specified method on the provided PyObject instance with the specified arguments
+        
+        :param model: The PyObject instance
+        :param method_name: The name of the method to invoke
+        :param args: The arguments to call the method with
+        :returns: The return value of the called method converted into the t type.
+        """
+        ...
+
+
+class _PythonWrapper_InvokeMethod:
+    """"""
+
+    @overload
+    def __call__(self, model: typing.Any, method_name: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> None:
         """
         Invokes the specified method on the provided PyObject instance with the specified arguments
         
@@ -1205,6 +1515,51 @@ class PythonWrapper(System.Object):
         :param args: The arguments to call the method with
         """
         ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_PythonWrapper_InvokeMethod_T]) -> QuantConnect.Python._Typed_PythonWrapper_InvokeMethod[QuantConnect_Python_PythonWrapper_InvokeMethod_T]:
+        ...
+
+
+class _Typed_PythonWrapper_Invoke(typing.Generic[QuantConnect_Python_PythonWrapper_Invoke_T]):
+    """"""
+
+    @overload
+    def __call__(self, method: typing.Any, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> QuantConnect_Python_PythonWrapper_Invoke_T:
+        """
+        Invokes the given PyObject method with the specified arguments
+        
+        :param method: The method to invoke
+        :param args: The arguments to call the method with
+        :returns: The return value of the called method converted into the t type.
+        """
+        ...
+
+
+class _PythonWrapper_Invoke:
+    """"""
+
+    @overload
+    def __call__(self, method: typing.Any, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> typing.Any:
+        """
+        Invokes the given PyObject method with the specified arguments
+        
+        :param method: The method to invoke
+        :param args: The arguments to call the method with
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_PythonWrapper_Invoke_T]) -> QuantConnect.Python._Typed_PythonWrapper_Invoke[QuantConnect_Python_PythonWrapper_Invoke_T]:
+        ...
+
+
+class PythonWrapper(System.Object):
+    """Provides extension methods for managing python wrapper classes"""
+
+    validate_implementation_of: QuantConnect.Python._PythonWrapper_ValidateImplementationOf
+
+    invoke_method: QuantConnect.Python._PythonWrapper_InvokeMethod
+
+    invoke: QuantConnect.Python._PythonWrapper_Invoke
 
 
 class MarginCallModelPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.Securities.IMarginCallModel], QuantConnect.Securities.IMarginCallModel):
@@ -1495,6 +1850,139 @@ class _EventContainer(typing.Generic[QuantConnect_Python__EventContainer_Callabl
 
     def __isub__(self, item: QuantConnect_Python__EventContainer_Callable) -> typing.Self:
         """Unregisters an event handler."""
+        ...
+
+
+class PythonRuntimeChecker_InvokeMethod:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_BasePythonWrapper_InvokeMethod_PythonRuntimeChecker_TResult]) -> QuantConnect.Python._Typed_BasePythonWrapper.PythonRuntimeChecker_InvokeMethod[QuantConnect_Python_BasePythonWrapper_InvokeMethod_PythonRuntimeChecker_TResult]:
+        ...
+
+
+class PythonRuntimeChecker_InvokeMethod(typing.Generic[QuantConnect_Python_BasePythonWrapper_InvokeMethod_PythonRuntimeChecker_TResult]):
+    """"""
+
+    @overload
+    def __call__(self, method: typing.Any, python_method_name: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> QuantConnect_Python_BasePythonWrapper_InvokeMethod_PythonRuntimeChecker_TResult:
+        """Invokes method method and converts the returned value to type t_result"""
+        ...
+
+
+class PythonRuntimeChecker_InvokeMethodAndEnumerate:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndEnumerate_PythonRuntimeChecker_TItem]) -> QuantConnect.Python._Typed_BasePythonWrapper.PythonRuntimeChecker_InvokeMethodAndEnumerate[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndEnumerate_PythonRuntimeChecker_TItem]:
+        ...
+
+
+class PythonRuntimeChecker_InvokeMethodAndEnumerate(typing.Generic[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndEnumerate_PythonRuntimeChecker_TItem]):
+    """"""
+
+    @overload
+    def __call__(self, method: typing.Any, python_method_name: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> typing.Sequence[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndEnumerate_PythonRuntimeChecker_TItem]:
+        """
+        Invokes method method, expecting an enumerable or generator as return value,
+        converting each item to type t_item on demand.
+        """
+        ...
+
+
+class PythonRuntimeChecker_InvokeMethodAndGetDictionary:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetDictionary_PythonRuntimeChecker_TKey]) -> QuantConnect.Python._Typed_BasePythonWrapper.PythonRuntimeChecker_InvokeMethodAndGetDictionary[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetDictionary_PythonRuntimeChecker_TKey]:
+        ...
+
+
+class PythonRuntimeChecker_InvokeMethodAndGetDictionary(typing.Generic[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetDictionary_PythonRuntimeChecker_TKey]):
+    """"""
+
+    @overload
+    def __call__(self, method: typing.Any, python_method_name: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Collections.Generic.Dictionary[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetDictionary_PythonRuntimeChecker_TKey, QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetDictionary_PythonRuntimeChecker_TValue]:
+        """
+        Invokes method method, expecting a dictionary as return value,
+        which then will be converted to a managed dictionary, with type checking on each item conversion.
+        """
+        ...
+
+
+class PythonRuntimeChecker_InvokeMethodAndWrapResult:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndWrapResult_PythonRuntimeChecker_TResult]) -> QuantConnect.Python._Typed_BasePythonWrapper.PythonRuntimeChecker_InvokeMethodAndWrapResult[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndWrapResult_PythonRuntimeChecker_TResult]:
+        ...
+
+
+class PythonRuntimeChecker_InvokeMethodAndWrapResult(typing.Generic[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndWrapResult_PythonRuntimeChecker_TResult]):
+    """"""
+
+    @overload
+    def __call__(self, method: typing.Any, python_method_name: str, wrap_result: typing.Callable[[typing.Any], QuantConnect_Python_BasePythonWrapper_InvokeMethodAndWrapResult_PythonRuntimeChecker_TResult], *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> QuantConnect_Python_BasePythonWrapper_InvokeMethodAndWrapResult_PythonRuntimeChecker_TResult:
+        """
+        Invokes method method and tries to convert the returned value to type t_result.
+        If conversion is not possible, the returned PyObject is passed to the provided wrap_result method,
+        which should try to do the proper conversion, wrapping or handling of the PyObject.
+        """
+        ...
+
+
+class PythonRuntimeChecker_InvokeMethodAndGetOutParameters:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetOutParameters_PythonRuntimeChecker_TResult]) -> QuantConnect.Python._Typed_BasePythonWrapper.PythonRuntimeChecker_InvokeMethodAndGetOutParameters[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetOutParameters_PythonRuntimeChecker_TResult]:
+        ...
+
+
+class PythonRuntimeChecker_InvokeMethodAndGetOutParameters(typing.Generic[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetOutParameters_PythonRuntimeChecker_TResult]):
+    """"""
+
+    @overload
+    def __call__(self, method: typing.Any, python_method_name: str, out_parameters_types: typing.List[typing.Type], out_parameters: typing.Optional[typing.List[System.Object]], *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> typing.Tuple[QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetOutParameters_PythonRuntimeChecker_TResult, typing.List[System.Object]]:
+        """
+        Invokes method method and converts the returned value to type t_result.
+        It also makes sure the Python method returns values for the out parameters, converting them into the expected types
+        in out_parameters_types and placing them in the out_parameters array.
+        """
+        ...
+
+
+class PythonRuntimeChecker_Convert:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_BasePythonWrapper_Convert_PythonRuntimeChecker_T]) -> QuantConnect.Python._Typed_BasePythonWrapper.PythonRuntimeChecker_Convert[QuantConnect_Python_BasePythonWrapper_Convert_PythonRuntimeChecker_T]:
+        ...
+
+
+class PythonRuntimeChecker_Convert(typing.Generic[QuantConnect_Python_BasePythonWrapper_Convert_PythonRuntimeChecker_T]):
+    """"""
+
+    @overload
+    def __call__(self, py_object: typing.Any, python_name: str, is_method: bool = True) -> QuantConnect_Python_BasePythonWrapper_Convert_PythonRuntimeChecker_T:
+        """
+        Converts the given PyObject into the provided t type,
+        generating an exception with a user-friendly message if conversion is not possible.
+        """
+        ...
+
+
+class PythonRuntimeChecker_ConvertAndDispose:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Python_BasePythonWrapper_ConvertAndDispose_PythonRuntimeChecker_T]) -> QuantConnect.Python._Typed_BasePythonWrapper.PythonRuntimeChecker_ConvertAndDispose[QuantConnect_Python_BasePythonWrapper_ConvertAndDispose_PythonRuntimeChecker_T]:
+        ...
+
+
+class PythonRuntimeChecker_ConvertAndDispose(typing.Generic[QuantConnect_Python_BasePythonWrapper_ConvertAndDispose_PythonRuntimeChecker_T]):
+    """"""
+
+    @overload
+    def __call__(self, py_object: typing.Any, python_name: str, is_method: bool = True) -> QuantConnect_Python_BasePythonWrapper_ConvertAndDispose_PythonRuntimeChecker_T:
+        """
+        Converts the given PyObject into the provided t type,
+        generating an exception with a user-friendly message if conversion is not possible.
+        It will dispose of the source PyObject.
+        """
         ...
 
 

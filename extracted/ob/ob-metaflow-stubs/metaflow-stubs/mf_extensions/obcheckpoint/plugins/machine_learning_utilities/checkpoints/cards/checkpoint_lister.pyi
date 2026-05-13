@@ -1,14 +1,14 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.849583                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.116704                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import threading
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.card_utils.async_cards
     import threading
@@ -43,7 +43,7 @@ def generate_vega_timeline(data_objects):
     ...
 
 class CheckpointListRefresher(metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.card_utils.async_cards.CardRefresher, metaclass=type):
-    def __init__(self, loaded_checkpoint: typing.Optional[metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.CheckpointArtifact], lineage_stack: typing.Optional[typing.List[metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.CheckpointArtifact]], load_policy: str):
+    def __init__(self, loaded_checkpoint: typing.Union[metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.CheckpointArtifact, None], lineage_stack: typing.Union[typing.List[metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.CheckpointArtifact], None], load_policy: str):
         ...
     def on_error(self, current_card, error_message):
         ...

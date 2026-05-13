@@ -216,7 +216,7 @@ class OrderEventJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantCon
         True will populate TResult object returned by convert(SerializedOrderEvent) with json properties
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -234,7 +234,7 @@ class OrderEventJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantCon
         Convert the input value to a value to be serialzied
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: The input value to be converted before serialziation
         :returns: A new instance of TResult that is to be serialzied.
@@ -247,7 +247,7 @@ class OrderEventJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantCon
         Converts the input value to be deserialized
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: The deserialized value that needs to be converted to OrderEvent
         :returns: The converted value.

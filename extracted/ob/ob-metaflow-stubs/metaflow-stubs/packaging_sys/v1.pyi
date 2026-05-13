@@ -1,13 +1,13 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.804576                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.043159                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import metaflow.packaging_sys
     import typing
@@ -43,7 +43,7 @@ class MetaflowCodeContentV1(metaflow.packaging_sys.MetaflowCodeContentV1Base, me
             Files or directories to exclude
         """
         ...
-    def content_names(self, content_types: typing.Optional[int] = None) -> typing.Generator[typing.Tuple[str, str], None, None]:
+    def content_names(self, content_types: typing.Union[int, None] = None) -> typing.Generator[typing.Tuple[str, str], None, None]:
         """
         Detailed list of the content of this MetaflowCodeContent. This will list all files
         (or non files -- for the INFO or CONFIG data for example) present in the archive.
@@ -59,7 +59,7 @@ class MetaflowCodeContentV1(metaflow.packaging_sys.MetaflowCodeContentV1Base, me
             Path on the filesystem and the name in the archive
         """
         ...
-    def contents(self, content_types: typing.Optional[int] = None) -> typing.Generator[typing.Tuple[typing.Union[bytes, str], str], None, None]:
+    def contents(self, content_types: typing.Union[int, None] = None) -> typing.Generator[typing.Tuple[typing.Union[bytes, str], str], None, None]:
         """
         Very similar to content_names but returns the content of the non-files
         as well as bytes. For files, identical output as content_names

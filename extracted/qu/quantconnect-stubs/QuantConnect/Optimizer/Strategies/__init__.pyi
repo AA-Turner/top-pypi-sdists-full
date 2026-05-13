@@ -80,7 +80,7 @@ class StepBaseOptimizationStrategy(System.Object, QuantConnect.Optimizer.Strateg
         Indicates was strategy initialized or no
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -94,7 +94,7 @@ class StepBaseOptimizationStrategy(System.Object, QuantConnect.Optimizer.Strateg
         Optimization parameters
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -108,7 +108,7 @@ class StepBaseOptimizationStrategy(System.Object, QuantConnect.Optimizer.Strateg
         Optimization target, i.e. maximize or minimize
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -122,7 +122,7 @@ class StepBaseOptimizationStrategy(System.Object, QuantConnect.Optimizer.Strateg
         Optimization constraints; if it doesn't comply just drop the backtest
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -184,14 +184,14 @@ class StepBaseOptimizationStrategy(System.Object, QuantConnect.Optimizer.Strateg
         Handles new parameter set
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param parameter_set: New parameter set
         """
         ...
 
     def process_new_result(self, result: QuantConnect.Optimizer.OptimizationResult) -> None:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
     def push_new_results(self, result: QuantConnect.Optimizer.OptimizationResult) -> None:
@@ -207,7 +207,7 @@ class StepBaseOptimizationStrategy(System.Object, QuantConnect.Optimizer.Strateg
         Enumerate all possible arrangements
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param args: 
         :returns: Collection of possible combinations for given optimization parameters settings.
@@ -234,7 +234,7 @@ class EulerSearchOptimizationStrategy(QuantConnect.Optimizer.Strategies.StepBase
         Handles new parameter set
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param parameter_set: New parameter set
         """

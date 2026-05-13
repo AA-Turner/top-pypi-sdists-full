@@ -36,6 +36,7 @@ from .easel cimport (
     KeyHash,
     MSA,
     Randomness,
+    RandomnessOrSeed,
     Sequence,
     SequenceFile,
     VectorF,
@@ -141,6 +142,8 @@ cdef class HMM:
     cdef void _set_annotation_line(self, str line, char** ptr, int flag) except *
 
     cpdef HMM copy(self)
+    cpdef DigitalSequence emit_sequence(self, RandomnessOrSeed randomness=?)
+    cpdef DigitalMSA emit_alignment(self, uint32_t N, RandomnessOrSeed randomness=?)
     cpdef VectorF match_occupancy(self)
     cpdef double mean_match_entropy(self) except *
     cpdef double mean_match_information(self, Background background) except *
@@ -399,6 +402,7 @@ cdef class Profile:
     cpdef void clear(self) except *
     cpdef void configure(self, HMM hmm, Background background, int L=?, bint multihit=*, bint local=*) except *
     cpdef Profile copy(self)
+    cpdef DigitalSequence emit_sequence(self, HMM hmm, Background background=?, RandomnessOrSeed randomness=?)
     cpdef OptimizedProfile to_optimized(self)
     cpdef float msv_filter(self, DigitalSequence seq, float nu=?) except? NAN
 

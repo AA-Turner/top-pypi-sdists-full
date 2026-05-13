@@ -1,22 +1,33 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Contains functions that deal with individual byte characteristics.
 
-Each byte of the disassembled program is represented by a 32-bit value. We will call this value 'flags'. The structure of the flags is here.
-You are not allowed to inspect individual bits of flags and modify them directly. Use special functions to inspect and/or modify flags.
-Flags are kept in a virtual array file (*.id1). Addresses (ea) are all 32-bit (or 64-bit) quantities. 
-    
+Each byte of the disassembled program is represented by a 32-bit value. We will
+call this value 'flags'. The structure of the flags is here.
+
+You are not allowed to inspect individual bits of flags and modify them directly.
+Use special functions to inspect and/or modify flags.
+
+Flags are kept in a virtual array file (*.id1). Addresses (ea) are all 32-bit
+(or 64-bit) quantities.
+
+.. tip::
+   The `IDA Domain API <https://ida-domain.docs.hex-rays.com/>`_ simplifies
+   common tasks and provides better type hints, while remaining fully compatible
+   with IDAPython for advanced use cases.
+
+   For byte-level operations, see :mod:`ida_domain.bytes`.
 """
 
 class compiled_binpat_t:
     @property
-    def bytes(self) -> Any: ...
+    def bytes(self) -> bytevec_t: ...
     @property
-    def encidx(self) -> Any: ...
+    def encidx(self) -> int: ...
     @property
-    def mask(self) -> Any: ...
+    def mask(self) -> bytevec_t: ...
     @property
-    def strlits(self) -> Any: ...
+    def strlits(self) -> rangevec_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -25,21 +36,27 @@ class compiled_binpat_t:
         ...
     def __eq__(self, r: compiled_binpat_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -47,15 +64,15 @@ class compiled_binpat_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, r: compiled_binpat_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -72,10 +89,10 @@ class compiled_binpat_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -85,7 +102,7 @@ class compiled_binpat_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def all_bytes_defined(self) -> bool:
         ...
@@ -101,23 +118,29 @@ class compiled_binpat_vec_t:
         ...
     def __eq__(self, r: compiled_binpat_vec_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> compiled_binpat_t:
+    def __getitem__(self, i: int) -> compiled_binpat_t:
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -125,20 +148,20 @@ class compiled_binpat_vec_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[compiled_binpat_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
     def __len__(self) -> int:
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, r: compiled_binpat_vec_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -152,15 +175,15 @@ class compiled_binpat_vec_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: compiled_binpat_t) -> None:
+    def __setitem__(self, i: int, v: compiled_binpat_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -170,17 +193,17 @@ class compiled_binpat_vec_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: compiled_binpat_t) -> bool:
         ...
     def append(self, x: compiled_binpat_t) -> None:
         ...
-    def at(self, _idx: size_t) -> compiled_binpat_t:
+    def at(self, _idx: int) -> compiled_binpat_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> qvector:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -188,23 +211,23 @@ class compiled_binpat_vec_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> qvector:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: compiled_binpat_vec_t) -> None:
         ...
     def extract(self) -> compiled_binpat_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: compiled_binpat_t) -> bool:
         ...
-    def inject(self, s: compiled_binpat_t, len: size_t) -> None:
+    def inject(self, s: compiled_binpat_t, len: int) -> None:
         ...
     def insert(self, it: compiled_binpat_t, x: compiled_binpat_t) -> qvector:
         ...
@@ -247,13 +270,13 @@ class compiled_binpat_vec_t:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> compiled_binpat_t:
+    def push_back(self, *args: Any) -> compiled_binpat_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -265,19 +288,19 @@ class compiled_binpat_vec_t:
 class data_format_t:
     r"""Information about a data format"""
     @property
-    def hotkey(self) -> Any: ...
+    def hotkey(self) -> str: ...
     @property
     def id(self) -> Any: ...
     @property
-    def menu_name(self) -> Any: ...
+    def menu_name(self) -> str: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def props(self) -> Any: ...
+    def props(self) -> int: ...
     @property
-    def text_width(self) -> Any: ...
+    def text_width(self) -> int: ...
     @property
-    def value_size(self) -> Any: ...
+    def value_size(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -287,24 +310,30 @@ class data_format_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -312,19 +341,19 @@ class data_format_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
-    def __real__init__(self, _self: Any, name: str, value_size: asize_t = 0, menu_name: str = None, props: int = 0, hotkey: str = None, text_width: int = 0) -> Any:
+    def __real__init__(self, _self: Any, name: str, value_size: int = 0, menu_name: str = None, props: int = 0, hotkey: str = None, text_width: int = 0) -> Any:
         ...
     def __reduce__(self) -> Any:
         r"""Helper for pickle."""
@@ -340,10 +369,10 @@ class data_format_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -353,7 +382,7 @@ class data_format_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def is_present_in_menus(self) -> bool:
         r"""Should this format be shown in UI menus 
@@ -365,19 +394,19 @@ class data_format_t:
 class data_type_t:
     r"""Information about a data type"""
     @property
-    def asm_keyword(self) -> Any: ...
+    def asm_keyword(self) -> str: ...
     @property
-    def hotkey(self) -> Any: ...
+    def hotkey(self) -> str: ...
     @property
     def id(self) -> Any: ...
     @property
-    def menu_name(self) -> Any: ...
+    def menu_name(self) -> str: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def props(self) -> Any: ...
+    def props(self) -> int: ...
     @property
-    def value_size(self) -> Any: ...
+    def value_size(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -387,24 +416,30 @@ class data_type_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -412,19 +447,19 @@ class data_type_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
-    def __real__init__(self, _self: Any, name: str, value_size: asize_t = 0, menu_name: str = None, hotkey: str = None, asm_keyword: str = None, props: int = 0) -> Any:
+    def __real__init__(self, _self: Any, name: str, value_size: int = 0, menu_name: str = None, hotkey: str = None, asm_keyword: str = None, props: int = 0) -> Any:
         ...
     def __reduce__(self) -> Any:
         r"""Helper for pickle."""
@@ -440,10 +475,10 @@ class data_type_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -453,7 +488,7 @@ class data_type_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def is_present_in_menus(self) -> bool:
         r"""Should this type be shown in UI menus 
@@ -464,19 +499,19 @@ class data_type_t:
 
 class hidden_range_t:
     @property
-    def color(self) -> Any: ...
+    def color(self) -> int: ...
     @property
-    def description(self) -> Any: ...
+    def description(self) -> int: ...
     @property
-    def end_ea(self) -> Any: ...
+    def end_ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def footer(self) -> Any: ...
+    def footer(self) -> int: ...
     @property
-    def header(self) -> Any: ...
+    def header(self) -> int: ...
     @property
-    def start_ea(self) -> Any: ...
+    def start_ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def visible(self) -> Any: ...
+    def visible(self) -> bool: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -485,19 +520,25 @@ class hidden_range_t:
         ...
     def __eq__(self, r: range_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, r: range_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, r: range_t) -> bool:
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -511,7 +552,7 @@ class hidden_range_t:
         ...
     def __ne__(self, r: range_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -528,10 +569,10 @@ class hidden_range_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -541,7 +582,7 @@ class hidden_range_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def clear(self) -> None:
         r"""Set start_ea, end_ea to 0.
@@ -550,25 +591,16 @@ class hidden_range_t:
         ...
     def compare(self, r: range_t) -> int:
         ...
-    def contains(self, args: Any) -> bool:
-        r"""This function has the following signatures:
+    @overload
+    def contains(self, ea: ida_idaapi.ea_t) -> bool:
+        r"""Compare two range_t instances, based on the start_ea.
         
-            0. contains(ea: ida_idaapi.ea_t) -> bool
-            1. contains(r: const range_t &) -> bool
-        
-        # 0: contains(ea: ida_idaapi.ea_t) -> bool
-        
-        Compare two range_t instances, based on the start_ea.
-        
-        Is 'ea' in the address range? 
-                
-        
-        # 1: contains(r: const range_t &) -> bool
-        
-        Is every ea in 'r' also in this range_t?
-        
-        
+        Is 'ea' in the address range?
         """
+        ...
+    @overload
+    def contains(self, r: range_t) -> bool:
+        r"""Is every ea in 'r' also in this range_t?"""
         ...
     def empty(self) -> bool:
         r"""Is the size of the range_t <= 0?
@@ -598,13 +630,13 @@ class hidden_range_t:
 
 class octet_generator_t:
     @property
-    def avail_bits(self) -> Any: ...
+    def avail_bits(self) -> int: ...
     @property
-    def ea(self) -> Any: ...
+    def ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def high_byte_first(self) -> Any: ...
+    def high_byte_first(self) -> bool: ...
     @property
-    def value(self) -> Any: ...
+    def value(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -614,24 +646,30 @@ class octet_generator_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, _ea: ida_idaapi.ea_t) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -639,16 +677,16 @@ class octet_generator_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
     def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -665,10 +703,10 @@ class octet_generator_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -678,7 +716,7 @@ class octet_generator_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def invert_byte_order(self) -> None:
         ...
@@ -691,7 +729,7 @@ def add_byte(ea: ida_idaapi.ea_t, value: int) -> None:
     """
     ...
 
-def add_dword(ea: ida_idaapi.ea_t, value: uint64) -> None:
+def add_dword(ea: ida_idaapi.ea_t, value: int) -> None:
     r"""Add a value to one dword of the program. This function works for wide byte processors too. This function takes into account order of bytes specified in idainfo::is_be() 
             
     :param ea: linear address
@@ -699,7 +737,7 @@ def add_dword(ea: ida_idaapi.ea_t, value: uint64) -> None:
     """
     ...
 
-def add_hidden_range(args: Any) -> bool:
+def add_hidden_range(*args: Any) -> bool:
     r"""Mark a range of addresses as hidden. The range will be created in the invisible state with the default color 
             
     :param ea1: linear address of start of the address range
@@ -712,7 +750,7 @@ def add_hidden_range(args: Any) -> bool:
     """
     ...
 
-def add_mapping(_from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, size: asize_t) -> bool:
+def add_mapping(_from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, size: int) -> bool:
     r"""IDA supports memory mapping. References to the addresses from the mapped range use data and meta-data from the mapping range. 
             
     :param to: start of the mapping range (existent address)
@@ -721,7 +759,7 @@ def add_mapping(_from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, size: asize_t) -> b
     """
     ...
 
-def add_qword(ea: ida_idaapi.ea_t, value: uint64) -> None:
+def add_qword(ea: ida_idaapi.ea_t, value: int) -> None:
     r"""Add a value to one qword of the program. This function does not work for wide byte processors. This function takes into account order of bytes specified in idainfo::is_be() 
             
     :param ea: linear address
@@ -729,7 +767,7 @@ def add_qword(ea: ida_idaapi.ea_t, value: uint64) -> None:
     """
     ...
 
-def add_word(ea: ida_idaapi.ea_t, value: uint64) -> None:
+def add_word(ea: ida_idaapi.ea_t, value: int) -> None:
     r"""Add a value to one word of the program. This function works for wide byte processors too. This function takes into account order of bytes specified in idainfo::is_be() 
             
     :param ea: linear address
@@ -737,7 +775,7 @@ def add_word(ea: ida_idaapi.ea_t, value: uint64) -> None:
     """
     ...
 
-def align_flag() -> flags64_t:
+def align_flag() -> int:
     r"""Get a flags64_t representing an alignment directive.
     
     """
@@ -763,19 +801,19 @@ def attach_custom_data_format(dtid: int, dfid: int) -> bool:
     """
     ...
 
-def bin_flag() -> flags64_t:
+def bin_flag() -> int:
     r"""Get number flag of the base, regardless of current processor - better to use num_flag()
     
     """
     ...
 
-def bin_search(args: Any) -> Any:
+@overload
+def bin_search(start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, data: compiled_binpat_vec_t, flags: int) -> Tuple[ida_idaapi.ea_t, int]:
+    r"""Search for a set of bytes in the program"""
+    ...
+@overload
+def bin_search(start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, image: bytes, mask: bytes, len: int, flags: int) -> ida_idaapi.ea_t:
     r"""Search for a set of bytes in the program
-    
-    This function has the following signatures:
-    
-        1. bin_search(start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, data: compiled_binpat_vec_t, flags: int) -> Tuple[ida_idaapi.ea_t, int]
-        2. bin_search(start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, image: bytes, mask: bytes, len: int, flags: int) -> ida_idaapi.ea_t
     
     The return value type will differ depending on the form:
     
@@ -795,7 +833,7 @@ def bin_search(args: Any) -> Any:
     """
     ...
 
-def byte_flag() -> flags64_t:
+def byte_flag() -> int:
     r"""Get a flags64_t representing a byte.
     
     """
@@ -816,7 +854,7 @@ def calc_def_align(ea: ida_idaapi.ea_t, mina: int, maxa: int) -> int:
     """
     ...
 
-def calc_dflags(f: flags64_t, force: bool) -> flags64_t:
+def calc_dflags(f: int, force: bool) -> int:
     ...
 
 def calc_max_align(endea: ida_idaapi.ea_t) -> int:
@@ -836,7 +874,7 @@ def calc_max_item_end(ea: ida_idaapi.ea_t, how: int = 15) -> ida_idaapi.ea_t:
     """
     ...
 
-def calc_min_align(length: asize_t) -> int:
+def calc_min_align(length: int) -> int:
     r"""Calculate the minimal possible alignment exponent. 
             
     :param length: size of the item in bytes.
@@ -844,7 +882,7 @@ def calc_min_align(length: asize_t) -> int:
     """
     ...
 
-def can_define_item(ea: ida_idaapi.ea_t, length: asize_t, flags: flags64_t) -> bool:
+def can_define_item(ea: ida_idaapi.ea_t, length: int, flags: int) -> bool:
     r"""Can define item (instruction/data) of the specified 'length', starting at 'ea'? 
     * a new item would cross segment boundaries
     * a new item would overlap with existing items (except items specified by 'flags') 
@@ -865,7 +903,7 @@ def can_define_item(ea: ida_idaapi.ea_t, length: asize_t, flags: flags64_t) -> b
     """
     ...
 
-def change_storage_type(start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, stt: storage_type_t) -> error_t:
+def change_storage_type(start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, stt: storage_type_t) -> int:
     r"""Change flag storage type for address range. 
             
     :param start_ea: should be lower than end_ea.
@@ -875,7 +913,7 @@ def change_storage_type(start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, stt:
     """
     ...
 
-def char_flag() -> flags64_t:
+def char_flag() -> int:
     r"""see FF_opbits
     
     """
@@ -884,19 +922,19 @@ def char_flag() -> flags64_t:
 def chunk_size(ea: ida_idaapi.ea_t) -> int:
     r"""Get size of the contiguous address block containing 'ea'. 
             
-    :returns: 0 if 'ea' doesn't belong to the program.
+    :returns: 0 if 'ea' does not belong to the program.
     """
     ...
 
 def chunk_start(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
     r"""Get start of the contiguous address block containing 'ea'. 
             
-    :returns: BADADDR if 'ea' doesn't belong to the program.
+    :returns: BADADDR if 'ea' does not belong to the program.
     """
     ...
 
 def clr_lzero(ea: ida_idaapi.ea_t, n: int) -> bool:
-    r"""Clear toggle lzero bit. This function reset the display of leading zeroes for the specified operand to the default. If the default is not to display leading zeroes, leading zeroes will not be displayed, as vice versa. 
+    r"""Clear toggle lzero bit. This function reset the display of leading zeros for the specified operand to the default. If the default is not to display leading zeros, leading zeros will not be displayed, as vice versa. 
             
     :param ea: the item (insn/data) address
     :param n: the operand number (0-first operand, 1-other operands)
@@ -913,28 +951,28 @@ def clr_op_type(ea: ida_idaapi.ea_t, n: int) -> bool:
     """
     ...
 
-def code_flag() -> flags64_t:
+def code_flag() -> int:
     r"""FF_CODE
     
     """
     ...
 
-def combine_flags(F: flags64_t) -> flags64_t:
+def combine_flags(F: int) -> int:
     ...
 
-def create_16bit_data(ea: ida_idaapi.ea_t, length: asize_t) -> bool:
+def create_16bit_data(ea: ida_idaapi.ea_t, length: int) -> bool:
     r"""Convert to 16-bit quantity (take the byte size into account)
     
     """
     ...
 
-def create_32bit_data(ea: ida_idaapi.ea_t, length: asize_t) -> bool:
+def create_32bit_data(ea: ida_idaapi.ea_t, length: int) -> bool:
     r"""Convert to 32-bit quantity (take the byte size into account)
     
     """
     ...
 
-def create_align(ea: ida_idaapi.ea_t, length: asize_t, alignment: int) -> bool:
+def create_align(ea: ida_idaapi.ea_t, length: int, alignment: int) -> bool:
     r"""Create an alignment item. 
             
     :param ea: linear address
@@ -944,19 +982,19 @@ def create_align(ea: ida_idaapi.ea_t, length: asize_t, alignment: int) -> bool:
     """
     ...
 
-def create_byte(ea: ida_idaapi.ea_t, length: asize_t, force: bool = False) -> bool:
+def create_byte(ea: ida_idaapi.ea_t, length: int, force: bool = False) -> bool:
     r"""Convert to byte.
     
     """
     ...
 
-def create_custdata(ea: ida_idaapi.ea_t, length: asize_t, dtid: int, fid: int, force: bool = False) -> bool:
+def create_custdata(ea: ida_idaapi.ea_t, length: int, dtid: int, fid: int, force: bool = False) -> bool:
     r"""Convert to custom data type.
     
     """
     ...
 
-def create_data(ea: ida_idaapi.ea_t, dataflag: flags64_t, size: asize_t, tid: tid_t) -> bool:
+def create_data(ea: ida_idaapi.ea_t, dataflag: int, size: int, tid: int) -> bool:
     r"""Convert to data (byte, word, dword, etc). This function may be used to create arrays. 
             
     :param ea: linear address
@@ -967,43 +1005,43 @@ def create_data(ea: ida_idaapi.ea_t, dataflag: flags64_t, size: asize_t, tid: ti
     """
     ...
 
-def create_double(ea: ida_idaapi.ea_t, length: asize_t, force: bool = False) -> bool:
+def create_double(ea: ida_idaapi.ea_t, length: int, force: bool = False) -> bool:
     r"""Convert to double.
     
     """
     ...
 
-def create_dword(ea: ida_idaapi.ea_t, length: asize_t, force: bool = False) -> bool:
+def create_dword(ea: ida_idaapi.ea_t, length: int, force: bool = False) -> bool:
     r"""Convert to dword.
     
     """
     ...
 
-def create_float(ea: ida_idaapi.ea_t, length: asize_t, force: bool = False) -> bool:
+def create_float(ea: ida_idaapi.ea_t, length: int, force: bool = False) -> bool:
     r"""Convert to float.
     
     """
     ...
 
-def create_oword(ea: ida_idaapi.ea_t, length: asize_t, force: bool = False) -> bool:
+def create_oword(ea: ida_idaapi.ea_t, length: int, force: bool = False) -> bool:
     r"""Convert to octaword/xmm word.
     
     """
     ...
 
-def create_packed_real(ea: ida_idaapi.ea_t, length: asize_t, force: bool = False) -> bool:
+def create_packed_real(ea: ida_idaapi.ea_t, length: int, force: bool = False) -> bool:
     r"""Convert to packed decimal real.
     
     """
     ...
 
-def create_qword(ea: ida_idaapi.ea_t, length: asize_t, force: bool = False) -> bool:
+def create_qword(ea: ida_idaapi.ea_t, length: int, force: bool = False) -> bool:
     r"""Convert to quadword.
     
     """
     ...
 
-def create_strlit(start: ida_idaapi.ea_t, len: size_t, strtype: int) -> bool:
+def create_strlit(start: ida_idaapi.ea_t, len: int, strtype: int) -> bool:
     r"""Convert to string literal and give a meaningful name. 'start' may be higher than 'end', the kernel will swap them in this case 
             
     :param start: starting address
@@ -1013,49 +1051,49 @@ def create_strlit(start: ida_idaapi.ea_t, len: size_t, strtype: int) -> bool:
     """
     ...
 
-def create_struct(ea: ida_idaapi.ea_t, length: asize_t, tid: tid_t, force: bool = False) -> bool:
+def create_struct(ea: ida_idaapi.ea_t, length: int, tid: int, force: bool = False) -> bool:
     r"""Convert to struct.
     
     """
     ...
 
-def create_tbyte(ea: ida_idaapi.ea_t, length: asize_t, force: bool = False) -> bool:
+def create_tbyte(ea: ida_idaapi.ea_t, length: int, force: bool = False) -> bool:
     r"""Convert to tbyte.
     
     """
     ...
 
-def create_word(ea: ida_idaapi.ea_t, length: asize_t, force: bool = False) -> bool:
+def create_word(ea: ida_idaapi.ea_t, length: int, force: bool = False) -> bool:
     r"""Convert to word.
     
     """
     ...
 
-def create_yword(ea: ida_idaapi.ea_t, length: asize_t, force: bool = False) -> bool:
+def create_yword(ea: ida_idaapi.ea_t, length: int, force: bool = False) -> bool:
     r"""Convert to ymm word.
     
     """
     ...
 
-def create_zword(ea: ida_idaapi.ea_t, length: asize_t, force: bool = False) -> bool:
+def create_zword(ea: ida_idaapi.ea_t, length: int, force: bool = False) -> bool:
     r"""Convert to zmm word.
     
     """
     ...
 
-def cust_flag() -> flags64_t:
+def cust_flag() -> int:
     r"""Get a flags64_t representing custom type data.
     
     """
     ...
 
-def custfmt_flag() -> flags64_t:
+def custfmt_flag() -> int:
     r"""see FF_opbits
     
     """
     ...
 
-def dec_flag() -> flags64_t:
+def dec_flag() -> int:
     r"""Get number flag of the base, regardless of current processor - better to use num_flag()
     
     """
@@ -1069,14 +1107,14 @@ def del_hidden_range(ea: ida_idaapi.ea_t) -> bool:
     """
     ...
 
-def del_items(ea: ida_idaapi.ea_t, flags: int = 0, nbytes: asize_t = 1, may_destroy: may_destroy_cb_t = None) -> bool:
+def del_items(ea: ida_idaapi.ea_t, flags: int = 0, nbytes: int = 1, may_destroy: may_destroy_cb_t = None) -> bool:
     r"""Convert item (instruction/data) to unexplored bytes. The whole item (including the head and tail bytes) will be destroyed. It is allowed to pass any address in the item to this function 
             
     :param ea: any address within the first item to delete
     :param flags: combination of Unexplored byte conversion flags
     :param nbytes: number of bytes in the range to be undefined
     :param may_destroy: optional routine invoked before deleting a head item. If callback returns false then item is not to be deleted and operation fails
-    :returns: true on sucessful operation, otherwise false
+    :returns: true on successful operation, otherwise false
     """
     ...
 
@@ -1103,7 +1141,7 @@ def detach_custom_data_format(dtid: int, dfid: int) -> bool:
     """
     ...
 
-def disable_flags(start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t) -> error_t:
+def disable_flags(start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t) -> int:
     r"""Deallocate flags for address range. Exit with an error message if not enough disk space (this may occur too). 
             
     :param start_ea: should be lower than end_ea.
@@ -1112,19 +1150,19 @@ def disable_flags(start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t) -> error_t
     """
     ...
 
-def double_flag() -> flags64_t:
+def double_flag() -> int:
     r"""Get a flags64_t representing a double.
     
     """
     ...
 
-def dword_flag() -> flags64_t:
+def dword_flag() -> int:
     r"""Get a flags64_t representing a double word.
     
     """
     ...
 
-def enable_flags(start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, stt: storage_type_t) -> error_t:
+def enable_flags(start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, stt: storage_type_t) -> int:
     r"""Allocate flags for address range. This function does not change the storage type of existing ranges. Exit with an error message if not enough disk space. 
             
     :param start_ea: should be lower than end_ea.
@@ -1134,13 +1172,13 @@ def enable_flags(start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, stt: storag
     """
     ...
 
-def enum_flag() -> flags64_t:
+def enum_flag() -> int:
     r"""see FF_opbits
     
     """
     ...
 
-def equal_bytes(ea: ida_idaapi.ea_t, image: uchar, mask: uchar, len: size_t, bin_search_flags: int) -> bool:
+def equal_bytes(ea: ida_idaapi.ea_t, image: int, mask: int, len: int, bin_search_flags: int) -> bool:
     r"""Compare 'len' bytes of the program starting from 'ea' with 'image'. 
             
     :param ea: linear address
@@ -1153,151 +1191,151 @@ def equal_bytes(ea: ida_idaapi.ea_t, image: uchar, mask: uchar, len: size_t, bin
     """
     ...
 
-def f_has_cmt(f: flags64_t, arg2: void) -> bool:
+def f_has_cmt(f: int, arg2: Any) -> bool:
     ...
 
-def f_has_dummy_name(f: flags64_t, arg2: void) -> bool:
+def f_has_dummy_name(f: int, arg2: Any) -> bool:
     r"""Does the current byte have dummy (auto-generated, with special prefix) name?
     
     """
     ...
 
-def f_has_extra_cmts(f: flags64_t, arg2: void) -> bool:
+def f_has_extra_cmts(f: int, arg2: Any) -> bool:
     ...
 
-def f_has_name(f: flags64_t, arg2: void) -> bool:
+def f_has_name(f: int, arg2: Any) -> bool:
     r"""Does the current byte have non-trivial (non-dummy) name?
     
     """
     ...
 
-def f_has_user_name(F: flags64_t, arg2: void) -> bool:
+def f_has_user_name(F: int, arg2: Any) -> bool:
     r"""Does the current byte have user-specified name?
     
     """
     ...
 
-def f_has_xref(f: flags64_t, arg2: void) -> bool:
+def f_has_xref(f: int, arg2: Any) -> bool:
     r"""Does the current byte have cross-references to it?
     
     """
     ...
 
-def f_is_align(F: flags64_t, arg2: void) -> bool:
+def f_is_align(F: int, arg2: Any) -> bool:
     r"""See is_align()
     
     """
     ...
 
-def f_is_byte(F: flags64_t, arg2: void) -> bool:
+def f_is_byte(F: int, arg2: Any) -> bool:
     r"""See is_byte()
     
     """
     ...
 
-def f_is_code(F: flags64_t, arg2: void) -> bool:
+def f_is_code(F: int, arg2: Any) -> bool:
     r"""Does flag denote start of an instruction?
     
     """
     ...
 
-def f_is_custom(F: flags64_t, arg2: void) -> bool:
+def f_is_custom(F: int, arg2: Any) -> bool:
     r"""See is_custom()
     
     """
     ...
 
-def f_is_data(F: flags64_t, arg2: void) -> bool:
+def f_is_data(F: int, arg2: Any) -> bool:
     r"""Does flag denote start of data?
     
     """
     ...
 
-def f_is_double(F: flags64_t, arg2: void) -> bool:
+def f_is_double(F: int, arg2: Any) -> bool:
     r"""See is_double()
     
     """
     ...
 
-def f_is_dword(F: flags64_t, arg2: void) -> bool:
+def f_is_dword(F: int, arg2: Any) -> bool:
     r"""See is_dword()
     
     """
     ...
 
-def f_is_float(F: flags64_t, arg2: void) -> bool:
+def f_is_float(F: int, arg2: Any) -> bool:
     r"""See is_float()
     
     """
     ...
 
-def f_is_head(F: flags64_t, arg2: void) -> bool:
+def f_is_head(F: int, arg2: Any) -> bool:
     r"""Does flag denote start of instruction OR data?
     
     """
     ...
 
-def f_is_not_tail(F: flags64_t, arg2: void) -> bool:
+def f_is_not_tail(F: int, arg2: Any) -> bool:
     r"""Does flag denote tail byte?
     
     """
     ...
 
-def f_is_oword(F: flags64_t, arg2: void) -> bool:
+def f_is_oword(F: int, arg2: Any) -> bool:
     r"""See is_oword()
     
     """
     ...
 
-def f_is_pack_real(F: flags64_t, arg2: void) -> bool:
+def f_is_pack_real(F: int, arg2: Any) -> bool:
     r"""See is_pack_real()
     
     """
     ...
 
-def f_is_qword(F: flags64_t, arg2: void) -> bool:
+def f_is_qword(F: int, arg2: Any) -> bool:
     r"""See is_qword()
     
     """
     ...
 
-def f_is_strlit(F: flags64_t, arg2: void) -> bool:
+def f_is_strlit(F: int, arg2: Any) -> bool:
     r"""See is_strlit()
     
     """
     ...
 
-def f_is_struct(F: flags64_t, arg2: void) -> bool:
+def f_is_struct(F: int, arg2: Any) -> bool:
     r"""See is_struct()
     
     """
     ...
 
-def f_is_tail(F: flags64_t, arg2: void) -> bool:
+def f_is_tail(F: int, arg2: Any) -> bool:
     r"""Does flag denote tail byte?
     
     """
     ...
 
-def f_is_tbyte(F: flags64_t, arg2: void) -> bool:
+def f_is_tbyte(F: int, arg2: Any) -> bool:
     r"""See is_tbyte()
     
     """
     ...
 
-def f_is_word(F: flags64_t, arg2: void) -> bool:
+def f_is_word(F: int, arg2: Any) -> bool:
     r"""See is_word()
     
     """
     ...
 
-def f_is_yword(F: flags64_t, arg2: void) -> bool:
+def f_is_yword(F: int, arg2: Any) -> bool:
     r"""See is_yword()
     
     """
     ...
 
-def find_byte(sEA: ida_idaapi.ea_t, size: asize_t, value: uchar, bin_search_flags: int) -> ida_idaapi.ea_t:
+def find_byte(sEA: ida_idaapi.ea_t, size: int, value: int, bin_search_flags: int) -> ida_idaapi.ea_t:
     r"""Find forward a byte with the specified value (only 8-bit value from the database). example: ea=4 size=3 will inspect addresses 4, 5, and 6 
             
     :param sEA: linear address
@@ -1308,7 +1346,7 @@ def find_byte(sEA: ida_idaapi.ea_t, size: asize_t, value: uchar, bin_search_flag
     """
     ...
 
-def find_byter(sEA: ida_idaapi.ea_t, size: asize_t, value: uchar, bin_search_flags: int) -> ida_idaapi.ea_t:
+def find_byter(sEA: ida_idaapi.ea_t, size: int, value: int, bin_search_flags: int) -> ida_idaapi.ea_t:
     r"""Find reverse a byte with the specified value (only 8-bit value from the database). example: ea=4 size=3 will inspect addresses 6, 5, and 4 
             
     :param sEA: the lower address of the search range
@@ -1338,7 +1376,7 @@ def find_custom_data_type(name: str) -> int:
     """
     ...
 
-def find_free_chunk(start: ida_idaapi.ea_t, size: asize_t, alignment: asize_t) -> ida_idaapi.ea_t:
+def find_free_chunk(start: ida_idaapi.ea_t, size: int, alignment: int) -> ida_idaapi.ea_t:
     r"""Search for a hole in the addressing space of the program. 
             
     :param start: Address to start searching from
@@ -1351,13 +1389,13 @@ def find_free_chunk(start: ida_idaapi.ea_t, size: asize_t, alignment: asize_t) -
 def find_string(_str: str, range_start: int, range_end: typing.Optional[int] = 18446744073709551615, range_size: typing.Optional[int] = None, strlit_encoding: Any = 0, flags: typing.Optional[int] = 8) -> int:
     ...
 
-def float_flag() -> flags64_t:
+def float_flag() -> int:
     r"""Get a flags64_t representing a float.
     
     """
     ...
 
-def flt_flag() -> flags64_t:
+def flt_flag() -> int:
     r"""see FF_opbits
     
     """
@@ -1380,7 +1418,7 @@ def get_32bit(ea: ida_idaapi.ea_t) -> int:
     """
     ...
 
-def get_64bit(ea: ida_idaapi.ea_t) -> uint64:
+def get_64bit(ea: ida_idaapi.ea_t) -> int:
     r"""Get not more than 64bits of the program at 'ea'. 
             
     :returns: 64 bit value, depending on processor_t::nbits:
@@ -1390,8 +1428,8 @@ def get_64bit(ea: ida_idaapi.ea_t) -> uint64:
     """
     ...
 
-def get_byte(ea: ida_idaapi.ea_t) -> uchar:
-    r"""Get one byte (8-bit) of the program at 'ea'. This function works only for 8bit byte processors. 
+def get_byte(ea: ida_idaapi.ea_t) -> int:
+    r"""Get one byte (8-bit) of the program at 'ea'. This function works only for 8-bit byte processors. 
             
     """
     ...
@@ -1452,7 +1490,7 @@ def get_custom_data_type(dtid: int) -> data_type_t:
     """
     ...
 
-def get_custom_data_types(args: Any) -> int:
+def get_custom_data_types(*args: Any) -> int:
     r"""Get list of registered custom data type ids. 
             
     :param out: buffer for the output. may be nullptr
@@ -1462,7 +1500,7 @@ def get_custom_data_types(args: Any) -> int:
     """
     ...
 
-def get_data_elsize(ea: ida_idaapi.ea_t, F: flags64_t, ti: opinfo_t = None) -> int:
+def get_data_elsize(ea: ida_idaapi.ea_t, F: int, ti: opinfo_t = None) -> int:
     r"""Get size of data type specified in flags 'F'. 
             
     :param ea: linear address of the item
@@ -1474,7 +1512,7 @@ def get_data_elsize(ea: ida_idaapi.ea_t, F: flags64_t, ti: opinfo_t = None) -> i
     """
     ...
 
-def get_data_value(v: uval_t, ea: ida_idaapi.ea_t, size: asize_t) -> bool:
+def get_data_value(v: uval_t, ea: ida_idaapi.ea_t, size: int) -> bool:
     r"""Get the value at of the item at 'ea'. This function works with entities up to sizeof(ea_t) (bytes, word, etc) 
             
     :param v: pointer to the result. may be nullptr
@@ -1484,8 +1522,8 @@ def get_data_value(v: uval_t, ea: ida_idaapi.ea_t, size: asize_t) -> bool:
     """
     ...
 
-def get_db_byte(ea: ida_idaapi.ea_t) -> uchar:
-    r"""Get one byte (8-bit) of the program at 'ea' from the database. Works even if the debugger is active. See also get_dbg_byte() to read the process memory directly. This function works only for 8bit byte processors. 
+def get_db_byte(ea: ida_idaapi.ea_t) -> int:
+    r"""Get one byte (8-bit) of the program at 'ea' from the database. Works even if the debugger is active. See also get_dbg_byte() to read the process memory directly. This function works only for 8-bit byte processors. 
             
     """
     ...
@@ -1498,12 +1536,12 @@ def get_default_radix() -> int:
     ...
 
 def get_dword(ea: ida_idaapi.ea_t) -> int:
-    r"""Get one dword (32-bit) of the program at 'ea'. This function takes into account order of bytes specified in idainfo::is_be() This function works only for 8bit byte processors. 
+    r"""Get one dword (32-bit) of the program at 'ea'. This function takes into account order of bytes specified in idainfo::is_be() This function works only for 8-bit byte processors. 
             
     """
     ...
 
-def get_enum_id(ea: ida_idaapi.ea_t, n: int) -> uchar:
+def get_enum_id(ea: ida_idaapi.ea_t, n: int) -> int:
     r"""Get enum id of 'enum' operand. 
             
     :param ea: linear address
@@ -1519,27 +1557,27 @@ def get_first_hidden_range() -> hidden_range_t:
     """
     ...
 
-def get_flags(ea: ida_idaapi.ea_t) -> flags64_t:
+def get_flags(ea: ida_idaapi.ea_t) -> int:
     r"""Get flags value for address 'ea'. The byte value is not included in the flags. This function should be used if the operand types of any operand beyond the first two operands is required. This function is more expensive to use than get_flags32() 
             
     :returns: 0 if address is not present in the program
     """
     ...
 
-def get_flags32(ea: ida_idaapi.ea_t) -> flags64_t:
+def get_flags32(ea: ida_idaapi.ea_t) -> int:
     r"""Get only 32 low bits of flags. This function returns the most commonly used bits of the flags. However, it does not return the operand info for the operands beyond the first two operands (0,1). If you need to deal with the operands (2..n), then use get_flags(). It is customary to assign the return value to the variable named "F32", to distinguish is from 64-bit flags. 
             
     :returns: 0 if address is not present in the program
     """
     ...
 
-def get_flags_by_size(size: size_t) -> flags64_t:
-    r"""Get flags from size (in bytes). Supported sizes: 1, 2, 4, 8, 16, 32. For other sizes returns 0 
+def get_flags_by_size(size: int) -> int:
+    r"""Get flags from size (in bytes). Supported sizes: 1, 2, 4, 8, 16, 32. For other sizes, returns 0 
             
     """
     ...
 
-def get_flags_ex(ea: ida_idaapi.ea_t, how: int) -> flags64_t:
+def get_flags_ex(ea: ida_idaapi.ea_t, how: int) -> int:
     r"""Get flags for the specified address, extended form.
     
     """
@@ -1550,17 +1588,17 @@ def get_forced_operand(ea: ida_idaapi.ea_t, n: int) -> str:
             
     :param ea: linear address
     :param n: 0..UA_MAXOP-1 operand number
-    :returns: size of forced operand or -1
+    :returns: size of the forced operand or -1
     """
     ...
 
-def get_full_data_elsize(ea: ida_idaapi.ea_t, F: flags64_t, ti: opinfo_t = None) -> int:
+def get_full_data_elsize(ea: ida_idaapi.ea_t, F: int, ti: opinfo_t = None) -> int:
     r"""Get full size of data type specified in flags 'F'. takes into account processors with wide bytes e.g. returns 2 for a byte element with 16-bit bytes 
             
     """
     ...
 
-def get_full_flags(ea: ida_idaapi.ea_t) -> flags64_t:
+def get_full_flags(ea: ida_idaapi.ea_t) -> int:
     r"""Get full flags value for address 'ea'. This function returns the byte value in the flags as well. See FF_IVL and MS_VAL. This function is more expensive to use than get_flags() 
             
     :returns: 0 if address is not present in the program
@@ -1589,12 +1627,12 @@ def get_hidden_range_qty() -> int:
     ...
 
 def get_item_end(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
-    r"""Get the end address of the item at 'ea'. The returned address doesn't belong to the current item. Unexplored bytes are counted as 1 byte entities. 
+    r"""Get the end address of the item at 'ea'. The returned address does not belong to the current item. Unexplored bytes are counted as 1 byte entities. 
             
     """
     ...
 
-def get_item_flag(_from: ida_idaapi.ea_t, n: int, ea: ida_idaapi.ea_t, appzero: bool) -> flags64_t:
+def get_item_flag(_from: ida_idaapi.ea_t, n: int, ea: ida_idaapi.ea_t, appzero: bool) -> int:
     r"""Get flag of the item at 'ea' even if it is a tail byte of some array or structure. This function is used to get flags of structure members or array elements. 
             
     :param n: operand number which refers to 'ea' or OPND_ALL for one of the operands
@@ -1605,13 +1643,13 @@ def get_item_flag(_from: ida_idaapi.ea_t, n: int, ea: ida_idaapi.ea_t, appzero: 
     ...
 
 def get_item_head(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
-    r"""Get the start address of the item at 'ea'. If there is no current item, then 'ea' will be returned (see definition at the end of bytes.hpp source) 
+    r"""Get the start address of the item at 'ea'. If there is no current item, then 'ea' is returned (see definition at the end of bytes.hpp source) 
             
     """
     ...
 
 def get_item_refinfo(ri: refinfo_t, ea: ida_idaapi.ea_t, n: int) -> bool:
-    r"""Get refinfo of the item at 'ea'. This function works for a regular offset operand as well as for a tail byte of a structure variable (in this case refinfo to corresponding structure member will be returned) 
+    r"""Get refinfo of the item at 'ea'. This function works for a regular offset operand as well as for a tail byte of a structure variable (in this case refinfo to corresponding structure member is returned) 
             
     :param ri: refinfo holder
     :param ea: the item address
@@ -1641,11 +1679,11 @@ def get_manual_insn(ea: ida_idaapi.ea_t) -> str:
     """
     ...
 
-def get_mapping(n: size_t) -> Any:
+def get_mapping(n: int) -> Any:
     r"""Get memory mapping range by its number. 
             
     :param n: number of mapping range (0..get_mappings_qty()-1)
-    :returns: false if the specified range doesn't exist, otherwise returns `from`, `to`, `size`
+    :returns: false if the specified range does not exist, otherwise returns `from`, `to`, `size`
     """
     ...
 
@@ -1662,7 +1700,7 @@ def get_max_strlit_length(ea: ida_idaapi.ea_t, strtype: int, options: int = 0) -
     :param ea: starting address
     :param strtype: string type. one of String type codes
     :param options: combination of string literal length options
-    :returns: length of the string in octets (octet==8bit)
+    :returns: length of the string in octets (octet == 8 bits)
     """
     ...
 
@@ -1670,14 +1708,14 @@ def get_next_hidden_range(ea: ida_idaapi.ea_t) -> hidden_range_t:
     r"""Get pointer to next hidden range. 
             
     :param ea: any address in the program
-    :returns: ptr to hidden range or nullptr if next hidden range doesn't exist
+    :returns: ptr to hidden range or nullptr if next hidden range does not exist
     """
     ...
 
-def get_octet(ogen: octet_generator_t) -> uchar:
+def get_octet(ogen: octet_generator_t) -> int:
     ...
 
-def get_operand_flag(typebits: uint8, n: int) -> flags64_t:
+def get_operand_flag(typebits: int, n: int) -> int:
     r"""Place operand `n`'s type flag in the right nibble of a 64-bit flags set.
     
     :param typebits: the type bits (one of `FF_N_`)
@@ -1695,7 +1733,7 @@ def get_operand_type_shift(n: int) -> int:
     """
     ...
 
-def get_opinfo(buf: opinfo_t, ea: ida_idaapi.ea_t, n: int, flags: flags64_t) -> opinfo_t:
+def get_opinfo(buf: opinfo_t, ea: ida_idaapi.ea_t, n: int, flags: int) -> opinfo_t:
     r"""Get additional information about an operand representation. 
             
     :param buf: buffer to receive the result. may not be nullptr
@@ -1706,37 +1744,37 @@ def get_opinfo(buf: opinfo_t, ea: ida_idaapi.ea_t, n: int, flags: flags64_t) -> 
     """
     ...
 
-def get_optype_flags0(F: flags64_t) -> flags64_t:
+def get_optype_flags0(F: int) -> int:
     r"""Get flags for first operand.
     
     """
     ...
 
-def get_optype_flags1(F: flags64_t) -> flags64_t:
+def get_optype_flags1(F: int) -> int:
     r"""Get flags for second operand.
     
     """
     ...
 
-def get_original_byte(ea: ida_idaapi.ea_t) -> uint64:
+def get_original_byte(ea: ida_idaapi.ea_t) -> int:
     r"""Get original byte value (that was before patching). This function works for wide byte processors too. 
             
     """
     ...
 
-def get_original_dword(ea: ida_idaapi.ea_t) -> uint64:
+def get_original_dword(ea: ida_idaapi.ea_t) -> int:
     r"""Get original dword (that was before patching) This function works for wide byte processors too. This function takes into account order of bytes specified in idainfo::is_be() 
             
     """
     ...
 
-def get_original_qword(ea: ida_idaapi.ea_t) -> uint64:
+def get_original_qword(ea: ida_idaapi.ea_t) -> int:
     r"""Get original qword value (that was before patching) This function DOESN'T work for wide byte processors too. This function takes into account order of bytes specified in idainfo::is_be() 
             
     """
     ...
 
-def get_original_word(ea: ida_idaapi.ea_t) -> uint64:
+def get_original_word(ea: ida_idaapi.ea_t) -> int:
     r"""Get original word value (that was before patching). This function works for wide byte processors too. This function takes into account order of bytes specified in idainfo::is_be() 
             
     """
@@ -1764,17 +1802,17 @@ def get_prev_hidden_range(ea: ida_idaapi.ea_t) -> hidden_range_t:
     r"""Get pointer to previous hidden range. 
             
     :param ea: any address in the program
-    :returns: ptr to hidden range or nullptr if previous hidden range doesn't exist
+    :returns: ptr to hidden range or nullptr if previous hidden range does not exist
     """
     ...
 
-def get_qword(ea: ida_idaapi.ea_t) -> uint64:
-    r"""Get one qword (64-bit) of the program at 'ea'. This function takes into account order of bytes specified in idainfo::is_be() This function works only for 8bit byte processors. 
+def get_qword(ea: ida_idaapi.ea_t) -> int:
+    r"""Get one qword (64-bit) of the program at 'ea'. This function takes into account order of bytes specified in idainfo::is_be() This function works only for 8-bit byte processors. 
             
     """
     ...
 
-def get_radix(F: flags64_t, n: int) -> int:
+def get_radix(F: int, n: int) -> int:
     r"""Get radix of the operand, in: flags. If the operand is not a number, returns get_default_radix() 
             
     :param F: flags
@@ -1800,7 +1838,7 @@ def get_strlit_contents(ea: ida_idaapi.ea_t, len: int, type: int, flags: int = 0
     """
     ...
 
-def get_stroff_path(args: Any) -> Any:
+def get_stroff_path(*args: Any) -> Any:
     r"""Get the structure offset path for operand `n`, at the
     specified address.
     
@@ -1815,26 +1853,26 @@ def get_stroff_path(args: Any) -> Any:
     """
     ...
 
-def get_wide_byte(ea: ida_idaapi.ea_t) -> uint64:
-    r"""Get one wide byte of the program at 'ea'. Some processors may access more than 8bit quantity at an address. These processors have 32-bit byte organization from the IDA's point of view. 
+def get_wide_byte(ea: ida_idaapi.ea_t) -> int:
+    r"""Get one wide byte of the program at 'ea'. Some processors may access more than 8-bit quantity at an address. These processors have 32-bit byte organization from the IDA's point of view. 
             
     """
     ...
 
-def get_wide_dword(ea: ida_idaapi.ea_t) -> uint64:
-    r"""Get two wide words (4 'bytes') of the program at 'ea'. Some processors may access more than 8bit quantity at an address. These processors have 32-bit byte organization from the IDA's point of view. This function takes into account order of bytes specified in idainfo::is_be() 
+def get_wide_dword(ea: ida_idaapi.ea_t) -> int:
+    r"""Get two wide words (4 'bytes') of the program at 'ea'. Some processors may access more than 8-bit quantity at an address. These processors have 32-bit byte organization from the IDA's point of view. This function takes into account order of bytes specified in idainfo::is_be() 
             
     """
     ...
 
-def get_wide_word(ea: ida_idaapi.ea_t) -> uint64:
-    r"""Get one wide word (2 'byte') of the program at 'ea'. Some processors may access more than 8bit quantity at an address. These processors have 32-bit byte organization from the IDA's point of view. This function takes into account order of bytes specified in idainfo::is_be() 
+def get_wide_word(ea: ida_idaapi.ea_t) -> int:
+    r"""Get one wide word (2 'byte') of the program at 'ea'. Some processors may access more than 8-bit quantity at an address. These processors have 32-bit byte organization from the IDA's point of view. This function takes into account order of bytes specified in idainfo::is_be() 
             
     """
     ...
 
-def get_word(ea: ida_idaapi.ea_t) -> ushort:
-    r"""Get one word (16-bit) of the program at 'ea'. This function takes into account order of bytes specified in idainfo::is_be() This function works only for 8bit byte processors. 
+def get_word(ea: ida_idaapi.ea_t) -> int:
+    r"""Get one word (16-bit) of the program at 'ea'. This function takes into account order of bytes specified in idainfo::is_be() This function works only for 8-bit byte processors. 
             
     """
     ...
@@ -1855,73 +1893,73 @@ def getn_hidden_range(n: int) -> hidden_range_t:
     """
     ...
 
-def has_any_name(F: flags64_t) -> bool:
+def has_any_name(F: int) -> bool:
     r"""Does the current byte have any name?
     
     """
     ...
 
-def has_auto_name(F: flags64_t) -> bool:
+def has_auto_name(F: int) -> bool:
     r"""Does the current byte have auto-generated (no special prefix) name?
     
     """
     ...
 
-def has_cmt(F: flags64_t) -> bool:
+def has_cmt(F: int) -> bool:
     r"""Does the current byte have an indented comment?
     
     """
     ...
 
-def has_dummy_name(F: flags64_t) -> bool:
+def has_dummy_name(F: int) -> bool:
     r"""Does the current byte have dummy (auto-generated, with special prefix) name?
     
     """
     ...
 
-def has_extra_cmts(F: flags64_t) -> bool:
+def has_extra_cmts(F: int) -> bool:
     r"""Does the current byte have additional anterior or posterior lines?
     
     """
     ...
 
-def has_immd(F: flags64_t) -> bool:
+def has_immd(F: int) -> bool:
     r"""Has immediate value?
     
     """
     ...
 
-def has_name(F: flags64_t) -> bool:
+def has_name(F: int) -> bool:
     r"""Does the current byte have non-trivial (non-dummy) name?
     
     """
     ...
 
-def has_user_name(F: flags64_t) -> bool:
+def has_user_name(F: int) -> bool:
     r"""Does the current byte have user-specified name?
     
     """
     ...
 
-def has_value(F: flags64_t) -> bool:
+def has_value(F: int) -> bool:
     r"""Do flags contain byte value?
     
     """
     ...
 
-def has_xref(F: flags64_t) -> bool:
+def has_xref(F: int) -> bool:
     r"""Does the current byte have cross-references to it?
     
     """
     ...
 
-def hex_flag() -> flags64_t:
+def hex_flag() -> int:
     r"""Get number flag of the base, regardless of current processor - better to use num_flag()
     
     """
     ...
 
-def is_align(F: flags64_t) -> bool:
+def is_align(F: int) -> bool:
     r"""FF_ALIGN
     
     """
@@ -1936,121 +1974,121 @@ def is_attached_custom_data_format(dtid: int, dfid: int) -> bool:
     """
     ...
 
-def is_bnot(ea: ida_idaapi.ea_t, F: flags64_t, n: int) -> bool:
-    r"""Should we negate the operand?. asm_t::a_bnot should be defined in the idp module in order to work with this function 
+def is_bnot(ea: ida_idaapi.ea_t, F: int, n: int) -> bool:
+    r"""Should we negate the operand? asm_t::a_bnot should be defined in the idp module in order to work with this function 
             
     """
     ...
 
-def is_byte(F: flags64_t) -> bool:
+def is_byte(F: int) -> bool:
     r"""FF_BYTE
     
     """
     ...
 
-def is_char(F: flags64_t, n: int) -> bool:
+def is_char(F: int, n: int) -> bool:
     r"""is character constant?
     
     """
     ...
 
-def is_char0(F: flags64_t) -> bool:
+def is_char0(F: int) -> bool:
     r"""Is the first operand character constant? (example: push 'a')
     
     """
     ...
 
-def is_char1(F: flags64_t) -> bool:
+def is_char1(F: int) -> bool:
     r"""Is the second operand character constant? (example: mov al, 'a')
     
     """
     ...
 
-def is_code(F: flags64_t) -> bool:
+def is_code(F: int) -> bool:
     r"""Does flag denote start of an instruction?
     
     """
     ...
 
-def is_custfmt(F: flags64_t, n: int) -> bool:
+def is_custfmt(F: int, n: int) -> bool:
     r"""is custom data format?
     
     """
     ...
 
-def is_custfmt0(F: flags64_t) -> bool:
+def is_custfmt0(F: int) -> bool:
     r"""Does the first operand use a custom data representation?
     
     """
     ...
 
-def is_custfmt1(F: flags64_t) -> bool:
+def is_custfmt1(F: int) -> bool:
     r"""Does the second operand use a custom data representation?
     
     """
     ...
 
-def is_custom(F: flags64_t) -> bool:
+def is_custom(F: int) -> bool:
     r"""FF_CUSTOM
     
     """
     ...
 
-def is_data(F: flags64_t) -> bool:
+def is_data(F: int) -> bool:
     r"""Does flag denote start of data?
     
     """
     ...
 
-def is_defarg(F: flags64_t, n: int) -> bool:
+def is_defarg(F: int, n: int) -> bool:
     r"""is defined?
     
     """
     ...
 
-def is_defarg0(F: flags64_t) -> bool:
+def is_defarg0(F: int) -> bool:
     r"""Is the first operand defined? Initially operand has no defined representation.
     
     """
     ...
 
-def is_defarg1(F: flags64_t) -> bool:
+def is_defarg1(F: int) -> bool:
     r"""Is the second operand defined? Initially operand has no defined representation.
     
     """
     ...
 
-def is_double(F: flags64_t) -> bool:
+def is_double(F: int) -> bool:
     r"""FF_DOUBLE
     
     """
     ...
 
-def is_dword(F: flags64_t) -> bool:
+def is_dword(F: int) -> bool:
     r"""FF_DWORD
     
     """
     ...
 
-def is_enum(F: flags64_t, n: int) -> bool:
+def is_enum(F: int, n: int) -> bool:
     r"""is enum?
     
     """
     ...
 
-def is_enum0(F: flags64_t) -> bool:
+def is_enum0(F: int) -> bool:
     r"""Is the first operand a symbolic constant (enum member)?
     
     """
     ...
 
-def is_enum1(F: flags64_t) -> bool:
+def is_enum1(F: int) -> bool:
     r"""Is the second operand a symbolic constant (enum member)?
     
     """
     ...
 
-def is_flag_for_operand(F: flags64_t, typebits: uint8, n: int) -> bool:
+def is_flag_for_operand(F: int, typebits: int, n: int) -> bool:
     r"""Check that the 64-bit flags set has the expected type for operand `n`.
     
     :param F: the flags
@@ -2060,58 +2098,58 @@ def is_flag_for_operand(F: flags64_t, typebits: uint8, n: int) -> bool:
     """
     ...
 
-def is_float(F: flags64_t) -> bool:
+def is_float(F: int) -> bool:
     r"""FF_FLOAT
     
     """
     ...
 
-def is_float0(F: flags64_t) -> bool:
+def is_float0(F: int) -> bool:
     r"""Is the first operand a floating point number?
     
     """
     ...
 
-def is_float1(F: flags64_t) -> bool:
+def is_float1(F: int) -> bool:
     r"""Is the second operand a floating point number?
     
     """
     ...
 
-def is_flow(F: flags64_t) -> bool:
+def is_flow(F: int) -> bool:
     r"""Does the previous instruction exist and pass execution flow to the current byte?
     
     """
     ...
 
-def is_fltnum(F: flags64_t, n: int) -> bool:
+def is_fltnum(F: int, n: int) -> bool:
     r"""is floating point number?
     
     """
     ...
 
 def is_forced_operand(ea: ida_idaapi.ea_t, n: int) -> bool:
-    r"""Is operand manually defined?. 
+    r"""Is operand manually defined? 
             
     :param ea: linear address
     :param n: 0..UA_MAXOP-1 operand number
     """
     ...
 
-def is_func(F: flags64_t) -> bool:
+def is_func(F: int) -> bool:
     r"""Is function start?
     
     """
     ...
 
-def is_head(F: flags64_t) -> bool:
+def is_head(F: int) -> bool:
     r"""Does flag denote start of instruction OR data?
     
     """
     ...
 
-def is_invsign(ea: ida_idaapi.ea_t, F: flags64_t, n: int) -> bool:
-    r"""Should sign of n-th operand inverted during output?. allowed values of n: 0-first operand, 1-other operands 
+def is_invsign(ea: ida_idaapi.ea_t, F: int, n: int) -> bool:
+    r"""Should the sign of n-th operand be inverted during output? allowed values of n: 0-first operand, 1-other operands 
             
     """
     ...
@@ -2123,7 +2161,7 @@ def is_loaded(ea: ida_idaapi.ea_t) -> bool:
     ...
 
 def is_lzero(ea: ida_idaapi.ea_t, n: int) -> bool:
-    r"""Display leading zeroes? Display leading zeroes in operands. The global switch for the leading zeroes is in idainfo::s_genflags Note: the leading zeroes doesn't work if for the target assembler octal numbers start with 0. 
+    r"""Display leading zeros? Display leading zeros in operands. The global switch for the leading zeros is in idainfo::s_genflags Note: the leading zeros does not work if for the target assembler octal numbers start with 0. 
             
     :param ea: the item (insn/data) address
     :param n: the operand number (0-first operand, 1-other operands)
@@ -2131,7 +2169,7 @@ def is_lzero(ea: ida_idaapi.ea_t, n: int) -> bool:
     """
     ...
 
-def is_manual(F: flags64_t, n: int) -> bool:
+def is_manual(F: int, n: int) -> bool:
     r"""is forced operand? (use is_forced_operand())
     
     """
@@ -2150,164 +2188,164 @@ def is_mapped(ea: ida_idaapi.ea_t) -> bool:
     """
     ...
 
-def is_not_tail(F: flags64_t) -> bool:
+def is_not_tail(F: int) -> bool:
     r"""Does flag denote tail byte?
     
     """
     ...
 
-def is_numop(F: flags64_t, n: int) -> bool:
+def is_numop(F: int, n: int) -> bool:
     r"""is number (bin, oct, dec, hex)?
     
     """
     ...
 
-def is_numop0(F: flags64_t) -> bool:
+def is_numop0(F: int) -> bool:
     r"""Is the first operand a number (i.e. binary, octal, decimal or hex?)
     
     """
     ...
 
-def is_numop1(F: flags64_t) -> bool:
+def is_numop1(F: int) -> bool:
     r"""Is the second operand a number (i.e. binary, octal, decimal or hex?)
     
     """
     ...
 
-def is_off(F: flags64_t, n: int) -> bool:
+def is_off(F: int, n: int) -> bool:
     r"""is offset?
     
     """
     ...
 
-def is_off0(F: flags64_t) -> bool:
+def is_off0(F: int) -> bool:
     r"""Is the first operand offset? (example: push offset xxx)
     
     """
     ...
 
-def is_off1(F: flags64_t) -> bool:
+def is_off1(F: int) -> bool:
     r"""Is the second operand offset? (example: mov ax, offset xxx)
     
     """
     ...
 
-def is_oword(F: flags64_t) -> bool:
+def is_oword(F: int) -> bool:
     r"""FF_OWORD
     
     """
     ...
 
-def is_pack_real(F: flags64_t) -> bool:
+def is_pack_real(F: int) -> bool:
     r"""FF_PACKREAL
     
     """
     ...
 
-def is_qword(F: flags64_t) -> bool:
+def is_qword(F: int) -> bool:
     r"""FF_QWORD
     
     """
     ...
 
-def is_same_data_type(F1: flags64_t, F2: flags64_t) -> bool:
+def is_same_data_type(F1: int, F2: int) -> bool:
     r"""Do the given flags specify the same data type?
     
     """
     ...
 
-def is_seg(F: flags64_t, n: int) -> bool:
+def is_seg(F: int, n: int) -> bool:
     r"""is segment?
     
     """
     ...
 
-def is_seg0(F: flags64_t) -> bool:
+def is_seg0(F: int) -> bool:
     r"""Is the first operand segment selector? (example: push seg seg001)
     
     """
     ...
 
-def is_seg1(F: flags64_t) -> bool:
+def is_seg1(F: int) -> bool:
     r"""Is the second operand segment selector? (example: mov dx, seg dseg)
     
     """
     ...
 
-def is_stkvar(F: flags64_t, n: int) -> bool:
+def is_stkvar(F: int, n: int) -> bool:
     r"""is stack variable?
     
     """
     ...
 
-def is_stkvar0(F: flags64_t) -> bool:
+def is_stkvar0(F: int) -> bool:
     r"""Is the first operand a stack variable?
     
     """
     ...
 
-def is_stkvar1(F: flags64_t) -> bool:
+def is_stkvar1(F: int) -> bool:
     r"""Is the second operand a stack variable?
     
     """
     ...
 
-def is_strlit(F: flags64_t) -> bool:
+def is_strlit(F: int) -> bool:
     r"""FF_STRLIT
     
     """
     ...
 
-def is_stroff(F: flags64_t, n: int) -> bool:
+def is_stroff(F: int, n: int) -> bool:
     r"""is struct offset?
     
     """
     ...
 
-def is_stroff0(F: flags64_t) -> bool:
+def is_stroff0(F: int) -> bool:
     r"""Is the first operand an offset within a struct?
     
     """
     ...
 
-def is_stroff1(F: flags64_t) -> bool:
+def is_stroff1(F: int) -> bool:
     r"""Is the second operand an offset within a struct?
     
     """
     ...
 
-def is_struct(F: flags64_t) -> bool:
+def is_struct(F: int) -> bool:
     r"""FF_STRUCT
     
     """
     ...
 
-def is_suspop(ea: ida_idaapi.ea_t, F: flags64_t, n: int) -> bool:
+def is_suspop(ea: ida_idaapi.ea_t, F: int, n: int) -> bool:
     r"""is suspicious operand?
     
     """
     ...
 
-def is_tail(F: flags64_t) -> bool:
+def is_tail(F: int) -> bool:
     r"""Does flag denote tail byte?
     
     """
     ...
 
-def is_tbyte(F: flags64_t) -> bool:
+def is_tbyte(F: int) -> bool:
     r"""FF_TBYTE
     
     """
     ...
 
-def is_unknown(F: flags64_t) -> bool:
+def is_unknown(F: int) -> bool:
     r"""Does flag denote unexplored byte?
     
     """
     ...
 
-def is_varsize_item(ea: ida_idaapi.ea_t, F: flags64_t, ti: opinfo_t = None, itemsize: asize_t = None) -> int:
-    r"""Is the item at 'ea' variable size?. 
+def is_varsize_item(ea: ida_idaapi.ea_t, F: int, ti: opinfo_t = None, itemsize: int = None) -> int:
+    r"""Is the item at 'ea' variable size? 
             
     :param ea: linear address of the item
     :param F: flags
@@ -2319,26 +2357,26 @@ def is_varsize_item(ea: ida_idaapi.ea_t, F: flags64_t, ti: opinfo_t = None, item
     """
     ...
 
-def is_word(F: flags64_t) -> bool:
+def is_word(F: int) -> bool:
     r"""FF_WORD
     
     """
     ...
 
-def is_yword(F: flags64_t) -> bool:
+def is_yword(F: int) -> bool:
     r"""FF_YWORD
     
     """
     ...
 
-def is_zword(F: flags64_t) -> bool:
+def is_zword(F: int) -> bool:
     r"""FF_ZWORD
     
     """
     ...
 
 def leading_zero_important(ea: ida_idaapi.ea_t, n: int) -> bool:
-    r"""Check if leading zeroes are important.
+    r"""Check if leading zeros are important.
     
     """
     ...
@@ -2346,21 +2384,21 @@ def leading_zero_important(ea: ida_idaapi.ea_t, n: int) -> bool:
 def nbits(ea: ida_idaapi.ea_t) -> int:
     r"""Get number of bits in a byte at the given address. 
             
-    :returns: processor_t::dnbits() if the address doesn't belong to a segment, otherwise the result depends on the segment type
+    :returns: processor_t::dnbits() if the address does not belong to a segment, otherwise the result depends on the segment type
     """
     ...
 
 def next_addr(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
     r"""Get next address in the program (i.e. next address which has flags). 
             
-    :returns: BADADDR if no such address exist.
+    :returns: BADADDR if no such address exists.
     """
     ...
 
 def next_chunk(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
     r"""Get the first address of next contiguous chunk in the program. 
             
-    :returns: BADADDR if next chunk doesn't exist.
+    :returns: BADADDR if next chunk does not exist.
     """
     ...
 
@@ -2409,31 +2447,31 @@ def next_visea(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
     """
     ...
 
-def num_flag() -> flags64_t:
+def num_flag() -> int:
     r"""Get number of default base (bin, oct, dec, hex) 
             
     """
     ...
 
-def oct_flag() -> flags64_t:
+def oct_flag() -> int:
     r"""Get number flag of the base, regardless of current processor - better to use num_flag()
     
     """
     ...
 
-def off_flag() -> flags64_t:
+def off_flag() -> int:
     r"""see FF_opbits
     
     """
     ...
 
-def op_adds_xrefs(F: flags64_t, n: int) -> bool:
-    r"""Should processor module create xrefs from the operand?. Currently 'offset', 'structure offset', 'stack' and 'enum' operands create xrefs 
+def op_adds_xrefs(F: int, n: int) -> bool:
+    r"""Should processor module create xrefs from the operand? Currently 'offset', 'structure offset', 'stack' and 'enum' operands create xrefs 
             
     """
     ...
 
-def op_based_stroff(insn: insn_t, n: int, opval: adiff_t, base: ida_idaapi.ea_t) -> bool:
+def op_based_stroff(insn: insn_t, n: int, opval: int, base: ida_idaapi.ea_t) -> bool:
     r"""Set operand representation to be 'struct offset' if the operand likely points to a structure member. For example, let's there is a structure at 1000 1000 stru_1000 Elf32_Sym <...> the operand #8 will be represented as '#Elf32_Sym.st_size' after the call of 'op_based_stroff(..., 8, 0x1000)' By the way, after the call of 'op_plain_offset(..., 0x1000)' it will be represented as '#(stru_1000.st_size - 0x1000)' 
             
     :param insn: the instruction
@@ -2468,8 +2506,8 @@ def op_dec(ea: ida_idaapi.ea_t, n: int) -> bool:
     """
     ...
 
-def op_enum(ea: ida_idaapi.ea_t, n: int, id: tid_t, serial: uchar = 0) -> bool:
-    r"""Set operand representation to be enum type If applied to unexplored bytes, converts them to 16/32bit word data 
+def op_enum(ea: ida_idaapi.ea_t, n: int, id: int, serial: int = 0) -> bool:
+    r"""Set operand representation to be enum type If applied to unexplored bytes, converts them to 16-/32-bit word data 
             
     :param ea: linear address
     :param n: 0..UA_MAXOP-1 operand number, OPND_ALL all operands
@@ -2504,7 +2542,7 @@ def op_oct(ea: ida_idaapi.ea_t, n: int) -> bool:
     ...
 
 def op_seg(ea: ida_idaapi.ea_t, n: int) -> bool:
-    r"""Set operand representation to be 'segment'. If applied to unexplored bytes, converts them to 16/32bit word data 
+    r"""Set operand representation to be 'segment'. If applied to unexplored bytes, converts them to 16-/32-bit word data 
             
     :param ea: linear address
     :param n: 0..UA_MAXOP-1 operand number, OPND_ALL all operands
@@ -2521,7 +2559,7 @@ def op_stkvar(ea: ida_idaapi.ea_t, n: int) -> bool:
     """
     ...
 
-def op_stroff(args: Any) -> bool:
+def op_stroff(*args: Any) -> bool:
     r"""Set operand representation to be 'struct offset'.
     
     This function has the following signatures:
@@ -2539,13 +2577,13 @@ def op_stroff(args: Any) -> bool:
     """
     ...
 
-def oword_flag() -> flags64_t:
+def oword_flag() -> int:
     r"""Get a flags64_t representing a octaword.
     
     """
     ...
 
-def packreal_flag() -> flags64_t:
+def packreal_flag() -> int:
     r"""Get a flags64_t representing a packed decimal real.
     
     """
@@ -2558,7 +2596,7 @@ def parse_binpat_str(out: compiled_binpat_vec_t, ea: ida_idaapi.ea_t, _in: str, 
     """
     ...
 
-def patch_byte(ea: ida_idaapi.ea_t, x: uint64) -> bool:
+def patch_byte(ea: ida_idaapi.ea_t, x: int) -> bool:
     r"""Patch a byte of the program. The original value of the byte is saved and can be obtained by get_original_byte(). This function works for wide byte processors too. 
             
     :returns: true: the database has been modified,
@@ -2566,7 +2604,7 @@ def patch_byte(ea: ida_idaapi.ea_t, x: uint64) -> bool:
     """
     ...
 
-def patch_bytes(ea: ida_idaapi.ea_t, buf: void) -> None:
+def patch_bytes(ea: ida_idaapi.ea_t, buf: Any) -> None:
     r"""Patch the specified number of bytes of the program. Original values of bytes are saved and are available with get_original...() functions. See also put_bytes(). 
             
     :param ea: linear address
@@ -2574,7 +2612,7 @@ def patch_bytes(ea: ida_idaapi.ea_t, buf: void) -> None:
     """
     ...
 
-def patch_dword(ea: ida_idaapi.ea_t, x: uint64) -> bool:
+def patch_dword(ea: ida_idaapi.ea_t, x: int) -> bool:
     r"""Patch a dword of the program. The original value of the dword is saved and can be obtained by get_original_dword(). This function DOESN'T work for wide byte processors. This function takes into account order of bytes specified in idainfo::is_be() 
             
     :returns: true: the database has been modified,
@@ -2582,7 +2620,7 @@ def patch_dword(ea: ida_idaapi.ea_t, x: uint64) -> bool:
     """
     ...
 
-def patch_qword(ea: ida_idaapi.ea_t, x: uint64) -> bool:
+def patch_qword(ea: ida_idaapi.ea_t, x: int) -> bool:
     r"""Patch a qword of the program. The original value of the qword is saved and can be obtained by get_original_qword(). This function DOESN'T work for wide byte processors. This function takes into account order of bytes specified in idainfo::is_be() 
             
     :returns: true: the database has been modified,
@@ -2590,7 +2628,7 @@ def patch_qword(ea: ida_idaapi.ea_t, x: uint64) -> bool:
     """
     ...
 
-def patch_word(ea: ida_idaapi.ea_t, x: uint64) -> bool:
+def patch_word(ea: ida_idaapi.ea_t, x: int) -> bool:
     r"""Patch a word of the program. The original value of the word is saved and can be obtained by get_original_word(). This function works for wide byte processors too. This function takes into account order of bytes specified in idainfo::is_be() 
             
     :returns: true: the database has been modified,
@@ -2601,14 +2639,14 @@ def patch_word(ea: ida_idaapi.ea_t, x: uint64) -> bool:
 def prev_addr(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
     r"""Get previous address in the program. 
             
-    :returns: BADADDR if no such address exist.
+    :returns: BADADDR if no such address exists.
     """
     ...
 
 def prev_chunk(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
     r"""Get the last address of previous contiguous chunk in the program. 
             
-    :returns: BADADDR if previous chunk doesn't exist.
+    :returns: BADADDR if previous chunk does not exist.
     """
     ...
 
@@ -2666,7 +2704,7 @@ def print_strlit_type(strtype: int, flags: int = 0) -> Any:
     """
     ...
 
-def put_byte(ea: ida_idaapi.ea_t, x: uint64) -> bool:
+def put_byte(ea: ida_idaapi.ea_t, x: int) -> bool:
     r"""Set value of one byte of the program. This function modifies the database. If the debugger is active then the debugged process memory is patched too. 
             
     :param ea: linear address
@@ -2675,7 +2713,7 @@ def put_byte(ea: ida_idaapi.ea_t, x: uint64) -> bool:
     """
     ...
 
-def put_bytes(ea: ida_idaapi.ea_t, buf: void) -> None:
+def put_bytes(ea: ida_idaapi.ea_t, buf: Any) -> None:
     r"""Modify the specified number of bytes of the program. This function does not save the original values of bytes. See also patch_bytes(). 
             
     :param ea: linear address
@@ -2683,7 +2721,7 @@ def put_bytes(ea: ida_idaapi.ea_t, buf: void) -> None:
     """
     ...
 
-def put_dword(ea: ida_idaapi.ea_t, x: uint64) -> None:
+def put_dword(ea: ida_idaapi.ea_t, x: int) -> None:
     r"""Set value of one dword of the program. This function takes into account order of bytes specified in idainfo::is_be() This function works for wide byte processors too. 
             
     :param ea: linear address
@@ -2691,7 +2729,7 @@ def put_dword(ea: ida_idaapi.ea_t, x: uint64) -> None:
     """
     ...
 
-def put_qword(ea: ida_idaapi.ea_t, x: uint64) -> None:
+def put_qword(ea: ida_idaapi.ea_t, x: int) -> None:
     r"""Set value of one qword (8 bytes) of the program. This function takes into account order of bytes specified in idainfo::is_be() This function DOESN'T works for wide byte processors. 
             
     :param ea: linear address
@@ -2699,13 +2737,13 @@ def put_qword(ea: ida_idaapi.ea_t, x: uint64) -> None:
     """
     ...
 
-def put_word(ea: ida_idaapi.ea_t, x: uint64) -> None:
+def put_word(ea: ida_idaapi.ea_t, x: int) -> None:
     r"""Set value of one word of the program. This function takes into account order of bytes specified in idainfo::is_be() This function works for wide byte processors too. 
             
     """
     ...
 
-def qword_flag() -> flags64_t:
+def qword_flag() -> int:
     r"""Get a flags64_t representing a quad word.
     
     """
@@ -2731,27 +2769,27 @@ def register_custom_data_type(dt: Any) -> Any:
 
 def register_data_types_and_formats(formats: Any) -> Any:
     r"""
-        Registers multiple data types and formats at once.
-        To register one type/format at a time use register_custom_data_type/register_custom_data_format
+    Registers multiple data types and formats at once.
+    To register one type/format at a time use register_custom_data_type/register_custom_data_format
     
-        It employs a special table of types and formats described below:
+    It employs a special table of types and formats described below:
     
-        The 'formats' is a list of tuples. If a tuple has one element then it is the format to be registered with dtid=0
-        If the tuple has more than one element, then tuple[0] is the data type and tuple[1:] are the data formats. For example:
-        many_formats = [
-          (pascal_data_type(), pascal_data_format()),
-          (simplevm_data_type(), simplevm_data_format()),
-          (makedword_data_format(),),
-          (simplevm_data_format(),)
-        ]
-        The first two tuples describe data types and their associated formats.
-        The last two tuples describe two data formats to be used with built-in data types.
-        The data format may be attached to several data types. The id of the
-        data format is stored in the first data_format_t object. For example:
-        assert many_formats[1][1] != -1
-        assert many_formats[2][0] != -1
-        assert many_formats[3][0] == -1
-        
+    The 'formats' is a list of tuples. If a tuple has one element then it is the format to be registered with dtid=0
+    If the tuple has more than one element, then tuple[0] is the data type and tuple[1:] are the data formats. For example:
+    many_formats = [
+      (pascal_data_type(), pascal_data_format()),
+      (simplevm_data_type(), simplevm_data_format()),
+      (makedword_data_format(),),
+      (simplevm_data_format(),)
+    ]
+    The first two tuples describe data types and their associated formats.
+    The last two tuples describe two data formats to be used with built-in data types.
+    The data format may be attached to several data types. The id of the
+    data format is stored in the first data_format_t object. For example:
+    assert many_formats[1][1] != -1
+    assert many_formats[2][0] != -1
+    assert many_formats[3][0] == -1
+    
     """
     ...
 
@@ -2762,7 +2800,7 @@ def revert_byte(ea: ida_idaapi.ea_t) -> bool:
     """
     ...
 
-def seg_flag() -> flags64_t:
+def seg_flag() -> int:
     r"""see FF_opbits
     
     """
@@ -2799,7 +2837,7 @@ def set_immd(ea: ida_idaapi.ea_t) -> bool:
     ...
 
 def set_lzero(ea: ida_idaapi.ea_t, n: int) -> bool:
-    r"""Set toggle lzero bit. This function changes the display of leading zeroes for the specified operand. If the default is not to display leading zeroes, this function will display them and vice versa. 
+    r"""Set toggle lzero bit. This function changes the display of leading zeros for the specified operand. If the default is not to display leading zeros, this function will display them and vice versa. 
             
     :param ea: the item (insn/data) address
     :param n: the operand number (0-first operand, 1-other operands)
@@ -2815,7 +2853,7 @@ def set_manual_insn(ea: ida_idaapi.ea_t, manual_insn: str) -> None:
     """
     ...
 
-def set_op_type(ea: ida_idaapi.ea_t, type: flags64_t, n: int) -> bool:
+def set_op_type(ea: ida_idaapi.ea_t, type: int, n: int) -> bool:
     r"""(internal function) change representation of operand(s). 
             
     :param ea: linear address
@@ -2826,7 +2864,7 @@ def set_op_type(ea: ida_idaapi.ea_t, type: flags64_t, n: int) -> bool:
     """
     ...
 
-def set_opinfo(ea: ida_idaapi.ea_t, n: int, flag: flags64_t, ti: opinfo_t, suppress_events: bool = False) -> bool:
+def set_opinfo(ea: ida_idaapi.ea_t, n: int, flag: int, ti: opinfo_t, suppress_events: bool = False) -> bool:
     r"""Set additional information about an operand representation. This function is a low level one. Only the kernel should use it. 
             
     :param ea: linear address of the item
@@ -2838,31 +2876,31 @@ def set_opinfo(ea: ida_idaapi.ea_t, n: int, flag: flags64_t, ti: opinfo_t, suppr
     """
     ...
 
-def stkvar_flag() -> flags64_t:
+def stkvar_flag() -> int:
     r"""see FF_opbits
     
     """
     ...
 
-def strlit_flag() -> flags64_t:
+def strlit_flag() -> int:
     r"""Get a flags64_t representing a string literal.
     
     """
     ...
 
-def stroff_flag() -> flags64_t:
+def stroff_flag() -> int:
     r"""see FF_opbits
     
     """
     ...
 
-def stru_flag() -> flags64_t:
+def stru_flag() -> int:
     r"""Get a flags64_t representing a struct.
     
     """
     ...
 
-def tbyte_flag() -> flags64_t:
+def tbyte_flag() -> int:
     r"""Get a flags64_t representing a tbyte.
     
     """
@@ -2907,9 +2945,9 @@ def unregister_custom_data_type(dtid: Any) -> Any:
 
 def unregister_data_types_and_formats(formats: Any) -> Any:
     r"""
-        As opposed to register_data_types_and_formats(), this function
-        unregisters multiple data types and formats at once.
-        
+    As opposed to register_data_types_and_formats(), this function
+    unregisters multiple data types and formats at once.
+    
     """
     ...
 
@@ -2944,19 +2982,19 @@ def visit_patched_bytes(ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, callable: An
     """
     ...
 
-def word_flag() -> flags64_t:
+def word_flag() -> int:
     r"""Get a flags64_t representing a word.
     
     """
     ...
 
-def yword_flag() -> flags64_t:
+def yword_flag() -> int:
     r"""Get a flags64_t representing a ymm word.
     
     """
     ...
 
-def zword_flag() -> flags64_t:
+def zword_flag() -> int:
     r"""Get a flags64_t representing a zmm word.
     
     """
@@ -3094,7 +3132,7 @@ STRCONV_ESCAPE: int  # 1
 STRCONV_INCLLEN: int  # 4
 STRCONV_REPLCHAR: int  # 2
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ida_idaapi: module
 ida_nalt: module
 ida_range: module

@@ -7,9 +7,14 @@ import asyncio
 import json
 from enum import Enum
 from typing import Any, Dict, Optional, Union, Set
-
+import sys
 import httpx
 from urllib.parse import unquote
+
+if sys.version_info >= (3, 10):
+    from typing import TypeGuard
+else:
+    from typing_extensions import TypeGuard
 
 
 class APIErrorCode(str, Enum):
@@ -54,6 +59,9 @@ class APIErrorCode(str, Enum):
     This can occur when the time to respond to a request takes longer than 60 seconds,
     the maximum request timeout."""
 
+    GatewayTimeout = "gateway_timeout"
+    """The request timed out on the server side."""
+
 
 class ClientErrorCode(str, Enum):
     """Error codes generated for client errors."""
@@ -70,11 +78,13 @@ NotionErrorCode = Union[APIErrorCode, ClientErrorCode]
 class NotionClientErrorBase(Exception):
     """Base error type for all Notion client errors."""
 
+    code: Union[str, NotionErrorCode]
+
     def __init__(self, message: str = "") -> None:
         super().__init__(message)
 
 
-def is_notion_client_error(error: Any) -> bool:
+def is_notion_client_error(error: Any) -> TypeGuard["NotionClientError"]:
     return isinstance(error, NotionClientErrorBase)
 
 
@@ -197,10 +207,11 @@ _http_response_error_codes: Set[str] = {
     APIErrorCode.ConflictError.value,
     APIErrorCode.InternalServerError.value,
     APIErrorCode.ServiceUnavailable.value,
+    APIErrorCode.GatewayTimeout.value,
 }
 
 
-def is_http_response_error(error: Any) -> bool:
+def is_http_response_error(error: Any) -> TypeGuard[HTTPResponseError]:
     return _is_notion_client_error_with_code(error, _http_response_error_codes)
 
 
@@ -251,6 +262,7 @@ _api_error_codes: Set[str] = {
     APIErrorCode.ConflictError.value,
     APIErrorCode.InternalServerError.value,
     APIErrorCode.ServiceUnavailable.value,
+    APIErrorCode.GatewayTimeout.value,
 }
 
 
@@ -259,7 +271,7 @@ class APIResponseError(HTTPResponseError):
     request_id: Optional[str]
 
     @staticmethod
-    def is_api_response_error(error: Any) -> bool:
+    def is_api_response_error(error: Any) -> TypeGuard["APIResponseError"]:
         return _is_notion_client_error_with_code(error, _api_error_codes)
 
 

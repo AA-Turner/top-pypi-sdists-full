@@ -106,6 +106,9 @@ class CaptureCollection(System.Object, System.Collections.Generic.IList[System.T
     def __iter__(self) -> typing.Iterator[System.Text.RegularExpressions.Capture]:
         ...
 
+    def __len__(self) -> int:
+        ...
+
     @overload
     def copy_to(self, array: System.Array, array_index: int) -> None:
         ...
@@ -243,6 +246,9 @@ class MatchCollection(System.Object, System.Collections.Generic.IList[System.Tex
         ...
 
     def __iter__(self) -> typing.Iterator[System.Text.RegularExpressions.Match]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     @overload

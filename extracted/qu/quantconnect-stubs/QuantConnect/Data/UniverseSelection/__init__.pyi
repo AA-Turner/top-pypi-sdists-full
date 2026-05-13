@@ -25,6 +25,11 @@ QuantConnect_Data_UniverseSelection_ConstituentsUniverse_T = typing.TypeVar("Qua
 QuantConnect_Data_UniverseSelection_FuncUniverse_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_FuncUniverse_T")
 QuantConnect_Data_UniverseSelection__EventContainer_Callable = typing.TypeVar("QuantConnect_Data_UniverseSelection__EventContainer_Callable")
 QuantConnect_Data_UniverseSelection__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Data_UniverseSelection__EventContainer_ReturnType")
+QuantConnect_Data_UniverseSelection_FundamentalService_Get_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_FundamentalService_Get_T")
+QuantConnect_Data_UniverseSelection_CoarseFundamentalDataProvider_Get_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_CoarseFundamentalDataProvider_Get_T")
+QuantConnect_Data_UniverseSelection_IFundamentalDataProvider_Get_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_IFundamentalDataProvider_Get_T")
+QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_Get_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_Get_T")
+QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_GetDefault_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_GetDefault_T")
 
 
 class Schedule(System.Object):
@@ -268,7 +273,7 @@ class BaseDataCollection(QuantConnect.Data.BaseData, typing.Iterable[QuantConnec
         Helper method to create an instance without setting the data list
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -522,7 +527,7 @@ class Universe(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         Initializes a new instance of the Universe class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param config: The configuration used to source data for this universe
         """
@@ -586,7 +591,7 @@ class Universe(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         Event invocator for the selection_changed event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param selection: The current universe selection
         """
@@ -676,8 +681,70 @@ class CryptoCoarseFundamentalUniverse(QuantConnect.Data.UniverseSelection.Crypto
         ...
 
 
+class _Typed_FundamentalService_Get(typing.Generic[QuantConnect_Data_UniverseSelection_FundamentalService_Get_T]):
+    """"""
+
+    @overload
+    def __call__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], name: QuantConnect.Data.Fundamental.FundamentalProperty) -> QuantConnect_Data_UniverseSelection_FundamentalService_Get_T:
+        """
+        Will fetch the requested fundamental information for the requested time and symbol
+        
+        :param time: The time to request this data for
+        :param symbol: The symbol instance
+        :param name: The name of the fundamental property
+        :returns: The fundamental information.
+        """
+        ...
+
+    @overload
+    def __call__(self, time: typing.Union[datetime.datetime, datetime.date], security_identifier: QuantConnect.SecurityIdentifier, name: QuantConnect.Data.Fundamental.FundamentalProperty) -> QuantConnect_Data_UniverseSelection_FundamentalService_Get_T:
+        """
+        Will fetch the requested fundamental information for the requested time and symbol
+        
+        :param time: The time to request this data for
+        :param security_identifier: The security identifier
+        :param name: The name of the fundamental property
+        :returns: The fundamental information.
+        """
+        ...
+
+
+class _FundamentalService_Get:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_UniverseSelection_FundamentalService_Get_T]) -> QuantConnect.Data.UniverseSelection._Typed_FundamentalService_Get[QuantConnect_Data_UniverseSelection_FundamentalService_Get_T]:
+        ...
+
+
+class _Typed_IFundamentalDataProvider_Get(typing.Generic[QuantConnect_Data_UniverseSelection_IFundamentalDataProvider_Get_T]):
+    """"""
+
+    @overload
+    def __call__(self, time: typing.Union[datetime.datetime, datetime.date], security_identifier: QuantConnect.SecurityIdentifier, name: QuantConnect.Data.Fundamental.FundamentalProperty) -> QuantConnect_Data_UniverseSelection_IFundamentalDataProvider_Get_T:
+        """
+        Will fetch the requested fundamental information for the requested time and symbol
+        
+        :param time: The time to request this data for
+        :param security_identifier: The security identifier
+        :param name: The name of the fundamental property
+        :returns: The fundamental information.
+        """
+        ...
+
+
+class _IFundamentalDataProvider_Get:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_UniverseSelection_IFundamentalDataProvider_Get_T]) -> QuantConnect.Data.UniverseSelection._Typed_IFundamentalDataProvider_Get[QuantConnect_Data_UniverseSelection_IFundamentalDataProvider_Get_T]:
+        ...
+
+
 class IFundamentalDataProvider(metaclass=abc.ABCMeta):
     """"""
+
+    @property
+    def get(self) -> QuantConnect.Data.UniverseSelection._IFundamentalDataProvider_Get:
+        ...
 
     def initialize(self, data_provider: QuantConnect.Interfaces.IDataProvider, live_mode: bool) -> None:
         """
@@ -691,6 +758,8 @@ class IFundamentalDataProvider(metaclass=abc.ABCMeta):
 
 class FundamentalService(System.Object):
     """Fundamental data provider service"""
+
+    get: QuantConnect.Data.UniverseSelection._FundamentalService_Get
 
     @staticmethod
     @overload
@@ -1034,7 +1103,7 @@ class UniverseDecorator(QuantConnect.Data.UniverseSelection.Universe, metaclass=
         The decorated universe instance
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1057,7 +1126,7 @@ class UniverseDecorator(QuantConnect.Data.UniverseSelection.Universe, metaclass=
         Initializes a new instance of the UniverseDecorator class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param universe: The decorated universe. All overridable methods delegate to this instance.
         """
@@ -1256,7 +1325,7 @@ class BaseChainUniverseData(QuantConnect.Data.UniverseSelection.BaseDataCollecti
         Csv line to get the values from
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1315,7 +1384,7 @@ class BaseChainUniverseData(QuantConnect.Data.UniverseSelection.BaseDataCollecti
         Creates a new instance of the BaseChainUniverseData class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1325,7 +1394,7 @@ class BaseChainUniverseData(QuantConnect.Data.UniverseSelection.BaseDataCollecti
         Creates a new instance of the BaseChainUniverseData class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1335,7 +1404,7 @@ class BaseChainUniverseData(QuantConnect.Data.UniverseSelection.BaseDataCollecti
         Creates a new instance of the BaseChainUniverseData class as a copy of the given instance
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1612,7 +1681,7 @@ class FutureUniverse(QuantConnect.Data.UniverseSelection.BaseChainUniverseData):
         Caches a symbol
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1639,7 +1708,7 @@ class FutureUniverse(QuantConnect.Data.UniverseSelection.BaseChainUniverseData):
         Tries to get a symbol from the cache
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2082,7 +2151,7 @@ class UserDefinedUniverse(QuantConnect.Data.UniverseSelection.Universe, System.C
         Event invocator for the collection_changed event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: The notify collection changed event arguments
         """
@@ -2117,6 +2186,49 @@ class ETFConstituentData(QuantConnect.Data.UniverseSelection.ETFConstituentUnive
     """
 
 
+class _Typed_BaseFundamentalDataProvider_Get(typing.Generic[QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_Get_T]):
+    """"""
+
+    @overload
+    def __call__(self, time: typing.Union[datetime.datetime, datetime.date], security_identifier: QuantConnect.SecurityIdentifier, name: QuantConnect.Data.Fundamental.FundamentalProperty) -> QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_Get_T:
+        """
+        Will fetch the requested fundamental information for the requested time and symbol
+        
+        :param time: The time to request this data for
+        :param security_identifier: The security identifier
+        :param name: The name of the fundamental property
+        :returns: The fundamental information.
+        """
+        ...
+
+
+class _BaseFundamentalDataProvider_Get:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_Get_T]) -> QuantConnect.Data.UniverseSelection._Typed_BaseFundamentalDataProvider_Get[QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_Get_T]:
+        ...
+
+
+class _Typed_BaseFundamentalDataProvider_GetDefault(typing.Generic[QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_GetDefault_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_GetDefault_T:
+        """
+        Get's the default value for the given T type
+        
+        :returns: The default value.
+        """
+        ...
+
+
+class _BaseFundamentalDataProvider_GetDefault:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_GetDefault_T]) -> QuantConnect.Data.UniverseSelection._Typed_BaseFundamentalDataProvider_GetDefault[QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_GetDefault_T]:
+        ...
+
+
 class BaseFundamentalDataProvider(System.Object, QuantConnect.Data.UniverseSelection.IFundamentalDataProvider):
     """Base fundamental data provider"""
 
@@ -2135,13 +2247,19 @@ class BaseFundamentalDataProvider(System.Object, QuantConnect.Data.UniverseSelec
         THe data provider instance to use
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
     @data_provider.setter
     def data_provider(self, value: QuantConnect.Interfaces.IDataProvider) -> None:
         ...
+
+    @property
+    def get(self) -> QuantConnect.Data.UniverseSelection._BaseFundamentalDataProvider_Get:
+        ...
+
+    get_default: QuantConnect.Data.UniverseSelection._BaseFundamentalDataProvider_GetDefault
 
     def initialize(self, data_provider: QuantConnect.Interfaces.IDataProvider, live_mode: bool) -> None:
         """
@@ -2162,6 +2280,29 @@ class BaseFundamentalDataProvider(System.Object, QuantConnect.Data.UniverseSelec
     @overload
     def is_none(type: typing.Type, value: typing.Any) -> bool:
         """True if the given value is none"""
+        ...
+
+
+class _Typed_CoarseFundamentalDataProvider_Get(typing.Generic[QuantConnect_Data_UniverseSelection_CoarseFundamentalDataProvider_Get_T]):
+    """"""
+
+    @overload
+    def __call__(self, time: typing.Union[datetime.datetime, datetime.date], security_identifier: QuantConnect.SecurityIdentifier, name: QuantConnect.Data.Fundamental.FundamentalProperty) -> QuantConnect_Data_UniverseSelection_CoarseFundamentalDataProvider_Get_T:
+        """
+        Will fetch the requested fundamental information for the requested time and symbol
+        
+        :param time: The time to request this data for
+        :param security_identifier: The security identifier
+        :param name: The name of the fundamental property
+        :returns: The fundamental information.
+        """
+        ...
+
+
+class _CoarseFundamentalDataProvider_Get:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_UniverseSelection_CoarseFundamentalDataProvider_Get_T]) -> QuantConnect.Data.UniverseSelection._Typed_CoarseFundamentalDataProvider_Get[QuantConnect_Data_UniverseSelection_CoarseFundamentalDataProvider_Get_T]:
         ...
 
 
@@ -2232,6 +2373,10 @@ class CoarseFundamentalDataProvider(QuantConnect.Data.UniverseSelection.BaseFund
         def split_factor(self) -> float:
             """Gets the split factor for the given date"""
             ...
+
+    @property
+    def get(self) -> QuantConnect.Data.UniverseSelection._CoarseFundamentalDataProvider_Get:
+        ...
 
     @staticmethod
     def read(line: str, date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.Data.UniverseSelection.CoarseFundamentalDataProvider.CoarseFundamentalSource:
@@ -2387,7 +2532,7 @@ class OptionUniverse(QuantConnect.Data.UniverseSelection.BaseChainUniverseData):
         Caches a symbol
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2415,7 +2560,7 @@ class OptionUniverse(QuantConnect.Data.UniverseSelection.BaseChainUniverseData):
         Tries to get a symbol from the cache
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

@@ -1,9 +1,28 @@
 import logging
 import os
+import sys
 from pathlib import Path
 
 import arrow as ar
 import logzero
+
+
+class TqdmStreamHandler(logging.StreamHandler):
+    """StreamHandler that writes via `tqdm.write` so log lines don't tear
+    an active progress bar in the same process. Falls back to plain write
+    if tqdm isn't around."""
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            try:
+                from tqdm import tqdm as std_tqdm
+                std_tqdm.write(msg, file=self.stream)
+            except Exception:
+                self.stream.write(msg + self.terminator)
+                self.flush()
+        except Exception:
+            self.handleError(record)
 
 
 def read_config(path_config_file):
@@ -70,6 +89,18 @@ class Logger:
             backupCount=3,
             level=level,
         )
+
+        # Replace logzero's stderr StreamHandler with a tqdm-aware variant
+        # so log warnings don't tear an active progress bar. Leave the
+        # rotating file handler alone (FileHandler is a StreamHandler too,
+        # hence the explicit FileHandler exclusion).
+        for h in list(self.logger.handlers):
+            if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler):
+                new_h = TqdmStreamHandler(h.stream)
+                new_h.setLevel(h.level)
+                new_h.setFormatter(h.formatter)
+                self.logger.removeHandler(h)
+                self.logger.addHandler(new_h)
 
     def debug(self, msg):
         self.logger.debug(msg)

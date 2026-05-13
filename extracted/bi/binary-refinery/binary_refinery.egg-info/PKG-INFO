@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: binary-refinery
-Version: 0.10.11
+Version: 0.11.0
 Summary: A toolkit to transform and refine (mostly) binary data.
 Home-page: https://github.com/binref/refinery/
 Author: Jesko Huettenhain
@@ -12,7 +12,7 @@ Classifier: Topic :: Security :: Cryptography
 Classifier: Topic :: System :: Archiving :: Compression
 Classifier: Topic :: System :: Shells
 Classifier: Topic :: Utilities
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: cython
@@ -42,70 +42,70 @@ Requires-Dist: pyperclip
 Requires-Dist: pyperclip
 Requires-Dist: colorama
 Provides-Extra: default
-Requires-Dist: pymupdf; extra == "default"
-Requires-Dist: orjson; extra == "default"
 Requires-Dist: capstone; extra == "default"
-Requires-Dist: pikepdf<=9.5; extra == "default"
+Requires-Dist: pefile; extra == "default"
+Requires-Dist: orjson; extra == "default"
 Requires-Dist: numpy; extra == "default"
 Requires-Dist: chardet; extra == "default"
-Requires-Dist: pefile; extra == "default"
+Requires-Dist: pikepdf<=9.5; extra == "default"
 Requires-Dist: colorama; extra == "default"
-Requires-Dist: Pillow; extra == "default"
 Requires-Dist: unicorn>=2.0.1.post1; extra == "default"
+Requires-Dist: pymupdf; extra == "default"
+Requires-Dist: Pillow; extra == "default"
 Provides-Extra: extended
-Requires-Dist: pymupdf; extra == "extended"
-Requires-Dist: orjson; extra == "extended"
-Requires-Dist: capstone; extra == "extended"
-Requires-Dist: python-registry; extra == "extended"
-Requires-Dist: numpy; extra == "extended"
 Requires-Dist: openpyxl; extra == "extended"
+Requires-Dist: minidump==0.0.24; extra == "extended"
+Requires-Dist: brotli; extra == "extended"
+Requires-Dist: capstone; extra == "extended"
+Requires-Dist: numpy; extra == "extended"
+Requires-Dist: pikepdf<=9.5; extra == "extended"
+Requires-Dist: colorama; extra == "extended"
+Requires-Dist: python-registry; extra == "extended"
+Requires-Dist: pymupdf; extra == "extended"
+Requires-Dist: xlrd2; extra == "extended"
+Requires-Dist: pyxlsb2; extra == "extended"
 Requires-Dist: pyppmd; extra == "extended"
+Requires-Dist: icicle-emu>=0.0.11; extra == "extended"
+Requires-Dist: pefile; extra == "extended"
+Requires-Dist: decompyle3; extra == "extended"
+Requires-Dist: pyonenote; extra == "extended"
+Requires-Dist: orjson; extra == "extended"
 Requires-Dist: chardet; extra == "extended"
 Requires-Dist: uncompyle6>=3.9.3; extra == "extended"
-Requires-Dist: minidump==0.0.24; extra == "extended"
-Requires-Dist: xdis; extra == "extended"
-Requires-Dist: colorama; extra == "extended"
-Requires-Dist: unicorn>=2.0.1.post1; extra == "extended"
-Requires-Dist: icicle-emu>=0.0.11; extra == "extended"
-Requires-Dist: xlrd2; extra == "extended"
-Requires-Dist: pikepdf<=9.5; extra == "extended"
-Requires-Dist: pyonenote; extra == "extended"
-Requires-Dist: pyxlsb2; extra == "extended"
-Requires-Dist: pefile; extra == "extended"
-Requires-Dist: Pillow; extra == "extended"
-Requires-Dist: brotli; extra == "extended"
-Requires-Dist: decompyle3; extra == "extended"
 Requires-Dist: pyzstd; extra == "extended"
+Requires-Dist: unicorn>=2.0.1.post1; extra == "extended"
+Requires-Dist: xdis; extra == "extended"
+Requires-Dist: Pillow; extra == "extended"
 Provides-Extra: all
-Requires-Dist: pymupdf; extra == "all"
-Requires-Dist: orjson; extra == "all"
-Requires-Dist: capstone; extra == "all"
-Requires-Dist: python-registry; extra == "all"
-Requires-Dist: numpy; extra == "all"
 Requires-Dist: openpyxl; extra == "all"
-Requires-Dist: pyppmd; extra == "all"
 Requires-Dist: smda<2.0; extra == "all"
+Requires-Dist: speakeasy-emulator==2.0.0b3; extra == "all"
+Requires-Dist: minidump==0.0.24; extra == "all"
+Requires-Dist: brotli; extra == "all"
+Requires-Dist: capstone; extra == "all"
+Requires-Dist: numpy; extra == "all"
+Requires-Dist: pikepdf<=9.5; extra == "all"
+Requires-Dist: colorama; extra == "all"
+Requires-Dist: python-registry; extra == "all"
+Requires-Dist: pymupdf; extra == "all"
+Requires-Dist: xlrd2; extra == "all"
+Requires-Dist: pyxlsb2; extra == "all"
 Requires-Dist: javaobj-py3>=0.4.0.1; extra == "all"
 Requires-Dist: python-evtx; extra == "all"
-Requires-Dist: python-idb<=0.8.0; extra == "all"
+Requires-Dist: pyppmd; extra == "all"
+Requires-Dist: icicle-emu>=0.0.11; extra == "all"
+Requires-Dist: pefile; extra == "all"
+Requires-Dist: decompyle3; extra == "all"
+Requires-Dist: pyonenote; extra == "all"
+Requires-Dist: orjson; extra == "all"
 Requires-Dist: chardet; extra == "all"
 Requires-Dist: uncompyle6>=3.9.3; extra == "all"
-Requires-Dist: Pygments; extra == "all"
-Requires-Dist: minidump==0.0.24; extra == "all"
-Requires-Dist: xdis; extra == "all"
-Requires-Dist: colorama; extra == "all"
-Requires-Dist: unicorn>=2.0.1.post1; extra == "all"
-Requires-Dist: icicle-emu>=0.0.11; extra == "all"
-Requires-Dist: xlrd2; extra == "all"
-Requires-Dist: pikepdf<=9.5; extra == "all"
-Requires-Dist: pyonenote; extra == "all"
-Requires-Dist: pyxlsb2; extra == "all"
-Requires-Dist: pefile; extra == "all"
-Requires-Dist: speakeasy-emulator-refined==1.6.1b0.post3; extra == "all"
-Requires-Dist: Pillow; extra == "all"
-Requires-Dist: brotli; extra == "all"
-Requires-Dist: decompyle3; extra == "all"
 Requires-Dist: pyzstd; extra == "all"
+Requires-Dist: python-idb<=0.8.0; extra == "all"
+Requires-Dist: unicorn>=2.0.1.post1; extra == "all"
+Requires-Dist: Pygments; extra == "all"
+Requires-Dist: xdis; extra == "all"
+Requires-Dist: Pillow; extra == "all"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description
@@ -143,7 +143,7 @@ and is an attempt to implement something like [CyberChef](https://github.com/gch
 
 ## Short Version
 
-Make a Python virtual environment. You need Python 3.8 or later. Install refinery like this:
+Make a Python virtual environment. You need Python 3.10 or later. Install refinery like this:
 ```
 python -m pip install -U pip
 python -m pip install -U binary-refinery[extended]
@@ -194,7 +194,7 @@ If you want to do something with it that's not covered by this license, please f
 
 ## Warnings & Advice
 
-The refinery requires at least **Python 3.8**.
+The refinery requires at least **Python 3.10**.
 It is recommended to install it into its own [virtual environment][venv]:
 The package can pull in a **lot** of dependencies,
 and installing it into your global Python is somewhat prone to version conflicts.

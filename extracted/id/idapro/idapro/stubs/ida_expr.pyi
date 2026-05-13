@@ -1,9 +1,9 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Functions that deal with C-like expressions and built-in IDC language.
 
-Functions marked THREAD_SAFE may be called from any thread. No simultaneous calls should be made for the same variable. We protect only global structures, individual variables must be protected manually. 
-    
+Functions marked THREAD_SAFE may be called from any thread. No simultaneous calls should be made for the same variable. We protect only global structures, individual variables must be protected manually.
+
 """
 
 class highlighter_cbs_t:
@@ -15,27 +15,33 @@ class highlighter_cbs_t:
         ...
     def __disown__(self) -> Any:
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -43,16 +49,16 @@ class highlighter_cbs_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -69,10 +75,10 @@ class highlighter_cbs_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -82,7 +88,7 @@ class highlighter_cbs_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def cur_block_state(self) -> int:
         ...
@@ -95,36 +101,42 @@ class highlighter_cbs_t:
 
 class idc_global_t:
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def value(self) -> Any: ...
+    def value(self) -> idc_value_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -132,16 +144,16 @@ class idc_global_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -158,10 +170,10 @@ class idc_global_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -171,20 +183,20 @@ class idc_global_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class idc_value_t:
     @property
-    def e(self) -> Any: ...
+    def e(self) -> fpvalue_t: ...
     @property
-    def funcidx(self) -> Any: ...
+    def funcidx(self) -> int: ...
     @property
-    def i64(self) -> Any: ...
+    def i64(self) -> int: ...
     @property
-    def num(self) -> Any: ...
+    def num(self) -> int: ...
     @property
-    def obj(self) -> Any: ...
+    def obj(self) -> idc_object_t: ...
     @property
     def pvoid(self) -> Any: ...
     @property
@@ -192,34 +204,40 @@ class idc_value_t:
     @property
     def str(self) -> Any: ...
     @property
-    def vtype(self) -> Any: ...
+    def vtype(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -227,16 +245,16 @@ class idc_value_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -253,10 +271,10 @@ class idc_value_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -266,7 +284,7 @@ class idc_value_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def c_str(self) -> str:
         r"""VT_STR
@@ -302,20 +320,20 @@ class idc_value_t:
         ...
     def set_float(self, f: fpvalue_t) -> None:
         ...
-    def set_int64(self, v: int64) -> None:
+    def set_int64(self, v: int) -> None:
         ...
     def set_long(self, v: int) -> None:
         ...
-    def set_pvoid(self, p: void) -> None:
+    def set_pvoid(self, p: Any) -> None:
         ...
-    def set_string(self, args: Any) -> None:
+    def set_string(self, *args: Any) -> None:
         ...
     def swap(self, v: idc_value_t) -> None:
         r"""Set this = r and v = this.
         
         """
         ...
-    def u_str(self) -> uchar:
+    def u_str(self) -> int:
         r"""VT_STR
         
         """
@@ -328,29 +346,35 @@ class idc_values_t:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> idc_value_t:
+    def __getitem__(self, i: int) -> idc_value_t:
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -358,21 +382,21 @@ class idc_values_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[idc_value_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
     def __len__(self) -> int:
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -386,15 +410,15 @@ class idc_values_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: idc_value_t) -> None:
+    def __setitem__(self, i: int, v: idc_value_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -404,15 +428,15 @@ class idc_values_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def append(self, x: idc_value_t) -> None:
         ...
-    def at(self, _idx: size_t) -> idc_value_t:
+    def at(self, _idx: int) -> idc_value_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> qvector:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -420,9 +444,9 @@ class idc_values_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> qvector:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: idc_values_t) -> None:
         ...
@@ -430,21 +454,21 @@ class idc_values_t:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
-    def inject(self, s: idc_value_t, len: size_t) -> None:
+    def inject(self, s: idc_value_t, len: int) -> None:
         ...
     def insert(self, it: idc_value_t, x: idc_value_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> idc_value_t:
+    def push_back(self, *args: Any) -> idc_value_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -514,7 +538,7 @@ def compile_idc_snippet(func: str, text: str, resolver: idc_resolver_t = None, o
 def compile_idc_text(nonnul_line: str) -> str:
     ...
 
-def copy_idcv(dst: idc_value_t, src: idc_value_t) -> error_t:
+def copy_idcv(dst: idc_value_t, src: idc_value_t) -> int:
     r"""Copy 'src' to 'dst'. For idc objects only a reference is copied. 
             
     """
@@ -529,7 +553,7 @@ def create_idcv_ref(ref: idc_value_t, v: idc_value_t) -> bool:
     """
     ...
 
-def deep_copy_idcv(dst: idc_value_t, src: idc_value_t) -> error_t:
+def deep_copy_idcv(dst: idc_value_t, src: idc_value_t) -> int:
     r"""Deep copy an IDC object. This function performs deep copy of idc objects. If 'src' is not an object, copy_idcv() will be called 
             
     """
@@ -541,7 +565,7 @@ def del_idc_func(name: Any) -> Any:
     """
     ...
 
-def del_idcv_attr(obj: idc_value_t, attr: str) -> error_t:
+def del_idcv_attr(obj: idc_value_t, attr: str) -> int:
     r"""Delete an object attribute. 
             
     :param obj: variable that holds an object reference
@@ -576,7 +600,7 @@ def eval_idc_expr(rv: idc_value_t, where: ida_idaapi.ea_t, line: str) -> str:
     """
     ...
 
-def exec_idc_script(result: idc_value_t, path: str, func: str, args: idc_value_t, argsnum: size_t) -> str:
+def exec_idc_script(result: idc_value_t, path: str, func: str, args: idc_value_t, argsnum: int) -> str:
     r"""Compile and execute IDC function(s) from file. 
             
     :param result: ptr to idc_value_t to hold result of the function. If execution fails, this variable will contain the exception information. You may pass nullptr if you are not interested in the returned value.
@@ -636,7 +660,7 @@ def get_idc_filename(file: str) -> str:
     """
     ...
 
-def get_idcv_attr(res: idc_value_t, obj: idc_value_t, attr: str, may_use_getattr: bool = False) -> error_t:
+def get_idcv_attr(res: idc_value_t, obj: idc_value_t, attr: str, may_use_getattr: bool = False) -> int:
     r"""Get an object attribute. 
             
     :param res: buffer for the attribute value
@@ -655,7 +679,7 @@ def get_idcv_class_name(obj: idc_value_t) -> str:
     """
     ...
 
-def get_idcv_slice(res: idc_value_t, v: idc_value_t, i1: int, i2: int, flags: int = 0) -> error_t:
+def get_idcv_slice(res: idc_value_t, v: idc_value_t, i1: int, i2: int, flags: int = 0) -> int:
     r"""Get slice. 
             
     :param res: output variable that will contain the slice
@@ -667,27 +691,27 @@ def get_idcv_slice(res: idc_value_t, v: idc_value_t, i1: int, i2: int, flags: in
     """
     ...
 
-def idcv_float(v: idc_value_t) -> error_t:
+def idcv_float(v: idc_value_t) -> int:
     r"""Convert IDC variable to a floating point.
     
     """
     ...
 
-def idcv_int64(v: idc_value_t) -> error_t:
-    r"""Convert IDC variable to a 64bit number. 
+def idcv_int64(v: idc_value_t) -> int:
+    r"""Convert IDC variable to a 64-bit number. 
             
     :returns: v = 0 if impossible to convert to int64
     """
     ...
 
-def idcv_long(v: idc_value_t) -> error_t:
-    r"""Convert IDC variable to a long (32/64bit) number. 
+def idcv_long(v: idc_value_t) -> int:
+    r"""Convert IDC variable to a long (32/64-bit) number. 
             
     :returns: v = 0 if impossible to convert to long
     """
     ...
 
-def idcv_num(v: idc_value_t) -> error_t:
+def idcv_num(v: idc_value_t) -> int:
     r"""Convert IDC variable to a long number. 
             
     :returns: * v = 0 if IDC variable = "false" string
@@ -697,7 +721,7 @@ def idcv_num(v: idc_value_t) -> error_t:
     """
     ...
 
-def idcv_object(v: idc_value_t, icls: idc_class_t = None) -> error_t:
+def idcv_object(v: idc_value_t, icls: idc_class_t = None) -> int:
     r"""Create an IDC object. The original value of 'v' is discarded (freed). 
             
     :param v: variable to hold the object. any previous value will be cleaned
@@ -706,7 +730,7 @@ def idcv_object(v: idc_value_t, icls: idc_class_t = None) -> error_t:
     """
     ...
 
-def idcv_string(v: idc_value_t) -> error_t:
+def idcv_string(v: idc_value_t) -> int:
     r"""Convert IDC variable to a text string.
     
     """
@@ -715,7 +739,7 @@ def idcv_string(v: idc_value_t) -> error_t:
 def last_idcv_attr(obj: idc_value_t) -> str:
     ...
 
-def move_idcv(dst: idc_value_t, src: idc_value_t) -> error_t:
+def move_idcv(dst: idc_value_t, src: idc_value_t) -> int:
     r"""Move 'src' to 'dst'. This function is more effective than copy_idcv since it never copies big amounts of data. 
             
     """
@@ -733,7 +757,7 @@ def print_idcv(v: idc_value_t, name: str = None, indent: int = 0) -> str:
     """
     ...
 
-def py_add_idc_func(name: str, fp_ptr: size_t, args: str, defvals: idc_values_t, flags: int) -> bool:
+def py_add_idc_func(name: str, fp_ptr: int, args: str, defvals: idc_values_t, flags: int) -> bool:
     ...
 
 def py_get_call_idc_func() -> int:
@@ -745,7 +769,7 @@ def pyw_convert_defvals(out: idc_values_t, py_seq: Any) -> bool:
 def pyw_register_idc_func(name: str, args: str, py_fp: Any) -> int:
     ...
 
-def pyw_unregister_idc_func(ctxptr: size_t) -> bool:
+def pyw_unregister_idc_func(ctxptr: int) -> bool:
     ...
 
 def set_header_path(path: str, add: bool) -> bool:
@@ -758,7 +782,7 @@ def set_header_path(path: str, add: bool) -> bool:
     """
     ...
 
-def set_idcv_attr(obj: idc_value_t, attr: str, value: idc_value_t, may_use_setattr: bool = False) -> error_t:
+def set_idcv_attr(obj: idc_value_t, attr: str, value: idc_value_t, may_use_setattr: bool = False) -> int:
     r"""Set an object attribute. 
             
     :param obj: variable that holds an object reference. if obj is nullptr then it tries to modify a global variable with the attribute name
@@ -769,7 +793,7 @@ def set_idcv_attr(obj: idc_value_t, attr: str, value: idc_value_t, may_use_setat
     """
     ...
 
-def set_idcv_slice(v: idc_value_t, i1: int, i2: int, _in: idc_value_t, flags: int = 0) -> error_t:
+def set_idcv_slice(v: idc_value_t, i1: int, i2: int, _in: idc_value_t, flags: int = 0) -> int:
     r"""Set slice. 
             
     :param v: variable to modify (string or object)
@@ -786,7 +810,7 @@ def swap_idcvs(v1: idc_value_t, v2: idc_value_t) -> None:
     """
     ...
 
-def throw_idc_exception(r: idc_value_t, desc: str) -> error_t:
+def throw_idc_exception(r: idc_value_t, desc: str) -> int:
     r"""Create an idc execution exception object. This helper function can be used to return an exception from C++ code to IDC. In other words this function can be called from idc_func_t() callbacks. Sample usage: if ( !ok ) return throw_idc_exception(r, "detailed error msg"); 
             
     :param r: object to hold the exception object
@@ -829,7 +853,7 @@ VT_PVOID: int  # 8
 VT_REF: int  # 10
 VT_STR: int  # 7
 VT_WILD: int  # 4
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ctypes: module
 eExecThrow: int  # 90
 ida_idaapi: module

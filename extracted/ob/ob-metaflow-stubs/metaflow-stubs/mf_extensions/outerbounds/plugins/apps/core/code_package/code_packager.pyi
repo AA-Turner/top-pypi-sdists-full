@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.831481                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.079034                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -56,7 +56,7 @@ class CodePackager(object, metaclass=type):
     )
     ```
     """
-    def __init__(self, datastore_type: str = 's3', datastore_root: typing.Optional[str] = None, code_package_prefix: typing.Optional[str] = None):
+    def __init__(self, datastore_type: str = 's3', datastore_root: typing.Union[str, None] = None, code_package_prefix: typing.Union[str, None] = None):
         """
         Initialize the CodePackager with datastore configuration.
         
@@ -71,7 +71,7 @@ class CodePackager(object, metaclass=type):
             If not provided, uses the CODE_PACKAGE_PREFIX configuration value.
         """
         ...
-    def store(self, package_create_fn: typing.Optional[typing.Callable[[], bytes]] = None, paths_to_include: typing.Optional[typing.List[str]] = None, file_suffixes: typing.Optional[typing.List[str]] = None, metadata: typing.Optional[typing.Dict[str, typing.Any]] = None) -> typing.Tuple[str, str]:
+    def store(self, package_create_fn: typing.Union[typing.Callable[[], bytes], None] = None, paths_to_include: typing.Union[typing.List[str], None] = None, file_suffixes: typing.Union[typing.List[str], None] = None, metadata: typing.Union[typing.Dict[str, typing.Any], None] = None) -> typing.Tuple[str, str]:
         """
         Create and store a code package using Metaflow's ContentAddressedStore.
         
@@ -130,7 +130,7 @@ class CodePackager(object, metaclass=type):
         """
         ...
     @staticmethod
-    def get_content_addressed_store(datastore_type: str = 's3', datastore_root: typing.Optional[str] = None, prefix: typing.Optional[str] = None) -> metaflow.datastore.content_addressed_store.ContentAddressedStore:
+    def get_content_addressed_store(datastore_type: str = 's3', datastore_root: typing.Union[str, None] = None, prefix: typing.Union[str, None] = None) -> metaflow.datastore.content_addressed_store.ContentAddressedStore:
         """
         Get a ContentAddressedStore instance for the specified datastore.
         
@@ -230,7 +230,7 @@ class CodePackager(object, metaclass=type):
         """
         ...
     @staticmethod
-    def default_package_create(paths: typing.List[str], suffixes: typing.List[str], metadata: typing.Optional[typing.Dict[str, typing.Any]] = None) -> bytes:
+    def default_package_create(paths: typing.List[str], suffixes: typing.List[str], metadata: typing.Union[typing.Dict[str, typing.Any], None] = None) -> bytes:
         """
         Create a default tarball package from specified paths.
         
@@ -250,7 +250,7 @@ class CodePackager(object, metaclass=type):
         """
         ...
     @classmethod
-    def package_directory(cls, directory_path: str, suffixes: typing.Optional[typing.List[str]] = None, exclude_hidden: bool = True, metadata: typing.Optional[typing.Dict[str, typing.Any]] = None) -> bytes:
+    def package_directory(cls, directory_path: str, suffixes: typing.Union[typing.List[str], None] = None, exclude_hidden: bool = True, metadata: typing.Union[typing.Dict[str, typing.Any], None] = None) -> bytes:
         """
         Package a directory and all of its contents that match the given suffixes.
         

@@ -45,7 +45,7 @@ class BaseSignalExport(System.Object, QuantConnect.Interfaces.ISignalExportTarge
         The name of this signal export
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -55,7 +55,7 @@ class BaseSignalExport(System.Object, QuantConnect.Interfaces.ISignalExportTarge
         Property to access a HttpClient
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -65,7 +65,7 @@ class BaseSignalExport(System.Object, QuantConnect.Interfaces.ISignalExportTarge
         Default hashset of allowed Security types
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -95,7 +95,7 @@ class Collective2SignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalE
         and then sent to Collective2 API
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
 
         @property
@@ -124,7 +124,7 @@ class Collective2SignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalE
         The Collective2 symbol
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
 
         @property
@@ -209,7 +209,7 @@ class Collective2SignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalE
         The name of this signal export
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -229,7 +229,7 @@ class Collective2SignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalE
         Converts a list of targets to a list of Collective2 positions
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param parameters: A list of targets from the portfolio
         expected to be sent to Collective2 API and the algorithm being ran
@@ -243,7 +243,7 @@ class Collective2SignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalE
         Converts a given percentage of a position into the number of shares of it
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param algorithm: Algorithm being ran
         :param target: Desired position to be sent to the Collective2 API
@@ -256,7 +256,7 @@ class Collective2SignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalE
         Serializes the list of desired positions with the needed credentials in JSON format
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param positions: List of Collective2 positions to be sent to Collective2 API
         :returns: A JSON request string of the desired positions to be sent by a POST request to Collective2 API.
@@ -287,7 +287,7 @@ class CrunchDAOSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExp
         The name of this signal export
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -297,7 +297,7 @@ class CrunchDAOSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExp
         HashSet property of allowed SecurityTypes for CrunchDAO
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -318,7 +318,7 @@ class CrunchDAOSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExp
         Converts the list of holdings into a CSV format string
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param parameters: A list of holdings from the portfolio,
         expected to be sent to CrunchDAO API and the algorithm being ran
@@ -353,7 +353,7 @@ class VBaseSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports
         The name of this signal export
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -375,7 +375,7 @@ class VBaseSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports
         Builds a CSV (sym,wt) for the given targets
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param parameters: Signal export parameters
         :returns: Resulting CSV string.
@@ -470,7 +470,7 @@ class SignalExportManager(System.Object):
         information about how each symbol quantity was calculated
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param targets: An array of portfolio targets from the algorithm's Portfolio
         :returns: True if TotalPortfolioValue was bigger than zero, false otherwise.
@@ -518,7 +518,7 @@ class NumeraiSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExpor
         The name of this signal export
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -528,7 +528,7 @@ class NumeraiSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExpor
         Hashset property of Numerai allowed SecurityTypes
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -548,7 +548,7 @@ class NumeraiSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExpor
         Verifies each holding's signal is between 0 and 1 (exclusive)
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param parameters: A list of portfolio holdings expected to be sent to Numerai API
         :param positions: A message with the desired positions in the expected Numerai API format

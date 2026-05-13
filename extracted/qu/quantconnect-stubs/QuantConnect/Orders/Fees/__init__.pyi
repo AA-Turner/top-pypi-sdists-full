@@ -107,7 +107,7 @@ class IndiaFeeModel(System.Object, QuantConnect.Orders.Fees.IFeeModel):
         Brokerage calculation Factor
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -121,7 +121,7 @@ class IndiaFeeModel(System.Object, QuantConnect.Orders.Fees.IFeeModel):
         Maximum brokerage per order
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -135,7 +135,7 @@ class IndiaFeeModel(System.Object, QuantConnect.Orders.Fees.IFeeModel):
         Securities Transaction Tax calculation Factor
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -149,7 +149,7 @@ class IndiaFeeModel(System.Object, QuantConnect.Orders.Fees.IFeeModel):
         Exchange Transaction Charge calculation Factor
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -163,7 +163,7 @@ class IndiaFeeModel(System.Object, QuantConnect.Orders.Fees.IFeeModel):
         State Tax calculation Factor
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -177,7 +177,7 @@ class IndiaFeeModel(System.Object, QuantConnect.Orders.Fees.IFeeModel):
         Sebi Charges calculation Factor
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -191,7 +191,7 @@ class IndiaFeeModel(System.Object, QuantConnect.Orders.Fees.IFeeModel):
         Stamp Charges calculation Factor
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -205,7 +205,7 @@ class IndiaFeeModel(System.Object, QuantConnect.Orders.Fees.IFeeModel):
         Checks if Stamp Charges is calculated from order valur or turnover
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -231,7 +231,7 @@ class SamcoFeeModel(QuantConnect.Orders.Fees.IndiaFeeModel):
         Brokerage calculation Factor
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -241,7 +241,7 @@ class SamcoFeeModel(QuantConnect.Orders.Fees.IndiaFeeModel):
         Maximum brokerage per order
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -251,7 +251,7 @@ class SamcoFeeModel(QuantConnect.Orders.Fees.IndiaFeeModel):
         Securities Transaction Tax calculation Factor
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -261,7 +261,7 @@ class SamcoFeeModel(QuantConnect.Orders.Fees.IndiaFeeModel):
         Exchange Transaction Charge calculation Factor
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -271,7 +271,7 @@ class SamcoFeeModel(QuantConnect.Orders.Fees.IndiaFeeModel):
         State Tax calculation Factor
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -281,7 +281,7 @@ class SamcoFeeModel(QuantConnect.Orders.Fees.IndiaFeeModel):
         Sebi Charges calculation Factor
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -291,7 +291,7 @@ class SamcoFeeModel(QuantConnect.Orders.Fees.IndiaFeeModel):
         Stamp Charges calculation Factor
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -326,7 +326,7 @@ class BinanceFeeModel(QuantConnect.Orders.Fees.FeeModel):
         Gets the fee factor for the given order
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param order: The order to get the fee factor for
         :returns: The fee factor for the given order.
@@ -340,7 +340,7 @@ class BinanceFeeModel(QuantConnect.Orders.Fees.FeeModel):
         Gets the fee factor for the given order taking into account the maker and the taker fee
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -434,7 +434,7 @@ class InteractiveBrokersFeeModel(QuantConnect.Orders.Fees.FeeModel):
         Approximates the order's price based on the order type
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -576,7 +576,7 @@ class dYdXFeeModel(QuantConnect.Orders.Fees.FeeModel):
         Gets the fee factor for the given order
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param order: The order to get the fee factor for
         :returns: The fee factor for the given order.
@@ -623,7 +623,7 @@ class BybitFeeModel(QuantConnect.Orders.Fees.FeeModel):
         Gets the fee factor for the given order
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param order: The order to get the fee factor for
         :returns: The fee factor for the given order.
@@ -754,7 +754,7 @@ class CoinbaseFeeModel(QuantConnect.Orders.Fees.FeeModel):
         Returns the maker/taker fee percentage effective at the requested date.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param utc_time: The date/time requested (UTC)
         :param is_maker: true if the maker percentage fee is requested, false otherwise
@@ -907,7 +907,7 @@ class BinanceFuturesFeeModel(QuantConnect.Orders.Fees.BinanceFeeModel):
         Gets the fee for the given order
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -921,7 +921,7 @@ class ZerodhaFeeModel(QuantConnect.Orders.Fees.IndiaFeeModel):
         Brokerage calculation Factor
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -931,7 +931,7 @@ class ZerodhaFeeModel(QuantConnect.Orders.Fees.IndiaFeeModel):
         Maximum brokerage per order
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -941,7 +941,7 @@ class ZerodhaFeeModel(QuantConnect.Orders.Fees.IndiaFeeModel):
         Securities Transaction Tax calculation Factor
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -951,7 +951,7 @@ class ZerodhaFeeModel(QuantConnect.Orders.Fees.IndiaFeeModel):
         Exchange Transaction Charge calculation Factor
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -961,7 +961,7 @@ class ZerodhaFeeModel(QuantConnect.Orders.Fees.IndiaFeeModel):
         State Tax calculation Factor
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -971,7 +971,7 @@ class ZerodhaFeeModel(QuantConnect.Orders.Fees.IndiaFeeModel):
         Sebi Charges calculation Factor
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -981,7 +981,7 @@ class ZerodhaFeeModel(QuantConnect.Orders.Fees.IndiaFeeModel):
         Stamp Charges calculation Factor
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -991,7 +991,7 @@ class ZerodhaFeeModel(QuantConnect.Orders.Fees.IndiaFeeModel):
         Checks if Stamp Charges is calculated from order valur or turnover
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 

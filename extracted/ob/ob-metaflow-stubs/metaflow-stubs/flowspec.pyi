@@ -1,21 +1,21 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.779578                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.009516                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import enum
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import metaflow.datastore.inputs
-    import metaflow.flowspec
+    import typing
+    import metaflow.exception
     import metaflow.unbounded_foreach
     import enum
-    import metaflow.exception
-    import typing
+    import metaflow.flowspec
 
 from . import parameters as parameters
 from .parameters import DelayedEvaluationParameter as DelayedEvaluationParameter
@@ -119,7 +119,7 @@ class FlowSpec(object, metaclass=FlowSpecMeta):
         """
         ...
     @property
-    def index(self) -> typing.Optional[int]:
+    def index(self) -> typing.Union[int, None]:
         """
         The index of this foreach branch.
         
@@ -137,7 +137,7 @@ class FlowSpec(object, metaclass=FlowSpecMeta):
         """
         ...
     @property
-    def input(self) -> typing.Optional[typing.Any]:
+    def input(self) -> typing.Union[typing.Any, None]:
         """
         The value of the foreach artifact in this foreach branch.
         
@@ -154,7 +154,7 @@ class FlowSpec(object, metaclass=FlowSpecMeta):
             Input passed to the foreach task.
         """
         ...
-    def foreach_stack(self) -> typing.Optional[typing.List[typing.Tuple[int, int, typing.Any]]]:
+    def foreach_stack(self) -> typing.Union[typing.List[typing.Tuple[int, int, typing.Any]], None]:
         """
         Returns the current stack of foreach indexes and values for the current step.
         
@@ -202,7 +202,7 @@ class FlowSpec(object, metaclass=FlowSpecMeta):
             An array describing the current stack of foreach steps.
         """
         ...
-    def merge_artifacts(self, inputs: metaflow.datastore.inputs.Inputs, exclude: typing.Optional[typing.List[str]] = None, include: typing.Optional[typing.List[str]] = None):
+    def merge_artifacts(self, inputs: metaflow.datastore.inputs.Inputs, exclude: typing.Union[typing.List[str], None] = None, include: typing.Union[typing.List[str], None] = None):
         """
         Helper function for merging artifacts in a join step.
         

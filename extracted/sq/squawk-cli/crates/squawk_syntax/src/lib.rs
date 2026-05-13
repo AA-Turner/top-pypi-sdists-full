@@ -33,6 +33,7 @@ pub mod quote;
 pub mod syntax_error;
 mod syntax_node;
 mod token_text;
+mod unescape;
 mod validation;
 
 #[cfg(test)]
@@ -95,6 +96,7 @@ impl<T> Parse<T> {
             vec![]
         };
         validation::validate(&self.syntax_node(), &mut errors);
+        errors.sort_by_key(|error| error.range().start());
         errors
     }
 }

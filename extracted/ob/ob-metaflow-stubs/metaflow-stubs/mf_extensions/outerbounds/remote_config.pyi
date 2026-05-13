@@ -1,13 +1,13 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.823808                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.068978                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import metaflow.exception
     import pathlib
@@ -28,7 +28,7 @@ PERIMETER_KEY: str
 
 CONFIG_READ_ONCE_KEY: str
 
-def read_config_from_local() -> typing.Optional[pathlib.Path]:
+def read_config_from_local() -> typing.Union[pathlib.Path, None]:
     ...
 
 def resolve_config_from_remote(remote_url: str, auth_token: str) -> typing.Dict[str, str]:

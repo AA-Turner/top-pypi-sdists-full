@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: mitreattack-python
-Version: 6.0.1
+Version: 6.1.0
 Summary: MITRE ATT&CK python library
 Author: MITRE ATT&CK
 Author-email: MITRE ATT&CK <attack@mitre.org>
@@ -37,6 +37,7 @@ Requires-Dist: pre-commit>=4.0.0 ; extra == 'dev'
 Requires-Dist: pytest>=9.0 ; extra == 'dev'
 Requires-Dist: pytest-cov>=7.0.0 ; extra == 'dev'
 Requires-Dist: pytest-dotenv>=0.5.2 ; extra == 'dev'
+Requires-Dist: pytest-xdist>=3.8.0 ; extra == 'dev'
 Requires-Dist: python-semantic-release>=10.5.0 ; extra == 'dev'
 Requires-Dist: responses>=0.25.8 ; extra == 'dev'
 Requires-Dist: ruff>=0.14.2 ; extra == 'dev'

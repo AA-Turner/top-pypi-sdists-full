@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.5.3
+Version: 4.5.5
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,6 +51,17 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+
+4.5.5
+*******
+
+- `Fixed` Issue when running executing command `tb --cloud deploy --check`
+
+4.5.4
+*******
+
+- `Added` `tb migrate-to-forward` to help users migrate Classic workspaces to Forward
 
 4.5.3
 *******

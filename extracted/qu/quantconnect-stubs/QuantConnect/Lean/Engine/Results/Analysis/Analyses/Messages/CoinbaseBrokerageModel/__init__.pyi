@@ -20,11 +20,11 @@ class StopMarketOrdersNoLongerSupportedAnalysis(QuantConnect.Lean.Engine.Results
 
     @property
     def expected_message_text(self) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
 

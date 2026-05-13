@@ -21,7 +21,8 @@
 #include <utility>
 #include <vector>
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_template_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 #include "Gates.hpp"
 #include "TestHelpers.hpp"
@@ -1400,29 +1401,29 @@ TEMPLATE_TEST_CASE("LightningGPU::applyPCPhase", "[LightningGPU_Param]", float,
 
 
         ``` python
-        import pennylane as qml
+        import pennylane as qp
         import numpy as np
 
         tgts = [1, 2]
         def circuit(use_controls=False, use_adj=False):
-            [qml.Hadamard(i) for i in range(n_wires)]
+            [qp.Hadamard(i) for i in range(n_wires)]
 
             if use_controls:
-                qml.ctrl(
-                    qml.PCPhase(0.27, dim = 3, wires=tgts),
+                qp.ctrl(
+                    qp.PCPhase(0.27, dim = 3, wires=tgts),
                     control=[0],
                     control_values=[1]
                )
             elif use_adj:
-                qml.adjoint(qml.PCPhase(0.27, dim = 3, wires=tgts))
+                qp.adjoint(qp.PCPhase(0.27, dim = 3, wires=tgts))
             else:
-                qml.PCPhase(0.27, dim = 3, wires=tgts)
+                qp.PCPhase(0.27, dim = 3, wires=tgts)
 
-            return qml.state()
+            return qp.state()
 
         n_wires = 3
-        dev = qml.device('lightning.gpu', wires=n_wires)
-        qnode_gpu = qml.QNode(circuit, dev)
+        dev = qp.device('lightning.gpu', wires=n_wires)
+        qnode_gpu = qp.QNode(circuit, dev)
         res = qnode_gpu(use_controls=False, use_adj=False)
         print(np.round(res, 12))
 
@@ -1604,6 +1605,25 @@ TEMPLATE_TEST_CASE("LightningGPU::applyOperation 1 wire",
                 sv.applyOperation("ZY", {index}, false, {0.0}, zy_gate);
             }
             CHECK(sv.getDataVector() == sv_expected.getDataVector());
+        }
+    }
+
+    SECTION("PauliRot") {
+        SECTION("Apply directly") {
+            StateVectorCudaManaged<TestType> sv{num_qubits};
+            StateVectorCudaManaged<TestType> sv_expected{num_qubits};
+
+            sv_expected.applyOperation("Hadamard", {0}, false, {0.0});
+            sv_expected.applyOperation("RX", {1}, false, {M_PI_2});
+            sv_expected.applyMultiRZ({0, 1, 2}, false, M_PI);
+            sv_expected.applyOperation("Hadamard", {0}, false, {0.0});
+            sv_expected.applyOperation("RX", {1}, false, {-M_PI_2});
+
+            sv.applyPauliRot({0, 1, 2}, false, {M_PI}, "XYZ");
+
+            CHECK(sv.getDataVector() ==
+                  Pennylane::Util::approx(sv_expected.getDataVector())
+                      .margin(1e-7));
         }
     }
 }

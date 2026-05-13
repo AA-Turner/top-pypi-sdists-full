@@ -37,7 +37,7 @@ class RenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_RenkoCons
         Time of consolidated close.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -51,7 +51,7 @@ class RenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_RenkoCons
         Value of consolidated close.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -65,7 +65,7 @@ class RenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_RenkoCons
         Value of consolidated high.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -79,7 +79,7 @@ class RenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_RenkoCons
         Value of consolidated low.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -93,7 +93,7 @@ class RenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_RenkoCons
         Time of consolidated open.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -107,7 +107,7 @@ class RenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_RenkoCons
         Value of consolidate open.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -121,7 +121,7 @@ class RenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_RenkoCons
         Size of the consolidated bar.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -195,7 +195,7 @@ class RenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_RenkoCons
         by derived classes when they have consolidated a new piece of data.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param consolidated: The newly consolidated data
         """
@@ -362,7 +362,7 @@ class OpenInterestConsolidator(QuantConnect.Data.Consolidators.PeriodCountConsol
         null following the event firing
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param working_bar: The bar we're building, null if the event was just fired and we're starting a new OI bar
         :param data: The new data
@@ -384,7 +384,7 @@ class OpenInterestConsolidator(QuantConnect.Data.Consolidators.PeriodCountConsol
         Determines whether or not the specified data should be processed
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param data: The data to check
         :returns: True if the consolidator should process this data, false otherwise.
@@ -522,7 +522,7 @@ class DataConsolidator(typing.Generic[QuantConnect_Data_Consolidators_DataConsol
         by derived classes when they have consolidated a new piece of data.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param consolidated: The newly consolidated data
         """
@@ -616,7 +616,7 @@ class QuoteBarConsolidator(QuantConnect.Data.Consolidators.PeriodCountConsolidat
         null following the event firing
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param working_bar: The bar we're building, null if the event was just fired and we're starting a new consolidated bar
         :param data: The new data
@@ -750,7 +750,7 @@ class BaseDataConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidatorB
         null following the event firing
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param working_bar: The bar we're building, null if the event was just fired and we're starting a new trade bar
         :param data: The new data
@@ -777,7 +777,7 @@ class ClassicRenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Cl
         Bar being created
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -859,7 +859,7 @@ class ClassicRenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Cl
         Creates a new bar with the given data
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param data: The new data for the bar
         :param current_value: The new value for the bar
@@ -885,7 +885,7 @@ class ClassicRenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Cl
         Additionally, if it's the case, it consolidates the current RangeBar
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param time: Time of the given data
         :param current_value: Value of the given data
@@ -920,7 +920,7 @@ class BaseTimelessConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Ba
         Extracts the value from a data instance to be formed into a T.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -935,7 +935,7 @@ class BaseTimelessConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Ba
         not aggregate volume per bar.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -949,7 +949,7 @@ class BaseTimelessConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Ba
         Event handler type for the IDataConsolidator.DataConsolidated event
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -963,7 +963,7 @@ class BaseTimelessConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Ba
         Bar being created
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1014,7 +1014,7 @@ class BaseTimelessConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Ba
         Initializes a new instance of the BaseTimelessConsolidator{T} class.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value_selector: Extracts the value from a data instance to be formed into a new bar which inherits from IBaseData. The default
         value is (x => x.Value) the IBaseData.value property on IBaseData
@@ -1029,7 +1029,7 @@ class BaseTimelessConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Ba
         Initializes a new instance of the BaseTimelessConsolidator{T} class.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param selector: Extracts the value from a data instance to be formed into a new bar which inherits from IBaseData. The default
         value is (x => x.Value) the IBaseData.value property on IBaseData
@@ -1043,7 +1043,7 @@ class BaseTimelessConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Ba
         Creates a new bar with the given data
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param data: The new data for the bar
         :param current_value: The new value for the bar
@@ -1061,7 +1061,7 @@ class BaseTimelessConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Ba
         by derived classes when they have consolidated a new piece of data.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param consolidated: The newly consolidated data
         """
@@ -1093,7 +1093,7 @@ class BaseTimelessConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Ba
         Additionally, if it's the case, it consolidates the current RangeBar
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param time: Time of the given data
         :param current_value: Value of the given data
@@ -1111,7 +1111,7 @@ class RangeConsolidator(QuantConnect.Data.Consolidators.BaseTimelessConsolidator
         Bar being created
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1175,7 +1175,7 @@ class RangeConsolidator(QuantConnect.Data.Consolidators.BaseTimelessConsolidator
         Creates a new bar with the given data
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param data: The new data for the bar
         :param current_value: The new value for the bar
@@ -1193,7 +1193,7 @@ class RangeConsolidator(QuantConnect.Data.Consolidators.BaseTimelessConsolidator
         Additionally, if it's the case, it consolidates the current RangeBar
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param time: Time of the given data
         :param current_value: Value of the given data
@@ -1246,7 +1246,7 @@ class ClassicRangeConsolidator(QuantConnect.Data.Consolidators.RangeConsolidator
         Additionally, if it's the case, it consolidates the current RangeBar
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param time: Time of the given data
         :param current_value: Value of the given data
@@ -1304,7 +1304,7 @@ class DynamicDataConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidat
         null following the event firing
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param working_bar: The bar we're building, null if the event was just fired and we're starting a new trade bar
         :param data: The new data
@@ -1350,7 +1350,7 @@ class VolumeRenkoConsolidator(QuantConnect.Data.Consolidators.DataConsolidator[Q
         Returns the raw volume without any adjustment.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param volume: The volume
         :param price: The price
@@ -1364,7 +1364,7 @@ class VolumeRenkoConsolidator(QuantConnect.Data.Consolidators.DataConsolidator[Q
         by derived classes when they have consolidated a new piece of data.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param consolidated: The newly consolidated data
         """
@@ -1399,7 +1399,7 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
 
     @property
     def _working_bar(self) -> QuantConnect_Data_Consolidators_PeriodCountConsolidatorBase_TConsolidated:
-        """This codeEntityType is protected."""
+        """This Field is protected."""
         ...
 
     @_working_bar.setter
@@ -1434,7 +1434,7 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
         Returns true if this consolidator is time-based, false otherwise
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1444,7 +1444,7 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
         Gets the time period for this consolidator
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1454,7 +1454,7 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
         Creates a consolidator to produce a new t_consolidated instance representing the last count pieces of data or the period, whichever comes first
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param py_object: Python object that defines either a function object that defines the start time of a consolidated data or a timespan
         """
@@ -1466,7 +1466,7 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
         Creates a consolidator to produce a new t_consolidated instance representing the period
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param period: The minimum span of time before emitting a consolidated bar
         :param start_time: Optionally the bar start time anchor to use
@@ -1479,7 +1479,7 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
         Creates a consolidator to produce a new t_consolidated instance representing the last count pieces of data
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param max_count: The number of pieces to accept before emiting a consolidated bar
         """
@@ -1491,7 +1491,7 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
         Creates a consolidator to produce a new t_consolidated instance representing the last count pieces of data or the period, whichever comes first
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param max_count: The number of pieces to accept before emiting a consolidated bar
         :param period: The minimum span of time before emitting a consolidated bar
@@ -1504,7 +1504,7 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
         Creates a consolidator to produce a new t_consolidated instance representing the last count pieces of data or the period, whichever comes first
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param func: Func that defines the start time of a consolidated data
         """
@@ -1516,7 +1516,7 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
         null following the event firing
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param working_bar: The bar we're building, null if the event was just fired and we're starting a new consolidated bar
         :param data: The new data
@@ -1529,7 +1529,7 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
         Gets a rounded-down bar time. Called by AggregateBar in derived classes.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param time: The bar time to be rounded down
         :returns: The rounded bar time.
@@ -1542,7 +1542,7 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
         Gets a rounded-down bar start time. Called by AggregateBar in derived classes.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input_data: The input data point
         :returns: The rounded bar start time.
@@ -1554,7 +1554,7 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
         Event invocator for the data_consolidated event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: The consolidated data
         """
@@ -1569,7 +1569,7 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
         Resets the working bar
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1586,7 +1586,7 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
         Determines whether or not the specified data should be processed
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param data: The data to check
         :returns: True if the consolidator should process this data, false otherwise.
@@ -1664,7 +1664,7 @@ class TickConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidatorBase[
         null following the event firing
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param working_bar: The bar we're building
         :param data: The new data
@@ -1676,7 +1676,7 @@ class TickConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidatorBase[
         Determines whether or not the specified data should be processed
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param data: The data to check
         :returns: True if the consolidator should process this data, false otherwise.
@@ -1756,7 +1756,7 @@ class TickQuoteBarConsolidator(QuantConnect.Data.Consolidators.PeriodCountConsol
         null following the event firing
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param working_bar: The bar we're building, null if the event was just fired and we're starting a new consolidated bar
         :param data: The new data
@@ -1768,7 +1768,7 @@ class TickQuoteBarConsolidator(QuantConnect.Data.Consolidators.PeriodCountConsol
         Determines whether or not the specified data should be processed
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param data: The data to check
         :returns: True if the consolidator should process this data, false otherwise.
@@ -1838,7 +1838,7 @@ class TradeBarConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidatorB
         null following the event firing
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param working_bar: The bar we're building, null if the event was just fired and we're starting a new trade bar
         :param data: The new data
@@ -1930,7 +1930,7 @@ class SequentialConsolidator(System.Object, QuantConnect.Data.Consolidators.IDat
         by derived classes when they have consolidated a new piece of data.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param consolidated: The newly consolidated data
         """
@@ -1975,7 +1975,7 @@ class TradeBarConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators_Tr
         Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param pyfuncobj: Python function object that defines the start time of a consolidated data
         """
@@ -1987,7 +1987,7 @@ class TradeBarConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators_Tr
         Creates a consolidator to produce a new 'TradeBar' representing the period
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param period: The minimum span of time before emitting a consolidated bar
         :param start_time: Optionally the bar start time anchor to use
@@ -2000,7 +2000,7 @@ class TradeBarConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators_Tr
         Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param max_count: The number of pieces to accept before emiting a consolidated bar
         """
@@ -2012,7 +2012,7 @@ class TradeBarConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators_Tr
         Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param max_count: The number of pieces to accept before emiting a consolidated bar
         :param period: The minimum span of time before emitting a consolidated bar
@@ -2025,7 +2025,7 @@ class TradeBarConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators_Tr
         Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param func: Func that defines the start time of a consolidated data
         """

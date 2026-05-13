@@ -14,12 +14,27 @@ from metaflow.plugins.aws.batch.batch_decorator import BatchDecorator
 from metaflow.plugins.kubernetes.kubernetes_decorator import KubernetesDecorator
 from metaflow.plugins.pypi.conda_decorator import CondaStepDecorator
 from metaflow.plugins.pypi.conda_environment import CondaEnvironment
+from metaflow.plugins.pypi.anaconda_environment import AnacondaEnvironment
 from metaflow.plugins.pypi.pypi_decorator import PyPIStepDecorator
 from metaflow import decorators
 
 from .fast_bakery import FastBakery, FastBakeryApiResponse, FastBakeryException
 
 BAKERY_METAFILE = ".imagebakery-cache"
+
+_CONDA_CHANNEL_URLS = {
+    "anaconda": "https://repo.anaconda.com/pkgs/main",
+    "defaults": "https://repo.anaconda.com/pkgs/main",
+    "conda-forge": "https://conda.anaconda.org/conda-forge/",
+}
+
+
+def _resolve_channel_url(channel):
+    """Map a conda channel name to its URL for the fast bakery API."""
+    if channel.startswith("http://") or channel.startswith("https://"):
+        return channel
+    return _CONDA_CHANNEL_URLS.get(channel, f"https://conda.anaconda.org/{channel}/")
+
 
 import fcntl
 import json
@@ -132,17 +147,24 @@ class DockerEnvironment(MetaflowEnvironment):
                     "step is not yet supported. Use one of @pypi or @conda only for the *%s* step."
                     % step.name
                 )
+            attached = None
             if step.name in self.skipped_steps:
                 # Conda fallback requires a conda decorator as the default for a step
-                decorators._attach_decorators_to_step(step, ["conda"])
+                fallback_deco = _get_conda_deco_name(self.flow)
+                decorators._attach_decorators_to_step(step, [fallback_deco])
+                attached = fallback_deco
             else:
                 if not _step_has_environment_deco(step):
                     # We default to PyPI for steps that are going to be baked.
                     decorators._attach_decorators_to_step(step, ["pypi"])
+                    attached = "pypi"
                     # init the attached decorator
             # Initialize the decorator we attached.
             # This is crucial for the conda decorator to work properly in the fallback environment
-            decorators._init(self.flow)
+            for deco in step.decorators:
+                if deco.name == attached:
+                    deco.external_init()
+
             for deco in step.decorators:
                 if _is_env_deco(deco):
                     deco.step_init(
@@ -178,7 +200,11 @@ class DockerEnvironment(MetaflowEnvironment):
                 self.logger("🎉 All container image(s) baked!")
 
         if self.skipped_steps:
-            self.delegate = CondaEnvironment(self.flow)
+            if _get_conda_deco_name(self.flow) == "anaconda":
+                self.delegate = AnacondaEnvironment(self.flow)
+            else:
+                self.delegate = CondaEnvironment(self.flow)
+
             self.delegate._force_rebuild = self._force_rebuild
             self.delegate.set_local_root(self.local_root)
             self.delegate.validate_environment(echo, self.datastore_type)
@@ -202,6 +228,7 @@ class DockerEnvironment(MetaflowEnvironment):
             pypi_packages=None,
             conda_packages=None,
             base_image=None,
+            channels=None,
         ):
             try:
                 bakery = FastBakery(url=FAST_BAKERY_URL)
@@ -209,6 +236,9 @@ class DockerEnvironment(MetaflowEnvironment):
                 bakery.python_version(python)
                 bakery.pypi_packages(pypi_packages)
                 bakery.conda_packages(conda_packages)
+                if channels:
+                    bakery.default_conda_channel(channels[0])
+                    bakery.conda_channels(channels)
                 bakery.base_image(base_image)
                 if self._force_rebuild:
                     bakery.ignore_cache()
@@ -277,6 +307,12 @@ class DockerEnvironment(MetaflowEnvironment):
             packages = get_pinned_conda_libs(python, self.datastore_type)
             packages.update(dependencies.attributes["packages"] if dependencies else {})
 
+            channels = None
+            if dependencies and dependencies.attributes.get("channels"):
+                channels = [
+                    _resolve_channel_url(c) for c in dependencies.attributes["channels"]
+                ]
+
             requested = {
                 "python": python,
                 "pypi_packages": (
@@ -286,11 +322,11 @@ class DockerEnvironment(MetaflowEnvironment):
                     packages if isinstance(dependencies, CondaStepDecorator) else None
                 ),
                 "base_image": base_image,
+                "channels": channels,
             }
             dedup_key = hashlib.sha256(
                 json.dumps(requested).encode("utf-8")
             ).hexdigest()
-
             return step.name, dedup_key, requested
 
         with ThreadPoolExecutor() as executor:
@@ -339,7 +375,7 @@ class DockerEnvironment(MetaflowEnvironment):
     def is_disabled(self, step):
         for decorator in step.decorators:
             # @conda decorator is guaranteed to exist thanks to self.decospecs
-            if decorator.name in ["conda", "pypi"]:
+            if decorator.name in ["conda", "pypi", "anaconda"]:
                 # handle @conda/@pypi(disabled=True)
                 disabled = decorator.attributes["disabled"]
                 return str(disabled).lower() == "true"
@@ -389,3 +425,9 @@ def _is_env_deco(deco):
 def _step_has_environment_deco(step):
     "Check if a step has a virtual environment decorator"
     return any(_is_env_deco(deco) for deco in step.decorators)
+
+
+def _get_conda_deco_name(flow):
+    """Return 'anaconda' if flow uses @anaconda_base, else 'conda'."""
+    flow_deco_names = [d for d in flow._flow_decorators]
+    return "anaconda" if "anaconda_base" in flow_deco_names else "conda"

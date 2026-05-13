@@ -18,6 +18,12 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class CaptureMoment(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    CAPTURE_MOMENT_UNSPECIFIED: _ClassVar[CaptureMoment]
+    CAPTURE_MOMENT_STEP_START: _ClassVar[CaptureMoment]
+    CAPTURE_MOMENT_STEP_COMPLETION: _ClassVar[CaptureMoment]
+
 class SearchProceduresSortField(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     SEARCH_PROCEDURES_SORT_FIELD_UNSPECIFIED: _ClassVar[SearchProceduresSortField]
@@ -34,6 +40,9 @@ class ProceduresServiceError(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     PROCEDURES_SERVICE_ERROR_CANNOT_COMMIT_TO_ARCHIVED_PROCEDURE: _ClassVar[ProceduresServiceError]
     PROCEDURES_SERVICE_ERROR_INVALID_GRAPH: _ClassVar[ProceduresServiceError]
     PROCEDURES_SERVICE_ERROR_INVALID_SEARCH_TOKEN: _ClassVar[ProceduresServiceError]
+CAPTURE_MOMENT_UNSPECIFIED: CaptureMoment
+CAPTURE_MOMENT_STEP_START: CaptureMoment
+CAPTURE_MOMENT_STEP_COMPLETION: CaptureMoment
 SEARCH_PROCEDURES_SORT_FIELD_UNSPECIFIED: SearchProceduresSortField
 SEARCH_PROCEDURES_SORT_FIELD_NAME: SearchProceduresSortField
 SEARCH_PROCEDURES_SORT_FIELD_CREATED_AT: SearchProceduresSortField
@@ -363,8 +372,18 @@ class CompletionActionConfig(_message.Message):
     update_run: UpdateRunConfig
     def __init__(self, create_event: _Optional[_Union[CreateEventConfig, _Mapping]] = ..., send_notification: _Optional[_Union[SendNotificationConfig, _Mapping]] = ..., create_run: _Optional[_Union[CreateRunConfig, _Mapping]] = ..., apply_workbook_templates: _Optional[_Union[ApplyWorkbookTemplatesConfig, _Mapping]] = ..., apply_checklists: _Optional[_Union[ApplyChecklistsConfig, _Mapping]] = ..., update_run: _Optional[_Union[UpdateRunConfig, _Mapping]] = ...) -> None: ...
 
+class ChannelSnapshotConfig(_message.Message):
+    __slots__ = ("output_field_id", "channel", "capture_moments")
+    OUTPUT_FIELD_ID_FIELD_NUMBER: _ClassVar[int]
+    CHANNEL_FIELD_NUMBER: _ClassVar[int]
+    CAPTURE_MOMENTS_FIELD_NUMBER: _ClassVar[int]
+    output_field_id: str
+    channel: ChannelLocator
+    capture_moments: _containers.RepeatedScalarFieldContainer[CaptureMoment]
+    def __init__(self, output_field_id: _Optional[str] = ..., channel: _Optional[_Union[ChannelLocator, _Mapping]] = ..., capture_moments: _Optional[_Iterable[_Union[CaptureMoment, str]]] = ...) -> None: ...
+
 class CreateEventConfig(_message.Message):
-    __slots__ = ("name", "description", "labels", "properties", "asset_field_ids", "asset_references", "property_refs")
+    __slots__ = ("name", "description", "labels", "properties", "asset_field_ids", "asset_references", "property_refs", "channel_snapshots")
     class PropertiesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -379,6 +398,7 @@ class CreateEventConfig(_message.Message):
     ASSET_FIELD_IDS_FIELD_NUMBER: _ClassVar[int]
     ASSET_REFERENCES_FIELD_NUMBER: _ClassVar[int]
     PROPERTY_REFS_FIELD_NUMBER: _ClassVar[int]
+    CHANNEL_SNAPSHOTS_FIELD_NUMBER: _ClassVar[int]
     name: str
     description: str
     labels: _containers.RepeatedScalarFieldContainer[str]
@@ -386,7 +406,8 @@ class CreateEventConfig(_message.Message):
     asset_field_ids: _containers.RepeatedScalarFieldContainer[str]
     asset_references: _containers.RepeatedCompositeFieldContainer[AssetReference]
     property_refs: _containers.RepeatedCompositeFieldContainer[PropertyReference]
-    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., labels: _Optional[_Iterable[str]] = ..., properties: _Optional[_Mapping[str, str]] = ..., asset_field_ids: _Optional[_Iterable[str]] = ..., asset_references: _Optional[_Iterable[_Union[AssetReference, _Mapping]]] = ..., property_refs: _Optional[_Iterable[_Union[PropertyReference, _Mapping]]] = ...) -> None: ...
+    channel_snapshots: _containers.RepeatedCompositeFieldContainer[ChannelSnapshotConfig]
+    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., labels: _Optional[_Iterable[str]] = ..., properties: _Optional[_Mapping[str, str]] = ..., asset_field_ids: _Optional[_Iterable[str]] = ..., asset_references: _Optional[_Iterable[_Union[AssetReference, _Mapping]]] = ..., property_refs: _Optional[_Iterable[_Union[PropertyReference, _Mapping]]] = ..., channel_snapshots: _Optional[_Iterable[_Union[ChannelSnapshotConfig, _Mapping]]] = ...) -> None: ...
 
 class SendNotificationConfig(_message.Message):
     __slots__ = ("integrations", "title", "message")

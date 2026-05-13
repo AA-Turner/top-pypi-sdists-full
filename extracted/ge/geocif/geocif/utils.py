@@ -439,11 +439,13 @@ def to_db(db_path, table_name, df, max_retries=10):
             return
         except Exception as e:
             if "database is locked" in str(e) and attempt < max_retries - 1:
+                from geocif.progress import pwrite
                 wait = 2 ** attempt + random.uniform(0, 1)
-                print(f"DB locked writing {table_name}, retry {attempt + 1}/{max_retries} in {wait:.1f}s")
+                pwrite(f"DB locked writing {table_name}, retry {attempt + 1}/{max_retries} in {wait:.1f}s")
                 time.sleep(wait)
             else:
-                print(f"Exception: {e}")
+                from geocif.progress import pwrite
+                pwrite(f"Exception: {e}")
                 return
 
 

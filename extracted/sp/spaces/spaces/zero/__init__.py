@@ -4,7 +4,11 @@
 from ..config import Config
 
 
-default_gpu_size: 'api.GPUSize | None' = None
+_default_gpu_size: 'api.GPUSize | None' = None
+
+
+def default_gpu_size():
+    return _default_gpu_size
 
 
 if Config.zero_gpu:
@@ -23,12 +27,12 @@ if Config.zero_gpu:
         )
 
     def startup():
-        global default_gpu_size
+        global _default_gpu_size
         zerogpu_config = config.get_config()
         total_size = torch.pack()
         threshold = zerogpu_config['xlarge_threshold']
         if threshold is not None and total_size > threshold:
-            default_gpu_size = 'xlarge' # pragma: no cover
+            _default_gpu_size = 'xlarge' # pragma: no cover
         if len(decorator.decorated_cache) == 0:
             return # pragma: no cover
         client.startup_report()

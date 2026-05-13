@@ -12,7 +12,7 @@ import re
 import tomllib
 import warnings
 from io import StringIO
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError, YAMLFutureWarning
@@ -53,14 +53,14 @@ CSV_FIELDNAMES = {
 }
 
 
-def _decode_content(content: bytes) -> str | None:
+def _decode_content(content: bytes) -> str:
     """Decode sampled file content."""
-    for encoding in ("utf-8-sig", "utf-16", "iso-8859-1"):
+    for encoding in ("utf-8-sig", "utf-16"):
         try:
             return content.decode(encoding)
         except UnicodeError:
             continue
-    return None
+    return content.decode("iso-8859-1")
 
 
 def _read_text_sample(finder: Finder, path: PurePath, size: int = 65536) -> str | None:
@@ -440,6 +440,10 @@ class JavaDiscovery(EncodingDiscovery):
 
     file_format = "properties"
     encoding_parameter: ClassVar[str] = "properties_encoding"
+    encoding_parameters_by_format: ClassVar[dict[str, str]] = {
+        "properties": "properties_encoding",
+        "gwt": "gwt_encoding",
+    }
     encoding_map: ClassVar[dict[str, str]] = {
         "utf_8": "utf-8",
         "utf_16": "utf-16",
@@ -453,7 +457,7 @@ class JavaDiscovery(EncodingDiscovery):
 
     def adjust_format(self, result: ResultDict) -> None:
         """Override detected format, based on the file content."""
-        super().adjust_format(result)
+        self.adjust_encoding(result)
         for path in _iter_result_paths(self.finder, result):
             content = _read_text_sample(self.finder, path)
             if content is None:
@@ -464,9 +468,11 @@ class JavaDiscovery(EncodingDiscovery):
                 or "# XWiki" in content
             ):
                 result["file_format"] = "xwiki-java-properties"
+                self.normalize_encoding_parameters(result)
                 return
             if GWT_PLURAL_RE.search(content):
                 result["file_format"] = "gwt"
+                self.normalize_encoding_parameters(result)
                 return
 
 
@@ -536,6 +542,38 @@ class JSONDiscovery(BaseDiscovery):
 
     file_format = "json-nested"
     mask = "*.json"
+
+    def read_json_data(self, path: PurePath) -> object | None:
+        """Read and parse a complete JSON file."""
+        try:
+            with self.finder.open(path, "rb") as handle:
+                return json.loads(_decode_content(handle.read()))
+        except (OSError, ValueError):
+            return None
+
+    def has_template_less_content(self, result: ResultDict) -> bool:
+        """Check whether a template-less JSON result looks translatable."""
+        for path in _iter_result_paths(self.finder, result):
+            if not hasattr(path, "open"):
+                return True
+
+            data = self.read_json_data(path)
+            if isinstance(data, dict) and self.detect_dict(data) is not None:
+                return True
+        return False
+
+    def discover(
+        self, *, eager: bool = False, hint: str | None = None
+    ) -> Generator[DiscoveryResult]:
+        """Yield JSON configurations matching this discovery."""
+        for result in super().discover(eager=eager, hint=hint):
+            if (
+                not eager
+                and "template" not in result
+                and not self.has_template_less_content(result.match)
+            ):
+                continue
+            yield result
 
     @staticmethod
     def is_go_i18n_v2_dict(data: dict) -> bool:
@@ -693,7 +731,7 @@ class YAMLDiscovery(BaseDiscovery):
                 warnings.warn(f"Could not parse YAML: {error}", stacklevel=0)
                 return
             if isinstance(data, dict) and len(data) == 1:
-                key = next(iter(data.keys()))
+                key = cast("str", next(iter(data.keys())))
                 if "filemask" in result:
                     if result["filemask"].replace("*", key) == result["template"]:
                         result["file_format"] = "ruby-yaml"
@@ -770,6 +808,7 @@ class HTMLDiscovery(MonoTemplateDiscovery):
 
     file_format = "html"
     mask = ("*.html", "*.htm")
+    requires_template = True
 
 
 @register_discovery
@@ -988,6 +1027,7 @@ class FlatXMLDiscovery(MonoTemplateDiscovery):
 
     file_format = "flatxml"
     mask = "*.xml"
+    requires_template = True
 
     def adjust_format(self, result: ResultDict) -> None:
         """Override detected format, based on the file content."""

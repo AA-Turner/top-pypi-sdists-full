@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.910020                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.180864                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow.plugins.aws.step_functions.step_functions_deployer_objects
     import metaflow.runner.deployer
+    import metaflow.plugins.aws.step_functions.step_functions_deployer_objects
 
 from .step_functions import StepFunctions as StepFunctions
 from ....runner.deployer import DeployedFlow as DeployedFlow
@@ -45,7 +45,7 @@ class StepFunctionsDeployedFlow(metaflow.runner.deployer.DeployedFlow, metaclass
     A class representing a deployed AWS Step Functions state machine.
     """
     @classmethod
-    def list_deployed_flows(cls, flow_name: typing.Optional[str] = None):
+    def list_deployed_flows(cls, flow_name: typing.Union[str, None] = None):
         """
         This method is not currently implemented for Step Functions.
         
@@ -56,7 +56,7 @@ class StepFunctionsDeployedFlow(metaflow.runner.deployer.DeployedFlow, metaclass
         """
         ...
     @classmethod
-    def from_deployment(cls, identifier: str, metadata: typing.Optional[str] = None):
+    def from_deployment(cls, identifier: str, metadata: typing.Union[str, None] = None):
         """
         This method is not currently implemented for Step Functions.
         
@@ -67,7 +67,7 @@ class StepFunctionsDeployedFlow(metaflow.runner.deployer.DeployedFlow, metaclass
         """
         ...
     @classmethod
-    def get_triggered_run(cls, identifier: str, run_id: str, metadata: typing.Optional[str] = None):
+    def get_triggered_run(cls, identifier: str, run_id: str, metadata: typing.Union[str, None] = None):
         """
         This method is not currently implemented for Step Functions.
         
@@ -78,7 +78,7 @@ class StepFunctionsDeployedFlow(metaflow.runner.deployer.DeployedFlow, metaclass
         """
         ...
     @property
-    def production_token(self: metaflow.runner.deployer.DeployedFlow) -> typing.Optional[str]:
+    def production_token(self: metaflow.runner.deployer.DeployedFlow) -> typing.Union[str, None]:
         """
         Get the production token for the deployed flow.
         
@@ -88,7 +88,7 @@ class StepFunctionsDeployedFlow(metaflow.runner.deployer.DeployedFlow, metaclass
             The production token, None if it cannot be retrieved.
         """
         ...
-    def list_runs(self, states: typing.Optional[typing.List[str]] = None) -> typing.List[metaflow.plugins.aws.step_functions.step_functions_deployer_objects.StepFunctionsTriggeredRun]:
+    def list_runs(self, states: typing.Union[typing.List[str], None] = None) -> typing.List[metaflow.plugins.aws.step_functions.step_functions_deployer_objects.StepFunctionsTriggeredRun]:
         """
         List runs of the deployed flow.
         

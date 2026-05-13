@@ -13,8 +13,6 @@ import typing
 from dataclasses import dataclass, field
 from typing import Callable, Generator, TypeVar
 
-from refinery.lib.annotations import get_type_hints as _get_type_hints
-
 
 class Kind(enum.IntEnum):
     ChildNode = 1
@@ -40,7 +38,7 @@ def _classify_fields(node_type: type[Node]) -> list[tuple[str, Kind]]:
         pass
     result: list[tuple[str, Kind]] = []
     try:
-        hints = _get_type_hints(node_type)
+        hints = typing.get_type_hints(node_type)
     except Exception:
         _child_fields_cache[node_type] = result
         return result
@@ -85,7 +83,7 @@ def _children(node: Node):
             yield item
 
 
-@dataclass(repr=False)
+@dataclass(repr=False, eq=False)
 class Node:
     """
     Base class for all AST nodes.
@@ -108,6 +106,27 @@ class Node:
             yield node
             for child in node.children():
                 stack.append(child)
+
+    def walk_in_order(self) -> Generator[Node, None, None]:
+        """
+        Pre-order left-to-right traversal that preserves source order:
+        The regular `refinery.lib.scripts.Node.walk` method uses a LIFO stack which reverses child
+        order; this variant pushes children in reverse so that the first child is popped first.
+        """
+        stack: list[Node] = [self]
+        while stack:
+            node = stack.pop()
+            yield node
+            children = list(node.children())
+            stack.extend(reversed(children))
+
+    def is_descendant_of(self, ancestor: Node) -> bool:
+        cursor = self.parent
+        while cursor is not None:
+            if cursor is ancestor:
+                return True
+            cursor = cursor.parent
+        return False
 
     def _adopt(self, *nodes: Node | None):
         for node in nodes:
@@ -133,7 +152,7 @@ class Statement(Node):
     pass
 
 
-@dataclass(repr=False)
+@dataclass(repr=False, eq=False)
 class Block(Node):
     """
     Ordered sequence of statements.
@@ -141,7 +160,7 @@ class Block(Node):
     body: list[Statement] = field(default_factory=list)
 
 
-@dataclass(repr=False)
+@dataclass(repr=False, eq=False)
 class Script(Node):
     """
     Top-level node representing an entire script.
@@ -198,27 +217,25 @@ class Transformer(Visitor):
                         self.mark_changed()
             elif kind == Kind.ChildList:
                 items = getattr(node, field_name)
-                new_list = []
-                changed = False
-                for item in items:
+                new_list = None
+                for idx, item in enumerate(items):
                     if isinstance(item, Node):
                         replacement = self.visit(item)
                         if replacement is not None:
+                            if new_list is None:
+                                new_list = list(items[:idx])
                             replacement.parent = node
                             new_list.append(replacement)
-                            changed = True
-                        else:
-                            new_list.append(item)
-                    else:
+                            continue
+                    if new_list is not None:
                         new_list.append(item)
-                if changed:
+                if new_list is not None:
                     setattr(node, field_name, new_list)
                     self.mark_changed()
             elif kind == Kind.TupleList:
                 items = getattr(node, field_name)
-                new_list = []
-                changed = False
-                for item in items:
+                new_list = None
+                for idx, item in enumerate(items):
                     new_tuple = []
                     tuple_changed = False
                     for elem in item:
@@ -232,9 +249,13 @@ class Transformer(Visitor):
                                 new_tuple.append(elem)
                         else:
                             new_tuple.append(elem)
-                    new_list.append(tuple(new_tuple) if tuple_changed else item)
-                    changed = changed or tuple_changed
-                if changed:
+                    if tuple_changed:
+                        if new_list is None:
+                            new_list = list(items[:idx])
+                        new_list.append(tuple(new_tuple))
+                    elif new_list is not None:
+                        new_list.append(item)
+                if new_list is not None:
                     setattr(node, field_name, new_list)
                     self.mark_changed()
         return None

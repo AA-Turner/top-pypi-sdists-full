@@ -12,6 +12,102 @@ import System.Text
 
 QuantConnect_Storage__EventContainer_Callable = typing.TypeVar("QuantConnect_Storage__EventContainer_Callable")
 QuantConnect_Storage__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Storage__EventContainer_ReturnType")
+QuantConnect_Storage_ObjectStore_ReadJson_T = typing.TypeVar("QuantConnect_Storage_ObjectStore_ReadJson_T")
+QuantConnect_Storage_ObjectStore_ReadXml_T = typing.TypeVar("QuantConnect_Storage_ObjectStore_ReadXml_T")
+QuantConnect_Storage_ObjectStore_SaveJson_T = typing.TypeVar("QuantConnect_Storage_ObjectStore_SaveJson_T")
+QuantConnect_Storage_ObjectStore_SaveXml_T = typing.TypeVar("QuantConnect_Storage_ObjectStore_SaveXml_T")
+
+
+class _Typed_ObjectStore_ReadJson(typing.Generic[QuantConnect_Storage_ObjectStore_ReadJson_T]):
+    """"""
+
+    @overload
+    def __call__(self, path: str, encoding: System.Text.Encoding = None, settings: typing.Any = None) -> QuantConnect_Storage_ObjectStore_ReadJson_T:
+        """
+        Returns the JSON deserialized object data for the specified path
+        
+        :param path: The object path
+        :param encoding: The string encoding used
+        :param settings: The settings used by the JSON deserializer
+        :returns: An object containing the data.
+        """
+        ...
+
+
+class _ObjectStore_ReadJson:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Storage_ObjectStore_ReadJson_T]) -> QuantConnect.Storage._Typed_ObjectStore_ReadJson[QuantConnect_Storage_ObjectStore_ReadJson_T]:
+        ...
+
+
+class _Typed_ObjectStore_ReadXml(typing.Generic[QuantConnect_Storage_ObjectStore_ReadXml_T]):
+    """"""
+
+    @overload
+    def __call__(self, path: str, encoding: System.Text.Encoding = None) -> QuantConnect_Storage_ObjectStore_ReadXml_T:
+        """
+        Returns the XML deserialized object data for the specified path
+        
+        :param path: The object path
+        :param encoding: The string encoding used
+        :returns: An object containing the data.
+        """
+        ...
+
+
+class _ObjectStore_ReadXml:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Storage_ObjectStore_ReadXml_T]) -> QuantConnect.Storage._Typed_ObjectStore_ReadXml[QuantConnect_Storage_ObjectStore_ReadXml_T]:
+        ...
+
+
+class _Typed_ObjectStore_SaveJson(typing.Generic[QuantConnect_Storage_ObjectStore_SaveJson_T]):
+    """"""
+
+    @overload
+    def __call__(self, path: str, obj: QuantConnect_Storage_ObjectStore_SaveJson_T, encoding: System.Text.Encoding = None, settings: typing.Any = None) -> bool:
+        """
+        Saves the object data in JSON format for the specified path
+        
+        :param path: The object path
+        :param obj: The object to be saved
+        :param encoding: The string encoding used
+        :param settings: The settings used by the JSON serializer
+        :returns: True if the object was saved successfully.
+        """
+        ...
+
+
+class _ObjectStore_SaveJson:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Storage_ObjectStore_SaveJson_T]) -> QuantConnect.Storage._Typed_ObjectStore_SaveJson[QuantConnect_Storage_ObjectStore_SaveJson_T]:
+        ...
+
+
+class _Typed_ObjectStore_SaveXml(typing.Generic[QuantConnect_Storage_ObjectStore_SaveXml_T]):
+    """"""
+
+    @overload
+    def __call__(self, path: str, obj: QuantConnect_Storage_ObjectStore_SaveXml_T, encoding: System.Text.Encoding = None) -> bool:
+        """
+        Saves the object data in XML format for the specified path
+        
+        :param path: The object path
+        :param obj: The object to be saved
+        :param encoding: The string encoding used
+        :returns: True if the object was saved successfully.
+        """
+        ...
+
+
+class _ObjectStore_SaveXml:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Storage_ObjectStore_SaveXml_T]) -> QuantConnect.Storage._Typed_ObjectStore_SaveXml[QuantConnect_Storage_ObjectStore_SaveXml_T]:
+        ...
 
 
 class ObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typing.Iterable[System.Collections.Generic.KeyValuePair[str, typing.List[int]]]):
@@ -39,6 +135,22 @@ class ObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typing.It
     @property
     def keys(self) -> System.Collections.Generic.ICollection[str]:
         """Returns the file paths present in the object store. This is specially useful not to load the object store into memory"""
+        ...
+
+    @property
+    def read_json(self) -> QuantConnect.Storage._ObjectStore_ReadJson:
+        ...
+
+    @property
+    def read_xml(self) -> QuantConnect.Storage._ObjectStore_ReadXml:
+        ...
+
+    @property
+    def save_json(self) -> QuantConnect.Storage._ObjectStore_SaveJson:
+        ...
+
+    @property
+    def save_xml(self) -> QuantConnect.Storage._ObjectStore_SaveXml:
         ...
 
     def __init__(self, store: QuantConnect.Interfaces.IObjectStore) -> None:

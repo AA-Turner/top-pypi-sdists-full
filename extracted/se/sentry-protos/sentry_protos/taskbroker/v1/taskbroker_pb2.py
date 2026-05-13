@@ -15,7 +15,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n,sentry_protos/taskbroker/v1/taskbroker.proto\x12\x1bsentry_protos.taskbroker.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xdf\x01\n\nRetryState\x12\x10\n\x08\x61ttempts\x18\x01 \x01(\r\x12\x14\n\x0cmax_attempts\x18\x02 \x01(\r\x12M\n\x14on_attempts_exceeded\x18\x03 \x01(\x0e\x32/.sentry_protos.taskbroker.v1.OnAttemptsExceeded\x12\x19\n\x0c\x61t_most_once\x18\x04 \x01(\x08H\x00\x88\x01\x01\x12\x1b\n\x0e\x64\x65lay_on_retry\x18\x05 \x01(\x04H\x01\x88\x01\x01\x42\x0f\n\r_at_most_onceB\x11\n\x0f_delay_on_retry\"\xed\x03\n\x0eTaskActivation\x12\n\n\x02id\x18\x01 \x01(\t\x12\x11\n\tnamespace\x18\x02 \x01(\t\x12\x10\n\x08taskname\x18\x03 \x01(\t\x12\x16\n\nparameters\x18\x04 \x01(\tB\x02\x18\x01\x12\x18\n\x10parameters_bytes\x18\r \x01(\x0c\x12I\n\x07headers\x18\x05 \x03(\x0b\x32\x38.sentry_protos.taskbroker.v1.TaskActivation.HeadersEntry\x12/\n\x0breceived_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12<\n\x0bretry_state\x18\x07 \x01(\x0b\x32\'.sentry_protos.taskbroker.v1.RetryState\x12$\n\x1cprocessing_deadline_duration\x18\x08 \x01(\x04\x12\x14\n\x07\x65xpires\x18\t \x01(\x04H\x00\x88\x01\x01\x12\x12\n\x05\x64\x65lay\x18\x0b \x01(\x04H\x01\x88\x01\x01\x12\x18\n\x0b\x61pplication\x18\x0c \x01(\tH\x02\x88\x01\x01\x1a.\n\x0cHeadersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\n\n\x08_expiresB\x08\n\x06_delayB\x0e\n\x0c_application\"`\n\x0eGetTaskRequest\x12\x16\n\tnamespace\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x18\n\x0b\x61pplication\x18\x02 \x01(\tH\x01\x88\x01\x01\x42\x0c\n\n_namespaceB\x0e\n\x0c_application\"Z\n\x0fGetTaskResponse\x12>\n\x04task\x18\x01 \x01(\x0b\x32+.sentry_protos.taskbroker.v1.TaskActivationH\x00\x88\x01\x01\x42\x07\n\x05_task\"_\n\rFetchNextTask\x12\x16\n\tnamespace\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x18\n\x0b\x61pplication\x18\x02 \x01(\tH\x01\x88\x01\x01\x42\x0c\n\n_namespaceB\x0e\n\x0c_application\"\xc3\x01\n\x14SetTaskStatusRequest\x12\n\n\x02id\x18\x01 \x01(\t\x12\x41\n\x06status\x18\x02 \x01(\x0e\x32\x31.sentry_protos.taskbroker.v1.TaskActivationStatus\x12H\n\x0f\x66\x65tch_next_task\x18\x03 \x01(\x0b\x32*.sentry_protos.taskbroker.v1.FetchNextTaskH\x00\x88\x01\x01\x42\x12\n\x10_fetch_next_task\"`\n\x15SetTaskStatusResponse\x12>\n\x04task\x18\x01 \x01(\x0b\x32+.sentry_protos.taskbroker.v1.TaskActivationH\x00\x88\x01\x01\x42\x07\n\x05_task\"b\n\x0fPushTaskRequest\x12\x39\n\x04task\x18\x01 \x01(\x0b\x32+.sentry_protos.taskbroker.v1.TaskActivation\x12\x14\n\x0c\x63\x61llback_url\x18\x02 \x01(\t\"\x12\n\x10PushTaskResponse*\x81\x01\n\x12OnAttemptsExceeded\x12$\n ON_ATTEMPTS_EXCEEDED_UNSPECIFIED\x10\x00\x12 \n\x1cON_ATTEMPTS_EXCEEDED_DISCARD\x10\x01\x12#\n\x1fON_ATTEMPTS_EXCEEDED_DEADLETTER\x10\x02*\xf4\x01\n\x14TaskActivationStatus\x12&\n\"TASK_ACTIVATION_STATUS_UNSPECIFIED\x10\x00\x12\"\n\x1eTASK_ACTIVATION_STATUS_PENDING\x10\x01\x12%\n!TASK_ACTIVATION_STATUS_PROCESSING\x10\x02\x12\"\n\x1eTASK_ACTIVATION_STATUS_FAILURE\x10\x03\x12 \n\x1cTASK_ACTIVATION_STATUS_RETRY\x10\x04\x12#\n\x1fTASK_ACTIVATION_STATUS_COMPLETE\x10\x05\x32\xf3\x01\n\x0f\x43onsumerService\x12\x66\n\x07GetTask\x12+.sentry_protos.taskbroker.v1.GetTaskRequest\x1a,.sentry_protos.taskbroker.v1.GetTaskResponse\"\x00\x12x\n\rSetTaskStatus\x12\x31.sentry_protos.taskbroker.v1.SetTaskStatusRequest\x1a\x32.sentry_protos.taskbroker.v1.SetTaskStatusResponse\"\x00\x32z\n\rWorkerService\x12i\n\x08PushTask\x12,.sentry_protos.taskbroker.v1.PushTaskRequest\x1a-.sentry_protos.taskbroker.v1.PushTaskResponse\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n,sentry_protos/taskbroker/v1/taskbroker.proto\x12\x1bsentry_protos.taskbroker.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xdf\x01\n\nRetryState\x12\x10\n\x08\x61ttempts\x18\x01 \x01(\r\x12\x14\n\x0cmax_attempts\x18\x02 \x01(\r\x12M\n\x14on_attempts_exceeded\x18\x03 \x01(\x0e\x32/.sentry_protos.taskbroker.v1.OnAttemptsExceeded\x12\x19\n\x0c\x61t_most_once\x18\x04 \x01(\x08H\x00\x88\x01\x01\x12\x1b\n\x0e\x64\x65lay_on_retry\x18\x05 \x01(\x04H\x01\x88\x01\x01\x42\x0f\n\r_at_most_onceB\x11\n\x0f_delay_on_retry\"\xed\x03\n\x0eTaskActivation\x12\n\n\x02id\x18\x01 \x01(\t\x12\x11\n\tnamespace\x18\x02 \x01(\t\x12\x10\n\x08taskname\x18\x03 \x01(\t\x12\x16\n\nparameters\x18\x04 \x01(\tB\x02\x18\x01\x12\x18\n\x10parameters_bytes\x18\r \x01(\x0c\x12I\n\x07headers\x18\x05 \x03(\x0b\x32\x38.sentry_protos.taskbroker.v1.TaskActivation.HeadersEntry\x12/\n\x0breceived_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12<\n\x0bretry_state\x18\x07 \x01(\x0b\x32\'.sentry_protos.taskbroker.v1.RetryState\x12$\n\x1cprocessing_deadline_duration\x18\x08 \x01(\x04\x12\x14\n\x07\x65xpires\x18\t \x01(\x04H\x00\x88\x01\x01\x12\x12\n\x05\x64\x65lay\x18\x0b \x01(\x04H\x01\x88\x01\x01\x12\x18\n\x0b\x61pplication\x18\x0c \x01(\tH\x02\x88\x01\x01\x1a.\n\x0cHeadersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\n\n\x08_expiresB\x08\n\x06_delayB\x0e\n\x0c_application\"`\n\x0eGetTaskRequest\x12\x16\n\tnamespace\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x18\n\x0b\x61pplication\x18\x02 \x01(\tH\x01\x88\x01\x01\x42\x0c\n\n_namespaceB\x0e\n\x0c_application\"Z\n\x0fGetTaskResponse\x12>\n\x04task\x18\x01 \x01(\x0b\x32+.sentry_protos.taskbroker.v1.TaskActivationH\x00\x88\x01\x01\x42\x07\n\x05_task\"_\n\rFetchNextTask\x12\x16\n\tnamespace\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x18\n\x0b\x61pplication\x18\x02 \x01(\tH\x01\x88\x01\x01\x42\x0c\n\n_namespaceB\x0e\n\x0c_application\"\xef\x01\n\x14SetTaskStatusRequest\x12\n\n\x02id\x18\x01 \x01(\t\x12\x41\n\x06status\x18\x02 \x01(\x0e\x32\x31.sentry_protos.taskbroker.v1.TaskActivationStatus\x12H\n\x0f\x66\x65tch_next_task\x18\x03 \x01(\x0b\x32*.sentry_protos.taskbroker.v1.FetchNextTaskH\x00\x88\x01\x01\x12\x19\n\x0cmax_attempts\x18\x04 \x01(\rH\x01\x88\x01\x01\x42\x12\n\x10_fetch_next_taskB\x0f\n\r_max_attempts\"`\n\x15SetTaskStatusResponse\x12>\n\x04task\x18\x01 \x01(\x0b\x32+.sentry_protos.taskbroker.v1.TaskActivationH\x00\x88\x01\x01\x42\x07\n\x05_task\"b\n\x0fPushTaskRequest\x12\x39\n\x04task\x18\x01 \x01(\x0b\x32+.sentry_protos.taskbroker.v1.TaskActivation\x12\x14\n\x0c\x63\x61llback_url\x18\x02 \x01(\t\"\x12\n\x10PushTaskResponse*\x81\x01\n\x12OnAttemptsExceeded\x12$\n ON_ATTEMPTS_EXCEEDED_UNSPECIFIED\x10\x00\x12 \n\x1cON_ATTEMPTS_EXCEEDED_DISCARD\x10\x01\x12#\n\x1fON_ATTEMPTS_EXCEEDED_DEADLETTER\x10\x02*\xf4\x01\n\x14TaskActivationStatus\x12&\n\"TASK_ACTIVATION_STATUS_UNSPECIFIED\x10\x00\x12\"\n\x1eTASK_ACTIVATION_STATUS_PENDING\x10\x01\x12%\n!TASK_ACTIVATION_STATUS_PROCESSING\x10\x02\x12\"\n\x1eTASK_ACTIVATION_STATUS_FAILURE\x10\x03\x12 \n\x1cTASK_ACTIVATION_STATUS_RETRY\x10\x04\x12#\n\x1fTASK_ACTIVATION_STATUS_COMPLETE\x10\x05\x32\xf3\x01\n\x0f\x43onsumerService\x12\x66\n\x07GetTask\x12+.sentry_protos.taskbroker.v1.GetTaskRequest\x1a,.sentry_protos.taskbroker.v1.GetTaskResponse\"\x00\x12x\n\rSetTaskStatus\x12\x31.sentry_protos.taskbroker.v1.SetTaskStatusRequest\x1a\x32.sentry_protos.taskbroker.v1.SetTaskStatusResponse\"\x00\x32z\n\rWorkerService\x12i\n\x08PushTask\x12,.sentry_protos.taskbroker.v1.PushTaskRequest\x1a-.sentry_protos.taskbroker.v1.PushTaskResponse\"\x00\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -26,10 +26,10 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_TASKACTIVATION_HEADERSENTRY']._serialized_options = b'8\001'
   _globals['_TASKACTIVATION'].fields_by_name['parameters']._loaded_options = None
   _globals['_TASKACTIVATION'].fields_by_name['parameters']._serialized_options = b'\030\001'
-  _globals['_ONATTEMPTSEXCEEDED']._serialized_start=1536
-  _globals['_ONATTEMPTSEXCEEDED']._serialized_end=1665
-  _globals['_TASKACTIVATIONSTATUS']._serialized_start=1668
-  _globals['_TASKACTIVATIONSTATUS']._serialized_end=1912
+  _globals['_ONATTEMPTSEXCEEDED']._serialized_start=1580
+  _globals['_ONATTEMPTSEXCEEDED']._serialized_end=1709
+  _globals['_TASKACTIVATIONSTATUS']._serialized_start=1712
+  _globals['_TASKACTIVATIONSTATUS']._serialized_end=1956
   _globals['_RETRYSTATE']._serialized_start=111
   _globals['_RETRYSTATE']._serialized_end=334
   _globals['_TASKACTIVATION']._serialized_start=337
@@ -43,15 +43,15 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_FETCHNEXTTASK']._serialized_start=1022
   _globals['_FETCHNEXTTASK']._serialized_end=1117
   _globals['_SETTASKSTATUSREQUEST']._serialized_start=1120
-  _globals['_SETTASKSTATUSREQUEST']._serialized_end=1315
-  _globals['_SETTASKSTATUSRESPONSE']._serialized_start=1317
-  _globals['_SETTASKSTATUSRESPONSE']._serialized_end=1413
-  _globals['_PUSHTASKREQUEST']._serialized_start=1415
-  _globals['_PUSHTASKREQUEST']._serialized_end=1513
-  _globals['_PUSHTASKRESPONSE']._serialized_start=1515
-  _globals['_PUSHTASKRESPONSE']._serialized_end=1533
-  _globals['_CONSUMERSERVICE']._serialized_start=1915
-  _globals['_CONSUMERSERVICE']._serialized_end=2158
-  _globals['_WORKERSERVICE']._serialized_start=2160
-  _globals['_WORKERSERVICE']._serialized_end=2282
+  _globals['_SETTASKSTATUSREQUEST']._serialized_end=1359
+  _globals['_SETTASKSTATUSRESPONSE']._serialized_start=1361
+  _globals['_SETTASKSTATUSRESPONSE']._serialized_end=1457
+  _globals['_PUSHTASKREQUEST']._serialized_start=1459
+  _globals['_PUSHTASKREQUEST']._serialized_end=1557
+  _globals['_PUSHTASKRESPONSE']._serialized_start=1559
+  _globals['_PUSHTASKRESPONSE']._serialized_end=1577
+  _globals['_CONSUMERSERVICE']._serialized_start=1959
+  _globals['_CONSUMERSERVICE']._serialized_end=2202
+  _globals['_WORKERSERVICE']._serialized_start=2204
+  _globals['_WORKERSERVICE']._serialized_end=2326
 # @@protoc_insertion_point(module_scope)

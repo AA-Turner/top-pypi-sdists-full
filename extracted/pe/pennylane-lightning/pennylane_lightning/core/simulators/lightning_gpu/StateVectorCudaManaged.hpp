@@ -17,6 +17,7 @@
 #pragma once
 
 #include <algorithm>
+#include <limits>
 #include <random>
 #include <set>
 #include <type_traits>
@@ -672,6 +673,35 @@ class StateVectorCudaManaged
                                x);
                        });
         applyOperation(opName, wires, adjoint, {}, matrix_cu);
+    }
+
+    /**
+     * @brief Apply a PauliRot gate to the state-vector.
+     *
+     * @param wires Wires to apply gate to.
+     * @param inverse Indicates whether to use inverse of gate.
+     * @param params Rotation angle.
+     * @param word A Pauli word (e.g. "XYYX").
+     */
+    void applyPauliRot(const std::vector<std::size_t> &wires, bool inverse,
+                       const std::vector<PrecisionT> &params,
+                       const std::string &word) {
+        PL_ABORT_IF_NOT(wires.size() == word.size(),
+                        "wires and word have incompatible dimensions.");
+
+        // Extract each character in the Pauli word
+        // following the expected input format of
+        // custatevec parametric Pauli gate API.
+        std::vector<std::string> extract_pauli_word;
+        extract_pauli_word.reserve(word.size());
+        for (const char c : word) {
+            extract_pauli_word.emplace_back(1, c);
+        }
+
+        applyParametricPauliGeneralGate_(extract_pauli_word, {}, {},
+                                         NormalizeCastIndices<std::size_t, int>(
+                                             wires, BaseType::getNumQubits()),
+                                         params.front(), inverse);
     }
 
     /**
@@ -1923,6 +1953,28 @@ class StateVectorCudaManaged
         return data_host;
     }
 
+    /**
+     * @brief Normalize vector (to have norm 1).
+     */
+    void normalize() {
+        auto data_host = getDataVector();
+
+        PrecisionT norm = std::sqrt(
+            Pennylane::Util::squaredNorm(data_host.data(), data_host.size()));
+
+        // TODO: Waiting the decision from PL core about how to solve the issue
+        // https://github.com/PennyLaneAI/pennylane/issues/6504
+        PL_ABORT_IF(norm < std::numeric_limits<PrecisionT>::epsilon() * 1e2,
+                    "Vector has norm close to zero and cannot be normalized");
+
+        const ComplexT inv_norm = 1. / norm;
+        for (std::size_t k = 0; k < data_host.size(); k++) {
+            data_host[k] *= inv_norm;
+        }
+
+        BaseType::CopyHostDataToGpu(data_host.data(), data_host.size(), false);
+    }
+
   private:
     SharedCusvHandle handle_;
     SharedCublasCaller cublascaller_;
@@ -2092,10 +2144,13 @@ class StateVectorCudaManaged
     };
 
     const std::unordered_map<std::string, custatevecPauli_t> native_gates_{
-        {"RX", CUSTATEVEC_PAULI_X},       {"RY", CUSTATEVEC_PAULI_Y},
-        {"RZ", CUSTATEVEC_PAULI_Z},       {"CRX", CUSTATEVEC_PAULI_X},
-        {"CRY", CUSTATEVEC_PAULI_Y},      {"CRZ", CUSTATEVEC_PAULI_Z},
-        {"Identity", CUSTATEVEC_PAULI_I}, {"I", CUSTATEVEC_PAULI_I}};
+        {"X", CUSTATEVEC_PAULI_X},        {"Y", CUSTATEVEC_PAULI_Y},
+        {"Z", CUSTATEVEC_PAULI_Z},        {"I", CUSTATEVEC_PAULI_I},
+        {"Identity", CUSTATEVEC_PAULI_I}, {"RX", CUSTATEVEC_PAULI_X},
+        {"RY", CUSTATEVEC_PAULI_Y},       {"RZ", CUSTATEVEC_PAULI_Z},
+        {"CRX", CUSTATEVEC_PAULI_X},      {"CRY", CUSTATEVEC_PAULI_Y},
+        {"CRZ", CUSTATEVEC_PAULI_Z},
+    };
 
     // Holds the mapping from gate labels to associated generator functions.
     const GMap generator_map_{

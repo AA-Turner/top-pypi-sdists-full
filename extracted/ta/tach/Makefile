@@ -40,7 +40,6 @@ fmt-python: ## Format Python code
 
 
 fmt-rust: ## Format Rust code
-	cargo clippy --fix --allow-dirty --allow-staged
 	cargo fmt --all
 
 
@@ -63,14 +62,14 @@ type-check: ## Run type checking
 docs: docs-serve ## Alias for docs-serve
 
 docs-serve: ## Serve documentation locally with live reloading
-	./pw uv run --group docs mkdocs serve
+	./pw uv run --group docs zensical serve
 
 docs-build: ## Build the documentation site
-	./pw uv run --group docs mkdocs build --strict
+	./pw uv run --group docs zensical build --strict
 
 
 docs-check: ## Build the documentation site
-	./pw uv run --group docs mkdocs build
+	./pw uv run --group docs zensical build
 
 
 ensure-debugging-enabled: ## enable support for attaching debuggers (required for debugging the language server in the vscode extension)

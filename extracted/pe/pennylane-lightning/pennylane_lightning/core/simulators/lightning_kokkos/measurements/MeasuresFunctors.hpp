@@ -384,6 +384,11 @@ class getProbsNQubitOpFunctor {
 /**
  * @brief Compute probability distribution from StateVector.
  *
+ * Note: From Kokkos 5.1 onwards, the MDRangePolicy selects larger block sizes
+ * for parallel_reduce, which can exceed CUDA/HIP shared memory limits. For GPU
+ * execution, `probs` will not dispatch to this functor for more than
+ * GPU_SHARED_NWIRES_MAX (4) wires.
+ *
  * @tparam DeviceType Kokkos execution space.
  * @tparam PrecisionT StateVector precision.
  * @param arr StateVector data.

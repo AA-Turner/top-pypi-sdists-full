@@ -421,20 +421,46 @@ class DrydockApp(App):  # noqa: PLR0904
         input_widget.value = ""
 
         if self._agent_running:
-            # Queue the message — join rapid-fire inputs (multi-line paste)
-            if not hasattr(self, "_pending_messages"):
-                self._pending_messages: list[str] = []
-            import time
-            now = time.time()
-            last_queue_time = getattr(self, "_last_queue_time", 0)
-            if now - last_queue_time < 0.5 and self._pending_messages:
-                # Rapid input (< 500ms apart) = likely paste — join with newline
-                self._pending_messages[-1] += "\n" + value
-            else:
-                self._pending_messages.append(value)
-            self._last_queue_time = now
+            # Slash commands and bash escapes can't be folded into a running
+            # turn — they need their own worker. Keep the end-of-turn queue
+            # for those. Everything else (plain text) goes straight into the
+            # agent's context via `queue_user_injection`, matching Claude
+            # Code's "type while busy" behavior: the in-flight task keeps
+            # running, and the model sees the new message at the next turn
+            # boundary without restarting.
+            is_command = value.startswith("/") or value.startswith("!") or (
+                value.startswith("&") and self.config.nuage_enabled
+            )
+
+            if is_command:
+                if not hasattr(self, "_pending_messages"):
+                    self._pending_messages: list[str] = []
+                import time
+                now = time.time()
+                last_queue_time = getattr(self, "_last_queue_time", 0)
+                if now - last_queue_time < 0.5 and self._pending_messages:
+                    self._pending_messages[-1] += "\n" + value
+                else:
+                    self._pending_messages.append(value)
+                self._last_queue_time = now
+                preview = value[:60] + "..." if len(value) > 60 else value
+                self.notify(
+                    f"Queued for after current task: \"{preview}\" "
+                    f"({len(self._pending_messages)} pending)"
+                )
+                return
+
+            # Plain text → inject into the running agent's context. Render
+            # a user-message bubble immediately so the UI shows what landed,
+            # and notify so the user knows it didn't displace the current
+            # work.
+            self.agent_loop.queue_user_injection(value)
+            await self._mount_and_scroll(UserMessage(value))
             preview = value[:60] + "..." if len(value) > 60 else value
-            self.notify(f"Queued: \"{preview}\" ({len(self._pending_messages)} pending)")
+            self.notify(
+                f"Sent to running agent: \"{preview}\" "
+                f"(will be picked up at the next turn)"
+            )
             return
 
         if value.startswith("!"):
@@ -1414,11 +1440,11 @@ class DrydockApp(App):  # noqa: PLR0904
             pass
 
         # Read existing config
-        import tomli
+        import tomllib
         existing = {}
         if config_path.exists():
             try:
-                existing = tomli.loads(config_path.read_text())
+                existing = tomllib.loads(config_path.read_text())
             except Exception:
                 pass
 
@@ -1465,7 +1491,7 @@ class DrydockApp(App):  # noqa: PLR0904
     async def _mcp_command(self, args: str = "") -> None:
         """Configure MCP servers in ~/.drydock/config.toml."""
         import shlex
-        import tomli
+        import tomllib
         import tomli_w
 
         config_path = Path.home() / ".drydock" / "config.toml"
@@ -1475,7 +1501,7 @@ class DrydockApp(App):  # noqa: PLR0904
             if not config_path.exists():
                 return {}
             try:
-                return tomli.loads(config_path.read_text())
+                return tomllib.loads(config_path.read_text())
             except Exception:
                 return {}
 
@@ -1630,6 +1656,112 @@ class DrydockApp(App):  # noqa: PLR0904
         await self._mount_and_scroll(UserCommandMessage(
             "Usage: `/mcp {list | add <transport> <name> ... | "
             "remove <name> | examples}`"
+        ))
+
+    async def _curiosity_command(self, args: str = "") -> None:
+        """Inspect the curiosity learning queue (SOVEREIGN_PRD §5.7)."""
+        try:
+            from drydock.curiosity.queue import queue_path, read_recent
+            from drydock.curiosity.__main__ import (
+                _KIND_PRIORITY, _load_consumed,
+            )
+        except Exception as e:
+            await self._mount_and_scroll(
+                UserCommandMessage(f"Curiosity module unavailable: {e}")
+            )
+            return
+
+        parts = args.strip().split(None, 1)
+        sub = parts[0].lower() if parts else "stats"
+        rest = parts[1].strip() if len(parts) > 1 else ""
+
+        consumed = _load_consumed()
+        items = list(reversed(read_recent(limit=10_000)))
+        pending = [i for i in items if i.get("id") not in consumed]
+
+        if sub in ("", "stats", "status"):
+            if not items:
+                await self._mount_and_scroll(UserCommandMessage(
+                    f"### Curiosity queue\n\n_Empty._\n\n"
+                    f"Queue: `{queue_path()}`\n\n"
+                    "Items land here when the agent detects unfamiliar terms "
+                    "(SOVEREIGN_PRD §5.7), when tool results contradict the "
+                    "model's assertions, or when an HLE answer scores NO. "
+                    "`autonomous_review` consumes the top items per tick."
+                ))
+                return
+            by_kind: dict[str, dict[str, int]] = {}
+            for it in items:
+                k = it.get("kind", "?")
+                b = by_kind.setdefault(k, {"total": 0, "pending": 0})
+                b["total"] += 1
+                if it.get("id") not in consumed:
+                    b["pending"] += 1
+            lines = [
+                "### Curiosity queue",
+                "",
+                f"Queue: `{queue_path()}`",
+                f"Total: **{len(items)}** items "
+                f"({len(pending)} pending, {len(consumed)} consumed)",
+                "",
+                "| kind | total | pending |",
+                "|---|---:|---:|",
+            ]
+            for k in sorted(by_kind, key=lambda x: _KIND_PRIORITY.get(x, 99)):
+                b = by_kind[k]
+                lines.append(f"| `{k}` | {b['total']} | {b['pending']} |")
+            lines.append("")
+            lines.append("`/curiosity top` for the highest-priority pending items.")
+            await self._mount_and_scroll(UserCommandMessage("\n".join(lines)))
+            return
+
+        if sub == "top":
+            limit = 5
+            if rest.isdigit():
+                limit = max(1, min(20, int(rest)))
+            ranked = sorted(pending, key=lambda x: (
+                _KIND_PRIORITY.get(x.get("kind", ""), 99),
+                -float(x.get("confidence", 0.0)),
+                x.get("ts", ""),
+            ))[:limit]
+            if not ranked:
+                await self._mount_and_scroll(UserCommandMessage(
+                    "_No pending curiosity items._"
+                ))
+                return
+            lines = [f"### Top {len(ranked)} pending curiosity items", ""]
+            for i, it in enumerate(ranked, 1):
+                term = it.get("term", "")[:140]
+                ctx = it.get("context", "")[:200].replace("\n", " ")
+                fp = it.get("id", "?")
+                kind = it.get("kind", "?")
+                conf = it.get("confidence", 0.0)
+                lines.append(
+                    f"**{i}. `{kind}`** · conf={conf} · `{fp}`"
+                )
+                lines.append(f"- term: {term}")
+                if ctx:
+                    lines.append(f"- context: {ctx}")
+                lines.append("")
+            await self._mount_and_scroll(UserCommandMessage("\n".join(lines)))
+            return
+
+        if sub == "consume":
+            if not rest:
+                await self._mount_and_scroll(UserCommandMessage(
+                    "Usage: `/curiosity consume <fingerprint>`"
+                ))
+                return
+            consumed.add(rest)
+            from drydock.curiosity.__main__ import _save_consumed
+            _save_consumed(consumed)
+            await self._mount_and_scroll(UserCommandMessage(
+                f"Marked `{rest}` consumed. Total: {len(consumed)}."
+            ))
+            return
+
+        await self._mount_and_scroll(UserCommandMessage(
+            "Usage: `/curiosity {stats | top [N] | consume <id>}`"
         ))
 
     async def _admiral_apply_command(self, args: str = "") -> None:

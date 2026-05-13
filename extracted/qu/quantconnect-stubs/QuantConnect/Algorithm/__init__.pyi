@@ -49,7 +49,16 @@ import pandas
 
 QuantConnect_Algorithm__EventContainer_Callable = typing.TypeVar("QuantConnect_Algorithm__EventContainer_Callable")
 QuantConnect_Algorithm__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Algorithm__EventContainer_ReturnType")
+QuantConnect_Algorithm_QCAlgorithm_RegisterIndicator_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_RegisterIndicator_T")
+QuantConnect_Algorithm_QCAlgorithm_WarmUpIndicator_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_WarmUpIndicator_T")
+QuantConnect_Algorithm_QCAlgorithm_Consolidate_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_Consolidate_T")
+QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T")
 QuantConnect_Algorithm_QCAlgorithm_History_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_History_T")
+QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T")
+QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T")
+QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T")
+QuantConnect_Algorithm_QCAlgorithm_AddData_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_AddData_T")
+QuantConnect_Algorithm_QCAlgorithm_AddCommand_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_AddCommand_T")
 
 
 class UniverseDefinitions(System.Object):
@@ -1066,7 +1075,712 @@ class CandlestickPatterns(System.Object):
         ...
 
 
-class _TypedHistory(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_History_T]):
+class _Typed_QCAlgorithm_RegisterIndicator(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_RegisterIndicator_T]):
+    """"""
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect_Algorithm_QCAlgorithm_RegisterIndicator_T], resolution: typing.Optional[QuantConnect.Resolution] = None) -> None:
+        """
+        Registers the consolidator to receive automatic updates as well as configures the indicator to receive updates
+        from the consolidator.
+        
+        :param symbol: The symbol to register against
+        :param indicator: The indicator to receive data from the consolidator
+        :param resolution: The resolution at which to send data to the indicator, null to use the same resolution as the subscription
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect_Algorithm_QCAlgorithm_RegisterIndicator_T], resolution: typing.Optional[QuantConnect.Resolution], selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect_Algorithm_QCAlgorithm_RegisterIndicator_T]) -> None:
+        """
+        Registers the consolidator to receive automatic updates as well as configures the indicator to receive updates
+        from the consolidator.
+        
+        :param symbol: The symbol to register against
+        :param indicator: The indicator to receive data from the consolidator
+        :param resolution: The resolution at which to send data to the indicator, null to use the same resolution as the subscription
+        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect_Algorithm_QCAlgorithm_RegisterIndicator_T], resolution: typing.Optional[datetime.timedelta], selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect_Algorithm_QCAlgorithm_RegisterIndicator_T] = None) -> None:
+        """
+        Registers the consolidator to receive automatic updates as well as configures the indicator to receive updates
+        from the consolidator.
+        
+        :param symbol: The symbol to register against
+        :param indicator: The indicator to receive data from the consolidator
+        :param resolution: The resolution at which to send data to the indicator, null to use the same resolution as the subscription
+        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect_Algorithm_QCAlgorithm_RegisterIndicator_T], consolidator: typing.Union[QuantConnect.Data.Consolidators.IDataConsolidator, QuantConnect.Python.PythonConsolidator, datetime.timedelta], selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect_Algorithm_QCAlgorithm_RegisterIndicator_T] = None) -> None:
+        """
+        Registers the consolidator to receive automatic updates as well as configures the indicator to receive updates
+        from the consolidator.
+        
+        :param symbol: The symbol to register against
+        :param indicator: The indicator to receive data from the consolidator
+        :param consolidator: The consolidator to receive raw subscription data
+        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
+        """
+        ...
+
+
+class _QCAlgorithm_RegisterIndicator:
+    """"""
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: typing.Any, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Any = None) -> None:
+        """
+        Registers the consolidator to receive automatic updates as well as configures the indicator to receive updates
+        from the consolidator.
+        
+        :param symbol: The symbol to register against
+        :param indicator: The indicator to receive data from the consolidator
+        :param resolution: The resolution at which to send data to the indicator, null to use the same resolution as the subscription
+        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: typing.Any, resolution: typing.Optional[datetime.timedelta] = None, selector: typing.Any = None) -> None:
+        """
+        Registers the consolidator to receive automatic updates as well as configures the indicator to receive updates
+        from the consolidator.
+        
+        :param symbol: The symbol to register against
+        :param indicator: The indicator to receive data from the consolidator
+        :param resolution: The resolution at which to send data to the indicator, null to use the same resolution as the subscription
+        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: typing.Any, py_object: typing.Any, selector: typing.Any = None) -> None:
+        """
+        Registers the consolidator to receive automatic updates as well as configures the indicator to receive updates
+        from the consolidator.
+        
+        :param symbol: The symbol to register against
+        :param indicator: The indicator to receive data from the consolidator
+        :param py_object: The python object that it is trying to register with, could be consolidator or a timespan
+        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: typing.Any, consolidator: typing.Union[QuantConnect.Data.Consolidators.IDataConsolidator, QuantConnect.Python.PythonConsolidator, datetime.timedelta], selector: typing.Any = None) -> None:
+        """
+        Registers the consolidator to receive automatic updates as well as configures the indicator to receive updates
+        from the consolidator.
+        
+        :param symbol: The symbol to register against
+        :param indicator: The indicator to receive data from the consolidator
+        :param consolidator: The consolidator to receive raw subscription data
+        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_RegisterIndicator_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_RegisterIndicator[QuantConnect_Algorithm_QCAlgorithm_RegisterIndicator_T]:
+        ...
+
+
+class _Typed_QCAlgorithm_WarmUpIndicator(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_WarmUpIndicator_T]):
+    """"""
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect_Algorithm_QCAlgorithm_WarmUpIndicator_T], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect_Algorithm_QCAlgorithm_WarmUpIndicator_T] = None) -> None:
+        """
+        Warms up a given indicator with historical data
+        
+        :param symbol: The symbol whose indicator we want
+        :param indicator: The indicator we want to warm up
+        :param resolution: The resolution
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect_Algorithm_QCAlgorithm_WarmUpIndicator_T], period: datetime.timedelta, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect_Algorithm_QCAlgorithm_WarmUpIndicator_T] = None) -> None:
+        """
+        Warms up a given indicator with historical data
+        
+        :param symbol: The symbol whose indicator we want
+        :param indicator: The indicator we want to warm up
+        :param period: The necessary period to warm up the indicator
+        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
+        """
+        ...
+
+    @overload
+    def __call__(self, symbols: typing.List[QuantConnect.Symbol], indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect_Algorithm_QCAlgorithm_WarmUpIndicator_T], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect_Algorithm_QCAlgorithm_WarmUpIndicator_T] = None) -> None:
+        """
+        Warms up a given indicator with historical data
+        
+        :param symbols: The symbols whose indicator we want
+        :param indicator: The indicator we want to warm up
+        :param resolution: The resolution
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        """
+        ...
+
+    @overload
+    def __call__(self, symbols: typing.List[QuantConnect.Symbol], indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect_Algorithm_QCAlgorithm_WarmUpIndicator_T], period: datetime.timedelta, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect_Algorithm_QCAlgorithm_WarmUpIndicator_T] = None) -> None:
+        """
+        Warms up a given indicator with historical data
+        
+        :param symbols: The symbols whose indicator we want
+        :param indicator: The indicator we want to warm up
+        :param period: The necessary period to warm up the indicator
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        """
+        ...
+
+
+class _QCAlgorithm_WarmUpIndicator:
+    """"""
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: typing.Any, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Any = None) -> None:
+        """
+        Warms up a given indicator with historical data
+        
+        :param symbol: The symbol whose indicator we want
+        :param indicator: The indicator we want to warm up
+        :param resolution: The resolution
+        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Any, indicator: typing.Any, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Any = None) -> None:
+        """
+        Warms up a given indicator with historical data
+        
+        :param symbol: The symbol or symbols to retrieve historical data for
+        :param indicator: The indicator we want to warm up
+        :param resolution: The resolution
+        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: typing.Any, period: datetime.timedelta, selector: typing.Any = None) -> None:
+        """
+        Warms up a given indicator with historical data
+        
+        :param symbol: The symbol whose indicator we want
+        :param indicator: The indicator we want to warm up
+        :param period: The necessary period to warm up the indicator
+        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Any, indicator: typing.Any, period: datetime.timedelta, selector: typing.Any = None) -> None:
+        """
+        Warms up a given indicator with historical data
+        
+        :param symbol: The symbol or symbols to retrieve historical data for
+        :param indicator: The indicator we want to warm up
+        :param period: The necessary period to warm up the indicator
+        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
+        """
+        ...
+
+    @overload
+    def __call__(self, symbols: typing.List[QuantConnect.Symbol], indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
+        """
+        Warms up a given indicator with historical data
+        
+        :param symbols: The symbols whose indicator we want
+        :param indicator: The indicator we want to warm up
+        :param resolution: The resolution
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        """
+        ...
+
+    @overload
+    def __call__(self, symbols: typing.List[QuantConnect.Symbol], indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], period: datetime.timedelta, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
+        """
+        Warms up a given indicator with historical data
+        
+        :param symbols: The symbols whose indicator we want
+        :param indicator: The indicator we want to warm up
+        :param period: The necessary period to warm up the indicator
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_WarmUpIndicator_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_WarmUpIndicator[QuantConnect_Algorithm_QCAlgorithm_WarmUpIndicator_T]:
+        ...
+
+
+class _Typed_QCAlgorithm_Consolidate(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_Consolidate_T]):
+    """"""
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: datetime.timedelta, handler: typing.Callable[[QuantConnect_Algorithm_QCAlgorithm_Consolidate_T], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the handler to receive consolidated data for the specified symbol and tick type.
+        The handler and tick type must match.
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param period: The consolidation period
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: QuantConnect.Resolution, tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Callable[[QuantConnect_Algorithm_QCAlgorithm_Consolidate_T], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the handler to receive consolidated data for the specified symbol and tick type.
+        The handler and tick type must match.
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param period: The consolidation period
+        :param tick_type: The tick type of subscription used as data source for consolidator. Specify null to use first subscription found.
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: datetime.timedelta, tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Callable[[QuantConnect_Algorithm_QCAlgorithm_Consolidate_T], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the handler to receive consolidated data for the specified symbol and tick type.
+        The handler and tick type must match.
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param period: The consolidation period
+        :param tick_type: The tick type of subscription used as data source for consolidator. Specify null to use first subscription found.
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], handler: typing.Callable[[QuantConnect_Algorithm_QCAlgorithm_Consolidate_T], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the handler to receive consolidated data for the specified symbol and tick type.
+        The handler and tick type must match.
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param calendar: The consolidation calendar
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Callable[[QuantConnect_Algorithm_QCAlgorithm_Consolidate_T], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the handler to receive consolidated data for the specified symbol and tick type.
+        The handler and tick type must match.
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param calendar: The consolidation calendar
+        :param tick_type: The tick type of subscription used as data source for consolidator. Specify null to use first subscription found.
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], size: float, tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Callable[[QuantConnect_Algorithm_QCAlgorithm_Consolidate_T], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers a Renko or VolumeRenko consolidator for the specified symbol and bar size,
+        and subscribes the handler to receive consolidated data.
+        
+        :param symbol: The symbol whose data is to be consolidated
+        :param size: The bar size used for consolidation
+        :param tick_type: The tick type of the data to be consolidated
+        :param handler: Handler to receive consolidated data
+        :returns: A new Renko-based consolidator with the handler registered.
+        """
+        ...
+
+
+class _QCAlgorithm_Consolidate:
+    """"""
+
+    @overload
+    def __call__(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], size: float, tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Creates and registers a consolidator for the following bar types: RenkoBar, VolumeRenkoBar, or RangeBar
+        for the specified symbol and threshold. The specified handler will be invoked with each new consolidated bar.
+        
+        :param type: The Python type of the bar (RenkoBar, VolumeRenkoBar, or RangeBar)
+        :param symbol: The symbol whose data is to be consolidated
+        :param size: The size value for the consolidator (e.g., brick size, range size or maxCount)
+        :param tick_type: The tick type to consolidate. If null, the first matching subscription is used.
+        :param handler: The callback to invoke with each new consolidated bar
+        :returns: The created and registered IDataConsolidator instance.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: QuantConnect.Resolution, handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the handler to receive consolidated data for the specified symbol
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param period: The consolidation period
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: QuantConnect.Resolution, tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the handler to receive consolidated data for the specified symbol
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param period: The consolidation period
+        :param tick_type: The tick type of subscription used as data source for consolidator. Specify null to use first subscription found.
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: datetime.timedelta, handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the handler to receive consolidated data for the specified symbol
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param period: The consolidation period
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: datetime.timedelta, tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the handler to receive consolidated data for the specified symbol
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param period: The consolidation period
+        :param tick_type: The tick type of subscription used as data source for consolidator. Specify null to use first subscription found.
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the handler to receive consolidated data for the specified symbol
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param calendar: The consolidation calendar
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the handler to receive consolidated data for the specified symbol
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param calendar: The consolidation calendar
+        :param tick_type: The tick type of subscription used as data source for consolidator. Specify null to use first subscription found.
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_Consolidate_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_Consolidate[QuantConnect_Algorithm_QCAlgorithm_Consolidate_T]:
+        ...
+
+
+class _Typed_QCAlgorithm_IndicatorHistory(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T]):
+    """"""
+
+    @overload
+    def __call__(self, indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T] = None) -> pandas.DataFrame:
+        """
+        Gets the historical data of a bar indicator for the specified symbol. The exact number of bars will be returned.
+        The symbol must exist in the Securities collection.
+        
+        :param indicator: The target indicator
+        :param symbol: The symbol to retrieve historical data for
+        :param period: The number of bars to request
+        :param resolution: The resolution to request
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: pandas.DataFrame of historical data of a bar indicator.
+        """
+        ...
+
+    @overload
+    def __call__(self, indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T] = None) -> pandas.DataFrame:
+        """
+        Gets the historical data of a bar indicator for the specified symbol. The exact number of bars will be returned.
+        The symbol must exist in the Securities collection.
+        
+        :param indicator: The target indicator
+        :param symbol: The symbol to retrieve historical data for
+        :param span: The span over which to retrieve recent historical data
+        :param resolution: The resolution to request
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: pandas.DataFrame of historical data of a bar indicator.
+        """
+        ...
+
+    @overload
+    def __call__(self, indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T] = None) -> pandas.DataFrame:
+        """
+        Gets the historical data of a bar indicator for the specified symbol. The exact number of bars will be returned.
+        The symbol must exist in the Securities collection.
+        
+        :param indicator: The target indicator
+        :param symbol: The symbol to retrieve historical data for
+        :param start: The start time in the algorithm's time zone
+        :param end: The end time in the algorithm's time zone
+        :param resolution: The resolution to request
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: pandas.DataFrame of historical data of a bar indicator.
+        """
+        ...
+
+    @overload
+    def __call__(self, indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T], symbols: typing.List[QuantConnect.Symbol], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T] = None) -> pandas.DataFrame:
+        """
+        Gets the historical data of a bar indicator for the specified symbols. The exact number of bars will be returned.
+        The symbol must exist in the Securities collection.
+        
+        :param indicator: The target indicator
+        :param symbols: The symbols to retrieve historical data for
+        :param period: The number of bars to request
+        :param resolution: The resolution to request
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: pandas.DataFrame of historical data of a bar indicator.
+        """
+        ...
+
+    @overload
+    def __call__(self, indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T], symbols: typing.List[QuantConnect.Symbol], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T] = None) -> pandas.DataFrame:
+        """
+        Gets the historical data of a bar indicator for the specified symbol. The exact number of bars will be returned.
+        The symbol must exist in the Securities collection.
+        
+        :param indicator: The target indicator
+        :param symbols: The symbols to retrieve historical data for
+        :param span: The span over which to retrieve recent historical data
+        :param resolution: The resolution to request
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: pandas.DataFrame of historical data of a bar indicator.
+        """
+        ...
+
+    @overload
+    def __call__(self, indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T], symbols: typing.List[QuantConnect.Symbol], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T] = None) -> pandas.DataFrame:
+        """
+        Gets the historical data of a bar indicator for the specified symbols. The exact number of bars will be returned.
+        The symbol must exist in the Securities collection.
+        
+        :param indicator: The target indicator
+        :param symbols: The symbols to retrieve historical data for
+        :param start: The start time in the algorithm's time zone
+        :param end: The end time in the algorithm's time zone
+        :param resolution: The resolution to request
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: pandas.DataFrame of historical data of a bar indicator.
+        """
+        ...
+
+    @overload
+    def __call__(self, indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T], history: typing.List[QuantConnect.Data.Slice], selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T] = None) -> pandas.DataFrame:
+        """
+        Gets the historical data of an bar indicator and convert it into pandas.DataFrame
+        
+        :param indicator: Bar indicator
+        :param history: Historical data used to calculate the indicator
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: pandas.DataFrame containing the historical data of indicator.
+        """
+        ...
+
+
+class _QCAlgorithm_IndicatorHistory:
+    """"""
+
+    @overload
+    def __call__(self, indicator: typing.Any, symbol: typing.Any, period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Any = None) -> pandas.DataFrame:
+        """
+        Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
+        The symbol must exist in the Securities collection.
+        
+        :param indicator: The target indicator
+        :param symbol: The symbol or symbols to retrieve historical data for
+        :param period: The number of bars to request
+        :param resolution: The resolution to request
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: pandas.DataFrame of historical data of an indicator.
+        """
+        ...
+
+    @overload
+    def __call__(self, indicator: typing.Any, symbol: typing.Any, span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Any = None) -> pandas.DataFrame:
+        """
+        Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
+        The symbol must exist in the Securities collection.
+        
+        :param indicator: The target indicator
+        :param symbol: The symbol or symbols to retrieve historical data for
+        :param span: The span over which to retrieve recent historical data
+        :param resolution: The resolution to request
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: pandas.DataFrame of historical data of an indicator.
+        """
+        ...
+
+    @overload
+    def __call__(self, indicator: typing.Any, symbol: typing.Any, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Any = None) -> pandas.DataFrame:
+        """
+        Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
+        The symbol must exist in the Securities collection.
+        
+        :param indicator: The target indicator
+        :param symbol: The symbol or symbols to retrieve historical data for
+        :param start: The start time in the algorithm's time zone
+        :param end: The end time in the algorithm's time zone
+        :param resolution: The resolution to request
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: pandas.DataFrame of historical data of an indicator.
+        """
+        ...
+
+    @overload
+    def __call__(self, indicator: typing.Any, history: typing.List[QuantConnect.Data.Slice], selector: typing.Any = None) -> pandas.DataFrame:
+        """
+        Gets the historical data of an indicator and convert it into pandas.DataFrame
+        
+        :param indicator: The target indicator
+        :param history: Historical data used to calculate the indicator
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: pandas.DataFrame containing the historical data of indicator.
+        """
+        ...
+
+    @overload
+    def __call__(self, indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
+        """
+        Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
+        The symbol must exist in the Securities collection.
+        
+        :param indicator: The target indicator
+        :param symbol: The symbol to retrieve historical data for
+        :param period: The number of bars to request
+        :param resolution: The resolution to request
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: pandas.DataFrame of historical data of an indicator.
+        """
+        ...
+
+    @overload
+    def __call__(self, indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
+        """
+        Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
+        The symbol must exist in the Securities collection.
+        
+        :param indicator: The target indicator
+        :param symbol: The symbol to retrieve historical data for
+        :param span: The span over which to retrieve recent historical data
+        :param resolution: The resolution to request
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: pandas.DataFrame of historical data of an indicator.
+        """
+        ...
+
+    @overload
+    def __call__(self, indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
+        """
+        Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
+        The symbol must exist in the Securities collection.
+        
+        :param indicator: The target indicator
+        :param symbol: The symbol to retrieve historical data for
+        :param start: The start time in the algorithm's time zone
+        :param end: The end time in the algorithm's time zone
+        :param resolution: The resolution to request
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: pandas.DataFrame of historical data of an indicator.
+        """
+        ...
+
+    @overload
+    def __call__(self, indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], symbols: typing.List[QuantConnect.Symbol], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
+        """
+        Gets the historical data of an indicator for the specified symbols. The exact number of bars will be returned.
+        The symbol must exist in the Securities collection.
+        
+        :param indicator: The target indicator
+        :param symbols: The symbols to retrieve historical data for
+        :param period: The number of bars to request
+        :param resolution: The resolution to request
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: pandas.DataFrame of historical data of an indicator.
+        """
+        ...
+
+    @overload
+    def __call__(self, indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], symbols: typing.List[QuantConnect.Symbol], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
+        """
+        Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
+        The symbol must exist in the Securities collection.
+        
+        :param indicator: The target indicator
+        :param symbols: The symbols to retrieve historical data for
+        :param span: The span over which to retrieve recent historical data
+        :param resolution: The resolution to request
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: pandas.DataFrame of historical data of an indicator.
+        """
+        ...
+
+    @overload
+    def __call__(self, indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], symbols: typing.List[QuantConnect.Symbol], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
+        """
+        Gets the historical data of an indicator for the specified symbols. The exact number of bars will be returned.
+        The symbol must exist in the Securities collection.
+        
+        :param indicator: The target indicator
+        :param symbols: The symbols to retrieve historical data for
+        :param start: The start time in the algorithm's time zone
+        :param end: The end time in the algorithm's time zone
+        :param resolution: The resolution to request
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: pandas.DataFrame of historical data of an indicator.
+        """
+        ...
+
+    @overload
+    def __call__(self, indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], history: typing.List[QuantConnect.Data.Slice], selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
+        """
+        Gets the historical data of an indicator and convert it into pandas.DataFrame
+        
+        :param indicator: The target indicator
+        :param history: Historical data used to calculate the indicator
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
+        :returns: pandas.DataFrame containing the historical data of indicator.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_IndicatorHistory[QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T]:
+        ...
+
+
+class _Typed_QCAlgorithm_History(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_History_T]):
     """"""
 
     @overload
@@ -1203,7 +1917,7 @@ class _TypedHistory(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_History_T]
         ...
 
 
-class _History:
+class _QCAlgorithm_History:
     """"""
 
     @overload
@@ -1653,7 +2367,682 @@ class _History:
         """
         ...
 
-    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_History_T]) -> QuantConnect.Algorithm._TypedHistory[QuantConnect_Algorithm_QCAlgorithm_History_T]:
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_History_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_History[QuantConnect_Algorithm_QCAlgorithm_History_T]:
+        ...
+
+
+class _Typed_QCAlgorithm_GetDataTypedHistory(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T]):
+    """"""
+
+    @overload
+    def __call__(self, requests: typing.List[QuantConnect.Data.HistoryRequest]) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T]]:
+        """
+        Centralized logic to get data typed history for a given list of requests.
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class _QCAlgorithm_GetDataTypedHistory:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_GetDataTypedHistory[QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T]:
+        ...
+
+
+class _Typed_QCAlgorithm_AddUniverse(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T]):
+    """"""
+
+    @overload
+    def __call__(self, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
+        
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
+        
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
+        
+        :param name: A unique name for this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
+        
+        :param name: A unique name for this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, and Market.USA
+        
+        :param name: A unique name for this universe
+        :param universe_settings: The settings used for securities added by this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, and Market.USA
+        
+        :param name: A unique name for this universe
+        :param universe_settings: The settings used for securities added by this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, resolution: QuantConnect.Resolution, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Market.USA and UniverseSettings
+        
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, resolution: QuantConnect.Resolution, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Market.USA and UniverseSettings
+        
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, resolution: QuantConnect.Resolution, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, and Market.USA
+        
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param universe_settings: The settings used for securities added by this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, resolution: QuantConnect.Resolution, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, and Market.USA
+        
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param universe_settings: The settings used for securities added by this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, resolution: QuantConnect.Resolution, market: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property.
+        
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property.
+        
+        :param security_type: The security type the universe produces
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm
+        
+        :param security_type: The security type the universe produces
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param universe_settings: The subscription settings to use for newly created subscriptions
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str = None, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]] = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm
+        
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param universe_settings: The subscription settings to use for newly created subscriptions
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+
+class _QCAlgorithm_AddUniverse:
+    """"""
+
+    @overload
+    def __call__(self, py_object: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for coarse fundamental US Equity data and
+        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        :param py_object: Defines an initial coarse selection
+        """
+        ...
+
+    @overload
+    def __call__(self, py_object: typing.Any, pyfine: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for coarse and fine fundamental US Equity data and
+        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        :param py_object: Defines an initial coarse selection or a universe
+        :param pyfine: Defines a more detailed selection with access to more data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, resolution: QuantConnect.Resolution, py_selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This can be used to return a list of string
+        symbols retrieved from anywhere and will loads those symbols under the US Equity market.
+        
+        :param name: A unique name for this universe
+        :param resolution: The resolution this universe should be triggered on
+        :param py_selector: Function delegate that accepts a DateTime and returns a collection of string symbols
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, py_selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This can be used to return a list of string
+        symbols retrieved from anywhere and will loads those symbols under the US Equity market.
+        
+        :param name: A unique name for this universe
+        :param py_selector: Function delegate that accepts a DateTime and returns a collection of string symbols
+        """
+        ...
+
+    @overload
+    def __call__(self, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, py_selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new user defined universe that will fire on the requested resolution during market hours.
+        
+        :param security_type: The security type of the universe
+        :param name: A unique name for this universe
+        :param resolution: The resolution this universe should be triggered on
+        :param market: The market of the universe
+        :param universe_settings: The subscription settings used for securities added from this universe
+        :param py_selector: Function delegate that accepts a DateTime and returns a collection of string symbols
+        """
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type, name: str, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
+        
+        :param t: The data type
+        :param name: A unique name for this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type, name: str, resolution: QuantConnect.Resolution, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Market.USA and UniverseSettings
+        
+        :param t: The data type
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type, name: str, resolution: QuantConnect.Resolution, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, and Market.USA
+        
+        :param t: The data type
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param universe_settings: The settings used for securities added by this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type, name: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, and Market.USA
+        
+        :param t: The data type
+        :param name: A unique name for this universe
+        :param universe_settings: The settings used for securities added by this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property.
+        
+        :param t: The data type
+        :param security_type: The security type the universe produces
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm
+        
+        :param t: The data type
+        :param security_type: The security type the universe produces
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param universe_settings: The subscription settings to use for newly created subscriptions
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, data_type: typing.Type, security_type: typing.Optional[QuantConnect.SecurityType] = None, name: str = None, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, py_selector: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm
+        
+        :param data_type: The data type
+        :param security_type: The security type the universe produces
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param universe_settings: The subscription settings to use for newly created subscriptions
+        :param py_selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Adds the universe to the algorithm
+        
+        :param universe: The universe to be added
+        """
+        ...
+
+    @overload
+    def __call__(self, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for fundamental US Equity data and
+        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        :param selector: Defines an initial fundamental selection
+        """
+        ...
+
+    @overload
+    def __call__(self, date_rule: QuantConnect.Scheduling.IDateRule, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for fundamental US Equity data and
+        will be executed based on the provided IDateRule in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        :param date_rule: Date rule that will be used to set the Data.UniverseSelection.UniverseSettings.Schedule
+        :param selector: Defines an initial fundamental selection
+        """
+        ...
+
+    @overload
+    def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe, fine_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for fine fundamental US Equity data and
+        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        :param universe: The universe to be filtered with fine fundamental selection
+        :param fine_selector: Defines a more detailed selection with access to more data
+        """
+        ...
+
+    @overload
+    def __call__(self, coarse_selector: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]], typing.List[QuantConnect.Symbol]], fine_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.FineFundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for coarse and fine fundamental US Equity data and
+        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        
+        This method is obsolete, please use AddUniverse(Func<IEnumerable<Fundamental>, IEnumerable<Symbol>> selector) instead
+        
+        :param coarse_selector: Defines an initial coarse selection
+        :param fine_selector: Defines a more detailed selection with access to more data
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_AddUniverse[QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T]:
+        ...
+
+
+class _Typed_QCAlgorithm_GetDataFrame(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T]):
+    """"""
+
+    @overload
+    def __call__(self, data: typing.List[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T], flatten: bool) -> typing.Any:
+        """
+        Converts an enumerable of BaseData into a Python Pandas data frame
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class _QCAlgorithm_GetDataFrame:
+    """"""
+
+    @overload
+    def __call__(self, data: typing.List[QuantConnect.Data.Slice], flatten: bool, data_type: typing.Type = None) -> typing.Any:
+        """
+        Converts an enumerable of Slice into a Python Pandas data frame
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_GetDataFrame[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T]:
+        ...
+
+
+class _Typed_QCAlgorithm_AddData(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_AddData_T]):
+    """"""
+
+    @overload
+    def __call__(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
+        
+        :param underlying: The underlying symbol for the custom data
+        :param resolution: Resolution of the data
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution], fill_forward: bool, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
+        
+        :param underlying: The underlying symbol for the custom data
+        :param resolution: Resolution of the Data Required
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        
+        :param underlying: The underlying symbol for the custom data
+        :param resolution: Resolution of the Data Required
+        :param time_zone: Specifies the time zone of the raw data
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
+        
+        :param ticker: Key/Ticker for data
+        :param resolution: Resolution of the data
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], fill_forward: bool, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
+        
+        :param ticker: Key/Ticker for data
+        :param resolution: Resolution of the Data Required
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        
+        :param ticker: Key/Ticker for data
+        :param resolution: Resolution of the Data Required
+        :param time_zone: Specifies the time zone of the raw data
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, ticker: str, properties: QuantConnect.Securities.SymbolProperties, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source including symbol properties and exchange hours,
+        all other vars are not required and will use defaults.
+        
+        :param ticker: Key/Ticker for data
+        :param properties: The properties of this new custom data
+        :param exchange_hours: The Exchange hours of this symbol
+        :param resolution: Resolution of the Data Required
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+
+class _QCAlgorithm_AddData:
+    """"""
+
+    @overload
+    def __call__(self, type: typing.Type, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time).
+        This method is meant for custom data types that require a ticker, but have no underlying Symbol.
+        Examples of data sources that meet this criteria are U.S. Treasury Yield Curve Rates and Trading Economics data
+        
+        :param type: Data source type
+        :param ticker: Key/Ticker for data
+        :param resolution: Resolution of the data
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time).
+        This adds a Symbol to the `Underlying` property in the custom data Symbol object.
+        Use this method when adding custom data with a ticker from the past, such as "AOL"
+        before it became "TWX", or if you need to filter using custom data and place trades on the
+        Symbol associated with the custom data.
+        
+        :param type: Data source type
+        :param underlying: The underlying symbol for the custom data
+        :param resolution: Resolution of the data
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        This method is meant for custom data types that require a ticker, but have no underlying Symbol.
+        Examples of data sources that meet this criteria are U.S. Treasury Yield Curve Rates and Trading Economics data
+        
+        :param type: Data source type
+        :param ticker: Key/Ticker for data
+        :param resolution: Resolution of the Data Required
+        :param time_zone: Specifies the time zone of the raw data
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        This adds a Symbol to the `Underlying` property in the custom data Symbol object.
+        Use this method when adding custom data with a ticker from the past, such as "AOL"
+        before it became "TWX", or if you need to filter using custom data and place trades on the
+        Symbol associated with the custom data.
+        
+        :param type: Data source type
+        :param underlying: The underlying symbol for the custom data
+        :param resolution: Resolution of the Data Required
+        :param time_zone: Specifies the time zone of the raw data
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, ticker: str, properties: QuantConnect.Securities.SymbolProperties, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source including symbol properties and exchange hours,
+        all other vars are not required and will use defaults.
+        This overload reflects the C# equivalent for custom properties and market hours
+        
+        :param type: Data source type
+        :param ticker: Key/Ticker for data
+        :param properties: The properties of this new custom data
+        :param exchange_hours: The Exchange hours of this symbol
+        :param resolution: Resolution of the Data Required
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_AddData_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_AddData[QuantConnect_Algorithm_QCAlgorithm_AddData_T]:
+        ...
+
+
+class _Typed_QCAlgorithm_AddCommand(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_AddCommand_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> None:
+        """Register a command type to be used"""
+        ...
+
+
+class _QCAlgorithm_AddCommand:
+    """"""
+
+    @overload
+    def __call__(self, type: typing.Type) -> None:
+        """
+        Register a command type to be used
+        
+        :param type: The command type
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_AddCommand_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_AddCommand[QuantConnect_Algorithm_QCAlgorithm_AddCommand_T]:
         ...
 
 
@@ -1789,7 +3178,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     Maximum length of the name or tags of a backtest
     
     
-    This codeEntityType is protected.
+    This Field is protected.
     """
 
     MAX_TAGS_COUNT: int = 100
@@ -1797,7 +3186,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     Maximum number of tags allowed for a backtest
     
     
-    This codeEntityType is protected.
+    This Field is protected.
     """
 
     @property
@@ -1806,7 +3195,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         Gets the market hours database in use by this algorithm
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1816,7 +3205,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         Gets the symbol properties database in use by this algorithm
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -2158,7 +3547,43 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
-    def history(self) -> QuantConnect.Algorithm._History:
+    def register_indicator(self) -> QuantConnect.Algorithm._QCAlgorithm_RegisterIndicator:
+        ...
+
+    @property
+    def warm_up_indicator(self) -> QuantConnect.Algorithm._QCAlgorithm_WarmUpIndicator:
+        ...
+
+    @property
+    def consolidate(self) -> QuantConnect.Algorithm._QCAlgorithm_Consolidate:
+        ...
+
+    @property
+    def indicator_history(self) -> QuantConnect.Algorithm._QCAlgorithm_IndicatorHistory:
+        ...
+
+    @property
+    def history(self) -> QuantConnect.Algorithm._QCAlgorithm_History:
+        ...
+
+    @property
+    def get_data_typed_history(self) -> QuantConnect.Algorithm._QCAlgorithm_GetDataTypedHistory:
+        ...
+
+    @property
+    def add_universe(self) -> QuantConnect.Algorithm._QCAlgorithm_AddUniverse:
+        ...
+
+    @property
+    def get_data_frame(self) -> QuantConnect.Algorithm._QCAlgorithm_GetDataFrame:
+        ...
+
+    @property
+    def add_data(self) -> QuantConnect.Algorithm._QCAlgorithm_AddData:
+        ...
+
+    @property
+    def add_command(self) -> QuantConnect.Algorithm._QCAlgorithm_AddCommand:
         ...
 
     def __init__(self) -> None:
@@ -2247,14 +3672,6 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def add_command(self, type: typing.Type) -> None:
-        """
-        Register a command type to be used
-        
-        :param type: The command type
-        """
-        ...
-
     def add_crypto(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, fill_forward: bool = True, leverage: float = ...) -> QuantConnect.Securities.Crypto.Crypto:
         ...
 
@@ -2268,128 +3685,6 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param fill_forward: If true, returns the last available data even if none in that timeslice. Default is true
         :param leverage: The requested leverage for this crypto future. Default is set by security_initializer
         :returns: The new CryptoFuture security.
-        """
-        ...
-
-    @overload
-    def add_data(self, type: typing.Type, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time).
-        This method is meant for custom data types that require a ticker, but have no underlying Symbol.
-        Examples of data sources that meet this criteria are U.S. Treasury Yield Curve Rates and Trading Economics data
-        
-        :param type: Data source type
-        :param ticker: Key/Ticker for data
-        :param resolution: Resolution of the data
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def add_data(self, type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time).
-        This adds a Symbol to the `Underlying` property in the custom data Symbol object.
-        Use this method when adding custom data with a ticker from the past, such as "AOL"
-        before it became "TWX", or if you need to filter using custom data and place trades on the
-        Symbol associated with the custom data.
-        
-        :param type: Data source type
-        :param underlying: The underlying symbol for the custom data
-        :param resolution: Resolution of the data
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def add_data(self, type: typing.Type, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        This method is meant for custom data types that require a ticker, but have no underlying Symbol.
-        Examples of data sources that meet this criteria are U.S. Treasury Yield Curve Rates and Trading Economics data
-        
-        :param type: Data source type
-        :param ticker: Key/Ticker for data
-        :param resolution: Resolution of the Data Required
-        :param time_zone: Specifies the time zone of the raw data
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def add_data(self, type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        This adds a Symbol to the `Underlying` property in the custom data Symbol object.
-        Use this method when adding custom data with a ticker from the past, such as "AOL"
-        before it became "TWX", or if you need to filter using custom data and place trades on the
-        Symbol associated with the custom data.
-        
-        :param type: Data source type
-        :param underlying: The underlying symbol for the custom data
-        :param resolution: Resolution of the Data Required
-        :param time_zone: Specifies the time zone of the raw data
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def add_data(self, type: typing.Type, ticker: str, properties: QuantConnect.Securities.SymbolProperties, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source including symbol properties and exchange hours,
-        all other vars are not required and will use defaults.
-        This overload reflects the C# equivalent for custom properties and market hours
-        
-        :param type: Data source type
-        :param ticker: Key/Ticker for data
-        :param properties: The properties of this new custom data
-        :param exchange_hours: The Exchange hours of this symbol
-        :param resolution: Resolution of the Data Required
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def add_data(self, data_type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, time_zone: typing.Any = None, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        This adds a Symbol to the `Underlying` property in the custom data Symbol object.
-        Use this method when adding custom data with a ticker from the past, such as "AOL"
-        before it became "TWX", or if you need to filter using custom data and place trades on the
-        Symbol associated with the custom data.
-        
-        :param data_type: Data source type
-        :param underlying: 
-        :param resolution: Resolution of the Data Required
-        :param time_zone: Specifies the time zone of the raw data
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def add_data(self, data_type: typing.Type, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        This method is meant for custom data types that require a ticker, but have no underlying Symbol.
-        Examples of data sources that meet this criteria are U.S. Treasury Yield Curve Rates and Trading Economics data
-        
-        :param data_type: Data source type
-        :param ticker: Key/Ticker for data
-        :param resolution: Resolution of the Data Required
-        :param time_zone: Specifies the time zone of the raw data
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
         """
         ...
 
@@ -2732,243 +4027,6 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         Adds a tag to the algorithm
         
         :param tag: The tag to add
-        """
-        ...
-
-    @overload
-    def add_universe(self, py_object: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This is for coarse fundamental US Equity data and
-        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
-        
-        :param py_object: Defines an initial coarse selection
-        """
-        ...
-
-    @overload
-    def add_universe(self, py_object: typing.Any, pyfine: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This is for coarse and fine fundamental US Equity data and
-        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
-        
-        :param py_object: Defines an initial coarse selection or a universe
-        :param pyfine: Defines a more detailed selection with access to more data
-        """
-        ...
-
-    @overload
-    def add_universe(self, name: str, resolution: QuantConnect.Resolution, py_selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This can be used to return a list of string
-        symbols retrieved from anywhere and will loads those symbols under the US Equity market.
-        
-        :param name: A unique name for this universe
-        :param resolution: The resolution this universe should be triggered on
-        :param py_selector: Function delegate that accepts a DateTime and returns a collection of string symbols
-        """
-        ...
-
-    @overload
-    def add_universe(self, name: str, py_selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This can be used to return a list of string
-        symbols retrieved from anywhere and will loads those symbols under the US Equity market.
-        
-        :param name: A unique name for this universe
-        :param py_selector: Function delegate that accepts a DateTime and returns a collection of string symbols
-        """
-        ...
-
-    @overload
-    def add_universe(self, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, py_selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new user defined universe that will fire on the requested resolution during market hours.
-        
-        :param security_type: The security type of the universe
-        :param name: A unique name for this universe
-        :param resolution: The resolution this universe should be triggered on
-        :param market: The market of the universe
-        :param universe_settings: The subscription settings used for securities added from this universe
-        :param py_selector: Function delegate that accepts a DateTime and returns a collection of string symbols
-        """
-        ...
-
-    @overload
-    def add_universe(self, t: typing.Type, name: str, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the universe_settings property. This universe will use the defaults
-        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
-        
-        :param t: The data type
-        :param name: A unique name for this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def add_universe(self, t: typing.Type, name: str, resolution: QuantConnect.Resolution, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the universe_settings property. This universe will use the defaults
-        of SecurityType.Equity, Market.USA and UniverseSettings
-        
-        :param t: The data type
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def add_universe(self, t: typing.Type, name: str, resolution: QuantConnect.Resolution, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the universe_settings property. This universe will use the defaults
-        of SecurityType.Equity, and Market.USA
-        
-        :param t: The data type
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param universe_settings: The settings used for securities added by this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def add_universe(self, t: typing.Type, name: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the universe_settings property. This universe will use the defaults
-        of SecurityType.Equity, Resolution.Daily, and Market.USA
-        
-        :param t: The data type
-        :param name: A unique name for this universe
-        :param universe_settings: The settings used for securities added by this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def add_universe(self, t: typing.Type, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the universe_settings property.
-        
-        :param t: The data type
-        :param security_type: The security type the universe produces
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param market: The market for selected symbols
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def add_universe(self, t: typing.Type, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm
-        
-        :param t: The data type
-        :param security_type: The security type the universe produces
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param market: The market for selected symbols
-        :param universe_settings: The subscription settings to use for newly created subscriptions
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def add_universe(self, data_type: typing.Type, security_type: typing.Optional[QuantConnect.SecurityType] = None, name: str = None, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, py_selector: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm
-        
-        :param data_type: The data type
-        :param security_type: The security type the universe produces
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param market: The market for selected symbols
-        :param universe_settings: The subscription settings to use for newly created subscriptions
-        :param py_selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def add_universe(self, universe: QuantConnect.Data.UniverseSelection.Universe) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Adds the universe to the algorithm
-        
-        :param universe: The universe to be added
-        """
-        ...
-
-    @overload
-    def add_universe(self, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This is for fundamental US Equity data and
-        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
-        
-        :param selector: Defines an initial fundamental selection
-        """
-        ...
-
-    @overload
-    def add_universe(self, date_rule: QuantConnect.Scheduling.IDateRule, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This is for fundamental US Equity data and
-        will be executed based on the provided IDateRule in the NewYork time zone (TimeZones.NEW_YORK)
-        
-        :param date_rule: Date rule that will be used to set the Data.UniverseSelection.UniverseSettings.Schedule
-        :param selector: Defines an initial fundamental selection
-        """
-        ...
-
-    @overload
-    def add_universe(self, universe: QuantConnect.Data.UniverseSelection.Universe, fine_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This is for fine fundamental US Equity data and
-        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
-        
-        :param universe: The universe to be filtered with fine fundamental selection
-        :param fine_selector: Defines a more detailed selection with access to more data
-        """
-        ...
-
-    @overload
-    def add_universe(self, name: str, selector: typing.Callable[[datetime.datetime], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This can be used to return a list of string
-        symbols retrieved from anywhere and will loads those symbols under the US Equity market.
-        
-        :param name: A unique name for this universe
-        :param selector: Function delegate that accepts a DateTime and returns a collection of string symbols
-        """
-        ...
-
-    @overload
-    def add_universe(self, name: str, resolution: QuantConnect.Resolution, selector: typing.Callable[[datetime.datetime], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This can be used to return a list of string
-        symbols retrieved from anywhere and will loads those symbols under the US Equity market.
-        
-        :param name: A unique name for this universe
-        :param resolution: The resolution this universe should be triggered on
-        :param selector: Function delegate that accepts a DateTime and returns a collection of string symbols
-        """
-        ...
-
-    @overload
-    def add_universe(self, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[datetime.datetime], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new user defined universe that will fire on the requested resolution during market hours.
-        
-        :param security_type: The security type of the universe
-        :param name: A unique name for this universe
-        :param resolution: The resolution this universe should be triggered on
-        :param market: The market of the universe
-        :param universe_settings: The subscription settings used for securities added from this universe
-        :param selector: Function delegate that accepts a DateTime and returns a collection of string symbols
         """
         ...
 
@@ -3526,168 +4584,6 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    @overload
-    def consolidate(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], size: float, tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
-        """
-        Creates and registers a consolidator for the following bar types: RenkoBar, VolumeRenkoBar, or RangeBar
-        for the specified symbol and threshold. The specified handler will be invoked with each new consolidated bar.
-        
-        :param type: The Python type of the bar (RenkoBar, VolumeRenkoBar, or RangeBar)
-        :param symbol: The symbol whose data is to be consolidated
-        :param size: The size value for the consolidator (e.g., brick size, range size or maxCount)
-        :param tick_type: The tick type to consolidate. If null, the first matching subscription is used.
-        :param handler: The callback to invoke with each new consolidated bar
-        :returns: The created and registered IDataConsolidator instance.
-        """
-        ...
-
-    @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: QuantConnect.Resolution, handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
-        """
-        Registers the handler to receive consolidated data for the specified symbol
-        
-        :param symbol: The symbol who's data is to be consolidated
-        :param period: The consolidation period
-        :param handler: Data handler receives new consolidated data when generated
-        :returns: A new consolidator matching the requested parameters with the handler already registered.
-        """
-        ...
-
-    @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: QuantConnect.Resolution, tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
-        """
-        Registers the handler to receive consolidated data for the specified symbol
-        
-        :param symbol: The symbol who's data is to be consolidated
-        :param period: The consolidation period
-        :param tick_type: The tick type of subscription used as data source for consolidator. Specify null to use first subscription found.
-        :param handler: Data handler receives new consolidated data when generated
-        :returns: A new consolidator matching the requested parameters with the handler already registered.
-        """
-        ...
-
-    @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: datetime.timedelta, handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
-        """
-        Registers the handler to receive consolidated data for the specified symbol
-        
-        :param symbol: The symbol who's data is to be consolidated
-        :param period: The consolidation period
-        :param handler: Data handler receives new consolidated data when generated
-        :returns: A new consolidator matching the requested parameters with the handler already registered.
-        """
-        ...
-
-    @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: datetime.timedelta, tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
-        """
-        Registers the handler to receive consolidated data for the specified symbol
-        
-        :param symbol: The symbol who's data is to be consolidated
-        :param period: The consolidation period
-        :param tick_type: The tick type of subscription used as data source for consolidator. Specify null to use first subscription found.
-        :param handler: Data handler receives new consolidated data when generated
-        :returns: A new consolidator matching the requested parameters with the handler already registered.
-        """
-        ...
-
-    @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
-        """
-        Registers the handler to receive consolidated data for the specified symbol
-        
-        :param symbol: The symbol who's data is to be consolidated
-        :param calendar: The consolidation calendar
-        :param handler: Data handler receives new consolidated data when generated
-        :returns: A new consolidator matching the requested parameters with the handler already registered.
-        """
-        ...
-
-    @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
-        """
-        Registers the handler to receive consolidated data for the specified symbol
-        
-        :param symbol: The symbol who's data is to be consolidated
-        :param calendar: The consolidation calendar
-        :param tick_type: The tick type of subscription used as data source for consolidator. Specify null to use first subscription found.
-        :param handler: Data handler receives new consolidated data when generated
-        :returns: A new consolidator matching the requested parameters with the handler already registered.
-        """
-        ...
-
-    @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: QuantConnect.Resolution, handler: typing.Callable[[QuantConnect.Data.Market.TradeBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
-        """
-        Registers the handler to receive consolidated data for the specified symbol
-        
-        :param symbol: The symbol who's data is to be consolidated
-        :param period: The consolidation period
-        :param handler: Data handler receives new consolidated data when generated
-        :returns: A new consolidator matching the requested parameters with the handler already registered.
-        """
-        ...
-
-    @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: datetime.timedelta, handler: typing.Callable[[QuantConnect.Data.Market.TradeBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
-        """
-        Registers the handler to receive consolidated data for the specified symbol
-        
-        :param symbol: The symbol who's data is to be consolidated
-        :param period: The consolidation period
-        :param handler: Data handler receives new consolidated data when generated
-        :returns: A new consolidator matching the requested parameters with the handler already registered.
-        """
-        ...
-
-    @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: QuantConnect.Resolution, handler: typing.Callable[[QuantConnect.Data.Market.QuoteBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
-        """
-        Registers the handler to receive consolidated data for the specified symbol
-        
-        :param symbol: The symbol who's data is to be consolidated
-        :param period: The consolidation period
-        :param handler: Data handler receives new consolidated data when generated
-        :returns: A new consolidator matching the requested parameters with the handler already registered.
-        """
-        ...
-
-    @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: datetime.timedelta, handler: typing.Callable[[QuantConnect.Data.Market.QuoteBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
-        """
-        Registers the handler to receive consolidated data for the specified symbol
-        
-        :param symbol: The symbol who's data is to be consolidated
-        :param period: The consolidation period
-        :param handler: Data handler receives new consolidated data when generated
-        :returns: A new consolidator matching the requested parameters with the handler already registered.
-        """
-        ...
-
-    @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], handler: typing.Callable[[QuantConnect.Data.Market.QuoteBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
-        """
-        Registers the handler to receive consolidated data for the specified symbol
-        
-        :param symbol: The symbol who's data is to be consolidated
-        :param calendar: The consolidation calendar
-        :param handler: Data handler receives new consolidated data when generated
-        :returns: A new consolidator matching the requested parameters with the handler already registered.
-        """
-        ...
-
-    @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], handler: typing.Callable[[QuantConnect.Data.Market.TradeBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
-        """
-        Registers the handler to receive consolidated data for the specified symbol
-        
-        :param symbol: The symbol who's data is to be consolidated
-        :param calendar: The consolidation calendar
-        :param handler: Data handler receives new consolidated data when generated
-        :returns: A new consolidator matching the requested parameters with the handler already registered.
-        """
-        ...
-
     def cov(self, target: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], reference: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.Covariance:
         """
         Creates a Covariance indicator for the given target symbol in relation with the reference used.
@@ -3720,7 +4616,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         Helper method to create history requests from a date range
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -3730,7 +4626,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         Helper method to create history requests from a date range with custom data type
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -4353,15 +5249,6 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def get_data_frame(self, data: typing.List[QuantConnect.Data.Slice], flatten: bool, data_type: typing.Type = None) -> typing.Any:
-        """
-        Converts an enumerable of Slice into a Python Pandas data frame
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
     @overload
     def get_last_known_price(self, security: QuantConnect.Securities.Security) -> QuantConnect.Data.BaseData:
         """
@@ -4597,168 +5484,6 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param selector: Selects a value from the BaseData, if null defaults to the .Value property (x => x.Value)
         :param field_name: The name of the field being selected
         :returns: A new Identity indicator for the specified symbol and selector.
-        """
-        ...
-
-    @overload
-    def indicator_history(self, indicator: typing.Any, symbol: typing.Any, period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Any = None) -> pandas.DataFrame:
-        """
-        Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
-        The symbol must exist in the Securities collection.
-        
-        :param indicator: The target indicator
-        :param symbol: The symbol or symbols to retrieve historical data for
-        :param period: The number of bars to request
-        :param resolution: The resolution to request
-        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
-        :returns: pandas.DataFrame of historical data of an indicator.
-        """
-        ...
-
-    @overload
-    def indicator_history(self, indicator: typing.Any, symbol: typing.Any, span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Any = None) -> pandas.DataFrame:
-        """
-        Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
-        The symbol must exist in the Securities collection.
-        
-        :param indicator: The target indicator
-        :param symbol: The symbol or symbols to retrieve historical data for
-        :param span: The span over which to retrieve recent historical data
-        :param resolution: The resolution to request
-        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
-        :returns: pandas.DataFrame of historical data of an indicator.
-        """
-        ...
-
-    @overload
-    def indicator_history(self, indicator: typing.Any, symbol: typing.Any, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Any = None) -> pandas.DataFrame:
-        """
-        Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
-        The symbol must exist in the Securities collection.
-        
-        :param indicator: The target indicator
-        :param symbol: The symbol or symbols to retrieve historical data for
-        :param start: The start time in the algorithm's time zone
-        :param end: The end time in the algorithm's time zone
-        :param resolution: The resolution to request
-        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
-        :returns: pandas.DataFrame of historical data of an indicator.
-        """
-        ...
-
-    @overload
-    def indicator_history(self, indicator: typing.Any, history: typing.List[QuantConnect.Data.Slice], selector: typing.Any = None) -> pandas.DataFrame:
-        """
-        Gets the historical data of an indicator and convert it into pandas.DataFrame
-        
-        :param indicator: The target indicator
-        :param history: Historical data used to calculate the indicator
-        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
-        :returns: pandas.DataFrame containing the historical data of indicator.
-        """
-        ...
-
-    @overload
-    def indicator_history(self, indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
-        """
-        Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
-        The symbol must exist in the Securities collection.
-        
-        :param indicator: The target indicator
-        :param symbol: The symbol to retrieve historical data for
-        :param period: The number of bars to request
-        :param resolution: The resolution to request
-        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
-        :returns: pandas.DataFrame of historical data of an indicator.
-        """
-        ...
-
-    @overload
-    def indicator_history(self, indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
-        """
-        Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
-        The symbol must exist in the Securities collection.
-        
-        :param indicator: The target indicator
-        :param symbol: The symbol to retrieve historical data for
-        :param span: The span over which to retrieve recent historical data
-        :param resolution: The resolution to request
-        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
-        :returns: pandas.DataFrame of historical data of an indicator.
-        """
-        ...
-
-    @overload
-    def indicator_history(self, indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
-        """
-        Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
-        The symbol must exist in the Securities collection.
-        
-        :param indicator: The target indicator
-        :param symbol: The symbol to retrieve historical data for
-        :param start: The start time in the algorithm's time zone
-        :param end: The end time in the algorithm's time zone
-        :param resolution: The resolution to request
-        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
-        :returns: pandas.DataFrame of historical data of an indicator.
-        """
-        ...
-
-    @overload
-    def indicator_history(self, indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], symbols: typing.List[QuantConnect.Symbol], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
-        """
-        Gets the historical data of an indicator for the specified symbols. The exact number of bars will be returned.
-        The symbol must exist in the Securities collection.
-        
-        :param indicator: The target indicator
-        :param symbols: The symbols to retrieve historical data for
-        :param period: The number of bars to request
-        :param resolution: The resolution to request
-        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
-        :returns: pandas.DataFrame of historical data of an indicator.
-        """
-        ...
-
-    @overload
-    def indicator_history(self, indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], symbols: typing.List[QuantConnect.Symbol], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
-        """
-        Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
-        The symbol must exist in the Securities collection.
-        
-        :param indicator: The target indicator
-        :param symbols: The symbols to retrieve historical data for
-        :param span: The span over which to retrieve recent historical data
-        :param resolution: The resolution to request
-        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
-        :returns: pandas.DataFrame of historical data of an indicator.
-        """
-        ...
-
-    @overload
-    def indicator_history(self, indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], symbols: typing.List[QuantConnect.Symbol], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
-        """
-        Gets the historical data of an indicator for the specified symbols. The exact number of bars will be returned.
-        The symbol must exist in the Securities collection.
-        
-        :param indicator: The target indicator
-        :param symbols: The symbols to retrieve historical data for
-        :param start: The start time in the algorithm's time zone
-        :param end: The end time in the algorithm's time zone
-        :param resolution: The resolution to request
-        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
-        :returns: pandas.DataFrame of historical data of an indicator.
-        """
-        ...
-
-    @overload
-    def indicator_history(self, indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], history: typing.List[QuantConnect.Data.Slice], selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
-        """
-        Gets the historical data of an indicator and convert it into pandas.DataFrame
-        
-        :param indicator: The target indicator
-        :param history: Historical data used to calculate the indicator
-        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
-        :returns: pandas.DataFrame containing the historical data of indicator.
         """
         ...
 
@@ -5969,97 +6694,6 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @overload
     def record(self, series: str, value: float) -> None:
         """Plot a chart using string series name, with double value. Alias of Plot();"""
-        ...
-
-    @overload
-    def register_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: typing.Any, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Any = None) -> None:
-        """
-        Registers the consolidator to receive automatic updates as well as configures the indicator to receive updates
-        from the consolidator.
-        
-        :param symbol: The symbol to register against
-        :param indicator: The indicator to receive data from the consolidator
-        :param resolution: The resolution at which to send data to the indicator, null to use the same resolution as the subscription
-        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
-        """
-        ...
-
-    @overload
-    def register_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: typing.Any, resolution: typing.Optional[datetime.timedelta] = None, selector: typing.Any = None) -> None:
-        """
-        Registers the consolidator to receive automatic updates as well as configures the indicator to receive updates
-        from the consolidator.
-        
-        :param symbol: The symbol to register against
-        :param indicator: The indicator to receive data from the consolidator
-        :param resolution: The resolution at which to send data to the indicator, null to use the same resolution as the subscription
-        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
-        """
-        ...
-
-    @overload
-    def register_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: typing.Any, py_object: typing.Any, selector: typing.Any = None) -> None:
-        """
-        Registers the consolidator to receive automatic updates as well as configures the indicator to receive updates
-        from the consolidator.
-        
-        :param symbol: The symbol to register against
-        :param indicator: The indicator to receive data from the consolidator
-        :param py_object: The python object that it is trying to register with, could be consolidator or a timespan
-        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
-        """
-        ...
-
-    @overload
-    def register_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: typing.Any, consolidator: typing.Union[QuantConnect.Data.Consolidators.IDataConsolidator, QuantConnect.Python.PythonConsolidator, datetime.timedelta], selector: typing.Any = None) -> None:
-        """
-        Registers the consolidator to receive automatic updates as well as configures the indicator to receive updates
-        from the consolidator.
-        
-        :param symbol: The symbol to register against
-        :param indicator: The indicator to receive data from the consolidator
-        :param consolidator: The consolidator to receive raw subscription data
-        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
-        """
-        ...
-
-    @overload
-    def register_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
-        """
-        Creates and registers a new consolidator to receive automatic updates at the specified resolution as well as configures
-        the indicator to receive updates from the consolidator.
-        
-        :param symbol: The symbol to register against
-        :param indicator: The indicator to receive data from the consolidator
-        :param resolution: The resolution at which to send data to the indicator, null to use the same resolution as the subscription
-        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
-        """
-        ...
-
-    @overload
-    def register_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], resolution: typing.Optional[datetime.timedelta] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
-        """
-        Creates and registers a new consolidator to receive automatic updates at the specified resolution as well as configures
-        the indicator to receive updates from the consolidator.
-        
-        :param symbol: The symbol to register against
-        :param indicator: The indicator to receive data from the consolidator
-        :param resolution: The resolution at which to send data to the indicator, null to use the same resolution as the subscription
-        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
-        """
-        ...
-
-    @overload
-    def register_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], consolidator: typing.Union[QuantConnect.Data.Consolidators.IDataConsolidator, QuantConnect.Python.PythonConsolidator, datetime.timedelta], selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
-        """
-        Registers the consolidator to receive automatic updates as well as configures the indicator to receive updates
-        from the consolidator.
-        
-        :param symbol: The symbol to register against
-        :param indicator: The indicator to receive data from the consolidator
-        :param consolidator: The consolidator to receive raw subscription data
-        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
-        """
         ...
 
     def remove_option_contract(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], tag: str = None) -> bool:
@@ -7726,102 +8360,6 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param resolution: The resolution
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a TradeBar
         :returns: A new VolumeWeightedMovingAverage indicator with the specified smoothing period.
-        """
-        ...
-
-    @overload
-    def warm_up_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: typing.Any, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Any = None) -> None:
-        """
-        Warms up a given indicator with historical data
-        
-        :param symbol: The symbol whose indicator we want
-        :param indicator: The indicator we want to warm up
-        :param resolution: The resolution
-        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
-        """
-        ...
-
-    @overload
-    def warm_up_indicator(self, symbol: typing.Any, indicator: typing.Any, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Any = None) -> None:
-        """
-        Warms up a given indicator with historical data
-        
-        :param symbol: The symbol or symbols to retrieve historical data for
-        :param indicator: The indicator we want to warm up
-        :param resolution: The resolution
-        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
-        """
-        ...
-
-    @overload
-    def warm_up_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: typing.Any, period: datetime.timedelta, selector: typing.Any = None) -> None:
-        """
-        Warms up a given indicator with historical data
-        
-        :param symbol: The symbol whose indicator we want
-        :param indicator: The indicator we want to warm up
-        :param period: The necessary period to warm up the indicator
-        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
-        """
-        ...
-
-    @overload
-    def warm_up_indicator(self, symbol: typing.Any, indicator: typing.Any, period: datetime.timedelta, selector: typing.Any = None) -> None:
-        """
-        Warms up a given indicator with historical data
-        
-        :param symbol: The symbol or symbols to retrieve historical data for
-        :param indicator: The indicator we want to warm up
-        :param period: The necessary period to warm up the indicator
-        :param selector: Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)
-        """
-        ...
-
-    @overload
-    def warm_up_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
-        """
-        Warms up a given indicator with historical data
-        
-        :param symbol: The symbol whose indicator we want
-        :param indicator: The indicator we want to warm up
-        :param resolution: The resolution
-        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
-        """
-        ...
-
-    @overload
-    def warm_up_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], period: datetime.timedelta, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
-        """
-        Warms up a given indicator with historical data
-        
-        :param symbol: The symbol whose indicator we want
-        :param indicator: The indicator we want to warm up
-        :param period: The necessary period to warm up the indicator
-        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
-        """
-        ...
-
-    @overload
-    def warm_up_indicator(self, symbols: typing.List[QuantConnect.Symbol], indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
-        """
-        Warms up a given indicator with historical data
-        
-        :param symbols: The symbols whose indicator we want
-        :param indicator: The indicator we want to warm up
-        :param resolution: The resolution
-        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
-        """
-        ...
-
-    @overload
-    def warm_up_indicator(self, symbols: typing.List[QuantConnect.Symbol], indicator: typing.Union[QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.PythonIndicator], period: datetime.timedelta, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
-        """
-        Warms up a given indicator with historical data
-        
-        :param symbols: The symbols whose indicator we want
-        :param indicator: The indicator we want to warm up
-        :param period: The necessary period to warm up the indicator
-        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
         """
         ...
 

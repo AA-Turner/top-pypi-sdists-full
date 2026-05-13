@@ -1,21 +1,21 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.780791                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.010927                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import abc
 import metaflow
-import typing
+import abc
 import collections
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow.parameters
     import collections.abc
-    import metaflow.user_configs.config_parameters
+    import metaflow.parameters
     import typing
     import abc
+    import metaflow.user_configs.config_parameters
 
 from ..exception import MetaflowException as MetaflowException
 from ..parameters import Parameter as Parameter
@@ -163,7 +163,7 @@ class DelayEvaluator(collections.abc.Mapping, metaclass=abc.ABCMeta):
         special handling in whatever this is being unpacked into, specifically the handling
         of _unpacked_delayed_*
     """
-    def __init__(self, ex: str, saved_globals: typing.Optional[typing.Dict[str, typing.Any]] = None):
+    def __init__(self, ex: str, saved_globals: typing.Union[typing.Dict[str, typing.Any], None] = None):
         ...
     def __copy__(self):
         ...
@@ -262,7 +262,7 @@ class Config(metaflow.parameters.Parameter, collections.abc.Mapping, metaclass=a
         is raised but no modifications are persisted). You can also use this to return
         any arbitrary object (not just dictionary-like objects).
     """
-    def __init__(self, name: str, default: typing.Union[str, typing.Callable[[metaflow.parameters.ParameterContext], str], None] = None, default_value: typing.Union[str, typing.Dict[str, typing.Any], typing.Callable[[metaflow.parameters.ParameterContext], typing.Union[str, typing.Dict[str, typing.Any]]], None] = None, help: typing.Optional[str] = None, required: typing.Optional[bool] = None, parser: typing.Union[str, typing.Callable[[str], typing.Dict[typing.Any, typing.Any]], None] = None, plain: bool = False, **kwargs: typing.Dict[str, str]):
+    def __init__(self, name: str, default: typing.Union[str, typing.Callable[[metaflow.parameters.ParameterContext], str], None] = None, default_value: typing.Union[str, typing.Dict[str, typing.Any], typing.Callable[[metaflow.parameters.ParameterContext], typing.Union[str, typing.Dict[str, typing.Any]]], None] = None, help: typing.Union[str, None] = None, required: typing.Union[bool, None] = None, parser: typing.Union[str, typing.Callable[[str], typing.Dict[typing.Any, typing.Any]], None] = None, plain: bool = False, **kwargs: typing.Dict[str, str]):
         ...
     def load_parameter(self, v):
         ...

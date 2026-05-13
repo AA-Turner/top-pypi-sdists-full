@@ -1,6 +1,7 @@
 Metadata-Version: 2.4
 Name: common-expression-language
-Version: 0.5.6
+Version: 0.6.0
+Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -11,6 +12,7 @@ Requires-Dist: pygments>=2.0.0
 License-File: LICENSE
 Summary: Python bindings for the Common Expression Language (CEL)
 Author-email: Brian Thorne <brian@hardbyte.nz>
+License-Expression: Apache-2.0
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://github.com/hardbyte/python-common-expression-language
@@ -197,7 +199,7 @@ uv run pytest
 ## Contributing
 
 Contributions are welcome! Please see our [documentation](https://python-common-expression-language.readthedocs.io/) for:
-- [CEL compliance status](docs/reference/cel-compliance.md)
+- [CHANGELOG](CHANGELOG.md) — release notes and behaviour changes
 - Development setup and guidelines
 - Areas where help is needed
 

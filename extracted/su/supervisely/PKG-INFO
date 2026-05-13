@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: supervisely
-Version: 6.73.567
+Version: 6.73.568
 Summary: Supervisely Python SDK.
 Home-page: https://github.com/supervisely/supervisely
 Author: Supervisely
@@ -101,6 +101,9 @@ Requires-Dist: MarkupSafe<3.0.0,>=2.1.1; extra == "apps"
 Requires-Dist: arel<1.0.0,>=0.2.0; extra == "apps"
 Requires-Dist: tqdm<5.0.0,>=4.66.3; extra == "apps"
 Requires-Dist: pandas<=2.3.3,>=1.1.3; extra == "apps"
+Provides-Extra: video-av
+Requires-Dist: av<13.0.0,>=12.0.0; python_version == "3.8" and extra == "video-av"
+Requires-Dist: av<18.0.0,>=13.0.0; python_version >= "3.9" and extra == "video-av"
 Provides-Extra: docs
 Requires-Dist: sphinx==8.2.3; extra == "docs"
 Requires-Dist: sphinx-immaterial==0.13.9; extra == "docs"

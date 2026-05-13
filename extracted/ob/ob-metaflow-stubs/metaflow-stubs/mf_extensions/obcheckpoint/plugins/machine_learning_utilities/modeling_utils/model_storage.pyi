@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.852192                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.120235                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastore.core
     import metaflow.datastore.datastore_storage
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastore.core
 
 from ..datastore.core import ObjectStorage as ObjectStorage
 from ..datastore.core import DatastoreInterface as DatastoreInterface
@@ -101,7 +101,7 @@ class ModelDatastore(metaflow.mf_extensions.obcheckpoint.plugins.machine_learnin
         """
         ...
     @classmethod
-    def init_read_store(cls, storage_backend: metaflow.datastore.datastore_storage.DataStoreStorage, pathspec: typing.Optional[str] = None, attempt: typing.Optional[str] = None, model_key = None, *args, **kwargs):
+    def init_read_store(cls, storage_backend: metaflow.datastore.datastore_storage.DataStoreStorage, pathspec: typing.Union[str, None] = None, attempt: typing.Union[str, None] = None, model_key = None, *args, **kwargs):
         ...
     @classmethod
     def decompose_key(cls, key):

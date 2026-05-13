@@ -1,13 +1,13 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.902252                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.166581                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import metaflow.plugins.cards.card_modules.components
     import metaflow.plugins.cards.card_modules.card
@@ -61,7 +61,7 @@ class UpadateableTable(metaflow.plugins.cards.card_modules.components.UserCompon
     """
     def update(self, row: typing.List[typing.Union[str, metaflow.plugins.cards.card_modules.card.MetaflowCardComponent]]):
         ...
-    def __init__(self, data: typing.Optional[typing.List[typing.List[typing.Union[str, metaflow.plugins.cards.card_modules.card.MetaflowCardComponent]]]] = None, headers: typing.Optional[typing.List[str]] = None, disable_updates: bool = False):
+    def __init__(self, data: typing.Union[typing.List[typing.List[typing.Union[str, metaflow.plugins.cards.card_modules.card.MetaflowCardComponent]]], None] = None, headers: typing.Union[typing.List[str], None] = None, disable_updates: bool = False):
         ...
     def render(self, *args, **kwargs):
         ...

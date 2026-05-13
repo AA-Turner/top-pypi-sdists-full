@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, NamedTuple
 
 from refinery.lib.scripts import Block, Node, Statement, Transformer
+from refinery.lib.scripts.ps1.deobfuscation.data import COMPARISON_OPS
 from refinery.lib.scripts.ps1.deobfuscation.emulator import evaluate_truthy
 from refinery.lib.scripts.ps1.deobfuscation.helpers import (
     get_body,
@@ -21,7 +22,6 @@ from refinery.lib.scripts.ps1.deobfuscation.helpers import (
     is_builtin_variable,
     unwrap_parens,
 )
-from refinery.lib.scripts.ps1.deobfuscation.names import COMPARISON_OPS
 from refinery.lib.scripts.ps1.model import (
     Expression,
     Ps1AssignmentExpression,
@@ -895,12 +895,24 @@ def _try_unroll_loop(
                     t.false_prefix, false_env, internal_vars, false_stmts,
                 )
                 true_arm_result = _simulate_arm(
-                    states, t.true_target, header, is_exit, latches,
-                    true_env, internal_vars, true_stmts,
+                    states,
+                    t.true_target,
+                    header,
+                    is_exit,
+                    latches,
+                    true_env,
+                    internal_vars,
+                    true_stmts,
                 )
                 false_arm_result = _simulate_arm(
-                    states, t.false_target, header, is_exit, latches,
-                    false_env, internal_vars, false_stmts,
+                    states,
+                    t.false_target,
+                    header,
+                    is_exit,
+                    latches,
+                    false_env,
+                    internal_vars,
+                    false_stmts,
                 )
                 if true_arm_result is None or false_arm_result is None:
                     return None
@@ -1026,7 +1038,9 @@ def _recover_structure(
         if unrolled is not None:
             unrolled_stmts, unrolled_internals = unrolled
             for sid in _collect_loop_states(
-                states, header, is_exit,
+                states,
+                header,
+                is_exit,
                 {latch for latch, target in back_edges.items() if target == header},
             ):
                 outer_claimed.add(sid)

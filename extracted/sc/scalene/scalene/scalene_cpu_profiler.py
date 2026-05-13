@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from scalene.runningstats import RunningStats
 from scalene.scalene_funcutils import ScaleneFuncUtils
@@ -11,9 +11,17 @@ from scalene.scalene_statistics import (
     ByteCodeIndex,
     Filename,
     LineNumber,
+    PerThreadNativeStack,
     ScaleneStatistics,
 )
-from scalene.scalene_utility import _main_thread_id, add_stack, enter_function_meta
+from scalene.scalene_utility import (
+    _main_thread_id,
+    add_async_await_run,
+    add_combined_stack,
+    add_stack,
+    enter_function_meta,
+    get_python_thread_id_for_native,
+)
 from scalene.time_info import TimeInfo
 
 if TYPE_CHECKING:
@@ -49,6 +57,9 @@ class ScaleneCPUProfiler:
         should_trace: Callable[[Filename, str], bool],
         last_cpu_interval: float,
         stacks_enabled: bool,
+        native_drains: list[tuple[int, ...]] | None = None,
+        suspended_async_tasks: list[Any] | None = None,
+        perthread_drains: list[PerThreadNativeStack] | None = None,
     ) -> None:
         """Handle interrupts for CPU profiling.
 
@@ -62,6 +73,11 @@ class ScaleneCPUProfiler:
             should_trace: Function to check if a file/function should be traced.
             last_cpu_interval: The last CPU sampling interval.
             stacks_enabled: Whether stack collection is enabled.
+            native_drains: Native (C/C++) stacks captured by the C-level
+                signal-handler unwinder during this sampling pass; used to
+                build stitched Python+native stacks (combined_stacks).
+            perthread_drains: Per-thread native stacks from worker threads.
+                List of (thread_id, (ip, ip, ...)) tuples.
         """
         if not new_frames:
             return
@@ -77,7 +93,9 @@ class ScaleneCPUProfiler:
         if elapsed.wallclock != 0:
             cpu_utilization = elapsed.user / elapsed.wallclock
 
-        core_utilization = cpu_utilization / self._available_cpus
+        # Clamp to [0, 1]: measurement noise between user and wallclock
+        # accounting can push the ratio slightly above 1.0 on multi-core systems.
+        core_utilization = min(cpu_utilization / self._available_cpus, 1.0)
         if cpu_utilization > 1.0:
             cpu_utilization = 1.0
             elapsed.wallclock = elapsed.user
@@ -119,8 +137,9 @@ class ScaleneCPUProfiler:
 
         # Process main thread
         main_thread_frame = new_frames[0][0]
+        main_thread_sleeping = is_thread_sleeping[_main_thread_id]
 
-        if stacks_enabled:
+        if stacks_enabled and not main_thread_sleeping:
             add_stack(
                 main_thread_frame,
                 should_trace,
@@ -129,6 +148,39 @@ class ScaleneCPUProfiler:
                 average_c_time,
                 average_cpu_time,
             )
+            if native_drains:
+                # Async-aware path: when this sample landed inside the
+                # event loop with coroutines suspended, the raw stack is
+                # misleading (the main thread is blocked in
+                # epoll/select while no task is using CPU). Mirror the
+                # existing per-line "await %" attribution by emitting
+                # one synthetic stitched run per suspended task at its
+                # await point. Falls through to the regular combined
+                # stack path when no tasks are suspended.
+                wrote_async_runs = False
+                if suspended_async_tasks:
+                    wrote_async_runs = add_async_await_run(
+                        suspended_async_tasks,
+                        should_trace,
+                        self._stats.combined_stacks,
+                        self._stats,
+                        timeline=self._stats.combined_stacks_timeline,
+                        timeline_cap=self._stats.combined_stacks_timeline_max_runs,
+                        timestamp=now.wallclock,
+                        thread_id=_main_thread_id,
+                    )
+                if not wrote_async_runs:
+                    add_combined_stack(
+                        main_thread_frame,
+                        should_trace,
+                        native_drains,
+                        self._stats.combined_stacks,
+                        self._stats,
+                        timeline=self._stats.combined_stacks_timeline,
+                        timeline_cap=self._stats.combined_stacks_timeline_max_runs,
+                        timestamp=now.wallclock,
+                        thread_id=_main_thread_id,
+                    )
 
         enter_function_meta(main_thread_frame, should_trace, self._stats)
         fname = Filename(main_thread_frame.f_code.co_filename)
@@ -269,19 +321,47 @@ class ScaleneCPUProfiler:
                         elapsed,
                     )
 
+        # Build a mapping from Python thread ID to native stacks for this sample
+        perthread_native_by_python_tid: dict[int, list[tuple[int, ...]]] = {}
+        if perthread_drains:
+            for entry in perthread_drains:
+                python_tid = get_python_thread_id_for_native(entry.thread_id)
+                if python_tid is not None:
+                    perthread_native_by_python_tid.setdefault(python_tid, []).append(
+                        entry.stack
+                    )
+
         # Process other threads
         for frame, tident, orig_frame in new_frames:
             if frame == main_thread_frame:
                 continue
 
-            add_stack(
-                frame,
-                should_trace,
-                self._stats.stacks,
-                average_python_time,
-                average_c_time,
-                average_cpu_time,
-            )
+            # Skip stacks for sleeping threads - they're not doing CPU work
+            thread_sleeping = is_thread_sleeping[tident]
+            if not thread_sleeping:
+                add_stack(
+                    frame,
+                    should_trace,
+                    self._stats.stacks,
+                    average_python_time,
+                    average_c_time,
+                    average_cpu_time,
+                )
+
+                # If we have per-thread native stacks for this thread, build combined stacks
+                if stacks_enabled and tident in perthread_native_by_python_tid:
+                    thread_native_drains = perthread_native_by_python_tid[tident]
+                    add_combined_stack(
+                        frame,
+                        should_trace,
+                        thread_native_drains,
+                        self._stats.combined_stacks,
+                        self._stats,
+                        timeline=self._stats.combined_stacks_timeline,
+                        timeline_cap=self._stats.combined_stacks_timeline_max_runs,
+                        timestamp=now.wallclock,
+                        thread_id=tident,
+                    )
 
             fname = Filename(frame.f_code.co_filename)
             lineno = (
@@ -291,7 +371,7 @@ class ScaleneCPUProfiler:
             )
             enter_function_meta(frame, should_trace, self._stats)
 
-            if is_thread_sleeping[tident]:
+            if thread_sleeping:
                 continue
 
             self._update_thread_stats(

@@ -1,10 +1,10 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Contains the definition of range_t.
 
 A range is a non-empty continuous range of addresses (specified by its start and end addresses, the end address is excluded from the range).
-Ranges are stored in the Btree part of the IDA database. To learn more about Btrees (Balanced Trees): [http://www.bluerwhite.org/btree/](http://www.bluerwhite.org/btree/) 
-    
+Ranges are stored in the Btree part of the IDA database. To learn more about Btrees (Balanced Trees): [http://www.bluerwhite.org/btree/](http://www.bluerwhite.org/btree/)
+
 """
 
 class array_of_rangesets:
@@ -16,8 +16,11 @@ class array_of_rangesets:
         ...
     def __eq__(self, r: array_of_rangesets) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -25,14 +28,17 @@ class array_of_rangesets:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> rangeset_t:
+    def __getitem__(self, i: int) -> rangeset_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -40,7 +46,7 @@ class array_of_rangesets:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[rangeset_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -53,7 +59,7 @@ class array_of_rangesets:
         ...
     def __ne__(self, r: array_of_rangesets) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -67,15 +73,15 @@ class array_of_rangesets:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: rangeset_t) -> None:
+    def __setitem__(self, i: int, v: rangeset_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -85,17 +91,17 @@ class array_of_rangesets:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: rangeset_t) -> bool:
         ...
     def append(self, x: rangeset_t) -> None:
         ...
-    def at(self, _idx: size_t) -> rangeset_t:
+    def at(self, _idx: int) -> rangeset_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> rangeset_t:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -103,35 +109,35 @@ class array_of_rangesets:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> rangeset_t:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: array_of_rangesets) -> None:
         ...
     def extract(self) -> rangeset_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: rangeset_t) -> bool:
         ...
-    def inject(self, s: rangeset_t, len: size_t) -> None:
+    def inject(self, s: rangeset_t, len: int) -> None:
         ...
     def insert(self, it: rangeset_t, x: rangeset_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> rangeset_t:
+    def push_back(self, *args: Any) -> rangeset_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -142,9 +148,9 @@ class array_of_rangesets:
 
 class range_t:
     @property
-    def end_ea(self) -> Any: ...
+    def end_ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def start_ea(self) -> Any: ...
+    def start_ea(self) -> ida_idaapi.ea_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -153,19 +159,25 @@ class range_t:
         ...
     def __eq__(self, r: range_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, r: range_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, r: range_t) -> bool:
         ...
     def __init__(self, ea1: ida_idaapi.ea_t = 0, ea2: ida_idaapi.ea_t = 0) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -179,7 +191,7 @@ class range_t:
         ...
     def __ne__(self, r: range_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -196,10 +208,10 @@ class range_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -209,7 +221,7 @@ class range_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def clear(self) -> None:
         r"""Set start_ea, end_ea to 0.
@@ -218,25 +230,16 @@ class range_t:
         ...
     def compare(self, r: range_t) -> int:
         ...
-    def contains(self, args: Any) -> bool:
-        r"""This function has the following signatures:
+    @overload
+    def contains(self, ea: ida_idaapi.ea_t) -> bool:
+        r"""Compare two range_t instances, based on the start_ea.
         
-            0. contains(ea: ida_idaapi.ea_t) -> bool
-            1. contains(r: const range_t &) -> bool
-        
-        # 0: contains(ea: ida_idaapi.ea_t) -> bool
-        
-        Compare two range_t instances, based on the start_ea.
-        
-        Is 'ea' in the address range? 
-                
-        
-        # 1: contains(r: const range_t &) -> bool
-        
-        Is every ea in 'r' also in this range_t?
-        
-        
+        Is 'ea' in the address range?
         """
+        ...
+    @overload
+    def contains(self, r: range_t) -> bool:
+        r"""Is every ea in 'r' also in this range_t?"""
         ...
     def empty(self) -> bool:
         r"""Is the size of the range_t <= 0?
@@ -248,7 +251,7 @@ class range_t:
         
         """
         ...
-    def intersect(self, r: range_t) -> bool:
+    def intersect(self, r: range_t) -> None:
         r"""Assign the range_t to the intersection between the range_t and 'r'.
         
         """
@@ -273,8 +276,11 @@ class rangeset_t:
         ...
     def __eq__(self, aset: rangeset_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -282,14 +288,17 @@ class rangeset_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, idx: Any) -> rangeset_t:
+    def __getitem__(self, idx: Any) -> Any:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -313,7 +322,7 @@ class rangeset_t:
         ...
     def __ne__(self, aset: rangeset_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -330,10 +339,10 @@ class rangeset_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -343,32 +352,24 @@ class rangeset_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def add(self, args: Any) -> bool:
-        r"""This function has the following signatures:
-        
-            0. add(range: const range_t &) -> bool
-            1. add(start: ida_idaapi.ea_t, _end: ida_idaapi.ea_t) -> bool
-            2. add(aset: const rangeset_t &) -> bool
-        
-        # 0: add(range: const range_t &) -> bool
-        
-        Add an address range to the set. If 'range' intersects an existing element e, then e is extended to include 'range', and any superfluous elements (subsets of e) are removed. 
+    @overload
+    def add(self, range: range_t) -> bool:
+        r"""Add an address range to the set. If 'range' intersects an existing element e, then e is extended to include 'range', and any superfluous elements (subsets of e) are removed. 
                 
         :returns: false if 'range' was not added (the set was unchanged)
-        
-        # 1: add(start: ida_idaapi.ea_t, _end: ida_idaapi.ea_t) -> bool
-        
-        Create a new range_t from 'start' and 'end' and add it to the set.
-        
-        
-        # 2: add(aset: const rangeset_t &) -> bool
-        
-        Add each element of 'aset' to the set. 
+        """
+        ...
+    @overload
+    def add(self, start: ida_idaapi.ea_t, _end: ida_idaapi.ea_t) -> bool:
+        r"""Create a new range_t from 'start' and 'end' and add it to the set."""
+        ...
+    @overload
+    def add(self, aset: rangeset_t) -> bool:
+        r"""Add each element of 'aset' to the set. 
                 
         :returns: false if no elements were added (the set was unchanged)
-        
         """
         ...
     def as_rangevec(self) -> rangevec_t:
@@ -376,7 +377,7 @@ class rangeset_t:
         
         """
         ...
-    def begin(self) -> rangeset_t:
+    def begin(self) -> Any:
         r"""Get an iterator that points to the first element in the set.
         
         """
@@ -392,30 +393,20 @@ class rangeset_t:
         
         """
         ...
-    def contains(self, args: Any) -> bool:
-        r"""This function has the following signatures:
-        
-            0. contains(ea: ida_idaapi.ea_t) -> bool
-            1. contains(aset: const rangeset_t &) -> bool
-        
-        # 0: contains(ea: ida_idaapi.ea_t) -> bool
-        
-        Does an element of the rangeset contain 'ea'? See range_t::contains(ea_t)
-        
-        
-        # 1: contains(aset: const rangeset_t &) -> bool
-        
-        Is every element in 'aset' contained in an element of this rangeset?. See range_t::contains(range_t)
-        
-        
-        """
+    @overload
+    def contains(self, ea: ida_idaapi.ea_t) -> bool:
+        r"""Does an element of the rangeset contain 'ea'? See range_t::contains(ea_t)"""
+        ...
+    @overload
+    def contains(self, aset: rangeset_t) -> bool:
+        r"""Is every element in 'aset' contained in an element of this rangeset? See range_t::contains(range_t)"""
         ...
     def empty(self) -> bool:
         r"""Does the set have zero elements.
         
         """
         ...
-    def end(self) -> rangeset_t:
+    def end(self) -> Any:
         r"""Get an iterator that points to the end of the set. (This is NOT the last element)
         
         """
@@ -431,23 +422,13 @@ class rangeset_t:
         
         """
         ...
-    def has_common(self, args: Any) -> bool:
-        r"""This function has the following signatures:
-        
-            0. has_common(range: const range_t &) -> bool
-            1. has_common(aset: const rangeset_t &) -> bool
-        
-        # 0: has_common(range: const range_t &) -> bool
-        
-        Is there an ea in 'range' that is also in the rangeset?
-        
-        
-        # 1: has_common(aset: const rangeset_t &) -> bool
-        
-        Does any element of 'aset' overlap with an element in this rangeset?. See range_t::overlaps()
-        
-        
-        """
+    @overload
+    def has_common(self, range: range_t) -> bool:
+        r"""Is there an ea in 'range' that is also in the rangeset?"""
+        ...
+    @overload
+    def has_common(self, aset: rangeset_t) -> bool:
+        r"""Does any element of 'aset' overlap with an element in this rangeset? See range_t::overlaps()"""
         ...
     def includes(self, range: range_t) -> bool:
         r"""Is every ea in 'range' contained in the rangeset?
@@ -500,30 +481,22 @@ class rangeset_t:
         
         """
         ...
-    def sub(self, args: Any) -> bool:
-        r"""This function has the following signatures:
-        
-            0. sub(range: const range_t &) -> bool
-            1. sub(ea: ida_idaapi.ea_t) -> bool
-            2. sub(aset: const rangeset_t &) -> bool
-        
-        # 0: sub(range: const range_t &) -> bool
-        
-        Subtract an address range from the set. All subsets of 'range' will be removed, and all elements that intersect 'range' will be truncated/split so they do not include 'range'. 
+    @overload
+    def sub(self, range: range_t) -> bool:
+        r"""Subtract an address range from the set. All subsets of 'range' will be removed, and all elements that intersect 'range' will be truncated/split so they do not include 'range'. 
                 
         :returns: false if 'range' was not subtracted (the set was unchanged)
-        
-        # 1: sub(ea: ida_idaapi.ea_t) -> bool
-        
-        Subtract an ea (an range of size 1) from the set. See sub(const range_t &)
-        
-        
-        # 2: sub(aset: const rangeset_t &) -> bool
-        
-        Subtract each range in 'aset' from the set 
+        """
+        ...
+    @overload
+    def sub(self, ea: ida_idaapi.ea_t) -> bool:
+        r"""Subtract an ea (an range of size 1) from the set. See sub(const range_t &)"""
+        ...
+    @overload
+    def sub(self, aset: rangeset_t) -> bool:
+        r"""Subtract each range in 'aset' from the set 
                 
         :returns: false if nothing was subtracted (the set was unchanged)
-        
         """
         ...
     def swap(self, r: rangeset_t) -> None:
@@ -541,8 +514,11 @@ class rangevec_base_t:
         ...
     def __eq__(self, r: rangevec_base_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -550,14 +526,17 @@ class rangevec_base_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> rangeset_t:
+    def __getitem__(self, i: int) -> range_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -565,7 +544,7 @@ class rangevec_base_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[range_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -578,7 +557,7 @@ class rangevec_base_t:
         ...
     def __ne__(self, r: rangevec_base_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -592,15 +571,15 @@ class rangevec_base_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: range_t) -> None:
+    def __setitem__(self, i: int, v: range_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -610,17 +589,17 @@ class rangevec_base_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: range_t) -> bool:
         ...
     def append(self, x: range_t) -> None:
         ...
-    def at(self, _idx: size_t) -> rangeset_t:
+    def at(self, _idx: int) -> range_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> rangeset_t:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -628,35 +607,35 @@ class rangevec_base_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> rangeset_t:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: rangevec_base_t) -> None:
         ...
-    def extract(self) -> rangeset_t:
+    def extract(self) -> Optional[range_t]:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: range_t) -> bool:
         ...
-    def inject(self, s: range_t, len: size_t) -> None:
+    def inject(self, s: range_t, len: int) -> None:
         ...
     def insert(self, it: range_t, x: range_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> rangeset_t:
+    def push_back(self, *args: Any) -> range_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -674,8 +653,11 @@ class rangevec_t(rangevec_base_t):
         ...
     def __eq__(self, r: rangevec_base_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -683,14 +665,17 @@ class rangevec_t(rangevec_base_t):
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> rangeset_t:
+    def __getitem__(self, i: int) -> range_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -698,7 +683,7 @@ class rangevec_t(rangevec_base_t):
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[range_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -711,7 +696,7 @@ class rangevec_t(rangevec_base_t):
         ...
     def __ne__(self, r: rangevec_base_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -725,15 +710,15 @@ class rangevec_t(rangevec_base_t):
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: range_t) -> None:
+    def __setitem__(self, i: int, v: range_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -743,17 +728,17 @@ class rangevec_t(rangevec_base_t):
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: range_t) -> bool:
         ...
     def append(self, x: range_t) -> None:
         ...
-    def at(self, _idx: size_t) -> rangeset_t:
+    def at(self, _idx: int) -> range_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> rangeset_t:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -761,35 +746,35 @@ class rangevec_t(rangevec_base_t):
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> rangeset_t:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: rangevec_base_t) -> None:
         ...
-    def extract(self) -> rangeset_t:
+    def extract(self) -> Optional[range_t]:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: range_t) -> bool:
         ...
-    def inject(self, s: range_t, len: size_t) -> None:
+    def inject(self, s: range_t, len: int) -> None:
         ...
     def insert(self, it: range_t, x: range_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> rangeset_t:
+    def push_back(self, *args: Any) -> range_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -809,6 +794,6 @@ RANGE_KIND_HIDDEN_RANGE: int  # 3
 RANGE_KIND_SEGMENT: int  # 2
 RANGE_KIND_UNKNOWN: int  # 0
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ida_idaapi: module
 weakref: module

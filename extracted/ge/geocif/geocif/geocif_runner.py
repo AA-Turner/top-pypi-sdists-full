@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 
 from geocif import logger as log
 from geocif import utils as ut
+from geocif import progress
 from .ml import output
 from geocif import geocif
 
@@ -68,7 +69,11 @@ def loop_execute(inputs):
     logger.info(f"\tStarting GEOCIF: {country} {crop} {season} {model}")
     logger.info("=====================================================")
 
-    _loop_execute(logger, parser, project_name, country, crop, season, model, index)
+    if progress.in_worker():
+        with progress.StatusTimer(index, f"{country} {crop} {season} {model}"):
+            _loop_execute(logger, parser, project_name, country, crop, season, model, index)
+    else:
+        _loop_execute(logger, parser, project_name, country, crop, season, model, index)
 
 
 def loop_execute_pooled(inputs):
@@ -79,7 +84,12 @@ def loop_execute_pooled(inputs):
     logger.info(f"\tStarting GEOCIF (pooled): {countries} {crop} {season} {model}")
     logger.info("=====================================================")
 
-    _loop_execute_pooled(logger, parser, project_name, countries, crop, season, model, index)
+    if progress.in_worker():
+        label = f"pooled[{','.join(countries)}] {crop} {season} {model}"
+        with progress.StatusTimer(index, label):
+            _loop_execute_pooled(logger, parser, project_name, countries, crop, season, model, index)
+    else:
+        _loop_execute_pooled(logger, parser, project_name, countries, crop, season, model, index)
 
 
 def gather_inputs(parser):
@@ -252,7 +262,11 @@ def execute_models(inputs, logger, parser, loop_fn=None, desc=None):
         fraction_cpus = parser.getfloat("DEFAULT", "fraction_cpus")
         cpu_count = int(mp.cpu_count() * fraction_cpus)
 
-        with mp.Pool(cpu_count) as pool:
+        with mp.Pool(
+            cpu_count,
+            initializer=progress.set_worker_mode,
+            initargs=(True, len(inputs)),
+        ) as pool:
             for _ in tqdm(
                 pool.imap_unordered(loop_fn, inputs),
                 total=len(inputs),

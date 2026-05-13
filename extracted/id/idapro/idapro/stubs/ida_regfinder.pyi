@@ -1,4 +1,4 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 class reg_value_def_t:
     ABORTED: int  # 3
@@ -12,13 +12,13 @@ class reg_value_def_t:
     @property
     def SHORT_INSN(self) -> Any: ...
     @property
-    def def_ea(self) -> Any: ...
+    def def_ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def def_itype(self) -> Any: ...
+    def def_itype(self) -> int: ...
     @property
-    def flags(self) -> Any: ...
+    def flags(self) -> int: ...
     @property
-    def val(self) -> Any: ...
+    def val(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -27,21 +27,27 @@ class reg_value_def_t:
         ...
     def __eq__(self, r: reg_value_def_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -49,15 +55,15 @@ class reg_value_def_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
     def __lt__(self, r: reg_value_def_t) -> bool:
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -77,7 +83,7 @@ class reg_value_def_t:
     def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -87,7 +93,7 @@ class reg_value_def_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def dstr(self, how: dstr_val_t, pm: procmod_t = None) -> str:
         r"""Return the string representation.
@@ -98,20 +104,10 @@ class reg_value_def_t:
         ...
     def is_pc_based(self) -> bool:
         ...
-    def is_short_insn(self, args: Any) -> bool:
-        r"""This function has the following signatures:
-        
-            0. is_short_insn() -> bool
-            1. is_short_insn(insn: const insn_t &) -> bool
-        
-        # 0: is_short_insn() -> bool
-        
-        
-        # 1: is_short_insn(insn: const insn_t &) -> bool
-        
-        
-        """
-        ...
+    @overload
+    def is_short_insn(self) -> bool: ...
+    @overload
+    def is_short_insn(self, insn: insn_t) -> bool: ...
 
 class reg_value_info_t:
     ADD: int  # 0
@@ -139,26 +135,32 @@ class reg_value_info_t:
     def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> reg_value_def_t:
+    def __getitem__(self, i: int) -> reg_value_def_t:
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -166,7 +168,7 @@ class reg_value_info_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
     def __len__(self) -> int:
@@ -174,10 +176,10 @@ class reg_value_info_t:
     def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -196,7 +198,7 @@ class reg_value_info_t:
         ...
     def __str__(self) -> str:
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -206,7 +208,7 @@ class reg_value_info_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def aborted(self) -> bool:
         r"""Return 'true' if the tracking process was aborted.
@@ -218,23 +220,13 @@ class reg_value_info_t:
                 
         """
         ...
-    def add_num(self, args: Any) -> None:
-        r"""This function has the following signatures:
-        
-            0. add_num(r: int, insn: const insn_t &) -> None
-            1. add_num(r: int) -> None
-        
-        # 0: add_num(r: int, insn: const insn_t &) -> None
-        
-        Add R to the value, save INSN as a defining instruction. 
-                
-        
-        # 1: add_num(r: int) -> None
-        
-        Add R to the value, do not change the defining instructions. 
-                
-        
-        """
+    @overload
+    def add_num(self, r: int, insn: insn_t) -> None:
+        r"""Add R to the value, save INSN as a defining instruction."""
+        ...
+    @overload
+    def add_num(self, r: int) -> None:
+        r"""Add R to the value, do not change the defining instructions."""
         ...
     def band(self, r: reg_value_info_t, insn: insn_t) -> None:
         r"""Make bitwise AND of R to the value, save INSN as a defining instruction. 
@@ -286,7 +278,7 @@ class reg_value_info_t:
         
         """
         ...
-    def get_def_itype(self) -> uint16:
+    def get_def_itype(self) -> int:
         r"""Return the defining instruction code (processor specific).
         
         """
@@ -301,9 +293,9 @@ class reg_value_info_t:
                 
         """
         ...
-    def has_any_vals_flag(self, val_flags: uint16) -> bool:
+    def has_any_vals_flag(self, val_flags: int) -> bool:
         ...
-    def have_all_vals_flag(self, val_flags: uint16) -> bool:
+    def have_all_vals_flag(self, val_flags: int) -> bool:
         r"""Check the given flag for each value.
         
         """
@@ -406,23 +398,13 @@ class reg_value_info_t:
                 
         """
         ...
-    def make_num(self, args: Any) -> reg_value_info_t:
-        r"""This function has the following signatures:
-        
-            0. make_num(rval: int, insn: const insn_t &, val_flags: uint16=0) -> reg_value_info_t
-            1. make_num(rval: int, val_ea: ida_idaapi.ea_t, val_flags: uint16=0) -> reg_value_info_t
-        
-        # 0: make_num(rval: int, insn: const insn_t &, val_flags: uint16=0) -> reg_value_info_t
-        
-        Return the value that is the RVAL number. 
-                
-        
-        # 1: make_num(rval: int, val_ea: ida_idaapi.ea_t, val_flags: uint16=0) -> reg_value_info_t
-        
-        Return the value that is the RVAL number. 
-                
-        
-        """
+    @overload
+    def make_num(self, rval: int, insn: insn_t, val_flags: int = 0) -> reg_value_info_t:
+        r"""Return the value that is the RVAL number."""
+        ...
+    @overload
+    def make_num(self, rval: int, val_ea: ida_idaapi.ea_t, val_flags: int = 0) -> reg_value_info_t:
+        r"""Return the value that is the RVAL number."""
         ...
     def make_unkfunc(self, func_ea: ida_idaapi.ea_t) -> reg_value_info_t:
         r"""Return the unknown value from the function start. 
@@ -474,7 +456,7 @@ class reg_value_info_t:
                 
         """
         ...
-    def set_all_vals_flag(self, val_flags: uint16) -> None:
+    def set_all_vals_flag(self, val_flags: int) -> None:
         r"""Set the given flag for each value.
         
         """
@@ -493,29 +475,22 @@ class reg_value_info_t:
                 
         """
         ...
-    def set_num(self, args: Any) -> None:
-        r"""This function has the following signatures:
-        
-            0. set_num(rval: int, insn: const insn_t &, val_flags: uint16=0) -> None
-            1. set_num(rvals: uvalvec_t *, insn: const insn_t &) -> None
-            2. set_num(rval: int, val_ea: ida_idaapi.ea_t, val_flags: uint16=0) -> None
-        
-        # 0: set_num(rval: int, insn: const insn_t &, val_flags: uint16=0) -> None
-        
-        Set the value to be a number after executing an insn. 
+    def set_def_itype_for_mov(self, insn: insn_t) -> bool:
+        r"""Set the defining instruction The value of the destination register after the mov instruction is equal to the value of the source register before it. Therefore, we can consider this instruction as defining that value. 
                 
-        
-        # 1: set_num(rvals: uvalvec_t *, insn: const insn_t &) -> None
-        
-        Set the value to be numbers after executing an insn. 
-                
-        
-        # 2: set_num(rval: int, val_ea: ida_idaapi.ea_t, val_flags: uint16=0) -> None
-        
-        Set the value to be a number before an address. 
-                
-        
         """
+        ...
+    @overload
+    def set_num(self, rval: int, insn: insn_t, val_flags: int = 0) -> None:
+        r"""Set the value to be a number after executing an insn."""
+        ...
+    @overload
+    def set_num(self, rvals: uvalvec_t, insn: insn_t) -> None:
+        r"""Set the value to be numbers after executing an insn."""
+        ...
+    @overload
+    def set_num(self, rval: int, val_ea: ida_idaapi.ea_t, val_flags: int = 0) -> None:
+        r"""Set the value to be a number before an address."""
         ...
     def set_unkfunc(self, func_ea: ida_idaapi.ea_t) -> None:
         r"""Set the value to be unknown from the function start. 
@@ -579,7 +554,7 @@ class reg_value_info_t:
                 
         """
         ...
-    def vals_union(self, r: reg_value_info_t) -> reg_value_info_t:
+    def vals_union(self, r: reg_value_info_t) -> set_compare_res_t:
         r"""Add values from R into THIS ignoring duplicates. 
                 
         :returns: EQUAL: THIS is not changed
@@ -599,7 +574,7 @@ def find_nearest_rvi(rvi: reg_value_info_t, ea: ida_idaapi.ea_t, reg: Any) -> in
     """
     ...
 
-def find_reg_value(ea: ida_idaapi.ea_t, reg: int) -> uint64:
+def find_reg_value(ea: ida_idaapi.ea_t, reg: int) -> int:
     r"""Find register value using the register tracker. 
             
     :param ea: the address to find a value at
@@ -622,7 +597,7 @@ def find_reg_value_info(rvi: reg_value_info_t, ea: ida_idaapi.ea_t, reg: int, ma
     """
     ...
 
-def find_sp_value(ea: ida_idaapi.ea_t, reg: int = -1) -> int64:
+def find_sp_value(ea: ida_idaapi.ea_t, reg: int = -1) -> int:
     r"""Find a value of the SP based register using the register tracker. 
             
     :param ea: the address to find a value at
@@ -633,20 +608,20 @@ def find_sp_value(ea: ida_idaapi.ea_t, reg: int = -1) -> int64:
     """
     ...
 
-def invalidate_regfinder_cache(args: Any) -> None:
+def invalidate_regfinder_cache(*args: Any) -> None:
     r"""The control flow from FROM to TO has removed (CREF==fl_U) or added (CREF!=fl_U). Try to update the register tracker cache after this change. If TO == BADADDR then clear the entire cache. 
             
     """
     ...
 
-def invalidate_regfinder_xrefs_cache(args: Any) -> None:
+def invalidate_regfinder_xrefs_cache(*args: Any) -> None:
     r"""The data reference to TO has added (DREF!=dr_O) or removed (DREF==dr_O). Update the regtracker xrefs cache after this change. If TO == BADADDR then clear the entire xrefs cache. 
             
     """
     ...
 
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 cvar: swigvarlink
 ida_idaapi: module
 weakref: module

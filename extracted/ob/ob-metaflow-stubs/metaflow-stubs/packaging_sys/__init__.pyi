@@ -1,21 +1,21 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.775371                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.004042                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
+import enum
 import metaflow
 import typing
-import enum
 if typing.TYPE_CHECKING:
-    import metaflow.packaging_sys
-    import metaflow.packaging_sys.tar_backend
-    import metaflow.packaging_sys.backend
     import metaflow.extension_support.metadata
-    import enum
+    import metaflow.packaging_sys.tar_backend
     import typing
+    import enum
+    import metaflow.packaging_sys.backend
+    import metaflow.packaging_sys
 
 from . import distribution_support as distribution_support
 from .distribution_support import PackagedDistributionFinder as PackagedDistributionFinder
@@ -52,7 +52,7 @@ class MetaflowCodeContent(object, metaclass=type):
     the Metaflow code package (non user) to do.
     """
     @classmethod
-    def get_info(cls) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def get_info(cls) -> typing.Union[typing.Dict[str, typing.Any], None]:
         """
         Get the content of the special INFO file on the local filesystem after
         the code package has been expanded.
@@ -64,7 +64,7 @@ class MetaflowCodeContent(object, metaclass=type):
         """
         ...
     @classmethod
-    def get_config(cls) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def get_config(cls) -> typing.Union[typing.Dict[str, typing.Any], None]:
         """
         Get the content of the special CONFIG file on the local filesystem after
         the code package has been expanded.
@@ -76,7 +76,7 @@ class MetaflowCodeContent(object, metaclass=type):
         """
         ...
     @classmethod
-    def get_filename(cls, filename: str, content_type: ContentType) -> typing.Optional[str]:
+    def get_filename(cls, filename: str, content_type: ContentType) -> typing.Union[str, None]:
         """
         Get the path to a file extracted from the archive. The filename is the filename
         passed in when creating the archive and content_type is the type of the content.
@@ -111,7 +111,7 @@ class MetaflowCodeContent(object, metaclass=type):
         """
         ...
     @classmethod
-    def get_archive_info(cls, archive: typing.Any, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def get_archive_info(cls, archive: typing.Any, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Union[typing.Dict[str, typing.Any], None]:
         """
         Get the content of the special INFO file in the archive.
         
@@ -122,7 +122,7 @@ class MetaflowCodeContent(object, metaclass=type):
         """
         ...
     @classmethod
-    def get_archive_config(cls, archive: typing.Any, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def get_archive_config(cls, archive: typing.Any, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Union[typing.Dict[str, typing.Any], None]:
         """
         Get the content of the special CONFIG file in the archive.
         
@@ -133,7 +133,7 @@ class MetaflowCodeContent(object, metaclass=type):
         """
         ...
     @classmethod
-    def get_archive_filename(cls, archive: typing.Any, filename: str, content_type: ContentType, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Optional[str]:
+    def get_archive_filename(cls, archive: typing.Any, filename: str, content_type: ContentType, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Union[str, None]:
         """
         Get the filename of the archive. This does not do any extraction but simply
         returns where, in the archive, the file is located. This is the equivalent of
@@ -157,10 +157,10 @@ class MetaflowCodeContent(object, metaclass=type):
         """
         ...
     @classmethod
-    def get_archive_content_members(cls, archive: typing.Any, content_types: typing.Optional[int] = None, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.List[typing.Any]:
+    def get_archive_content_members(cls, archive: typing.Any, content_types: typing.Union[int, None] = None, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.List[typing.Any]:
         ...
     @classmethod
-    def get_distribution_finder(cls) -> typing.Optional["metaflow.extension_support.metadata.DistributionFinder"]:
+    def get_distribution_finder(cls) -> typing.Union["metaflow.extension_support.metadata.DistributionFinder", None]:
         """
         Get the distribution finder for the Metaflow code package (if applicable).
         
@@ -197,28 +197,28 @@ class MetaflowCodeContent(object, metaclass=type):
         """
         ...
     @classmethod
-    def get_info_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]]) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def get_info_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None]) -> typing.Union[typing.Dict[str, typing.Any], None]:
         ...
     @classmethod
-    def get_config_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]]) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def get_config_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None]) -> typing.Union[typing.Dict[str, typing.Any], None]:
         ...
     @classmethod
-    def get_filename_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]], filename: str, content_type: ContentType) -> typing.Optional[str]:
+    def get_filename_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None], filename: str, content_type: ContentType) -> typing.Union[str, None]:
         ...
     @classmethod
-    def get_distribution_finder_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]]) -> typing.Optional["metaflow.extension_support.metadata.DistributionFinder"]:
+    def get_distribution_finder_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None]) -> typing.Union["metaflow.extension_support.metadata.DistributionFinder", None]:
         ...
     @classmethod
-    def get_archive_info_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]], archive: typing.Any, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def get_archive_info_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None], archive: typing.Any, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Union[typing.Dict[str, typing.Any], None]:
         ...
     @classmethod
-    def get_archive_config_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]], archive: typing.Any, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def get_archive_config_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None], archive: typing.Any, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Union[typing.Dict[str, typing.Any], None]:
         ...
     @classmethod
-    def get_archive_filename_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]], archive: typing.Any, filename: str, content_type: ContentType, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Optional[str]:
+    def get_archive_filename_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None], archive: typing.Any, filename: str, content_type: ContentType, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Union[str, None]:
         ...
     @classmethod
-    def get_archive_content_members_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]], archive: typing.Any, content_types: typing.Optional[int] = None, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.List[typing.Any]:
+    def get_archive_content_members_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None], archive: typing.Any, content_types: typing.Union[int, None] = None, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.List[typing.Any]:
         ...
     @classmethod
     def get_post_extract_env_vars_impl(cls, dest_dir: str) -> typing.Dict[str, str]:
@@ -239,7 +239,7 @@ class MetaflowCodeContent(object, metaclass=type):
             Files or directories to exclude
         """
         ...
-    def content_names(self, content_types: typing.Optional[int] = None) -> typing.Generator[typing.Tuple[str, str], None, None]:
+    def content_names(self, content_types: typing.Union[int, None] = None) -> typing.Generator[typing.Tuple[str, str], None, None]:
         """
         Detailed list of the content of this MetaflowCodeContent. This will list all files
         (or non files -- for the INFO or CONFIG data for example) present in the archive.
@@ -255,7 +255,7 @@ class MetaflowCodeContent(object, metaclass=type):
             Path on the filesystem and the name in the archive
         """
         ...
-    def contents(self, content_types: typing.Optional[int] = None) -> typing.Generator[typing.Tuple[typing.Union[bytes, str], str], None, None]:
+    def contents(self, content_types: typing.Union[int, None] = None) -> typing.Generator[typing.Tuple[typing.Union[bytes, str], str], None, None]:
         """
         Very similar to content_names but returns the content of the non-files
         as well as bytes. For files, identical output as content_names
@@ -346,31 +346,31 @@ class MetaflowCodeContent(object, metaclass=type):
 
 class MetaflowCodeContentV0(MetaflowCodeContent, metaclass=type):
     @classmethod
-    def get_info_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]]) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def get_info_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None]) -> typing.Union[typing.Dict[str, typing.Any], None]:
         ...
     @classmethod
-    def get_config_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]]) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def get_config_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None]) -> typing.Union[typing.Dict[str, typing.Any], None]:
         ...
     @classmethod
-    def get_filename_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]], filename: str, content_type: ContentType) -> typing.Optional[str]:
+    def get_filename_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None], filename: str, content_type: ContentType) -> typing.Union[str, None]:
         """
         For V0, the filename is simply the filename passed in.
         """
         ...
     @classmethod
-    def get_distribution_finder_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]]) -> typing.Optional["metaflow.extension_support.metadata.DistributionFinder"]:
+    def get_distribution_finder_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None]) -> typing.Union["metaflow.extension_support.metadata.DistributionFinder", None]:
         ...
     @classmethod
-    def get_archive_info_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]], archive: typing.Any, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def get_archive_info_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None], archive: typing.Any, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Union[typing.Dict[str, typing.Any], None]:
         ...
     @classmethod
-    def get_archive_config_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]], archive: typing.Any, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def get_archive_config_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None], archive: typing.Any, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Union[typing.Dict[str, typing.Any], None]:
         ...
     @classmethod
-    def get_archive_filename_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]], archive: typing.Any, filename: str, content_type: ContentType, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> str:
+    def get_archive_filename_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None], archive: typing.Any, filename: str, content_type: ContentType, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> str:
         ...
     @classmethod
-    def get_archive_content_members_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]], archive: typing.Any, content_types: typing.Optional[int] = None, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.List[typing.Any]:
+    def get_archive_content_members_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None], archive: typing.Any, content_types: typing.Union[int, None] = None, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.List[typing.Any]:
         """
         For V0, we use a static list of known files to classify the content
         """
@@ -400,28 +400,28 @@ class MetaflowCodeContentV1Base(MetaflowCodeContent, metaclass=type):
     def __init__(self, code_dir: str, other_dir: str):
         ...
     @classmethod
-    def get_info_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]]) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def get_info_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None]) -> typing.Union[typing.Dict[str, typing.Any], None]:
         ...
     @classmethod
-    def get_config_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]]) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def get_config_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None]) -> typing.Union[typing.Dict[str, typing.Any], None]:
         ...
     @classmethod
-    def get_filename_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]], filename: str, content_type: ContentType) -> typing.Optional[str]:
+    def get_filename_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None], filename: str, content_type: ContentType) -> typing.Union[str, None]:
         ...
     @classmethod
-    def get_distribution_finder_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]]) -> typing.Optional["metaflow.extension_support.metadata.DistributionFinder"]:
+    def get_distribution_finder_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None]) -> typing.Union["metaflow.extension_support.metadata.DistributionFinder", None]:
         ...
     @classmethod
-    def get_archive_info_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]], archive: typing.Any, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def get_archive_info_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None], archive: typing.Any, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Union[typing.Dict[str, typing.Any], None]:
         ...
     @classmethod
-    def get_archive_config_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]], archive: typing.Any, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def get_archive_config_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None], archive: typing.Any, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.Union[typing.Dict[str, typing.Any], None]:
         ...
     @classmethod
-    def get_archive_filename_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]], archive: typing.Any, filename: str, content_type: ContentType, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> str:
+    def get_archive_filename_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None], archive: typing.Any, filename: str, content_type: ContentType, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> str:
         ...
     @classmethod
-    def get_archive_content_members_impl(cls, mfcontent_info: typing.Optional[typing.Dict[str, typing.Any]], archive: typing.Any, content_types: typing.Optional[int] = None, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.List[typing.Any]:
+    def get_archive_content_members_impl(cls, mfcontent_info: typing.Union[typing.Dict[str, typing.Any], None], archive: typing.Any, content_types: typing.Union[int, None] = None, packaging_backend: typing.Type[metaflow.packaging_sys.backend.PackagingBackend] = metaflow.packaging_sys.tar_backend.TarPackagingBackend) -> typing.List[typing.Any]:
         ...
     @classmethod
     def get_post_extract_env_vars_impl(cls, dest_dir: str) -> typing.Dict[str, str]:

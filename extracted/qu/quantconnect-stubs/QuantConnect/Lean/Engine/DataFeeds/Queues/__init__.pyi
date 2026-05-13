@@ -22,7 +22,7 @@ class FakeDataQueue(System.Object, QuantConnect.Interfaces.IDataQueueHandler, Qu
         Continuous UTC time provider
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 

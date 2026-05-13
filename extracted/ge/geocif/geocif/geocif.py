@@ -24,6 +24,7 @@ from tqdm.rich import tqdm
 
 from geocif import logger as log
 from geocif import utils
+from geocif.progress import pbar as _pbar
 from .cid import definitions as di
 from .ml import correlations, feature_engineering as fe, feature_selection as fs
 from .ml import output, spatial_neighbors as sn, stages, stats, trainers, trend, xai
@@ -364,13 +365,13 @@ class Geocif:
         self.estimate_ci = self.parser.getboolean("ML", "estimate_ci")
         self.estimate_ci_for_all = self.parser.getboolean("ML", "estimate_ci_for_all")
         self.ci_method = self.parser.get("ML", "ci_method", fallback="crepes")
-        self.cat_features = [col for col in self.cat_features if col != "Region"]
+        self.cat_features = [col for col in self.cat_features]
 
     def _setup_tree_flags(self):
         """Flags for tree-based models."""
         self.do_xai = False
         self.estimate_ci = False
-        self.cat_features = [col for col in self.cat_features if col != "Region"]
+        self.cat_features = [col for col in self.cat_features]
 
     def _setup_ngboost_flags(self):
         """Flags for NGBoost."""
@@ -592,7 +593,7 @@ class Geocif:
         
         self.df_inputs = pd.concat(
             (pd.read_csv(f, engine="pyarrow") 
-             for f in tqdm(all_files, desc="Reading CSVs", leave=False)),
+             for f in _pbar(all_files, desc="Reading CSVs", leave=False)),
             ignore_index=True
         )
         
@@ -972,6 +973,7 @@ class Geocif:
         """Convert raw data into ML-ready format."""
         df = self._filter_by_simulation_stages()
         df = self._filter_by_cid_categories(df)
+        df = self._prune_stale_forecast_rows(df)
         df = self.create_ml_dataframe(df)
 
         if self.parser.getboolean("DEFAULT", "filter_low_production_regions", fallback=False):
@@ -985,11 +987,60 @@ class Geocif:
     def _filter_by_simulation_stages(self) -> pd.DataFrame:
         """Filter data to include only simulation stages."""
         stages_list = [
-            stages.convert_stage_string(s, to_array=False) 
+            stages.convert_stage_string(s, to_array=False)
             for s in self.simulation_stages
         ]
         mask = self.df_inputs["Stage_ID"].isin(stages_list)
         return self.df_inputs[mask]
+
+    def _prune_stale_forecast_rows(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Drop FLDAS / S2S LEAD rows whose target month already has
+        observed-climate rows in the same (Region, Harvest Year) slice.
+
+        A FLDAS or S2S forecast row's ``Stage Name`` encodes its target
+        month (e.g. ``"Feb 1-Feb 28"`` = LEAD targeting February). The
+        dedup at CID extraction time keeps each ``(col, lead, init_month)``
+        emitted once, with the Stage Name from the emitting cumulative
+        stage. Once cumulative stages advance past that target month,
+        observed-climate features (ICCLIM/AgERA5/ESI/NDVI) for the same
+        Stage Name also exist in the slice — making the forecast stale.
+
+        Rule: if any non-forecast row shares a row's
+        ``(Region, Harvest Year, Stage Name)``, drop that forecast row.
+        Forecasts whose target month has no observed counterpart yet
+        (the Gauteng pre-season fallback case at 0.4.578) survive
+        because no ICCLIM row carries their Stage Name yet.
+        """
+        if df.empty:
+            return df
+        needed = {"Type", "Stage Name", "Index", "Region", "Harvest Year"}
+        if not needed.issubset(df.columns):
+            return df
+
+        forecast_mask = (
+            df["Type"].isin(["FLDAS", "S2S"]) &
+            df["Index"].fillna("").str.contains("_LEAD", regex=False)
+        )
+        if not forecast_mask.any():
+            return df
+
+        observed_keys = pd.MultiIndex.from_frame(
+            df.loc[~forecast_mask, ["Region", "Harvest Year", "Stage Name"]]
+            .drop_duplicates()
+        )
+        forecast_keys = pd.MultiIndex.from_frame(
+            df.loc[forecast_mask, ["Region", "Harvest Year", "Stage Name"]]
+        )
+        stale_within_forecast = forecast_keys.isin(observed_keys)
+        stale_idx = df.index[forecast_mask][stale_within_forecast]
+
+        n_pruned = len(stale_idx)
+        if n_pruned:
+            self.logger.info(
+                f"Pruning {n_pruned} stale FLDAS/S2S LEAD rows from "
+                f"{self.country} {self.crop} (target month already observed)"
+            )
+        return df.drop(stale_idx)
 
     def _filter_by_cid_categories(self, df: pd.DataFrame) -> pd.DataFrame:
         """Filter by selected CID categories."""
@@ -1264,7 +1315,7 @@ class Geocif:
         step_label = getattr(self, "_current_step_label", "")
         stage_name = getattr(self, "stage_info", {}).get("Stage Name", "")
 
-        pbar = tqdm([self.simulation_stages])
+        pbar = _pbar([self.simulation_stages])
         for stages in pbar:
             pbar.set_description(
                 f"{step_label} {self.country} {self.crop} {self.forecast_season} "
@@ -1812,11 +1863,48 @@ class Geocif:
     def apply_feature_selector(self, region: int, dir_output: Path):
         """
         Apply feature selection for a specific region.
-        
+
         Args:
             region: Region ID
             dir_output: Directory for output files
         """
+        # Lag-only mode: ignore CID features entirely, keep just the
+        # lag-yield columns plus cat_features. Set by yield_outlook.run()
+        # when run_time_steps == "lag_only". Baseline mode that strips
+        # every CID feature so we can measure pure lag-yield baseline.
+        if self.parser.getboolean("ML", "lag_only_features", fallback=False):
+            X_for = self.X_train.drop(columns=["Region"], errors="ignore")
+            lag_cols = [
+                c for c in X_for.columns
+                if c.startswith("t -") and "Yield" in c
+            ]
+            cat_extras = [
+                c for c in self.cat_features
+                if c != "Region" and c in X_for.columns
+            ]
+            self.selected_features = lag_cols + cat_extras
+            self.logger.info(
+                f"Lag-only mode for {self.country} {self.crop}: "
+                f"using {len(self.selected_features)} features "
+                f"({len(lag_cols)} lag + {len(cat_extras)} cat)"
+            )
+            return
+
+        # Pre-season and in-season-init stages have a tiny, mostly
+        # region-constant feature pool (lag yields + MAR_FLDAS_*).
+        # Feature selection adds overhead with no signal — bypass and
+        # use every column, regardless of the configured method.
+        stage_id = str(getattr(self, "stage_info", {}).get("Stage_ID", ""))
+        if getattr(self, "is_pre_season", False) or stage_id.startswith(("PS_", "IS_")):
+            X_for_selection = self.X_train.drop(columns=["Region"], errors="ignore")
+            self.selected_features = X_for_selection.columns.tolist()
+            self.logger.info(
+                f"Skipping feature selection for {self.country} {self.crop} "
+                f"(pre-season stage {stage_id or 'PS'}); using all "
+                f"{len(self.selected_features)} features"
+            )
+            return
+
         if self.model_name.startswith("cumulative_"):
             all_features = self.X_train.columns
             self.selected_features = [
@@ -1852,6 +1940,42 @@ class Geocif:
             self.selected_features.append("lat")
         if "lon" not in self.selected_features and self.include_lat_lon_as_feature:
             self.selected_features.append("lon")
+
+        # Force-include FLDAS / S2S forecast CIDs back into the selected set
+        # even if the feature-selection method (gOMP/Boruta/etc.) dropped
+        # them. Gated by:
+        #   1. [ML] force_include_forecast_cids (default True) — master
+        #      switch. When False, forecast CIDs are subject to the
+        #      configured feature-selection method like any other feature.
+        #   2. [DEFAULT] use_cids — only forecast types the user opted
+        #      into are protected.
+        # End-of-season cap is applied at CID extraction time
+        # (geocif/cid/indices.py:1396-1417), so anything present in
+        # X_train.columns has already been bounded to the growing season
+        # for this region. Stale forecasts (target month already observed)
+        # are pruned in _prune_stale_forecast_rows before pivot.
+        force_include = self.parser.getboolean(
+            "ML", "force_include_forecast_cids", fallback=True
+        )
+        keep_fldas = force_include and ("all" in self.use_cids or "FLDAS" in self.use_cids)
+        keep_s2s = force_include and ("all" in self.use_cids or "S2S" in self.use_cids)
+        if (keep_fldas or keep_s2s) and hasattr(self, "X_train") and self.X_train is not None:
+            existing = set(self.selected_features)
+            forced = []
+            for col in self.X_train.columns:
+                if col in existing or col == "Region":
+                    continue
+                is_fldas = "_FLDAS_" in col
+                is_s2s = "_S2S_" in col
+                if (is_fldas and keep_fldas) or (is_s2s and keep_s2s):
+                    forced.append(col)
+            if forced:
+                self.selected_features = self.selected_features + forced
+                self.logger.info(
+                    f"Force-included {len(forced)} FLDAS/S2S forecast CIDs "
+                    f"for {self.country} {self.crop} after selection "
+                    f"(use_cids={self.use_cids})"
+                )
 
     # ============================================================================
     # MODEL TRAINING (Delegated to ModelTrainer)
@@ -1894,7 +2018,7 @@ class Geocif:
             inf_mask = ~np.isfinite(X_test[num_cols].to_numpy())
             if inf_mask.any():
                 bad = list(num_cols[inf_mask.any(axis=0)])
-                self.logger.warning(
+                self.logger.info(
                     f"Replacing ±inf with NaN in {len(bad)} test column(s): "
                     f"{bad[:10]}{'...' if len(bad) > 10 else ''}"
                 )
@@ -2490,7 +2614,7 @@ class Geocif:
         scaler = self._initialize_scaler()
         
         region_ids = self.df_train["Region_ID"].unique()
-        pbar = tqdm(region_ids, leave=False)
+        pbar = _pbar(region_ids, leave=False)
         
         for idx, region_id in enumerate(pbar):
             try:
@@ -2708,7 +2832,7 @@ class Geocif:
         if inf_mask.any():
             num_cols = X_train.select_dtypes(include=[np.number]).columns
             bad = list(num_cols[inf_mask.any(axis=0)])
-            self.logger.warning(
+            self.logger.info(
                 f"Replacing ±inf with NaN in {len(bad)} train column(s): "
                 f"{bad[:10]}{'...' if len(bad) > 10 else ''}"
             )
@@ -2762,8 +2886,6 @@ class Geocif:
             pbar.set_description(f"Fit/Predict {self.country} {self.crop} {region_name}")
         else:
             pbar.set_description(f"Fit/Predict {self.country} {self.crop} group {idx + 1}")
-        
-        pbar.update()
 
     def _run_xai_if_enabled(
         self, 
@@ -2851,14 +2973,23 @@ class ModelTrainer:
         return df_region[self.obj.selected_features + self.obj.cat_features]
     
     def _save_training_data(
-        self, 
-        X_train: pd.DataFrame, 
-        df_region: pd.DataFrame, 
+        self,
+        X_train: pd.DataFrame,
+        df_region: pd.DataFrame,
         dir_output: Path
     ):
-        """Save training data for debugging/analysis."""
+        """Save training data for debugging/analysis.
+
+        Adds a ``Region`` column to the saved CSV for human inspection —
+        models like tabpfn/tabicl strip Region from cat_features, so without
+        this the CSV has no way to identify which admin each row belongs to.
+        The X_train matrix passed to model.fit() is untouched.
+        """
         region_id = df_region["Region_ID"].unique()[0]
-        X_train.to_csv(dir_output / f"X_train_{region_id}.csv", index=False)
+        df_save = X_train.copy()
+        if "Region" in df_region.columns and "Region" not in df_save.columns:
+            df_save.insert(0, "Region", df_region["Region"].values)
+        df_save.to_csv(dir_output / f"X_train_{region_id}.csv", index=False)
     
     def _scale_if_needed(self, X_train: pd.DataFrame, scaler):
         """Scale features if scaler is provided."""

@@ -130,10 +130,12 @@ foreach (NAME functions classes ndarray jax tensorflow stl enum typing make_iter
     ${EXTRA})
 endforeach()
 
-find_package (Eigen3 3.3.1 NO_MODULE)
+find_package (Eigen3 3...5 NO_MODULE)
 if (TARGET Eigen3::Eigen)
   nanobind_add_module(test_eigen_ext test_eigen.cpp ${NB_EXTRA_ARGS})
   target_link_libraries(test_eigen_ext PRIVATE Eigen3::Eigen)
+  nanobind_add_module(test_eigen_tensor_ext test_eigen_tensor.cpp ${NB_EXTRA_ARGS})
+  target_link_libraries(test_eigen_tensor_ext PRIVATE Eigen3::Eigen)
 endif()
 
 add_library(
@@ -159,6 +161,7 @@ set(TEST_FILES
   test_callbacks.py
   test_classes.py
   test_eigen.py
+  test_eigen_tensor.py
   test_enum.py
   test_eval.py
   test_exception.py

@@ -1,8 +1,9 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Routines to manipulate function stack frames, stack variables, register variables and local labels.
 
-The frame is represented as a structure: 
+The frame is represented as a structure::
+
   +------------------------------------------------+
   | function arguments                             |
   +------------------------------------------------+
@@ -20,25 +21,31 @@ The frame is represented as a structure:
   +------------------------------------------------+ <- SP
 
 To access the structure of a function frame and stack variables, use:
+
 * tinfo_t::get_func_frame(const func_t *pfn) (the preferred way)
 * get_func_frame(tinfo_t *out, const func_t *pfn)
-* tinfo_t::get_udt_details() gives info about stack variables: their type, names, offset, etc 
+* tinfo_t::get_udt_details() gives info about stack variables: their type,
+  names, offset, etc
 
+.. tip::
+   The `IDA Domain API <https://ida-domain.docs.hex-rays.com/>`_ simplifies
+   common tasks and provides better type hints, while remaining fully compatible
+   with IDAPython for advanced use cases.
 
-    
+   For function frame operations, see :mod:`ida_domain.functions`.
 """
 
 class regvar_t:
     @property
-    def canon(self) -> Any: ...
+    def canon(self) -> int: ...
     @property
-    def cmt(self) -> Any: ...
+    def cmt(self) -> int: ...
     @property
-    def end_ea(self) -> Any: ...
+    def end_ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def start_ea(self) -> Any: ...
+    def start_ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def user(self) -> Any: ...
+    def user(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -47,19 +54,25 @@ class regvar_t:
         ...
     def __eq__(self, r: range_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, r: range_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, r: range_t) -> bool:
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -73,7 +86,7 @@ class regvar_t:
         ...
     def __ne__(self, r: range_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -90,10 +103,10 @@ class regvar_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -103,7 +116,7 @@ class regvar_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def clear(self) -> None:
         r"""Set start_ea, end_ea to 0.
@@ -112,25 +125,16 @@ class regvar_t:
         ...
     def compare(self, r: range_t) -> int:
         ...
-    def contains(self, args: Any) -> bool:
-        r"""This function has the following signatures:
+    @overload
+    def contains(self, ea: ida_idaapi.ea_t) -> bool:
+        r"""Compare two range_t instances, based on the start_ea.
         
-            0. contains(ea: ida_idaapi.ea_t) -> bool
-            1. contains(r: const range_t &) -> bool
-        
-        # 0: contains(ea: ida_idaapi.ea_t) -> bool
-        
-        Compare two range_t instances, based on the start_ea.
-        
-        Is 'ea' in the address range? 
-                
-        
-        # 1: contains(r: const range_t &) -> bool
-        
-        Is every ea in 'r' also in this range_t?
-        
-        
+        Is 'ea' in the address range?
         """
+        ...
+    @overload
+    def contains(self, r: range_t) -> bool:
+        r"""Is every ea in 'r' also in this range_t?"""
         ...
     def empty(self) -> bool:
         r"""Is the size of the range_t <= 0?
@@ -162,9 +166,9 @@ class regvar_t:
 
 class stkpnt_t:
     @property
-    def ea(self) -> Any: ...
+    def ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def spd(self) -> Any: ...
+    def spd(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -173,19 +177,25 @@ class stkpnt_t:
         ...
     def __eq__(self, r: stkpnt_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, r: stkpnt_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, r: stkpnt_t) -> bool:
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -199,7 +209,7 @@ class stkpnt_t:
         ...
     def __ne__(self, r: stkpnt_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -216,10 +226,10 @@ class stkpnt_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -229,7 +239,7 @@ class stkpnt_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def compare(self, r: stkpnt_t) -> int:
         ...
@@ -243,19 +253,25 @@ class stkpnts_t:
         ...
     def __eq__(self, r: stkpnts_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, r: stkpnts_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, r: stkpnts_t) -> bool:
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -269,7 +285,7 @@ class stkpnts_t:
         ...
     def __ne__(self, r: stkpnts_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -286,10 +302,10 @@ class stkpnts_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -299,18 +315,18 @@ class stkpnts_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def compare(self, r: stkpnts_t) -> int:
         ...
 
 class xreflist_entry_t:
     @property
-    def ea(self) -> Any: ...
+    def ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def opnum(self) -> Any: ...
+    def opnum(self) -> int: ...
     @property
-    def type(self) -> Any: ...
+    def type(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -319,19 +335,25 @@ class xreflist_entry_t:
         ...
     def __eq__(self, r: xreflist_entry_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, r: xreflist_entry_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, r: xreflist_entry_t) -> bool:
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -345,7 +367,7 @@ class xreflist_entry_t:
         ...
     def __ne__(self, r: xreflist_entry_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -362,10 +384,10 @@ class xreflist_entry_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -375,7 +397,7 @@ class xreflist_entry_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def compare(self, r: xreflist_entry_t) -> int:
         ...
@@ -389,8 +411,11 @@ class xreflist_t:
         ...
     def __eq__(self, r: xreflist_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
@@ -398,14 +423,17 @@ class xreflist_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> xreflist_entry_t:
+    def __getitem__(self, i: int) -> xreflist_entry_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
         ...
     def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -413,7 +441,7 @@ class xreflist_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[xreflist_entry_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
     def __le__(self, value: Any) -> bool:
@@ -426,7 +454,7 @@ class xreflist_t:
         ...
     def __ne__(self, r: xreflist_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -440,15 +468,15 @@ class xreflist_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: xreflist_entry_t) -> None:
+    def __setitem__(self, i: int, v: xreflist_entry_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -458,17 +486,17 @@ class xreflist_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_unique(self, x: xreflist_entry_t) -> bool:
         ...
     def append(self, x: xreflist_entry_t) -> None:
         ...
-    def at(self, _idx: size_t) -> xreflist_entry_t:
+    def at(self, _idx: int) -> xreflist_entry_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> qvector:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -476,35 +504,35 @@ class xreflist_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> qvector:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: xreflist_t) -> None:
         ...
     def extract(self) -> xreflist_entry_t:
         ...
-    def find(self, args: Any) -> qvector:
+    def find(self, *args: Any) -> qvector:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
     def has(self, x: xreflist_entry_t) -> bool:
         ...
-    def inject(self, s: xreflist_entry_t, len: size_t) -> None:
+    def inject(self, s: xreflist_entry_t, len: int) -> None:
         ...
     def insert(self, it: xreflist_entry_t, x: xreflist_entry_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> xreflist_entry_t:
+    def push_back(self, *args: Any) -> xreflist_entry_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -523,7 +551,7 @@ def add_auto_stkpnt(pfn: func_t, ea: ida_idaapi.ea_t, delta: int) -> bool:
     """
     ...
 
-def add_frame(pfn: func_t, frsize: int, frregs: ushort, argsize: asize_t) -> bool:
+def add_frame(pfn: func_t, frsize: int, frregs: int, argsize: int) -> bool:
     r"""Add function frame. 
             
     :param pfn: pointer to function structure
@@ -535,7 +563,7 @@ def add_frame(pfn: func_t, frsize: int, frregs: ushort, argsize: asize_t) -> boo
     """
     ...
 
-def add_frame_member(pfn: func_t, name: str, offset: int, tif: tinfo_t, repr: value_repr_t = None, etf_flags: uint = 0) -> bool:
+def add_frame_member(pfn: func_t, name: str, offset: int, tif: tinfo_t, repr: value_repr_t = None, etf_flags: int = 0) -> bool:
     r"""Add member to the frame type 
             
     :param pfn: pointer to function
@@ -659,24 +687,18 @@ def delete_frame_members(pfn: func_t, start_offset: int, end_offset: int) -> boo
     """
     ...
 
-def find_regvar(args: Any) -> regvar_t:
-    r"""This function has the following signatures:
-    
-        0. find_regvar(pfn: func_t *, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, canon: str, user: str) -> regvar_t *
-        1. find_regvar(pfn: func_t *, ea: ida_idaapi.ea_t, canon: str) -> regvar_t *
-    
-    # 0: find_regvar(pfn: func_t *, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, canon: str, user: str) -> regvar_t *
-    
-    Find a register variable definition (powerful version). One of 'canon' and 'user' should be nullptr. If both 'canon' and 'user' are nullptr it returns the first regvar definition in the range. 
+@overload
+def find_regvar(pfn: func_t, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, canon: str, user: str) -> regvar_t:
+    r"""Find a register variable definition (powerful version). One of 'canon' and 'user' should be nullptr. If both 'canon' and 'user' are nullptr it returns the first regvar definition in the range. 
             
     :returns: nullptr-not found, otherwise ptr to regvar_t
-    
-    # 1: find_regvar(pfn: func_t *, ea: ida_idaapi.ea_t, canon: str) -> regvar_t *
-    
-    Find a register variable definition. 
+    """
+    ...
+@overload
+def find_regvar(pfn: func_t, ea: ida_idaapi.ea_t, canon: str) -> regvar_t:
+    r"""Find a register variable definition. 
             
     :returns: nullptr-not found, otherwise ptr to regvar_t
-    
     """
     ...
 
@@ -790,7 +812,7 @@ def is_dummy_member_name(name: str) -> bool:
 def is_funcarg_off(pfn: func_t, frameoff: int) -> bool:
     ...
 
-def is_special_frame_member(tid: tid_t) -> bool:
+def is_special_frame_member(tid: int) -> bool:
     r"""Is stkvar with TID the return address slot or the saved registers slot ? 
             
     :param tid: frame member type id return address or saved registers member?
@@ -846,7 +868,7 @@ def set_auto_spd(pfn: func_t, ea: ida_idaapi.ea_t, new_spd: int) -> bool:
     """
     ...
 
-def set_frame_member_type(pfn: func_t, offset: int, tif: tinfo_t, repr: value_repr_t = None, etf_flags: uint = 0) -> bool:
+def set_frame_member_type(pfn: func_t, offset: int, tif: tinfo_t, repr: value_repr_t = None, etf_flags: int = 0) -> bool:
     r"""Change type of the frame member 
             
     :param pfn: pointer to function
@@ -857,7 +879,7 @@ def set_frame_member_type(pfn: func_t, offset: int, tif: tinfo_t, repr: value_re
     """
     ...
 
-def set_frame_size(pfn: func_t, frsize: asize_t, frregs: ushort, argsize: asize_t) -> bool:
+def set_frame_size(pfn: func_t, frsize: int, frregs: int, argsize: int) -> bool:
     r"""Set size of function frame. Note: The returned size may not include all stack arguments. It does so only for __stdcall and __fastcall calling conventions. To get the entire frame size for all cases use frame.get_func_frame(pfn).get_size() 
             
     :param pfn: pointer to function structure
@@ -894,7 +916,7 @@ def soff_to_fpoff(pfn: func_t, soff: int) -> int:
     """
     ...
 
-def update_fpd(pfn: func_t, fpd: asize_t) -> bool:
+def update_fpd(pfn: func_t, fpd: int) -> bool:
     r"""Update frame pointer delta. 
             
     :param pfn: pointer to function structure
@@ -916,7 +938,7 @@ REGVAR_ERROR_RANGE: int  # -2
 STKVAR_KEEP_EXISTING: int  # 2
 STKVAR_VALID_SIZE: int  # 1
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ida_idaapi: module
 ida_range: module
 weakref: module

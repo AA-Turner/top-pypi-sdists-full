@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import optuna
 from catboost import CatBoostRegressor
-from tqdm.rich import tqdm
+from geocif.progress import pbar as _pbar
 
 
 def loocv(
@@ -42,10 +42,9 @@ def loocv(
     num_to_select = int(len(unique_values) * fraction_loocv)
     # Randomly select X% of the unique values without replacement
     selected_values = np.random.default_rng(seed).choice(unique_values, size=num_to_select, replace=False)
-    pbar = tqdm(selected_values, leave=False)
+    pbar = _pbar(selected_values, leave=False)
     for idx, var in enumerate(pbar):
         pbar.set_description(f"Trial {trial_id}, LOOCV {var}")
-        pbar.update()
 
         train_index = df[df[loocv_var] != var].index
         val_index = df[df[loocv_var] == var].index
@@ -317,7 +316,9 @@ def auto_train(
                 cat_feature_indices = [X_train.columns.get_loc(col) for col in cat_features if
                     col in X_train.columns]
 
-            model = TabPFNRegressor(device="auto", random_state=seed)
+            model = TabPFNRegressor(device="auto", 
+                                    categorical_features_indices=cat_feature_indices,
+                                    random_state=seed)
 
             # model = AutoTabPFNRegressor(max_time=600,
             #                            #categorical_feature_indices=cat_feature_indices,

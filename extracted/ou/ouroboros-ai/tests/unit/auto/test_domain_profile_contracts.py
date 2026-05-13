@@ -7,9 +7,11 @@ imported; every fixture is a minimal inline stub.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import FrozenInstanceError
 from pathlib import Path
+import subprocess
+import sys
 from typing import Any
 
 import pytest
@@ -68,6 +70,7 @@ def _make_profile(
     confidence: float = 0.8,
     predicates: Iterable[VerifiablePredicate] = (),
     safe_defaults: Mapping[str, Any] | None = None,
+    detector: Callable[[Path], float] | None = None,
 ) -> DomainProfile:
     return DomainProfile(
         name=name,
@@ -78,7 +81,7 @@ def _make_profile(
         safe_defaults=(
             safe_defaults if safe_defaults is not None else {"runtime_context": "existing project"}
         ),
-        detector=lambda _cwd: confidence,
+        detector=detector or (lambda _cwd: confidence),
     )
 
 
@@ -214,6 +217,60 @@ def test_find_verifiable_predicate_returns_first_match() -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_lazy_registry_preserves_custom_registration_order_before_defaults() -> None:
+    calls: list[str] = []
+
+    def _loader(registry: DomainProfileRegistry) -> None:
+        calls.append("loaded")
+        registry.register(_make_profile(name="built-in"))
+
+    registry = DomainProfileRegistry(loader=_loader)
+    custom = _make_profile(name="custom")
+
+    registry.register(custom)
+
+    assert calls == []
+    assert [profile.name for profile in registry.all()] == ["custom", "built-in"]
+    assert calls == ["loaded"]
+
+
+def test_lazy_registry_respects_replaced_profile_storage_temporarily() -> None:
+    calls: list[str] = []
+
+    def _loader(registry: DomainProfileRegistry) -> None:
+        calls.append("loaded")
+        registry.register(_make_profile(name="built-in"))
+
+    registry = DomainProfileRegistry(loader=_loader)
+    original_profiles = registry._profiles  # type: ignore[attr-defined]
+    registry._profiles = []  # type: ignore[attr-defined]  # test-only singleton isolation hook
+
+    assert registry.all() == ()
+    assert calls == []
+
+    registry._profiles = original_profiles  # type: ignore[attr-defined]
+    assert [profile.name for profile in registry.all()] == ["built-in"]
+    assert calls == ["loaded"]
+
+
+def test_lazy_registry_retries_after_loader_failure() -> None:
+    calls: list[str] = []
+
+    def _loader(registry: DomainProfileRegistry) -> None:
+        calls.append("called")
+        if len(calls) == 1:
+            raise RuntimeError("transient profile import failure")
+        registry.register(_make_profile(name="built-in"))
+
+    registry = DomainProfileRegistry(loader=_loader)
+
+    with pytest.raises(RuntimeError, match="transient"):
+        registry.all()
+
+    assert [profile.name for profile in registry.all()] == ["built-in"]
+    assert calls == ["called", "called"]
+
+
 def test_registry_rejects_duplicate_name() -> None:
     registry = DomainProfileRegistry()
     registry.register(_make_profile(name="coding"))
@@ -262,6 +319,29 @@ def test_registry_detect_best_returns_none_when_empty() -> None:
     assert registry.detect_best(Path("/tmp")) is None
 
 
+def test_registry_detect_best_treats_detector_exception_as_zero_confidence() -> None:
+    def _raise_detector(_cwd: Path) -> float:
+        raise OSError("unreadable")
+
+    registry = DomainProfileRegistry()
+    broken = _make_profile(name="broken", detector=_raise_detector)
+    viable = _make_profile(name="viable", confidence=0.6)
+    registry.register(broken)
+    registry.register(viable)
+
+    assert registry.detect_best(Path("/tmp")) is viable
+
+
+def test_registry_detect_best_returns_none_when_all_detectors_fail() -> None:
+    def _raise_detector(_cwd: Path) -> float:
+        raise OSError("unreadable")
+
+    registry = DomainProfileRegistry()
+    registry.register(_make_profile(name="broken", detector=_raise_detector))
+
+    assert registry.detect_best(Path("/tmp")) is None
+
+
 def test_registry_union_predicates_applies_threshold() -> None:
     registry = DomainProfileRegistry()
     exit_pred = _ExitCodePredicate()
@@ -294,7 +374,122 @@ def test_registry_union_predicates_applies_threshold() -> None:
     assert "wcag_contrast" not in codes
 
 
-def test_default_registry_is_a_profile_registry_singleton() -> None:
-    # PR-2 will register the coding profile here; avoid asserting transient
-    # global emptiness in this contract-only test module.
+def test_registry_union_predicates_ignores_detector_exceptions() -> None:
+    def _raise_detector(_cwd: Path) -> float:
+        raise OSError("unreadable")
+
+    registry = DomainProfileRegistry()
+    exit_pred = _ExitCodePredicate()
+    contrast_pred = _ContrastPredicate()
+    registry.register(
+        _make_profile(name="broken", predicates=(exit_pred,), detector=_raise_detector)
+    )
+    registry.register(_make_profile(name="viable", predicates=(contrast_pred,), confidence=0.8))
+
+    predicates = registry.union_predicates(Path("/tmp"), threshold=0.5)
+
+    assert predicates == (contrast_pred,)
+
+
+def test_importing_contracts_module_does_not_import_builtin_profiles() -> None:
+    code = (
+        "import sys; "
+        "import ouroboros.auto.domain_profile; "
+        "assert 'ouroboros.auto.profiles.coding' not in sys.modules; "
+        "assert 'ouroboros.auto.grading' not in sys.modules; "
+        "assert 'ouroboros.auto.pipeline' not in sys.modules"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)
+
+
+def test_auto_package_exports_are_lazy() -> None:
+    code = (
+        "import sys; "
+        "import ouroboros.auto as auto; "
+        "assert 'ouroboros.auto.grading' not in sys.modules; "
+        "assert auto.GradeGate.__name__ == 'GradeGate'; "
+        "assert 'ouroboros.auto.grading' in sys.modules"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)
+
+
+def test_domain_profile_freezes_mapping_even_if_mapping_claims_frozen() -> None:
+    class _SpoofedFrozenMapping(dict):
+        __domain_profile_frozen__ = True
+
+    source = _SpoofedFrozenMapping({"runtime_context": ["pytest"]})
+    profile = _make_profile(safe_defaults=source)
+
+    source["runtime_context"].append("ruff")
+
+    commands = profile.safe_defaults["runtime_context"]
+    assert commands == ("pytest",)
+    with pytest.raises(AttributeError):
+        commands.append("ruff")
+
+
+def test_default_registry_get_returns_existing_profile_without_loading_builtins() -> None:
+    registry = DomainProfileRegistry(
+        loader=lambda _registry: (_ for _ in ()).throw(RuntimeError("boom"))
+    )
+    profile = _make_profile(name="custom")
+    registry.register(profile)
+
+    assert registry.get("custom") is profile
+
+
+def test_default_registry_detect_best_falls_back_to_registered_profile_on_loader_failure(
+    tmp_path: Path,
+) -> None:
+    registry = DomainProfileRegistry(
+        loader=lambda _registry: (_ for _ in ()).throw(RuntimeError("boom"))
+    )
+    profile = _make_profile(name="custom", confidence=0.9)
+    registry.register(profile)
+
+    assert registry.detect_best(tmp_path) is profile
+
+
+def test_default_registry_loader_failure_retries_after_failed_empty_read() -> None:
+    calls = 0
+
+    def _loader(registry: DomainProfileRegistry) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("temporary import failure")
+        registry.register(_make_profile(name="loaded"))
+
+    registry = DomainProfileRegistry(loader=_loader)
+
+    with pytest.raises(RuntimeError, match="temporary import failure"):
+        registry.get("loaded")
+
+    assert registry.get("loaded") is not None
+    assert calls == 2
+
+
+def test_default_registry_contains_coding_after_pr2(tmp_path: Path) -> None:
+    # DEFAULT_REGISTRY is a module-level singleton. Querying it should lazily
+    # expose built-in default profiles without importing them at contract-module
+    # import time.
+    from ouroboros.auto.profiles.coding import CODING_PROFILE
+
     assert isinstance(DEFAULT_REGISTRY, DomainProfileRegistry)
+    assert DEFAULT_REGISTRY.get("coding") is CODING_PROFILE
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='t'\n")
+    assert DEFAULT_REGISTRY.detect_best(tmp_path) is CODING_PROFILE
+
+
+def test_default_registry_get_coding_does_not_import_grading_stack() -> None:
+    code = (
+        "import sys; "
+        "from ouroboros.auto.domain_profile import DEFAULT_REGISTRY; "
+        "profile = DEFAULT_REGISTRY.get('coding'); "
+        "assert profile is not None; "
+        "assert 'ouroboros.auto.grading' not in sys.modules; "
+        "assert 'ouroboros.core.seed' not in sys.modules; "
+        "assert 'pydantic' not in sys.modules; "
+        "assert 'ouroboros.auto.answerer' not in sys.modules"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)

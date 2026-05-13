@@ -80,7 +80,7 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
     No read permissions error message
     
     
-    This codeEntityType is protected.
+    This Field is protected.
     """
 
     NO_WRITE_PERMISSIONS_ERROR: str = ...
@@ -88,7 +88,7 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
     No write permissions error message
     
     
-    This codeEntityType is protected.
+    This Field is protected.
     """
 
     NO_DELETE_PERMISSIONS_ERROR: str = ...
@@ -96,7 +96,7 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
     No delete permissions error message
     
     
-    This codeEntityType is protected.
+    This Field is protected.
     """
 
     @property
@@ -117,7 +117,7 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         Provides access to the controls governing behavior of this instance, such as the persistence interval
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -127,7 +127,7 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         The root storage folder for the algorithm
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -137,7 +137,7 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         The file handler instance to use
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -213,7 +213,7 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         Won't trigger persist nor will check storage write permissions, useful on initialization since it allows read only permissions to load the object store
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -222,7 +222,7 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         Validates storage limits are respected on a new save operation
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -231,7 +231,7 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         Event invocator for the error_raised event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -241,7 +241,7 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         Internal use only because it does not guarantee the existence of the file.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -250,7 +250,7 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         Overridable persistence function
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: True if persistence was successful, otherwise false.
         """
@@ -280,7 +280,7 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         Storage root path
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ipyparallel
-Version: 9.1.0
+Version: 9.2.0
 Summary: Interactive Parallel Computing with IPython
 Project-URL: Homepage, https://ipython.org
 Author-email: IPython Development Team <ipython-dev@python.org>

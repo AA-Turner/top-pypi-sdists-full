@@ -175,7 +175,15 @@ class Pooling(Module):
 
         for mode in modes:
             if mode == "cls":
-                output_vectors.append(features.get("cls_token_embeddings", token_embeddings[:, 0]))
+                if "cls_token_embeddings" in features:
+                    output_vectors.append(features["cls_token_embeddings"])
+                else:
+                    # argmax on a 0/1 mask returns the first real token per row: index 0
+                    # for right-padding, first non-pad index for left-padding.
+                    hidden_dim = token_embeddings.shape[-1]
+                    first_indices = attention_mask.to(torch.int).argmax(dim=1)
+                    gather_indices = first_indices.unsqueeze(-1).unsqueeze(1).expand(-1, 1, hidden_dim)
+                    output_vectors.append(torch.gather(token_embeddings, 1, gather_indices).squeeze(1))
 
             elif mode == "max":
                 mask = attention_mask.unsqueeze(-1).expand_as(token_embeddings).to(token_embeddings.dtype)
@@ -282,10 +290,13 @@ class Pooling(Module):
                     mean_sum = torch.zeros(num_seqs, hidden_dim, device=device, dtype=embeddings.dtype)
                     mean_sum = mean_sum.index_add(0, segment_ids, embeddings)
                 if mode == "mean":
-                    output_vectors.append(mean_sum / torch.clamp(effective_lengths.unsqueeze(1), min=1e-9))
+                    output_vectors.append(
+                        mean_sum / torch.clamp(effective_lengths.unsqueeze(1), min=1e-9).to(mean_sum.dtype)
+                    )
                 else:
                     output_vectors.append(
-                        mean_sum / torch.sqrt(torch.clamp(effective_lengths.unsqueeze(1).float(), min=1e-9))
+                        mean_sum
+                        / torch.sqrt(torch.clamp(effective_lengths.unsqueeze(1).float(), min=1e-9)).to(mean_sum.dtype)
                     )
 
             elif mode == "max":

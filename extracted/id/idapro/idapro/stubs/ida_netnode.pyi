@@ -1,4 +1,4 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Functions that provide the lowest level public interface to the database. Namely, we use Btree. To learn more about BTree:
 
@@ -31,8 +31,8 @@ You may use netnodes to store additional information about the program. Limitati
 
 
 Advanced info:
-In fact a netnode may contain up to 256 arrays of arbitrary sized objects (not only the 4 listed above). Each array has an 8-bit tag. Usually tags are represented by character constants. For example, altvals and supvals are simply 2 of 256 arrays, with the tags 'A' and 'S' respectively. 
-    
+In fact a netnode may contain up to 256 arrays of arbitrary sized objects (not only the 4 listed above). Each array has an 8-bit tag. Usually tags are represented by character constants. For example, altvals and supvals are simply 2 of 256 arrays, with the tags 'A' and 'S' respectively.
+
 """
 
 class netnode:
@@ -42,23 +42,29 @@ class netnode:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, args: Any) -> bool:
+    def __eq__(self, *args: Any) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -66,15 +72,15 @@ class netnode:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, args: Any) -> bool:
+    def __ne__(self, *args: Any) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -91,10 +97,10 @@ class netnode:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -104,113 +110,113 @@ class netnode:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def altdel(self, args: Any) -> bool:
+    def altdel(self, *args: Any) -> bool:
         ...
-    def altdel_all(self, args: Any) -> bool:
+    def altdel_all(self, *args: Any) -> bool:
         ...
-    def altdel_ea(self, args: Any) -> bool:
+    def altdel_ea(self, *args: Any) -> bool:
         ...
-    def altdel_idx8(self, alt: uchar, tag: uchar) -> bool:
+    def altdel_idx8(self, alt: int, tag: int) -> bool:
         ...
-    def altfirst(self, args: Any) -> nodeidx_t:
+    def altfirst(self, *args: Any) -> int:
         ...
-    def altfirst_idx8(self, tag: uchar) -> nodeidx_t:
+    def altfirst_idx8(self, tag: int) -> int:
         ...
-    def altlast(self, args: Any) -> nodeidx_t:
+    def altlast(self, *args: Any) -> int:
         ...
-    def altlast_idx8(self, tag: uchar) -> nodeidx_t:
+    def altlast_idx8(self, tag: int) -> int:
         ...
-    def altnext(self, args: Any) -> nodeidx_t:
+    def altnext(self, *args: Any) -> int:
         ...
-    def altnext_idx8(self, cur: uchar, tag: uchar) -> nodeidx_t:
+    def altnext_idx8(self, cur: int, tag: int) -> int:
         ...
-    def altprev(self, args: Any) -> nodeidx_t:
+    def altprev(self, *args: Any) -> int:
         ...
-    def altprev_idx8(self, cur: uchar, tag: uchar) -> nodeidx_t:
+    def altprev_idx8(self, cur: int, tag: int) -> int:
         ...
-    def altset(self, args: Any) -> bool:
+    def altset(self, *args: Any) -> bool:
         ...
-    def altset_ea(self, args: Any) -> bool:
+    def altset_ea(self, *args: Any) -> bool:
         ...
-    def altset_idx8(self, alt: uchar, val: nodeidx_t, tag: uchar) -> bool:
+    def altset_idx8(self, alt: int, val: int, tag: int) -> bool:
         ...
-    def altshift(self, args: Any) -> int:
+    def altshift(self, *args: Any) -> int:
         ...
-    def altval(self, args: Any) -> nodeidx_t:
+    def altval(self, *args: Any) -> int:
         ...
-    def altval_ea(self, args: Any) -> nodeidx_t:
+    def altval_ea(self, *args: Any) -> int:
         ...
-    def altval_idx8(self, alt: uchar, tag: uchar) -> nodeidx_t:
+    def altval_idx8(self, alt: int, tag: int) -> int:
         ...
-    def blobshift(self, _from: nodeidx_t, to: nodeidx_t, size: nodeidx_t, tag: uchar) -> int:
+    def blobshift(self, _from: int, to: int, size: int, tag: int) -> int:
         ...
-    def blobsize(self, _start: nodeidx_t, tag: uchar) -> int:
+    def blobsize(self, _start: int, tag: int) -> int:
         ...
-    def blobsize_ea(self, ea: ida_idaapi.ea_t, tag: uchar) -> int:
+    def blobsize_ea(self, ea: ida_idaapi.ea_t, tag: int) -> int:
         ...
-    def chardel(self, alt: nodeidx_t, tag: uchar) -> bool:
+    def chardel(self, alt: int, tag: int) -> bool:
         ...
-    def chardel_ea(self, ea: ida_idaapi.ea_t, tag: uchar) -> bool:
+    def chardel_ea(self, ea: ida_idaapi.ea_t, tag: int) -> bool:
         ...
-    def chardel_idx8(self, alt: uchar, tag: uchar) -> bool:
+    def chardel_idx8(self, alt: int, tag: int) -> bool:
         ...
-    def charfirst(self, tag: uchar) -> nodeidx_t:
+    def charfirst(self, tag: int) -> int:
         ...
-    def charfirst_idx8(self, tag: uchar) -> nodeidx_t:
+    def charfirst_idx8(self, tag: int) -> int:
         ...
-    def charlast(self, tag: uchar) -> nodeidx_t:
+    def charlast(self, tag: int) -> int:
         ...
-    def charlast_idx8(self, tag: uchar) -> nodeidx_t:
+    def charlast_idx8(self, tag: int) -> int:
         ...
-    def charnext(self, cur: nodeidx_t, tag: uchar) -> nodeidx_t:
+    def charnext(self, cur: int, tag: int) -> int:
         ...
-    def charnext_idx8(self, cur: uchar, tag: uchar) -> nodeidx_t:
+    def charnext_idx8(self, cur: int, tag: int) -> int:
         ...
-    def charprev(self, cur: nodeidx_t, tag: uchar) -> nodeidx_t:
+    def charprev(self, cur: int, tag: int) -> int:
         ...
-    def charprev_idx8(self, cur: uchar, tag: uchar) -> nodeidx_t:
+    def charprev_idx8(self, cur: int, tag: int) -> int:
         ...
-    def charset(self, alt: nodeidx_t, val: uchar, tag: uchar) -> bool:
+    def charset(self, alt: int, val: int, tag: int) -> bool:
         ...
-    def charset_ea(self, ea: ida_idaapi.ea_t, val: uchar, tag: uchar) -> bool:
+    def charset_ea(self, ea: ida_idaapi.ea_t, val: int, tag: int) -> bool:
         ...
-    def charset_idx8(self, alt: uchar, val: uchar, tag: uchar) -> bool:
+    def charset_idx8(self, alt: int, val: int, tag: int) -> bool:
         ...
-    def charshift(self, _from: nodeidx_t, to: nodeidx_t, size: nodeidx_t, tag: uchar) -> int:
+    def charshift(self, _from: int, to: int, size: int, tag: int) -> int:
         ...
-    def charval(self, alt: nodeidx_t, tag: uchar) -> uchar:
+    def charval(self, alt: int, tag: int) -> int:
         ...
-    def charval_ea(self, ea: ida_idaapi.ea_t, tag: uchar) -> uchar:
+    def charval_ea(self, ea: ida_idaapi.ea_t, tag: int) -> int:
         ...
-    def charval_idx8(self, alt: uchar, tag: uchar) -> uchar:
+    def charval_idx8(self, alt: int, tag: int) -> int:
         ...
-    def copyto(self, destnode: netnode, count: nodeidx_t = 1) -> int:
+    def copyto(self, destnode: netnode, count: int = 1) -> int:
         ...
-    def create(self, args: Any) -> bool:
+    def create(self, *args: Any) -> bool:
         ...
-    def delblob(self, _start: nodeidx_t, tag: uchar) -> int:
+    def delblob(self, _start: int, tag: int) -> int:
         ...
-    def delblob_ea(self, ea: ida_idaapi.ea_t, tag: uchar) -> int:
+    def delblob_ea(self, ea: ida_idaapi.ea_t, tag: int) -> int:
         ...
     def delvalue(self) -> bool:
         ...
-    def eadel(self, ea: ida_idaapi.ea_t, tag: uchar) -> bool:
+    def eadel(self, ea: ida_idaapi.ea_t, tag: int) -> bool:
         ...
-    def eadel_idx8(self, idx: uchar, tag: uchar) -> bool:
+    def eadel_idx8(self, idx: int, tag: int) -> bool:
         ...
-    def eaget(self, ea: ida_idaapi.ea_t, tag: uchar) -> ida_idaapi.ea_t:
+    def eaget(self, ea: ida_idaapi.ea_t, tag: int) -> ida_idaapi.ea_t:
         ...
-    def eaget_idx(self, idx: nodeidx_t, tag: uchar) -> ida_idaapi.ea_t:
+    def eaget_idx(self, idx: int, tag: int) -> ida_idaapi.ea_t:
         ...
-    def eaget_idx8(self, idx: uchar, tag: uchar) -> ida_idaapi.ea_t:
+    def eaget_idx8(self, idx: int, tag: int) -> ida_idaapi.ea_t:
         ...
-    def easet(self, ea: ida_idaapi.ea_t, addr: ida_idaapi.ea_t, tag: uchar) -> bool:
+    def easet(self, ea: ida_idaapi.ea_t, addr: ida_idaapi.ea_t, tag: int) -> bool:
         ...
-    def easet_idx(self, idx: nodeidx_t, addr: ida_idaapi.ea_t, tag: uchar) -> bool:
+    def easet_idx(self, idx: int, addr: ida_idaapi.ea_t, tag: int) -> bool:
         ...
-    def easet_idx8(self, idx: uchar, addr: ida_idaapi.ea_t, tag: uchar) -> bool:
+    def easet_idx8(self, idx: int, addr: ida_idaapi.ea_t, tag: int) -> bool:
         ...
     def end(self) -> bool:
         ...
@@ -219,9 +225,9 @@ class netnode:
         
         """
         ...
-    def get_name(self) -> ssize_t:
+    def get_name(self) -> int:
         ...
-    def getblob(self, start: Any, tag: Any) -> Any:
+    def getblob(self, start: Any, tag: Any) -> Union[bytes, None]:
         r"""Get a blob from a netnode.
         
         :param start: the index where the blob starts (it may span on multiple indexes)
@@ -229,9 +235,9 @@ class netnode:
         :returns: a blob, or None
         """
         ...
-    def getblob_ea(self, ea: ida_idaapi.ea_t, tag: char) -> Any:
+    def getblob_ea(self, ea: ida_idaapi.ea_t, tag: int) -> Any:
         ...
-    def getclob(self, start: Any, tag: Any) -> Any:
+    def getclob(self, start: Any, tag: Any) -> Union[str, None]:
         r"""Get a large amount of text from a netnode.
         
         :param start: the index where the clob starts (it may span on multiple indexes)
@@ -239,113 +245,113 @@ class netnode:
         :returns: a clob, or None
         """
         ...
-    def hashdel(self, args: Any) -> bool:
+    def hashdel(self, *args: Any) -> bool:
         ...
-    def hashdel_all(self, args: Any) -> bool:
+    def hashdel_all(self, *args: Any) -> bool:
         ...
-    def hashfirst(self, args: Any) -> ssize_t:
+    def hashfirst(self, *args: Any) -> int:
         ...
-    def hashlast(self, args: Any) -> ssize_t:
+    def hashlast(self, *args: Any) -> int:
         ...
-    def hashnext(self, args: Any) -> ssize_t:
+    def hashnext(self, *args: Any) -> int:
         ...
-    def hashprev(self, args: Any) -> ssize_t:
+    def hashprev(self, *args: Any) -> int:
         ...
-    def hashset(self, args: Any) -> bool:
+    def hashset(self, *args: Any) -> bool:
         ...
-    def hashset_buf(self, args: Any) -> bool:
+    def hashset_buf(self, *args: Any) -> bool:
         ...
-    def hashset_idx(self, args: Any) -> bool:
+    def hashset_idx(self, *args: Any) -> bool:
         ...
-    def hashstr(self, args: Any) -> ssize_t:
+    def hashstr(self, *args: Any) -> int:
         ...
-    def hashstr_buf(self, args: Any) -> Any:
+    def hashstr_buf(self, *args: Any) -> Any:
         ...
-    def hashval(self, args: Any) -> ssize_t:
+    def hashval(self, *args: Any) -> int:
         ...
-    def hashval_long(self, args: Any) -> nodeidx_t:
+    def hashval_long(self, *args: Any) -> int:
         ...
-    def index(self) -> nodeidx_t:
+    def index(self) -> int:
         ...
     def kill(self) -> None:
         ...
-    def long_value(self) -> nodeidx_t:
+    def long_value(self) -> int:
         ...
-    def lower_bound(self, args: Any) -> nodeidx_t:
+    def lower_bound(self, *args: Any) -> int:
         ...
-    def lower_bound_ea(self, args: Any) -> nodeidx_t:
+    def lower_bound_ea(self, *args: Any) -> int:
         ...
-    def lower_bound_idx8(self, alt: uchar, tag: uchar) -> nodeidx_t:
+    def lower_bound_idx8(self, alt: int, tag: int) -> int:
         ...
-    def moveto(self, destnode: netnode, count: nodeidx_t = 1) -> int:
+    def moveto(self, destnode: netnode, count: int = 1) -> int:
         ...
     def next(self) -> bool:
         ...
     def prev(self) -> bool:
         ...
-    def rename(self, newname: str, namlen: size_t = 0) -> bool:
+    def rename(self, newname: str, namlen: int = 0) -> bool:
         ...
-    def set(self, value: void) -> bool:
+    def set(self, value: Any) -> bool:
         ...
-    def set_long(self, x: nodeidx_t) -> bool:
+    def set_long(self, x: int) -> bool:
         ...
-    def setblob(self, buf: void, _start: nodeidx_t, tag: uchar) -> bool:
+    def setblob(self, buf: Any, _start: int, tag: int) -> bool:
         ...
-    def setblob_ea(self, buf: void, ea: ida_idaapi.ea_t, tag: uchar) -> bool:
+    def setblob_ea(self, buf: Any, ea: ida_idaapi.ea_t, tag: int) -> bool:
         ...
     def start(self) -> bool:
         ...
-    def supdel(self, args: Any) -> bool:
+    def supdel(self, *args: Any) -> bool:
         ...
-    def supdel_all(self, tag: uchar) -> bool:
+    def supdel_all(self, tag: int) -> bool:
         ...
-    def supdel_ea(self, args: Any) -> bool:
+    def supdel_ea(self, *args: Any) -> bool:
         ...
-    def supdel_idx8(self, alt: uchar, tag: uchar) -> bool:
+    def supdel_idx8(self, alt: int, tag: int) -> bool:
         ...
-    def supdel_range(self, idx1: nodeidx_t, idx2: nodeidx_t, tag: uchar) -> int:
+    def supdel_range(self, idx1: int, idx2: int, tag: int) -> int:
         ...
-    def supdel_range_idx8(self, idx1: uchar, idx2: uchar, tag: uchar) -> int:
+    def supdel_range_idx8(self, idx1: int, idx2: int, tag: int) -> int:
         ...
-    def supfirst(self, args: Any) -> nodeidx_t:
+    def supfirst(self, *args: Any) -> int:
         ...
-    def supfirst_idx8(self, tag: uchar) -> nodeidx_t:
+    def supfirst_idx8(self, tag: int) -> int:
         ...
-    def suplast(self, args: Any) -> nodeidx_t:
+    def suplast(self, *args: Any) -> int:
         ...
-    def suplast_idx8(self, tag: uchar) -> nodeidx_t:
+    def suplast_idx8(self, tag: int) -> int:
         ...
-    def supnext(self, args: Any) -> nodeidx_t:
+    def supnext(self, *args: Any) -> int:
         ...
-    def supnext_idx8(self, alt: uchar, tag: uchar) -> nodeidx_t:
+    def supnext_idx8(self, alt: int, tag: int) -> int:
         ...
-    def supprev(self, args: Any) -> nodeidx_t:
+    def supprev(self, *args: Any) -> int:
         ...
-    def supprev_idx8(self, alt: uchar, tag: uchar) -> nodeidx_t:
+    def supprev_idx8(self, alt: int, tag: int) -> int:
         ...
-    def supset(self, args: Any) -> bool:
+    def supset(self, *args: Any) -> bool:
         ...
-    def supset_ea(self, args: Any) -> bool:
+    def supset_ea(self, *args: Any) -> bool:
         ...
-    def supset_idx8(self, alt: uchar, value: void, tag: uchar) -> bool:
+    def supset_idx8(self, alt: int, value: Any, tag: int) -> bool:
         ...
-    def supshift(self, args: Any) -> int:
+    def supshift(self, *args: Any) -> int:
         ...
-    def supstr(self, args: Any) -> ssize_t:
+    def supstr(self, *args: Any) -> int:
         ...
-    def supstr_ea(self, args: Any) -> ssize_t:
+    def supstr_ea(self, *args: Any) -> int:
         ...
-    def supstr_idx8(self, alt: uchar, tag: uchar) -> ssize_t:
+    def supstr_idx8(self, alt: int, tag: int) -> int:
         ...
-    def supval(self, args: Any) -> ssize_t:
+    def supval(self, *args: Any) -> int:
         ...
-    def supval_ea(self, args: Any) -> ssize_t:
+    def supval_ea(self, *args: Any) -> int:
         ...
-    def supval_idx8(self, args: Any) -> ssize_t:
+    def supval_idx8(self, *args: Any) -> int:
         ...
-    def valobj(self, args: Any) -> ssize_t:
+    def valobj(self, *args: Any) -> int:
         ...
-    def valstr(self) -> ssize_t:
+    def valstr(self) -> int:
         ...
     def value_exists(self) -> bool:
         ...
@@ -371,7 +377,7 @@ NETMAP_VAL_NDX: int  # 8192
 NETMAP_X8: int  # 2048
 SIZEOF_nodeidx_t: int  # 8
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 atag: int  # 65
 cvar: swigvarlink
 htag: int  # 72

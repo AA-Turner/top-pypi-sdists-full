@@ -1,22 +1,22 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.924437                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.196133                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
     import metaflow.plugins.cards.component_serializer
-    import metaflow.events
-    import metaflow.metaflow_current
     import typing
+    import metaflow.metaflow_current
+    import metaflow
+    import metaflow.events
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
 
 
 TYPE_CHECKING: bool
@@ -50,7 +50,7 @@ class Current(object, metaclass=type):
         ...
     def __contains__(self, key: str):
         ...
-    def get(self, key: str, default = None) -> typing.Optional[typing.Any]:
+    def get(self, key: str, default = None) -> typing.Union[typing.Any, None]:
         ...
     @property
     def is_running_flow(self) -> bool:
@@ -67,7 +67,7 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def flow_name(self) -> typing.Optional[str]:
+    def flow_name(self) -> typing.Union[str, None]:
         """
         The name of the currently executing flow.
         
@@ -78,7 +78,7 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def run_id(self) -> typing.Optional[str]:
+    def run_id(self) -> typing.Union[str, None]:
         """
         The run ID of the currently executing run.
         
@@ -89,7 +89,7 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def step_name(self) -> typing.Optional[str]:
+    def step_name(self) -> typing.Union[str, None]:
         """
         The name of the currently executing step.
         
@@ -100,7 +100,7 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def task_id(self) -> typing.Optional[str]:
+    def task_id(self) -> typing.Union[str, None]:
         """
         The task ID of the currently executing task.
         
@@ -127,7 +127,7 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def origin_run_id(self) -> typing.Optional[str]:
+    def origin_run_id(self) -> typing.Union[str, None]:
         """
         The run ID of the original run this run was resumed from.
         
@@ -145,7 +145,7 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def pathspec(self) -> typing.Optional[str]:
+    def pathspec(self) -> typing.Union[str, None]:
         """
         Pathspec of the current task, i.e. a unique
         identifier of the current task. The returned
@@ -163,7 +163,7 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def task(self) -> typing.Optional["metaflow.Task"]:
+    def task(self) -> typing.Union["metaflow.Task", None]:
         """
         Task object of the current task.
         
@@ -174,7 +174,7 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def run(self) -> typing.Optional["metaflow.Run"]:
+    def run(self) -> typing.Union["metaflow.Run", None]:
         """
         Run object of the current run.
         
@@ -196,7 +196,7 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def username(self) -> typing.Optional[str]:
+    def username(self) -> typing.Union[str, None]:
         """
         The name of the user who started the run, if available.
         
@@ -215,7 +215,7 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def tempdir(self) -> typing.Optional[str]:
+    def tempdir(self) -> typing.Union[str, None]:
         """
         Currently configured temporary directory.
         
@@ -230,64 +230,6 @@ class Current(object, metaclass=type):
         ...
     @property
     def perimeter(_, v = None):
-        ...
-    @property
-    def apps(self) -> "metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator.FlowAppManager":
-        """
-        (only in the presence of the @app_deploy_internal decorator)
-        
-        
-        Returns
-        ----------
-        FlowAppManager
-        """
-        ...
-    @property
-    def parallel(self) -> "metaflow.metaflow_current.Parallel":
-        """
-        (only in the presence of the @parallel decorator)
-        
-        Returns a namedtuple with relevant information about the parallel task.
-        
-        Returns
-        -------
-        Parallel
-            `namedtuple` with the following fields:
-                - main_ip (`str`)
-                    The IP address of the control task.
-                - num_nodes (`int`)
-                    The total number of tasks created by @parallel
-                - node_index (`int`)
-                    The index of the current task in all the @parallel tasks.
-                - control_task_id (`Optional[str]`)
-                    The task ID of the control task. Available to all tasks.
-        """
-        ...
-    @property
-    def is_parallel(self) -> bool:
-        """
-        (only in the presence of the @parallel decorator)
-        
-        True if the current step is a @parallel step.
-        """
-        ...
-    @property
-    def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
-        """
-        (only in the presence of the @checkpoint decorator)
-        
-        The `@checkpoint` decorator makes saving/loading checkpoints available through the `current.checkpoint`.
-        The object exposes `save`/`load`/`list` methods for saving/loading checkpoints.
-        
-        You can check if a checkpoint is loaded by `current.checkpoint.is_loaded` and get the checkpoint information
-        by using `current.checkpoint.info`. The `current.checkpoint.directory` returns the path to the checkpoint directory
-        where the checkpoint maybe loaded or saved.
-        
-        Returns
-        ----------
-        CurrentCheckpointer
-            The object for handling checkpointing within a step.
-        """
         ...
     @property
     def huggingface_hub(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator.HuggingfaceRegistry":
@@ -340,6 +282,35 @@ class Current(object, metaclass=type):
         """
         ...
     @property
+    def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
+        """
+        (only in the presence of the @checkpoint decorator)
+        
+        The `@checkpoint` decorator makes saving/loading checkpoints available through the `current.checkpoint`.
+        The object exposes `save`/`load`/`list` methods for saving/loading checkpoints.
+        
+        You can check if a checkpoint is loaded by `current.checkpoint.is_loaded` and get the checkpoint information
+        by using `current.checkpoint.info`. The `current.checkpoint.directory` returns the path to the checkpoint directory
+        where the checkpoint maybe loaded or saved.
+        
+        Returns
+        ----------
+        CurrentCheckpointer
+            The object for handling checkpointing within a step.
+        """
+        ...
+    @property
+    def apps(self) -> "metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator.FlowAppManager":
+        """
+        (only in the presence of the @app_deploy_internal decorator)
+        
+        
+        Returns
+        ----------
+        FlowAppManager
+        """
+        ...
+    @property
     def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
         """
         (only in the presence of the @card decorator)
@@ -355,6 +326,35 @@ class Current(object, metaclass=type):
         -------
         CardComponentCollector
             The or one of the cards attached to this step.
+        """
+        ...
+    @property
+    def parallel(self) -> "metaflow.metaflow_current.Parallel":
+        """
+        (only in the presence of the @parallel decorator)
+        
+        Returns a namedtuple with relevant information about the parallel task.
+        
+        Returns
+        -------
+        Parallel
+            `namedtuple` with the following fields:
+                - main_ip (`str`)
+                    The IP address of the control task.
+                - num_nodes (`int`)
+                    The total number of tasks created by @parallel
+                - node_index (`int`)
+                    The index of the current task in all the @parallel tasks.
+                - control_task_id (`Optional[str]`)
+                    The task ID of the control task. Available to all tasks.
+        """
+        ...
+    @property
+    def is_parallel(self) -> bool:
+        """
+        (only in the presence of the @parallel decorator)
+        
+        True if the current step is a @parallel step.
         """
         ...
     @property
@@ -376,7 +376,7 @@ class Current(object, metaclass=type):
     @property
     def trigger(self) -> "metaflow.events.Trigger":
         """
-        (only in the presence of the @trigger_on_finish, or @trigger decorators)
+        (only in the presence of the @trigger, or @trigger_on_finish decorators)
         
         Returns `Trigger` if the current run is triggered by an event
         

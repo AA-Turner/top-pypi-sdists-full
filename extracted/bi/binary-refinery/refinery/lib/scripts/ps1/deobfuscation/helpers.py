@@ -3,20 +3,19 @@ Shared utilities for PowerShell deobfuscation transforms.
 """
 from __future__ import annotations
 
+import enum
 import io
 import re
 
 from collections.abc import Callable, Generator
-from typing import TYPE_CHECKING, TypeVar
-
-if TYPE_CHECKING:
-    from typing import TypeGuard
+from typing import NamedTuple, TypeVar, TypeGuard
 
 from refinery.lib.scripts import Block, Node, Transformer
-from refinery.lib.scripts.ps1.deobfuscation.names import (
+from refinery.lib.scripts.ps1.deobfuscation.data import (
     BUILTIN_VARIABLES,
     FOREACH_ALIASES,
-    normalize_type_expression,
+    FORMAT_PATTERN,
+    is_type,
 )
 from refinery.lib.scripts.ps1.model import (
     Expression,
@@ -34,11 +33,13 @@ from refinery.lib.scripts.ps1.model import (
     Ps1ForEachLoop,
     Ps1FunctionDefinition,
     Ps1HereString,
+    Ps1IndexExpression,
     Ps1IntegerLiteral,
     Ps1InvokeMember,
     Ps1MemberAccess,
     Ps1ParameterDeclaration,
     Ps1ParenExpression,
+    Ps1RealLiteral,
     Ps1ScopeModifier,
     Ps1ScriptBlock,
     Ps1StringLiteral,
@@ -50,6 +51,21 @@ from refinery.lib.scripts.ps1.model import (
 from refinery.lib.scripts.ps1.token import BACKTICK_ESCAPE
 
 _T = TypeVar('_T')
+
+
+class MutationKind(enum.Enum):
+    ASSIGN = 'assign'
+    MEMBER_ASSIGN = 'member_assign'
+    FOREACH = 'foreach'
+    INCRDECR = 'incrdecr'
+    PARAM = 'param'
+
+
+class VariableMutation(NamedTuple):
+    variable: Ps1Variable
+    kind: MutationKind
+    node: Node
+
 
 BACKTICK_ENCODE = {v: F'`{k}' for k, v in BACKTICK_ESCAPE.items()}
 NONPRINT_CONTROL = frozenset(BACKTICK_ENCODE) - {'\n'}
@@ -117,6 +133,21 @@ def collect_string_arguments(node: Expression) -> list[str] | None:
     return collect_typed_arguments(node, string_value)
 
 
+def extract_format_argument(node: Expression) -> str | int | None:
+    """
+    Extract a format-string argument value: integers are returned as `int` so that numeric format
+    specifiers (`X`, `D`, etc.) can be applied; everything else is returned as `str`.
+    """
+    result = unwrap_integer(node)
+    if result is not None:
+        return result.value
+    return string_value(node)
+
+
+def collect_format_arguments(node: Expression) -> list[str | int] | None:
+    return collect_typed_arguments(node, extract_format_argument)
+
+
 def extract_int(node: Expression) -> int | None:
     return node.value if isinstance(node, Ps1IntegerLiteral) else None
 
@@ -135,6 +166,19 @@ def collect_byte_array(node: Expression) -> bytes | None:
     array = unwrap_to_array_literal(node)
     if array is not None:
         node = array
+    elif isinstance(node, Ps1ArrayExpression):
+        items: list[int] = []
+        for stmt in node.body:
+            if not isinstance(stmt, Ps1ExpressionStatement) or stmt.expression is None:
+                return None
+            value = extract_int(stmt.expression)
+            if value is None:
+                return None
+            items.append(value)
+        try:
+            return bytes(items)
+        except (ValueError, OverflowError):
+            return None
     values = collect_int_arguments(node)
     if values is None:
         return None
@@ -253,7 +297,6 @@ def unwrap_integer(node: Node | None) -> Ps1IntegerLiteral | None:
 
 
 def is_static_type_call(node: Ps1InvokeMember, canonical: str) -> bool:
-    from refinery.lib.scripts.ps1.deobfuscation.typenames import is_type
     if node.access != Ps1AccessKind.STATIC:
         return False
     if not isinstance(node.object, Ps1TypeExpression):
@@ -266,7 +309,6 @@ def detect_encoding_chain(node: Ps1InvokeMember) -> str | None:
     If *node* is `[Text.Encoding]::X.GetString(args)`, return the encoding member name (e.g.
     `'UTF8'`).  Otherwise return `None`.
     """
-    from refinery.lib.scripts.ps1.deobfuscation.typenames import is_type
     member = get_member_name(node.member)
     if member is None or member.lower() != 'getstring':
         return None
@@ -285,10 +327,9 @@ def detect_encoding_chain(node: Ps1InvokeMember) -> str | None:
 
 def iter_variable_mutations(
     root: Node,
-) -> Generator[tuple[Ps1Variable, str, Node], None, None]:
+) -> Generator[VariableMutation, None, None]:
     """
-    Walk the AST and yield `(variable, kind, node)` for every node that mutates a variable.
-    `kind` is one of 'assign', 'foreach', 'incrdecr', 'param'.
+    Walk the AST and yield a `VariableMutation` for every node that mutates a variable.
     """
     for node in root.walk():
         if isinstance(node, Ps1AssignmentExpression):
@@ -296,16 +337,19 @@ def iter_variable_mutations(
             while isinstance(target, (Ps1ParenExpression, Ps1CastExpression)):
                 target = target.expression if isinstance(target, Ps1ParenExpression) else target.operand
             if isinstance(target, Ps1Variable):
-                yield target, 'assign', node
+                yield VariableMutation(target, MutationKind.ASSIGN, node)
+            elif isinstance(target, (Ps1IndexExpression, Ps1MemberAccess)):
+                if isinstance(target.object, Ps1Variable):
+                    yield VariableMutation(target.object, MutationKind.MEMBER_ASSIGN, node)
         elif isinstance(node, Ps1ForEachLoop):
             if isinstance(node.variable, Ps1Variable):
-                yield node.variable, 'foreach', node
+                yield VariableMutation(node.variable, MutationKind.FOREACH, node)
         elif isinstance(node, Ps1UnaryExpression):
             if node.operator in ('++', '--') and isinstance(node.operand, Ps1Variable):
-                yield node.operand, 'incrdecr', node
+                yield VariableMutation(node.operand, MutationKind.INCRDECR, node)
         elif isinstance(node, Ps1ParameterDeclaration):
             if isinstance(node.variable, Ps1Variable):
-                yield node.variable, 'param', node
+                yield VariableMutation(node.variable, MutationKind.PARAM, node)
 
 
 def extract_foreach_scriptblock(expr: Expression) -> Ps1ScriptBlock | None:
@@ -342,11 +386,32 @@ def is_builtin_variable(
     )
 
 
+def is_truthy(node: Node | None) -> bool | None:
+    """
+    Determine the boolean truth value of a constant expression using PowerShell semantics. Returns
+    `None` for non-constant or unrecognized expressions.
+    """
+    node = unwrap_parens(node) if isinstance(node, Expression) else node
+    if node is None:
+        return None
+    if is_builtin_variable(node):
+        lower = node.name.lower()
+        if lower == 'true':
+            return True
+        if lower in ('false', 'null'):
+            return False
+        return None
+    if isinstance(node, (Ps1IntegerLiteral, Ps1RealLiteral, Ps1StringLiteral)):
+        return bool(node.value)
+    if isinstance(node, Ps1UnaryExpression) and node.operator == '-':
+        return is_truthy(node.operand)
+    return None
+
+
 def is_array_reverse_call(node: Ps1ExpressionStatement) -> Ps1Variable | None:
     """
     If the statement is `[Array]::Reverse($var)`, return the variable node.
     """
-    from refinery.lib.scripts.ps1.deobfuscation.typenames import is_type
     expr = node.expression
     if not isinstance(expr, Ps1InvokeMember):
         return None
@@ -467,3 +532,91 @@ class LocalFunctionAwareTransformer(Transformer):
             return super().visit(node)
         finally:
             self._entry = False
+
+
+def _apply_dotnet_format(value: str | int, spec: str) -> str | None:
+    """
+    Apply a .NET composite format specifier to a single value. Supports `X`/`x` (hex), `D`/`d`
+    (decimal), and `N`/`n` (number). Precision width is honored for zero-padding or digit count.
+    Returns `None` when the specifier is not recognized or inapplicable.
+    """
+    if not spec:
+        return str(value)
+    code = spec[0]
+    width_str = spec[1:]
+    width = int(width_str) if width_str.isdigit() else 0
+    code_upper = code.upper()
+    if code_upper in ('X', 'D', 'N') and not isinstance(value, int):
+        try:
+            value = int(value)
+        except (ValueError, TypeError):
+            return None
+    if code_upper == 'X':
+        raw = format(value, 'X' if code.isupper() else 'x')
+        return raw.zfill(width) if width else raw
+    if code_upper == 'D':
+        raw = str(value)
+        return raw.zfill(width) if width else raw
+    if code_upper == 'N':
+        assert isinstance(value, int)
+        negative = value < 0
+        abs_val = abs(value)
+        int_part = str(abs_val)
+        groups: list[str] = []
+        while int_part:
+            groups.append(int_part[-3:])
+            int_part = int_part[:-3]
+        formatted = ','.join(reversed(groups))
+        decimal_places = width if width else 2
+        formatted += '.' + '0' * decimal_places
+        if negative:
+            formatted = '-' + formatted
+        return formatted
+    return None
+
+
+def normalize_type_expression(name: str) -> str:
+    return name.lower().replace(' ', '')
+
+
+def normalize_dotnet_type_name(name: str) -> str:
+    result = normalize_type_expression(name)
+    if result.startswith('system.'):
+        result = result[7:]
+    return result
+
+
+def apply_format_string(fmt: str, args: list[str | int]) -> str | None:
+    """
+    Apply a PowerShell-style format string to a list of arguments. Each argument can be a string
+    or an integer. Format specifiers like `{0:X2}` and alignment like `{0,10}` are supported.
+    Returns the formatted string, or `None` on index/value errors.
+    """
+    try:
+        def replacer(m: re.Match) -> str:
+            full = m.group(0)
+            if full == '{{':
+                return '{'
+            if full == '}}':
+                return '}'
+            idx = int(m.group(1))
+            value = args[idx]
+            spec = m.group(3)
+            if spec:
+                formatted = _apply_dotnet_format(value, spec)
+                if formatted is None:
+                    raise ValueError(F'unsupported format specifier: {spec}')
+                result = formatted
+            else:
+                result = str(value)
+            align_str = m.group(2)
+            if align_str:
+                align_width = int(align_str)
+                if align_width < 0:
+                    result = result.ljust(-align_width)
+                else:
+                    result = result.rjust(align_width)
+            return result
+        return FORMAT_PATTERN.sub(replacer, fmt)
+    except (IndexError, ValueError):
+        return None

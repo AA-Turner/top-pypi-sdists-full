@@ -178,7 +178,7 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         The parameters instance to be used by the different XxxxFill() implementations
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -194,7 +194,7 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         run the python implementation unless the call is performed through python too.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -246,7 +246,7 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         Get the minimum and maximum price for this security in the last bar:
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param asset: Security asset we're checking
         :param direction: The order direction, decides whether to pick bid or ask
@@ -258,7 +258,7 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         This is required due to a limitation in PythonNet to resolved
         overriden methods. get_prices
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -267,7 +267,7 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         Get data types the Security is subscribed to
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param asset: Security which has subscribed data types
         """
@@ -278,7 +278,7 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         Determines if the exchange is open using the current time of the asset
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -383,7 +383,7 @@ class LatestPriceFillModel(QuantConnect.Orders.Fills.ImmediateFillModel):
         Ignore the Trade/Quote distinction - fill with the latest pricing information
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param asset: Security asset we're checking
         :param direction: The order direction, decides whether to pick bid or ask
@@ -423,7 +423,7 @@ class EquityFillModel(QuantConnect.Orders.Fills.FillModel):
         Get the minimum and maximum price for this security in the last bar:
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param asset: Security asset we're checking
         :param direction: The order direction, decides whether to pick bid or ask
@@ -435,7 +435,7 @@ class EquityFillModel(QuantConnect.Orders.Fills.FillModel):
         This is required due to a limitation in PythonNet to resolved
         overriden methods. get_prices
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -444,7 +444,7 @@ class EquityFillModel(QuantConnect.Orders.Fills.FillModel):
         Get data types the Security is subscribed to
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param asset: Security which has subscribed data types
         """

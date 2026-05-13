@@ -5,8 +5,7 @@ from __future__ import annotations
 
 from refinery.lib.scripts import Node, Transformer, _remove_from_parent, _replace_in_parent
 from refinery.lib.scripts.ps1.deobfuscation.constants import (
-    _PS1_AUTOMATIC_VARIABLES,
-    _PS1_DEFAULT_VARIABLES,
+    _PS1_SKIP_VARIABLES,
     _assignment_target_variable,
     _candidate_key,
     _find_removable_statement,
@@ -17,7 +16,6 @@ from refinery.lib.scripts.ps1.deobfuscation.helpers import (
     get_command_name,
     inside_value_producing_context,
 )
-from refinery.lib.scripts.ps1.deobfuscation.names import PS1_KNOWN_VARIABLES
 from refinery.lib.scripts.ps1.model import (
     Expression,
     Ps1AccessKind,
@@ -26,6 +24,7 @@ from refinery.lib.scripts.ps1.model import (
     Ps1AssignmentExpression,
     Ps1BinaryExpression,
     Ps1CastExpression,
+    Ps1CommandArgument,
     Ps1CommandInvocation,
     Ps1ExpandableString,
     Ps1ExpressionStatement,
@@ -42,13 +41,12 @@ from refinery.lib.scripts.ps1.model import (
     Ps1PipelineElement,
     Ps1RangeExpression,
     Ps1RealLiteral,
+    Ps1ScriptBlock,
     Ps1StringLiteral,
     Ps1TypeExpression,
     Ps1UnaryExpression,
     Ps1Variable,
 )
-
-_SKIP_VARIABLES = _PS1_AUTOMATIC_VARIABLES | frozenset(PS1_KNOWN_VARIABLES) | frozenset(_PS1_DEFAULT_VARIABLES)
 
 _PURE_STATIC_TYPES = frozenset({
     'array',
@@ -118,7 +116,6 @@ _PURE_INSTANCE_METHODS = frozenset({
 })
 
 _PURE_CMDLETS = frozenset({
-    'foreach-object',
     'get-childitem',
     'get-content',
     'get-date',
@@ -134,6 +131,32 @@ _PURE_CMDLETS = frozenset({
     'sort-object',
     'where-object',
 })
+
+_PURE_PIPELINE_CMDLETS = frozenset({
+    'foreach-object',
+    'select-object',
+    'sort-object',
+    'where-object',
+})
+
+
+def _command_body_is_pure(cmd: Ps1CommandInvocation) -> bool:
+    """
+    Check whether all script block arguments of a pipeline cmdlet (ForEach-Object, Where-Object,
+    etc.) have side-effect-free bodies. These cmdlets are pure transforms: they evaluate a script
+    block per input item without mutating state themselves.
+    """
+    for arg in cmd.arguments:
+        block = arg.value if isinstance(arg, Ps1CommandArgument) else arg
+        if not isinstance(block, Ps1ScriptBlock):
+            continue
+        for stmt in block.body:
+            if isinstance(stmt, Ps1ExpressionStatement) and stmt.expression is not None:
+                if not _is_side_effect_free(stmt.expression):
+                    return False
+            elif not isinstance(stmt, Ps1ExpressionStatement):
+                return False
+    return True
 
 
 def _is_side_effect_free(node) -> bool:
@@ -185,8 +208,12 @@ def _is_side_effect_free(node) -> bool:
         return False
     if isinstance(node, Ps1CommandInvocation):
         name = get_command_name(node)
-        if name is not None and name.lower() in _PURE_CMDLETS:
+        if name is None:
+            return False
+        if name.lower() in _PURE_CMDLETS:
             return True
+        if name.lower() in _PURE_PIPELINE_CMDLETS:
+            return _command_body_is_pure(node)
         return False
     if isinstance(node, Ps1Pipeline):
         return all(
@@ -207,31 +234,31 @@ class Ps1UnusedVariableRemoval(Transformer):
 
     def visit(self, node: Node):
         write_nodes: dict[str, list[Node]] = {}
-        write_targets: set[int] = set()
+        write_targets: set[Ps1Variable] = set()
         read_in_assign: dict[str, set[str]] = {}
         has_free_read: set[str] = set()
         for n in _walk_outer_scope(node):
             if isinstance(n, Ps1AssignmentExpression):
                 var = _assignment_target_variable(n.target)
                 if var is not None:
-                    write_targets.add(id(var))
+                    write_targets.add(var)
                     key = _candidate_key(var)
                     if key is not None:
                         write_nodes.setdefault(key, []).append(n)
             elif isinstance(n, Ps1ForEachLoop):
                 if isinstance(n.variable, Ps1Variable):
-                    write_targets.add(id(n.variable))
+                    write_targets.add(n.variable)
             elif isinstance(n, Ps1UnaryExpression) and n.operator in ('++', '--'):
                 if isinstance(n.operand, Ps1Variable):
-                    write_targets.add(id(n.operand))
+                    write_targets.add(n.operand)
                     key = _candidate_key(n.operand)
                     if key is not None:
                         write_nodes.setdefault(key, []).append(n)
             elif isinstance(n, Ps1ParameterDeclaration):
                 if isinstance(n.variable, Ps1Variable):
-                    write_targets.add(id(n.variable))
+                    write_targets.add(n.variable)
         for n in _walk_outer_scope(node):
-            if not isinstance(n, Ps1Variable) or id(n) in write_targets:
+            if not isinstance(n, Ps1Variable) or n in write_targets:
                 continue
             key = _candidate_key(n)
             if key is None:
@@ -243,7 +270,7 @@ class Ps1UnusedVariableRemoval(Transformer):
                 has_free_read.add(key)
         dead: set[str] = set()
         for key in write_nodes:
-            if key in has_free_read or key in _SKIP_VARIABLES:
+            if key in has_free_read or key in _PS1_SKIP_VARIABLES:
                 continue
             if key not in read_in_assign:
                 dead.add(key)
@@ -251,7 +278,7 @@ class Ps1UnusedVariableRemoval(Transformer):
         while changed:
             changed = False
             for key, assignees in read_in_assign.items():
-                if key in dead or key in has_free_read or key in _SKIP_VARIABLES:
+                if key in dead or key in has_free_read or key in _PS1_SKIP_VARIABLES:
                     continue
                 if key not in write_nodes:
                     continue
@@ -262,15 +289,15 @@ class Ps1UnusedVariableRemoval(Transformer):
             return None
         body = get_body(node)
         if body is not None:
-            dead_stmts: set[int] = set()
+            dead_stmts: set[Node] = set()
             for key in dead:
                 for mutation in write_nodes[key]:
                     stmt = _find_removable_statement(mutation)
                     if stmt is not None:
-                        dead_stmts.add(id(stmt))
+                        dead_stmts.add(stmt)
             surviving = [
                 s for s in body
-                if id(s) not in dead_stmts
+                if s not in dead_stmts
                 and not isinstance(s, Ps1FunctionDefinition)
             ]
             if not surviving:
@@ -365,25 +392,25 @@ class Ps1JunkStatementRemoval(Transformer):
         return reachable
 
     def _prune_body(self, body: list, is_root: bool, called: set[str]):
-        removable_set: set[int] = set()
+        removable: set[Node] = set()
         for stmt in body:
             if self._is_removable_statement(stmt):
-                removable_set.add(id(stmt))
+                removable.add(stmt)
             elif is_root and isinstance(stmt, Ps1FunctionDefinition):
                 if stmt.name.lower() not in called:
-                    removable_set.add(id(stmt))
-        if not removable_set:
+                    removable.add(stmt)
+        if not removable:
             return
         if is_root:
             surviving = [
                 s for s in body
-                if id(s) not in removable_set
+                if s not in removable
                 and not isinstance(s, Ps1FunctionDefinition)
             ]
             if not surviving:
                 return
         for stmt in list(body):
-            if id(stmt) in removable_set:
+            if stmt in removable:
                 if _remove_from_parent(stmt):
                     self.mark_changed()
 
@@ -399,6 +426,10 @@ class Ps1JunkStatementRemoval(Transformer):
         if isinstance(expr, Ps1Pipeline):
             if _pipeline_ends_with_out_null(expr) and _pipeline_prefix_is_pure(expr):
                 return True
+            if _pipeline_ends_with_void_foreach(expr) and _pipeline_prefix_is_pure(expr):
+                return True
+            if _pipeline_ends_with_cmdlet(expr, _PURE_PIPELINE_CMDLETS):
+                return False
         return _is_side_effect_free(expr)
 
 
@@ -422,3 +453,46 @@ def _pipeline_prefix_is_pure(pipeline: Ps1Pipeline) -> bool:
         if not _is_side_effect_free(el.expression):
             return False
     return True
+
+
+def _pipeline_ends_with_void_foreach(pipeline: Ps1Pipeline) -> bool:
+    """
+    Detect junk pipelines like ``... | ForEach-Object { [Void]$_ }`` where the ForEach body
+    explicitly discards all output via ``[Void]`` casts. These are anti-analysis noise injected
+    into malware scripts.
+    """
+    if len(pipeline.elements) < 2:
+        return False
+    last = pipeline.elements[-1]
+    if not isinstance(last, Ps1PipelineElement):
+        return False
+    expr = last.expression
+    if not isinstance(expr, Ps1CommandInvocation):
+        return False
+    name = get_command_name(expr)
+    if name is None or name.lower() != 'foreach-object':
+        return False
+    for arg in expr.arguments:
+        block = arg.value if isinstance(arg, Ps1CommandArgument) else arg
+        if not isinstance(block, Ps1ScriptBlock):
+            continue
+        for stmt in block.body:
+            if not isinstance(stmt, Ps1ExpressionStatement) or stmt.expression is None:
+                return False
+            if not (isinstance(stmt.expression, Ps1CastExpression)
+                    and stmt.expression.type_name.lower() == 'void'):
+                return False
+    return True
+
+
+def _pipeline_ends_with_cmdlet(pipeline: Ps1Pipeline, names: frozenset) -> bool:
+    if len(pipeline.elements) < 2:
+        return False
+    last = pipeline.elements[-1]
+    if not isinstance(last, Ps1PipelineElement):
+        return False
+    expr = last.expression
+    if not isinstance(expr, Ps1CommandInvocation):
+        return False
+    name = get_command_name(expr)
+    return name is not None and name.lower() in names

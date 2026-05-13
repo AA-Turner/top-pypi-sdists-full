@@ -15,20 +15,22 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class SetDatasetFileIngestStatusRequest(_message.Message):
-    __slots__ = ("dataset_file_id", "dataset_rid", "parsing", "ingesting", "error", "ingest_job_rid")
+    __slots__ = ("dataset_file_id", "dataset_rid", "parsing", "ingesting", "error", "ingest_job_rid", "is_primary")
     DATASET_FILE_ID_FIELD_NUMBER: _ClassVar[int]
     DATASET_RID_FIELD_NUMBER: _ClassVar[int]
     PARSING_FIELD_NUMBER: _ClassVar[int]
     INGESTING_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     INGEST_JOB_RID_FIELD_NUMBER: _ClassVar[int]
+    IS_PRIMARY_FIELD_NUMBER: _ClassVar[int]
     dataset_file_id: str
     dataset_rid: str
     parsing: Parsing
     ingesting: Ingesting
     error: Error
     ingest_job_rid: str
-    def __init__(self, dataset_file_id: _Optional[str] = ..., dataset_rid: _Optional[str] = ..., parsing: _Optional[_Union[Parsing, _Mapping]] = ..., ingesting: _Optional[_Union[Ingesting, _Mapping]] = ..., error: _Optional[_Union[Error, _Mapping]] = ..., ingest_job_rid: _Optional[str] = ...) -> None: ...
+    is_primary: bool
+    def __init__(self, dataset_file_id: _Optional[str] = ..., dataset_rid: _Optional[str] = ..., parsing: _Optional[_Union[Parsing, _Mapping]] = ..., ingesting: _Optional[_Union[Ingesting, _Mapping]] = ..., error: _Optional[_Union[Error, _Mapping]] = ..., ingest_job_rid: _Optional[str] = ..., is_primary: bool = ...) -> None: ...
 
 class SetDatasetFileIngestStatusResponse(_message.Message):
     __slots__ = ()
@@ -75,7 +77,7 @@ class ParseFileResponse(_message.Message):
     def __init__(self, staged_batches: _Optional[_Iterable[_Union[StagedBatch, _Mapping]]] = ..., bounds: _Optional[_Union[_time_pb2.Range, _Mapping]] = ...) -> None: ...
 
 class WriteFileBatchesToKafkaRequest(_message.Message):
-    __slots__ = ("staged_batches", "ingest_job_rid", "file_rid", "org_rid", "dataset_file_id", "dataset_rid", "file_created_at")
+    __slots__ = ("staged_batches", "ingest_job_rid", "file_rid", "org_rid", "dataset_file_id", "dataset_rid", "file_created_at", "is_primary")
     STAGED_BATCHES_FIELD_NUMBER: _ClassVar[int]
     INGEST_JOB_RID_FIELD_NUMBER: _ClassVar[int]
     FILE_RID_FIELD_NUMBER: _ClassVar[int]
@@ -83,6 +85,7 @@ class WriteFileBatchesToKafkaRequest(_message.Message):
     DATASET_FILE_ID_FIELD_NUMBER: _ClassVar[int]
     DATASET_RID_FIELD_NUMBER: _ClassVar[int]
     FILE_CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    IS_PRIMARY_FIELD_NUMBER: _ClassVar[int]
     staged_batches: _containers.RepeatedCompositeFieldContainer[StagedBatch]
     ingest_job_rid: str
     file_rid: str
@@ -90,7 +93,8 @@ class WriteFileBatchesToKafkaRequest(_message.Message):
     dataset_file_id: str
     dataset_rid: str
     file_created_at: _timestamp_pb2.Timestamp
-    def __init__(self, staged_batches: _Optional[_Iterable[_Union[StagedBatch, _Mapping]]] = ..., ingest_job_rid: _Optional[str] = ..., file_rid: _Optional[str] = ..., org_rid: _Optional[str] = ..., dataset_file_id: _Optional[str] = ..., dataset_rid: _Optional[str] = ..., file_created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    is_primary: bool
+    def __init__(self, staged_batches: _Optional[_Iterable[_Union[StagedBatch, _Mapping]]] = ..., ingest_job_rid: _Optional[str] = ..., file_rid: _Optional[str] = ..., org_rid: _Optional[str] = ..., dataset_file_id: _Optional[str] = ..., dataset_rid: _Optional[str] = ..., file_created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., is_primary: bool = ...) -> None: ...
 
 class StagedBatch(_message.Message):
     __slots__ = ("batch_id", "handle", "format")

@@ -18,7 +18,7 @@ class JobQueue(System.Object, QuantConnect.Interfaces.IJobQueueHandler):
         This property is protected for testing purposes
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 

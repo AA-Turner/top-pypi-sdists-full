@@ -40,10 +40,25 @@ class BlocksChildrenEndpoint(Endpoint):
         )
 
 
+class BlocksMeetingNotesEndpoint(Endpoint):
+    def query(self, **kwargs: Any) -> SyncAsync[Any]:
+        """Query meeting notes.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/query-meeting-notes)*
+        """  # noqa: E501
+        return self.parent.request(
+            path="blocks/meeting_notes/query",
+            method="POST",
+            body=pick(kwargs, "filter", "sort", "limit"),
+            auth=kwargs.get("auth"),
+        )
+
+
 class BlocksEndpoint(Endpoint):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.children = BlocksChildrenEndpoint(*args, **kwargs)
+        self.meeting_notes = BlocksMeetingNotesEndpoint(*args, **kwargs)
 
     def retrieve(self, block_id: str, **kwargs: Any) -> SyncAsync[Any]:
         """Retrieve a [Block object](https://developers.notion.com/reference/block) using the ID specified.
@@ -78,12 +93,14 @@ class BlocksEndpoint(Endpoint):
                 "equation",
                 "divider",
                 "breadcrumb",
+                "tab",
                 "table_of_contents",
                 "link_to_page",
                 "table_row",
                 "heading_1",
                 "heading_2",
                 "heading_3",
+                "heading_4",
                 "paragraph",
                 "bulleted_list_item",
                 "numbered_list_item",
@@ -273,6 +290,7 @@ class PagesEndpoint(Endpoint):
                 "cover",
                 "content",
                 "children",
+                "markdown",
                 "template",
                 "position",
             ),
@@ -309,6 +327,37 @@ class PagesEndpoint(Endpoint):
                 "erase_content",
                 "archived",
                 "in_trash",
+            ),
+            auth=kwargs.get("auth"),
+        )
+
+    def retrieve_markdown(self, page_id: str, **kwargs: Any) -> SyncAsync[Any]:
+        """Retrieve a page as markdown.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/retrieve-page-markdown)*
+        """  # noqa: E501
+        return self.parent.request(
+            path=f"pages/{page_id}/markdown",
+            method="GET",
+            query=pick(kwargs, "include_transcript"),
+            auth=kwargs.get("auth"),
+        )
+
+    def update_markdown(self, page_id: str, **kwargs: Any) -> SyncAsync[Any]:
+        """Update a page's content as markdown.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/update-page-markdown)*
+        """  # noqa: E501
+        return self.parent.request(
+            path=f"pages/{page_id}/markdown",
+            method="PATCH",
+            body=pick(
+                kwargs,
+                "type",
+                "insert_content",
+                "replace_content_range",
+                "update_content",
+                "replace_content",
             ),
             auth=kwargs.get("auth"),
         )
@@ -358,6 +407,130 @@ class UsersEndpoint(Endpoint):
         )
 
 
+class ViewsQueriesEndpoint(Endpoint):
+    def create(self, view_id: str, **kwargs: Any) -> SyncAsync[Any]:
+        """Create a view query.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/create-view-query)*
+        """  # noqa: E501
+        return self.parent.request(
+            path=f"views/{view_id}/queries",
+            method="POST",
+            body=pick(kwargs, "page_size"),
+            auth=kwargs.get("auth"),
+        )
+
+    def results(self, view_id: str, query_id: str, **kwargs: Any) -> SyncAsync[Any]:
+        """Get view query results.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/get-view-query-results)*
+        """  # noqa: E501
+        return self.parent.request(
+            path=f"views/{view_id}/queries/{query_id}",
+            method="GET",
+            query=pick(kwargs, "start_cursor", "page_size"),
+            auth=kwargs.get("auth"),
+        )
+
+    def delete(self, view_id: str, query_id: str, **kwargs: Any) -> SyncAsync[Any]:
+        """Delete a view query.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/delete-view-query)*
+        """  # noqa: E501
+        return self.parent.request(
+            path=f"views/{view_id}/queries/{query_id}",
+            method="DELETE",
+            auth=kwargs.get("auth"),
+        )
+
+
+class ViewsEndpoint(Endpoint):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.queries = ViewsQueriesEndpoint(*args, **kwargs)
+
+    def create(self, **kwargs: Any) -> SyncAsync[Any]:
+        """Create a view.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/create-view)*
+        """  # noqa: E501
+        return self.parent.request(
+            path="views",
+            method="POST",
+            body=pick(
+                kwargs,
+                "data_source_id",
+                "name",
+                "type",
+                "database_id",
+                "view_id",
+                "filter",
+                "sorts",
+                "quick_filters",
+                "create_database",
+                "configuration",
+                "position",
+                "placement",
+            ),
+            auth=kwargs.get("auth"),
+        )
+
+    def retrieve(self, view_id: str, **kwargs: Any) -> SyncAsync[Any]:
+        """Retrieve a view.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/retrieve-a-view)*
+        """  # noqa: E501
+        return self.parent.request(
+            path=f"views/{view_id}",
+            method="GET",
+            auth=kwargs.get("auth"),
+        )
+
+    def update(self, view_id: str, **kwargs: Any) -> SyncAsync[Any]:
+        """Update a view.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/update-a-view)*
+        """  # noqa: E501
+        return self.parent.request(
+            path=f"views/{view_id}",
+            method="PATCH",
+            body=pick(
+                kwargs,
+                "name",
+                "filter",
+                "sorts",
+                "quick_filters",
+                "configuration",
+            ),
+            auth=kwargs.get("auth"),
+        )
+
+    def delete(self, view_id: str, **kwargs: Any) -> SyncAsync[Any]:
+        """Delete a view.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/delete-view)*
+        """  # noqa: E501
+        return self.parent.request(
+            path=f"views/{view_id}",
+            method="DELETE",
+            auth=kwargs.get("auth"),
+        )
+
+    def list(self, **kwargs: Any) -> SyncAsync[Any]:
+        """List views for a database.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/list-views)*
+        """  # noqa: E501
+        return self.parent.request(
+            path="views",
+            method="GET",
+            query=pick(
+                kwargs, "database_id", "data_source_id", "start_cursor", "page_size"
+            ),
+            auth=kwargs.get("auth"),
+        )
+
+
 class SearchEndpoint(Endpoint):
     def __call__(self, **kwargs: Any) -> SyncAsync[Any]:
         """Search all pages and child pages that are shared with the integration.
@@ -368,6 +541,20 @@ class SearchEndpoint(Endpoint):
             path="search",
             method="POST",
             body=pick(kwargs, "query", "sort", "filter", "start_cursor", "page_size"),
+            auth=kwargs.get("auth"),
+        )
+
+
+class CustomEmojisEndpoint(Endpoint):
+    def list(self, **kwargs: Any) -> SyncAsync[Any]:
+        """List custom emojis.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/list-custom-emojis)*
+        """  # noqa: E501
+        return self.parent.request(
+            path="custom_emojis",
+            method="GET",
+            query=pick(kwargs, "start_cursor", "page_size", "name"),
             auth=kwargs.get("auth"),
         )
 
@@ -383,10 +570,11 @@ class CommentsEndpoint(Endpoint):
             method="POST",
             body=pick(
                 kwargs,
-                "rich_text",
                 "attachments",
                 "display_name",
                 "parent",
+                "rich_text",
+                "markdown",
                 "discussion_id",
             ),
             auth=kwargs.get("auth"),
@@ -412,6 +600,29 @@ class CommentsEndpoint(Endpoint):
         return self.parent.request(
             path=f"comments/{comment_id}",
             method="GET",
+            auth=kwargs.get("auth"),
+        )
+
+    def update(self, comment_id: str, **kwargs: Any) -> SyncAsync[Any]:
+        """Update a [Comment object](https://developers.notion.com/reference/comment-object) using its `comment_id`.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/update-comment)*
+        """  # noqa: E501
+        return self.parent.request(
+            path=f"comments/{comment_id}",
+            method="PATCH",
+            body=pick(kwargs, "rich_text", "markdown"),
+            auth=kwargs.get("auth"),
+        )
+
+    def delete(self, comment_id: str, **kwargs: Any) -> SyncAsync[Any]:
+        """Delete a [Comment object](https://developers.notion.com/reference/comment-object) using its `comment_id`.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/delete-comment)*
+        """  # noqa: E501
+        return self.parent.request(
+            path=f"comments/{comment_id}",
+            method="DELETE",
             auth=kwargs.get("auth"),
         )
 

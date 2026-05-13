@@ -234,7 +234,6 @@ class ScaleneParseArgs:
                     setattr(args, dest, True)
             elif dest in (
                 "profile_all",
-                "stacks",
                 "use_virtual_time",
                 "memory_leak_detector",
                 "profile_system_libraries",
@@ -242,6 +241,10 @@ class ScaleneParseArgs:
                 # Regular boolean flags with defaults
                 if value is True:
                     setattr(args, dest, True)
+            elif dest == "stacks":
+                # stacks defaults to True; allow config to flip either way.
+                if isinstance(value, bool):
+                    setattr(args, dest, value)
             else:
                 # For non-boolean options, check if they have their default value
                 # If the current value looks like a default, apply config value
@@ -370,7 +373,15 @@ class ScaleneParseArgs:
             dest="stacks",
             action="store_true",
             default=defaults.stacks,
-            help="collect stack traces" if show_advanced else advanced_help,
+            help=(
+                "collect stack traces (default: on)" if show_advanced else advanced_help
+            ),
+        )
+        parser.add_argument(
+            "--no-stacks",
+            dest="stacks",
+            action="store_false",
+            help=("disable stack-trace collection" if show_advanced else advanced_help),
         )
         parser.add_argument(
             "--async",
@@ -505,7 +516,7 @@ class ScaleneParseArgs:
             action="store_true",
             default=defaults.use_python_callback,
             help=(
-                "use Python callback for sys.monitoring instead of C callback (Python 3.13+)"
+                "use Python callback for sys.monitoring instead of C callback (Python 3.12+)"
                 if show_advanced
                 else advanced_help
             ),
@@ -598,6 +609,7 @@ class ScaleneParseArgs:
         elapsed_time = profile_data.get("elapsed_time_sec", 0) * 1000  # Convert to ms
         max_footprint = profile_data.get("max_footprint_mb", 0)
         growth_rate = profile_data.get("growth_rate", 0)
+        native_allocations_mb = profile_data.get("native_allocations_mb", 0)
 
         # Check what was profiled
         has_memory = profile_data.get("memory", False)
@@ -612,10 +624,15 @@ class ScaleneParseArgs:
         # Memory usage line (shown once at the top)
         mem_usage_line: Any = ""
         if has_memory and max_footprint > 0:
+            native_note = (
+                f" ({ScaleneJSON.memory_consumed_str(native_allocations_mb)} from native threads)"
+                if native_allocations_mb > 0
+                else ""
+            )
             mem_usage_line = Text.assemble(
                 "Memory usage: ",
                 (
-                    f"(max: {ScaleneJSON.memory_consumed_str(max_footprint)}, growth rate: {growth_rate:3.0f}%)\n",
+                    f"(max: {ScaleneJSON.memory_consumed_str(max_footprint)}, growth rate: {growth_rate:3.0f}%{native_note})\n",
                     ScaleneParseArgs.memory_color,
                 ),
             )
@@ -671,7 +688,7 @@ class ScaleneParseArgs:
                 style="dim",
                 justify="right",
                 no_wrap=True,
-                width=4,
+                width=6,
             )
             tbl.add_column(
                 Markdown("Time  \n_Python_", style="blue"),

@@ -5,9 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import shap
-from tqdm.rich import tqdm
-
 from geocif import utils
+from geocif.progress import pbar as _pbar
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +94,7 @@ def explain(df_train, df_test, **kwargs):
     ############################
     # SHAP waterfall plot
     ############################
-    for idx, row in tqdm(df_test.iterrows(), desc="SHAP waterfall", leave=False):
+    for idx, row in _pbar(df_test.iterrows(), desc="SHAP waterfall", leave=False):
         region_name = row["Region"]
 
         try:

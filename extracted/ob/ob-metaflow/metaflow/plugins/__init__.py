@@ -63,6 +63,7 @@ STEP_DECORATORS_DESC = [
     ("airflow_internal", ".airflow.airflow_decorator.AirflowInternalDecorator"),
     ("pypi", ".pypi.pypi_decorator.PyPIStepDecorator"),
     ("conda", ".pypi.conda_decorator.CondaStepDecorator"),
+    ("anaconda", ".pypi.anaconda_decorator.AnacondaStepDecorator"),
 ]
 
 # Add new flow decorators here
@@ -77,6 +78,7 @@ FLOW_DECORATORS_DESC = [
     ("trigger_on_finish", ".events_decorator.TriggerOnFinishDecorator"),
     ("pypi_base", ".pypi.pypi_decorator.PyPIFlowDecorator"),
     ("conda_base", ".pypi.conda_decorator.CondaFlowDecorator"),
+    ("anaconda_base", ".pypi.anaconda_decorator.AnacondaFlowDecorator"),
     ("exit_hook", ".exit_hook.exit_hook_decorator.ExitHookDecorator"),
 ]
 
@@ -84,6 +86,7 @@ FLOW_DECORATORS_DESC = [
 ENVIRONMENTS_DESC = [
     ("conda", ".pypi.conda_environment.CondaEnvironment"),
     ("pypi", ".pypi.pypi_environment.PyPIEnvironment"),
+    ("anaconda", ".pypi.anaconda_environment.AnacondaEnvironment"),
     ("uv", ".uv.uv_environment.UVEnvironment"),
 ]
 

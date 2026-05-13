@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2022, 2024
+# (C) Copyright IBM 2022-2026.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -41,8 +41,8 @@ You can also use the ``update()`` method to do bulk update. For example::
    estimator = EstimatorV2(mode=backend)
    estimator.options.update(resilience_level=1)
 
-Refer to :class:`SamplerOptions` and :class:`EstimatorOptions` for V2 Sampler and
-V2 Estimator options, respectively.
+Refer to :class:`qiskit_ibm_runtime.options.SamplerOptions` and :class:`EstimatorOptions` for V2
+Sampler and V2 Estimator options, respectively.
 
 .. note::
    If an option is not specified, the server default value is used. The
@@ -89,14 +89,11 @@ from .dynamical_decoupling_options import DynamicalDecouplingOptions
 from .environment_options import EnvironmentOptions
 from .estimator_options import EstimatorOptions
 from .execution_options import ExecutionOptionsV2
-from .executor_options import ExecutorOptions
 from .layer_noise_learning_options import LayerNoiseLearningOptions
 from .measure_noise_learning_options import MeasureNoiseLearningOptions
 from .noise_learner_options import NoiseLearnerOptions
-from .noise_learner_v3_options import NoiseLearnerV3Options
 from .options import OptionsV2
 from .pec_options import PecOptions
-from .post_selection_options import PostSelectionOptions
 from .resilience_options import ResilienceOptionsV2
 from .sampler_execution_options import SamplerExecutionOptionsV2
 from .sampler_options import SamplerOptions

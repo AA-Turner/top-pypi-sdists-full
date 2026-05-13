@@ -3,13 +3,14 @@ from __future__ import annotations
 from torch import Tensor, nn
 
 from sentence_transformers.cross_encoder.model import CrossEncoder
+from sentence_transformers.util import batch_to_device
 
 
 class CrossEntropyLoss(nn.Module):
     def __init__(self, model: CrossEncoder, activation_fn: nn.Module = nn.Identity(), **kwargs) -> None:
         """
         Computes the Cross Entropy Loss for a CrossEncoder model. This loss is used to train a model to predict the
-        correct class label for a given pair of sentences. The number of classes should be equal to the number of model
+        correct class label for a given pair of inputs. The number of classes should be equal to the number of model
         output labels.
 
         Args:
@@ -27,9 +28,9 @@ class CrossEntropyLoss(nn.Module):
 
         Inputs:
             +-------------------------------------------------+--------+-------------------------------+
-            | Texts                                           | Labels | Number of Model Output Labels |
+            | Inputs                                          | Labels | Number of Model Output Labels |
             +=================================================+========+===============================+
-            | (sentence_A, sentence_B) pairs                  | class  | `num_classes`                 |
+            | (input_A, input_B) pairs                        | class  | `num_classes`                 |
             +-------------------------------------------------+--------+-------------------------------+
 
         Example:
@@ -74,7 +75,7 @@ class CrossEntropyLoss(nn.Module):
 
         pairs = list(zip(inputs[0], inputs[1]))
         tokens = self.model.preprocess(pairs, prompt=prompt, task=task)
-        tokens = tokens.to(self.model.device)
+        tokens = batch_to_device(tokens, self.model.device)
         logits = self.model(tokens)["scores"]
         logits = self.activation_fn(logits)
         loss = self.ce_loss(logits, labels)

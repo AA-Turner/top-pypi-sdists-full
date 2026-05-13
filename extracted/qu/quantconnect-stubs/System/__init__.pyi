@@ -55,6 +55,7 @@ System_Tuple_T5 = typing.TypeVar("System_Tuple_T5")
 System_Tuple_T6 = typing.TypeVar("System_Tuple_T6")
 System_Tuple_T7 = typing.TypeVar("System_Tuple_T7")
 System_Tuple_TRest = typing.TypeVar("System_Tuple_TRest")
+System_Enum_GetValues_TEnum = typing.TypeVar("System_Enum_GetValues_TEnum")
 System_Lazy_TMetadata = typing.TypeVar("System_Lazy_TMetadata")
 System_Lazy_T = typing.TypeVar("System_Lazy_T")
 System_IEquatable_T = typing.TypeVar("System_IEquatable_T")
@@ -84,6 +85,251 @@ System_IProgress_T = typing.TypeVar("System_IProgress_T")
 System_ISpanParsable_TSelf = typing.TypeVar("System_ISpanParsable_TSelf")
 System__EventContainer_Callable = typing.TypeVar("System__EventContainer_Callable")
 System__EventContainer_ReturnType = typing.TypeVar("System__EventContainer_ReturnType")
+System_String_Concat_T = typing.TypeVar("System_String_Concat_T")
+System_String_Format_TArg0 = typing.TypeVar("System_String_Format_TArg0")
+System_String_Format_TArg1 = typing.TypeVar("System_String_Format_TArg1")
+System_String_Format_TArg2 = typing.TypeVar("System_String_Format_TArg2")
+System_String_Join_T = typing.TypeVar("System_String_Join_T")
+System_String_Create_TState = typing.TypeVar("System_String_Create_TState")
+System_Random_NextInteger_T = typing.TypeVar("System_Random_NextInteger_T")
+System_Random_NextBinaryFloat_T = typing.TypeVar("System_Random_NextBinaryFloat_T")
+System_Random_GetItems_T = typing.TypeVar("System_Random_GetItems_T")
+System_Random_Shuffle_T = typing.TypeVar("System_Random_Shuffle_T")
+System_Delegate_EnumerateInvocationList_TDelegate = typing.TypeVar("System_Delegate_EnumerateInvocationList_TDelegate")
+System_Half_ConvertToInteger_TInteger = typing.TypeVar("System_Half_ConvertToInteger_TInteger")
+System_Half_ConvertToIntegerNative_TInteger = typing.TypeVar("System_Half_ConvertToIntegerNative_TInteger")
+System_Half_CreateChecked_TOther = typing.TypeVar("System_Half_CreateChecked_TOther")
+System_Half_CreateSaturating_TOther = typing.TypeVar("System_Half_CreateSaturating_TOther")
+System_Half_CreateTruncating_TOther = typing.TypeVar("System_Half_CreateTruncating_TOther")
+System_Byte_CreateChecked_TOther = typing.TypeVar("System_Byte_CreateChecked_TOther")
+System_Byte_CreateSaturating_TOther = typing.TypeVar("System_Byte_CreateSaturating_TOther")
+System_Byte_CreateTruncating_TOther = typing.TypeVar("System_Byte_CreateTruncating_TOther")
+System_Tuple_Create_T1 = typing.TypeVar("System_Tuple_Create_T1")
+System_Tuple_Create_T2 = typing.TypeVar("System_Tuple_Create_T2")
+System_Tuple_Create_T3 = typing.TypeVar("System_Tuple_Create_T3")
+System_Tuple_Create_T4 = typing.TypeVar("System_Tuple_Create_T4")
+System_Tuple_Create_T5 = typing.TypeVar("System_Tuple_Create_T5")
+System_Tuple_Create_T6 = typing.TypeVar("System_Tuple_Create_T6")
+System_Tuple_Create_T7 = typing.TypeVar("System_Tuple_Create_T7")
+System_Tuple_Create_T8 = typing.TypeVar("System_Tuple_Create_T8")
+System_Int32_CreateChecked_TOther = typing.TypeVar("System_Int32_CreateChecked_TOther")
+System_Int32_CreateSaturating_TOther = typing.TypeVar("System_Int32_CreateSaturating_TOther")
+System_Int32_CreateTruncating_TOther = typing.TypeVar("System_Int32_CreateTruncating_TOther")
+System_Enum_GetName_TEnum = typing.TypeVar("System_Enum_GetName_TEnum")
+System_Enum_GetNames_TEnum = typing.TypeVar("System_Enum_GetNames_TEnum")
+System_Enum_GetValuesAsUnderlyingType_TEnum = typing.TypeVar("System_Enum_GetValuesAsUnderlyingType_TEnum")
+System_Enum_IsDefined_TEnum = typing.TypeVar("System_Enum_IsDefined_TEnum")
+System_Enum_Parse_TEnum = typing.TypeVar("System_Enum_Parse_TEnum")
+System_Enum_TryParse_TEnum = typing.TypeVar("System_Enum_TryParse_TEnum")
+System_Enum_TryFormat_TEnum = typing.TypeVar("System_Enum_TryFormat_TEnum")
+System_GC_AllocateUninitializedArray_T = typing.TypeVar("System_GC_AllocateUninitializedArray_T")
+System_GC_AllocateArray_T = typing.TypeVar("System_GC_AllocateArray_T")
+System_Int64_CreateChecked_TOther = typing.TypeVar("System_Int64_CreateChecked_TOther")
+System_Int64_CreateSaturating_TOther = typing.TypeVar("System_Int64_CreateSaturating_TOther")
+System_Int64_CreateTruncating_TOther = typing.TypeVar("System_Int64_CreateTruncating_TOther")
+System_MemoryExtensions_Trim_T = typing.TypeVar("System_MemoryExtensions_Trim_T")
+System_MemoryExtensions_TrimStart_T = typing.TypeVar("System_MemoryExtensions_TrimStart_T")
+System_MemoryExtensions_TrimEnd_T = typing.TypeVar("System_MemoryExtensions_TrimEnd_T")
+System_MemoryExtensions_AsSpan_T = typing.TypeVar("System_MemoryExtensions_AsSpan_T")
+System_MemoryExtensions_Contains_T = typing.TypeVar("System_MemoryExtensions_Contains_T")
+System_MemoryExtensions_ContainsAny_T = typing.TypeVar("System_MemoryExtensions_ContainsAny_T")
+System_MemoryExtensions_ContainsAnyExcept_T = typing.TypeVar("System_MemoryExtensions_ContainsAnyExcept_T")
+System_MemoryExtensions_ContainsAnyInRange_T = typing.TypeVar("System_MemoryExtensions_ContainsAnyInRange_T")
+System_MemoryExtensions_ContainsAnyExceptInRange_T = typing.TypeVar("System_MemoryExtensions_ContainsAnyExceptInRange_T")
+System_MemoryExtensions_IndexOf_T = typing.TypeVar("System_MemoryExtensions_IndexOf_T")
+System_MemoryExtensions_LastIndexOf_T = typing.TypeVar("System_MemoryExtensions_LastIndexOf_T")
+System_MemoryExtensions_IndexOfAnyExcept_T = typing.TypeVar("System_MemoryExtensions_IndexOfAnyExcept_T")
+System_MemoryExtensions_LastIndexOfAnyExcept_T = typing.TypeVar("System_MemoryExtensions_LastIndexOfAnyExcept_T")
+System_MemoryExtensions_IndexOfAnyInRange_T = typing.TypeVar("System_MemoryExtensions_IndexOfAnyInRange_T")
+System_MemoryExtensions_IndexOfAnyExceptInRange_T = typing.TypeVar("System_MemoryExtensions_IndexOfAnyExceptInRange_T")
+System_MemoryExtensions_LastIndexOfAnyInRange_T = typing.TypeVar("System_MemoryExtensions_LastIndexOfAnyInRange_T")
+System_MemoryExtensions_LastIndexOfAnyExceptInRange_T = typing.TypeVar("System_MemoryExtensions_LastIndexOfAnyExceptInRange_T")
+System_MemoryExtensions_SequenceEqual_T = typing.TypeVar("System_MemoryExtensions_SequenceEqual_T")
+System_MemoryExtensions_SequenceCompareTo_T = typing.TypeVar("System_MemoryExtensions_SequenceCompareTo_T")
+System_MemoryExtensions_IndexOfAny_T = typing.TypeVar("System_MemoryExtensions_IndexOfAny_T")
+System_MemoryExtensions_LastIndexOfAny_T = typing.TypeVar("System_MemoryExtensions_LastIndexOfAny_T")
+System_MemoryExtensions_StartsWith_T = typing.TypeVar("System_MemoryExtensions_StartsWith_T")
+System_MemoryExtensions_EndsWith_T = typing.TypeVar("System_MemoryExtensions_EndsWith_T")
+System_MemoryExtensions_Reverse_T = typing.TypeVar("System_MemoryExtensions_Reverse_T")
+System_MemoryExtensions_AsMemory_T = typing.TypeVar("System_MemoryExtensions_AsMemory_T")
+System_MemoryExtensions_CopyTo_T = typing.TypeVar("System_MemoryExtensions_CopyTo_T")
+System_MemoryExtensions_Overlaps_T = typing.TypeVar("System_MemoryExtensions_Overlaps_T")
+System_MemoryExtensions_BinarySearch_T = typing.TypeVar("System_MemoryExtensions_BinarySearch_T")
+System_MemoryExtensions_BinarySearch_TComparable = typing.TypeVar("System_MemoryExtensions_BinarySearch_TComparable")
+System_MemoryExtensions_BinarySearch_TComparer = typing.TypeVar("System_MemoryExtensions_BinarySearch_TComparer")
+System_MemoryExtensions_Sort_T = typing.TypeVar("System_MemoryExtensions_Sort_T")
+System_MemoryExtensions_Sort_TComparer = typing.TypeVar("System_MemoryExtensions_Sort_TComparer")
+System_MemoryExtensions_Sort_TKey = typing.TypeVar("System_MemoryExtensions_Sort_TKey")
+System_MemoryExtensions_Sort_TValue = typing.TypeVar("System_MemoryExtensions_Sort_TValue")
+System_MemoryExtensions_Replace_T = typing.TypeVar("System_MemoryExtensions_Replace_T")
+System_MemoryExtensions_ReplaceAny_T = typing.TypeVar("System_MemoryExtensions_ReplaceAny_T")
+System_MemoryExtensions_ReplaceAnyExcept_T = typing.TypeVar("System_MemoryExtensions_ReplaceAnyExcept_T")
+System_MemoryExtensions_CommonPrefixLength_T = typing.TypeVar("System_MemoryExtensions_CommonPrefixLength_T")
+System_MemoryExtensions_Split_T = typing.TypeVar("System_MemoryExtensions_Split_T")
+System_MemoryExtensions_SplitAny_T = typing.TypeVar("System_MemoryExtensions_SplitAny_T")
+System_MemoryExtensions_Count_T = typing.TypeVar("System_MemoryExtensions_Count_T")
+System_MemoryExtensions_CountAny_T = typing.TypeVar("System_MemoryExtensions_CountAny_T")
+System_MemoryExtensions_TryWrite_TArg0 = typing.TypeVar("System_MemoryExtensions_TryWrite_TArg0")
+System_MemoryExtensions_TryWrite_TArg1 = typing.TypeVar("System_MemoryExtensions_TryWrite_TArg1")
+System_MemoryExtensions_TryWrite_TArg2 = typing.TypeVar("System_MemoryExtensions_TryWrite_TArg2")
+System_HashCode_Combine_T1 = typing.TypeVar("System_HashCode_Combine_T1")
+System_HashCode_Combine_T2 = typing.TypeVar("System_HashCode_Combine_T2")
+System_HashCode_Combine_T3 = typing.TypeVar("System_HashCode_Combine_T3")
+System_HashCode_Combine_T4 = typing.TypeVar("System_HashCode_Combine_T4")
+System_HashCode_Combine_T5 = typing.TypeVar("System_HashCode_Combine_T5")
+System_HashCode_Combine_T6 = typing.TypeVar("System_HashCode_Combine_T6")
+System_HashCode_Combine_T7 = typing.TypeVar("System_HashCode_Combine_T7")
+System_HashCode_Combine_T8 = typing.TypeVar("System_HashCode_Combine_T8")
+System_HashCode_Add_T = typing.TypeVar("System_HashCode_Add_T")
+System_ValueTuple_Create_T1 = typing.TypeVar("System_ValueTuple_Create_T1")
+System_ValueTuple_Create_T2 = typing.TypeVar("System_ValueTuple_Create_T2")
+System_ValueTuple_Create_T3 = typing.TypeVar("System_ValueTuple_Create_T3")
+System_ValueTuple_Create_T4 = typing.TypeVar("System_ValueTuple_Create_T4")
+System_ValueTuple_Create_T5 = typing.TypeVar("System_ValueTuple_Create_T5")
+System_ValueTuple_Create_T6 = typing.TypeVar("System_ValueTuple_Create_T6")
+System_ValueTuple_Create_T7 = typing.TypeVar("System_ValueTuple_Create_T7")
+System_ValueTuple_Create_T8 = typing.TypeVar("System_ValueTuple_Create_T8")
+System_Decimal_ConvertToInteger_TInteger = typing.TypeVar("System_Decimal_ConvertToInteger_TInteger")
+System_Decimal_ConvertToIntegerNative_TInteger = typing.TypeVar("System_Decimal_ConvertToIntegerNative_TInteger")
+System_Decimal_CreateChecked_TOther = typing.TypeVar("System_Decimal_CreateChecked_TOther")
+System_Decimal_CreateSaturating_TOther = typing.TypeVar("System_Decimal_CreateSaturating_TOther")
+System_Decimal_CreateTruncating_TOther = typing.TypeVar("System_Decimal_CreateTruncating_TOther")
+System_SByte_CreateChecked_TOther = typing.TypeVar("System_SByte_CreateChecked_TOther")
+System_SByte_CreateSaturating_TOther = typing.TypeVar("System_SByte_CreateSaturating_TOther")
+System_SByte_CreateTruncating_TOther = typing.TypeVar("System_SByte_CreateTruncating_TOther")
+System_Int128_CreateChecked_TOther = typing.TypeVar("System_Int128_CreateChecked_TOther")
+System_Int128_CreateSaturating_TOther = typing.TypeVar("System_Int128_CreateSaturating_TOther")
+System_Int128_CreateTruncating_TOther = typing.TypeVar("System_Int128_CreateTruncating_TOther")
+System_MemoryExtensions_AppendFormatted_TryWriteInterpolatedStringHandler_T = typing.TypeVar("System_MemoryExtensions_AppendFormatted_TryWriteInterpolatedStringHandler_T")
+System_Array_AsReadOnly_T = typing.TypeVar("System_Array_AsReadOnly_T")
+System_Array_Resize_T = typing.TypeVar("System_Array_Resize_T")
+System_Array_BinarySearch_T = typing.TypeVar("System_Array_BinarySearch_T")
+System_Array_ConvertAll_TInput = typing.TypeVar("System_Array_ConvertAll_TInput")
+System_Array_ConvertAll_TOutput = typing.TypeVar("System_Array_ConvertAll_TOutput")
+System_Array_Empty_T = typing.TypeVar("System_Array_Empty_T")
+System_Array_Exists_T = typing.TypeVar("System_Array_Exists_T")
+System_Array_Fill_T = typing.TypeVar("System_Array_Fill_T")
+System_Array_Find_T = typing.TypeVar("System_Array_Find_T")
+System_Array_FindAll_T = typing.TypeVar("System_Array_FindAll_T")
+System_Array_FindIndex_T = typing.TypeVar("System_Array_FindIndex_T")
+System_Array_FindLast_T = typing.TypeVar("System_Array_FindLast_T")
+System_Array_FindLastIndex_T = typing.TypeVar("System_Array_FindLastIndex_T")
+System_Array_ForEach_T = typing.TypeVar("System_Array_ForEach_T")
+System_Array_IndexOf_T = typing.TypeVar("System_Array_IndexOf_T")
+System_Array_LastIndexOf_T = typing.TypeVar("System_Array_LastIndexOf_T")
+System_Array_Reverse_T = typing.TypeVar("System_Array_Reverse_T")
+System_Array_Sort_T = typing.TypeVar("System_Array_Sort_T")
+System_Array_Sort_TKey = typing.TypeVar("System_Array_Sort_TKey")
+System_Array_Sort_TValue = typing.TypeVar("System_Array_Sort_TValue")
+System_Array_TrueForAll_T = typing.TypeVar("System_Array_TrueForAll_T")
+System_UInt64_CreateChecked_TOther = typing.TypeVar("System_UInt64_CreateChecked_TOther")
+System_UInt64_CreateSaturating_TOther = typing.TypeVar("System_UInt64_CreateSaturating_TOther")
+System_UInt64_CreateTruncating_TOther = typing.TypeVar("System_UInt64_CreateTruncating_TOther")
+System_TupleExtensions_Deconstruct_T1 = typing.TypeVar("System_TupleExtensions_Deconstruct_T1")
+System_TupleExtensions_Deconstruct_T2 = typing.TypeVar("System_TupleExtensions_Deconstruct_T2")
+System_TupleExtensions_Deconstruct_T3 = typing.TypeVar("System_TupleExtensions_Deconstruct_T3")
+System_TupleExtensions_Deconstruct_T4 = typing.TypeVar("System_TupleExtensions_Deconstruct_T4")
+System_TupleExtensions_Deconstruct_T5 = typing.TypeVar("System_TupleExtensions_Deconstruct_T5")
+System_TupleExtensions_Deconstruct_T6 = typing.TypeVar("System_TupleExtensions_Deconstruct_T6")
+System_TupleExtensions_Deconstruct_T7 = typing.TypeVar("System_TupleExtensions_Deconstruct_T7")
+System_TupleExtensions_Deconstruct_T8 = typing.TypeVar("System_TupleExtensions_Deconstruct_T8")
+System_TupleExtensions_Deconstruct_T9 = typing.TypeVar("System_TupleExtensions_Deconstruct_T9")
+System_TupleExtensions_Deconstruct_T10 = typing.TypeVar("System_TupleExtensions_Deconstruct_T10")
+System_TupleExtensions_Deconstruct_T11 = typing.TypeVar("System_TupleExtensions_Deconstruct_T11")
+System_TupleExtensions_Deconstruct_T12 = typing.TypeVar("System_TupleExtensions_Deconstruct_T12")
+System_TupleExtensions_Deconstruct_T13 = typing.TypeVar("System_TupleExtensions_Deconstruct_T13")
+System_TupleExtensions_Deconstruct_T14 = typing.TypeVar("System_TupleExtensions_Deconstruct_T14")
+System_TupleExtensions_Deconstruct_T15 = typing.TypeVar("System_TupleExtensions_Deconstruct_T15")
+System_TupleExtensions_Deconstruct_T16 = typing.TypeVar("System_TupleExtensions_Deconstruct_T16")
+System_TupleExtensions_Deconstruct_T17 = typing.TypeVar("System_TupleExtensions_Deconstruct_T17")
+System_TupleExtensions_Deconstruct_T18 = typing.TypeVar("System_TupleExtensions_Deconstruct_T18")
+System_TupleExtensions_Deconstruct_T19 = typing.TypeVar("System_TupleExtensions_Deconstruct_T19")
+System_TupleExtensions_Deconstruct_T20 = typing.TypeVar("System_TupleExtensions_Deconstruct_T20")
+System_TupleExtensions_Deconstruct_T21 = typing.TypeVar("System_TupleExtensions_Deconstruct_T21")
+System_TupleExtensions_ToValueTuple_T1 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T1")
+System_TupleExtensions_ToValueTuple_T2 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T2")
+System_TupleExtensions_ToValueTuple_T3 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T3")
+System_TupleExtensions_ToValueTuple_T4 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T4")
+System_TupleExtensions_ToValueTuple_T5 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T5")
+System_TupleExtensions_ToValueTuple_T6 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T6")
+System_TupleExtensions_ToValueTuple_T7 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T7")
+System_TupleExtensions_ToValueTuple_T8 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T8")
+System_TupleExtensions_ToValueTuple_T9 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T9")
+System_TupleExtensions_ToValueTuple_T10 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T10")
+System_TupleExtensions_ToValueTuple_T11 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T11")
+System_TupleExtensions_ToValueTuple_T12 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T12")
+System_TupleExtensions_ToValueTuple_T13 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T13")
+System_TupleExtensions_ToValueTuple_T14 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T14")
+System_TupleExtensions_ToValueTuple_T15 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T15")
+System_TupleExtensions_ToValueTuple_T16 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T16")
+System_TupleExtensions_ToValueTuple_T17 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T17")
+System_TupleExtensions_ToValueTuple_T18 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T18")
+System_TupleExtensions_ToValueTuple_T19 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T19")
+System_TupleExtensions_ToValueTuple_T20 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T20")
+System_TupleExtensions_ToValueTuple_T21 = typing.TypeVar("System_TupleExtensions_ToValueTuple_T21")
+System_TupleExtensions_ToTuple_T1 = typing.TypeVar("System_TupleExtensions_ToTuple_T1")
+System_TupleExtensions_ToTuple_T2 = typing.TypeVar("System_TupleExtensions_ToTuple_T2")
+System_TupleExtensions_ToTuple_T3 = typing.TypeVar("System_TupleExtensions_ToTuple_T3")
+System_TupleExtensions_ToTuple_T4 = typing.TypeVar("System_TupleExtensions_ToTuple_T4")
+System_TupleExtensions_ToTuple_T5 = typing.TypeVar("System_TupleExtensions_ToTuple_T5")
+System_TupleExtensions_ToTuple_T6 = typing.TypeVar("System_TupleExtensions_ToTuple_T6")
+System_TupleExtensions_ToTuple_T7 = typing.TypeVar("System_TupleExtensions_ToTuple_T7")
+System_TupleExtensions_ToTuple_T8 = typing.TypeVar("System_TupleExtensions_ToTuple_T8")
+System_TupleExtensions_ToTuple_T9 = typing.TypeVar("System_TupleExtensions_ToTuple_T9")
+System_TupleExtensions_ToTuple_T10 = typing.TypeVar("System_TupleExtensions_ToTuple_T10")
+System_TupleExtensions_ToTuple_T11 = typing.TypeVar("System_TupleExtensions_ToTuple_T11")
+System_TupleExtensions_ToTuple_T12 = typing.TypeVar("System_TupleExtensions_ToTuple_T12")
+System_TupleExtensions_ToTuple_T13 = typing.TypeVar("System_TupleExtensions_ToTuple_T13")
+System_TupleExtensions_ToTuple_T14 = typing.TypeVar("System_TupleExtensions_ToTuple_T14")
+System_TupleExtensions_ToTuple_T15 = typing.TypeVar("System_TupleExtensions_ToTuple_T15")
+System_TupleExtensions_ToTuple_T16 = typing.TypeVar("System_TupleExtensions_ToTuple_T16")
+System_TupleExtensions_ToTuple_T17 = typing.TypeVar("System_TupleExtensions_ToTuple_T17")
+System_TupleExtensions_ToTuple_T18 = typing.TypeVar("System_TupleExtensions_ToTuple_T18")
+System_TupleExtensions_ToTuple_T19 = typing.TypeVar("System_TupleExtensions_ToTuple_T19")
+System_TupleExtensions_ToTuple_T20 = typing.TypeVar("System_TupleExtensions_ToTuple_T20")
+System_TupleExtensions_ToTuple_T21 = typing.TypeVar("System_TupleExtensions_ToTuple_T21")
+System_ReadOnlySpan_CastUp_TDerived = typing.TypeVar("System_ReadOnlySpan_CastUp_TDerived")
+System_UInt32_CreateChecked_TOther = typing.TypeVar("System_UInt32_CreateChecked_TOther")
+System_UInt32_CreateSaturating_TOther = typing.TypeVar("System_UInt32_CreateSaturating_TOther")
+System_UInt32_CreateTruncating_TOther = typing.TypeVar("System_UInt32_CreateTruncating_TOther")
+System_UInt16_CreateChecked_TOther = typing.TypeVar("System_UInt16_CreateChecked_TOther")
+System_UInt16_CreateSaturating_TOther = typing.TypeVar("System_UInt16_CreateSaturating_TOther")
+System_UInt16_CreateTruncating_TOther = typing.TypeVar("System_UInt16_CreateTruncating_TOther")
+System_UIntPtr_CreateChecked_TOther = typing.TypeVar("System_UIntPtr_CreateChecked_TOther")
+System_UIntPtr_CreateSaturating_TOther = typing.TypeVar("System_UIntPtr_CreateSaturating_TOther")
+System_UIntPtr_CreateTruncating_TOther = typing.TypeVar("System_UIntPtr_CreateTruncating_TOther")
+System_Activator_CreateInstance_T = typing.TypeVar("System_Activator_CreateInstance_T")
+System_Nullable_Compare_T = typing.TypeVar("System_Nullable_Compare_T")
+System_Nullable_Equals_T = typing.TypeVar("System_Nullable_Equals_T")
+System_Nullable_GetValueRefOrDefaultRef_T = typing.TypeVar("System_Nullable_GetValueRefOrDefaultRef_T")
+System_IntPtr_CreateChecked_TOther = typing.TypeVar("System_IntPtr_CreateChecked_TOther")
+System_IntPtr_CreateSaturating_TOther = typing.TypeVar("System_IntPtr_CreateSaturating_TOther")
+System_IntPtr_CreateTruncating_TOther = typing.TypeVar("System_IntPtr_CreateTruncating_TOther")
+System_UInt128_CreateChecked_TOther = typing.TypeVar("System_UInt128_CreateChecked_TOther")
+System_UInt128_CreateSaturating_TOther = typing.TypeVar("System_UInt128_CreateSaturating_TOther")
+System_UInt128_CreateTruncating_TOther = typing.TypeVar("System_UInt128_CreateTruncating_TOther")
+System_ArgumentOutOfRangeException_ThrowIfZero_T = typing.TypeVar("System_ArgumentOutOfRangeException_ThrowIfZero_T")
+System_ArgumentOutOfRangeException_ThrowIfNegative_T = typing.TypeVar("System_ArgumentOutOfRangeException_ThrowIfNegative_T")
+System_ArgumentOutOfRangeException_ThrowIfNegativeOrZero_T = typing.TypeVar("System_ArgumentOutOfRangeException_ThrowIfNegativeOrZero_T")
+System_ArgumentOutOfRangeException_ThrowIfEqual_T = typing.TypeVar("System_ArgumentOutOfRangeException_ThrowIfEqual_T")
+System_ArgumentOutOfRangeException_ThrowIfNotEqual_T = typing.TypeVar("System_ArgumentOutOfRangeException_ThrowIfNotEqual_T")
+System_ArgumentOutOfRangeException_ThrowIfGreaterThan_T = typing.TypeVar("System_ArgumentOutOfRangeException_ThrowIfGreaterThan_T")
+System_ArgumentOutOfRangeException_ThrowIfGreaterThanOrEqual_T = typing.TypeVar("System_ArgumentOutOfRangeException_ThrowIfGreaterThanOrEqual_T")
+System_ArgumentOutOfRangeException_ThrowIfLessThan_T = typing.TypeVar("System_ArgumentOutOfRangeException_ThrowIfLessThan_T")
+System_ArgumentOutOfRangeException_ThrowIfLessThanOrEqual_T = typing.TypeVar("System_ArgumentOutOfRangeException_ThrowIfLessThanOrEqual_T")
+System_Single_ConvertToInteger_TInteger = typing.TypeVar("System_Single_ConvertToInteger_TInteger")
+System_Single_ConvertToIntegerNative_TInteger = typing.TypeVar("System_Single_ConvertToIntegerNative_TInteger")
+System_Single_CreateChecked_TOther = typing.TypeVar("System_Single_CreateChecked_TOther")
+System_Single_CreateSaturating_TOther = typing.TypeVar("System_Single_CreateSaturating_TOther")
+System_Single_CreateTruncating_TOther = typing.TypeVar("System_Single_CreateTruncating_TOther")
+System_Int16_CreateChecked_TOther = typing.TypeVar("System_Int16_CreateChecked_TOther")
+System_Int16_CreateSaturating_TOther = typing.TypeVar("System_Int16_CreateSaturating_TOther")
+System_Int16_CreateTruncating_TOther = typing.TypeVar("System_Int16_CreateTruncating_TOther")
+System_Double_ConvertToInteger_TInteger = typing.TypeVar("System_Double_ConvertToInteger_TInteger")
+System_Double_ConvertToIntegerNative_TInteger = typing.TypeVar("System_Double_ConvertToIntegerNative_TInteger")
+System_Double_CreateChecked_TOther = typing.TypeVar("System_Double_CreateChecked_TOther")
+System_Double_CreateSaturating_TOther = typing.TypeVar("System_Double_CreateSaturating_TOther")
+System_Double_CreateTruncating_TOther = typing.TypeVar("System_Double_CreateTruncating_TOther")
 
 
 class Object:
@@ -402,10 +648,482 @@ class IConvertible(metaclass=abc.ABCMeta):
         ...
 
 
+class _Typed_Enum_GetName(typing.Generic[System_Enum_GetName_TEnum]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Enum_GetName_TEnum) -> str:
+        ...
+
+
+class _Enum_GetName:
+    """"""
+
+    @overload
+    def __call__(self, enum_type: typing.Type, value: typing.Any) -> str:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Enum_GetName_TEnum]) -> System._Typed_Enum_GetName[System_Enum_GetName_TEnum]:
+        ...
+
+
+class _Typed_Enum_GetNames(typing.Generic[System_Enum_GetNames_TEnum]):
+    """"""
+
+    @overload
+    def __call__(self) -> typing.List[str]:
+        ...
+
+
+class _Enum_GetNames:
+    """"""
+
+    @overload
+    def __call__(self, enum_type: typing.Type) -> typing.List[str]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Enum_GetNames_TEnum]) -> System._Typed_Enum_GetNames[System_Enum_GetNames_TEnum]:
+        ...
+
+
 class ICloneable(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     def clone(self) -> System.Object:
+        ...
+
+
+class _Typed_Array_AsReadOnly(typing.Generic[System_Array_AsReadOnly_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_AsReadOnly_T]) -> System.Collections.ObjectModel.ReadOnlyCollection[System_Array_AsReadOnly_T]:
+        ...
+
+
+class _Array_AsReadOnly:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Array_AsReadOnly_T]) -> System._Typed_Array_AsReadOnly[System_Array_AsReadOnly_T]:
+        ...
+
+
+class _Typed_Array_Resize(typing.Generic[System_Array_Resize_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_Resize_T], new_size: int) -> None:
+        ...
+
+
+class _Array_Resize:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Array_Resize_T]) -> System._Typed_Array_Resize[System_Array_Resize_T]:
+        ...
+
+
+class _Typed_Array_BinarySearch(typing.Generic[System_Array_BinarySearch_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_BinarySearch_T], value: System_Array_BinarySearch_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_BinarySearch_T], value: System_Array_BinarySearch_T, comparer: System.Collections.Generic.IComparer[System_Array_BinarySearch_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_BinarySearch_T], index: int, length: int, value: System_Array_BinarySearch_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_BinarySearch_T], index: int, length: int, value: System_Array_BinarySearch_T, comparer: System.Collections.Generic.IComparer[System_Array_BinarySearch_T]) -> int:
+        ...
+
+
+class _Array_BinarySearch:
+    """"""
+
+    @overload
+    def __call__(self, array: System.Array, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def __call__(self, array: System.Array, index: int, length: int, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def __call__(self, array: System.Array, value: typing.Any, comparer: System.Collections.IComparer) -> int:
+        ...
+
+    @overload
+    def __call__(self, array: System.Array, index: int, length: int, value: typing.Any, comparer: System.Collections.IComparer) -> int:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Array_BinarySearch_T]) -> System._Typed_Array_BinarySearch[System_Array_BinarySearch_T]:
+        ...
+
+
+class _Typed_Array_ConvertAll(typing.Generic[System_Array_ConvertAll_TInput]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_ConvertAll_TInput], converter: typing.Callable[[System_Array_ConvertAll_TInput], System_Array_ConvertAll_TOutput]) -> typing.List[System_Array_ConvertAll_TOutput]:
+        ...
+
+
+class _Array_ConvertAll:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Array_ConvertAll_TInput]) -> System._Typed_Array_ConvertAll[System_Array_ConvertAll_TInput]:
+        ...
+
+
+class _Typed_Array_Empty(typing.Generic[System_Array_Empty_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> typing.List[System_Array_Empty_T]:
+        ...
+
+
+class _Array_Empty:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Array_Empty_T]) -> System._Typed_Array_Empty[System_Array_Empty_T]:
+        ...
+
+
+class _Typed_Array_Exists(typing.Generic[System_Array_Exists_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_Exists_T], match: typing.Callable[[System_Array_Exists_T], bool]) -> bool:
+        ...
+
+
+class _Array_Exists:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Array_Exists_T]) -> System._Typed_Array_Exists[System_Array_Exists_T]:
+        ...
+
+
+class _Typed_Array_Fill(typing.Generic[System_Array_Fill_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_Fill_T], value: System_Array_Fill_T) -> None:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_Fill_T], value: System_Array_Fill_T, start_index: int, count: int) -> None:
+        ...
+
+
+class _Array_Fill:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Array_Fill_T]) -> System._Typed_Array_Fill[System_Array_Fill_T]:
+        ...
+
+
+class _Typed_Array_Find(typing.Generic[System_Array_Find_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_Find_T], match: typing.Callable[[System_Array_Find_T], bool]) -> System_Array_Find_T:
+        ...
+
+
+class _Array_Find:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Array_Find_T]) -> System._Typed_Array_Find[System_Array_Find_T]:
+        ...
+
+
+class _Typed_Array_FindAll(typing.Generic[System_Array_FindAll_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_FindAll_T], match: typing.Callable[[System_Array_FindAll_T], bool]) -> typing.List[System_Array_FindAll_T]:
+        ...
+
+
+class _Array_FindAll:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Array_FindAll_T]) -> System._Typed_Array_FindAll[System_Array_FindAll_T]:
+        ...
+
+
+class _Typed_Array_FindIndex(typing.Generic[System_Array_FindIndex_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_FindIndex_T], match: typing.Callable[[System_Array_FindIndex_T], bool]) -> int:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_FindIndex_T], start_index: int, match: typing.Callable[[System_Array_FindIndex_T], bool]) -> int:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_FindIndex_T], start_index: int, count: int, match: typing.Callable[[System_Array_FindIndex_T], bool]) -> int:
+        ...
+
+
+class _Array_FindIndex:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Array_FindIndex_T]) -> System._Typed_Array_FindIndex[System_Array_FindIndex_T]:
+        ...
+
+
+class _Typed_Array_FindLast(typing.Generic[System_Array_FindLast_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_FindLast_T], match: typing.Callable[[System_Array_FindLast_T], bool]) -> System_Array_FindLast_T:
+        ...
+
+
+class _Array_FindLast:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Array_FindLast_T]) -> System._Typed_Array_FindLast[System_Array_FindLast_T]:
+        ...
+
+
+class _Typed_Array_FindLastIndex(typing.Generic[System_Array_FindLastIndex_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_FindLastIndex_T], match: typing.Callable[[System_Array_FindLastIndex_T], bool]) -> int:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_FindLastIndex_T], start_index: int, match: typing.Callable[[System_Array_FindLastIndex_T], bool]) -> int:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_FindLastIndex_T], start_index: int, count: int, match: typing.Callable[[System_Array_FindLastIndex_T], bool]) -> int:
+        ...
+
+
+class _Array_FindLastIndex:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Array_FindLastIndex_T]) -> System._Typed_Array_FindLastIndex[System_Array_FindLastIndex_T]:
+        ...
+
+
+class _Typed_Array_ForEach(typing.Generic[System_Array_ForEach_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_ForEach_T], action: typing.Callable[[System_Array_ForEach_T], typing.Any]) -> None:
+        ...
+
+
+class _Array_ForEach:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Array_ForEach_T]) -> System._Typed_Array_ForEach[System_Array_ForEach_T]:
+        ...
+
+
+class _Typed_Array_IndexOf(typing.Generic[System_Array_IndexOf_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_IndexOf_T], value: System_Array_IndexOf_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_IndexOf_T], value: System_Array_IndexOf_T, start_index: int) -> int:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_IndexOf_T], value: System_Array_IndexOf_T, start_index: int, count: int) -> int:
+        ...
+
+
+class _Array_IndexOf:
+    """"""
+
+    @overload
+    def __call__(self, array: System.Array, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def __call__(self, array: System.Array, value: typing.Any, start_index: int) -> int:
+        ...
+
+    @overload
+    def __call__(self, array: System.Array, value: typing.Any, start_index: int, count: int) -> int:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Array_IndexOf_T]) -> System._Typed_Array_IndexOf[System_Array_IndexOf_T]:
+        ...
+
+
+class _Typed_Array_LastIndexOf(typing.Generic[System_Array_LastIndexOf_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_LastIndexOf_T], value: System_Array_LastIndexOf_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_LastIndexOf_T], value: System_Array_LastIndexOf_T, start_index: int) -> int:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_LastIndexOf_T], value: System_Array_LastIndexOf_T, start_index: int, count: int) -> int:
+        ...
+
+
+class _Array_LastIndexOf:
+    """"""
+
+    @overload
+    def __call__(self, array: System.Array, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def __call__(self, array: System.Array, value: typing.Any, start_index: int) -> int:
+        ...
+
+    @overload
+    def __call__(self, array: System.Array, value: typing.Any, start_index: int, count: int) -> int:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Array_LastIndexOf_T]) -> System._Typed_Array_LastIndexOf[System_Array_LastIndexOf_T]:
+        ...
+
+
+class _Typed_Array_Reverse(typing.Generic[System_Array_Reverse_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_Reverse_T]) -> None:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_Reverse_T], index: int, length: int) -> None:
+        ...
+
+
+class _Array_Reverse:
+    """"""
+
+    @overload
+    def __call__(self, array: System.Array) -> None:
+        ...
+
+    @overload
+    def __call__(self, array: System.Array, index: int, length: int) -> None:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Array_Reverse_T]) -> System._Typed_Array_Reverse[System_Array_Reverse_T]:
+        ...
+
+
+class _Typed_Array_Sort(typing.Generic[System_Array_Sort_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_Sort_T]) -> None:
+        ...
+
+    @overload
+    def __call__(self, keys: typing.List[System_Array_Sort_TKey], items: typing.List[System_Array_Sort_TValue]) -> None:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_Sort_T], index: int, length: int) -> None:
+        ...
+
+    @overload
+    def __call__(self, keys: typing.List[System_Array_Sort_TKey], items: typing.List[System_Array_Sort_TValue], index: int, length: int) -> None:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_Sort_T], comparer: System.Collections.Generic.IComparer[System_Array_Sort_T]) -> None:
+        ...
+
+    @overload
+    def __call__(self, keys: typing.List[System_Array_Sort_TKey], items: typing.List[System_Array_Sort_TValue], comparer: System.Collections.Generic.IComparer[System_Array_Sort_TKey]) -> None:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_Sort_T], index: int, length: int, comparer: System.Collections.Generic.IComparer[System_Array_Sort_T]) -> None:
+        ...
+
+    @overload
+    def __call__(self, keys: typing.List[System_Array_Sort_TKey], items: typing.List[System_Array_Sort_TValue], index: int, length: int, comparer: System.Collections.Generic.IComparer[System_Array_Sort_TKey]) -> None:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_Sort_T], comparison: typing.Callable[[System_Array_Sort_T, System_Array_Sort_T], int]) -> None:
+        ...
+
+
+class _Array_Sort:
+    """"""
+
+    @overload
+    def __call__(self, array: System.Array) -> None:
+        ...
+
+    @overload
+    def __call__(self, keys: System.Array, items: System.Array) -> None:
+        ...
+
+    @overload
+    def __call__(self, array: System.Array, index: int, length: int) -> None:
+        ...
+
+    @overload
+    def __call__(self, keys: System.Array, items: System.Array, index: int, length: int) -> None:
+        ...
+
+    @overload
+    def __call__(self, array: System.Array, comparer: System.Collections.IComparer) -> None:
+        ...
+
+    @overload
+    def __call__(self, keys: System.Array, items: System.Array, comparer: System.Collections.IComparer) -> None:
+        ...
+
+    @overload
+    def __call__(self, array: System.Array, index: int, length: int, comparer: System.Collections.IComparer) -> None:
+        ...
+
+    @overload
+    def __call__(self, keys: System.Array, items: System.Array, index: int, length: int, comparer: System.Collections.IComparer) -> None:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Array_Sort_T]) -> System._Typed_Array_Sort[System_Array_Sort_T]:
+        ...
+
+
+class _Typed_Array_TrueForAll(typing.Generic[System_Array_TrueForAll_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Array_TrueForAll_T], match: typing.Callable[[System_Array_TrueForAll_T], bool]) -> bool:
+        ...
+
+
+class _Array_TrueForAll:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Array_TrueForAll_T]) -> System._Typed_Array_TrueForAll[System_Array_TrueForAll_T]:
         ...
 
 
@@ -442,25 +1160,41 @@ class Array(System.Object, System.ICloneable, System.Collections.IList, System.C
     def rank(self) -> int:
         ...
 
-    @staticmethod
-    @overload
-    def binary_search(array: System.Array, value: typing.Any) -> int:
-        ...
+    as_read_only: System._Array_AsReadOnly
 
-    @staticmethod
-    @overload
-    def binary_search(array: System.Array, index: int, length: int, value: typing.Any) -> int:
-        ...
+    resize: System._Array_Resize
 
-    @staticmethod
-    @overload
-    def binary_search(array: System.Array, value: typing.Any, comparer: System.Collections.IComparer) -> int:
-        ...
+    binary_search: System._Array_BinarySearch
 
-    @staticmethod
-    @overload
-    def binary_search(array: System.Array, index: int, length: int, value: typing.Any, comparer: System.Collections.IComparer) -> int:
-        ...
+    convert_all: System._Array_ConvertAll
+
+    empty: System._Array_Empty
+
+    exists: System._Array_Exists
+
+    fill: System._Array_Fill
+
+    find: System._Array_Find
+
+    find_all: System._Array_FindAll
+
+    find_index: System._Array_FindIndex
+
+    find_last: System._Array_FindLast
+
+    find_last_index: System._Array_FindLastIndex
+
+    for_each: System._Array_ForEach
+
+    index_of: System._Array_IndexOf
+
+    last_index_of: System._Array_LastIndexOf
+
+    reverse: System._Array_Reverse
+
+    sort: System._Array_Sort
+
+    true_for_all: System._Array_TrueForAll
 
     @staticmethod
     @overload
@@ -563,47 +1297,7 @@ class Array(System.Object, System.ICloneable, System.Collections.IList, System.C
     def get_value(self, index_1: int, index_2: int, index_3: int) -> System.Object:
         ...
 
-    @staticmethod
-    @overload
-    def index_of(array: System.Array, value: typing.Any) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def index_of(array: System.Array, value: typing.Any, start_index: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def index_of(array: System.Array, value: typing.Any, start_index: int, count: int) -> int:
-        ...
-
     def initialize(self) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def last_index_of(array: System.Array, value: typing.Any) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def last_index_of(array: System.Array, value: typing.Any, start_index: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def last_index_of(array: System.Array, value: typing.Any, start_index: int, count: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def reverse(array: System.Array) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def reverse(array: System.Array, index: int, length: int) -> None:
         ...
 
     @overload
@@ -622,49 +1316,162 @@ class Array(System.Object, System.ICloneable, System.Collections.IList, System.C
     def set_value(self, value: typing.Any, *indices: typing.Union[int, typing.Iterable[int]]) -> None:
         ...
 
-    @staticmethod
+
+class _Typed_Enum_GetValuesAsUnderlyingType(typing.Generic[System_Enum_GetValuesAsUnderlyingType_TEnum]):
+    """"""
+
     @overload
-    def sort(array: System.Array) -> None:
+    def __call__(self) -> System.Array:
         ...
 
-    @staticmethod
+
+class _Enum_GetValuesAsUnderlyingType:
+    """"""
+
     @overload
-    def sort(keys: System.Array, items: System.Array) -> None:
+    def __call__(self, enum_type: typing.Type) -> System.Array:
         ...
 
-    @staticmethod
-    @overload
-    def sort(array: System.Array, index: int, length: int) -> None:
+    def __getitem__(self, type: typing.Type[System_Enum_GetValuesAsUnderlyingType_TEnum]) -> System._Typed_Enum_GetValuesAsUnderlyingType[System_Enum_GetValuesAsUnderlyingType_TEnum]:
         ...
 
-    @staticmethod
+
+class _Typed_Enum_IsDefined(typing.Generic[System_Enum_IsDefined_TEnum]):
+    """"""
+
     @overload
-    def sort(keys: System.Array, items: System.Array, index: int, length: int) -> None:
+    def __call__(self, value: System_Enum_IsDefined_TEnum) -> bool:
         ...
 
-    @staticmethod
+
+class _Enum_IsDefined:
+    """"""
+
     @overload
-    def sort(array: System.Array, comparer: System.Collections.IComparer) -> None:
+    def __call__(self, enum_type: typing.Type, value: typing.Any) -> bool:
         ...
 
-    @staticmethod
-    @overload
-    def sort(keys: System.Array, items: System.Array, comparer: System.Collections.IComparer) -> None:
+    def __getitem__(self, type: typing.Type[System_Enum_IsDefined_TEnum]) -> System._Typed_Enum_IsDefined[System_Enum_IsDefined_TEnum]:
         ...
 
-    @staticmethod
+
+class _Typed_Enum_Parse(typing.Generic[System_Enum_Parse_TEnum]):
+    """"""
+
     @overload
-    def sort(array: System.Array, index: int, length: int, comparer: System.Collections.IComparer) -> None:
+    def __call__(self, value: str) -> System_Enum_Parse_TEnum:
         ...
 
-    @staticmethod
     @overload
-    def sort(keys: System.Array, items: System.Array, index: int, length: int, comparer: System.Collections.IComparer) -> None:
+    def __call__(self, value: System.ReadOnlySpan[str]) -> System_Enum_Parse_TEnum:
+        ...
+
+    @overload
+    def __call__(self, value: str, ignore_case: bool) -> System_Enum_Parse_TEnum:
+        ...
+
+    @overload
+    def __call__(self, value: System.ReadOnlySpan[str], ignore_case: bool) -> System_Enum_Parse_TEnum:
+        ...
+
+
+class _Enum_Parse:
+    """"""
+
+    @overload
+    def __call__(self, enum_type: typing.Type, value: str) -> System.Object:
+        ...
+
+    @overload
+    def __call__(self, enum_type: typing.Type, value: System.ReadOnlySpan[str]) -> System.Object:
+        ...
+
+    @overload
+    def __call__(self, enum_type: typing.Type, value: str, ignore_case: bool) -> System.Object:
+        ...
+
+    @overload
+    def __call__(self, enum_type: typing.Type, value: System.ReadOnlySpan[str], ignore_case: bool) -> System.Object:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Enum_Parse_TEnum]) -> System._Typed_Enum_Parse[System_Enum_Parse_TEnum]:
+        ...
+
+
+class _Typed_Enum_TryParse(typing.Generic[System_Enum_TryParse_TEnum]):
+    """"""
+
+    @overload
+    def __call__(self, value: str, result: typing.Optional[System_Enum_TryParse_TEnum]) -> typing.Tuple[bool, System_Enum_TryParse_TEnum]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ReadOnlySpan[str], result: typing.Optional[System_Enum_TryParse_TEnum]) -> typing.Tuple[bool, System_Enum_TryParse_TEnum]:
+        ...
+
+    @overload
+    def __call__(self, value: str, ignore_case: bool, result: typing.Optional[System_Enum_TryParse_TEnum]) -> typing.Tuple[bool, System_Enum_TryParse_TEnum]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ReadOnlySpan[str], ignore_case: bool, result: typing.Optional[System_Enum_TryParse_TEnum]) -> typing.Tuple[bool, System_Enum_TryParse_TEnum]:
+        ...
+
+
+class _Enum_TryParse:
+    """"""
+
+    @overload
+    def __call__(self, enum_type: typing.Type, value: str, result: typing.Optional[typing.Any]) -> typing.Tuple[bool, typing.Any]:
+        ...
+
+    @overload
+    def __call__(self, enum_type: typing.Type, value: System.ReadOnlySpan[str], result: typing.Optional[typing.Any]) -> typing.Tuple[bool, typing.Any]:
+        ...
+
+    @overload
+    def __call__(self, enum_type: typing.Type, value: str, ignore_case: bool, result: typing.Optional[typing.Any]) -> typing.Tuple[bool, typing.Any]:
+        ...
+
+    @overload
+    def __call__(self, enum_type: typing.Type, value: System.ReadOnlySpan[str], ignore_case: bool, result: typing.Optional[typing.Any]) -> typing.Tuple[bool, typing.Any]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Enum_TryParse_TEnum]) -> System._Typed_Enum_TryParse[System_Enum_TryParse_TEnum]:
+        ...
+
+
+class _Typed_Enum_TryFormat(typing.Generic[System_Enum_TryFormat_TEnum]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Enum_TryFormat_TEnum, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ...) -> typing.Tuple[bool, int]:
+        ...
+
+
+class _Enum_TryFormat:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Enum_TryFormat_TEnum]) -> System._Typed_Enum_TryFormat[System_Enum_TryFormat_TEnum]:
         ...
 
 
 class Enum(System.Object, System.IComparable, System.ISpanFormattable, System.IConvertible, metaclass=abc.ABCMeta):
     """This class has no documentation."""
+
+    get_name: System._Enum_GetName
+
+    get_names: System._Enum_GetNames
+
+    get_values_as_underlying_type: System._Enum_GetValuesAsUnderlyingType
+
+    is_defined: System._Enum_IsDefined
+
+    parse: System._Enum_Parse
+
+    try_parse: System._Enum_TryParse
+
+    try_format: System._Enum_TryFormat
 
     def __ge__(self, other: typing.Any) -> bool:
         ...
@@ -691,14 +1498,6 @@ class Enum(System.Object, System.IComparable, System.ISpanFormattable, System.IC
     def get_hash_code(self) -> int:
         ...
 
-    @staticmethod
-    def get_name(enum_type: typing.Type, value: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    def get_names(enum_type: typing.Type) -> typing.List[str]:
-        ...
-
     def get_type_code(self) -> System.TypeCode:
         ...
 
@@ -707,38 +1506,10 @@ class Enum(System.Object, System.IComparable, System.ISpanFormattable, System.IC
         ...
 
     @staticmethod
-    def get_values(enum_type: typing.Type) -> System.Array:
-        ...
-
-    @staticmethod
-    def get_values_as_underlying_type(enum_type: typing.Type) -> System.Array:
+    def get_values(enum_type: System_Enum_GetValues_TEnum) -> typing.List[System_Enum_GetValues_TEnum]:
         ...
 
     def has_flag(self, flag: System.Enum) -> bool:
-        ...
-
-    @staticmethod
-    def is_defined(enum_type: typing.Type, value: typing.Any) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(enum_type: typing.Type, value: str) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(enum_type: typing.Type, value: System.ReadOnlySpan[str]) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(enum_type: typing.Type, value: str, ignore_case: bool) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(enum_type: typing.Type, value: System.ReadOnlySpan[str], ignore_case: bool) -> System.Object:
         ...
 
     @staticmethod
@@ -757,26 +1528,6 @@ class Enum(System.Object, System.IComparable, System.ISpanFormattable, System.IC
 
     @overload
     def to_string(self, format: str) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(enum_type: typing.Type, value: str, result: typing.Optional[typing.Any]) -> typing.Tuple[bool, typing.Any]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(enum_type: typing.Type, value: System.ReadOnlySpan[str], result: typing.Optional[typing.Any]) -> typing.Tuple[bool, typing.Any]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(enum_type: typing.Type, value: str, ignore_case: bool, result: typing.Optional[typing.Any]) -> typing.Tuple[bool, typing.Any]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(enum_type: typing.Type, value: System.ReadOnlySpan[str], ignore_case: bool, result: typing.Optional[typing.Any]) -> typing.Tuple[bool, typing.Any]:
         ...
 
 
@@ -2758,6 +3509,186 @@ class TimeZoneInfo(System.Object, System.IEquatable[System_TimeZoneInfo], System
         ...
 
 
+class _Typed_String_Concat(typing.Generic[System_String_Concat_T]):
+    """"""
+
+    @overload
+    def __call__(self, values: System.Collections.Generic.IEnumerable[System_String_Concat_T]) -> str:
+        ...
+
+
+class _String_Concat:
+    """"""
+
+    @overload
+    def __call__(self, arg_0: typing.Any) -> str:
+        ...
+
+    @overload
+    def __call__(self, arg_0: typing.Any, arg_1: typing.Any) -> str:
+        ...
+
+    @overload
+    def __call__(self, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> str:
+        ...
+
+    @overload
+    def __call__(self, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
+        ...
+
+    @overload
+    def __call__(self, values: System.Collections.Generic.IEnumerable[str]) -> str:
+        ...
+
+    @overload
+    def __call__(self, str_0: str, str_1: str) -> str:
+        ...
+
+    @overload
+    def __call__(self, str_0: str, str_1: str, str_2: str) -> str:
+        ...
+
+    @overload
+    def __call__(self, str_0: str, str_1: str, str_2: str, str_3: str) -> str:
+        ...
+
+    @overload
+    def __call__(self, str_0: System.ReadOnlySpan[str], str_1: System.ReadOnlySpan[str]) -> str:
+        ...
+
+    @overload
+    def __call__(self, str_0: System.ReadOnlySpan[str], str_1: System.ReadOnlySpan[str], str_2: System.ReadOnlySpan[str]) -> str:
+        ...
+
+    @overload
+    def __call__(self, str_0: System.ReadOnlySpan[str], str_1: System.ReadOnlySpan[str], str_2: System.ReadOnlySpan[str], str_3: System.ReadOnlySpan[str]) -> str:
+        ...
+
+    @overload
+    def __call__(self, *values: typing.Union[str, typing.Iterable[str]]) -> str:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_String_Concat_T]) -> System._Typed_String_Concat[System_String_Concat_T]:
+        ...
+
+
+class _Typed_String_Format(typing.Generic[System_String_Format_TArg0]):
+    """"""
+
+    @overload
+    def __call__(self, provider: System.IFormatProvider, format: System.Text.CompositeFormat, arg_0: System_String_Format_TArg0) -> str:
+        ...
+
+    @overload
+    def __call__(self, provider: System.IFormatProvider, format: System.Text.CompositeFormat, arg_0: System_String_Format_TArg0, arg_1: System_String_Format_TArg1) -> str:
+        ...
+
+    @overload
+    def __call__(self, provider: System.IFormatProvider, format: System.Text.CompositeFormat, arg_0: System_String_Format_TArg0, arg_1: System_String_Format_TArg1, arg_2: System_String_Format_TArg2) -> str:
+        ...
+
+
+class _String_Format:
+    """"""
+
+    @overload
+    def __call__(self, format: str, arg_0: typing.Any) -> str:
+        ...
+
+    @overload
+    def __call__(self, format: str, arg_0: typing.Any, arg_1: typing.Any) -> str:
+        ...
+
+    @overload
+    def __call__(self, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> str:
+        ...
+
+    @overload
+    def __call__(self, format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
+        ...
+
+    @overload
+    def __call__(self, provider: System.IFormatProvider, format: str, arg_0: typing.Any) -> str:
+        ...
+
+    @overload
+    def __call__(self, provider: System.IFormatProvider, format: str, arg_0: typing.Any, arg_1: typing.Any) -> str:
+        ...
+
+    @overload
+    def __call__(self, provider: System.IFormatProvider, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> str:
+        ...
+
+    @overload
+    def __call__(self, provider: System.IFormatProvider, format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
+        ...
+
+    @overload
+    def __call__(self, provider: System.IFormatProvider, format: System.Text.CompositeFormat, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_String_Format_TArg0]) -> System._Typed_String_Format[System_String_Format_TArg0]:
+        ...
+
+
+class _Typed_String_Join(typing.Generic[System_String_Join_T]):
+    """"""
+
+    @overload
+    def __call__(self, separator: str, values: System.Collections.Generic.IEnumerable[System_String_Join_T]) -> str:
+        ...
+
+    @overload
+    def __call__(self, separator: str, values: System.Collections.Generic.IEnumerable[System_String_Join_T]) -> str:
+        ...
+
+
+class _String_Join:
+    """"""
+
+    @overload
+    def __call__(self, separator: str, *value: typing.Union[str, typing.Iterable[str]]) -> str:
+        ...
+
+    @overload
+    def __call__(self, separator: str, value: typing.List[str], start_index: int, count: int) -> str:
+        ...
+
+    @overload
+    def __call__(self, separator: str, values: System.Collections.Generic.IEnumerable[str]) -> str:
+        ...
+
+    @overload
+    def __call__(self, separator: str, *values: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_String_Join_T]) -> System._Typed_String_Join[System_String_Join_T]:
+        ...
+
+
+class _Typed_String_Create(typing.Generic[System_String_Create_TState]):
+    """"""
+
+    @overload
+    def __call__(self, length: int, state: System_String_Create_TState, action: typing.Callable[[System.Span[str], System_String_Create_TState], typing.Any]) -> str:
+        ...
+
+
+class _String_Create:
+    """"""
+
+    @overload
+    def __call__(self, provider: System.IFormatProvider, handler: System.Runtime.CompilerServices.DefaultInterpolatedStringHandler) -> str:
+        ...
+
+    @overload
+    def __call__(self, provider: System.IFormatProvider, initial_buffer: System.Span[str], handler: System.Runtime.CompilerServices.DefaultInterpolatedStringHandler) -> str:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_String_Create_TState]) -> System._Typed_String_Create[System_String_Create_TState]:
+        ...
+
+
 class StringComparison(IntEnum):
     """This class has no documentation."""
 
@@ -2802,6 +3733,14 @@ class String(System.Object, System.IComparable[str], System.IConvertible, System
     @property
     def length(self) -> int:
         ...
+
+    concat: System._String_Concat
+
+    format: System._String_Format
+
+    join: System._String_Join
+
+    create: System._String_Create
 
     def __eq__(self, b: str) -> bool:
         ...
@@ -2946,66 +3885,6 @@ class String(System.Object, System.IComparable[str], System.IConvertible, System
     def compare_to(self, str_b: str) -> int:
         ...
 
-    @staticmethod
-    @overload
-    def concat(arg_0: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(arg_0: typing.Any, arg_1: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(*args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(values: System.Collections.Generic.IEnumerable[str]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(str_0: str, str_1: str) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(str_0: str, str_1: str, str_2: str) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(str_0: str, str_1: str, str_2: str, str_3: str) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(str_0: System.ReadOnlySpan[str], str_1: System.ReadOnlySpan[str]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(str_0: System.ReadOnlySpan[str], str_1: System.ReadOnlySpan[str], str_2: System.ReadOnlySpan[str]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(str_0: System.ReadOnlySpan[str], str_1: System.ReadOnlySpan[str], str_2: System.ReadOnlySpan[str], str_3: System.ReadOnlySpan[str]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(*values: typing.Union[str, typing.Iterable[str]]) -> str:
-        ...
-
     @overload
     def contains(self, value: str) -> bool:
         ...
@@ -3032,16 +3911,6 @@ class String(System.Object, System.IComparable[str], System.IConvertible, System
 
     @overload
     def copy_to(self, destination: System.Span[str]) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def create(provider: System.IFormatProvider, handler: System.Runtime.CompilerServices.DefaultInterpolatedStringHandler) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def create(provider: System.IFormatProvider, initial_buffer: System.Span[str], handler: System.Runtime.CompilerServices.DefaultInterpolatedStringHandler) -> str:
         ...
 
     @overload
@@ -3087,51 +3956,6 @@ class String(System.Object, System.IComparable[str], System.IConvertible, System
     @staticmethod
     @overload
     def equals(a: str, b: str, comparison_type: System.StringComparison) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def format(format: str, arg_0: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def format(format: str, arg_0: typing.Any, arg_1: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def format(format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def format(format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def format(provider: System.IFormatProvider, format: str, arg_0: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def format(provider: System.IFormatProvider, format: str, arg_0: typing.Any, arg_1: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def format(provider: System.IFormatProvider, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def format(provider: System.IFormatProvider, format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def format(provider: System.IFormatProvider, format: System.Text.CompositeFormat, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
         ...
 
     def get_enumerator(self) -> System.CharEnumerator:
@@ -3246,26 +4070,6 @@ class String(System.Object, System.IComparable[str], System.IConvertible, System
 
     @staticmethod
     def is_null_or_white_space(value: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def join(separator: str, *value: typing.Union[str, typing.Iterable[str]]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def join(separator: str, value: typing.List[str], start_index: int, count: int) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def join(separator: str, values: System.Collections.Generic.IEnumerable[str]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def join(separator: str, *values: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
         ...
 
     @overload
@@ -3538,10 +4342,106 @@ class String(System.Object, System.IComparable[str], System.IConvertible, System
         ...
 
 
+class _Typed_Random_NextInteger(typing.Generic[System_Random_NextInteger_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> System_Random_NextInteger_T:
+        ...
+
+    @overload
+    def __call__(self, max_value: System_Random_NextInteger_T) -> System_Random_NextInteger_T:
+        ...
+
+    @overload
+    def __call__(self, min_value: System_Random_NextInteger_T, max_value: System_Random_NextInteger_T) -> System_Random_NextInteger_T:
+        ...
+
+
+class _Random_NextInteger:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Random_NextInteger_T]) -> System._Typed_Random_NextInteger[System_Random_NextInteger_T]:
+        ...
+
+
+class _Typed_Random_NextBinaryFloat(typing.Generic[System_Random_NextBinaryFloat_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> System_Random_NextBinaryFloat_T:
+        ...
+
+
+class _Random_NextBinaryFloat:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Random_NextBinaryFloat_T]) -> System._Typed_Random_NextBinaryFloat[System_Random_NextBinaryFloat_T]:
+        ...
+
+
+class _Typed_Random_GetItems(typing.Generic[System_Random_GetItems_T]):
+    """"""
+
+    @overload
+    def __call__(self, choices: System.ReadOnlySpan[System_Random_GetItems_T], destination: System.Span[System_Random_GetItems_T]) -> None:
+        ...
+
+    @overload
+    def __call__(self, choices: typing.List[System_Random_GetItems_T], length: int) -> typing.List[System_Random_GetItems_T]:
+        ...
+
+    @overload
+    def __call__(self, choices: System.ReadOnlySpan[System_Random_GetItems_T], length: int) -> typing.List[System_Random_GetItems_T]:
+        ...
+
+
+class _Random_GetItems:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Random_GetItems_T]) -> System._Typed_Random_GetItems[System_Random_GetItems_T]:
+        ...
+
+
+class _Typed_Random_Shuffle(typing.Generic[System_Random_Shuffle_T]):
+    """"""
+
+    @overload
+    def __call__(self, values: typing.List[System_Random_Shuffle_T]) -> None:
+        ...
+
+    @overload
+    def __call__(self, values: System.Span[System_Random_Shuffle_T]) -> None:
+        ...
+
+
+class _Random_Shuffle:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Random_Shuffle_T]) -> System._Typed_Random_Shuffle[System_Random_Shuffle_T]:
+        ...
+
+
 class Random(System.Object):
     """This class has no documentation."""
 
     SHARED: System.Random
+
+    @property
+    def next_integer(self) -> System._Random_NextInteger:
+        ...
+
+    @property
+    def next_binary_float(self) -> System._Random_NextBinaryFloat:
+        ...
+
+    @property
+    def get_items(self) -> System._Random_GetItems:
+        ...
+
+    @property
+    def shuffle(self) -> System._Random_Shuffle:
+        ...
 
     @overload
     def __init__(self) -> None:
@@ -3850,6 +4750,21 @@ class AttributeUsageAttribute(System.Attribute):
         ...
 
 
+class _Typed_Delegate_EnumerateInvocationList(typing.Generic[System_Delegate_EnumerateInvocationList_TDelegate]):
+    """"""
+
+    @overload
+    def __call__(self, d: System_Delegate_EnumerateInvocationList_TDelegate) -> System.Delegate.InvocationListEnumerator[System_Delegate_EnumerateInvocationList_TDelegate]:
+        ...
+
+
+class _Delegate_EnumerateInvocationList:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Delegate_EnumerateInvocationList_TDelegate]) -> System._Typed_Delegate_EnumerateInvocationList[System_Delegate_EnumerateInvocationList_TDelegate]:
+        ...
+
+
 class Delegate(System.Object, System.ICloneable, System.Runtime.Serialization.ISerializable, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -3880,6 +4795,8 @@ class Delegate(System.Object, System.ICloneable, System.Runtime.Serialization.IS
     @property
     def target(self) -> System.Object:
         ...
+
+    enumerate_invocation_list: System._Delegate_EnumerateInvocationList
 
     def __eq__(self, d_2: System.Delegate) -> bool:
         ...
@@ -3994,6 +4911,81 @@ class Delegate(System.Object, System.ICloneable, System.Runtime.Serialization.IS
         ...
 
 
+class _Typed_Half_ConvertToInteger(typing.Generic[System_Half_ConvertToInteger_TInteger]):
+    """"""
+
+    @overload
+    def __call__(self, value: System.Half) -> System_Half_ConvertToInteger_TInteger:
+        ...
+
+
+class _Half_ConvertToInteger:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Half_ConvertToInteger_TInteger]) -> System._Typed_Half_ConvertToInteger[System_Half_ConvertToInteger_TInteger]:
+        ...
+
+
+class _Typed_Half_ConvertToIntegerNative(typing.Generic[System_Half_ConvertToIntegerNative_TInteger]):
+    """"""
+
+    @overload
+    def __call__(self, value: System.Half) -> System_Half_ConvertToIntegerNative_TInteger:
+        ...
+
+
+class _Half_ConvertToIntegerNative:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Half_ConvertToIntegerNative_TInteger]) -> System._Typed_Half_ConvertToIntegerNative[System_Half_ConvertToIntegerNative_TInteger]:
+        ...
+
+
+class _Typed_Half_CreateChecked(typing.Generic[System_Half_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Half_CreateChecked_TOther) -> System.Half:
+        ...
+
+
+class _Half_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Half_CreateChecked_TOther]) -> System._Typed_Half_CreateChecked[System_Half_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_Half_CreateSaturating(typing.Generic[System_Half_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Half_CreateSaturating_TOther) -> System.Half:
+        ...
+
+
+class _Half_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Half_CreateSaturating_TOther]) -> System._Typed_Half_CreateSaturating[System_Half_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_Half_CreateTruncating(typing.Generic[System_Half_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Half_CreateTruncating_TOther) -> System.Half:
+        ...
+
+
+class _Half_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Half_CreateTruncating_TOther]) -> System._Typed_Half_CreateTruncating[System_Half_CreateTruncating_TOther]:
+        ...
+
+
 class MidpointRounding(IntEnum):
     """This class has no documentation."""
 
@@ -4038,6 +5030,16 @@ class Half(System.IComparable[System_Half], System.ISpanFormattable, System.IEqu
     ZERO: System.Half
 
     NEGATIVE_ONE: System.Half
+
+    convert_to_integer: System._Half_ConvertToInteger
+
+    convert_to_integer_native: System._Half_ConvertToIntegerNative
+
+    create_checked: System._Half_CreateChecked
+
+    create_saturating: System._Half_CreateSaturating
+
+    create_truncating: System._Half_CreateTruncating
 
     def __add__(self, right: System.Half) -> System.Half:
         ...
@@ -5510,12 +6512,63 @@ class PlatformNotSupportedException(System.NotSupportedException):
         ...
 
 
+class _Typed_Byte_CreateChecked(typing.Generic[System_Byte_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Byte_CreateChecked_TOther) -> int:
+        ...
+
+
+class _Byte_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Byte_CreateChecked_TOther]) -> System._Typed_Byte_CreateChecked[System_Byte_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_Byte_CreateSaturating(typing.Generic[System_Byte_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Byte_CreateSaturating_TOther) -> int:
+        ...
+
+
+class _Byte_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Byte_CreateSaturating_TOther]) -> System._Typed_Byte_CreateSaturating[System_Byte_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_Byte_CreateTruncating(typing.Generic[System_Byte_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Byte_CreateTruncating_TOther) -> int:
+        ...
+
+
+class _Byte_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Byte_CreateTruncating_TOther]) -> System._Typed_Byte_CreateTruncating[System_Byte_CreateTruncating_TOther]:
+        ...
+
+
 class Byte(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.IUnsignedNumber[int], System.IUtf8SpanFormattable, System.IUtfChar[int], System.IBinaryIntegerParseAndFormatInfo[int]):
     """This class has no documentation."""
 
     MAX_VALUE: int = ...
 
     MIN_VALUE: int = 0
+
+    create_checked: System._Byte_CreateChecked
+
+    create_saturating: System._Byte_CreateSaturating
+
+    create_truncating: System._Byte_CreateTruncating
 
     @overload
     def __ge__(self, other: typing.Any) -> bool:
@@ -5757,6 +6810,49 @@ class LoaderOptimization(IntEnum):
     SINGLE_DOMAIN = 1
 
 
+class _Typed_Tuple_Create(typing.Generic[System_Tuple_Create_T1]):
+    """"""
+
+    @overload
+    def __call__(self, item_1: System_Tuple_Create_T1) -> System.Tuple[System_Tuple_Create_T1]:
+        ...
+
+    @overload
+    def __call__(self, item_1: System_Tuple_Create_T1, item_2: System_Tuple_Create_T2) -> System.Tuple[System_Tuple_Create_T1, System_Tuple_Create_T2]:
+        ...
+
+    @overload
+    def __call__(self, item_1: System_Tuple_Create_T1, item_2: System_Tuple_Create_T2, item_3: System_Tuple_Create_T3) -> System.Tuple[System_Tuple_Create_T1, System_Tuple_Create_T2, System_Tuple_Create_T3]:
+        ...
+
+    @overload
+    def __call__(self, item_1: System_Tuple_Create_T1, item_2: System_Tuple_Create_T2, item_3: System_Tuple_Create_T3, item_4: System_Tuple_Create_T4) -> System.Tuple[System_Tuple_Create_T1, System_Tuple_Create_T2, System_Tuple_Create_T3, System_Tuple_Create_T4]:
+        ...
+
+    @overload
+    def __call__(self, item_1: System_Tuple_Create_T1, item_2: System_Tuple_Create_T2, item_3: System_Tuple_Create_T3, item_4: System_Tuple_Create_T4, item_5: System_Tuple_Create_T5) -> System.Tuple[System_Tuple_Create_T1, System_Tuple_Create_T2, System_Tuple_Create_T3, System_Tuple_Create_T4, System_Tuple_Create_T5]:
+        ...
+
+    @overload
+    def __call__(self, item_1: System_Tuple_Create_T1, item_2: System_Tuple_Create_T2, item_3: System_Tuple_Create_T3, item_4: System_Tuple_Create_T4, item_5: System_Tuple_Create_T5, item_6: System_Tuple_Create_T6) -> System.Tuple[System_Tuple_Create_T1, System_Tuple_Create_T2, System_Tuple_Create_T3, System_Tuple_Create_T4, System_Tuple_Create_T5, System_Tuple_Create_T6]:
+        ...
+
+    @overload
+    def __call__(self, item_1: System_Tuple_Create_T1, item_2: System_Tuple_Create_T2, item_3: System_Tuple_Create_T3, item_4: System_Tuple_Create_T4, item_5: System_Tuple_Create_T5, item_6: System_Tuple_Create_T6, item_7: System_Tuple_Create_T7) -> System.Tuple[System_Tuple_Create_T1, System_Tuple_Create_T2, System_Tuple_Create_T3, System_Tuple_Create_T4, System_Tuple_Create_T5, System_Tuple_Create_T6, System_Tuple_Create_T7]:
+        ...
+
+    @overload
+    def __call__(self, item_1: System_Tuple_Create_T1, item_2: System_Tuple_Create_T2, item_3: System_Tuple_Create_T3, item_4: System_Tuple_Create_T4, item_5: System_Tuple_Create_T5, item_6: System_Tuple_Create_T6, item_7: System_Tuple_Create_T7, item_8: System_Tuple_Create_T8) -> System.Tuple[System_Tuple_Create_T1, System_Tuple_Create_T2, System_Tuple_Create_T3, System_Tuple_Create_T4, System_Tuple_Create_T5, System_Tuple_Create_T6, System_Tuple_Create_T7, System.Tuple[System_Tuple_Create_T8]]:
+        ...
+
+
+class _Tuple_Create:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Tuple_Create_T1]) -> System._Typed_Tuple_Create[System_Tuple_Create_T1]:
+        ...
+
+
 class Tuple(typing.Generic[System_Tuple_T1, System_Tuple_T2, System_Tuple_T3, System_Tuple_T4, System_Tuple_T5, System_Tuple_T6, System_Tuple_T7, System_Tuple_TRest], System.Object, System.Collections.IStructuralEquatable, System.Collections.IStructuralComparable, System.IComparable, System.ITupleInternal):
     """This class has no documentation."""
 
@@ -5791,6 +6887,8 @@ class Tuple(typing.Generic[System_Tuple_T1, System_Tuple_T2, System_Tuple_T3, Sy
     @property
     def rest(self) -> System_Tuple_TRest:
         ...
+
+    create: System._Tuple_Create
 
     @overload
     def __init__(self, item_1: System_Tuple_T1) -> None:
@@ -6168,12 +7266,63 @@ class TimeZone(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
+class _Typed_Int32_CreateChecked(typing.Generic[System_Int32_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Int32_CreateChecked_TOther) -> int:
+        ...
+
+
+class _Int32_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Int32_CreateChecked_TOther]) -> System._Typed_Int32_CreateChecked[System_Int32_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_Int32_CreateSaturating(typing.Generic[System_Int32_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Int32_CreateSaturating_TOther) -> int:
+        ...
+
+
+class _Int32_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Int32_CreateSaturating_TOther]) -> System._Typed_Int32_CreateSaturating[System_Int32_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_Int32_CreateTruncating(typing.Generic[System_Int32_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Int32_CreateTruncating_TOther) -> int:
+        ...
+
+
+class _Int32_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Int32_CreateTruncating_TOther]) -> System._Typed_Int32_CreateTruncating[System_Int32_CreateTruncating_TOther]:
+        ...
+
+
 class Int32(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.ISignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
     """This class has no documentation."""
 
     MAX_VALUE: int = ...
 
     MIN_VALUE: int = ...
+
+    create_checked: System._Int32_CreateChecked
+
+    create_saturating: System._Int32_CreateSaturating
+
+    create_truncating: System._Int32_CreateTruncating
 
     @overload
     def __ge__(self, other: typing.Any) -> bool:
@@ -7420,6 +8569,36 @@ class IAsyncDisposable(metaclass=abc.ABCMeta):
         ...
 
 
+class _Typed_GC_AllocateUninitializedArray(typing.Generic[System_GC_AllocateUninitializedArray_T]):
+    """"""
+
+    @overload
+    def __call__(self, length: int, pinned: bool = False) -> typing.List[System_GC_AllocateUninitializedArray_T]:
+        ...
+
+
+class _GC_AllocateUninitializedArray:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_GC_AllocateUninitializedArray_T]) -> System._Typed_GC_AllocateUninitializedArray[System_GC_AllocateUninitializedArray_T]:
+        ...
+
+
+class _Typed_GC_AllocateArray(typing.Generic[System_GC_AllocateArray_T]):
+    """"""
+
+    @overload
+    def __call__(self, length: int, pinned: bool = False) -> typing.List[System_GC_AllocateArray_T]:
+        ...
+
+
+class _GC_AllocateArray:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_GC_AllocateArray_T]) -> System._Typed_GC_AllocateArray[System_GC_AllocateArray_T]:
+        ...
+
+
 class GCNotificationStatus(IntEnum):
     """This class has no documentation."""
 
@@ -7550,6 +8729,10 @@ class GC(System.Object):
     """This class has no documentation."""
 
     MAX_GENERATION: int
+
+    allocate_uninitialized_array: System._GC_AllocateUninitializedArray
+
+    allocate_array: System._GC_AllocateArray
 
     @staticmethod
     def add_memory_pressure(bytes_allocated: int) -> None:
@@ -7894,6 +9077,96 @@ class InvalidTimeZoneException(System.Exception):
         ...
 
 
+class _Typed_Int64_CreateChecked(typing.Generic[System_Int64_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Int64_CreateChecked_TOther) -> int:
+        ...
+
+
+class _Int64_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Int64_CreateChecked_TOther]) -> System._Typed_Int64_CreateChecked[System_Int64_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_Int64_CreateSaturating(typing.Generic[System_Int64_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Int64_CreateSaturating_TOther) -> int:
+        ...
+
+
+class _Int64_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Int64_CreateSaturating_TOther]) -> System._Typed_Int64_CreateSaturating[System_Int64_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_Int64_CreateTruncating(typing.Generic[System_Int64_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Int64_CreateTruncating_TOther) -> int:
+        ...
+
+
+class _Int64_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Int64_CreateTruncating_TOther]) -> System._Typed_Int64_CreateTruncating[System_Int64_CreateTruncating_TOther]:
+        ...
+
+
+class _Typed_Int128_CreateChecked(typing.Generic[System_Int128_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Int128_CreateChecked_TOther) -> System.Int128:
+        ...
+
+
+class _Int128_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Int128_CreateChecked_TOther]) -> System._Typed_Int128_CreateChecked[System_Int128_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_Int128_CreateSaturating(typing.Generic[System_Int128_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Int128_CreateSaturating_TOther) -> System.Int128:
+        ...
+
+
+class _Int128_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Int128_CreateSaturating_TOther]) -> System._Typed_Int128_CreateSaturating[System_Int128_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_Int128_CreateTruncating(typing.Generic[System_Int128_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Int128_CreateTruncating_TOther) -> System.Int128:
+        ...
+
+
+class _Int128_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Int128_CreateTruncating_TOther]) -> System._Typed_Int128_CreateTruncating[System_Int128_CreateTruncating_TOther]:
+        ...
+
+
 class Int128(System.Numerics.ISignedNumber[System_Int128], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[System_Int128]):
     """This class has no documentation."""
 
@@ -7906,6 +9179,12 @@ class Int128(System.Numerics.ISignedNumber[System_Int128], System.IUtf8SpanForma
     ZERO: System.Int128
 
     NEGATIVE_ONE: System.Int128
+
+    create_checked: System._Int128_CreateChecked
+
+    create_saturating: System._Int128_CreateSaturating
+
+    create_truncating: System._Int128_CreateTruncating
 
     @overload
     def __add__(self, right: System.Int128) -> System.Int128:
@@ -8265,6 +9544,12 @@ class Int64(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
     MAX_VALUE: int = ...
 
     MIN_VALUE: int = ...
+
+    create_checked: System._Int64_CreateChecked
+
+    create_saturating: System._Int64_CreateSaturating
+
+    create_truncating: System._Int64_CreateTruncating
 
     @overload
     def __ge__(self, other: typing.Any) -> bool:
@@ -8657,6 +9942,1428 @@ class OutOfMemoryException(System.SystemException):
         ...
 
 
+class _Typed_MemoryExtensions_Trim(typing.Generic[System_MemoryExtensions_Trim_T]):
+    """"""
+
+    @overload
+    def __call__(self, memory: System.Memory[System_MemoryExtensions_Trim_T], trim_element: System_MemoryExtensions_Trim_T) -> System.Memory[System_MemoryExtensions_Trim_T]:
+        ...
+
+    @overload
+    def __call__(self, memory: System.ReadOnlyMemory[System_MemoryExtensions_Trim_T], trim_element: System_MemoryExtensions_Trim_T) -> System.ReadOnlyMemory[System_MemoryExtensions_Trim_T]:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_Trim_T], trim_element: System_MemoryExtensions_Trim_T) -> System.Span[System_MemoryExtensions_Trim_T]:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_Trim_T], trim_element: System_MemoryExtensions_Trim_T) -> System.ReadOnlySpan[System_MemoryExtensions_Trim_T]:
+        ...
+
+    @overload
+    def __call__(self, memory: System.Memory[System_MemoryExtensions_Trim_T], trim_elements: System.ReadOnlySpan[System_MemoryExtensions_Trim_T]) -> System.Memory[System_MemoryExtensions_Trim_T]:
+        ...
+
+    @overload
+    def __call__(self, memory: System.ReadOnlyMemory[System_MemoryExtensions_Trim_T], trim_elements: System.ReadOnlySpan[System_MemoryExtensions_Trim_T]) -> System.ReadOnlyMemory[System_MemoryExtensions_Trim_T]:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_Trim_T], trim_elements: System.ReadOnlySpan[System_MemoryExtensions_Trim_T]) -> System.Span[System_MemoryExtensions_Trim_T]:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_Trim_T], trim_elements: System.ReadOnlySpan[System_MemoryExtensions_Trim_T]) -> System.ReadOnlySpan[System_MemoryExtensions_Trim_T]:
+        ...
+
+
+class _MemoryExtensions_Trim:
+    """"""
+
+    @overload
+    def __call__(self, memory: System.Memory[str]) -> System.Memory[str]:
+        ...
+
+    @overload
+    def __call__(self, memory: System.ReadOnlyMemory[str]) -> System.ReadOnlyMemory[str]:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[str], trim_char: str) -> System.ReadOnlySpan[str]:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[str], trim_chars: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[str]) -> System.Span[str]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_Trim_T]) -> System._Typed_MemoryExtensions_Trim[System_MemoryExtensions_Trim_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_TrimStart(typing.Generic[System_MemoryExtensions_TrimStart_T]):
+    """"""
+
+    @overload
+    def __call__(self, memory: System.Memory[System_MemoryExtensions_TrimStart_T], trim_element: System_MemoryExtensions_TrimStart_T) -> System.Memory[System_MemoryExtensions_TrimStart_T]:
+        ...
+
+    @overload
+    def __call__(self, memory: System.ReadOnlyMemory[System_MemoryExtensions_TrimStart_T], trim_element: System_MemoryExtensions_TrimStart_T) -> System.ReadOnlyMemory[System_MemoryExtensions_TrimStart_T]:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_TrimStart_T], trim_element: System_MemoryExtensions_TrimStart_T) -> System.Span[System_MemoryExtensions_TrimStart_T]:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_TrimStart_T], trim_element: System_MemoryExtensions_TrimStart_T) -> System.ReadOnlySpan[System_MemoryExtensions_TrimStart_T]:
+        ...
+
+    @overload
+    def __call__(self, memory: System.Memory[System_MemoryExtensions_TrimStart_T], trim_elements: System.ReadOnlySpan[System_MemoryExtensions_TrimStart_T]) -> System.Memory[System_MemoryExtensions_TrimStart_T]:
+        ...
+
+    @overload
+    def __call__(self, memory: System.ReadOnlyMemory[System_MemoryExtensions_TrimStart_T], trim_elements: System.ReadOnlySpan[System_MemoryExtensions_TrimStart_T]) -> System.ReadOnlyMemory[System_MemoryExtensions_TrimStart_T]:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_TrimStart_T], trim_elements: System.ReadOnlySpan[System_MemoryExtensions_TrimStart_T]) -> System.Span[System_MemoryExtensions_TrimStart_T]:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_TrimStart_T], trim_elements: System.ReadOnlySpan[System_MemoryExtensions_TrimStart_T]) -> System.ReadOnlySpan[System_MemoryExtensions_TrimStart_T]:
+        ...
+
+
+class _MemoryExtensions_TrimStart:
+    """"""
+
+    @overload
+    def __call__(self, memory: System.Memory[str]) -> System.Memory[str]:
+        ...
+
+    @overload
+    def __call__(self, memory: System.ReadOnlyMemory[str]) -> System.ReadOnlyMemory[str]:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[str], trim_char: str) -> System.ReadOnlySpan[str]:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[str], trim_chars: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[str]) -> System.Span[str]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_TrimStart_T]) -> System._Typed_MemoryExtensions_TrimStart[System_MemoryExtensions_TrimStart_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_TrimEnd(typing.Generic[System_MemoryExtensions_TrimEnd_T]):
+    """"""
+
+    @overload
+    def __call__(self, memory: System.Memory[System_MemoryExtensions_TrimEnd_T], trim_element: System_MemoryExtensions_TrimEnd_T) -> System.Memory[System_MemoryExtensions_TrimEnd_T]:
+        ...
+
+    @overload
+    def __call__(self, memory: System.ReadOnlyMemory[System_MemoryExtensions_TrimEnd_T], trim_element: System_MemoryExtensions_TrimEnd_T) -> System.ReadOnlyMemory[System_MemoryExtensions_TrimEnd_T]:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_TrimEnd_T], trim_element: System_MemoryExtensions_TrimEnd_T) -> System.Span[System_MemoryExtensions_TrimEnd_T]:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_TrimEnd_T], trim_element: System_MemoryExtensions_TrimEnd_T) -> System.ReadOnlySpan[System_MemoryExtensions_TrimEnd_T]:
+        ...
+
+    @overload
+    def __call__(self, memory: System.Memory[System_MemoryExtensions_TrimEnd_T], trim_elements: System.ReadOnlySpan[System_MemoryExtensions_TrimEnd_T]) -> System.Memory[System_MemoryExtensions_TrimEnd_T]:
+        ...
+
+    @overload
+    def __call__(self, memory: System.ReadOnlyMemory[System_MemoryExtensions_TrimEnd_T], trim_elements: System.ReadOnlySpan[System_MemoryExtensions_TrimEnd_T]) -> System.ReadOnlyMemory[System_MemoryExtensions_TrimEnd_T]:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_TrimEnd_T], trim_elements: System.ReadOnlySpan[System_MemoryExtensions_TrimEnd_T]) -> System.Span[System_MemoryExtensions_TrimEnd_T]:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_TrimEnd_T], trim_elements: System.ReadOnlySpan[System_MemoryExtensions_TrimEnd_T]) -> System.ReadOnlySpan[System_MemoryExtensions_TrimEnd_T]:
+        ...
+
+
+class _MemoryExtensions_TrimEnd:
+    """"""
+
+    @overload
+    def __call__(self, memory: System.Memory[str]) -> System.Memory[str]:
+        ...
+
+    @overload
+    def __call__(self, memory: System.ReadOnlyMemory[str]) -> System.ReadOnlyMemory[str]:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[str], trim_char: str) -> System.ReadOnlySpan[str]:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[str], trim_chars: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[str]) -> System.Span[str]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_TrimEnd_T]) -> System._Typed_MemoryExtensions_TrimEnd[System_MemoryExtensions_TrimEnd_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_AsSpan(typing.Generic[System_MemoryExtensions_AsSpan_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_MemoryExtensions_AsSpan_T], start: int) -> System.Span[System_MemoryExtensions_AsSpan_T]:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_MemoryExtensions_AsSpan_T], start_index: System.Index) -> System.Span[System_MemoryExtensions_AsSpan_T]:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_MemoryExtensions_AsSpan_T], range: System.Range) -> System.Span[System_MemoryExtensions_AsSpan_T]:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_MemoryExtensions_AsSpan_T]) -> System.Span[System_MemoryExtensions_AsSpan_T]:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_MemoryExtensions_AsSpan_T], start: int, length: int) -> System.Span[System_MemoryExtensions_AsSpan_T]:
+        ...
+
+    @overload
+    def __call__(self, segment: System.ArraySegment[System_MemoryExtensions_AsSpan_T]) -> System.Span[System_MemoryExtensions_AsSpan_T]:
+        ...
+
+    @overload
+    def __call__(self, segment: System.ArraySegment[System_MemoryExtensions_AsSpan_T], start: int) -> System.Span[System_MemoryExtensions_AsSpan_T]:
+        ...
+
+    @overload
+    def __call__(self, segment: System.ArraySegment[System_MemoryExtensions_AsSpan_T], start_index: System.Index) -> System.Span[System_MemoryExtensions_AsSpan_T]:
+        ...
+
+    @overload
+    def __call__(self, segment: System.ArraySegment[System_MemoryExtensions_AsSpan_T], start: int, length: int) -> System.Span[System_MemoryExtensions_AsSpan_T]:
+        ...
+
+    @overload
+    def __call__(self, segment: System.ArraySegment[System_MemoryExtensions_AsSpan_T], range: System.Range) -> System.Span[System_MemoryExtensions_AsSpan_T]:
+        ...
+
+
+class _MemoryExtensions_AsSpan:
+    """"""
+
+    @overload
+    def __call__(self, text: str) -> System.ReadOnlySpan[str]:
+        ...
+
+    @overload
+    def __call__(self, text: str, start: int) -> System.ReadOnlySpan[str]:
+        ...
+
+    @overload
+    def __call__(self, text: str, start_index: System.Index) -> System.ReadOnlySpan[str]:
+        ...
+
+    @overload
+    def __call__(self, text: str, range: System.Range) -> System.ReadOnlySpan[str]:
+        ...
+
+    @overload
+    def __call__(self, text: str, start: int, length: int) -> System.ReadOnlySpan[str]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_AsSpan_T]) -> System._Typed_MemoryExtensions_AsSpan[System_MemoryExtensions_AsSpan_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_Contains(typing.Generic[System_MemoryExtensions_Contains_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_Contains_T], value: System_MemoryExtensions_Contains_T) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_Contains_T], value: System_MemoryExtensions_Contains_T) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_Contains_T], value: System_MemoryExtensions_Contains_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_Contains_T] = None) -> bool:
+        ...
+
+
+class _MemoryExtensions_Contains:
+    """"""
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> bool:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_Contains_T]) -> System._Typed_MemoryExtensions_Contains[System_MemoryExtensions_Contains_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_ContainsAny(typing.Generic[System_MemoryExtensions_ContainsAny_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_ContainsAny_T], value_0: System_MemoryExtensions_ContainsAny_T, value_1: System_MemoryExtensions_ContainsAny_T) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_ContainsAny_T], value_0: System_MemoryExtensions_ContainsAny_T, value_1: System_MemoryExtensions_ContainsAny_T, value_2: System_MemoryExtensions_ContainsAny_T) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_ContainsAny_T], values: System.ReadOnlySpan[System_MemoryExtensions_ContainsAny_T]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_ContainsAny_T], values: System.Buffers.SearchValues[System_MemoryExtensions_ContainsAny_T]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_ContainsAny_T], value_0: System_MemoryExtensions_ContainsAny_T, value_1: System_MemoryExtensions_ContainsAny_T) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_ContainsAny_T], value_0: System_MemoryExtensions_ContainsAny_T, value_1: System_MemoryExtensions_ContainsAny_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_ContainsAny_T] = None) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_ContainsAny_T], value_0: System_MemoryExtensions_ContainsAny_T, value_1: System_MemoryExtensions_ContainsAny_T, value_2: System_MemoryExtensions_ContainsAny_T) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_ContainsAny_T], value_0: System_MemoryExtensions_ContainsAny_T, value_1: System_MemoryExtensions_ContainsAny_T, value_2: System_MemoryExtensions_ContainsAny_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_ContainsAny_T] = None) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_ContainsAny_T], values: System.ReadOnlySpan[System_MemoryExtensions_ContainsAny_T]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_ContainsAny_T], values: System.ReadOnlySpan[System_MemoryExtensions_ContainsAny_T], comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_ContainsAny_T] = None) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_ContainsAny_T], values: System.Buffers.SearchValues[System_MemoryExtensions_ContainsAny_T]) -> bool:
+        ...
+
+
+class _MemoryExtensions_ContainsAny:
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[str], values: System.Buffers.SearchValues[str]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[str], values: System.Buffers.SearchValues[str]) -> bool:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_ContainsAny_T]) -> System._Typed_MemoryExtensions_ContainsAny[System_MemoryExtensions_ContainsAny_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_ContainsAnyExcept(typing.Generic[System_MemoryExtensions_ContainsAnyExcept_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_ContainsAnyExcept_T], value: System_MemoryExtensions_ContainsAnyExcept_T) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_ContainsAnyExcept_T], value_0: System_MemoryExtensions_ContainsAnyExcept_T, value_1: System_MemoryExtensions_ContainsAnyExcept_T) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_ContainsAnyExcept_T], value_0: System_MemoryExtensions_ContainsAnyExcept_T, value_1: System_MemoryExtensions_ContainsAnyExcept_T, value_2: System_MemoryExtensions_ContainsAnyExcept_T) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_ContainsAnyExcept_T], values: System.ReadOnlySpan[System_MemoryExtensions_ContainsAnyExcept_T]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_ContainsAnyExcept_T], values: System.Buffers.SearchValues[System_MemoryExtensions_ContainsAnyExcept_T]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_ContainsAnyExcept_T], value: System_MemoryExtensions_ContainsAnyExcept_T) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_ContainsAnyExcept_T], value: System_MemoryExtensions_ContainsAnyExcept_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_ContainsAnyExcept_T] = None) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_ContainsAnyExcept_T], value_0: System_MemoryExtensions_ContainsAnyExcept_T, value_1: System_MemoryExtensions_ContainsAnyExcept_T) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_ContainsAnyExcept_T], value_0: System_MemoryExtensions_ContainsAnyExcept_T, value_1: System_MemoryExtensions_ContainsAnyExcept_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_ContainsAnyExcept_T] = None) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_ContainsAnyExcept_T], value_0: System_MemoryExtensions_ContainsAnyExcept_T, value_1: System_MemoryExtensions_ContainsAnyExcept_T, value_2: System_MemoryExtensions_ContainsAnyExcept_T) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_ContainsAnyExcept_T], value_0: System_MemoryExtensions_ContainsAnyExcept_T, value_1: System_MemoryExtensions_ContainsAnyExcept_T, value_2: System_MemoryExtensions_ContainsAnyExcept_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_ContainsAnyExcept_T] = None) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_ContainsAnyExcept_T], values: System.ReadOnlySpan[System_MemoryExtensions_ContainsAnyExcept_T]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_ContainsAnyExcept_T], values: System.ReadOnlySpan[System_MemoryExtensions_ContainsAnyExcept_T], comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_ContainsAnyExcept_T] = None) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_ContainsAnyExcept_T], values: System.Buffers.SearchValues[System_MemoryExtensions_ContainsAnyExcept_T]) -> bool:
+        ...
+
+
+class _MemoryExtensions_ContainsAnyExcept:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_ContainsAnyExcept_T]) -> System._Typed_MemoryExtensions_ContainsAnyExcept[System_MemoryExtensions_ContainsAnyExcept_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_ContainsAnyInRange(typing.Generic[System_MemoryExtensions_ContainsAnyInRange_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_ContainsAnyInRange_T], low_inclusive: System_MemoryExtensions_ContainsAnyInRange_T, high_inclusive: System_MemoryExtensions_ContainsAnyInRange_T) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_ContainsAnyInRange_T], low_inclusive: System_MemoryExtensions_ContainsAnyInRange_T, high_inclusive: System_MemoryExtensions_ContainsAnyInRange_T) -> bool:
+        ...
+
+
+class _MemoryExtensions_ContainsAnyInRange:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_ContainsAnyInRange_T]) -> System._Typed_MemoryExtensions_ContainsAnyInRange[System_MemoryExtensions_ContainsAnyInRange_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_ContainsAnyExceptInRange(typing.Generic[System_MemoryExtensions_ContainsAnyExceptInRange_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_ContainsAnyExceptInRange_T], low_inclusive: System_MemoryExtensions_ContainsAnyExceptInRange_T, high_inclusive: System_MemoryExtensions_ContainsAnyExceptInRange_T) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_ContainsAnyExceptInRange_T], low_inclusive: System_MemoryExtensions_ContainsAnyExceptInRange_T, high_inclusive: System_MemoryExtensions_ContainsAnyExceptInRange_T) -> bool:
+        ...
+
+
+class _MemoryExtensions_ContainsAnyExceptInRange:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_ContainsAnyExceptInRange_T]) -> System._Typed_MemoryExtensions_ContainsAnyExceptInRange[System_MemoryExtensions_ContainsAnyExceptInRange_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_IndexOf(typing.Generic[System_MemoryExtensions_IndexOf_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_IndexOf_T], value: System_MemoryExtensions_IndexOf_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_IndexOf_T], value: System.ReadOnlySpan[System_MemoryExtensions_IndexOf_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOf_T], value: System_MemoryExtensions_IndexOf_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOf_T], value: System_MemoryExtensions_IndexOf_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_IndexOf_T] = None) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOf_T], value: System.ReadOnlySpan[System_MemoryExtensions_IndexOf_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOf_T], value: System.ReadOnlySpan[System_MemoryExtensions_IndexOf_T], comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_IndexOf_T] = None) -> int:
+        ...
+
+
+class _MemoryExtensions_IndexOf:
+    """"""
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> int:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_IndexOf_T]) -> System._Typed_MemoryExtensions_IndexOf[System_MemoryExtensions_IndexOf_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_LastIndexOf(typing.Generic[System_MemoryExtensions_LastIndexOf_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_LastIndexOf_T], value: System_MemoryExtensions_LastIndexOf_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_LastIndexOf_T], value: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOf_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOf_T], value: System_MemoryExtensions_LastIndexOf_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOf_T], value: System_MemoryExtensions_LastIndexOf_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_LastIndexOf_T] = None) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOf_T], value: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOf_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOf_T], value: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOf_T], comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_LastIndexOf_T] = None) -> int:
+        ...
+
+
+class _MemoryExtensions_LastIndexOf:
+    """"""
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> int:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_LastIndexOf_T]) -> System._Typed_MemoryExtensions_LastIndexOf[System_MemoryExtensions_LastIndexOf_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_IndexOfAnyExcept(typing.Generic[System_MemoryExtensions_IndexOfAnyExcept_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_IndexOfAnyExcept_T], value: System_MemoryExtensions_IndexOfAnyExcept_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_IndexOfAnyExcept_T], value_0: System_MemoryExtensions_IndexOfAnyExcept_T, value_1: System_MemoryExtensions_IndexOfAnyExcept_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_IndexOfAnyExcept_T], value_0: System_MemoryExtensions_IndexOfAnyExcept_T, value_1: System_MemoryExtensions_IndexOfAnyExcept_T, value_2: System_MemoryExtensions_IndexOfAnyExcept_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_IndexOfAnyExcept_T], values: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAnyExcept_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_IndexOfAnyExcept_T], values: System.Buffers.SearchValues[System_MemoryExtensions_IndexOfAnyExcept_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAnyExcept_T], value: System_MemoryExtensions_IndexOfAnyExcept_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAnyExcept_T], value: System_MemoryExtensions_IndexOfAnyExcept_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_IndexOfAnyExcept_T] = None) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAnyExcept_T], value_0: System_MemoryExtensions_IndexOfAnyExcept_T, value_1: System_MemoryExtensions_IndexOfAnyExcept_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAnyExcept_T], value_0: System_MemoryExtensions_IndexOfAnyExcept_T, value_1: System_MemoryExtensions_IndexOfAnyExcept_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_IndexOfAnyExcept_T] = None) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAnyExcept_T], value_0: System_MemoryExtensions_IndexOfAnyExcept_T, value_1: System_MemoryExtensions_IndexOfAnyExcept_T, value_2: System_MemoryExtensions_IndexOfAnyExcept_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAnyExcept_T], value_0: System_MemoryExtensions_IndexOfAnyExcept_T, value_1: System_MemoryExtensions_IndexOfAnyExcept_T, value_2: System_MemoryExtensions_IndexOfAnyExcept_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_IndexOfAnyExcept_T] = None) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAnyExcept_T], values: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAnyExcept_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAnyExcept_T], values: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAnyExcept_T], comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_IndexOfAnyExcept_T] = None) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAnyExcept_T], values: System.Buffers.SearchValues[System_MemoryExtensions_IndexOfAnyExcept_T]) -> int:
+        ...
+
+
+class _MemoryExtensions_IndexOfAnyExcept:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_IndexOfAnyExcept_T]) -> System._Typed_MemoryExtensions_IndexOfAnyExcept[System_MemoryExtensions_IndexOfAnyExcept_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_LastIndexOfAnyExcept(typing.Generic[System_MemoryExtensions_LastIndexOfAnyExcept_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_LastIndexOfAnyExcept_T], value: System_MemoryExtensions_LastIndexOfAnyExcept_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_LastIndexOfAnyExcept_T], value_0: System_MemoryExtensions_LastIndexOfAnyExcept_T, value_1: System_MemoryExtensions_LastIndexOfAnyExcept_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_LastIndexOfAnyExcept_T], value_0: System_MemoryExtensions_LastIndexOfAnyExcept_T, value_1: System_MemoryExtensions_LastIndexOfAnyExcept_T, value_2: System_MemoryExtensions_LastIndexOfAnyExcept_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_LastIndexOfAnyExcept_T], values: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAnyExcept_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_LastIndexOfAnyExcept_T], values: System.Buffers.SearchValues[System_MemoryExtensions_LastIndexOfAnyExcept_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAnyExcept_T], value: System_MemoryExtensions_LastIndexOfAnyExcept_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAnyExcept_T], value: System_MemoryExtensions_LastIndexOfAnyExcept_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_LastIndexOfAnyExcept_T] = None) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAnyExcept_T], value_0: System_MemoryExtensions_LastIndexOfAnyExcept_T, value_1: System_MemoryExtensions_LastIndexOfAnyExcept_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAnyExcept_T], value_0: System_MemoryExtensions_LastIndexOfAnyExcept_T, value_1: System_MemoryExtensions_LastIndexOfAnyExcept_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_LastIndexOfAnyExcept_T] = None) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAnyExcept_T], value_0: System_MemoryExtensions_LastIndexOfAnyExcept_T, value_1: System_MemoryExtensions_LastIndexOfAnyExcept_T, value_2: System_MemoryExtensions_LastIndexOfAnyExcept_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAnyExcept_T], value_0: System_MemoryExtensions_LastIndexOfAnyExcept_T, value_1: System_MemoryExtensions_LastIndexOfAnyExcept_T, value_2: System_MemoryExtensions_LastIndexOfAnyExcept_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_LastIndexOfAnyExcept_T] = None) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAnyExcept_T], values: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAnyExcept_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAnyExcept_T], values: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAnyExcept_T], comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_LastIndexOfAnyExcept_T] = None) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAnyExcept_T], values: System.Buffers.SearchValues[System_MemoryExtensions_LastIndexOfAnyExcept_T]) -> int:
+        ...
+
+
+class _MemoryExtensions_LastIndexOfAnyExcept:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_LastIndexOfAnyExcept_T]) -> System._Typed_MemoryExtensions_LastIndexOfAnyExcept[System_MemoryExtensions_LastIndexOfAnyExcept_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_IndexOfAnyInRange(typing.Generic[System_MemoryExtensions_IndexOfAnyInRange_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_IndexOfAnyInRange_T], low_inclusive: System_MemoryExtensions_IndexOfAnyInRange_T, high_inclusive: System_MemoryExtensions_IndexOfAnyInRange_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAnyInRange_T], low_inclusive: System_MemoryExtensions_IndexOfAnyInRange_T, high_inclusive: System_MemoryExtensions_IndexOfAnyInRange_T) -> int:
+        ...
+
+
+class _MemoryExtensions_IndexOfAnyInRange:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_IndexOfAnyInRange_T]) -> System._Typed_MemoryExtensions_IndexOfAnyInRange[System_MemoryExtensions_IndexOfAnyInRange_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_IndexOfAnyExceptInRange(typing.Generic[System_MemoryExtensions_IndexOfAnyExceptInRange_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_IndexOfAnyExceptInRange_T], low_inclusive: System_MemoryExtensions_IndexOfAnyExceptInRange_T, high_inclusive: System_MemoryExtensions_IndexOfAnyExceptInRange_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAnyExceptInRange_T], low_inclusive: System_MemoryExtensions_IndexOfAnyExceptInRange_T, high_inclusive: System_MemoryExtensions_IndexOfAnyExceptInRange_T) -> int:
+        ...
+
+
+class _MemoryExtensions_IndexOfAnyExceptInRange:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_IndexOfAnyExceptInRange_T]) -> System._Typed_MemoryExtensions_IndexOfAnyExceptInRange[System_MemoryExtensions_IndexOfAnyExceptInRange_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_LastIndexOfAnyInRange(typing.Generic[System_MemoryExtensions_LastIndexOfAnyInRange_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_LastIndexOfAnyInRange_T], low_inclusive: System_MemoryExtensions_LastIndexOfAnyInRange_T, high_inclusive: System_MemoryExtensions_LastIndexOfAnyInRange_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAnyInRange_T], low_inclusive: System_MemoryExtensions_LastIndexOfAnyInRange_T, high_inclusive: System_MemoryExtensions_LastIndexOfAnyInRange_T) -> int:
+        ...
+
+
+class _MemoryExtensions_LastIndexOfAnyInRange:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_LastIndexOfAnyInRange_T]) -> System._Typed_MemoryExtensions_LastIndexOfAnyInRange[System_MemoryExtensions_LastIndexOfAnyInRange_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_LastIndexOfAnyExceptInRange(typing.Generic[System_MemoryExtensions_LastIndexOfAnyExceptInRange_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_LastIndexOfAnyExceptInRange_T], low_inclusive: System_MemoryExtensions_LastIndexOfAnyExceptInRange_T, high_inclusive: System_MemoryExtensions_LastIndexOfAnyExceptInRange_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAnyExceptInRange_T], low_inclusive: System_MemoryExtensions_LastIndexOfAnyExceptInRange_T, high_inclusive: System_MemoryExtensions_LastIndexOfAnyExceptInRange_T) -> int:
+        ...
+
+
+class _MemoryExtensions_LastIndexOfAnyExceptInRange:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_LastIndexOfAnyExceptInRange_T]) -> System._Typed_MemoryExtensions_LastIndexOfAnyExceptInRange[System_MemoryExtensions_LastIndexOfAnyExceptInRange_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_SequenceEqual(typing.Generic[System_MemoryExtensions_SequenceEqual_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_SequenceEqual_T], other: System.ReadOnlySpan[System_MemoryExtensions_SequenceEqual_T]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_SequenceEqual_T], other: System.ReadOnlySpan[System_MemoryExtensions_SequenceEqual_T]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_SequenceEqual_T], other: System.ReadOnlySpan[System_MemoryExtensions_SequenceEqual_T], comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_SequenceEqual_T] = None) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_SequenceEqual_T], other: System.ReadOnlySpan[System_MemoryExtensions_SequenceEqual_T], comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_SequenceEqual_T] = None) -> bool:
+        ...
+
+
+class _MemoryExtensions_SequenceEqual:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_SequenceEqual_T]) -> System._Typed_MemoryExtensions_SequenceEqual[System_MemoryExtensions_SequenceEqual_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_SequenceCompareTo(typing.Generic[System_MemoryExtensions_SequenceCompareTo_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_SequenceCompareTo_T], other: System.ReadOnlySpan[System_MemoryExtensions_SequenceCompareTo_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_SequenceCompareTo_T], other: System.ReadOnlySpan[System_MemoryExtensions_SequenceCompareTo_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_SequenceCompareTo_T], other: System.ReadOnlySpan[System_MemoryExtensions_SequenceCompareTo_T], comparer: System.Collections.Generic.IComparer[System_MemoryExtensions_SequenceCompareTo_T] = None) -> int:
+        ...
+
+
+class _MemoryExtensions_SequenceCompareTo:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_SequenceCompareTo_T]) -> System._Typed_MemoryExtensions_SequenceCompareTo[System_MemoryExtensions_SequenceCompareTo_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_IndexOfAny(typing.Generic[System_MemoryExtensions_IndexOfAny_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_IndexOfAny_T], value_0: System_MemoryExtensions_IndexOfAny_T, value_1: System_MemoryExtensions_IndexOfAny_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_IndexOfAny_T], value_0: System_MemoryExtensions_IndexOfAny_T, value_1: System_MemoryExtensions_IndexOfAny_T, value_2: System_MemoryExtensions_IndexOfAny_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_IndexOfAny_T], values: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAny_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_IndexOfAny_T], values: System.Buffers.SearchValues[System_MemoryExtensions_IndexOfAny_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAny_T], value_0: System_MemoryExtensions_IndexOfAny_T, value_1: System_MemoryExtensions_IndexOfAny_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAny_T], value_0: System_MemoryExtensions_IndexOfAny_T, value_1: System_MemoryExtensions_IndexOfAny_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_IndexOfAny_T] = None) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAny_T], value_0: System_MemoryExtensions_IndexOfAny_T, value_1: System_MemoryExtensions_IndexOfAny_T, value_2: System_MemoryExtensions_IndexOfAny_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAny_T], value_0: System_MemoryExtensions_IndexOfAny_T, value_1: System_MemoryExtensions_IndexOfAny_T, value_2: System_MemoryExtensions_IndexOfAny_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_IndexOfAny_T] = None) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAny_T], values: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAny_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAny_T], values: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAny_T], comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_IndexOfAny_T] = None) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_IndexOfAny_T], values: System.Buffers.SearchValues[System_MemoryExtensions_IndexOfAny_T]) -> int:
+        ...
+
+
+class _MemoryExtensions_IndexOfAny:
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[str], values: System.Buffers.SearchValues[str]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[str], values: System.Buffers.SearchValues[str]) -> int:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_IndexOfAny_T]) -> System._Typed_MemoryExtensions_IndexOfAny[System_MemoryExtensions_IndexOfAny_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_LastIndexOfAny(typing.Generic[System_MemoryExtensions_LastIndexOfAny_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_LastIndexOfAny_T], value_0: System_MemoryExtensions_LastIndexOfAny_T, value_1: System_MemoryExtensions_LastIndexOfAny_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_LastIndexOfAny_T], value_0: System_MemoryExtensions_LastIndexOfAny_T, value_1: System_MemoryExtensions_LastIndexOfAny_T, value_2: System_MemoryExtensions_LastIndexOfAny_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_LastIndexOfAny_T], values: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAny_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_LastIndexOfAny_T], values: System.Buffers.SearchValues[System_MemoryExtensions_LastIndexOfAny_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAny_T], value_0: System_MemoryExtensions_LastIndexOfAny_T, value_1: System_MemoryExtensions_LastIndexOfAny_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAny_T], value_0: System_MemoryExtensions_LastIndexOfAny_T, value_1: System_MemoryExtensions_LastIndexOfAny_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_LastIndexOfAny_T] = None) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAny_T], value_0: System_MemoryExtensions_LastIndexOfAny_T, value_1: System_MemoryExtensions_LastIndexOfAny_T, value_2: System_MemoryExtensions_LastIndexOfAny_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAny_T], value_0: System_MemoryExtensions_LastIndexOfAny_T, value_1: System_MemoryExtensions_LastIndexOfAny_T, value_2: System_MemoryExtensions_LastIndexOfAny_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_LastIndexOfAny_T] = None) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAny_T], values: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAny_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAny_T], values: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAny_T], comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_LastIndexOfAny_T] = None) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_LastIndexOfAny_T], values: System.Buffers.SearchValues[System_MemoryExtensions_LastIndexOfAny_T]) -> int:
+        ...
+
+
+class _MemoryExtensions_LastIndexOfAny:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_LastIndexOfAny_T]) -> System._Typed_MemoryExtensions_LastIndexOfAny[System_MemoryExtensions_LastIndexOfAny_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_StartsWith(typing.Generic[System_MemoryExtensions_StartsWith_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_StartsWith_T], value: System.ReadOnlySpan[System_MemoryExtensions_StartsWith_T]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_StartsWith_T], value: System.ReadOnlySpan[System_MemoryExtensions_StartsWith_T]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_StartsWith_T], value: System.ReadOnlySpan[System_MemoryExtensions_StartsWith_T], comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_StartsWith_T] = None) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_StartsWith_T], value: System_MemoryExtensions_StartsWith_T) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_StartsWith_T], value: System_MemoryExtensions_StartsWith_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_StartsWith_T] = None) -> bool:
+        ...
+
+
+class _MemoryExtensions_StartsWith:
+    """"""
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> bool:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_StartsWith_T]) -> System._Typed_MemoryExtensions_StartsWith[System_MemoryExtensions_StartsWith_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_EndsWith(typing.Generic[System_MemoryExtensions_EndsWith_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_EndsWith_T], value: System.ReadOnlySpan[System_MemoryExtensions_EndsWith_T]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_EndsWith_T], value: System.ReadOnlySpan[System_MemoryExtensions_EndsWith_T]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_EndsWith_T], value: System.ReadOnlySpan[System_MemoryExtensions_EndsWith_T], comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_EndsWith_T] = None) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_EndsWith_T], value: System_MemoryExtensions_EndsWith_T) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_EndsWith_T], value: System_MemoryExtensions_EndsWith_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_EndsWith_T] = None) -> bool:
+        ...
+
+
+class _MemoryExtensions_EndsWith:
+    """"""
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> bool:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_EndsWith_T]) -> System._Typed_MemoryExtensions_EndsWith[System_MemoryExtensions_EndsWith_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_Reverse(typing.Generic[System_MemoryExtensions_Reverse_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_Reverse_T]) -> None:
+        ...
+
+
+class _MemoryExtensions_Reverse:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_Reverse_T]) -> System._Typed_MemoryExtensions_Reverse[System_MemoryExtensions_Reverse_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_AsMemory(typing.Generic[System_MemoryExtensions_AsMemory_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_MemoryExtensions_AsMemory_T]) -> System.Memory[System_MemoryExtensions_AsMemory_T]:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_MemoryExtensions_AsMemory_T], start: int) -> System.Memory[System_MemoryExtensions_AsMemory_T]:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_MemoryExtensions_AsMemory_T], start_index: System.Index) -> System.Memory[System_MemoryExtensions_AsMemory_T]:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_MemoryExtensions_AsMemory_T], start: int, length: int) -> System.Memory[System_MemoryExtensions_AsMemory_T]:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_MemoryExtensions_AsMemory_T], range: System.Range) -> System.Memory[System_MemoryExtensions_AsMemory_T]:
+        ...
+
+    @overload
+    def __call__(self, segment: System.ArraySegment[System_MemoryExtensions_AsMemory_T]) -> System.Memory[System_MemoryExtensions_AsMemory_T]:
+        ...
+
+    @overload
+    def __call__(self, segment: System.ArraySegment[System_MemoryExtensions_AsMemory_T], start: int) -> System.Memory[System_MemoryExtensions_AsMemory_T]:
+        ...
+
+    @overload
+    def __call__(self, segment: System.ArraySegment[System_MemoryExtensions_AsMemory_T], start: int, length: int) -> System.Memory[System_MemoryExtensions_AsMemory_T]:
+        ...
+
+
+class _MemoryExtensions_AsMemory:
+    """"""
+
+    @overload
+    def __call__(self, text: str) -> System.ReadOnlyMemory[str]:
+        ...
+
+    @overload
+    def __call__(self, text: str, start: int) -> System.ReadOnlyMemory[str]:
+        ...
+
+    @overload
+    def __call__(self, text: str, start_index: System.Index) -> System.ReadOnlyMemory[str]:
+        ...
+
+    @overload
+    def __call__(self, text: str, start: int, length: int) -> System.ReadOnlyMemory[str]:
+        ...
+
+    @overload
+    def __call__(self, text: str, range: System.Range) -> System.ReadOnlyMemory[str]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_AsMemory_T]) -> System._Typed_MemoryExtensions_AsMemory[System_MemoryExtensions_AsMemory_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_CopyTo(typing.Generic[System_MemoryExtensions_CopyTo_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: typing.List[System_MemoryExtensions_CopyTo_T], destination: System.Span[System_MemoryExtensions_CopyTo_T]) -> None:
+        ...
+
+    @overload
+    def __call__(self, source: typing.List[System_MemoryExtensions_CopyTo_T], destination: System.Memory[System_MemoryExtensions_CopyTo_T]) -> None:
+        ...
+
+
+class _MemoryExtensions_CopyTo:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_CopyTo_T]) -> System._Typed_MemoryExtensions_CopyTo[System_MemoryExtensions_CopyTo_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_Overlaps(typing.Generic[System_MemoryExtensions_Overlaps_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_Overlaps_T], other: System.ReadOnlySpan[System_MemoryExtensions_Overlaps_T]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_Overlaps_T], other: System.ReadOnlySpan[System_MemoryExtensions_Overlaps_T], element_offset: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_Overlaps_T], other: System.ReadOnlySpan[System_MemoryExtensions_Overlaps_T]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_Overlaps_T], other: System.ReadOnlySpan[System_MemoryExtensions_Overlaps_T], element_offset: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+
+class _MemoryExtensions_Overlaps:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_Overlaps_T]) -> System._Typed_MemoryExtensions_Overlaps[System_MemoryExtensions_Overlaps_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_BinarySearch(typing.Generic[System_MemoryExtensions_BinarySearch_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_BinarySearch_T], comparable: System.IComparable[System_MemoryExtensions_BinarySearch_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_BinarySearch_T], comparable: System_MemoryExtensions_BinarySearch_TComparable) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_BinarySearch_T], value: System_MemoryExtensions_BinarySearch_T, comparer: System_MemoryExtensions_BinarySearch_TComparer) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_BinarySearch_T], comparable: System.IComparable[System_MemoryExtensions_BinarySearch_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_BinarySearch_T], comparable: System_MemoryExtensions_BinarySearch_TComparable) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_BinarySearch_T], value: System_MemoryExtensions_BinarySearch_T, comparer: System_MemoryExtensions_BinarySearch_TComparer) -> int:
+        ...
+
+
+class _MemoryExtensions_BinarySearch:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_BinarySearch_T]) -> System._Typed_MemoryExtensions_BinarySearch[System_MemoryExtensions_BinarySearch_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_Sort(typing.Generic[System_MemoryExtensions_Sort_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_Sort_T]) -> None:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_Sort_T], comparer: System_MemoryExtensions_Sort_TComparer) -> None:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_Sort_T], comparison: typing.Callable[[System_MemoryExtensions_Sort_T, System_MemoryExtensions_Sort_T], int]) -> None:
+        ...
+
+    @overload
+    def __call__(self, keys: System.Span[System_MemoryExtensions_Sort_TKey], items: System.Span[System_MemoryExtensions_Sort_TValue]) -> None:
+        ...
+
+    @overload
+    def __call__(self, keys: System.Span[System_MemoryExtensions_Sort_TKey], items: System.Span[System_MemoryExtensions_Sort_TValue], comparer: System_MemoryExtensions_Sort_TComparer) -> None:
+        ...
+
+    @overload
+    def __call__(self, keys: System.Span[System_MemoryExtensions_Sort_TKey], items: System.Span[System_MemoryExtensions_Sort_TValue], comparison: typing.Callable[[System_MemoryExtensions_Sort_TKey, System_MemoryExtensions_Sort_TKey], int]) -> None:
+        ...
+
+
+class _MemoryExtensions_Sort:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_Sort_T]) -> System._Typed_MemoryExtensions_Sort[System_MemoryExtensions_Sort_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_Replace(typing.Generic[System_MemoryExtensions_Replace_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_Replace_T], old_value: System_MemoryExtensions_Replace_T, new_value: System_MemoryExtensions_Replace_T) -> None:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_Replace_T], old_value: System_MemoryExtensions_Replace_T, new_value: System_MemoryExtensions_Replace_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_Replace_T] = None) -> None:
+        ...
+
+    @overload
+    def __call__(self, source: System.ReadOnlySpan[System_MemoryExtensions_Replace_T], destination: System.Span[System_MemoryExtensions_Replace_T], old_value: System_MemoryExtensions_Replace_T, new_value: System_MemoryExtensions_Replace_T) -> None:
+        ...
+
+    @overload
+    def __call__(self, source: System.ReadOnlySpan[System_MemoryExtensions_Replace_T], destination: System.Span[System_MemoryExtensions_Replace_T], old_value: System_MemoryExtensions_Replace_T, new_value: System_MemoryExtensions_Replace_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_Replace_T] = None) -> None:
+        ...
+
+
+class _MemoryExtensions_Replace:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_Replace_T]) -> System._Typed_MemoryExtensions_Replace[System_MemoryExtensions_Replace_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_ReplaceAny(typing.Generic[System_MemoryExtensions_ReplaceAny_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.ReadOnlySpan[System_MemoryExtensions_ReplaceAny_T], destination: System.Span[System_MemoryExtensions_ReplaceAny_T], values: System.Buffers.SearchValues[System_MemoryExtensions_ReplaceAny_T], new_value: System_MemoryExtensions_ReplaceAny_T) -> None:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_ReplaceAny_T], values: System.Buffers.SearchValues[System_MemoryExtensions_ReplaceAny_T], new_value: System_MemoryExtensions_ReplaceAny_T) -> None:
+        ...
+
+
+class _MemoryExtensions_ReplaceAny:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_ReplaceAny_T]) -> System._Typed_MemoryExtensions_ReplaceAny[System_MemoryExtensions_ReplaceAny_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_ReplaceAnyExcept(typing.Generic[System_MemoryExtensions_ReplaceAnyExcept_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.ReadOnlySpan[System_MemoryExtensions_ReplaceAnyExcept_T], destination: System.Span[System_MemoryExtensions_ReplaceAnyExcept_T], values: System.Buffers.SearchValues[System_MemoryExtensions_ReplaceAnyExcept_T], new_value: System_MemoryExtensions_ReplaceAnyExcept_T) -> None:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_ReplaceAnyExcept_T], values: System.Buffers.SearchValues[System_MemoryExtensions_ReplaceAnyExcept_T], new_value: System_MemoryExtensions_ReplaceAnyExcept_T) -> None:
+        ...
+
+
+class _MemoryExtensions_ReplaceAnyExcept:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_ReplaceAnyExcept_T]) -> System._Typed_MemoryExtensions_ReplaceAnyExcept[System_MemoryExtensions_ReplaceAnyExcept_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_CommonPrefixLength(typing.Generic[System_MemoryExtensions_CommonPrefixLength_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_CommonPrefixLength_T], other: System.ReadOnlySpan[System_MemoryExtensions_CommonPrefixLength_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_CommonPrefixLength_T], other: System.ReadOnlySpan[System_MemoryExtensions_CommonPrefixLength_T], comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_CommonPrefixLength_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_CommonPrefixLength_T], other: System.ReadOnlySpan[System_MemoryExtensions_CommonPrefixLength_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_CommonPrefixLength_T], other: System.ReadOnlySpan[System_MemoryExtensions_CommonPrefixLength_T], comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_CommonPrefixLength_T]) -> int:
+        ...
+
+
+class _MemoryExtensions_CommonPrefixLength:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_CommonPrefixLength_T]) -> System._Typed_MemoryExtensions_CommonPrefixLength[System_MemoryExtensions_CommonPrefixLength_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_Split(typing.Generic[System_MemoryExtensions_Split_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.ReadOnlySpan[System_MemoryExtensions_Split_T], separator: System_MemoryExtensions_Split_T) -> System.MemoryExtensions.SpanSplitEnumerator[System_MemoryExtensions_Split_T]:
+        ...
+
+    @overload
+    def __call__(self, source: System.ReadOnlySpan[System_MemoryExtensions_Split_T], separator: System.ReadOnlySpan[System_MemoryExtensions_Split_T]) -> System.MemoryExtensions.SpanSplitEnumerator[System_MemoryExtensions_Split_T]:
+        ...
+
+
+class _MemoryExtensions_Split:
+    """"""
+
+    @overload
+    def __call__(self, source: System.ReadOnlySpan[str], destination: System.Span[System.Range], separator: str, options: System.StringSplitOptions = ...) -> int:
+        ...
+
+    @overload
+    def __call__(self, source: System.ReadOnlySpan[str], destination: System.Span[System.Range], separator: System.ReadOnlySpan[str], options: System.StringSplitOptions = ...) -> int:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_Split_T]) -> System._Typed_MemoryExtensions_Split[System_MemoryExtensions_Split_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_SplitAny(typing.Generic[System_MemoryExtensions_SplitAny_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.ReadOnlySpan[System_MemoryExtensions_SplitAny_T], *separators: typing.Union[System_MemoryExtensions_SplitAny_T, typing.Iterable[System_MemoryExtensions_SplitAny_T]]) -> System.MemoryExtensions.SpanSplitEnumerator[System_MemoryExtensions_SplitAny_T]:
+        ...
+
+    @overload
+    def __call__(self, source: System.ReadOnlySpan[System_MemoryExtensions_SplitAny_T], separators: System.Buffers.SearchValues[System_MemoryExtensions_SplitAny_T]) -> System.MemoryExtensions.SpanSplitEnumerator[System_MemoryExtensions_SplitAny_T]:
+        ...
+
+
+class _MemoryExtensions_SplitAny:
+    """"""
+
+    @overload
+    def __call__(self, source: System.ReadOnlySpan[str], destination: System.Span[System.Range], separators: System.ReadOnlySpan[str], options: System.StringSplitOptions = ...) -> int:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_SplitAny_T]) -> System._Typed_MemoryExtensions_SplitAny[System_MemoryExtensions_SplitAny_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_Count(typing.Generic[System_MemoryExtensions_Count_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_Count_T], value: System_MemoryExtensions_Count_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_Count_T], value: System_MemoryExtensions_Count_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_Count_T], value: System_MemoryExtensions_Count_T, comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_Count_T] = None) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.Span[System_MemoryExtensions_Count_T], value: System.ReadOnlySpan[System_MemoryExtensions_Count_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_Count_T], value: System.ReadOnlySpan[System_MemoryExtensions_Count_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_Count_T], value: System.ReadOnlySpan[System_MemoryExtensions_Count_T], comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_Count_T] = None) -> int:
+        ...
+
+
+class _MemoryExtensions_Count:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_Count_T]) -> System._Typed_MemoryExtensions_Count[System_MemoryExtensions_Count_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_CountAny(typing.Generic[System_MemoryExtensions_CountAny_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_CountAny_T], values: System.Buffers.SearchValues[System_MemoryExtensions_CountAny_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_CountAny_T], *values: typing.Union[System_MemoryExtensions_CountAny_T, typing.Iterable[System_MemoryExtensions_CountAny_T]]) -> int:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_CountAny_T], values: System.ReadOnlySpan[System_MemoryExtensions_CountAny_T], comparer: System.Collections.Generic.IEqualityComparer[System_MemoryExtensions_CountAny_T] = None) -> int:
+        ...
+
+
+class _MemoryExtensions_CountAny:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_CountAny_T]) -> System._Typed_MemoryExtensions_CountAny[System_MemoryExtensions_CountAny_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_TryWrite(typing.Generic[System_MemoryExtensions_TryWrite_TArg0]):
+    """"""
+
+    @overload
+    def __call__(self, destination: System.Span[str], provider: System.IFormatProvider, format: System.Text.CompositeFormat, chars_written: typing.Optional[int], arg_0: System_MemoryExtensions_TryWrite_TArg0) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def __call__(self, destination: System.Span[str], provider: System.IFormatProvider, format: System.Text.CompositeFormat, chars_written: typing.Optional[int], arg_0: System_MemoryExtensions_TryWrite_TArg0, arg_1: System_MemoryExtensions_TryWrite_TArg1) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def __call__(self, destination: System.Span[str], provider: System.IFormatProvider, format: System.Text.CompositeFormat, chars_written: typing.Optional[int], arg_0: System_MemoryExtensions_TryWrite_TArg0, arg_1: System_MemoryExtensions_TryWrite_TArg1, arg_2: System_MemoryExtensions_TryWrite_TArg2) -> typing.Tuple[bool, int]:
+        ...
+
+
+class _MemoryExtensions_TryWrite:
+    """"""
+
+    @overload
+    def __call__(self, destination: System.Span[str], handler: System.MemoryExtensions.TryWriteInterpolatedStringHandler, chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def __call__(self, destination: System.Span[str], provider: System.IFormatProvider, handler: System.MemoryExtensions.TryWriteInterpolatedStringHandler, chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def __call__(self, destination: System.Span[str], provider: System.IFormatProvider, format: System.Text.CompositeFormat, chars_written: typing.Optional[int], *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> typing.Tuple[bool, int]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_TryWrite_TArg0]) -> System._Typed_MemoryExtensions_TryWrite[System_MemoryExtensions_TryWrite_TArg0]:
+        ...
+
+
 class MemoryExtensions(System.Object):
     """This class has no documentation."""
 
@@ -8683,6 +11390,10 @@ class MemoryExtensions(System.Object):
     class TryWriteInterpolatedStringHandler:
         """This class has no documentation."""
 
+        @property
+        def append_formatted(self) -> System._MemoryExtensions.TryWriteInterpolatedStringHandler_AppendFormatted:
+            ...
+
         @overload
         def __init__(self, literal_length: int, formatted_count: int, destination: System.Span[str], should_append: typing.Optional[bool]) -> typing.Tuple[None, bool]:
             ...
@@ -8691,103 +11402,91 @@ class MemoryExtensions(System.Object):
         def __init__(self, literal_length: int, formatted_count: int, destination: System.Span[str], provider: System.IFormatProvider, should_append: typing.Optional[bool]) -> typing.Tuple[None, bool]:
             ...
 
-        @overload
-        def append_formatted(self, value: System.ReadOnlySpan[str]) -> bool:
-            ...
-
-        @overload
-        def append_formatted(self, value: System.ReadOnlySpan[str], alignment: int = 0, format: str = None) -> bool:
-            ...
-
-        @overload
-        def append_formatted(self, value: str) -> bool:
-            ...
-
-        @overload
-        def append_formatted(self, value: str, alignment: int = 0, format: str = None) -> bool:
-            ...
-
-        @overload
-        def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> bool:
-            ...
-
         def append_literal(self, value: str) -> bool:
             ...
 
-    @staticmethod
-    @overload
-    def as_memory(text: str) -> System.ReadOnlyMemory[str]:
-        ...
+    trim: System._MemoryExtensions_Trim
 
-    @staticmethod
-    @overload
-    def as_memory(text: str, start: int) -> System.ReadOnlyMemory[str]:
-        ...
+    trim_start: System._MemoryExtensions_TrimStart
 
-    @staticmethod
-    @overload
-    def as_memory(text: str, start_index: System.Index) -> System.ReadOnlyMemory[str]:
-        ...
+    trim_end: System._MemoryExtensions_TrimEnd
 
-    @staticmethod
-    @overload
-    def as_memory(text: str, start: int, length: int) -> System.ReadOnlyMemory[str]:
-        ...
+    as_span: System._MemoryExtensions_AsSpan
 
-    @staticmethod
-    @overload
-    def as_memory(text: str, range: System.Range) -> System.ReadOnlyMemory[str]:
-        ...
+    contains: System._MemoryExtensions_Contains
 
-    @staticmethod
-    @overload
-    def as_span(text: str) -> System.ReadOnlySpan[str]:
-        ...
+    contains_any: System._MemoryExtensions_ContainsAny
 
-    @staticmethod
-    @overload
-    def as_span(text: str, start: int) -> System.ReadOnlySpan[str]:
-        ...
+    contains_any_except: System._MemoryExtensions_ContainsAnyExcept
 
-    @staticmethod
-    @overload
-    def as_span(text: str, start_index: System.Index) -> System.ReadOnlySpan[str]:
-        ...
+    contains_any_in_range: System._MemoryExtensions_ContainsAnyInRange
 
-    @staticmethod
-    @overload
-    def as_span(text: str, range: System.Range) -> System.ReadOnlySpan[str]:
-        ...
+    contains_any_except_in_range: System._MemoryExtensions_ContainsAnyExceptInRange
 
-    @staticmethod
-    @overload
-    def as_span(text: str, start: int, length: int) -> System.ReadOnlySpan[str]:
-        ...
+    index_of: System._MemoryExtensions_IndexOf
+
+    last_index_of: System._MemoryExtensions_LastIndexOf
+
+    index_of_any_except: System._MemoryExtensions_IndexOfAnyExcept
+
+    last_index_of_any_except: System._MemoryExtensions_LastIndexOfAnyExcept
+
+    index_of_any_in_range: System._MemoryExtensions_IndexOfAnyInRange
+
+    index_of_any_except_in_range: System._MemoryExtensions_IndexOfAnyExceptInRange
+
+    last_index_of_any_in_range: System._MemoryExtensions_LastIndexOfAnyInRange
+
+    last_index_of_any_except_in_range: System._MemoryExtensions_LastIndexOfAnyExceptInRange
+
+    sequence_equal: System._MemoryExtensions_SequenceEqual
+
+    sequence_compare_to: System._MemoryExtensions_SequenceCompareTo
+
+    index_of_any: System._MemoryExtensions_IndexOfAny
+
+    last_index_of_any: System._MemoryExtensions_LastIndexOfAny
+
+    starts_with: System._MemoryExtensions_StartsWith
+
+    ends_with: System._MemoryExtensions_EndsWith
+
+    reverse: System._MemoryExtensions_Reverse
+
+    as_memory: System._MemoryExtensions_AsMemory
+
+    copy_to: System._MemoryExtensions_CopyTo
+
+    overlaps: System._MemoryExtensions_Overlaps
+
+    binary_search: System._MemoryExtensions_BinarySearch
+
+    sort: System._MemoryExtensions_Sort
+
+    replace: System._MemoryExtensions_Replace
+
+    replace_any: System._MemoryExtensions_ReplaceAny
+
+    replace_any_except: System._MemoryExtensions_ReplaceAnyExcept
+
+    common_prefix_length: System._MemoryExtensions_CommonPrefixLength
+
+    split: System._MemoryExtensions_Split
+
+    split_any: System._MemoryExtensions_SplitAny
+
+    count: System._MemoryExtensions_Count
+
+    count_any: System._MemoryExtensions_CountAny
+
+    try_write: System._MemoryExtensions_TryWrite
 
     @staticmethod
     def compare_to(span: System.ReadOnlySpan[str], other: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> int:
         ...
 
     @staticmethod
-    def contains(span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def contains_any(span: System.Span[str], values: System.Buffers.SearchValues[str]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def contains_any(span: System.ReadOnlySpan[str], values: System.Buffers.SearchValues[str]) -> bool:
-        ...
-
-    @staticmethod
     def contains_any_white_space(span: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    @staticmethod
-    def ends_with(span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> bool:
         ...
 
     @staticmethod
@@ -8815,20 +11514,6 @@ class MemoryExtensions(System.Object):
         ...
 
     @staticmethod
-    def index_of(span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def index_of_any(span: System.Span[str], values: System.Buffers.SearchValues[str]) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def index_of_any(span: System.ReadOnlySpan[str], values: System.Buffers.SearchValues[str]) -> int:
-        ...
-
-    @staticmethod
     def index_of_any_except_white_space(span: System.ReadOnlySpan[str]) -> int:
         ...
 
@@ -8841,33 +11526,11 @@ class MemoryExtensions(System.Object):
         ...
 
     @staticmethod
-    def last_index_of(span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> int:
-        ...
-
-    @staticmethod
     def last_index_of_any_except_white_space(span: System.ReadOnlySpan[str]) -> int:
         ...
 
     @staticmethod
     def last_index_of_any_white_space(span: System.ReadOnlySpan[str]) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def split(source: System.ReadOnlySpan[str], destination: System.Span[System.Range], separator: str, options: System.StringSplitOptions = ...) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def split(source: System.ReadOnlySpan[str], destination: System.Span[System.Range], separator: System.ReadOnlySpan[str], options: System.StringSplitOptions = ...) -> int:
-        ...
-
-    @staticmethod
-    def split_any(source: System.ReadOnlySpan[str], destination: System.Span[System.Range], separators: System.ReadOnlySpan[str], options: System.StringSplitOptions = ...) -> int:
-        ...
-
-    @staticmethod
-    def starts_with(span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> bool:
         ...
 
     @staticmethod
@@ -8886,114 +11549,77 @@ class MemoryExtensions(System.Object):
     def to_upper_invariant(source: System.ReadOnlySpan[str], destination: System.Span[str]) -> int:
         ...
 
-    @staticmethod
+
+class _Typed_HashCode_Combine(typing.Generic[System_HashCode_Combine_T1]):
+    """"""
+
     @overload
-    def trim(memory: System.Memory[str]) -> System.Memory[str]:
+    def __call__(self, value_1: System_HashCode_Combine_T1) -> int:
         ...
 
-    @staticmethod
     @overload
-    def trim(memory: System.ReadOnlyMemory[str]) -> System.ReadOnlyMemory[str]:
+    def __call__(self, value_1: System_HashCode_Combine_T1, value_2: System_HashCode_Combine_T2) -> int:
         ...
 
-    @staticmethod
     @overload
-    def trim(span: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+    def __call__(self, value_1: System_HashCode_Combine_T1, value_2: System_HashCode_Combine_T2, value_3: System_HashCode_Combine_T3) -> int:
         ...
 
-    @staticmethod
     @overload
-    def trim(span: System.ReadOnlySpan[str], trim_char: str) -> System.ReadOnlySpan[str]:
+    def __call__(self, value_1: System_HashCode_Combine_T1, value_2: System_HashCode_Combine_T2, value_3: System_HashCode_Combine_T3, value_4: System_HashCode_Combine_T4) -> int:
         ...
 
-    @staticmethod
     @overload
-    def trim(span: System.ReadOnlySpan[str], trim_chars: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+    def __call__(self, value_1: System_HashCode_Combine_T1, value_2: System_HashCode_Combine_T2, value_3: System_HashCode_Combine_T3, value_4: System_HashCode_Combine_T4, value_5: System_HashCode_Combine_T5) -> int:
         ...
 
-    @staticmethod
     @overload
-    def trim(span: System.Span[str]) -> System.Span[str]:
+    def __call__(self, value_1: System_HashCode_Combine_T1, value_2: System_HashCode_Combine_T2, value_3: System_HashCode_Combine_T3, value_4: System_HashCode_Combine_T4, value_5: System_HashCode_Combine_T5, value_6: System_HashCode_Combine_T6) -> int:
         ...
 
-    @staticmethod
     @overload
-    def trim_end(memory: System.Memory[str]) -> System.Memory[str]:
+    def __call__(self, value_1: System_HashCode_Combine_T1, value_2: System_HashCode_Combine_T2, value_3: System_HashCode_Combine_T3, value_4: System_HashCode_Combine_T4, value_5: System_HashCode_Combine_T5, value_6: System_HashCode_Combine_T6, value_7: System_HashCode_Combine_T7) -> int:
         ...
 
-    @staticmethod
     @overload
-    def trim_end(memory: System.ReadOnlyMemory[str]) -> System.ReadOnlyMemory[str]:
+    def __call__(self, value_1: System_HashCode_Combine_T1, value_2: System_HashCode_Combine_T2, value_3: System_HashCode_Combine_T3, value_4: System_HashCode_Combine_T4, value_5: System_HashCode_Combine_T5, value_6: System_HashCode_Combine_T6, value_7: System_HashCode_Combine_T7, value_8: System_HashCode_Combine_T8) -> int:
         ...
 
-    @staticmethod
-    @overload
-    def trim_end(span: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+
+class _HashCode_Combine:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_HashCode_Combine_T1]) -> System._Typed_HashCode_Combine[System_HashCode_Combine_T1]:
         ...
 
-    @staticmethod
+
+class _Typed_HashCode_Add(typing.Generic[System_HashCode_Add_T]):
+    """"""
+
     @overload
-    def trim_end(span: System.ReadOnlySpan[str], trim_char: str) -> System.ReadOnlySpan[str]:
+    def __call__(self, value: System_HashCode_Add_T) -> None:
         ...
 
-    @staticmethod
     @overload
-    def trim_end(span: System.ReadOnlySpan[str], trim_chars: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+    def __call__(self, value: System_HashCode_Add_T, comparer: System.Collections.Generic.IEqualityComparer[System_HashCode_Add_T]) -> None:
         ...
 
-    @staticmethod
-    @overload
-    def trim_end(span: System.Span[str]) -> System.Span[str]:
-        ...
 
-    @staticmethod
-    @overload
-    def trim_start(memory: System.Memory[str]) -> System.Memory[str]:
-        ...
+class _HashCode_Add:
+    """"""
 
-    @staticmethod
-    @overload
-    def trim_start(memory: System.ReadOnlyMemory[str]) -> System.ReadOnlyMemory[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def trim_start(span: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def trim_start(span: System.ReadOnlySpan[str], trim_char: str) -> System.ReadOnlySpan[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def trim_start(span: System.ReadOnlySpan[str], trim_chars: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def trim_start(span: System.Span[str]) -> System.Span[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_write(destination: System.Span[str], handler: System.MemoryExtensions.TryWriteInterpolatedStringHandler, chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_write(destination: System.Span[str], provider: System.IFormatProvider, handler: System.MemoryExtensions.TryWriteInterpolatedStringHandler, chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_write(destination: System.Span[str], provider: System.IFormatProvider, format: System.Text.CompositeFormat, chars_written: typing.Optional[int], *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> typing.Tuple[bool, int]:
+    def __getitem__(self, type: typing.Type[System_HashCode_Add_T]) -> System._Typed_HashCode_Add[System_HashCode_Add_T]:
         ...
 
 
 class HashCode:
     """This class has no documentation."""
+
+    combine: System._HashCode_Combine
+
+    @property
+    def add(self) -> System._HashCode_Add:
+        ...
 
     def add_bytes(self, value: System.ReadOnlySpan[int]) -> None:
         ...
@@ -9005,6 +11631,53 @@ class HashCode:
         warnings.warn("HashCode is a mutable struct and should not be compared with other HashCodes. Use ToHashCode to retrieve the computed hash code.", DeprecationWarning)
 
     def to_hash_code(self) -> int:
+        ...
+
+
+class _Typed_ValueTuple_Create(typing.Generic[System_ValueTuple_Create_T1]):
+    """"""
+
+    @overload
+    def __call__(self, item_1: System_ValueTuple_Create_T1) -> System.ValueTuple[System_ValueTuple_Create_T1]:
+        ...
+
+    @overload
+    def __call__(self, item_1: System_ValueTuple_Create_T1, item_2: System_ValueTuple_Create_T2) -> System.ValueTuple[System_ValueTuple_Create_T1, System_ValueTuple_Create_T2]:
+        ...
+
+    @overload
+    def __call__(self, item_1: System_ValueTuple_Create_T1, item_2: System_ValueTuple_Create_T2, item_3: System_ValueTuple_Create_T3) -> System.ValueTuple[System_ValueTuple_Create_T1, System_ValueTuple_Create_T2, System_ValueTuple_Create_T3]:
+        ...
+
+    @overload
+    def __call__(self, item_1: System_ValueTuple_Create_T1, item_2: System_ValueTuple_Create_T2, item_3: System_ValueTuple_Create_T3, item_4: System_ValueTuple_Create_T4) -> System.ValueTuple[System_ValueTuple_Create_T1, System_ValueTuple_Create_T2, System_ValueTuple_Create_T3, System_ValueTuple_Create_T4]:
+        ...
+
+    @overload
+    def __call__(self, item_1: System_ValueTuple_Create_T1, item_2: System_ValueTuple_Create_T2, item_3: System_ValueTuple_Create_T3, item_4: System_ValueTuple_Create_T4, item_5: System_ValueTuple_Create_T5) -> System.ValueTuple[System_ValueTuple_Create_T1, System_ValueTuple_Create_T2, System_ValueTuple_Create_T3, System_ValueTuple_Create_T4, System_ValueTuple_Create_T5]:
+        ...
+
+    @overload
+    def __call__(self, item_1: System_ValueTuple_Create_T1, item_2: System_ValueTuple_Create_T2, item_3: System_ValueTuple_Create_T3, item_4: System_ValueTuple_Create_T4, item_5: System_ValueTuple_Create_T5, item_6: System_ValueTuple_Create_T6) -> System.ValueTuple[System_ValueTuple_Create_T1, System_ValueTuple_Create_T2, System_ValueTuple_Create_T3, System_ValueTuple_Create_T4, System_ValueTuple_Create_T5, System_ValueTuple_Create_T6]:
+        ...
+
+    @overload
+    def __call__(self, item_1: System_ValueTuple_Create_T1, item_2: System_ValueTuple_Create_T2, item_3: System_ValueTuple_Create_T3, item_4: System_ValueTuple_Create_T4, item_5: System_ValueTuple_Create_T5, item_6: System_ValueTuple_Create_T6, item_7: System_ValueTuple_Create_T7) -> System.ValueTuple[System_ValueTuple_Create_T1, System_ValueTuple_Create_T2, System_ValueTuple_Create_T3, System_ValueTuple_Create_T4, System_ValueTuple_Create_T5, System_ValueTuple_Create_T6, System_ValueTuple_Create_T7]:
+        ...
+
+    @overload
+    def __call__(self, item_1: System_ValueTuple_Create_T1, item_2: System_ValueTuple_Create_T2, item_3: System_ValueTuple_Create_T3, item_4: System_ValueTuple_Create_T4, item_5: System_ValueTuple_Create_T5, item_6: System_ValueTuple_Create_T6, item_7: System_ValueTuple_Create_T7, item_8: System_ValueTuple_Create_T8) -> System.ValueTuple[System_ValueTuple_Create_T1, System_ValueTuple_Create_T2, System_ValueTuple_Create_T3, System_ValueTuple_Create_T4, System_ValueTuple_Create_T5, System_ValueTuple_Create_T6, System_ValueTuple_Create_T7, System.ValueTuple[System_ValueTuple_Create_T8]]:
+        ...
+
+
+class _ValueTuple_Create:
+    """"""
+
+    @overload
+    def __call__(self) -> System.ValueTuple:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_ValueTuple_Create_T1]) -> System._Typed_ValueTuple_Create[System_ValueTuple_Create_T1]:
         ...
 
 
@@ -9299,6 +11972,8 @@ class ValueTuple(typing.Generic[System_ValueTuple_T1, System_ValueTuple_T2, Syst
     def rest(self, value: System_ValueTuple_TRest) -> None:
         ...
 
+    create: System._ValueTuple_Create
+
     @overload
     def __ge__(self, other: System.ValueTuple) -> bool:
         ...
@@ -9511,10 +12186,6 @@ class ValueTuple(typing.Generic[System_ValueTuple_T1, System_ValueTuple_T2, Syst
     def compare_to(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4, System_ValueTuple_T5, System_ValueTuple_T6, System_ValueTuple_T7, System_ValueTuple_TRest]) -> int:
         ...
 
-    @staticmethod
-    def create() -> System.ValueTuple:
-        ...
-
     @overload
     def equals(self, obj: typing.Any) -> bool:
         ...
@@ -9696,6 +12367,51 @@ class Memory(typing.Generic[System_Memory_T], System.IEquatable[System_Memory]):
         ...
 
 
+class _Typed_UInt128_CreateChecked(typing.Generic[System_UInt128_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_UInt128_CreateChecked_TOther) -> System.UInt128:
+        ...
+
+
+class _UInt128_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_UInt128_CreateChecked_TOther]) -> System._Typed_UInt128_CreateChecked[System_UInt128_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_UInt128_CreateSaturating(typing.Generic[System_UInt128_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_UInt128_CreateSaturating_TOther) -> System.UInt128:
+        ...
+
+
+class _UInt128_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_UInt128_CreateSaturating_TOther]) -> System._Typed_UInt128_CreateSaturating[System_UInt128_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_UInt128_CreateTruncating(typing.Generic[System_UInt128_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_UInt128_CreateTruncating_TOther) -> System.UInt128:
+        ...
+
+
+class _UInt128_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_UInt128_CreateTruncating_TOther]) -> System._Typed_UInt128_CreateTruncating[System_UInt128_CreateTruncating_TOther]:
+        ...
+
+
 class UInt128(System.Numerics.IUnsignedNumber[System_UInt128], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[System_UInt128]):
     """This class has no documentation."""
 
@@ -9706,6 +12422,12 @@ class UInt128(System.Numerics.IUnsignedNumber[System_UInt128], System.IUtf8SpanF
     ONE: System.UInt128
 
     ZERO: System.UInt128
+
+    create_checked: System._UInt128_CreateChecked
+
+    create_saturating: System._UInt128_CreateSaturating
+
+    create_truncating: System._UInt128_CreateTruncating
 
     @overload
     def __add__(self, right: System.UInt128) -> System.UInt128:
@@ -10340,6 +13062,81 @@ class BitConverter(System.Object):
         ...
 
 
+class _Typed_Decimal_ConvertToInteger(typing.Generic[System_Decimal_ConvertToInteger_TInteger]):
+    """"""
+
+    @overload
+    def __call__(self, value: float) -> System_Decimal_ConvertToInteger_TInteger:
+        ...
+
+
+class _Decimal_ConvertToInteger:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Decimal_ConvertToInteger_TInteger]) -> System._Typed_Decimal_ConvertToInteger[System_Decimal_ConvertToInteger_TInteger]:
+        ...
+
+
+class _Typed_Decimal_ConvertToIntegerNative(typing.Generic[System_Decimal_ConvertToIntegerNative_TInteger]):
+    """"""
+
+    @overload
+    def __call__(self, value: float) -> System_Decimal_ConvertToIntegerNative_TInteger:
+        ...
+
+
+class _Decimal_ConvertToIntegerNative:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Decimal_ConvertToIntegerNative_TInteger]) -> System._Typed_Decimal_ConvertToIntegerNative[System_Decimal_ConvertToIntegerNative_TInteger]:
+        ...
+
+
+class _Typed_Decimal_CreateChecked(typing.Generic[System_Decimal_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Decimal_CreateChecked_TOther) -> float:
+        ...
+
+
+class _Decimal_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Decimal_CreateChecked_TOther]) -> System._Typed_Decimal_CreateChecked[System_Decimal_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_Decimal_CreateSaturating(typing.Generic[System_Decimal_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Decimal_CreateSaturating_TOther) -> float:
+        ...
+
+
+class _Decimal_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Decimal_CreateSaturating_TOther]) -> System._Typed_Decimal_CreateSaturating[System_Decimal_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_Decimal_CreateTruncating(typing.Generic[System_Decimal_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Decimal_CreateTruncating_TOther) -> float:
+        ...
+
+
+class _Decimal_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Decimal_CreateTruncating_TOther]) -> System._Typed_Decimal_CreateTruncating[System_Decimal_CreateTruncating_TOther]:
+        ...
+
+
 class Decimal(System.ISpanFormattable, System.IComparable[float], System.IConvertible, System.IEquatable[float], System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback, System.Numerics.IFloatingPoint[float], System.Numerics.IMinMaxValue[float], System.IUtf8SpanFormattable):
     """This class has no documentation."""
 
@@ -10356,6 +13153,16 @@ class Decimal(System.ISpanFormattable, System.IComparable[float], System.IConver
     @property
     def scale(self) -> int:
         ...
+
+    convert_to_integer: System._Decimal_ConvertToInteger
+
+    convert_to_integer_native: System._Decimal_ConvertToIntegerNative
+
+    create_checked: System._Decimal_CreateChecked
+
+    create_saturating: System._Decimal_CreateSaturating
+
+    create_truncating: System._Decimal_CreateTruncating
 
     def __add__(self, d_2: float) -> float:
         ...
@@ -10814,12 +13621,63 @@ class MethodAccessException(System.MemberAccessException):
         ...
 
 
+class _Typed_SByte_CreateChecked(typing.Generic[System_SByte_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_SByte_CreateChecked_TOther) -> int:
+        ...
+
+
+class _SByte_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_SByte_CreateChecked_TOther]) -> System._Typed_SByte_CreateChecked[System_SByte_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_SByte_CreateSaturating(typing.Generic[System_SByte_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_SByte_CreateSaturating_TOther) -> int:
+        ...
+
+
+class _SByte_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_SByte_CreateSaturating_TOther]) -> System._Typed_SByte_CreateSaturating[System_SByte_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_SByte_CreateTruncating(typing.Generic[System_SByte_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_SByte_CreateTruncating_TOther) -> int:
+        ...
+
+
+class _SByte_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_SByte_CreateTruncating_TOther]) -> System._Typed_SByte_CreateTruncating[System_SByte_CreateTruncating_TOther]:
+        ...
+
+
 class SByte(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.ISignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
     """This class has no documentation."""
 
     MAX_VALUE: int = ...
 
     MIN_VALUE: int = ...
+
+    create_checked: System._SByte_CreateChecked
+
+    create_saturating: System._SByte_CreateSaturating
+
+    create_truncating: System._SByte_CreateTruncating
 
     @overload
     def __ge__(self, other: typing.Any) -> bool:
@@ -12324,6 +15182,9 @@ class ArraySegment(typing.Generic[System_ArraySegment_T], System.Collections.Gen
     def __iter__(self) -> typing.Iterator[System_ArraySegment_T]:
         ...
 
+    def __len__(self) -> int:
+        ...
+
     def __ne__(self, b: System.ArraySegment[System_ArraySegment_T]) -> bool:
         ...
 
@@ -12375,12 +15236,63 @@ class ICustomFormatter(metaclass=abc.ABCMeta):
         ...
 
 
+class _Typed_UInt64_CreateChecked(typing.Generic[System_UInt64_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_UInt64_CreateChecked_TOther) -> int:
+        ...
+
+
+class _UInt64_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_UInt64_CreateChecked_TOther]) -> System._Typed_UInt64_CreateChecked[System_UInt64_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_UInt64_CreateSaturating(typing.Generic[System_UInt64_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_UInt64_CreateSaturating_TOther) -> int:
+        ...
+
+
+class _UInt64_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_UInt64_CreateSaturating_TOther]) -> System._Typed_UInt64_CreateSaturating[System_UInt64_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_UInt64_CreateTruncating(typing.Generic[System_UInt64_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_UInt64_CreateTruncating_TOther) -> int:
+        ...
+
+
+class _UInt64_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_UInt64_CreateTruncating_TOther]) -> System._Typed_UInt64_CreateTruncating[System_UInt64_CreateTruncating_TOther]:
+        ...
+
+
 class UInt64(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.IUnsignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
     """This class has no documentation."""
 
     MAX_VALUE: int = ...
 
     MIN_VALUE: int = ...
+
+    create_checked: System._UInt64_CreateChecked
+
+    create_saturating: System._UInt64_CreateSaturating
+
+    create_truncating: System._UInt64_CreateTruncating
 
     @overload
     def __ge__(self, other: typing.Any) -> bool:
@@ -13108,8 +16020,299 @@ class DateTime(System.IComparable[datetime.datetime], System.ISpanFormattable, S
         ...
 
 
+class _Typed_TupleExtensions_Deconstruct(typing.Generic[System_TupleExtensions_Deconstruct_T1]):
+    """"""
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3], item_4: typing.Optional[System_TupleExtensions_Deconstruct_T4]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3], item_4: typing.Optional[System_TupleExtensions_Deconstruct_T4], item_5: typing.Optional[System_TupleExtensions_Deconstruct_T5]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3], item_4: typing.Optional[System_TupleExtensions_Deconstruct_T4], item_5: typing.Optional[System_TupleExtensions_Deconstruct_T5], item_6: typing.Optional[System_TupleExtensions_Deconstruct_T6]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3], item_4: typing.Optional[System_TupleExtensions_Deconstruct_T4], item_5: typing.Optional[System_TupleExtensions_Deconstruct_T5], item_6: typing.Optional[System_TupleExtensions_Deconstruct_T6], item_7: typing.Optional[System_TupleExtensions_Deconstruct_T7]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System.Tuple[System_TupleExtensions_Deconstruct_T8]], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3], item_4: typing.Optional[System_TupleExtensions_Deconstruct_T4], item_5: typing.Optional[System_TupleExtensions_Deconstruct_T5], item_6: typing.Optional[System_TupleExtensions_Deconstruct_T6], item_7: typing.Optional[System_TupleExtensions_Deconstruct_T7], item_8: typing.Optional[System_TupleExtensions_Deconstruct_T8]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System_TupleExtensions_Deconstruct_T8]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System.Tuple[System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9]], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3], item_4: typing.Optional[System_TupleExtensions_Deconstruct_T4], item_5: typing.Optional[System_TupleExtensions_Deconstruct_T5], item_6: typing.Optional[System_TupleExtensions_Deconstruct_T6], item_7: typing.Optional[System_TupleExtensions_Deconstruct_T7], item_8: typing.Optional[System_TupleExtensions_Deconstruct_T8], item_9: typing.Optional[System_TupleExtensions_Deconstruct_T9]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System.Tuple[System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10]], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3], item_4: typing.Optional[System_TupleExtensions_Deconstruct_T4], item_5: typing.Optional[System_TupleExtensions_Deconstruct_T5], item_6: typing.Optional[System_TupleExtensions_Deconstruct_T6], item_7: typing.Optional[System_TupleExtensions_Deconstruct_T7], item_8: typing.Optional[System_TupleExtensions_Deconstruct_T8], item_9: typing.Optional[System_TupleExtensions_Deconstruct_T9], item_10: typing.Optional[System_TupleExtensions_Deconstruct_T10]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System.Tuple[System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11]], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3], item_4: typing.Optional[System_TupleExtensions_Deconstruct_T4], item_5: typing.Optional[System_TupleExtensions_Deconstruct_T5], item_6: typing.Optional[System_TupleExtensions_Deconstruct_T6], item_7: typing.Optional[System_TupleExtensions_Deconstruct_T7], item_8: typing.Optional[System_TupleExtensions_Deconstruct_T8], item_9: typing.Optional[System_TupleExtensions_Deconstruct_T9], item_10: typing.Optional[System_TupleExtensions_Deconstruct_T10], item_11: typing.Optional[System_TupleExtensions_Deconstruct_T11]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System.Tuple[System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12]], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3], item_4: typing.Optional[System_TupleExtensions_Deconstruct_T4], item_5: typing.Optional[System_TupleExtensions_Deconstruct_T5], item_6: typing.Optional[System_TupleExtensions_Deconstruct_T6], item_7: typing.Optional[System_TupleExtensions_Deconstruct_T7], item_8: typing.Optional[System_TupleExtensions_Deconstruct_T8], item_9: typing.Optional[System_TupleExtensions_Deconstruct_T9], item_10: typing.Optional[System_TupleExtensions_Deconstruct_T10], item_11: typing.Optional[System_TupleExtensions_Deconstruct_T11], item_12: typing.Optional[System_TupleExtensions_Deconstruct_T12]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System.Tuple[System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12, System_TupleExtensions_Deconstruct_T13]], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3], item_4: typing.Optional[System_TupleExtensions_Deconstruct_T4], item_5: typing.Optional[System_TupleExtensions_Deconstruct_T5], item_6: typing.Optional[System_TupleExtensions_Deconstruct_T6], item_7: typing.Optional[System_TupleExtensions_Deconstruct_T7], item_8: typing.Optional[System_TupleExtensions_Deconstruct_T8], item_9: typing.Optional[System_TupleExtensions_Deconstruct_T9], item_10: typing.Optional[System_TupleExtensions_Deconstruct_T10], item_11: typing.Optional[System_TupleExtensions_Deconstruct_T11], item_12: typing.Optional[System_TupleExtensions_Deconstruct_T12], item_13: typing.Optional[System_TupleExtensions_Deconstruct_T13]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12, System_TupleExtensions_Deconstruct_T13]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System.Tuple[System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12, System_TupleExtensions_Deconstruct_T13, System_TupleExtensions_Deconstruct_T14]], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3], item_4: typing.Optional[System_TupleExtensions_Deconstruct_T4], item_5: typing.Optional[System_TupleExtensions_Deconstruct_T5], item_6: typing.Optional[System_TupleExtensions_Deconstruct_T6], item_7: typing.Optional[System_TupleExtensions_Deconstruct_T7], item_8: typing.Optional[System_TupleExtensions_Deconstruct_T8], item_9: typing.Optional[System_TupleExtensions_Deconstruct_T9], item_10: typing.Optional[System_TupleExtensions_Deconstruct_T10], item_11: typing.Optional[System_TupleExtensions_Deconstruct_T11], item_12: typing.Optional[System_TupleExtensions_Deconstruct_T12], item_13: typing.Optional[System_TupleExtensions_Deconstruct_T13], item_14: typing.Optional[System_TupleExtensions_Deconstruct_T14]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12, System_TupleExtensions_Deconstruct_T13, System_TupleExtensions_Deconstruct_T14]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System.Tuple[System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12, System_TupleExtensions_Deconstruct_T13, System_TupleExtensions_Deconstruct_T14, System.Tuple[System_TupleExtensions_Deconstruct_T15]]], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3], item_4: typing.Optional[System_TupleExtensions_Deconstruct_T4], item_5: typing.Optional[System_TupleExtensions_Deconstruct_T5], item_6: typing.Optional[System_TupleExtensions_Deconstruct_T6], item_7: typing.Optional[System_TupleExtensions_Deconstruct_T7], item_8: typing.Optional[System_TupleExtensions_Deconstruct_T8], item_9: typing.Optional[System_TupleExtensions_Deconstruct_T9], item_10: typing.Optional[System_TupleExtensions_Deconstruct_T10], item_11: typing.Optional[System_TupleExtensions_Deconstruct_T11], item_12: typing.Optional[System_TupleExtensions_Deconstruct_T12], item_13: typing.Optional[System_TupleExtensions_Deconstruct_T13], item_14: typing.Optional[System_TupleExtensions_Deconstruct_T14], item_15: typing.Optional[System_TupleExtensions_Deconstruct_T15]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12, System_TupleExtensions_Deconstruct_T13, System_TupleExtensions_Deconstruct_T14, System_TupleExtensions_Deconstruct_T15]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System.Tuple[System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12, System_TupleExtensions_Deconstruct_T13, System_TupleExtensions_Deconstruct_T14, System.Tuple[System_TupleExtensions_Deconstruct_T15, System_TupleExtensions_Deconstruct_T16]]], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3], item_4: typing.Optional[System_TupleExtensions_Deconstruct_T4], item_5: typing.Optional[System_TupleExtensions_Deconstruct_T5], item_6: typing.Optional[System_TupleExtensions_Deconstruct_T6], item_7: typing.Optional[System_TupleExtensions_Deconstruct_T7], item_8: typing.Optional[System_TupleExtensions_Deconstruct_T8], item_9: typing.Optional[System_TupleExtensions_Deconstruct_T9], item_10: typing.Optional[System_TupleExtensions_Deconstruct_T10], item_11: typing.Optional[System_TupleExtensions_Deconstruct_T11], item_12: typing.Optional[System_TupleExtensions_Deconstruct_T12], item_13: typing.Optional[System_TupleExtensions_Deconstruct_T13], item_14: typing.Optional[System_TupleExtensions_Deconstruct_T14], item_15: typing.Optional[System_TupleExtensions_Deconstruct_T15], item_16: typing.Optional[System_TupleExtensions_Deconstruct_T16]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12, System_TupleExtensions_Deconstruct_T13, System_TupleExtensions_Deconstruct_T14, System_TupleExtensions_Deconstruct_T15, System_TupleExtensions_Deconstruct_T16]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System.Tuple[System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12, System_TupleExtensions_Deconstruct_T13, System_TupleExtensions_Deconstruct_T14, System.Tuple[System_TupleExtensions_Deconstruct_T15, System_TupleExtensions_Deconstruct_T16, System_TupleExtensions_Deconstruct_T17]]], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3], item_4: typing.Optional[System_TupleExtensions_Deconstruct_T4], item_5: typing.Optional[System_TupleExtensions_Deconstruct_T5], item_6: typing.Optional[System_TupleExtensions_Deconstruct_T6], item_7: typing.Optional[System_TupleExtensions_Deconstruct_T7], item_8: typing.Optional[System_TupleExtensions_Deconstruct_T8], item_9: typing.Optional[System_TupleExtensions_Deconstruct_T9], item_10: typing.Optional[System_TupleExtensions_Deconstruct_T10], item_11: typing.Optional[System_TupleExtensions_Deconstruct_T11], item_12: typing.Optional[System_TupleExtensions_Deconstruct_T12], item_13: typing.Optional[System_TupleExtensions_Deconstruct_T13], item_14: typing.Optional[System_TupleExtensions_Deconstruct_T14], item_15: typing.Optional[System_TupleExtensions_Deconstruct_T15], item_16: typing.Optional[System_TupleExtensions_Deconstruct_T16], item_17: typing.Optional[System_TupleExtensions_Deconstruct_T17]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12, System_TupleExtensions_Deconstruct_T13, System_TupleExtensions_Deconstruct_T14, System_TupleExtensions_Deconstruct_T15, System_TupleExtensions_Deconstruct_T16, System_TupleExtensions_Deconstruct_T17]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System.Tuple[System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12, System_TupleExtensions_Deconstruct_T13, System_TupleExtensions_Deconstruct_T14, System.Tuple[System_TupleExtensions_Deconstruct_T15, System_TupleExtensions_Deconstruct_T16, System_TupleExtensions_Deconstruct_T17, System_TupleExtensions_Deconstruct_T18]]], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3], item_4: typing.Optional[System_TupleExtensions_Deconstruct_T4], item_5: typing.Optional[System_TupleExtensions_Deconstruct_T5], item_6: typing.Optional[System_TupleExtensions_Deconstruct_T6], item_7: typing.Optional[System_TupleExtensions_Deconstruct_T7], item_8: typing.Optional[System_TupleExtensions_Deconstruct_T8], item_9: typing.Optional[System_TupleExtensions_Deconstruct_T9], item_10: typing.Optional[System_TupleExtensions_Deconstruct_T10], item_11: typing.Optional[System_TupleExtensions_Deconstruct_T11], item_12: typing.Optional[System_TupleExtensions_Deconstruct_T12], item_13: typing.Optional[System_TupleExtensions_Deconstruct_T13], item_14: typing.Optional[System_TupleExtensions_Deconstruct_T14], item_15: typing.Optional[System_TupleExtensions_Deconstruct_T15], item_16: typing.Optional[System_TupleExtensions_Deconstruct_T16], item_17: typing.Optional[System_TupleExtensions_Deconstruct_T17], item_18: typing.Optional[System_TupleExtensions_Deconstruct_T18]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12, System_TupleExtensions_Deconstruct_T13, System_TupleExtensions_Deconstruct_T14, System_TupleExtensions_Deconstruct_T15, System_TupleExtensions_Deconstruct_T16, System_TupleExtensions_Deconstruct_T17, System_TupleExtensions_Deconstruct_T18]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System.Tuple[System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12, System_TupleExtensions_Deconstruct_T13, System_TupleExtensions_Deconstruct_T14, System.Tuple[System_TupleExtensions_Deconstruct_T15, System_TupleExtensions_Deconstruct_T16, System_TupleExtensions_Deconstruct_T17, System_TupleExtensions_Deconstruct_T18, System_TupleExtensions_Deconstruct_T19]]], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3], item_4: typing.Optional[System_TupleExtensions_Deconstruct_T4], item_5: typing.Optional[System_TupleExtensions_Deconstruct_T5], item_6: typing.Optional[System_TupleExtensions_Deconstruct_T6], item_7: typing.Optional[System_TupleExtensions_Deconstruct_T7], item_8: typing.Optional[System_TupleExtensions_Deconstruct_T8], item_9: typing.Optional[System_TupleExtensions_Deconstruct_T9], item_10: typing.Optional[System_TupleExtensions_Deconstruct_T10], item_11: typing.Optional[System_TupleExtensions_Deconstruct_T11], item_12: typing.Optional[System_TupleExtensions_Deconstruct_T12], item_13: typing.Optional[System_TupleExtensions_Deconstruct_T13], item_14: typing.Optional[System_TupleExtensions_Deconstruct_T14], item_15: typing.Optional[System_TupleExtensions_Deconstruct_T15], item_16: typing.Optional[System_TupleExtensions_Deconstruct_T16], item_17: typing.Optional[System_TupleExtensions_Deconstruct_T17], item_18: typing.Optional[System_TupleExtensions_Deconstruct_T18], item_19: typing.Optional[System_TupleExtensions_Deconstruct_T19]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12, System_TupleExtensions_Deconstruct_T13, System_TupleExtensions_Deconstruct_T14, System_TupleExtensions_Deconstruct_T15, System_TupleExtensions_Deconstruct_T16, System_TupleExtensions_Deconstruct_T17, System_TupleExtensions_Deconstruct_T18, System_TupleExtensions_Deconstruct_T19]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System.Tuple[System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12, System_TupleExtensions_Deconstruct_T13, System_TupleExtensions_Deconstruct_T14, System.Tuple[System_TupleExtensions_Deconstruct_T15, System_TupleExtensions_Deconstruct_T16, System_TupleExtensions_Deconstruct_T17, System_TupleExtensions_Deconstruct_T18, System_TupleExtensions_Deconstruct_T19, System_TupleExtensions_Deconstruct_T20]]], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3], item_4: typing.Optional[System_TupleExtensions_Deconstruct_T4], item_5: typing.Optional[System_TupleExtensions_Deconstruct_T5], item_6: typing.Optional[System_TupleExtensions_Deconstruct_T6], item_7: typing.Optional[System_TupleExtensions_Deconstruct_T7], item_8: typing.Optional[System_TupleExtensions_Deconstruct_T8], item_9: typing.Optional[System_TupleExtensions_Deconstruct_T9], item_10: typing.Optional[System_TupleExtensions_Deconstruct_T10], item_11: typing.Optional[System_TupleExtensions_Deconstruct_T11], item_12: typing.Optional[System_TupleExtensions_Deconstruct_T12], item_13: typing.Optional[System_TupleExtensions_Deconstruct_T13], item_14: typing.Optional[System_TupleExtensions_Deconstruct_T14], item_15: typing.Optional[System_TupleExtensions_Deconstruct_T15], item_16: typing.Optional[System_TupleExtensions_Deconstruct_T16], item_17: typing.Optional[System_TupleExtensions_Deconstruct_T17], item_18: typing.Optional[System_TupleExtensions_Deconstruct_T18], item_19: typing.Optional[System_TupleExtensions_Deconstruct_T19], item_20: typing.Optional[System_TupleExtensions_Deconstruct_T20]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12, System_TupleExtensions_Deconstruct_T13, System_TupleExtensions_Deconstruct_T14, System_TupleExtensions_Deconstruct_T15, System_TupleExtensions_Deconstruct_T16, System_TupleExtensions_Deconstruct_T17, System_TupleExtensions_Deconstruct_T18, System_TupleExtensions_Deconstruct_T19, System_TupleExtensions_Deconstruct_T20]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System.Tuple[System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12, System_TupleExtensions_Deconstruct_T13, System_TupleExtensions_Deconstruct_T14, System.Tuple[System_TupleExtensions_Deconstruct_T15, System_TupleExtensions_Deconstruct_T16, System_TupleExtensions_Deconstruct_T17, System_TupleExtensions_Deconstruct_T18, System_TupleExtensions_Deconstruct_T19, System_TupleExtensions_Deconstruct_T20, System_TupleExtensions_Deconstruct_T21]]], item_1: typing.Optional[System_TupleExtensions_Deconstruct_T1], item_2: typing.Optional[System_TupleExtensions_Deconstruct_T2], item_3: typing.Optional[System_TupleExtensions_Deconstruct_T3], item_4: typing.Optional[System_TupleExtensions_Deconstruct_T4], item_5: typing.Optional[System_TupleExtensions_Deconstruct_T5], item_6: typing.Optional[System_TupleExtensions_Deconstruct_T6], item_7: typing.Optional[System_TupleExtensions_Deconstruct_T7], item_8: typing.Optional[System_TupleExtensions_Deconstruct_T8], item_9: typing.Optional[System_TupleExtensions_Deconstruct_T9], item_10: typing.Optional[System_TupleExtensions_Deconstruct_T10], item_11: typing.Optional[System_TupleExtensions_Deconstruct_T11], item_12: typing.Optional[System_TupleExtensions_Deconstruct_T12], item_13: typing.Optional[System_TupleExtensions_Deconstruct_T13], item_14: typing.Optional[System_TupleExtensions_Deconstruct_T14], item_15: typing.Optional[System_TupleExtensions_Deconstruct_T15], item_16: typing.Optional[System_TupleExtensions_Deconstruct_T16], item_17: typing.Optional[System_TupleExtensions_Deconstruct_T17], item_18: typing.Optional[System_TupleExtensions_Deconstruct_T18], item_19: typing.Optional[System_TupleExtensions_Deconstruct_T19], item_20: typing.Optional[System_TupleExtensions_Deconstruct_T20], item_21: typing.Optional[System_TupleExtensions_Deconstruct_T21]) -> typing.Tuple[None, System_TupleExtensions_Deconstruct_T1, System_TupleExtensions_Deconstruct_T2, System_TupleExtensions_Deconstruct_T3, System_TupleExtensions_Deconstruct_T4, System_TupleExtensions_Deconstruct_T5, System_TupleExtensions_Deconstruct_T6, System_TupleExtensions_Deconstruct_T7, System_TupleExtensions_Deconstruct_T8, System_TupleExtensions_Deconstruct_T9, System_TupleExtensions_Deconstruct_T10, System_TupleExtensions_Deconstruct_T11, System_TupleExtensions_Deconstruct_T12, System_TupleExtensions_Deconstruct_T13, System_TupleExtensions_Deconstruct_T14, System_TupleExtensions_Deconstruct_T15, System_TupleExtensions_Deconstruct_T16, System_TupleExtensions_Deconstruct_T17, System_TupleExtensions_Deconstruct_T18, System_TupleExtensions_Deconstruct_T19, System_TupleExtensions_Deconstruct_T20, System_TupleExtensions_Deconstruct_T21]:
+        ...
+
+
+class _TupleExtensions_Deconstruct:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_TupleExtensions_Deconstruct_T1]) -> System._Typed_TupleExtensions_Deconstruct[System_TupleExtensions_Deconstruct_T1]:
+        ...
+
+
+class _Typed_TupleExtensions_ToValueTuple(typing.Generic[System_TupleExtensions_ToValueTuple_T1]):
+    """"""
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.Tuple[System_TupleExtensions_ToValueTuple_T8]]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.ValueTuple[System_TupleExtensions_ToValueTuple_T8]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.Tuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9]]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.ValueTuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.Tuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10]]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.ValueTuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.Tuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11]]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.ValueTuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.Tuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12]]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.ValueTuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.Tuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12, System_TupleExtensions_ToValueTuple_T13]]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.ValueTuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12, System_TupleExtensions_ToValueTuple_T13]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.Tuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12, System_TupleExtensions_ToValueTuple_T13, System_TupleExtensions_ToValueTuple_T14]]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.ValueTuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12, System_TupleExtensions_ToValueTuple_T13, System_TupleExtensions_ToValueTuple_T14]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.Tuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12, System_TupleExtensions_ToValueTuple_T13, System_TupleExtensions_ToValueTuple_T14, System.Tuple[System_TupleExtensions_ToValueTuple_T15]]]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.ValueTuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12, System_TupleExtensions_ToValueTuple_T13, System_TupleExtensions_ToValueTuple_T14, System.ValueTuple[System_TupleExtensions_ToValueTuple_T15]]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.Tuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12, System_TupleExtensions_ToValueTuple_T13, System_TupleExtensions_ToValueTuple_T14, System.Tuple[System_TupleExtensions_ToValueTuple_T15, System_TupleExtensions_ToValueTuple_T16]]]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.ValueTuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12, System_TupleExtensions_ToValueTuple_T13, System_TupleExtensions_ToValueTuple_T14, System.ValueTuple[System_TupleExtensions_ToValueTuple_T15, System_TupleExtensions_ToValueTuple_T16]]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.Tuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12, System_TupleExtensions_ToValueTuple_T13, System_TupleExtensions_ToValueTuple_T14, System.Tuple[System_TupleExtensions_ToValueTuple_T15, System_TupleExtensions_ToValueTuple_T16, System_TupleExtensions_ToValueTuple_T17]]]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.ValueTuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12, System_TupleExtensions_ToValueTuple_T13, System_TupleExtensions_ToValueTuple_T14, System.ValueTuple[System_TupleExtensions_ToValueTuple_T15, System_TupleExtensions_ToValueTuple_T16, System_TupleExtensions_ToValueTuple_T17]]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.Tuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12, System_TupleExtensions_ToValueTuple_T13, System_TupleExtensions_ToValueTuple_T14, System.Tuple[System_TupleExtensions_ToValueTuple_T15, System_TupleExtensions_ToValueTuple_T16, System_TupleExtensions_ToValueTuple_T17, System_TupleExtensions_ToValueTuple_T18]]]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.ValueTuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12, System_TupleExtensions_ToValueTuple_T13, System_TupleExtensions_ToValueTuple_T14, System.ValueTuple[System_TupleExtensions_ToValueTuple_T15, System_TupleExtensions_ToValueTuple_T16, System_TupleExtensions_ToValueTuple_T17, System_TupleExtensions_ToValueTuple_T18]]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.Tuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12, System_TupleExtensions_ToValueTuple_T13, System_TupleExtensions_ToValueTuple_T14, System.Tuple[System_TupleExtensions_ToValueTuple_T15, System_TupleExtensions_ToValueTuple_T16, System_TupleExtensions_ToValueTuple_T17, System_TupleExtensions_ToValueTuple_T18, System_TupleExtensions_ToValueTuple_T19]]]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.ValueTuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12, System_TupleExtensions_ToValueTuple_T13, System_TupleExtensions_ToValueTuple_T14, System.ValueTuple[System_TupleExtensions_ToValueTuple_T15, System_TupleExtensions_ToValueTuple_T16, System_TupleExtensions_ToValueTuple_T17, System_TupleExtensions_ToValueTuple_T18, System_TupleExtensions_ToValueTuple_T19]]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.Tuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12, System_TupleExtensions_ToValueTuple_T13, System_TupleExtensions_ToValueTuple_T14, System.Tuple[System_TupleExtensions_ToValueTuple_T15, System_TupleExtensions_ToValueTuple_T16, System_TupleExtensions_ToValueTuple_T17, System_TupleExtensions_ToValueTuple_T18, System_TupleExtensions_ToValueTuple_T19, System_TupleExtensions_ToValueTuple_T20]]]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.ValueTuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12, System_TupleExtensions_ToValueTuple_T13, System_TupleExtensions_ToValueTuple_T14, System.ValueTuple[System_TupleExtensions_ToValueTuple_T15, System_TupleExtensions_ToValueTuple_T16, System_TupleExtensions_ToValueTuple_T17, System_TupleExtensions_ToValueTuple_T18, System_TupleExtensions_ToValueTuple_T19, System_TupleExtensions_ToValueTuple_T20]]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.Tuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.Tuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12, System_TupleExtensions_ToValueTuple_T13, System_TupleExtensions_ToValueTuple_T14, System.Tuple[System_TupleExtensions_ToValueTuple_T15, System_TupleExtensions_ToValueTuple_T16, System_TupleExtensions_ToValueTuple_T17, System_TupleExtensions_ToValueTuple_T18, System_TupleExtensions_ToValueTuple_T19, System_TupleExtensions_ToValueTuple_T20, System_TupleExtensions_ToValueTuple_T21]]]) -> System.ValueTuple[System_TupleExtensions_ToValueTuple_T1, System_TupleExtensions_ToValueTuple_T2, System_TupleExtensions_ToValueTuple_T3, System_TupleExtensions_ToValueTuple_T4, System_TupleExtensions_ToValueTuple_T5, System_TupleExtensions_ToValueTuple_T6, System_TupleExtensions_ToValueTuple_T7, System.ValueTuple[System_TupleExtensions_ToValueTuple_T8, System_TupleExtensions_ToValueTuple_T9, System_TupleExtensions_ToValueTuple_T10, System_TupleExtensions_ToValueTuple_T11, System_TupleExtensions_ToValueTuple_T12, System_TupleExtensions_ToValueTuple_T13, System_TupleExtensions_ToValueTuple_T14, System.ValueTuple[System_TupleExtensions_ToValueTuple_T15, System_TupleExtensions_ToValueTuple_T16, System_TupleExtensions_ToValueTuple_T17, System_TupleExtensions_ToValueTuple_T18, System_TupleExtensions_ToValueTuple_T19, System_TupleExtensions_ToValueTuple_T20, System_TupleExtensions_ToValueTuple_T21]]]:
+        ...
+
+
+class _TupleExtensions_ToValueTuple:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_TupleExtensions_ToValueTuple_T1]) -> System._Typed_TupleExtensions_ToValueTuple[System_TupleExtensions_ToValueTuple_T1]:
+        ...
+
+
+class _Typed_TupleExtensions_ToTuple(typing.Generic[System_TupleExtensions_ToTuple_T1]):
+    """"""
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1]) -> System.Tuple[System_TupleExtensions_ToTuple_T1]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.ValueTuple[System_TupleExtensions_ToTuple_T8]]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.Tuple[System_TupleExtensions_ToTuple_T8]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.ValueTuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9]]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.Tuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.ValueTuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10]]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.Tuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.ValueTuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11]]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.Tuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.ValueTuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12]]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.Tuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.ValueTuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12, System_TupleExtensions_ToTuple_T13]]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.Tuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12, System_TupleExtensions_ToTuple_T13]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.ValueTuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12, System_TupleExtensions_ToTuple_T13, System_TupleExtensions_ToTuple_T14]]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.Tuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12, System_TupleExtensions_ToTuple_T13, System_TupleExtensions_ToTuple_T14]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.ValueTuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12, System_TupleExtensions_ToTuple_T13, System_TupleExtensions_ToTuple_T14, System.ValueTuple[System_TupleExtensions_ToTuple_T15]]]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.Tuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12, System_TupleExtensions_ToTuple_T13, System_TupleExtensions_ToTuple_T14, System.Tuple[System_TupleExtensions_ToTuple_T15]]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.ValueTuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12, System_TupleExtensions_ToTuple_T13, System_TupleExtensions_ToTuple_T14, System.ValueTuple[System_TupleExtensions_ToTuple_T15, System_TupleExtensions_ToTuple_T16]]]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.Tuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12, System_TupleExtensions_ToTuple_T13, System_TupleExtensions_ToTuple_T14, System.Tuple[System_TupleExtensions_ToTuple_T15, System_TupleExtensions_ToTuple_T16]]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.ValueTuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12, System_TupleExtensions_ToTuple_T13, System_TupleExtensions_ToTuple_T14, System.ValueTuple[System_TupleExtensions_ToTuple_T15, System_TupleExtensions_ToTuple_T16, System_TupleExtensions_ToTuple_T17]]]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.Tuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12, System_TupleExtensions_ToTuple_T13, System_TupleExtensions_ToTuple_T14, System.Tuple[System_TupleExtensions_ToTuple_T15, System_TupleExtensions_ToTuple_T16, System_TupleExtensions_ToTuple_T17]]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.ValueTuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12, System_TupleExtensions_ToTuple_T13, System_TupleExtensions_ToTuple_T14, System.ValueTuple[System_TupleExtensions_ToTuple_T15, System_TupleExtensions_ToTuple_T16, System_TupleExtensions_ToTuple_T17, System_TupleExtensions_ToTuple_T18]]]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.Tuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12, System_TupleExtensions_ToTuple_T13, System_TupleExtensions_ToTuple_T14, System.Tuple[System_TupleExtensions_ToTuple_T15, System_TupleExtensions_ToTuple_T16, System_TupleExtensions_ToTuple_T17, System_TupleExtensions_ToTuple_T18]]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.ValueTuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12, System_TupleExtensions_ToTuple_T13, System_TupleExtensions_ToTuple_T14, System.ValueTuple[System_TupleExtensions_ToTuple_T15, System_TupleExtensions_ToTuple_T16, System_TupleExtensions_ToTuple_T17, System_TupleExtensions_ToTuple_T18, System_TupleExtensions_ToTuple_T19]]]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.Tuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12, System_TupleExtensions_ToTuple_T13, System_TupleExtensions_ToTuple_T14, System.Tuple[System_TupleExtensions_ToTuple_T15, System_TupleExtensions_ToTuple_T16, System_TupleExtensions_ToTuple_T17, System_TupleExtensions_ToTuple_T18, System_TupleExtensions_ToTuple_T19]]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.ValueTuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12, System_TupleExtensions_ToTuple_T13, System_TupleExtensions_ToTuple_T14, System.ValueTuple[System_TupleExtensions_ToTuple_T15, System_TupleExtensions_ToTuple_T16, System_TupleExtensions_ToTuple_T17, System_TupleExtensions_ToTuple_T18, System_TupleExtensions_ToTuple_T19, System_TupleExtensions_ToTuple_T20]]]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.Tuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12, System_TupleExtensions_ToTuple_T13, System_TupleExtensions_ToTuple_T14, System.Tuple[System_TupleExtensions_ToTuple_T15, System_TupleExtensions_ToTuple_T16, System_TupleExtensions_ToTuple_T17, System_TupleExtensions_ToTuple_T18, System_TupleExtensions_ToTuple_T19, System_TupleExtensions_ToTuple_T20]]]:
+        ...
+
+    @overload
+    def __call__(self, value: System.ValueTuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.ValueTuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12, System_TupleExtensions_ToTuple_T13, System_TupleExtensions_ToTuple_T14, System.ValueTuple[System_TupleExtensions_ToTuple_T15, System_TupleExtensions_ToTuple_T16, System_TupleExtensions_ToTuple_T17, System_TupleExtensions_ToTuple_T18, System_TupleExtensions_ToTuple_T19, System_TupleExtensions_ToTuple_T20, System_TupleExtensions_ToTuple_T21]]]) -> System.Tuple[System_TupleExtensions_ToTuple_T1, System_TupleExtensions_ToTuple_T2, System_TupleExtensions_ToTuple_T3, System_TupleExtensions_ToTuple_T4, System_TupleExtensions_ToTuple_T5, System_TupleExtensions_ToTuple_T6, System_TupleExtensions_ToTuple_T7, System.Tuple[System_TupleExtensions_ToTuple_T8, System_TupleExtensions_ToTuple_T9, System_TupleExtensions_ToTuple_T10, System_TupleExtensions_ToTuple_T11, System_TupleExtensions_ToTuple_T12, System_TupleExtensions_ToTuple_T13, System_TupleExtensions_ToTuple_T14, System.Tuple[System_TupleExtensions_ToTuple_T15, System_TupleExtensions_ToTuple_T16, System_TupleExtensions_ToTuple_T17, System_TupleExtensions_ToTuple_T18, System_TupleExtensions_ToTuple_T19, System_TupleExtensions_ToTuple_T20, System_TupleExtensions_ToTuple_T21]]]:
+        ...
+
+
+class _TupleExtensions_ToTuple:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_TupleExtensions_ToTuple_T1]) -> System._Typed_TupleExtensions_ToTuple[System_TupleExtensions_ToTuple_T1]:
+        ...
+
+
 class TupleExtensions(System.Object):
     """This class has no documentation."""
+
+    deconstruct: System._TupleExtensions_Deconstruct
+
+    to_value_tuple: System._TupleExtensions_ToValueTuple
+
+    to_tuple: System._TupleExtensions_ToTuple
 
 
 class ExecutionEngineException(System.SystemException):
@@ -13296,6 +16499,21 @@ class StringNormalizationExtensions(System.Object):
         ...
 
 
+class _Typed_ReadOnlySpan_CastUp(typing.Generic[System_ReadOnlySpan_CastUp_TDerived]):
+    """"""
+
+    @overload
+    def __call__(self, items: System.ReadOnlySpan[System_ReadOnlySpan_CastUp_TDerived]) -> System.ReadOnlySpan[System_ReadOnlySpan_T]:
+        ...
+
+
+class _ReadOnlySpan_CastUp:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_ReadOnlySpan_CastUp_TDerived]) -> System._Typed_ReadOnlySpan_CastUp[System_ReadOnlySpan_CastUp_TDerived]:
+        ...
+
+
 class ReadOnlySpan(typing.Generic[System_ReadOnlySpan_T]):
     """This class has no documentation."""
 
@@ -13318,6 +16536,8 @@ class ReadOnlySpan(typing.Generic[System_ReadOnlySpan_T]):
         ...
 
     EMPTY: System.ReadOnlySpan[System_ReadOnlySpan_T]
+
+    cast_up: System._ReadOnlySpan_CastUp
 
     def __eq__(self, right: System.ReadOnlySpan[System_ReadOnlySpan_T]) -> bool:
         ...
@@ -13377,12 +16597,63 @@ class ReadOnlySpan(typing.Generic[System_ReadOnlySpan_T]):
         ...
 
 
+class _Typed_UInt32_CreateChecked(typing.Generic[System_UInt32_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_UInt32_CreateChecked_TOther) -> int:
+        ...
+
+
+class _UInt32_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_UInt32_CreateChecked_TOther]) -> System._Typed_UInt32_CreateChecked[System_UInt32_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_UInt32_CreateSaturating(typing.Generic[System_UInt32_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_UInt32_CreateSaturating_TOther) -> int:
+        ...
+
+
+class _UInt32_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_UInt32_CreateSaturating_TOther]) -> System._Typed_UInt32_CreateSaturating[System_UInt32_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_UInt32_CreateTruncating(typing.Generic[System_UInt32_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_UInt32_CreateTruncating_TOther) -> int:
+        ...
+
+
+class _UInt32_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_UInt32_CreateTruncating_TOther]) -> System._Typed_UInt32_CreateTruncating[System_UInt32_CreateTruncating_TOther]:
+        ...
+
+
 class UInt32(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.IUnsignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
     """This class has no documentation."""
 
     MAX_VALUE: int = ...
 
     MIN_VALUE: int = ...
+
+    create_checked: System._UInt32_CreateChecked
+
+    create_saturating: System._UInt32_CreateSaturating
+
+    create_truncating: System._UInt32_CreateTruncating
 
     @overload
     def __ge__(self, other: typing.Any) -> bool:
@@ -13825,12 +17096,63 @@ class ContextStaticAttribute(System.Attribute):
         ...
 
 
+class _Typed_UInt16_CreateChecked(typing.Generic[System_UInt16_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_UInt16_CreateChecked_TOther) -> int:
+        ...
+
+
+class _UInt16_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_UInt16_CreateChecked_TOther]) -> System._Typed_UInt16_CreateChecked[System_UInt16_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_UInt16_CreateSaturating(typing.Generic[System_UInt16_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_UInt16_CreateSaturating_TOther) -> int:
+        ...
+
+
+class _UInt16_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_UInt16_CreateSaturating_TOther]) -> System._Typed_UInt16_CreateSaturating[System_UInt16_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_UInt16_CreateTruncating(typing.Generic[System_UInt16_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_UInt16_CreateTruncating_TOther) -> int:
+        ...
+
+
+class _UInt16_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_UInt16_CreateTruncating_TOther]) -> System._Typed_UInt16_CreateTruncating[System_UInt16_CreateTruncating_TOther]:
+        ...
+
+
 class UInt16(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.IUnsignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
     """This class has no documentation."""
 
     MAX_VALUE: int = ...
 
     MIN_VALUE: int = 0
+
+    create_checked: System._UInt16_CreateChecked
+
+    create_saturating: System._UInt16_CreateSaturating
+
+    create_truncating: System._UInt16_CreateTruncating
 
     @overload
     def __ge__(self, other: typing.Any) -> bool:
@@ -14104,6 +17426,51 @@ class TypeUnloadedException(System.SystemException):
         ...
 
 
+class _Typed_UIntPtr_CreateChecked(typing.Generic[System_UIntPtr_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_UIntPtr_CreateChecked_TOther) -> System.UIntPtr:
+        ...
+
+
+class _UIntPtr_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_UIntPtr_CreateChecked_TOther]) -> System._Typed_UIntPtr_CreateChecked[System_UIntPtr_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_UIntPtr_CreateSaturating(typing.Generic[System_UIntPtr_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_UIntPtr_CreateSaturating_TOther) -> System.UIntPtr:
+        ...
+
+
+class _UIntPtr_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_UIntPtr_CreateSaturating_TOther]) -> System._Typed_UIntPtr_CreateSaturating[System_UIntPtr_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_UIntPtr_CreateTruncating(typing.Generic[System_UIntPtr_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_UIntPtr_CreateTruncating_TOther) -> System.UIntPtr:
+        ...
+
+
+class _UIntPtr_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_UIntPtr_CreateTruncating_TOther]) -> System._Typed_UIntPtr_CreateTruncating[System_UIntPtr_CreateTruncating_TOther]:
+        ...
+
+
 class UIntPtr(System.IEquatable[System_UIntPtr], System.IComparable[System_UIntPtr], System.ISpanFormattable, System.Runtime.Serialization.ISerializable, System.Numerics.IBinaryInteger[System_UIntPtr], System.Numerics.IMinMaxValue[System_UIntPtr], System.Numerics.IUnsignedNumber[System_UIntPtr], System.IUtf8SpanFormattable):
     """This class has no documentation."""
 
@@ -14114,6 +17481,12 @@ class UIntPtr(System.IEquatable[System_UIntPtr], System.IComparable[System_UIntP
     MAX_VALUE: System.UIntPtr
 
     MIN_VALUE: System.UIntPtr
+
+    create_checked: System._UIntPtr_CreateChecked
+
+    create_saturating: System._UIntPtr_CreateSaturating
+
+    create_truncating: System._UIntPtr_CreateTruncating
 
     def __add__(self, offset: int) -> System.UIntPtr:
         ...
@@ -14406,53 +17779,61 @@ class TimeoutException(System.SystemException):
         ...
 
 
+class _Typed_Activator_CreateInstance(typing.Generic[System_Activator_CreateInstance_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> System_Activator_CreateInstance_T:
+        ...
+
+
+class _Activator_CreateInstance:
+    """"""
+
+    @overload
+    def __call__(self, type: typing.Type, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, args: typing.List[System.Object], culture: System.Globalization.CultureInfo) -> System.Object:
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Object:
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, args: typing.List[System.Object], activation_attributes: typing.List[System.Object]) -> System.Object:
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type) -> System.Object:
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, args: typing.List[System.Object], culture: System.Globalization.CultureInfo, activation_attributes: typing.List[System.Object]) -> System.Object:
+        ...
+
+    @overload
+    def __call__(self, assembly_name: str, type_name: str) -> System.Runtime.Remoting.ObjectHandle:
+        ...
+
+    @overload
+    def __call__(self, assembly_name: str, type_name: str, ignore_case: bool, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, args: typing.List[System.Object], culture: System.Globalization.CultureInfo, activation_attributes: typing.List[System.Object]) -> System.Runtime.Remoting.ObjectHandle:
+        ...
+
+    @overload
+    def __call__(self, assembly_name: str, type_name: str, activation_attributes: typing.List[System.Object]) -> System.Runtime.Remoting.ObjectHandle:
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, non_public: bool) -> System.Object:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Activator_CreateInstance_T]) -> System._Typed_Activator_CreateInstance[System_Activator_CreateInstance_T]:
+        ...
+
+
 class Activator(System.Object):
     """This class has no documentation."""
 
-    @staticmethod
-    @overload
-    def create_instance(type: typing.Type, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, args: typing.List[System.Object], culture: System.Globalization.CultureInfo) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance(type: typing.Type, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance(type: typing.Type, args: typing.List[System.Object], activation_attributes: typing.List[System.Object]) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance(type: typing.Type) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance(type: typing.Type, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, args: typing.List[System.Object], culture: System.Globalization.CultureInfo, activation_attributes: typing.List[System.Object]) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance(assembly_name: str, type_name: str) -> System.Runtime.Remoting.ObjectHandle:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance(assembly_name: str, type_name: str, ignore_case: bool, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, args: typing.List[System.Object], culture: System.Globalization.CultureInfo, activation_attributes: typing.List[System.Object]) -> System.Runtime.Remoting.ObjectHandle:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance(assembly_name: str, type_name: str, activation_attributes: typing.List[System.Object]) -> System.Runtime.Remoting.ObjectHandle:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance(type: typing.Type, non_public: bool) -> System.Object:
-        ...
+    create_instance: System._Activator_CreateInstance
 
     @staticmethod
     @overload
@@ -14470,6 +17851,55 @@ class Activator(System.Object):
         ...
 
 
+class _Typed_Nullable_Compare(typing.Generic[System_Nullable_Compare_T]):
+    """"""
+
+    @overload
+    def __call__(self, n_1: typing.Optional[System_Nullable_Compare_T], n_2: typing.Optional[System_Nullable_Compare_T]) -> int:
+        ...
+
+
+class _Nullable_Compare:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Nullable_Compare_T]) -> System._Typed_Nullable_Compare[System_Nullable_Compare_T]:
+        ...
+
+
+class _Typed_Nullable_Equals(typing.Generic[System_Nullable_Equals_T]):
+    """"""
+
+    @overload
+    def __call__(self, n_1: typing.Optional[System_Nullable_Equals_T], n_2: typing.Optional[System_Nullable_Equals_T]) -> bool:
+        ...
+
+
+class _Nullable_Equals:
+    """"""
+
+    @overload
+    def __call__(self, other: typing.Any) -> bool:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Nullable_Equals_T]) -> System._Typed_Nullable_Equals[System_Nullable_Equals_T]:
+        ...
+
+
+class _Typed_Nullable_GetValueRefOrDefaultRef(typing.Generic[System_Nullable_GetValueRefOrDefaultRef_T]):
+    """"""
+
+    @overload
+    def __call__(self, nullable: typing.Optional[System_Nullable_GetValueRefOrDefaultRef_T]) -> typing.Any:
+        ...
+
+
+class _Nullable_GetValueRefOrDefaultRef:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Nullable_GetValueRefOrDefaultRef_T]) -> System._Typed_Nullable_GetValueRefOrDefaultRef[System_Nullable_GetValueRefOrDefaultRef_T]:
+        ...
+
+
 class Nullable(typing.Generic[System_Nullable_T]):
     """This class has no documentation."""
 
@@ -14481,10 +17911,13 @@ class Nullable(typing.Generic[System_Nullable_T]):
     def value(self) -> System_Nullable_T:
         ...
 
-    def __init__(self, value: System_Nullable_T) -> None:
-        ...
+    compare: System._Nullable_Compare
 
-    def equals(self, other: typing.Any) -> bool:
+    equals: System._Nullable_Equals
+
+    get_value_ref_or_default_ref: System._Nullable_GetValueRefOrDefaultRef
+
+    def __init__(self, value: System_Nullable_T) -> None:
         ...
 
     def get_hash_code(self) -> int:
@@ -14629,6 +18062,51 @@ class TypeInitializationException(System.SystemException):
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
 
+class _Typed_IntPtr_CreateChecked(typing.Generic[System_IntPtr_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_IntPtr_CreateChecked_TOther) -> System.IntPtr:
+        ...
+
+
+class _IntPtr_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_IntPtr_CreateChecked_TOther]) -> System._Typed_IntPtr_CreateChecked[System_IntPtr_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_IntPtr_CreateSaturating(typing.Generic[System_IntPtr_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_IntPtr_CreateSaturating_TOther) -> System.IntPtr:
+        ...
+
+
+class _IntPtr_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_IntPtr_CreateSaturating_TOther]) -> System._Typed_IntPtr_CreateSaturating[System_IntPtr_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_IntPtr_CreateTruncating(typing.Generic[System_IntPtr_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_IntPtr_CreateTruncating_TOther) -> System.IntPtr:
+        ...
+
+
+class _IntPtr_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_IntPtr_CreateTruncating_TOther]) -> System._Typed_IntPtr_CreateTruncating[System_IntPtr_CreateTruncating_TOther]:
+        ...
+
+
 class IntPtr(System.IEquatable[System_IntPtr], System.IComparable[System_IntPtr], System.ISpanFormattable, System.Runtime.Serialization.ISerializable, System.Numerics.IBinaryInteger[System_IntPtr], System.Numerics.IMinMaxValue[System_IntPtr], System.Numerics.ISignedNumber[System_IntPtr], System.IUtf8SpanFormattable):
     """This class has no documentation."""
 
@@ -14639,6 +18117,12 @@ class IntPtr(System.IEquatable[System_IntPtr], System.IComparable[System_IntPtr]
     MAX_VALUE: System.IntPtr
 
     MIN_VALUE: System.IntPtr
+
+    create_checked: System._IntPtr_CreateChecked
+
+    create_saturating: System._IntPtr_CreateSaturating
+
+    create_truncating: System._IntPtr_CreateTruncating
 
     def __add__(self, offset: int) -> System.IntPtr:
         ...
@@ -15533,6 +19017,141 @@ class Progress(typing.Generic[System_Progress_T], System.Object, System.IProgres
         ...
 
 
+class _Typed_ArgumentOutOfRangeException_ThrowIfZero(typing.Generic[System_ArgumentOutOfRangeException_ThrowIfZero_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_ArgumentOutOfRangeException_ThrowIfZero_T, param_name: str = None) -> None:
+        ...
+
+
+class _ArgumentOutOfRangeException_ThrowIfZero:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_ArgumentOutOfRangeException_ThrowIfZero_T]) -> System._Typed_ArgumentOutOfRangeException_ThrowIfZero[System_ArgumentOutOfRangeException_ThrowIfZero_T]:
+        ...
+
+
+class _Typed_ArgumentOutOfRangeException_ThrowIfNegative(typing.Generic[System_ArgumentOutOfRangeException_ThrowIfNegative_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_ArgumentOutOfRangeException_ThrowIfNegative_T, param_name: str = None) -> None:
+        ...
+
+
+class _ArgumentOutOfRangeException_ThrowIfNegative:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_ArgumentOutOfRangeException_ThrowIfNegative_T]) -> System._Typed_ArgumentOutOfRangeException_ThrowIfNegative[System_ArgumentOutOfRangeException_ThrowIfNegative_T]:
+        ...
+
+
+class _Typed_ArgumentOutOfRangeException_ThrowIfNegativeOrZero(typing.Generic[System_ArgumentOutOfRangeException_ThrowIfNegativeOrZero_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_ArgumentOutOfRangeException_ThrowIfNegativeOrZero_T, param_name: str = None) -> None:
+        ...
+
+
+class _ArgumentOutOfRangeException_ThrowIfNegativeOrZero:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_ArgumentOutOfRangeException_ThrowIfNegativeOrZero_T]) -> System._Typed_ArgumentOutOfRangeException_ThrowIfNegativeOrZero[System_ArgumentOutOfRangeException_ThrowIfNegativeOrZero_T]:
+        ...
+
+
+class _Typed_ArgumentOutOfRangeException_ThrowIfEqual(typing.Generic[System_ArgumentOutOfRangeException_ThrowIfEqual_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_ArgumentOutOfRangeException_ThrowIfEqual_T, other: System_ArgumentOutOfRangeException_ThrowIfEqual_T, param_name: str = None) -> None:
+        ...
+
+
+class _ArgumentOutOfRangeException_ThrowIfEqual:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_ArgumentOutOfRangeException_ThrowIfEqual_T]) -> System._Typed_ArgumentOutOfRangeException_ThrowIfEqual[System_ArgumentOutOfRangeException_ThrowIfEqual_T]:
+        ...
+
+
+class _Typed_ArgumentOutOfRangeException_ThrowIfNotEqual(typing.Generic[System_ArgumentOutOfRangeException_ThrowIfNotEqual_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_ArgumentOutOfRangeException_ThrowIfNotEqual_T, other: System_ArgumentOutOfRangeException_ThrowIfNotEqual_T, param_name: str = None) -> None:
+        ...
+
+
+class _ArgumentOutOfRangeException_ThrowIfNotEqual:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_ArgumentOutOfRangeException_ThrowIfNotEqual_T]) -> System._Typed_ArgumentOutOfRangeException_ThrowIfNotEqual[System_ArgumentOutOfRangeException_ThrowIfNotEqual_T]:
+        ...
+
+
+class _Typed_ArgumentOutOfRangeException_ThrowIfGreaterThan(typing.Generic[System_ArgumentOutOfRangeException_ThrowIfGreaterThan_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_ArgumentOutOfRangeException_ThrowIfGreaterThan_T, other: System_ArgumentOutOfRangeException_ThrowIfGreaterThan_T, param_name: str = None) -> None:
+        ...
+
+
+class _ArgumentOutOfRangeException_ThrowIfGreaterThan:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_ArgumentOutOfRangeException_ThrowIfGreaterThan_T]) -> System._Typed_ArgumentOutOfRangeException_ThrowIfGreaterThan[System_ArgumentOutOfRangeException_ThrowIfGreaterThan_T]:
+        ...
+
+
+class _Typed_ArgumentOutOfRangeException_ThrowIfGreaterThanOrEqual(typing.Generic[System_ArgumentOutOfRangeException_ThrowIfGreaterThanOrEqual_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_ArgumentOutOfRangeException_ThrowIfGreaterThanOrEqual_T, other: System_ArgumentOutOfRangeException_ThrowIfGreaterThanOrEqual_T, param_name: str = None) -> None:
+        ...
+
+
+class _ArgumentOutOfRangeException_ThrowIfGreaterThanOrEqual:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_ArgumentOutOfRangeException_ThrowIfGreaterThanOrEqual_T]) -> System._Typed_ArgumentOutOfRangeException_ThrowIfGreaterThanOrEqual[System_ArgumentOutOfRangeException_ThrowIfGreaterThanOrEqual_T]:
+        ...
+
+
+class _Typed_ArgumentOutOfRangeException_ThrowIfLessThan(typing.Generic[System_ArgumentOutOfRangeException_ThrowIfLessThan_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_ArgumentOutOfRangeException_ThrowIfLessThan_T, other: System_ArgumentOutOfRangeException_ThrowIfLessThan_T, param_name: str = None) -> None:
+        ...
+
+
+class _ArgumentOutOfRangeException_ThrowIfLessThan:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_ArgumentOutOfRangeException_ThrowIfLessThan_T]) -> System._Typed_ArgumentOutOfRangeException_ThrowIfLessThan[System_ArgumentOutOfRangeException_ThrowIfLessThan_T]:
+        ...
+
+
+class _Typed_ArgumentOutOfRangeException_ThrowIfLessThanOrEqual(typing.Generic[System_ArgumentOutOfRangeException_ThrowIfLessThanOrEqual_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_ArgumentOutOfRangeException_ThrowIfLessThanOrEqual_T, other: System_ArgumentOutOfRangeException_ThrowIfLessThanOrEqual_T, param_name: str = None) -> None:
+        ...
+
+
+class _ArgumentOutOfRangeException_ThrowIfLessThanOrEqual:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_ArgumentOutOfRangeException_ThrowIfLessThanOrEqual_T]) -> System._Typed_ArgumentOutOfRangeException_ThrowIfLessThanOrEqual[System_ArgumentOutOfRangeException_ThrowIfLessThanOrEqual_T]:
+        ...
+
+
 class ArgumentOutOfRangeException(System.ArgumentException):
     """This class has no documentation."""
 
@@ -15543,6 +19162,24 @@ class ArgumentOutOfRangeException(System.ArgumentException):
     @property
     def actual_value(self) -> System.Object:
         ...
+
+    throw_if_zero: System._ArgumentOutOfRangeException_ThrowIfZero
+
+    throw_if_negative: System._ArgumentOutOfRangeException_ThrowIfNegative
+
+    throw_if_negative_or_zero: System._ArgumentOutOfRangeException_ThrowIfNegativeOrZero
+
+    throw_if_equal: System._ArgumentOutOfRangeException_ThrowIfEqual
+
+    throw_if_not_equal: System._ArgumentOutOfRangeException_ThrowIfNotEqual
+
+    throw_if_greater_than: System._ArgumentOutOfRangeException_ThrowIfGreaterThan
+
+    throw_if_greater_than_or_equal: System._ArgumentOutOfRangeException_ThrowIfGreaterThanOrEqual
+
+    throw_if_less_than: System._ArgumentOutOfRangeException_ThrowIfLessThan
+
+    throw_if_less_than_or_equal: System._ArgumentOutOfRangeException_ThrowIfLessThanOrEqual
 
     @overload
     def __init__(self) -> None:
@@ -16029,6 +19666,81 @@ class RankException(System.SystemException):
         ...
 
 
+class _Typed_Single_ConvertToInteger(typing.Generic[System_Single_ConvertToInteger_TInteger]):
+    """"""
+
+    @overload
+    def __call__(self, value: float) -> System_Single_ConvertToInteger_TInteger:
+        ...
+
+
+class _Single_ConvertToInteger:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Single_ConvertToInteger_TInteger]) -> System._Typed_Single_ConvertToInteger[System_Single_ConvertToInteger_TInteger]:
+        ...
+
+
+class _Typed_Single_ConvertToIntegerNative(typing.Generic[System_Single_ConvertToIntegerNative_TInteger]):
+    """"""
+
+    @overload
+    def __call__(self, value: float) -> System_Single_ConvertToIntegerNative_TInteger:
+        ...
+
+
+class _Single_ConvertToIntegerNative:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Single_ConvertToIntegerNative_TInteger]) -> System._Typed_Single_ConvertToIntegerNative[System_Single_ConvertToIntegerNative_TInteger]:
+        ...
+
+
+class _Typed_Single_CreateChecked(typing.Generic[System_Single_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Single_CreateChecked_TOther) -> float:
+        ...
+
+
+class _Single_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Single_CreateChecked_TOther]) -> System._Typed_Single_CreateChecked[System_Single_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_Single_CreateSaturating(typing.Generic[System_Single_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Single_CreateSaturating_TOther) -> float:
+        ...
+
+
+class _Single_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Single_CreateSaturating_TOther]) -> System._Typed_Single_CreateSaturating[System_Single_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_Single_CreateTruncating(typing.Generic[System_Single_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Single_CreateTruncating_TOther) -> float:
+        ...
+
+
+class _Single_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Single_CreateTruncating_TOther]) -> System._Typed_Single_CreateTruncating[System_Single_CreateTruncating_TOther]:
+        ...
+
+
 class Single(System.IComparable[float], System.IConvertible, System.ISpanFormattable, System.IEquatable[float], System.IUtf8SpanFormattable, System.IBinaryFloatParseAndFormatInfo[float]):
     """This class has no documentation."""
 
@@ -16051,6 +19763,16 @@ class Single(System.IComparable[float], System.IConvertible, System.ISpanFormatt
     PI: float = ...
 
     TAU: float = ...
+
+    convert_to_integer: System._Single_ConvertToInteger
+
+    convert_to_integer_native: System._Single_ConvertToIntegerNative
+
+    create_checked: System._Single_CreateChecked
+
+    create_saturating: System._Single_CreateSaturating
+
+    create_truncating: System._Single_CreateTruncating
 
     def __eq__(self, right: float) -> bool:
         ...
@@ -16596,12 +20318,63 @@ class Single(System.IComparable[float], System.IConvertible, System.ISpanFormatt
         ...
 
 
+class _Typed_Int16_CreateChecked(typing.Generic[System_Int16_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Int16_CreateChecked_TOther) -> int:
+        ...
+
+
+class _Int16_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Int16_CreateChecked_TOther]) -> System._Typed_Int16_CreateChecked[System_Int16_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_Int16_CreateSaturating(typing.Generic[System_Int16_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Int16_CreateSaturating_TOther) -> int:
+        ...
+
+
+class _Int16_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Int16_CreateSaturating_TOther]) -> System._Typed_Int16_CreateSaturating[System_Int16_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_Int16_CreateTruncating(typing.Generic[System_Int16_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Int16_CreateTruncating_TOther) -> int:
+        ...
+
+
+class _Int16_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Int16_CreateTruncating_TOther]) -> System._Typed_Int16_CreateTruncating[System_Int16_CreateTruncating_TOther]:
+        ...
+
+
 class Int16(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.ISignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
     """This class has no documentation."""
 
     MAX_VALUE: int = ...
 
     MIN_VALUE: int = ...
+
+    create_checked: System._Int16_CreateChecked
+
+    create_saturating: System._Int16_CreateSaturating
+
+    create_truncating: System._Int16_CreateTruncating
 
     @overload
     def __ge__(self, other: typing.Any) -> bool:
@@ -16851,6 +20624,81 @@ class Int16(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
         ...
 
 
+class _Typed_Double_ConvertToInteger(typing.Generic[System_Double_ConvertToInteger_TInteger]):
+    """"""
+
+    @overload
+    def __call__(self, value: float) -> System_Double_ConvertToInteger_TInteger:
+        ...
+
+
+class _Double_ConvertToInteger:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Double_ConvertToInteger_TInteger]) -> System._Typed_Double_ConvertToInteger[System_Double_ConvertToInteger_TInteger]:
+        ...
+
+
+class _Typed_Double_ConvertToIntegerNative(typing.Generic[System_Double_ConvertToIntegerNative_TInteger]):
+    """"""
+
+    @overload
+    def __call__(self, value: float) -> System_Double_ConvertToIntegerNative_TInteger:
+        ...
+
+
+class _Double_ConvertToIntegerNative:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Double_ConvertToIntegerNative_TInteger]) -> System._Typed_Double_ConvertToIntegerNative[System_Double_ConvertToIntegerNative_TInteger]:
+        ...
+
+
+class _Typed_Double_CreateChecked(typing.Generic[System_Double_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Double_CreateChecked_TOther) -> float:
+        ...
+
+
+class _Double_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Double_CreateChecked_TOther]) -> System._Typed_Double_CreateChecked[System_Double_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_Double_CreateSaturating(typing.Generic[System_Double_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Double_CreateSaturating_TOther) -> float:
+        ...
+
+
+class _Double_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Double_CreateSaturating_TOther]) -> System._Typed_Double_CreateSaturating[System_Double_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_Double_CreateTruncating(typing.Generic[System_Double_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Double_CreateTruncating_TOther) -> float:
+        ...
+
+
+class _Double_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Double_CreateTruncating_TOther]) -> System._Typed_Double_CreateTruncating[System_Double_CreateTruncating_TOther]:
+        ...
+
+
 class Double(System.IComparable[float], System.IConvertible, System.ISpanFormattable, System.IEquatable[float], System.IUtf8SpanFormattable, System.IBinaryFloatParseAndFormatInfo[float]):
     """This class has no documentation."""
 
@@ -16873,6 +20721,16 @@ class Double(System.IComparable[float], System.IConvertible, System.ISpanFormatt
     PI: float = ...
 
     TAU: float = ...
+
+    convert_to_integer: System._Double_ConvertToInteger
+
+    convert_to_integer_native: System._Double_ConvertToIntegerNative
+
+    create_checked: System._Double_CreateChecked
+
+    create_saturating: System._Double_CreateSaturating
+
+    create_truncating: System._Double_CreateTruncating
 
     def __eq__(self, right: float) -> bool:
         ...
@@ -18174,6 +22032,53 @@ class _EventContainer(typing.Generic[System__EventContainer_Callable, System__Ev
 
     def __isub__(self, item: System__EventContainer_Callable) -> typing.Self:
         """Unregisters an event handler."""
+        ...
+
+
+class TryWriteInterpolatedStringHandler_AppendFormatted:
+    """"""
+
+    @overload
+    def __call__(self, value: System.ReadOnlySpan[str]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, value: System.ReadOnlySpan[str], alignment: int = 0, format: str = None) -> bool:
+        ...
+
+    @overload
+    def __call__(self, value: str) -> bool:
+        ...
+
+    @overload
+    def __call__(self, value: str, alignment: int = 0, format: str = None) -> bool:
+        ...
+
+    @overload
+    def __call__(self, value: typing.Any, alignment: int = 0, format: str = None) -> bool:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_AppendFormatted_TryWriteInterpolatedStringHandler_T]) -> System._Typed_MemoryExtensions.TryWriteInterpolatedStringHandler_AppendFormatted[System_MemoryExtensions_AppendFormatted_TryWriteInterpolatedStringHandler_T]:
+        ...
+
+
+class TryWriteInterpolatedStringHandler_AppendFormatted(typing.Generic[System_MemoryExtensions_AppendFormatted_TryWriteInterpolatedStringHandler_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_MemoryExtensions_AppendFormatted_TryWriteInterpolatedStringHandler_T) -> bool:
+        ...
+
+    @overload
+    def __call__(self, value: System_MemoryExtensions_AppendFormatted_TryWriteInterpolatedStringHandler_T, format: str) -> bool:
+        ...
+
+    @overload
+    def __call__(self, value: System_MemoryExtensions_AppendFormatted_TryWriteInterpolatedStringHandler_T, alignment: int) -> bool:
+        ...
+
+    @overload
+    def __call__(self, value: System_MemoryExtensions_AppendFormatted_TryWriteInterpolatedStringHandler_T, alignment: int, format: str) -> bool:
         ...
 
 

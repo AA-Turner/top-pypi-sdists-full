@@ -6216,6 +6216,126 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def create_while_greater_than_mask_byte(left: int, right: int) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_mask_double(left: int, right: int) -> System.Numerics.Vector[float]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_mask_int_16(left: int, right: int) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_mask_int_32(left: int, right: int) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_mask_int_64(left: int, right: int) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_mask_s_byte(left: int, right: int) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_mask_single(left: int, right: int) -> System.Numerics.Vector[float]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_mask_u_int_16(left: int, right: int) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_mask_u_int_32(left: int, right: int) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_mask_u_int_64(left: int, right: int) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_or_equal_mask_byte(left: int, right: int) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_or_equal_mask_double(left: int, right: int) -> System.Numerics.Vector[float]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_or_equal_mask_int_16(left: int, right: int) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_or_equal_mask_int_32(left: int, right: int) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_or_equal_mask_int_64(left: int, right: int) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_or_equal_mask_s_byte(left: int, right: int) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_or_equal_mask_single(left: int, right: int) -> System.Numerics.Vector[float]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_or_equal_mask_u_int_16(left: int, right: int) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_or_equal_mask_u_int_32(left: int, right: int) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_greater_than_or_equal_mask_u_int_64(left: int, right: int) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_read_after_write_mask_byte(left: typing.Any, right: typing.Any) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_read_after_write_mask_double(left: typing.Any, right: typing.Any) -> System.Numerics.Vector[float]:
+        ...
+
+    @staticmethod
+    def create_while_read_after_write_mask_int_16(left: typing.Any, right: typing.Any) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_read_after_write_mask_int_32(left: typing.Any, right: typing.Any) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_read_after_write_mask_int_64(left: typing.Any, right: typing.Any) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_read_after_write_mask_s_byte(left: typing.Any, right: typing.Any) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_read_after_write_mask_single(left: typing.Any, right: typing.Any) -> System.Numerics.Vector[float]:
+        ...
+
+    @staticmethod
+    def create_while_read_after_write_mask_u_int_16(left: typing.Any, right: typing.Any) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_read_after_write_mask_u_int_32(left: typing.Any, right: typing.Any) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def create_while_read_after_write_mask_u_int_64(left: typing.Any, right: typing.Any) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
     def dot_product_rotate_complex(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], rotation: int) -> System.Numerics.Vector[int]:
         ...
 

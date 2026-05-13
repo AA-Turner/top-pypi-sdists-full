@@ -1,11 +1,11 @@
 [build-system]
-requires = ["flit_core >=3.11,<4"]
+requires = ["flit_core >=3.11,<5"]
 build-backend = "flit_core.buildapi"
 
 [project]
 name = "idna"
 description = "Internationalized Domain Names in Applications (IDNA)"
-readme = "README.rst"
+readme = "README.md"
 license = "BSD-3-Clause"
 license-files = ["LICENSE.md"]
 authors = [
@@ -37,12 +37,12 @@ dynamic = ["version"]
 
 [project.urls]
 "Source" = "https://github.com/kjd/idna"
-"Changelog" = "https://github.com/kjd/idna/blob/master/HISTORY.rst"
+"Changelog" = "https://github.com/kjd/idna/blob/master/HISTORY.md"
 "Issue tracker" = "https://github.com/kjd/idna/issues"
 
 [tool.flit.sdist]
 exclude = [".gitignore", ".github/"]
-include = ["tests", "tools", "HISTORY.rst"]
+include = ["tests", "tools", "HISTORY.md"]
 
 [project.optional-dependencies]
 all = [
@@ -56,4 +56,11 @@ line-length = 127
 [tool.ruff.lint]
 extend-select = [
     "I",            # isort
+    "B",            # flake8-bugbear
+    "SIM",          # flake8-simplify
+    "UP",           # pyupgrade
+    "PERF",         # perflint
 ]
+[tool.ruff.lint.pyupgrade]
+# Honour the project's Python 3.8 floor when applying pyupgrade rules.
+keep-runtime-typing = true

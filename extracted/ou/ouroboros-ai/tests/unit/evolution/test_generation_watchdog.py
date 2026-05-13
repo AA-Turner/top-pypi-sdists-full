@@ -14,8 +14,7 @@ import pytest
 from ouroboros.config.models import RuntimeControlsConfig
 from ouroboros.core.errors import PersistenceError
 from ouroboros.events.base import BaseEvent
-from ouroboros.events.lineage import lineage_generation_failed
-from ouroboros.evolution.loop import EvolutionaryLoop, StepAction
+from ouroboros.events.lineage import lineage_generation_failed, lineage_generation_phase_changed
 import ouroboros.evolution.watchdog as watchdog_module
 from ouroboros.evolution.watchdog import (
     WATCHDOG_CANCELLATION_MODE,
@@ -243,8 +242,203 @@ async def test_busy_run_without_material_progress_times_out() -> None:
 
     assert exc_info.value.timeout_kind == "no_material_progress_timeout"
     events = await event_store.replay("lineage", lineage_id)
-    assert any(event.type == "lineage.generation.watchdog_decision" for event in events)
-    assert events[-1].type == "lineage.generation.watchdog_decision"
+    # The watchdog_decision event is the legacy contract — kept so
+    # status surfaces that already filter by this type continue
+    # working. Per #578, the watchdog also now emits a
+    # control.directive.emitted event after the decision, so we no
+    # longer assert the decision event is *last* — only that it is
+    # present and ordered before the directive event.
+    decision_idx = next(
+        (
+            i
+            for i, event in enumerate(events)
+            if event.type == "lineage.generation.watchdog_decision"
+        ),
+        None,
+    )
+    assert decision_idx is not None
+    directive_idx = next(
+        (i for i, event in enumerate(events) if event.type == "control.directive.emitted"),
+        None,
+    )
+    assert directive_idx is not None
+    assert decision_idx < directive_idx
+
+
+@pytest.mark.asyncio
+async def test_no_progress_timeout_emits_retry_directive() -> None:
+    """Issue #578 directive-mapping contract.
+
+    A ``no_material_progress_timeout`` is surfaced as a failed generation
+    outcome, so the watchdog must emit the same directive the evolution loop
+    would emit for ``StepAction.FAILED`` under the default retry budget.
+
+    Pins three things:
+
+    1. The legacy ``lineage.generation.watchdog_decision`` event
+       still lands (existing consumers keep working), and its
+       ``details`` now carries the resolved directive so single-
+       stream consumers do not have to subscribe to a second event.
+    2. A dedicated ``control.directive.emitted`` event lands keyed
+       on the lineage aggregate, with ``emitted_by="generation.watchdog"`` so
+       projectors can attribute the directive to its source.
+    3. ``is_terminal`` matches the directive (RETRY is non-terminal).
+    """
+    event_store = await _store()
+    lineage_id = "lin-578-unstuck"
+    execution_id = "exec-578-unstuck"
+    watchdog = _watchdog(
+        event_store,
+        lineage_id=lineage_id,
+        execution_id=execution_id,
+        generation_no_progress_timeout_seconds=0.07,
+    )
+
+    async def busy_work() -> str:
+        await event_store.append(lineage_generation_phase_changed(lineage_id, 1, "reflecting"))
+        await event_store.append(_workflow_progress(execution_id, completed_count=0))
+        try:
+            while True:
+                await asyncio.sleep(0.02)
+                await event_store.append(_workflow_progress(execution_id, completed_count=0))
+        except asyncio.CancelledError:
+            raise
+
+    with pytest.raises(GenerationWatchdogTimeout):
+        await watchdog.watch(busy_work())
+
+    events = await event_store.replay("lineage", lineage_id)
+
+    # Legacy event still present and now carries the directive.
+    decision_events = [e for e in events if e.type == "lineage.generation.watchdog_decision"]
+    assert len(decision_events) == 1
+    decision_details = decision_events[0].data.get("details") or {}
+    assert decision_details.get("directive") == "retry"
+    assert decision_details.get("directive_is_terminal") is False
+    assert decision_details.get("step_action") == "failed"
+    assert decision_details.get("retry_budget_remaining") == 1
+    assert decision_details.get("cancellation_mode") == WATCHDOG_CANCELLATION_MODE
+    assert decision_details.get("watchdog_decision_event_id") == decision_events[0].id
+    idempotency_key = decision_details.get("watchdog_directive_idempotency_key")
+    assert idempotency_key == (
+        f"generation.watchdog:{lineage_id}:1:no_material_progress_timeout:reflecting"
+    )
+    assert decision_events[0].id not in idempotency_key
+
+    # Dedicated control-plane event lands on the lineage aggregate.
+    directive_events = [e for e in events if e.type == "control.directive.emitted"]
+    assert len(directive_events) == 1
+    directive_event = directive_events[0]
+    assert directive_event.aggregate_type == "lineage"
+    assert directive_event.aggregate_id == lineage_id
+    assert directive_event.data["target_type"] == "lineage"
+    assert directive_event.data["target_id"] == lineage_id
+    assert directive_event.data["emitted_by"] == "generation.watchdog"
+    assert directive_event.data["directive"] == "retry"
+    assert directive_event.data["phase"] == "reflecting"
+    assert directive_event.data["idempotency_key"] == idempotency_key
+    # Watchdog correlation fields propagate so a projector filtering
+    # by execution / generation does not have to join back to the
+    # lineage state event.
+    assert directive_event.data["execution_id"] == execution_id
+    assert directive_event.data["generation_number"] == 1
+    # ``extra`` carries the source watchdog metadata for debugging.
+    extra = directive_event.data.get("extra") or {}
+    assert extra.get("watchdog_action") == "timeout"
+    assert extra.get("timeout_kind") == "no_material_progress_timeout"
+    assert extra.get("cancellation_mode") == WATCHDOG_CANCELLATION_MODE
+    assert extra.get("step_action") == "failed"
+    assert extra.get("retry_budget_remaining") == 1
+    assert extra.get("watchdog_decision_event_id") == decision_events[0].id
+
+
+@pytest.mark.asyncio
+async def test_timeout_preserved_when_watchdog_decision_batch_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Directive decisions are atomic and must not mask the watchdog timeout."""
+    clock = _FakeMonotonicClock()
+    monkeypatch.setattr(watchdog_module, "time", SimpleNamespace(monotonic=clock))
+    event_store = await _store()
+    lineage_id = "lin-578-control-fail"
+    execution_id = "exec-578-control-fail"
+    watchdog = _watchdog(
+        event_store,
+        lineage_id=lineage_id,
+        execution_id=execution_id,
+        generation_safety_timeout_seconds=0.1,
+        watchdog_poll_seconds=0.005,
+    )
+
+    async def append_batch_failure(events: list[BaseEvent]) -> None:
+        assert [event.type for event in events] == [
+            "lineage.generation.watchdog_decision",
+            "control.directive.emitted",
+        ]
+        raise PersistenceError(
+            "watchdog decision batch failed",
+            operation="append_batch",
+            details={"event_types": [event.type for event in events]},
+        )
+
+    monkeypatch.setattr(event_store, "append_batch", append_batch_failure)
+
+    async def long_work() -> str:
+        try:
+            while True:
+                await asyncio.sleep(0.01)
+                clock.advance(0.05)
+        except asyncio.CancelledError:
+            raise
+
+    with pytest.raises(GenerationWatchdogTimeout) as exc_info:
+        await watchdog.watch(long_work())
+
+    assert exc_info.value.timeout_kind == "safety_timeout"
+    events = await event_store.replay("lineage", lineage_id)
+    assert [e for e in events if e.type == "lineage.generation.watchdog_decision"] == []
+    assert [e for e in events if e.type == "control.directive.emitted"] == []
+
+
+@pytest.mark.asyncio
+async def test_directive_emission_alphabet_matches_watchdog_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pin the cross-module invariant for #578.
+
+    ``WATCHDOG_TIMEOUT_KINDS`` (in ``evolution.directive_mapping``) is
+    the public classification alphabet for watchdog timeouts.
+    ``GenerationProgressWatchdog._raise_timeout`` is the only site
+    that constructs ``GenerationWatchdogTimeout`` instances. If the
+    watchdog grows a new threshold name without adding it to the
+    alphabet, timeout metadata and audit payloads drift from the runtime
+    contract.
+
+    This test snapshots the watchdog's actual raise sites by
+    inspecting the source bytecode constants — a brittle but
+    intentional canary so the alphabet drift is caught at test time
+    rather than in production replay.
+    """
+    from ouroboros.evolution.directive_mapping import WATCHDOG_TIMEOUT_KINDS
+    from ouroboros.evolution.watchdog import GenerationProgressWatchdog
+
+    # ``_raise_if_threshold_exceeded`` is the only site that names
+    # each timeout kind as a string literal — the kind strings get
+    # passed positionally into ``_raise_timeout``. Walk the
+    # function's bytecode constants to enumerate the alphabet the
+    # watchdog actually raises today.
+    decision_site = GenerationProgressWatchdog._raise_if_threshold_exceeded
+    raised_kinds = {
+        const
+        for const in decision_site.__code__.co_consts
+        if isinstance(const, str) and const.endswith("timeout")
+    }
+    # Every kind the watchdog raises must have an entry in the
+    # public alphabet, and every alphabet entry must be a real
+    # raise site — the two sets must be equal.
+    assert raised_kinds == WATCHDOG_TIMEOUT_KINDS, (
+        f"watchdog raises {raised_kinds} but alphabet is {WATCHDOG_TIMEOUT_KINDS}"
+    )
 
 
 @pytest.mark.asyncio
@@ -271,8 +465,12 @@ async def test_session_activity_resets_idle_timeout() -> None:
 
 
 @pytest.mark.asyncio
-async def test_ac_heartbeat_aggregate_resets_idle_timeout() -> None:
+async def test_ac_heartbeat_aggregate_resets_idle_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """AC heartbeats are emitted under AC aggregate IDs, not the execution ID."""
+    clock = _FakeMonotonicClock()
+    monkeypatch.setattr(watchdog_module, "time", SimpleNamespace(monotonic=clock))
     event_store = await _store()
     session_id = "session-heartbeat"
     execution_id = "evolve:lin-heartbeat:generation:1"
@@ -284,14 +482,21 @@ async def test_ac_heartbeat_aggregate_resets_idle_timeout() -> None:
         generation_no_progress_timeout_seconds=0,
     )
 
-    async def heartbeat_work() -> str:
-        await event_store.append(_session_started(session_id, execution_id))
-        for count in range(1, 5):
-            await asyncio.sleep(0.04)
-            await event_store.append(_ac_heartbeat(session_id, ac_id, count))
-        return "done"
+    await watchdog.initialize_baseline()
+    await event_store.append(_session_started(session_id, execution_id))
+    await watchdog.poll()
 
-    assert await watchdog.watch(heartbeat_work()) == "done"
+    clock.advance(0.06)
+    watchdog._raise_if_threshold_exceeded()
+
+    await event_store.append(_ac_heartbeat(session_id, ac_id, 1))
+    await watchdog.poll()
+
+    assert watchdog._last_event_type == "execution.ac.heartbeat"
+    assert watchdog._last_event_aggregate == f"execution/{ac_id}"
+
+    clock.advance(0.06)
+    watchdog._raise_if_threshold_exceeded()
 
 
 @pytest.mark.asyncio
@@ -320,8 +525,12 @@ async def test_parent_execution_child_events_reset_idle_timeout() -> None:
 
 
 @pytest.mark.asyncio
-async def test_session_scoped_decomposition_events_reset_material_progress_timeout() -> None:
+async def test_session_scoped_decomposition_events_reset_material_progress_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Decomposition level progress is stored as execution events keyed by session ID."""
+    clock = _FakeMonotonicClock()
+    monkeypatch.setattr(watchdog_module, "time", SimpleNamespace(monotonic=clock))
     event_store = await _store()
     session_id = "session-levels"
     execution_id = "exec-levels"
@@ -335,6 +544,7 @@ async def test_session_scoped_decomposition_events_reset_material_progress_timeo
     async def decomposition_work() -> str:
         await event_store.append(_session_started(session_id, execution_id))
         await asyncio.sleep(0.04)
+        clock.advance(0.04)
         await event_store.append(
             _decomposition_level_event(
                 session_id,
@@ -343,6 +553,7 @@ async def test_session_scoped_decomposition_events_reset_material_progress_timeo
             )
         )
         await asyncio.sleep(0.04)
+        clock.advance(0.04)
         await event_store.append(
             _decomposition_level_event(
                 session_id,
@@ -351,6 +562,7 @@ async def test_session_scoped_decomposition_events_reset_material_progress_timeo
             )
         )
         await asyncio.sleep(0.04)
+        clock.advance(0.04)
         return "done"
 
     assert await watchdog.watch(decomposition_work()) == "done"
@@ -487,17 +699,6 @@ async def test_watchdog_decision_survives_for_resume() -> None:
 
     assert exc_info.value.timeout_kind == "no_material_progress_timeout"
 
-    # Simulate the production evolution-loop branch for watchdog timeouts:
-    # GenerationWatchdogTimeout is surfaced as StepAction.FAILED, not STAGNATED.
-    loop = EvolutionaryLoop(event_store=event_store)
-    await loop._emit_step_directive(
-        StepAction.FAILED,
-        lineage_id=lineage_id,
-        generation_number=generation_number,
-        phase="executing",
-        reason=exc_info.value.message,
-    )
-
     # --- Drop the first watchdog; create a fresh instance on the same store ---
     del first_watchdog
     _fresh_watchdog = _watchdog(
@@ -525,12 +726,15 @@ async def test_watchdog_decision_survives_for_resume() -> None:
     assert directive_event.data["directive"] == "retry", (
         "watchdog timeouts are StepAction.FAILED and default to retry"
     )
-    assert directive_event.data["emitted_by"] == "evolver"
+    assert directive_event.data["emitted_by"] == "generation.watchdog"
     assert directive_event.data["phase"] == "executing"
-    assert directive_event.data["extra"] == {
-        "step_action": "failed",
-        "is_terminal": False,
-    }
+    assert (
+        directive_event.data["idempotency_key"]
+        == decision_event.data["details"]["watchdog_directive_idempotency_key"]
+    )
+    assert directive_event.data["extra"]["step_action"] == "failed"
+    assert directive_event.data["extra"]["timeout_kind"] == "no_material_progress_timeout"
+    assert directive_event.data["extra"]["is_terminal"] is False
     assert decision_event.data["generation_number"] == generation_number
     assert directive_event.data["generation_number"] == generation_number
 

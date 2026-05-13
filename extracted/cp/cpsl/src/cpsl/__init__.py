@@ -53,6 +53,7 @@ from .integration import (
     IntegrationCredentials as IntegrationCredentials,
     Linear as Linear,
     Outlook as Outlook,
+    Pipedream as Pipedream,
     Tailscale as Tailscale,
 )
 from .msg import Attachment as Attachment

@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.900085                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.161205                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow.plugins.argo.argo_workflows_deployer_objects
     import metaflow.runner.deployer
+    import metaflow.plugins.argo.argo_workflows_deployer_objects
 
 from ...client.core import get_metadata as get_metadata
 from ...exception import MetaflowException as MetaflowException
@@ -75,7 +75,7 @@ class ArgoWorkflowsTriggeredRun(metaflow.runner.deployer.TriggeredRun, metaclass
             True if the command was successful, False otherwise.
         """
         ...
-    def wait_for_completion(self, check_interval: int = 5, timeout: typing.Optional[int] = None):
+    def wait_for_completion(self, check_interval: int = 5, timeout: typing.Union[int, None] = None):
         """
         Wait for the workflow to complete or timeout.
         
@@ -106,7 +106,7 @@ class ArgoWorkflowsTriggeredRun(metaflow.runner.deployer.TriggeredRun, metaclass
         """
         ...
     @property
-    def status(self) -> typing.Optional[str]:
+    def status(self) -> typing.Union[str, None]:
         """
         Get the status of the triggered run.
         
@@ -124,7 +124,7 @@ class ArgoWorkflowsDeployedFlow(metaflow.runner.deployer.DeployedFlow, metaclass
     A class representing a deployed Argo Workflow template.
     """
     @classmethod
-    def list_deployed_flows(cls, flow_name: typing.Optional[str] = None):
+    def list_deployed_flows(cls, flow_name: typing.Union[str, None] = None):
         """
         List all deployed Argo Workflow templates.
         
@@ -142,7 +142,7 @@ class ArgoWorkflowsDeployedFlow(metaflow.runner.deployer.DeployedFlow, metaclass
         """
         ...
     @classmethod
-    def from_deployment(cls, identifier: str, metadata: typing.Optional[str] = None):
+    def from_deployment(cls, identifier: str, metadata: typing.Union[str, None] = None):
         """
         Retrieves a `ArgoWorkflowsDeployedFlow` object from an identifier and optional
         metadata.
@@ -162,7 +162,7 @@ class ArgoWorkflowsDeployedFlow(metaflow.runner.deployer.DeployedFlow, metaclass
         """
         ...
     @classmethod
-    def get_triggered_run(cls, identifier: str, run_id: str, metadata: typing.Optional[str] = None):
+    def get_triggered_run(cls, identifier: str, run_id: str, metadata: typing.Union[str, None] = None):
         """
         Retrieves a `ArgoWorkflowsTriggeredRun` object from an identifier, a run id and
         optional metadata.
@@ -184,7 +184,7 @@ class ArgoWorkflowsDeployedFlow(metaflow.runner.deployer.DeployedFlow, metaclass
         """
         ...
     @property
-    def production_token(self) -> typing.Optional[str]:
+    def production_token(self) -> typing.Union[str, None]:
         """
         Get the production token for the deployed flow.
         

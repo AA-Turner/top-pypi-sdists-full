@@ -1,11 +1,11 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Registry related functions.
 
 IDA uses the registry to store global configuration options that must persist after IDA has been closed.
 On Windows, IDA uses the Windows registry directly. On Unix systems, the registry is stored in a file (typically ~/.idapro/ida.reg).
-The root key for accessing IDA settings in the registry is defined by ROOT_KEY_NAME. 
-    
+The root key for accessing IDA settings in the registry is defined by ROOT_KEY_NAME.
+
 """
 
 def reg_data_type(name: str, subkey: str = None) -> regval_type_t:
@@ -110,7 +110,7 @@ def reg_subkey_values(name: str) -> Any:
     """
     ...
 
-def reg_update_filestrlist(subkey: str, add: str, maxrecs: size_t, rem: str = None) -> None:
+def reg_update_filestrlist(subkey: str, add: str, maxrecs: int, rem: str = None) -> None:
     r"""Update registry with a file list. Case sensitivity will vary depending on the target OS. 
             
     """
@@ -174,10 +174,10 @@ def set_registry_name(name: str) -> bool:
     ...
 
 HVUI_REGISTRY_NAME: str  # hvui
-IDA_REGISTRY_NAME: str  # ida
+IDA_REGISTRY_NAME: str  # IDA
 ROOT_KEY_NAME: str  # Software\Hex-Rays\IDA
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ida_idaapi: module
 reg_binary: int  # 3
 reg_dword: int  # 4

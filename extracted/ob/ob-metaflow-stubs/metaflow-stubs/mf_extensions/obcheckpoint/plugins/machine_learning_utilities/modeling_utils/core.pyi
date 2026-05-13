@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.822319                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.067160                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.model_storage
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
 
 from ..datastore.core import STORAGE_FORMATS as STORAGE_FORMATS
 from ..exceptions import KeyNotFoundError as KeyNotFoundError
@@ -57,7 +57,7 @@ class LoadedModels(object, metaclass=type):
             os.listdir(current.model.loaded["chckpt_key"])
     ```
     """
-    def __init__(self, storage_backend, flow, artifact_references: typing.Union[typing.List[str], typing.List[typing.Tuple[str, typing.Optional[str]]], str], best_effort = False, temp_dir_root = None, mode = 'eager', logger = None):
+    def __init__(self, storage_backend, flow, artifact_references: typing.Union[typing.List[str], typing.List[typing.Tuple[str, typing.Union[str, None]]], str], best_effort = False, temp_dir_root = None, mode = 'eager', logger = None):
         ...
     @property
     def info(self):
@@ -121,7 +121,7 @@ class ModelSerializer(object, metaclass=type):
             If an unsupported storage format is provided.
         """
         ...
-    def load(self, reference: typing.Union[str, metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.MetaflowDataArtifactReference, dict], path: typing.Optional[str] = None):
+    def load(self, reference: typing.Union[str, metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.MetaflowDataArtifactReference, dict], path: typing.Union[str, None] = None):
         """
         Load a model/checkpoint from the datastore to a temporary directory or a specified path.
         

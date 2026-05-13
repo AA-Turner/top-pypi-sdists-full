@@ -6044,6 +6044,14 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AWSVPCFLOW_LOGS_SERVICE_ROLE_POLICY = "AWSVPCFLOW_LOGS_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_EKS_BLOCK_STORAGE_POLICY_V2 = "AMAZON_EKS_BLOCK_STORAGE_POLICY_V2"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

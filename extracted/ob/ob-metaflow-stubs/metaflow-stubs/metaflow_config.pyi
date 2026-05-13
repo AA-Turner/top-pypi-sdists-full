@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.776845                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.005990                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -241,6 +241,8 @@ KUBERNETES_JOBSET_VERSION: str
 
 KUBERNETES_JOB_TERMINATE_MODE: str
 
+KUBERNETES_JOB_TTL_SECONDS_AFTER_FINISHED: int
+
 ARGO_EVENTS_SERVICE_ACCOUNT: None
 
 ARGO_EVENTS_EVENT_BUS: str
@@ -332,6 +334,13 @@ MAX_ATTEMPTS: int
 CLICK_API_PROCESS_CONFIG: bool
 
 def get_pinned_conda_libs(python_version, datastore_type):
+    ...
+
+def get_click_to_python_types():
+    """
+    Returns the mapping from Click parameter types to Python types for Runner API.
+    Extensions can override this function to add custom type mappings.
+    """
     ...
 
 FAST_BAKERY_URL: None

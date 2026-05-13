@@ -11,6 +11,7 @@ import QuantConnect.Data
 import QuantConnect.Data.Market
 import QuantConnect.Data.UniverseSelection
 import QuantConnect.DataSource
+import QuantConnect.DataSource.QuiverQuant
 import QuantConnect.Orders
 import QuantConnect.Securities
 import QuantConnect.Util
@@ -65,6 +66,15 @@ class QuiverCNBC(QuantConnect.Data.BaseData):
 
     @traders.setter
     def traders(self, value: str) -> None:
+        ...
+
+    @property
+    def advice_date(self) -> datetime.datetime:
+        """Date the trader issued the stock advice on CNBC"""
+        ...
+
+    @advice_date.setter
+    def advice_date(self, value: datetime.datetime) -> None:
         ...
 
     @property
@@ -134,26 +144,35 @@ class QuiverInsiderTradingUniverse(QuantConnect.Data.UniverseSelection.BaseDataC
     """Universe Selection helper class for QuiverQuant InsiderTrading dataset"""
 
     @property
-    def name(self) -> str:
-        """Name"""
+    def date(self) -> typing.Optional[datetime.datetime]:
+        """Transaction date as reported on SEC Form 4"""
         ...
 
-    @name.setter
-    def name(self, value: str) -> None:
+    @date.setter
+    def date(self, value: typing.Optional[datetime.datetime]) -> None:
         ...
 
     @property
-    def shares(self) -> typing.Optional[float]:
-        """Shares amount in transaction"""
+    def file_date(self) -> typing.Optional[datetime.datetime]:
+        """Time the transaction was filed and became publicly available"""
         ...
 
-    @shares.setter
-    def shares(self, value: typing.Optional[float]) -> None:
+    @file_date.setter
+    def file_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def transaction_code(self) -> QuantConnect.DataSource.QuiverQuant.TransactionCode:
+        """Type of transaction (SEC Form 4 code)"""
+        ...
+
+    @transaction_code.setter
+    def transaction_code(self, value: QuantConnect.DataSource.QuiverQuant.TransactionCode) -> None:
         ...
 
     @property
     def price_per_share(self) -> typing.Optional[float]:
-        """PricePerShare of transaction"""
+        """Reported price per share transacted"""
         ...
 
     @price_per_share.setter
@@ -161,8 +180,17 @@ class QuiverInsiderTradingUniverse(QuantConnect.Data.UniverseSelection.BaseDataC
         ...
 
     @property
+    def shares(self) -> typing.Optional[float]:
+        """Number of shares transacted"""
+        ...
+
+    @shares.setter
+    def shares(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
     def shares_owned_following(self) -> typing.Optional[float]:
-        """Shares Owned after transcation"""
+        """Number of shares owned by insider following the transaction"""
         ...
 
     @shares_owned_following.setter
@@ -170,8 +198,71 @@ class QuiverInsiderTradingUniverse(QuantConnect.Data.UniverseSelection.BaseDataC
         ...
 
     @property
+    def acquired_disposed_code(self) -> QuantConnect.DataSource.QuiverQuant.AcquiredDisposedCode:
+        """Indicates whether transaction was share acquisition or disposal"""
+        ...
+
+    @acquired_disposed_code.setter
+    def acquired_disposed_code(self, value: QuantConnect.DataSource.QuiverQuant.AcquiredDisposedCode) -> None:
+        ...
+
+    @property
+    def direct_or_indirect_ownership(self) -> QuantConnect.DataSource.QuiverQuant.OwnershipType:
+        """Whether the security is held directly or indirectly"""
+        ...
+
+    @direct_or_indirect_ownership.setter
+    def direct_or_indirect_ownership(self, value: QuantConnect.DataSource.QuiverQuant.OwnershipType) -> None:
+        ...
+
+    @property
+    def officer_title(self) -> str:
+        """Corporate title of the transactor"""
+        ...
+
+    @officer_title.setter
+    def officer_title(self, value: str) -> None:
+        ...
+
+    @property
+    def is_director(self) -> typing.Optional[bool]:
+        """Whether the transactor is a director of the company"""
+        ...
+
+    @is_director.setter
+    def is_director(self, value: typing.Optional[bool]) -> None:
+        ...
+
+    @property
+    def is_officer(self) -> typing.Optional[bool]:
+        """Whether the transactor is an officer of the company"""
+        ...
+
+    @is_officer.setter
+    def is_officer(self, value: typing.Optional[bool]) -> None:
+        ...
+
+    @property
+    def is_ten_percent_owner(self) -> typing.Optional[bool]:
+        """Whether the transactor is a 10% owner of the company"""
+        ...
+
+    @is_ten_percent_owner.setter
+    def is_ten_percent_owner(self, value: typing.Optional[bool]) -> None:
+        ...
+
+    @property
+    def is_other(self) -> typing.Optional[bool]:
+        """Whether the transactor is not a director, officer, or 10% owner"""
+        ...
+
+    @is_other.setter
+    def is_other(self, value: typing.Optional[bool]) -> None:
+        ...
+
+    @property
     def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
+        """Time the data becomes available to the algorithm"""
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
@@ -231,7 +322,7 @@ class TransactionDirectionJsonConverter(QuantConnect.Util.TypeChangeJsonConverte
         Convert OrderDirection to string
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: OrderDirection to convert
         :returns: Resulting string.
@@ -244,7 +335,7 @@ class TransactionDirectionJsonConverter(QuantConnect.Util.TypeChangeJsonConverte
         Convert string to OrderDirection
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param value: string to convert
         :returns: Resulting OrderDirection.
@@ -253,7 +344,7 @@ class TransactionDirectionJsonConverter(QuantConnect.Util.TypeChangeJsonConverte
 
 
 class QuiverCNBCsUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for QuiverQuant Congress dataset"""
+    """Universe Selection helper class for QuiverQuant CNBC dataset"""
 
     @property
     def notes(self) -> str:
@@ -280,6 +371,15 @@ class QuiverCNBCsUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection
 
     @traders.setter
     def traders(self, value: str) -> None:
+        ...
+
+    @property
+    def advice_date(self) -> datetime.datetime:
+        """Date the trader issued the stock advice on CNBC"""
+        ...
+
+    @advice_date.setter
+    def advice_date(self, value: datetime.datetime) -> None:
         ...
 
     @property
@@ -1184,26 +1284,38 @@ class QuiverInsiderTrading(QuantConnect.Data.UniverseSelection.BaseDataCollectio
     """Insider Trading by private businesses"""
 
     @property
-    def name(self) -> str:
-        """Name"""
+    def date(self) -> typing.Optional[datetime.datetime]:
+        """Transaction date as reported on SEC Form 4"""
         ...
 
-    @name.setter
-    def name(self, value: str) -> None:
+    @date.setter
+    def date(self, value: typing.Optional[datetime.datetime]) -> None:
         ...
 
     @property
-    def shares(self) -> typing.Optional[float]:
-        """Shares amount in transaction"""
+    def file_date(self) -> typing.Optional[datetime.datetime]:
+        """Time the transaction was filed and became publicly available"""
         ...
 
-    @shares.setter
-    def shares(self, value: typing.Optional[float]) -> None:
+    @file_date.setter
+    def file_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def transaction_code(self) -> QuantConnect.DataSource.QuiverQuant.TransactionCode:
+        """
+        Type of transaction (see SEC Form 4 codes:
+        https://www.sec.gov/files/forms-3-4-5.pdf)
+        """
+        ...
+
+    @transaction_code.setter
+    def transaction_code(self, value: QuantConnect.DataSource.QuiverQuant.TransactionCode) -> None:
         ...
 
     @property
     def price_per_share(self) -> typing.Optional[float]:
-        """PricePerShare of transaction"""
+        """Reported price per share transacted"""
         ...
 
     @price_per_share.setter
@@ -1211,12 +1323,84 @@ class QuiverInsiderTrading(QuantConnect.Data.UniverseSelection.BaseDataCollectio
         ...
 
     @property
+    def shares(self) -> typing.Optional[float]:
+        """Number of shares transacted"""
+        ...
+
+    @shares.setter
+    def shares(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
     def shares_owned_following(self) -> typing.Optional[float]:
-        """Shares Owned after transcation"""
+        """Number of shares owned by insider following the transaction"""
         ...
 
     @shares_owned_following.setter
     def shares_owned_following(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def acquired_disposed_code(self) -> QuantConnect.DataSource.QuiverQuant.AcquiredDisposedCode:
+        """Indicates whether transaction was share acquisition or disposal"""
+        ...
+
+    @acquired_disposed_code.setter
+    def acquired_disposed_code(self, value: QuantConnect.DataSource.QuiverQuant.AcquiredDisposedCode) -> None:
+        ...
+
+    @property
+    def direct_or_indirect_ownership(self) -> QuantConnect.DataSource.QuiverQuant.OwnershipType:
+        """Whether the security is held directly or indirectly by the reporting person"""
+        ...
+
+    @direct_or_indirect_ownership.setter
+    def direct_or_indirect_ownership(self, value: QuantConnect.DataSource.QuiverQuant.OwnershipType) -> None:
+        ...
+
+    @property
+    def officer_title(self) -> str:
+        """Corporate title of the transactor"""
+        ...
+
+    @officer_title.setter
+    def officer_title(self, value: str) -> None:
+        ...
+
+    @property
+    def is_director(self) -> typing.Optional[bool]:
+        """Whether the transactor is a director of the company"""
+        ...
+
+    @is_director.setter
+    def is_director(self, value: typing.Optional[bool]) -> None:
+        ...
+
+    @property
+    def is_officer(self) -> typing.Optional[bool]:
+        """Whether the transactor is an officer of the company"""
+        ...
+
+    @is_officer.setter
+    def is_officer(self, value: typing.Optional[bool]) -> None:
+        ...
+
+    @property
+    def is_ten_percent_owner(self) -> typing.Optional[bool]:
+        """Whether the transactor is a 10% owner of the company"""
+        ...
+
+    @is_ten_percent_owner.setter
+    def is_ten_percent_owner(self, value: typing.Optional[bool]) -> None:
+        ...
+
+    @property
+    def is_other(self) -> typing.Optional[bool]:
+        """Whether the transactor is not a director, officer, or 10% owner"""
+        ...
+
+    @is_other.setter
+    def is_other(self, value: typing.Optional[bool]) -> None:
         ...
 
     @property
@@ -48294,7 +48478,7 @@ class BrainCompanyFilingLanguageMetrics10K(QuantConnect.DataSource.BrainCompanyF
 
     @property
     def report_type(self) -> str:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     @report_type.setter
@@ -48336,7 +48520,7 @@ class BrainStockRanking10Day(QuantConnect.DataSource.BrainStockRankingBase[Quant
 
     @property
     def lookback_days(self) -> int:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     @lookback_days.setter
@@ -48352,7 +48536,7 @@ class BrainStockRanking21Day(QuantConnect.DataSource.BrainStockRankingBase[Quant
 
     @property
     def lookback_days(self) -> int:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     @lookback_days.setter
@@ -48533,7 +48717,7 @@ class BrainCompanyFilingLanguageMetricsUniverseAll(QuantConnect.DataSource.Brain
 
     @property
     def report_type(self) -> str:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     @report_type.setter
@@ -48553,7 +48737,7 @@ class BrainCompanyFilingLanguageMetricsAll(QuantConnect.DataSource.BrainCompanyF
 
     @property
     def report_type(self) -> str:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     @report_type.setter
@@ -48597,7 +48781,7 @@ class BrainCompanyFilingLanguageMetricsUniverse(typing.Generic[QuantConnect_Data
         Report Type of which the language metric came from
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -48662,7 +48846,7 @@ class BrainStockRanking5Day(QuantConnect.DataSource.BrainStockRankingBase[QuantC
 
     @property
     def lookback_days(self) -> int:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     @lookback_days.setter
@@ -48678,7 +48862,7 @@ class BrainStockRanking3Day(QuantConnect.DataSource.BrainStockRankingBase[QuantC
 
     @property
     def lookback_days(self) -> int:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     @lookback_days.setter
@@ -48731,7 +48915,7 @@ class BrainSentimentIndicatorBase(typing.Generic[QuantConnect_DataSource_BrainSe
 
     @property
     def lookback_days(self) -> int:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     @lookback_days.setter
@@ -48743,7 +48927,7 @@ class BrainSentimentIndicatorBase(typing.Generic[QuantConnect_DataSource_BrainSe
         Clones the data
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: A clone of the object.
         """
@@ -48818,7 +49002,7 @@ class BrainStockRanking2Day(QuantConnect.DataSource.BrainStockRankingBase[QuantC
 
     @property
     def lookback_days(self) -> int:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     @lookback_days.setter
@@ -48834,7 +49018,7 @@ class BrainSentimentIndicator7Day(QuantConnect.DataSource.BrainSentimentIndicato
 
     @property
     def lookback_days(self) -> int:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     @lookback_days.setter
@@ -48919,7 +49103,7 @@ class BrainCompanyFilingLanguageMetricsBase(typing.Generic[QuantConnect_DataSour
 
     @property
     def report_type(self) -> str:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     @report_type.setter
@@ -48934,7 +49118,7 @@ class BrainCompanyFilingLanguageMetricsBase(typing.Generic[QuantConnect_DataSour
         Clones the data
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: A clone of the object.
         """
@@ -49270,7 +49454,7 @@ class BrainCompanyFilingLanguageMetricsUniverse10K(QuantConnect.DataSource.Brain
 
     @property
     def report_type(self) -> str:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     @report_type.setter
@@ -49295,7 +49479,7 @@ class BrainStockRankingBase(typing.Generic[QuantConnect_DataSource_BrainStockRan
 
     @property
     def lookback_days(self) -> int:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     @lookback_days.setter
@@ -49311,7 +49495,7 @@ class BrainStockRankingBase(typing.Generic[QuantConnect_DataSource_BrainStockRan
         ...
 
     def clone_data(self) -> QuantConnect_DataSource_BrainStockRankingBase_T:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
     def data_time_zone(self) -> typing.Any:
@@ -49971,7 +50155,7 @@ class BrainSentimentIndicator30Day(QuantConnect.DataSource.BrainSentimentIndicat
 
     @property
     def lookback_days(self) -> int:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     @lookback_days.setter
@@ -52007,7 +52191,7 @@ class SmartInsiderEvent(QuantConnect.Data.BaseData, metaclass=abc.ABCMeta):
         Parses a line of TSV (tab delimited) from Smart Insider data
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param tsv_line: Tab delimited line of data
         """

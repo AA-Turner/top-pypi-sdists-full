@@ -336,6 +336,9 @@ class OptionPositionCollection(System.Object, typing.Iterable[QuantConnect.Secur
     def __iter__(self) -> typing.Iterator[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
         ...
 
+    def __len__(self) -> int:
+        ...
+
     def __sub__(self, position: QuantConnect.Securities.Option.StrategyMatcher.OptionPosition) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection:
         """
         OptionPositionCollection - Operator

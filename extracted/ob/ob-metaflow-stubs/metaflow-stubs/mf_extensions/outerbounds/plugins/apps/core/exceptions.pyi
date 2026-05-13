@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.828515                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.075239                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.exceptions
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
 
 from ._state_machine import LogLine as LogLine
 
@@ -21,7 +21,7 @@ class OuterboundsBackendUnhealthyException(Exception, metaclass=type):
     Catch this to handle temporary platform outages gracefully. The request
     can typically be retried after a short delay.
     """
-    def __init__(self, url: str, method: str, status_code: typing.Optional[int] = None, text: typing.Optional[str] = None, message: typing.Optional[str] = None):
+    def __init__(self, url: str, method: str, status_code: typing.Union[int, None] = None, text: typing.Union[str, None] = None, message: typing.Union[str, None] = None):
         ...
     ...
 
@@ -42,7 +42,7 @@ class OuterboundsConfigurationException(Exception, metaclass=type):
     ...
 
 class CapsuleApiException(Exception, metaclass=type):
-    def __init__(self, url: str, method: str, status_code: int, text: str, message: typing.Optional[str] = None):
+    def __init__(self, url: str, method: str, status_code: int, text: str, message: typing.Union[str, None] = None):
         ...
     def __str__(self):
         ...
@@ -62,7 +62,7 @@ class CapsuleCrashLoopException(CapsuleDeploymentException, metaclass=type):
     """
     Raised when a worker enters CrashLoopBackOff or Failed state.
     """
-    def __init__(self, capsule_id: str, worker_id: str, logs: typing.Optional[typing.List[metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine.LogLine]] = None):
+    def __init__(self, capsule_id: str, worker_id: str, logs: typing.Union[typing.List[metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine.LogLine], None] = None):
         ...
     def __str__(self):
         ...
@@ -75,7 +75,7 @@ class CapsuleReadinessException(CapsuleDeploymentException, metaclass=type):
     Carries raw diagnostic data so higher-level callers can decide how to
     present the failure reason.
     """
-    def __init__(self, capsule_id: str, capsule_status: typing.Optional[typing.Dict] = None, worker_semantic_status: typing.Optional[typing.Dict] = None, readiness_condition: typing.Optional[str] = None, min_replicas: typing.Optional[int] = None, max_wait_time: typing.Optional[int] = None, timed_out: bool = False):
+    def __init__(self, capsule_id: str, capsule_status: typing.Union[typing.Dict, None] = None, worker_semantic_status: typing.Union[typing.Dict, None] = None, readiness_condition: typing.Union[str, None] = None, min_replicas: typing.Union[int, None] = None, max_wait_time: typing.Union[int, None] = None, timed_out: bool = False):
         ...
     def __str__(self):
         ...
@@ -85,7 +85,7 @@ class CapsuleConcurrentUpgradeException(CapsuleDeploymentException, metaclass=ty
     """
     Raised when a concurrent upgrade invalidates the current deployment.
     """
-    def __init__(self, capsule_id: str, expected_version: str, actual_version: str, modified_by: typing.Optional[str] = None, modified_at: typing.Optional[str] = None):
+    def __init__(self, capsule_id: str, expected_version: str, actual_version: str, modified_by: typing.Union[str, None] = None, modified_at: typing.Union[str, None] = None):
         ...
     def __str__(self):
         ...
@@ -157,7 +157,7 @@ class AppCrashLoopException(AppDeploymentException, metaclass=type):
     which typically reveal the cause (e.g., import errors, missing dependencies,
     or application exceptions). The `worker_id` identifies which replica failed.
     """
-    def __init__(self, app_id: str, worker_id: str, logs: typing.Optional[typing.List] = None):
+    def __init__(self, app_id: str, worker_id: str, logs: typing.Union[typing.List, None] = None):
         ...
     def __str__(self):
         ...
@@ -185,7 +185,7 @@ class AppReadinessException(AppDeploymentException, metaclass=type):
     consider increasing ``readiness_wait_time`` to widen the post-readiness
     health-check window.
     """
-    def __init__(self, app_id: str, reason: typing.Optional[str] = None):
+    def __init__(self, app_id: str, reason: typing.Union[str, None] = None):
         ...
     def __str__(self):
         ...
@@ -198,7 +198,7 @@ class AppUpgradeInProgressException(AppDeploymentException, metaclass=type):
     This prevents conflicting concurrent deployments. Either wait for the
     existing deployment to complete, or use `force_upgrade=True` to take over.
     """
-    def __init__(self, app_id: str, upgrader: typing.Optional[str] = None):
+    def __init__(self, app_id: str, upgrader: typing.Union[str, None] = None):
         ...
     def __str__(self):
         ...
@@ -212,7 +212,7 @@ class AppConcurrentUpgradeException(AppDeploymentException, metaclass=type):
     a new version. Check `modified_by` to see who triggered the conflicting
     deployment. Use unique app names or coordinate deployments to avoid this.
     """
-    def __init__(self, app_id: str, expected_version: str, actual_version: str, modified_by: typing.Optional[str] = None, modified_at: typing.Optional[str] = None):
+    def __init__(self, app_id: str, expected_version: str, actual_version: str, modified_by: typing.Union[str, None] = None, modified_at: typing.Union[str, None] = None):
         ...
     def __str__(self):
         ...

@@ -3,21 +3,27 @@ PowerShell syntax normalization transforms.
 """
 from __future__ import annotations
 
+from refinery.lib.scripts.ps1.deobfuscation.data import (
+    ALL_PARAMETER_NAMES,
+    KNOWN_ALIAS,
+    KNOWN_CMDLETS,
+    KNOWN_PS_OPERATORS,
+    KNOWN_PS_SWITCHES,
+    PS1_KNOWN_VARIABLES,
+    SIMPLE_IDENTIFIER,
+    TYPE_ARG_COMMANDS,
+)
 from refinery.lib.scripts.ps1.deobfuscation.helpers import (
     LocalFunctionAwareTransformer,
     get_command_name,
     make_string_literal,
     string_value,
 )
-from refinery.lib.scripts.ps1.deobfuscation.names import (
-    KNOWN_ALIAS,
-    SIMPLE_IDENTIFIER,
-    case_normalize_name,
-)
 from refinery.lib.scripts.ps1.deobfuscation.typenames import canonical_type_name
 from refinery.lib.scripts.ps1.model import (
     Ps1BinaryExpression,
     Ps1CastExpression,
+    Ps1ClassDefinition,
     Ps1CommandArgument,
     Ps1CommandArgumentKind,
     Ps1CommandInvocation,
@@ -40,13 +46,6 @@ from refinery.lib.scripts.ps1.model import (
 from refinery.lib.scripts.ps1.token import _strip_backtick_noop
 from refinery.lib.scripts.win32const import DEFAULT_ENVIRONMENT_TEMPLATE
 
-_KNOWN_VARIABLE_NAMES = {name.lower(): name for name in [
-    'True',
-    'False',
-    'Null',
-    'ExecutionContext',
-]}
-
 _KNOWN_ENV_NAMES: dict[str, str] = {
     name.lower(): name for name in DEFAULT_ENVIRONMENT_TEMPLATE
 }
@@ -62,7 +61,7 @@ class Ps1Simplifications(LocalFunctionAwareTransformer):
         if node.braced and SIMPLE_IDENTIFIER.match(node.name):
             node.braced = False
             self.mark_changed()
-        canonical = _KNOWN_VARIABLE_NAMES.get(node.name.lower())
+        canonical = PS1_KNOWN_VARIABLES.get(node.name.lower())
         if canonical is not None and canonical != node.name:
             node.name = canonical
             self.mark_changed()
@@ -74,6 +73,13 @@ class Ps1Simplifications(LocalFunctionAwareTransformer):
         return None
 
     def visit_Ps1FunctionDefinition(self, node: Ps1FunctionDefinition):
+        self.generic_visit(node)
+        if '`' in node.name:
+            node.name = _strip_backtick_noop(node.name)
+            self.mark_changed()
+        return None
+
+    def visit_Ps1ClassDefinition(self, node: Ps1ClassDefinition):
         self.generic_visit(node)
         if '`' in node.name:
             node.name = _strip_backtick_noop(node.name)
@@ -134,23 +140,18 @@ class Ps1Simplifications(LocalFunctionAwareTransformer):
         return None
 
     def _normalize_member(self, node: Ps1MemberAccess | Ps1InvokeMember):
-        if isinstance(node.member, Ps1StringLiteral):
-            name = node.member.value
-            if node.member.raw and node.member.raw[0] == '"' and '`' in node.member.raw:
-                name = _strip_backtick_noop(node.member.raw[1:-1])
-            if SIMPLE_IDENTIFIER.match(name):
-                node.member = case_normalize_name(name)
-                self.mark_changed()
-                return
-        if isinstance(node.member, str):
-            normalized = case_normalize_name(node.member)
-            if normalized != node.member:
-                node.member = normalized
-                self.mark_changed()
+        if not isinstance(node.member, Ps1StringLiteral):
+            return
+        name = node.member.value
+        if node.member.raw and node.member.raw[0] == '"' and '`' in node.member.raw:
+            name = _strip_backtick_noop(node.member.raw[1:-1])
+        if SIMPLE_IDENTIFIER.match(name):
+            node.member = name
+            self.mark_changed()
 
     def visit_Ps1BinaryExpression(self, node: Ps1BinaryExpression):
         self.generic_visit(node)
-        normalized = case_normalize_name(node.operator)
+        normalized = KNOWN_PS_OPERATORS.get(node.operator.lower(), node.operator)
         if normalized != node.operator:
             node.operator = normalized
             self.mark_changed()
@@ -158,7 +159,7 @@ class Ps1Simplifications(LocalFunctionAwareTransformer):
 
     def visit_Ps1UnaryExpression(self, node: Ps1UnaryExpression):
         self.generic_visit(node)
-        normalized = case_normalize_name(node.operator)
+        normalized = KNOWN_PS_OPERATORS.get(node.operator.lower(), node.operator)
         if normalized != node.operator:
             node.operator = normalized
             self.mark_changed()
@@ -170,22 +171,18 @@ class Ps1Simplifications(LocalFunctionAwareTransformer):
             if '`' in node.name:
                 node.name = _strip_backtick_noop(node.name)
                 self.mark_changed()
-            normalized = case_normalize_name(node.name)
-            if normalized != node.name:
+            name_lower = node.name.lower()
+            normalized = KNOWN_PS_OPERATORS.get(name_lower)
+            if normalized is None:
+                normalized = KNOWN_PS_SWITCHES.get(name_lower)
+            if normalized is None:
+                bare = name_lower.lstrip('-')
+                if bare != name_lower:
+                    canonical = ALL_PARAMETER_NAMES.get(bare)
+                    if canonical is not None:
+                        normalized = F'-{canonical}'
+            if normalized is not None and normalized != node.name:
                 node.name = normalized
-                self.mark_changed()
-        if node.kind == Ps1CommandArgumentKind.POSITIONAL and isinstance(node.value, Ps1StringLiteral):
-            value = node.value.value
-            if '.' in value:
-                normalized = self._normalize_type_name(value)
-            else:
-                normalized = case_normalize_name(value)
-            if normalized != value:
-                node.value = Ps1StringLiteral(
-                    offset=node.value.offset,
-                    value=normalized,
-                    raw=normalized,
-                )
                 self.mark_changed()
         return None
 
@@ -199,10 +196,6 @@ class Ps1Simplifications(LocalFunctionAwareTransformer):
         return None
 
     def _normalize_type_name(self, name: str) -> str:
-        normalized = case_normalize_name(name)
-        if normalized != name:
-            self.mark_changed()
-            return normalized
         canonical = canonical_type_name(name)
         if canonical is not None and canonical != name:
             self.mark_changed()
@@ -217,8 +210,8 @@ class Ps1Simplifications(LocalFunctionAwareTransformer):
             if isinstance(inner, Ps1StringLiteral):
                 node.name = inner
             elif isinstance(inner, Ps1CommandInvocation):
-                cmd_name = get_command_name(inner)
-                if cmd_name is not None and cmd_name.lower() in ('gcm', 'get-command'):
+                c = get_command_name(inner)
+                if c is not None and c.lower() in ('gcm', 'get-command'):
                     if len(inner.arguments) == 1:
                         arg = inner.arguments[0]
                         if isinstance(arg, Ps1CommandArgument):
@@ -245,7 +238,7 @@ class Ps1Simplifications(LocalFunctionAwareTransformer):
                 if alias_target is not None:
                     new_value = alias_target
                 else:
-                    new_value = case_normalize_name(node.name.value)
+                    new_value = KNOWN_CMDLETS.get(name_lower, node.name.value)
                 if new_value != node.name.value or new_value != node.name.raw:
                     node.name = Ps1StringLiteral(
                         offset=node.name.offset,
@@ -264,4 +257,33 @@ class Ps1Simplifications(LocalFunctionAwareTransformer):
                     )
                     node.invocation_operator = ''
                     self.mark_changed()
+        if (c := get_command_name(node)) and c.lower() in TYPE_ARG_COMMANDS:
+            self._normalize_first_positional_type_arg(node)
         return None
+
+    def _normalize_first_positional_type_arg(self, node: Ps1CommandInvocation):
+        for arg in node.arguments:
+            if isinstance(arg, Ps1CommandArgument):
+                if arg.kind == Ps1CommandArgumentKind.NAMED:
+                    if arg.name.lstrip('-').lower() == 'class' and isinstance(arg.value, Ps1StringLiteral):
+                        normalized = self._normalize_type_name(arg.value.value)
+                        if normalized != arg.value.value:
+                            arg.value = nl = Ps1StringLiteral(offset=arg.value.offset, value=normalized, raw=normalized)
+                            nl.parent = arg
+                    continue
+                if arg.kind != Ps1CommandArgumentKind.POSITIONAL:
+                    continue
+                if isinstance(arg.value, Ps1StringLiteral):
+                    normalized = self._normalize_type_name(arg.value.value)
+                    if normalized != arg.value.value:
+                        arg.value = nl = Ps1StringLiteral(offset=arg.value.offset, value=normalized, raw=normalized)
+                        nl.parent = arg
+                return
+            if isinstance(arg, Ps1StringLiteral):
+                normalized = self._normalize_type_name(arg.value)
+                if normalized != arg.value:
+                    nl = Ps1StringLiteral(offset=arg.offset, value=normalized, raw=normalized)
+                    idx = node.arguments.index(arg)
+                    node.arguments[idx] = nl
+                    nl.parent = node
+                return

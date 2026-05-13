@@ -1,6 +1,6 @@
 [project]
 name = "spaces"
-version = "0.49.2"
+version = "0.50.0"
 description = "Utilities for Hugging Face Spaces"
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
@@ -60,6 +60,7 @@ env_files = ["tests/.env"]
 source = ["spaces"]
 omit = [
     "spaces/zero/api.py",
+    "spaces/zero/torch/aoti.py", # For now
     "spaces/zero/torch/patching_legacy.py",
     "spaces/zero/torch/bitsandbytes_legacy.py",
     "spaces/_vendor/*",

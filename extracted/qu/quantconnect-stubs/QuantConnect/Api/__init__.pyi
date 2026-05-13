@@ -20,6 +20,12 @@ import System
 import System.Collections.Generic
 import System.Collections.Specialized
 import System.Text.RegularExpressions
+import System.Threading.Tasks
+
+QuantConnect_Api_Api_TryPost_T = typing.TypeVar("QuantConnect_Api_Api_TryPost_T")
+QuantConnect_Api_Api_TryJsonPost_T = typing.TypeVar("QuantConnect_Api_Api_TryJsonPost_T")
+QuantConnect_Api_ApiConnection_TryRequest_T = typing.TypeVar("QuantConnect_Api_ApiConnection_TryRequest_T")
+QuantConnect_Api_ApiConnection_TryRequestAsync_T = typing.TypeVar("QuantConnect_Api_ApiConnection_TryRequestAsync_T")
 
 
 class ApiUtils(System.Object):
@@ -49,6 +55,78 @@ class ApiUtils(System.Object):
         ...
 
 
+class _Typed_ApiConnection_TryRequest(typing.Generic[QuantConnect_Api_ApiConnection_TryRequest_T]):
+    """"""
+
+    @overload
+    def __call__(self, request: typing.Any, result: typing.Optional[QuantConnect_Api_ApiConnection_TryRequest_T], timeout: typing.Optional[datetime.timedelta] = None) -> typing.Tuple[bool, QuantConnect_Api_ApiConnection_TryRequest_T]:
+        """
+        Place a secure request and get back an object of type T.
+        
+        :param request: 
+        :param result: Result object from the
+        :param timeout: Timeout for the request
+        :returns: T typed object response.
+        """
+        ...
+
+    @overload
+    def __call__(self, request: typing.Any, result: typing.Optional[QuantConnect_Api_ApiConnection_TryRequest_T]) -> typing.Tuple[bool, QuantConnect_Api_ApiConnection_TryRequest_T]:
+        """
+        Place a secure request and get back an object of type T.
+        
+        
+        RestSharp is deprecated and will be removed in a future release. Please use the TryRequest(HttpRequestMessage)
+        
+        :param request: 
+        :param result: Result object from the
+        :returns: T typed object response.
+        """
+        ...
+
+
+class _ApiConnection_TryRequest:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Api_ApiConnection_TryRequest_T]) -> QuantConnect.Api._Typed_ApiConnection_TryRequest[QuantConnect_Api_ApiConnection_TryRequest_T]:
+        ...
+
+
+class _Typed_ApiConnection_TryRequestAsync(typing.Generic[QuantConnect_Api_ApiConnection_TryRequestAsync_T]):
+    """"""
+
+    @overload
+    def __call__(self, request: typing.Any, timeout: typing.Optional[datetime.timedelta] = None) -> System.Threading.Tasks.Task[System.Tuple[bool, QuantConnect_Api_ApiConnection_TryRequestAsync_T]]:
+        """
+        Place a secure request and get back an object of type T.
+        
+        :param request: 
+        :param timeout: Timeout for the request
+        :returns: T typed object response.
+        """
+        ...
+
+    @overload
+    def __call__(self, request: typing.Any) -> System.Threading.Tasks.Task[System.Tuple[bool, QuantConnect_Api_ApiConnection_TryRequestAsync_T]]:
+        """
+        Place a secure request and get back an object of type T.
+        
+        
+        RestSharp is deprecated and will be removed in a future release. Please use the TryRequestAsync(HttpRequestMessage)
+        
+        :param request: 
+        :returns: T typed object response.
+        """
+        ...
+
+
+class _ApiConnection_TryRequestAsync:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Api_ApiConnection_TryRequestAsync_T]) -> QuantConnect.Api._Typed_ApiConnection_TryRequestAsync[QuantConnect_Api_ApiConnection_TryRequestAsync_T]:
+        ...
+
+
 class ApiConnection(System.Object, System.IDisposable):
     """API Connection and Hash Manager"""
 
@@ -69,6 +147,14 @@ class ApiConnection(System.Object, System.IDisposable):
     @property
     def connected(self) -> bool:
         """Return true if connected successfully."""
+        ...
+
+    @property
+    def try_request(self) -> QuantConnect.Api._ApiConnection_TryRequest:
+        ...
+
+    @property
+    def try_request_async(self) -> QuantConnect.Api._ApiConnection_TryRequestAsync:
         ...
 
     @overload
@@ -106,6 +192,48 @@ class ApiConnection(System.Object, System.IDisposable):
         :param default_headers: Default headers for the client
         :param timeout: The client timeout in seconds
         """
+        ...
+
+
+class _Typed_Api_TryPost(typing.Generic[QuantConnect_Api_Api_TryPost_T]):
+    """"""
+
+    @overload
+    def __call__(self, endpoint: str, result: typing.Optional[QuantConnect_Api_Api_TryPost_T], payload: typing.List[System.Collections.Generic.KeyValuePair[str, str]] = None, api_connection: QuantConnect.Api.ApiConnection = None, timeout: typing.Optional[datetime.timedelta] = None) -> typing.Tuple[bool, QuantConnect_Api_Api_TryPost_T]:
+        """
+        Makes a simple POST request to the specified endpoint with the given payload
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class _Api_TryPost:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Api_Api_TryPost_T]) -> QuantConnect.Api._Typed_Api_TryPost[QuantConnect_Api_Api_TryPost_T]:
+        ...
+
+
+class _Typed_Api_TryJsonPost(typing.Generic[QuantConnect_Api_Api_TryJsonPost_T]):
+    """"""
+
+    @overload
+    def __call__(self, endpoint: str, result: typing.Optional[QuantConnect_Api_Api_TryJsonPost_T], payload: typing.Any = None, api_connection: QuantConnect.Api.ApiConnection = None, json_serializer_settings: typing.Any = None, timeout: typing.Optional[datetime.timedelta] = None) -> typing.Tuple[bool, QuantConnect_Api_Api_TryJsonPost_T]:
+        """
+        Makes a simple POST request to the specified endpoint with the given payload
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class _Api_TryJsonPost:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Api_Api_TryJsonPost_T]) -> QuantConnect.Api._Typed_Api_TryJsonPost[QuantConnect_Api_Api_TryJsonPost_T]:
         ...
 
 
@@ -2849,7 +2977,7 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         Serializer settings to use
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -2863,13 +2991,21 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         Returns the underlying API connection
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
     @property
     def connected(self) -> bool:
         """Check if Api is successfully connected with correct credentials"""
+        ...
+
+    @property
+    def try_post(self) -> QuantConnect.Api._Api_TryPost:
+        ...
+
+    @property
+    def try_json_post(self) -> QuantConnect.Api._Api_TryJsonPost:
         ...
 
     def __init__(self) -> None:
@@ -2912,7 +3048,7 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         Create the api connection instance to use
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

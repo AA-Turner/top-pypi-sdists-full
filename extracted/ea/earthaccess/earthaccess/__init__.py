@@ -14,7 +14,7 @@ from .api import (
     get_s3fs_session,
     granule_query,
     login,
-    open,
+    open,  # noqa: A004
     search_data,
     search_datasets,
     search_services,
@@ -72,7 +72,7 @@ except ImportError:
     __version__ = get_version("earthaccess")
 
 _auth = Auth()
-_store: Optional[Store] = None
+_store: Store | None = None
 _lock = threading.Lock()
 
 

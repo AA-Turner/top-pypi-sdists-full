@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.838686                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.085678                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import io
     import metaflow.exception
     import metaflow.plugins.datatools.s3.s3
+    import io
 
 from ....flowspec import FlowSpec as FlowSpec
 from ....metaflow_current import current as current
@@ -82,7 +82,7 @@ class S3PutObject(tuple, metaclass=type):
     S3PutObject(key, value, path, content_type, encryption, metadata)
     """
     @staticmethod
-    def __new__(_cls, key: str, value: typing.Union[io.RawIOBase, io.BufferedIOBase, str, bytes, None] = None, path: typing.Optional[str] = None, content_type: typing.Optional[str] = None, encryption: typing.Optional[str] = None, metadata: typing.Optional[typing.Dict[str, str]] = None):
+    def __new__(_cls, key: str, value: typing.Union[io.RawIOBase, io.BufferedIOBase, str, bytes, None] = None, path: typing.Union[str, None] = None, content_type: typing.Union[str, None] = None, encryption: typing.Union[str, None] = None, metadata: typing.Union[typing.Dict[str, str], None] = None):
         """
         Create new instance of S3PutObject(key, value, path, content_type, encryption, metadata)
         """
@@ -97,7 +97,7 @@ class S3PutObject(tuple, metaclass=type):
         Return self as a plain tuple.  Used by copy and pickle.
         """
         ...
-    def __init__(self, key: str, value: typing.Union[io.RawIOBase, io.BufferedIOBase, str, bytes, None], path: typing.Optional[str], content_type: typing.Optional[str], encryption: typing.Optional[str], metadata: typing.Optional[typing.Dict[str, str]]):
+    def __init__(self, key: str, value: typing.Union[io.RawIOBase, io.BufferedIOBase, str, bytes, None], path: typing.Union[str, None], content_type: typing.Union[str, None], encryption: typing.Union[str, None], metadata: typing.Union[typing.Dict[str, str], None]):
         ...
     ...
 
@@ -154,7 +154,7 @@ class S3Object(object, metaclass=type):
     `S3Object`s are not instantiated directly, but they are returned
     by many methods of the `S3` client.
     """
-    def __init__(self, prefix: str, url: str, path: str, size: typing.Optional[int] = None, content_type: typing.Optional[str] = None, metadata: typing.Optional[typing.Dict[str, str]] = None, range_info: typing.Optional[metaflow.plugins.datatools.s3.s3.RangeInfo] = None, last_modified: typing.Optional[int] = None, encryption: typing.Optional[str] = None):
+    def __init__(self, prefix: str, url: str, path: str, size: typing.Union[int, None] = None, content_type: typing.Union[str, None] = None, metadata: typing.Union[typing.Dict[str, str], None] = None, range_info: typing.Union[metaflow.plugins.datatools.s3.s3.RangeInfo, None] = None, last_modified: typing.Union[int, None] = None, encryption: typing.Union[str, None] = None):
         ...
     @property
     def exists(self) -> bool:
@@ -219,7 +219,7 @@ class S3Object(object, metaclass=type):
         """
         ...
     @property
-    def path(self) -> typing.Optional[str]:
+    def path(self) -> typing.Union[str, None]:
         """
         Path to a local temporary file corresponding to the object downloaded.
         
@@ -233,7 +233,7 @@ class S3Object(object, metaclass=type):
         """
         ...
     @property
-    def blob(self) -> typing.Optional[bytes]:
+    def blob(self) -> typing.Union[bytes, None]:
         """
         Contents of the object as a byte string or None if the
         object hasn't been downloaded.
@@ -245,7 +245,7 @@ class S3Object(object, metaclass=type):
         """
         ...
     @property
-    def text(self) -> typing.Optional[str]:
+    def text(self) -> typing.Union[str, None]:
         """
         Contents of the object as a string or None if the
         object hasn't been downloaded.
@@ -259,7 +259,7 @@ class S3Object(object, metaclass=type):
         """
         ...
     @property
-    def size(self) -> typing.Optional[int]:
+    def size(self) -> typing.Union[int, None]:
         """
         Size of the object in bytes.
         
@@ -287,7 +287,7 @@ class S3Object(object, metaclass=type):
         """
         ...
     @property
-    def metadata(self) -> typing.Optional[typing.Dict[str, str]]:
+    def metadata(self) -> typing.Union[typing.Dict[str, str], None]:
         """
         Returns a dictionary of user-defined metadata, or None if no metadata
         is defined.
@@ -299,7 +299,7 @@ class S3Object(object, metaclass=type):
         """
         ...
     @property
-    def content_type(self) -> typing.Optional[str]:
+    def content_type(self) -> typing.Union[str, None]:
         """
         Returns the content-type of the S3 object or None if it is not defined.
         
@@ -310,7 +310,7 @@ class S3Object(object, metaclass=type):
         """
         ...
     @property
-    def encryption(self) -> typing.Optional[str]:
+    def encryption(self) -> typing.Union[str, None]:
         """
         Returns the encryption type of the S3 object or None if it is not defined.
         
@@ -321,7 +321,7 @@ class S3Object(object, metaclass=type):
         """
         ...
     @property
-    def range_info(self) -> typing.Optional[metaflow.plugins.datatools.s3.s3.RangeInfo]:
+    def range_info(self) -> typing.Union[metaflow.plugins.datatools.s3.s3.RangeInfo, None]:
         """
         If the object corresponds to a partially downloaded object, returns
         information of what was downloaded.
@@ -340,7 +340,7 @@ class S3Object(object, metaclass=type):
         """
         ...
     @property
-    def last_modified(self) -> typing.Optional[int]:
+    def last_modified(self) -> typing.Union[int, None]:
         """
         Returns the last modified unix timestamp of the object.
         
@@ -437,7 +437,7 @@ class S3(object, metaclass=type):
         Delete all temporary files downloaded in this context.
         """
         ...
-    def list_paths(self, keys: typing.Optional[typing.Iterable[str]] = None) -> typing.List[metaflow.plugins.datatools.s3.s3.S3Object]:
+    def list_paths(self, keys: typing.Union[typing.Iterable[str], None] = None) -> typing.List[metaflow.plugins.datatools.s3.s3.S3Object]:
         """
         List the next level of paths in S3.
         
@@ -474,7 +474,7 @@ class S3(object, metaclass=type):
             do not correspond to leaf objects.
         """
         ...
-    def list_recursive(self, keys: typing.Optional[typing.Iterable[str]] = None) -> typing.List[metaflow.plugins.datatools.s3.s3.S3Object]:
+    def list_recursive(self, keys: typing.Union[typing.Iterable[str], None] = None) -> typing.List[metaflow.plugins.datatools.s3.s3.S3Object]:
         """
         List all objects recursively under the given prefixes.
         
@@ -509,7 +509,7 @@ class S3(object, metaclass=type):
             S3Objects under the given paths.
         """
         ...
-    def info(self, key: typing.Optional[str] = None, return_missing: bool = False) -> S3Object:
+    def info(self, key: typing.Union[str, None] = None, return_missing: bool = False) -> S3Object:
         """
         Get metadata about a single object in S3.
         
@@ -636,7 +636,7 @@ class S3(object, metaclass=type):
             S3Objects stored under the main prefix.
         """
         ...
-    def put(self, key: typing.Union[str, metaflow.plugins.datatools.s3.s3.S3PutObject], obj: typing.Union[io.RawIOBase, io.BufferedIOBase, str, bytes], overwrite: bool = True, content_type: typing.Optional[str] = None, metadata: typing.Optional[typing.Dict[str, str]] = None) -> str:
+    def put(self, key: typing.Union[str, metaflow.plugins.datatools.s3.s3.S3PutObject], obj: typing.Union[io.RawIOBase, io.BufferedIOBase, str, bytes], overwrite: bool = True, content_type: typing.Union[str, None] = None, metadata: typing.Union[typing.Dict[str, str], None] = None) -> str:
         """
         Upload a single object to S3.
         

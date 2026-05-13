@@ -1,15 +1,19 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Functions that deal with entry points.
 
 Exported functions are considered as entry points as well.
 IDA maintains list of entry points to the program. Each entry point:
-* has an address
-* has a name
-* may have an ordinal number 
+   * has an address
+   * has a name
+   * may have an ordinal number
 
+.. tip::
+   The `IDA Domain API <https://ida-domain.docs.hex-rays.com/>`_ simplifies
+   common tasks and provides better type hints, while remaining fully compatible
+   with IDAPython for advanced use cases.
 
-    
+   For entry point management, see :mod:`ida_domain.entries`.
 """
 
 def add_entry(ord: int, ea: ida_idaapi.ea_t, name: str, makecode: bool, flags: int = 0) -> bool:
@@ -48,7 +52,7 @@ def get_entry_name(ord: int) -> str:
     """
     ...
 
-def get_entry_ordinal(idx: size_t) -> int:
+def get_entry_ordinal(idx: int) -> int:
     r"""Get ordinal number of an entry point. 
             
     :param idx: internal number of entry point. Should be in the range 0..get_entry_qty()-1
@@ -66,7 +70,7 @@ def rename_entry(ord: int, name: str, flags: int = 0) -> bool:
     r"""Rename entry point. 
             
     :param ord: ordinal number of the entry point
-    :param name: name of entry point. If the specified location already has a name, the old name will be appended to a repeatable comment.
+    :param name: name of entry point. If the specified location already has a name, the old name will be appended to a non-repeatable comment.
     :param flags: See AEF_*
     :returns: success
     """
@@ -88,6 +92,6 @@ AEF_NOFORCE: int  # 8
 AEF_UTF8: int  # 0
 AEF_WEAK: int  # 4
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ida_idaapi: module
 weakref: module

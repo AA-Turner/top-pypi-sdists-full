@@ -1,14 +1,18 @@
 """
 """
 import contextlib
+import inspect
 import json
 import os
+import textwrap
+from collections.abc import Iterable
 from contextvars import ContextVar
 from io import BytesIO
 from pathlib import Path
 from typing import Any
 from typing import Callable
 from typing import cast
+from typing import IO
 from unittest.mock import patch
 
 import torch
@@ -22,6 +26,7 @@ from torch._inductor.package.package import package_aoti
 from torch.export.pt2_archive._package import AOTICompiledModel
 from torch.export.pt2_archive._package_weights import Weights
 
+from ..elf import clear_elf_execstack
 from ..utils import read_map_files
 from ..utils import register_cleanup
 
@@ -39,6 +44,7 @@ if version.parse(version.parse(torch.__version__).base_version) >= version.parse
 
 ARCHIVE_SO_PATTERN = '/tmp/*/archive/data/aotinductor/model/*.wrapper.so'
 
+PACKAGE_DIRNAME = 'package'
 PACKAGE_FILENAME = 'package.pt2'
 
 
@@ -90,7 +96,7 @@ class ZeroGPUCompiledModel:
         return ZeroGPUCompiledModel, (self.archive_file, self.weights)
 
 
-def aoti_compile(
+def _aoti_compile(
     exported_program: torch.export.ExportedProgram,
     inductor_configs: dict[str, Any] | None = None,
 ):
@@ -100,13 +106,41 @@ def aoti_compile(
     args, kwargs = exported_program.example_inputs
     artifacts = torch._inductor.aot_compile(gm, args, kwargs, options=inductor_configs) # pyright: ignore [reportArgumentType]
     artifacts = cast(list[str | Weights], artifacts)
-    archive_file = BytesIO()
-    files = (file for file in artifacts if isinstance(file, str))
-    package_aoti(archive_file, list(files))
+    files = [file for file in artifacts if isinstance(file, str)]
+    for file in files:
+        if file.endswith('.so'):
+            clear_elf_execstack(Path(file))
     weights, = (artifact for artifact in artifacts if isinstance(artifact, Weights))
-    weights = cast(Weights, weights)
+    return files, weights
+
+
+def aoti_compile(
+    exported_program: torch.export.ExportedProgram,
+    inductor_configs: dict[str, Any] | None = None,
+):
+    archive_file = BytesIO()
+    files, weights = _aoti_compile(exported_program, inductor_configs)
+    package_aoti(archive_file, list(files))
     zerogpu_weights = ZeroGPUWeights({name: weights.get_weight(name)[0] for name in weights})
     return ZeroGPUCompiledModel(archive_file, zerogpu_weights)
+
+
+def aoti_compile_and_save(
+    package_dir: str | os.PathLike[str],
+    exported_program: torch.export.ExportedProgram,
+    inductor_configs: dict[str, Any] | None = None,
+    submodule: str | None = None,
+):
+    archive_file = BytesIO()
+    files, _weights = _aoti_compile(exported_program, inductor_configs)
+    package_aoti(archive_file, list(files))
+    if submodule is not None:
+        subdir_path = Path(package_dir) / 'submodules' / submodule
+    else:
+        subdir_path = Path(package_dir) / 'root'
+    subdir_path.mkdir(parents=True, exist_ok=True)
+    package_path = subdir_path / PACKAGE_FILENAME
+    package_path.write_bytes(archive_file.getbuffer())
 
 
 def aoti_apply(
@@ -168,7 +202,9 @@ class LazyAOTIModel:
             compiled_model = cast(AOTICompiledModel, compiled_model)
             self.compiled_model.set(compiled_model)
         if (loaded_weights := self.loaded_weights.get()) is None or loaded_weights is not weights:
-            compiled_model.load_constants(weights, check_full_update=check_full_update, user_managed=True)
+            constant_fqns = compiled_model.get_constant_fqns()
+            constant_map = {name: tensor for name, tensor in weights.items() if name in constant_fqns}
+            compiled_model.load_constants(constant_map, check_full_update=check_full_update, user_managed=True)
             self.loaded_weights.set(weights)
         return compiled_model(*args, **kwargs)
     def with_weights(self, weights: dict[str, torch.Tensor]):
@@ -193,6 +229,94 @@ def _shallow_clone_module(module: torch.nn.Module) -> torch.nn.Module:
     clone._buffers = module._buffers.copy()
     clone._modules = {k: _shallow_clone_module(v) for k, v in module._modules.items() if v is not None}
     return clone
+
+
+def aoti_patch(
+    module: torch.nn.Module,
+    aoti_model: LazyAOTIModel,
+    call_method: str = 'forward',
+):
+    module_ = _shallow_clone_module(module) # Prevent original module mutation
+    unwrap_tensor_subclass_parameters(module_) # https://github.com/pytorch/pytorch/issues/159918
+    aoti_model_with_weights = aoti_model.with_weights(module_.state_dict())
+    setattr(module, call_method, aoti_model_with_weights)
+
+
+def aoti_load(
+    module: torch.nn.Module,
+    repo_id: str,
+    revision: str | None = None,
+    aoti_loader: Callable[[torch.nn.Module, str], Any] | None = None,
+):
+    from huggingface_hub import snapshot_download
+    repo_path = snapshot_download(
+        repo_id=repo_id,
+        revision=revision,
+        allow_patterns=f'{PACKAGE_DIRNAME}/*',
+    )
+    package_dir = Path(repo_path) / PACKAGE_DIRNAME
+    if aoti_loader is not None:
+        aoti_loader(module, str(package_dir))
+    else:
+        aoti_load_from_package_dir(module, package_dir)
+
+
+def aoti_load_call_source(
+    module_expr: str,
+    repo_id: str,
+    revision: str | None = None,
+    aoti_loader: Callable[[torch.nn.Module, str], Any] | None = None,
+):
+    loader_name = aoti_loader.__name__ if aoti_loader is not None else 'None'
+    loader_source = ""
+    if aoti_loader is not None:
+        loader_source += textwrap.dedent(inspect.getsource(aoti_loader)).strip()
+        loader_source += "\n\n"
+    load_source = textwrap.dedent(
+        f"""\
+            spaces.aoti_load(
+                module={module_expr},
+                repo_id={repo_id!r},
+                revision={revision!r},
+                aoti_loader={loader_name},
+            )
+        """
+    )
+    load_source = '\n'.join(line for line in load_source.splitlines() if not "=None," in line)
+    return loader_source + load_source
+
+
+def aoti_load_from_package_dir(
+    module: torch.nn.Module | torch.nn.ModuleList,
+    package_dir: str | os.PathLike[str],
+):
+    # Structure
+    package_dir = Path(package_dir)
+    submodules_dir = package_dir / 'submodules'
+    rootmodule_dir = package_dir / 'root'
+    kernels_dir = package_dir / 'kernels'
+    # Submodules
+    if submodules_dir.is_dir():
+        for subpackage_dir in submodules_dir.iterdir():
+            if subpackage_dir.is_dir():
+                submodule = module.get_submodule(subpackage_dir.name)
+                aoti_load_from_module_dir(submodule, subpackage_dir)
+    # Root module
+    if rootmodule_dir.is_dir():
+        aoti_load_from_module_dir(module, rootmodule_dir)
+
+
+def aoti_load_from_module_dir(
+    module: torch.nn.Module | torch.nn.ModuleList,
+    module_dir: str | os.PathLike[str],
+):
+    module_dir = Path(module_dir)
+    aoti_model = LazyAOTIModel(module_dir / PACKAGE_FILENAME)
+    if isinstance(module, Iterable):
+        for block in module:
+            aoti_patch(block, aoti_model)
+    else:
+        aoti_patch(module, aoti_model)
 
 
 def aoti_blocks_load(module: torch.nn.Module, repo_id: str, variant: str | None = None):
@@ -245,9 +369,7 @@ def aoti_blocks_load(module: torch.nn.Module, repo_id: str, variant: str | None 
     for block_name, aoti_model in aoti_models.items():
         for block in module.modules():
             if block.__class__.__name__ == block_name:
-                block_ = _shallow_clone_module(block) # Prevent original block mutation
-                unwrap_tensor_subclass_parameters(block_) # https://github.com/pytorch/pytorch/issues/159918
-                block.forward = aoti_model.with_weights(block_.state_dict())
+                aoti_patch(block, aoti_model)
 
 
 def _variant(name: str, variant: str | None):

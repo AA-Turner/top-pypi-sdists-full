@@ -34,6 +34,7 @@ from ..security import (
     SKIP_FILES
 )
 from ..storage import IndexStore
+from ..storage.git_root import IdentityModeAmbiguous, IdentityModeConflict, resolve_index_identity
 from ..storage.index_store import _file_hash, _file_hash_bytes, _get_git_head, _get_git_branch
 from ..summarizer import summarize_symbols
 from ..reindex_state import WatcherChange
@@ -312,7 +313,11 @@ def _merge_subdir_into_existing(
     }
 
 
-def _resolve_repo_identity(folder_path: Path) -> tuple[str, str, str]:
+def _resolve_repo_identity(
+    folder_path: Path,
+    mode: str = "config",
+    store: Optional[IndexStore] = None,
+) -> tuple[str, str, str]:
     """Resolve the storage identity for an indexing run.
 
     Returns ``(owner, repo_name, git_root)``.  ``git_root`` is the
@@ -329,26 +334,8 @@ def _resolve_repo_identity(folder_path: Path) -> tuple[str, str, str]:
     basename-plus-hash form when no ``.git`` is found anywhere up the
     tree or when the knob is off.
     """
-    if _config.get("git_root_identity", True, repo=str(folder_path)):
-        try:
-            from ..storage.git_root import detect_git_root
-            ident = detect_git_root(str(folder_path))
-        except Exception:
-            logger.debug("git-root detection failed", exc_info=True)
-            ident = None
-        if ident is not None:
-            if ident.owner == "local":
-                # Git working tree without a usable `origin` remote.
-                # Preserve today's basename-plus-hash identity so unrelated
-                # local projects that share a folder basename never
-                # collide.  We still record the git_root on the manifest
-                # for v1.96 merge logic to use.
-                return "local", _local_repo_name(folder_path), ident.git_root
-            # Configured remote — use `<owner>/<name>` identity (matches
-            # what `index_repo <owner>/<name>` produces for the same repo).
-            return ident.owner, ident.name, ident.git_root
-    # No git working tree, or knob disabled: pre-v1.95 basename-plus-hash.
-    return "local", _local_repo_name(folder_path), ""
+    decision = resolve_index_identity(str(folder_path), mode=mode, store=store)
+    return decision.owner, decision.name, decision.git_root
 
 
 from ._indexing_pipeline import (
@@ -432,6 +419,112 @@ def _scan_package_json_forced_paths(folder_path: Path) -> set[str]:
     except OSError:
         pass
     return forced
+
+
+def resolve_explicit_paths(
+    walk_root: Path,
+    paths: list,
+    max_files: Optional[int],
+    max_size: int = DEFAULT_MAX_FILE_SIZE,
+    follow_symlinks: bool = False,
+) -> tuple[list[Path], list[str], dict[str, int]]:
+    """Materialise a caller-supplied list of paths into the (files, warnings,
+    skip_counts) shape that the standard indexing pipeline expects.
+
+    Each entry can be absolute or relative to ``walk_root``. Files are added
+    when they live under ``walk_root`` and have a known language. Directories
+    are recursed via ``discover_local_files`` against that subtree (so the
+    same .gitignore / framework filter applies). Entries outside the root,
+    non-existent paths, symlink escapes, and oversize files are rejected
+    with per-entry warnings — matching the security posture of the full
+    walker.
+
+    Used by ``index_folder(paths=...)`` so agents can re-index exactly the
+    files they already know about (git-diff list, edited-files list,
+    rg-matched list) without paying the cost of a full directory walk.
+    """
+    files: list[Path] = []
+    warnings: list[str] = []
+    skip_counts: dict[str, int] = {}
+    seen: set = set()
+
+    cap = max_files if max_files is not None else 10_000_000
+
+    for raw in paths:
+        if len(files) >= cap:
+            break
+        if not isinstance(raw, str) or not raw.strip():
+            warnings.append(f"Skipped empty/non-string path: {raw!r}")
+            continue
+        p = Path(raw).expanduser()
+        if not p.is_absolute():
+            p = (walk_root / p)
+        try:
+            p = p.resolve()
+        except OSError as e:
+            warnings.append(f"Skipped unresolvable path {raw!r}: {e}")
+            continue
+
+        try:
+            p.relative_to(walk_root)
+        except ValueError:
+            warnings.append(f"Skipped path outside walk root: {raw!r}")
+            continue
+
+        if not p.exists():
+            warnings.append(f"Skipped non-existent path: {raw!r}")
+            continue
+
+        if p.is_dir():
+            remaining = cap - len(files)
+            sub_files, sub_warnings, sub_skip = discover_local_files(
+                p,
+                max_files=remaining,
+                max_size=max_size,
+                follow_symlinks=follow_symlinks,
+            )
+            warnings.extend(sub_warnings)
+            for k, v in sub_skip.items():
+                skip_counts[k] = skip_counts.get(k, 0) + v
+            for f in sub_files:
+                fr = f.resolve()
+                if fr not in seen:
+                    seen.add(fr)
+                    files.append(f)
+                    if len(files) >= cap:
+                        break
+            continue
+
+        if not p.is_file():
+            warnings.append(f"Skipped non-file/non-dir entry: {raw!r}")
+            continue
+
+        # File-level security mirrors discover_local_files
+        if not follow_symlinks and p.is_symlink():
+            warnings.append(f"Skipped symlink (follow_symlinks=False): {raw!r}")
+            skip_counts["symlink"] = skip_counts.get("symlink", 0) + 1
+            continue
+
+        if get_language_for_path(str(p)) is None and p.suffix not in LANGUAGE_EXTENSIONS:
+            warnings.append(f"Skipped unsupported extension: {raw!r}")
+            skip_counts["unknown_extension"] = skip_counts.get("unknown_extension", 0) + 1
+            continue
+
+        try:
+            if p.stat().st_size > max_size:
+                warnings.append(f"Skipped oversize file (>{max_size} bytes): {raw!r}")
+                skip_counts["too_large"] = skip_counts.get("too_large", 0) + 1
+                continue
+        except OSError as e:
+            warnings.append(f"Skipped stat-error path {raw!r}: {e}")
+            continue
+
+        pr = p.resolve()
+        if pr not in seen:
+            seen.add(pr)
+            files.append(p)
+
+    return files[:cap], warnings, skip_counts
 
 
 def discover_local_files(
@@ -658,7 +751,9 @@ def index_folder(
     incremental: bool = True,
     context_providers: bool = True,
     changed_paths: Optional[list[WatcherChange]] = None,
+    paths: Optional[list[str]] = None,
     progress_cb: "Optional[Callable[[int, int, str], None]]" = None,
+    identity_mode: str = "config",
 ) -> dict:
     """Index a local folder containing source code.
 
@@ -676,6 +771,8 @@ def index_folder(
             (change_type, absolute_path) tuples where change_type is one of
             "added", "modified", "deleted".  When provided with incremental=True
             and an existing index, skips full directory discovery (~3s → ~50ms).
+        identity_mode: "config" (default), "local", or "git". Local mode keeps
+            v1.90 path-hash identity; git mode opts in to git-root identity.
 
     Returns:
         Dict with indexing results.
@@ -773,6 +870,20 @@ def index_folder(
     # Redact absolute path from responses when redact_source_root is enabled
     _redact = _config.get("redact_source_root", False)
     _folder_display = folder_path.name if _redact else str(folder_path)
+    store = IndexStore(base_path=storage_path)
+    _pairs_for_identity = parse_path_map()
+    _identity_path = Path(remap(str(folder_path), _pairs_for_identity, reverse=True))
+    try:
+        _identity_decision = resolve_index_identity(
+            str(_identity_path),
+            mode=identity_mode,
+            store=store,
+        )
+    except (IdentityModeAmbiguous, IdentityModeConflict) as exc:
+        return {"success": False, "error": str(exc)}
+    owner = _identity_decision.owner
+    repo_name = _identity_decision.name
+    _git_root = _identity_decision.git_root
 
     # ── v1.96 git-root retarget ──
     # If git_root_identity is on (default) and `folder_path` resolves into a
@@ -782,13 +893,19 @@ def index_folder(
     # against the same clone coalesce into a single repo index.
     walk_root = folder_path
     _git_root_for_walk = ""
-    try:
-        from ..storage.git_root import detect_git_root as _detect_git_root_for_walk
-        _gr = _detect_git_root_for_walk(str(folder_path))
-    except Exception:
-        logger.debug("git-root detection failed during retarget", exc_info=True)
-        _gr = None
-    if _gr is not None and _config.get("git_root_identity", True, repo=str(folder_path)):
+    _gr = None
+    if _identity_decision.mode == "git" and _identity_decision.git_root:
+        try:
+            from ..storage.git_root import GitRootIdentity
+            _gr = GitRootIdentity(
+                git_root=_identity_decision.git_root,
+                owner=_identity_decision.owner,
+                name=_identity_decision.name,
+            )
+        except Exception:
+            logger.debug("git-root detection failed during retarget", exc_info=True)
+            _gr = None
+    if _gr is not None:
         _gr_path = Path(_gr.git_root).resolve()
         try:
             _is_subdir = folder_path != _gr_path and folder_path.is_relative_to(_gr_path)
@@ -877,12 +994,6 @@ def index_folder(
         # When the watcher provides the exact change set, skip full directory
         # discovery (~3s on Windows) and only process the affected files.
         if changed_paths and incremental:
-            _pairs = parse_path_map()
-            owner, repo_name, _git_root = _resolve_repo_identity(
-                Path(remap(str(folder_path), _pairs, reverse=True))
-            )
-            store = IndexStore(base_path=storage_path)
-
             # Branch detection for watcher fast-path
             _fast_branch = _get_git_branch(folder_path)
             _fast_is_branch_delta = False
@@ -1179,12 +1290,25 @@ def index_folder(
         # subdir, we walk only the subdir but resolve paths relative to
         # folder_path (= git root) downstream so file_paths are
         # git-root-relative.
-        source_files, discover_warnings, skip_counts = discover_local_files(
-            walk_root,
-            max_files=max_files,
-            extra_ignore_patterns=_merged_ignore or None,
-            follow_symlinks=follow_symlinks,
-        )
+        #
+        # v1.108: when the caller supplied `paths=[...]`, skip the directory
+        # walk entirely and materialise the file list from those explicit
+        # entries. Validation matches the walk path (outside-root, traversal,
+        # symlink-escape, oversize, unsupported-extension all warn-and-skip).
+        if paths is not None:
+            source_files, discover_warnings, skip_counts = resolve_explicit_paths(
+                walk_root,
+                list(paths),
+                max_files=max_files,
+                follow_symlinks=follow_symlinks,
+            )
+        else:
+            source_files, discover_warnings, skip_counts = discover_local_files(
+                walk_root,
+                max_files=max_files,
+                extra_ignore_patterns=_merged_ignore or None,
+                follow_symlinks=follow_symlinks,
+            )
         warnings.extend(discover_warnings)
         logger.info("Discovery skip counts: %s", skip_counts)
 
@@ -1226,13 +1350,6 @@ def index_folder(
         elif active_providers:
             names = ", ".join(p.name for p in active_providers)
             logger.info("Active context providers: %s", names)
-
-        # Create repo identifier from folder path
-        _pairs = parse_path_map()
-        owner, repo_name, _git_root = _resolve_repo_identity(
-            Path(remap(str(folder_path), _pairs, reverse=True))
-        )
-        store = IndexStore(base_path=storage_path)
 
         # v1.95.0/1.96: collision guard + subdir-merge resolution.
         #

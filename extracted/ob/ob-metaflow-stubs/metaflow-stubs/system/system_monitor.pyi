@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.824539                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.069913                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ class SystemMonitor(object, metaclass=type):
     def init_system_monitor(self, flow_name: str, monitor: "metaflow.monitor.NullMonitor"):
         ...
     @property
-    def monitor(self) -> typing.Optional["metaflow.monitor.NullMonitor"]:
+    def monitor(self) -> typing.Union["metaflow.monitor.NullMonitor", None]:
         ...
     def measure(self, name: str):
         """

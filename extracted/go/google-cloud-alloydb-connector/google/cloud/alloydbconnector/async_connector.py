@@ -17,12 +17,13 @@ from __future__ import annotations
 import asyncio
 import logging
 from types import TracebackType
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
+from typing import Any
+from typing import Optional
 
 import google.auth
 from google.auth.credentials import with_scopes_if_required
 import google.auth.transport.requests
-
 import google.cloud.alloydbconnector.asyncpg as asyncpg
 from google.cloud.alloydbconnector.client import AlloyDBClient
 from google.cloud.alloydbconnector.enums import IPTypes
@@ -118,10 +119,17 @@ class AsyncConnector:
 
         # check if AsyncConnector is being initialized with event loop running
         # Otherwise we will lazy init keys
+        self._keys: Optional[asyncio.Task] = None
         try:
-            self._keys: Optional[asyncio.Task] = asyncio.create_task(generate_keys())
+            # Try to get the running loop before creating a task. The call here
+            # will raise a RuntimeError if no loop is running. Without calling
+            # get_running_loop, a direct call to create_task would also raise
+            # an exception but it would leak the generate_keys coroutine. To
+            # avoid leaking the coroutine, we call get_running_loop first.
+            asyncio.get_running_loop()
+            self._keys = asyncio.create_task(generate_keys())
         except RuntimeError:
-            self._keys = None
+            pass
         self._client: Optional[AlloyDBClient] = None
         self._closed = False
 
@@ -178,8 +186,7 @@ class AsyncConnector:
                 cache = LazyRefreshCache(instance_uri, self._client, self._keys)
             else:
                 logger.debug(
-                    f"['{instance_uri}']: Refresh strategy is set to background"
-                    " refresh"
+                    f"['{instance_uri}']: Refresh strategy is set to background refresh"
                 )
                 cache = RefreshAheadCache(instance_uri, self._client, self._keys)
             self._cache[instance_uri] = cache
@@ -245,7 +252,7 @@ class AsyncConnector:
         cache = self._cache.pop(instance_uri)
         await cache.close()
 
-    async def __aenter__(self) -> Any:
+    async def __aenter__(self) -> AsyncConnector:
         """Enter async context manager by returning Connector object"""
         return self
 

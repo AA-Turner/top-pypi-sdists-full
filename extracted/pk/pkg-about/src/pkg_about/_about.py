@@ -16,10 +16,7 @@ if sys.version_info >= (3, 12, 6):
     getaddresses = partial(getaddresses, strict=False)
     parseaddr    = partial(parseaddr,    strict=False)
 else: pass  # pragma: no cover
-if sys.version_info >= (3, 10, 2):
-    import importlib.metadata as importlib_metadata
-else:  # pragma: no cover
-    import importlib_metadata  # type: ignore[no-redef,import-not-found]
+import importlib.metadata as importlib_metadata
 import packaging.version
 import build.util
 

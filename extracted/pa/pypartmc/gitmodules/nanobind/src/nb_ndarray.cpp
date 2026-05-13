@@ -21,6 +21,9 @@ NAMESPACE_END(dlpack)
 
 NAMESPACE_BEGIN(detail)
 
+/// Maximum number of ndarray dimensions (2x NumPy's NPY_MAXDIMS)
+static constexpr int32_t max_ndim = 128;
+
 // DLPack version 0, deprecated Feb 2024, obsoleted March 2025
 struct managed_dltensor {
     dlpack::dltensor dltensor;
@@ -380,7 +383,7 @@ static mt_unique_ptr_t make_mt_from_buffer_protocol(PyObject *o, bool ro) {
     if (skip_first && format_str)
         format_c = *++format_str;
 
-    bool is_complex = format_str[0] == 'Z';
+    bool is_complex = format_str && format_str[0] == 'Z';
     if (is_complex)
         format_c = *++format_str;
 
@@ -404,6 +407,9 @@ static mt_unique_ptr_t make_mt_from_buffer_protocol(PyObject *o, bool ro) {
             case 'Q':
             case 'N': dt.code = (uint8_t) dlpack::dtype_code::UInt; break;
 
+            case 'E':
+            case 'F':
+            case 'D': is_complex = true; [[fallthrough]];
             case 'e':
             case 'f':
             case 'd': dt.code = (uint8_t) dlpack::dtype_code::Float; break;
@@ -428,6 +434,10 @@ static mt_unique_ptr_t make_mt_from_buffer_protocol(PyObject *o, bool ro) {
     }
 
     int32_t ndim = view->ndim;
+    if (ndim < 0 || ndim > max_ndim) {
+        PyBuffer_Release(view.get());
+        return mt_unique_ptr;
+    }
 
     static_assert(alignof(managed_dltensor_versioned) >= alignof(int64_t));
     scoped_pymalloc<managed_dltensor_versioned> mt(1, 2 * sizeof(int64_t)*ndim);
@@ -587,6 +597,9 @@ ndarray_handle *ndarray_import(PyObject *src, const ndarray_config *c,
 
     uint64_t flags = (versioned) ? ((managed_dltensor_versioned *) mt)->flags
                                  : 0UL;
+
+    if (t.ndim < 0 || t.ndim > max_ndim)
+        return nullptr;
 
     // Reject a read-only ndarray if a writable one is required, and
     // reject an ndarray not on the required device.
@@ -833,6 +846,9 @@ ndarray_handle *ndarray_create(void *data, size_t ndim, const size_t *shape_in,
                                PyObject *owner, const int64_t *strides_in,
                                dlpack::dtype dtype, bool ro, int device_type,
                                int device_id, char order) {
+    check(ndim <= (size_t) max_ndim,
+          "ndarray_create(): ndim is too large!");
+
     /* DLPack mandates 256-byte alignment of the 'DLTensor::data' field,
        but this requirement is generally ignored.  Also, PyTorch has/had
        a bug in ignoring byte_offset and assuming it's zero.

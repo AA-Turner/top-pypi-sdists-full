@@ -169,6 +169,9 @@ class DesignerOptionService(System.Object, System.ComponentModel.Design.IDesigne
         def __getitem__(self, name: str) -> System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection:
             ...
 
+        def __len__(self) -> int:
+            ...
+
         def copy_to(self, array: System.Array, index: int) -> None:
             ...
 
@@ -826,6 +829,9 @@ class DesignerCollection(System.Object, System.Collections.ICollection):
 
     @overload
     def __init__(self, designers: System.Collections.IList) -> None:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def get_enumerator(self) -> System.Collections.IEnumerator:

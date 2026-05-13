@@ -1,19 +1,19 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.806426                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.045729                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
+    import functools
+    import metaflow.user_decorators.mutable_flow
+    import typing
     import metaflow.decorators
     import metaflow.flowspec
     import metaflow.user_decorators.user_step_decorator
-    import functools
-    import metaflow.user_decorator.mutable_flow
-    import typing
 
 from ..exception import MetaflowException as MetaflowException
 from .user_step_decorator import StepMutator as StepMutator
@@ -22,10 +22,10 @@ from .user_step_decorator import UserStepDecoratorBase as UserStepDecoratorBase
 TYPE_CHECKING: bool
 
 class MutableStep(object, metaclass=type):
-    def __init__(self, flow_spec: "metaflow.flowspec.FlowSpec", step: typing.Union[typing.Callable[["metaflow.decorators.FlowSpecDerived"], None], typing.Callable[["metaflow.decorators.FlowSpecDerived", typing.Any], None]], pre_mutate: bool = False, statically_defined: bool = False, inserted_by: typing.Optional[str] = None):
+    def __init__(self, flow_spec: "metaflow.flowspec.FlowSpec", step: typing.Union[typing.Callable[["metaflow.decorators.FlowSpecDerived"], None], typing.Callable[["metaflow.decorators.FlowSpecDerived", typing.Any], None]], pre_mutate: bool = False, statically_defined: bool = False, inserted_by: typing.Union[str, None] = None):
         ...
     @property
-    def flow(self) -> "metaflow.user_decorator.mutable_flow.MutableFlow":
+    def flow(self) -> "metaflow.user_decorators.mutable_flow.MutableFlow":
         """
         The flow that contains this step
         
@@ -57,9 +57,44 @@ class MutableStep(object, metaclass=type):
             a list of positional arguments, and a dictionary of keyword arguments.
         """
         ...
-    def add_decorator(self, deco_type: typing.Union[functools.partial, metaflow.user_decorators.user_step_decorator.UserStepDecoratorBase, str], deco_args: typing.Optional[typing.List[typing.Any]] = None, deco_kwargs: typing.Optional[typing.Dict[str, typing.Any]] = None, duplicates: int = 1):
+    def has_decorator(self, name: str) -> bool:
+        """
+        Check whether this step has at least one decorator with the given name.
+        
+        Parameters
+        ----------
+        name : str
+            The decorator name (short) or fully qualified name (contains a period).
+        
+        Returns
+        -------
+        bool
+            True if a decorator with the given name exists on this step.
+        """
+        ...
+    def get_decorator_specs(self, name: str) -> typing.List[typing.Tuple[str, str, typing.List[typing.Any], typing.Dict[str, typing.Any]]]:
+        """
+        Return all spec tuples matching the given name.
+        
+        Parameters
+        ----------
+        name : str
+            The decorator name (short) or fully qualified name (contains a period).
+        
+        Returns
+        -------
+        List[Tuple[str, str, List[Any], Dict[str, Any]]]
+            A list of (short_name, fq_name, args, kwargs) tuples. Empty list if
+            no decorators match.
+        """
+        ...
+    def add_decorator(self, deco_type: typing.Union[functools.partial, metaflow.user_decorators.user_step_decorator.UserStepDecoratorBase, str], deco_args: typing.Union[typing.List[typing.Any], None] = None, deco_kwargs: typing.Union[typing.Dict[str, typing.Any], None] = None, duplicates: int = 1) -> typing.Union[metaflow.user_decorators.user_step_decorator.UserStepDecoratorBase, "metaflow.decorators.StepDecorator", None]:
         """
         Add a Metaflow step-decorator or a user step-decorator to a step.
+        
+        Returns the decorator instance that was inserted, which can be used to
+        inspect or further configure the decorator. Returns None if the decorator
+        was not added (e.g. due to duplicate handling with IGNORE).
         
         You can either add the decorator itself or its decorator specification for it
         (the same you would get back from decorator_specs). You can also mix and match
@@ -121,9 +156,15 @@ class MutableStep(object, metaclass=type):
             - `MutableStep.IGNORE`: Ignore the decorator if it already exists.
             - `MutableStep.ERROR`: Raise an error if the decorator already exists.
             - `MutableStep.OVERRIDE`: Remove the existing decorator and add this one.
+        
+        Returns
+        -------
+        Optional[Union[UserStepDecoratorBase, StepDecorator]]
+            The decorator instance that was added, or None if the decorator was not
+            added due to duplicate handling.
         """
         ...
-    def remove_decorator(self, deco_name: str, deco_args: typing.Optional[typing.List[typing.Any]] = None, deco_kwargs: typing.Optional[typing.Dict[str, typing.Any]] = None) -> bool:
+    def remove_decorator(self, deco_name: str, deco_args: typing.Union[typing.List[typing.Any], None] = None, deco_kwargs: typing.Union[typing.Dict[str, typing.Any], None] = None) -> bool:
         """
         Remove a step-level decorator. To remove a decorator, you can pass the decorator
         specification (obtained from `decorator_specs` for example).

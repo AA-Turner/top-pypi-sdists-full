@@ -1,81 +1,110 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: buildozer
-Version: 1.5.0
-Summary: Generic Python packager for Android / iOS and Desktop
+Version: 1.6.0
+Summary: Turns Python applications into binary packages ready for installation on a number of platforms.
 Home-page: https://github.com/kivy/buildozer
 Author: Mathieu Virbel
 Author-email: mat@kivy.org
 License: MIT
+Project-URL: Website, https://kivy.org
+Project-URL: Documentation, https://buildozer.readthedocs.io/en/stable/#
+Project-URL: Source, https://github.com/kivy/buildozer
+Project-URL: Bug Reports, https://github.com/kivy/buildozer/issues
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: pexpect
+Requires-Dist: packaging
+Requires-Dist: cython<3.0
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinxawesome_theme<6,>=5.3; extra == "docs"
+Provides-Extra: ios
+Requires-Dist: kivy-ios; extra == "ios"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
-Buildozer
-=========
+# Buildozer
 
-[![Tests](https://github.com/kivy/buildozer/workflows/Tests/badge.svg)](https://github.com/kivy/buildozer/actions?query=workflow%3ATests)
-[![Android](https://github.com/kivy/buildozer/workflows/Android/badge.svg)](https://github.com/kivy/buildozer/actions?query=workflow%3AAndroid)
-[![iOS](https://github.com/kivy/buildozer/workflows/iOS/badge.svg)](https://github.com/kivy/buildozer/actions?query=workflow%3AiOS)
-[![Coverage Status](https://coveralls.io/repos/github/kivy/buildozer/badge.svg)](https://coveralls.io/github/kivy/buildozer)
-[![Backers on Open Collective](https://opencollective.com/kivy/backers/badge.svg)](#backers)
-[![Sponsors on Open Collective](https://opencollective.com/kivy/sponsors/badge.svg)](#sponsors)
+Buildozer is a development tool for turning  [Python](https://www.python.org/)
+applications into binary packages ready for installation on any of a number of
+platforms, including mobile devices.
 
-Buildozer is a tool for creating application packages easily.
+The app developer provides a single "buildozer.spec" file, which describes the
+application's requirements and settings, such as title and icons. Buildozer can
+then create installable packages for Android, iOS, Windows, macOS and/or Linux.
 
-The goal is to have one "buildozer.spec" file in your app directory, describing
-your application requirements and settings such as title, icon, included modules
-etc. Buildozer will use that spec to create a package for Android, iOS, Windows,
-OSX and/or Linux.
-
-Buildozer currently supports packaging for Android via the [python-for-android](https://github.com/kivy/python-for-android/)
-project, and for iOS via the kivy-ios project. iOS and OSX are still under work.
+Buildozer is managed by the [Kivy Team](https://kivy.org/about.html). It relies
+on its sibling projects: 
+[python-for-android](https://github.com/kivy/python-for-android/) and 
+[Kivy for iOS](https://github.com/kivy/kivy-ios/). It has features to make
+building apps using the [Kivy framework](https://github.com/kivy/kivy) easier,
+but it can be used independently - even with other GUI frameworks.
 
 For Android, buildozer will automatically download and prepare the
 build dependencies. For more information, see
-[Android-SDK-NDK-Information](https://github.com/kivy/kivy/wiki/Android-SDK-NDK-Information).
-Note that only Python 3 is supported.
+[Android SDK NDK Information](https://github.com/kivy/kivy/wiki/Android-SDK-NDK-Information).
 
-Note that this tool has nothing to do with the eponymous online build service
-[buildozer.io](https://buildozer.io).
+> [!NOTE]
+> This tool is unrelated to the online build service,
+> `buildozer.io`.
+
+[![Backers on Open Collective](https://opencollective.com/kivy/backers/badge.svg)](#backers)
+[![Sponsors on Open Collective](https://opencollective.com/kivy/sponsors/badge.svg)](#sponsors)
+[![GitHub contributors](https://img.shields.io/github/contributors-anon/kivy/buildozer)](https://github.com/kivy/buildozer/graphs/contributors)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+
+[![PyPI - Version](https://img.shields.io/pypi/v/buildozer)](https://pypi.org/project/buildozer/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/buildozer)](https://pypi.org/project/buildozer/)
+
+[![Tests](https://github.com/kivy/buildozer/workflows/Tests/badge.svg)](https://github.com/kivy/buildozer/actions?query=workflow%3ATests)
+[![Android](https://github.com/kivy/buildozer/actions/workflows/android.yml/badge.svg)](https://github.com/kivy/buildozer/actions/workflows/android.yml)
+[![iOS](https://github.com/kivy/buildozer/workflows/iOS/badge.svg)](https://github.com/kivy/buildozer/actions?query=workflow%3AiOS)
+[![Coverage Status](https://coveralls.io/repos/github/kivy/buildozer/badge.svg)](https://coveralls.io/github/kivy/buildozer)
+[![Docker](https://github.com/kivy/buildozer/actions/workflows/docker.yml/badge.svg)](https://github.com/kivy/buildozer/actions/workflows/docker.yml)
+
+
+## Installation
+
+Buildozer 
 
 ## Installing Buildozer with target Python 3 (default):
 
-- Install buildozer:
+Buildozer incorporates a number of technologies, and has a complicated
+dependencies, including platform dependencies outside of Python.
 
-      # via pip (latest stable, recommended)
-      # if you use a virtualenv, don't use the `--user` option
-      pip install --user buildozer
+This means installation is more than a simple `pip install`; many of our support
+requests are related to missing dependencies. 
 
-      # latest dev version
-      # if you use a virtualenv, don't use the `--user` option
-      pip install --user https://github.com/kivy/buildozer/archive/master.zip
+So, it is important to follow the instructions carefully.
 
-      # git clone, for working on buildozer
-      git clone https://github.com/kivy/buildozer
-      cd buildozer
-      python setup.py build
-      pip install -e .
-
-- Check buildozer is in your path
-
-      `which buildozer`
-      # if there is no result, and you installed with --user, add this line at the end of your `~/.bashrc` file.
-      export PATH=~/.local/bin/:$PATH
-      # and then run
-      . ~/.bashrc
-
-- Go into your application directory and run:
-
-      buildozer init
-      # edit the buildozer.spec, then
-      buildozer android debug deploy run
-
+Please see the 
+[Installation documentation](https://buildozer.readthedocs.io/en/latest/installation/)
+specific to this version.
 
 ## Buildozer Docker image
 
@@ -83,12 +112,40 @@ A Dockerfile is available to use buildozer through a Docker environment.
 
 - Build with:
 
-      docker build --tag=buildozer .
+```bash
+docker build --tag=kivy/buildozer .
+```
+
+For macOS, build with:
+
+```bash
+docker buildx build --platform=linux/amd64 --tag=kivy/buildozer .
+```
 
 - Run with:
 
-      docker run --volume "$(pwd)":/home/user/hostcwd buildozer --version
+```bash
+docker run --interactive --tty --rm \
+    --volume "$PWD":/home/user/hostcwd \
+   kivy/buildozer --version
+```
 
+### Example Build with Caching
+- Build and keep downloaded SDK and NDK in `~/.buildozer` directory: 
+
+```bash
+docker run --interactive --tty --rm \
+    --volume "$HOME/.buildozer":/home/user/.buildozer \
+    --volume "$PWD":/home/user/hostcwd \
+    kivy/buildozer android debug
+```
+
+The image is published to both Docker Hub and GitHub Container Registry and can be pulled from both:
+
+```bash
+docker pull kivy/buildozer:latest
+docker pull ghcr.io/kivy/buildozer:latest
+```
 
 ## Buildozer GitHub action
 
@@ -96,28 +153,9 @@ Use [ArtemSBulgakov/buildozer-action@v1](https://github.com/ArtemSBulgakov/build
 to build your packages automatically on push or pull request.
 See [full workflow example](https://github.com/ArtemSBulgakov/buildozer-action#full-workflow).
 
-
-## Examples of Buildozer commands
-
-```
-# buildozer target command
-buildozer android clean
-buildozer android update
-buildozer android deploy
-buildozer android debug
-buildozer android release
-
-# or all in one (compile in debug, deploy on device)
-buildozer android debug deploy
-
-# set the default command if nothing set
-buildozer setdefault android debug deploy run
-```
-
-
 ## Usage
 
-```
+```yml
 Usage:
     buildozer [--profile <name>] [--verbose] [target] <command>...
     buildozer --version
@@ -155,90 +193,247 @@ Target "android" commands:
                         to make an alias
 ```
 
+## Examples of Buildozer commands
+
+```bash
+# buildozer target command
+buildozer android clean
+buildozer android update
+buildozer android deploy
+buildozer android debug
+buildozer android release
+
+# or all in one (compile in debug, deploy on device)
+buildozer android debug deploy
+
+# set the default command if nothing set
+buildozer setdefault android debug deploy run
+```
 
 ## `buildozer.spec`
 
-See [buildozer/default.spec](https://raw.github.com/kivy/buildozer/master/buildozer/default.spec) for an up-to-date spec file.
+Run `buildozer init` to have a new `buildozer.spec` file copied into the current
+working directory. Edit it before running your first build.
 
+See [buildozer/default.spec](https://raw.github.com/kivy/buildozer/master/buildozer/default.spec) for the template.
 
 ## Default config
 
-You can override the value of *any* `buildozer.spec` config token by
+You can override the value of any `buildozer.spec` config token by
 setting an appropriate environment variable. These are all of the
-form ``$SECTION_TOKEN``, where SECTION is the config file section and
+form `$SECTION_TOKEN`, where SECTION is the config file section and
 TOKEN is the config token to override. Dots are replaced by
 underscores.
 
 For example, here are some config tokens from the [app] section of the
 config, along with the environment variables that would override them.
 
-- ``title`` -> ``$APP_TITLE``
-- ``package.name`` -> ``$APP_PACKAGE_NAME``
-- ``p4a.source_dir`` -> ``$APP_P4A_SOURCE_DIR``
-
-## Support
-
-If you need assistance, you can ask for help on our mailing list:
-
-* User Group : https://groups.google.com/group/kivy-users
-* Email      : kivy-users@googlegroups.com
-
-Discord channel:
-
-Server : https://chat.kivy.org
-Channel : #support
-
-For [debugging on Android](https://python-for-android.readthedocs.io/en/stable/troubleshooting/?highlight=adb#debugging-on-android), don't hesitate to use ADB to get logs of your application.
-
-
-## Contributing
-
-We love pull requests and discussing novel ideas. Check out our
-[contribution guide](https://kivy.org/docs/contribute.html) and
-feel free to improve buildozer.
-
-The following mailing list and IRC channel are used exclusively for
-discussions about developing the Kivy framework and its sister projects:
-
-* Dev Group : https://groups.google.com/group/kivy-dev
-* Email     : kivy-dev@googlegroups.com
-
-We also have a Discord channel:
-
-* Server     : https://chat.kivy.org
-* Channel    : #support
-
+- `title` -> `$APP_TITLE`
+- `package.name` -> `$APP_PACKAGE_NAME`
+- `p4a.source_dir` -> `$APP_P4A_SOURCE_DIR`
 
 ## License
 
-Buildozer is released under the terms of the MIT License. Please refer to the
-LICENSE file.
+Buildozer is [MIT licensed](LICENSE), actively developed by a great
+community and is supported by many projects managed by the 
+[Kivy Organization](https://www.kivy.org/about.html).
 
+## Documentation
+
+[Documentation for this repository](https://buildozer.readthedocs.io/).
+
+## Support
+
+Are you having trouble using Buildozer or any of its related projects in the Kivy
+ecosystem?
+Is there an error you don’t understand? Are you trying to figure out how to use 
+it? We have volunteers who can help!
+
+The best channels to contact us for support are listed in the latest 
+[Contact Us](https://github.com/kivy/buildozer/blob/master/CONTACT.md) document.
+
+## Contributing
+
+Buildozer is part of the [Kivy](https://kivy.org) ecosystem - a large group of
+products used by many thousands of developers for free, but it
+is built entirely by the contributions of volunteers. We welcome (and rely on) 
+users who want to give back to the community by contributing to the project.
+
+Contributions can come in many forms. See the latest 
+[Contribution Guidelines](https://github.com/kivy/buildozer/blob/master/CONTRIBUTING.md)
+for how you can help us.
+
+## Code of Conduct
+
+In the interest of fostering an open and welcoming community, we as 
+contributors and maintainers need to ensure participation in our project and 
+our sister projects is a harassment-free and positive experience for everyone. 
+It is vital that all interaction is conducted in a manner conveying respect, 
+open-mindedness and gratitude.
+
+Please consult the [latest Code of Conduct](https://github.com/kivy/buildozer/blob/master/CODE_OF_CONDUCT.md).
+
+## Contributors
+
+This project exists thanks to 
+[all the people who contribute](https://github.com/kivy/buildozer/graphs/contributors).
+[[Become a contributor](CONTRIBUTING.md)].
+
+<img src="https://contrib.nn.ci/api?repo=kivy/buildozer&pages=5&no_bot=true&radius=22&cols=18">
 
 ## Backers
 
-Thank you to all our backers! 🙏 [[Become a backer](https://opencollective.com/kivy#backer)]
+Thank you to [all of our backers](https://opencollective.com/kivy)! 
+🙏 [[Become a backer](https://opencollective.com/kivy#backer)]
 
-<a href="https://opencollective.com/kivy#backers" target="_blank"><img src="https://opencollective.com/kivy/backers.svg?width=890"></a>
-
+<img src="https://opencollective.com/kivy/backers.svg?width=890&avatarHeight=44&button=false">
 
 ## Sponsors
 
-Support this project by becoming a sponsor. Your logo will show up here with a link to your website. [[Become a sponsor](https://opencollective.com/kivy#sponsor)]
+Special thanks to 
+[all of our sponsors, past and present](https://opencollective.com/kivy).
+Support this project by 
+[[becoming a sponsor](https://opencollective.com/kivy#sponsor)].
 
+Here are our top current sponsors. Please click through to see their websites,
+and support them as they support us. 
+
+<!--- See https://github.com/orgs/kivy/discussions/15 for explanation of this code. -->
 <a href="https://opencollective.com/kivy/sponsor/0/website" target="_blank"><img src="https://opencollective.com/kivy/sponsor/0/avatar.svg"></a>
 <a href="https://opencollective.com/kivy/sponsor/1/website" target="_blank"><img src="https://opencollective.com/kivy/sponsor/1/avatar.svg"></a>
 <a href="https://opencollective.com/kivy/sponsor/2/website" target="_blank"><img src="https://opencollective.com/kivy/sponsor/2/avatar.svg"></a>
 <a href="https://opencollective.com/kivy/sponsor/3/website" target="_blank"><img src="https://opencollective.com/kivy/sponsor/3/avatar.svg"></a>
+
 <a href="https://opencollective.com/kivy/sponsor/4/website" target="_blank"><img src="https://opencollective.com/kivy/sponsor/4/avatar.svg"></a>
 <a href="https://opencollective.com/kivy/sponsor/5/website" target="_blank"><img src="https://opencollective.com/kivy/sponsor/5/avatar.svg"></a>
 <a href="https://opencollective.com/kivy/sponsor/6/website" target="_blank"><img src="https://opencollective.com/kivy/sponsor/6/avatar.svg"></a>
 <a href="https://opencollective.com/kivy/sponsor/7/website" target="_blank"><img src="https://opencollective.com/kivy/sponsor/7/avatar.svg"></a>
+
 <a href="https://opencollective.com/kivy/sponsor/8/website" target="_blank"><img src="https://opencollective.com/kivy/sponsor/8/avatar.svg"></a>
 <a href="https://opencollective.com/kivy/sponsor/9/website" target="_blank"><img src="https://opencollective.com/kivy/sponsor/9/avatar.svg"></a>
+<a href="https://opencollective.com/kivy/sponsor/10/website" target="_blank"><img src="https://opencollective.com/kivy/sponsor/10/avatar.svg"></a>
+<a href="https://opencollective.com/kivy/sponsor/11/website" target="_blank"><img src="https://opencollective.com/kivy/sponsor/11/avatar.svg"></a>
+
+<a href="https://opencollective.com/kivy/sponsor/12/website" target="_blank"><img src="https://opencollective.com/kivy/sponsor/12/avatar.svg"></a>
+<a href="https://opencollective.com/kivy/sponsor/13/website" target="_blank"><img src="https://opencollective.com/kivy/sponsor/13/avatar.svg"></a>
+<a href="https://opencollective.com/kivy/sponsor/14/website" target="_blank"><img src="https://opencollective.com/kivy/sponsor/14/avatar.svg"></a>
+<a href="https://opencollective.com/kivy/sponsor/15/website" target="_blank"><img src="https://opencollective.com/kivy/sponsor/15/avatar.svg"></a>
 
 
 # Change Log
+
+## [1.6.0](https://github.com/kivy/buildozer/tree/1.6.0) (2026-05-11)
+
+[Full Changelog](https://github.com/kivy/buildozer/compare/1.5.0...1.6.0)
+
+**Fixed bugs:**
+
+- Update ios\_deploy branch to 1.12.2 Needed for latest Xcode. [\#1600](https://github.com/kivy/buildozer/pull/1600) ([akshayaurora](https://github.com/akshayaurora))
+
+**Merged pull requests:**
+
+- :white\_check\_mark: Cover Target base class and Buildozer helpers [\#2030](https://github.com/kivy/buildozer/pull/2030) ([AndreMiras](https://github.com/AndreMiras))
+- :fire: Drop vendored libs/ in favor of upstream packaging [\#2029](https://github.com/kivy/buildozer/pull/2029) ([AndreMiras](https://github.com/AndreMiras))
+- :green\_heart: Restore py3 env so coverage actually runs [\#2028](https://github.com/kivy/buildozer/pull/2028) ([AndreMiras](https://github.com/AndreMiras))
+- :bug: Fix README badges and align Python classifiers [\#2027](https://github.com/kivy/buildozer/pull/2027) ([AndreMiras](https://github.com/AndreMiras))
+- :memo: Document the release process [\#2026](https://github.com/kivy/buildozer/pull/2026) ([AndreMiras](https://github.com/AndreMiras))
+- Docs: Pin `sphinxawesome_theme` to 5.3.2 [\#2024](https://github.com/kivy/buildozer/pull/2024) ([Novfensec](https://github.com/Novfensec))
+- Update installation.rst for Ubuntu 26.04 [\#2020](https://github.com/kivy/buildozer/pull/2020) ([RobertFlatt](https://github.com/RobertFlatt))
+- Update pypa/gh-action-pypi-publish action to v1.14.0 [\#2015](https://github.com/kivy/buildozer/pull/2015) ([renovate[bot]](https://github.com/apps/renovate))
+- Update docker/build-push-action action to v7 [\#2007](https://github.com/kivy/buildozer/pull/2007) ([renovate[bot]](https://github.com/apps/renovate))
+- Update docker/setup-buildx-action action to v4 [\#2006](https://github.com/kivy/buildozer/pull/2006) ([renovate[bot]](https://github.com/apps/renovate))
+- Update docker/login-action action to v4 [\#2004](https://github.com/kivy/buildozer/pull/2004) ([renovate[bot]](https://github.com/apps/renovate))
+- Rewire support for `orientation=all` [\#1999](https://github.com/kivy/buildozer/pull/1999) ([Novfensec](https://github.com/Novfensec))
+- Fixed broken link in README.md [\#1996](https://github.com/kivy/buildozer/pull/1996) ([kha84](https://github.com/kha84))
+- Add p4a develop [\#1991](https://github.com/kivy/buildozer/pull/1991) ([RobertFlatt](https://github.com/RobertFlatt))
+- Update actions/checkout action to v6 [\#1987](https://github.com/kivy/buildozer/pull/1987) ([renovate[bot]](https://github.com/apps/renovate))
+- Update \_\_init\_\_.py to fix \#1982 [\#1983](https://github.com/kivy/buildozer/pull/1983) ([nicolashainaux](https://github.com/nicolashainaux))
+- Add missing `.readthedocs.yaml` configuration file. [\#1979](https://github.com/kivy/buildozer/pull/1979) ([Novfensec](https://github.com/Novfensec))
+- :bug: Fix Docker pip --user install error in virtualenv [\#1978](https://github.com/kivy/buildozer/pull/1978) ([AndreMiras](https://github.com/AndreMiras))
+- :hammer: Remove BuildKit registry cache, fixes \#1945 [\#1975](https://github.com/kivy/buildozer/pull/1975) ([AndreMiras](https://github.com/AndreMiras))
+- Update peter-evans/dockerhub-description action to v5 [\#1971](https://github.com/kivy/buildozer/pull/1971) ([renovate[bot]](https://github.com/apps/renovate))
+- Upgrade from deprecated macos-13 to macos-15-intel in CI [\#1969](https://github.com/kivy/buildozer/pull/1969) ([cclauss](https://github.com/cclauss))
+- :hammer: Fix Docker permission errors with bind mounts [\#1962](https://github.com/kivy/buildozer/pull/1962) ([AndreMiras](https://github.com/AndreMiras))
+- :hammer: Bump Docker image to Ubuntu 24.04 [\#1961](https://github.com/kivy/buildozer/pull/1961) ([AndreMiras](https://github.com/AndreMiras))
+- :construction\_worker: Fix broken Android build on Ubuntu [\#1960](https://github.com/kivy/buildozer/pull/1960) ([AndreMiras](https://github.com/AndreMiras))
+- Fix typos discovered by codespell [\#1959](https://github.com/kivy/buildozer/pull/1959) ([cclauss](https://github.com/cclauss))
+- Update Python workflow for version and action upgrades [\#1958](https://github.com/kivy/buildozer/pull/1958) ([cclauss](https://github.com/cclauss))
+- Update GitHub Actions for iOS workflow [\#1957](https://github.com/kivy/buildozer/pull/1957) ([cclauss](https://github.com/cclauss))
+- Bump pypa/gh-action-pypi-publish from 1.12.4 to 1.13.0 in /.github/workflows [\#1956](https://github.com/kivy/buildozer/pull/1956) ([dependabot[bot]](https://github.com/apps/dependabot))
+- Update actions/setup-python action to v6 [\#1955](https://github.com/kivy/buildozer/pull/1955) ([renovate[bot]](https://github.com/apps/renovate))
+- Update actions/setup-java action to v5 [\#1948](https://github.com/kivy/buildozer/pull/1948) ([renovate[bot]](https://github.com/apps/renovate))
+- Update actions/checkout action to v5 [\#1942](https://github.com/kivy/buildozer/pull/1942) ([renovate[bot]](https://github.com/apps/renovate))
+- Add ability to specify the following through buildozer.spec [\#1923](https://github.com/kivy/buildozer/pull/1923) ([akshayaurora](https://github.com/akshayaurora))
+- Modify docs [\#1922](https://github.com/kivy/buildozer/pull/1922) ([Novfensec](https://github.com/Novfensec))
+- Buildozer install docs [\#1901](https://github.com/kivy/buildozer/pull/1901) ([RobertFlatt](https://github.com/RobertFlatt))
+- Android sdkmanager proxy config [\#1899](https://github.com/kivy/buildozer/pull/1899) ([broccoliboy](https://github.com/broccoliboy))
+- Android support display cutout [\#1894](https://github.com/kivy/buildozer/pull/1894) ([kuzeyron](https://github.com/kuzeyron))
+- :construction\_worker: Docker push to GHCR [\#1888](https://github.com/kivy/buildozer/pull/1888) ([AndreMiras](https://github.com/AndreMiras))
+- :construction\_worker: Publish to DockerHub [\#1885](https://github.com/kivy/buildozer/pull/1885) ([AndreMiras](https://github.com/AndreMiras))
+- :construction\_worker: Fix Coveralls parallel reporting [\#1884](https://github.com/kivy/buildozer/pull/1884) ([AndreMiras](https://github.com/AndreMiras))
+- :memo: Fix broken documentation links [\#1883](https://github.com/kivy/buildozer/pull/1883) ([AndreMiras](https://github.com/AndreMiras))
+- Re-add "all" to the list of valid orientations in default buildozer.spec [\#1842](https://github.com/kivy/buildozer/pull/1842) ([Cheaterman](https://github.com/Cheaterman))
+- Set Android min API to 24 [\#1839](https://github.com/kivy/buildozer/pull/1839) ([Cheaterman](https://github.com/Cheaterman))
+- Update actions/setup-java action to v4 [\#1825](https://github.com/kivy/buildozer/pull/1825) ([renovate[bot]](https://github.com/apps/renovate))
+- Ensure Java 17 is selected and available during build [\#1821](https://github.com/kivy/buildozer/pull/1821) ([misl6](https://github.com/misl6))
+- Update actions/setup-python action to v5 [\#1820](https://github.com/kivy/buildozer/pull/1820) ([renovate[bot]](https://github.com/apps/renovate))
+- Update actions/checkout action to v4 [\#1819](https://github.com/kivy/buildozer/pull/1819) ([renovate[bot]](https://github.com/apps/renovate))
+- Update pypa/gh-action-pypi-publish action to v1.12.4 [\#1817](https://github.com/kivy/buildozer/pull/1817) ([renovate[bot]](https://github.com/apps/renovate))
+- Fix typo on `packaging.version` import statement [\#1815](https://github.com/kivy/buildozer/pull/1815) ([misl6](https://github.com/misl6))
+- Fix `E226` missing whitespace around arithmetic operator PEP8 failure [\#1814](https://github.com/kivy/buildozer/pull/1814) ([misl6](https://github.com/misl6))
+- Configure Renovate [\#1813](https://github.com/kivy/buildozer/pull/1813) ([renovate[bot]](https://github.com/apps/renovate))
+- Use `parse` from `packaging.version` instead of `distutils` `LooseVersion` [\#1812](https://github.com/kivy/buildozer/pull/1812) ([misl6](https://github.com/misl6))
+- Sunset `apple-silicon-m1` self-hosted runner, as now is supported by Github Hosted runners via `macos-latest` tag. Use `macos-13` for runs on Intel macs [\#1811](https://github.com/kivy/buildozer/pull/1811) ([misl6](https://github.com/misl6))
+- Use `ubuntu:22.04` instead of `ubuntu:latest` in `Dockerfile` [\#1804](https://github.com/kivy/buildozer/pull/1804) ([manatlan](https://github.com/manatlan))
+- default.spec: update outdated/invalid urls [\#1791](https://github.com/kivy/buildozer/pull/1791) ([kulothunganug](https://github.com/kulothunganug))
+- Update Docker Build instructions in  README.md [\#1770](https://github.com/kivy/buildozer/pull/1770) ([akshayaurora](https://github.com/akshayaurora))
+- Fix Osx Target to properly use buildozer.buildops [\#1768](https://github.com/kivy/buildozer/pull/1768) ([akshayaurora](https://github.com/akshayaurora))
+- Add macOS build instructions, upgrades [\#1761](https://github.com/kivy/buildozer/pull/1761) ([jooray](https://github.com/jooray))
+- Stop No Response action running when unneeded. [\#1755](https://github.com/kivy/buildozer/pull/1755) ([Julian-O](https://github.com/Julian-O))
+- Make doc structure consistent and up-to-date    [\#1750](https://github.com/kivy/buildozer/pull/1750) ([Julian-O](https://github.com/Julian-O))
+- Fixes typo in docs [\#1740](https://github.com/kivy/buildozer/pull/1740) ([AJRepo](https://github.com/AJRepo))
+- Create no-response.yml [\#1735](https://github.com/kivy/buildozer/pull/1735) ([Julian-O](https://github.com/Julian-O))
+- Fix broken link in readme. [\#1728](https://github.com/kivy/buildozer/pull/1728) ([Julian-O](https://github.com/Julian-O))
+- Modify automated "support" message. [\#1726](https://github.com/kivy/buildozer/pull/1726) ([Julian-O](https://github.com/Julian-O))
+- Support Email Address Fixed in the Readme.md [\#1722](https://github.com/kivy/buildozer/pull/1722) ([saharbat00l](https://github.com/saharbat00l))
+- Remove some attributes defined outside of \_\_init\_\_\(\) [\#1694](https://github.com/kivy/buildozer/pull/1694) ([Julian-O](https://github.com/Julian-O))
+- Add alternate unzip implementation [\#1692](https://github.com/kivy/buildozer/pull/1692) ([Julian-O](https://github.com/Julian-O))
+- Clean up inheritance of targets [\#1690](https://github.com/kivy/buildozer/pull/1690) ([Julian-O](https://github.com/Julian-O))
+- Improve Buildozer's venv handling. [\#1689](https://github.com/kivy/buildozer/pull/1689) ([Julian-O](https://github.com/Julian-O))
+- Use suggested \(latest\) Python3 version to perform Android builds [\#1688](https://github.com/kivy/buildozer/pull/1688) ([misl6](https://github.com/misl6))
+- Now Github Actions provides `python3` via `setup-python` also for Apple Silicon macs [\#1687](https://github.com/kivy/buildozer/pull/1687) ([misl6](https://github.com/misl6))
+- Refactor dependencies and their tests [\#1686](https://github.com/kivy/buildozer/pull/1686) ([Julian-O](https://github.com/Julian-O))
+- Correct documentation configuration [\#1684](https://github.com/kivy/buildozer/pull/1684) ([Julian-O](https://github.com/Julian-O))
+- Add tests of the documentation. [\#1683](https://github.com/kivy/buildozer/pull/1683) ([Julian-O](https://github.com/Julian-O))
+- Rewrite section in documentation about on source include/excludes [\#1682](https://github.com/kivy/buildozer/pull/1682) ([Julian-O](https://github.com/Julian-O))
+- Update github actions to latest versions [\#1680](https://github.com/kivy/buildozer/pull/1680) ([Julian-O](https://github.com/Julian-O))
+- Correct Discord's dev channel in README [\#1679](https://github.com/kivy/buildozer/pull/1679) ([Julian-O](https://github.com/Julian-O))
+- Migrate to use cmd, cmd\_expect and file\_extract from Buildops. [\#1675](https://github.com/kivy/buildozer/pull/1675) ([Julian-O](https://github.com/Julian-O))
+- Fix a typo introduced during PR \#1669 [\#1672](https://github.com/kivy/buildozer/pull/1672) ([misl6](https://github.com/misl6))
+- Move checkbin and download to use buildops. [\#1671](https://github.com/kivy/buildozer/pull/1671) ([Julian-O](https://github.com/Julian-O))
+- Use buildops for file\_exists and file\_matches [\#1670](https://github.com/kivy/buildozer/pull/1670) ([Julian-O](https://github.com/Julian-O))
+- Migrate to use Buildop's rmtree, file\_copy, file\_copytree and rename [\#1669](https://github.com/kivy/buildozer/pull/1669) ([Julian-O](https://github.com/Julian-O))
+- Migrate all usages of mkdir and rmdir to buildops [\#1668](https://github.com/kivy/buildozer/pull/1668) ([Julian-O](https://github.com/Julian-O))
+- Move Exception declarations into own file [\#1667](https://github.com/kivy/buildozer/pull/1667) ([Julian-O](https://github.com/Julian-O))
+- Ignore W503 error [\#1660](https://github.com/kivy/buildozer/pull/1660) ([Julian-O](https://github.com/Julian-O))
+- Document service options in default.spec [\#1653](https://github.com/kivy/buildozer/pull/1653) ([Julian-O](https://github.com/Julian-O))
+- Minor Win32 improvements [\#1648](https://github.com/kivy/buildozer/pull/1648) ([Julian-O](https://github.com/Julian-O))
+- Introduce buildops [\#1647](https://github.com/kivy/buildozer/pull/1647) ([Julian-O](https://github.com/Julian-O))
+- Update Python version support [\#1645](https://github.com/kivy/buildozer/pull/1645) ([Julian-O](https://github.com/Julian-O))
+- Separate ConfigSpec parser \(Address \#1636\) [\#1639](https://github.com/kivy/buildozer/pull/1639) ([Julian-O](https://github.com/Julian-O))
+- Use a pinned version of `Cython` for now, as most of the recipes are incompatible with `Cython==3.x.x` [\#1637](https://github.com/kivy/buildozer/pull/1637) ([misl6](https://github.com/misl6))
+- Remove `python2` test as `python2` is not available anymore via `actions/setup-python` [\#1635](https://github.com/kivy/buildozer/pull/1635) ([misl6](https://github.com/misl6))
+- Factor out logging code from Buildozer class [\#1632](https://github.com/kivy/buildozer/pull/1632) ([Julian-O](https://github.com/Julian-O))
+- Refactor checkbin to use shutil.which [\#1628](https://github.com/kivy/buildozer/pull/1628) ([Julian-O](https://github.com/Julian-O))
+- Update default.spec [\#1626](https://github.com/kivy/buildozer/pull/1626) ([RobertFlatt](https://github.com/RobertFlatt))
+- Add example Docker build with caching [\#1619](https://github.com/kivy/buildozer/pull/1619) ([damascene](https://github.com/damascene))
+- Update Buildozer osx target to work with latest kivy 2.2.0 [\#1614](https://github.com/kivy/buildozer/pull/1614) ([akshayaurora](https://github.com/akshayaurora))
+- `python-for-android` does not support `--dir` flag anymore. [\#1592](https://github.com/kivy/buildozer/pull/1592) ([misl6](https://github.com/misl6))
+- Home app functionality [\#1575](https://github.com/kivy/buildozer/pull/1575) ([kuzeyron](https://github.com/kuzeyron))
+- Docs: Android on macOS - Remove outdated instructions [\#1568](https://github.com/kivy/buildozer/pull/1568) ([misl6](https://github.com/misl6))
+- Update the suggested `Cython` version in docs to `0.29.33` [\#1567](https://github.com/kivy/buildozer/pull/1567) ([misl6](https://github.com/misl6))
+- Corrections \(fixes\) for extra-manifest-xml [\#1555](https://github.com/kivy/buildozer/pull/1555) ([lufebe16](https://github.com/lufebe16))
+- Bump version to 1.5.1.dev0 [\#1553](https://github.com/kivy/buildozer/pull/1553) ([misl6](https://github.com/misl6))
 
 ## [1.5.0](https://github.com/kivy/buildozer/tree/1.5.0)
 

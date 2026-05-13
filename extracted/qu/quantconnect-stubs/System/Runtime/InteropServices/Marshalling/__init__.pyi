@@ -15,6 +15,10 @@ System_Runtime_InteropServices_Marshalling_ArrayMarshaller_T = typing.TypeVar("S
 System_Runtime_InteropServices_Marshalling_ArrayMarshaller_TUnmanagedElement = typing.TypeVar("System_Runtime_InteropServices_Marshalling_ArrayMarshaller_TUnmanagedElement")
 System_Runtime_InteropServices_Marshalling_SpanMarshaller_T = typing.TypeVar("System_Runtime_InteropServices_Marshalling_SpanMarshaller_T")
 System_Runtime_InteropServices_Marshalling_SpanMarshaller_TUnmanagedElement = typing.TypeVar("System_Runtime_InteropServices_Marshalling_SpanMarshaller_TUnmanagedElement")
+System_Runtime_InteropServices_Marshalling_ComVariant_Create_T = typing.TypeVar("System_Runtime_InteropServices_Marshalling_ComVariant_Create_T")
+System_Runtime_InteropServices_Marshalling_ComVariant_CreateRaw_T = typing.TypeVar("System_Runtime_InteropServices_Marshalling_ComVariant_CreateRaw_T")
+System_Runtime_InteropServices_Marshalling_ComVariant_As_T = typing.TypeVar("System_Runtime_InteropServices_Marshalling_ComVariant_As_T")
+System_Runtime_InteropServices_Marshalling_ComVariant_GetRawDataRef_T = typing.TypeVar("System_Runtime_InteropServices_Marshalling_ComVariant_GetRawDataRef_T")
 
 
 class Utf16StringMarshaller(System.Object):
@@ -199,6 +203,66 @@ class PointerArrayMarshaller(typing.Generic[System_Runtime_InteropServices_Marsh
         ...
 
 
+class _Typed_ComVariant_Create(typing.Generic[System_Runtime_InteropServices_Marshalling_ComVariant_Create_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Runtime_InteropServices_Marshalling_ComVariant_Create_T) -> System.Runtime.InteropServices.Marshalling.ComVariant:
+        ...
+
+
+class _ComVariant_Create:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_Marshalling_ComVariant_Create_T]) -> System.Runtime.InteropServices.Marshalling._Typed_ComVariant_Create[System_Runtime_InteropServices_Marshalling_ComVariant_Create_T]:
+        ...
+
+
+class _Typed_ComVariant_CreateRaw(typing.Generic[System_Runtime_InteropServices_Marshalling_ComVariant_CreateRaw_T]):
+    """"""
+
+    @overload
+    def __call__(self, vt: System.Runtime.InteropServices.VarEnum, raw_value: System_Runtime_InteropServices_Marshalling_ComVariant_CreateRaw_T) -> System.Runtime.InteropServices.Marshalling.ComVariant:
+        ...
+
+
+class _ComVariant_CreateRaw:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_Marshalling_ComVariant_CreateRaw_T]) -> System.Runtime.InteropServices.Marshalling._Typed_ComVariant_CreateRaw[System_Runtime_InteropServices_Marshalling_ComVariant_CreateRaw_T]:
+        ...
+
+
+class _Typed_ComVariant_As(typing.Generic[System_Runtime_InteropServices_Marshalling_ComVariant_As_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> System_Runtime_InteropServices_Marshalling_ComVariant_As_T:
+        ...
+
+
+class _ComVariant_As:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_Marshalling_ComVariant_As_T]) -> System.Runtime.InteropServices.Marshalling._Typed_ComVariant_As[System_Runtime_InteropServices_Marshalling_ComVariant_As_T]:
+        ...
+
+
+class _Typed_ComVariant_GetRawDataRef(typing.Generic[System_Runtime_InteropServices_Marshalling_ComVariant_GetRawDataRef_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> typing.Any:
+        ...
+
+
+class _ComVariant_GetRawDataRef:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_Marshalling_ComVariant_GetRawDataRef_T]) -> System.Runtime.InteropServices.Marshalling._Typed_ComVariant_GetRawDataRef[System_Runtime_InteropServices_Marshalling_ComVariant_GetRawDataRef_T]:
+        ...
+
+
 class ComVariant(System.IDisposable):
     """This class has no documentation."""
 
@@ -206,6 +270,18 @@ class ComVariant(System.IDisposable):
 
     @property
     def var_type(self) -> System.Runtime.InteropServices.VarEnum:
+        ...
+
+    create: System.Runtime.InteropServices.Marshalling._ComVariant_Create
+
+    create_raw: System.Runtime.InteropServices.Marshalling._ComVariant_CreateRaw
+
+    @property
+    def As(self) -> System.Runtime.InteropServices.Marshalling._ComVariant_As:
+        ...
+
+    @property
+    def get_raw_data_ref(self) -> System.Runtime.InteropServices.Marshalling._ComVariant_GetRawDataRef:
         ...
 
     def dispose(self) -> None:

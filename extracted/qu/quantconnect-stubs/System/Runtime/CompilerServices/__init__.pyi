@@ -40,6 +40,122 @@ System_Runtime_CompilerServices_InlineArray16_T = typing.TypeVar("System_Runtime
 System_Runtime_CompilerServices_ValueTaskAwaiter_TResult = typing.TypeVar("System_Runtime_CompilerServices_ValueTaskAwaiter_TResult")
 System_Runtime_CompilerServices__EventContainer_Callable = typing.TypeVar("System_Runtime_CompilerServices__EventContainer_Callable")
 System_Runtime_CompilerServices__EventContainer_ReturnType = typing.TypeVar("System_Runtime_CompilerServices__EventContainer_ReturnType")
+System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine")
+System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter")
+System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TStateMachine")
+System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter")
+System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine")
+System_Runtime_CompilerServices_Unsafe_AsPointer_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_AsPointer_T")
+System_Runtime_CompilerServices_Unsafe_SizeOf_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_SizeOf_T")
+System_Runtime_CompilerServices_Unsafe_As_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_As_T")
+System_Runtime_CompilerServices_Unsafe_As_TFrom = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_As_TFrom")
+System_Runtime_CompilerServices_Unsafe_Add_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_Add_T")
+System_Runtime_CompilerServices_Unsafe_AddByteOffset_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_AddByteOffset_T")
+System_Runtime_CompilerServices_Unsafe_AreSame_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_AreSame_T")
+System_Runtime_CompilerServices_Unsafe_BitCast_TFrom = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_BitCast_TFrom")
+System_Runtime_CompilerServices_Unsafe_BitCast_TTo = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_BitCast_TTo")
+System_Runtime_CompilerServices_Unsafe_Copy_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_Copy_T")
+System_Runtime_CompilerServices_Unsafe_IsAddressGreaterThan_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_IsAddressGreaterThan_T")
+System_Runtime_CompilerServices_Unsafe_IsAddressGreaterThanOrEqualTo_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_IsAddressGreaterThanOrEqualTo_T")
+System_Runtime_CompilerServices_Unsafe_IsAddressLessThan_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_IsAddressLessThan_T")
+System_Runtime_CompilerServices_Unsafe_IsAddressLessThanOrEqualTo_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_IsAddressLessThanOrEqualTo_T")
+System_Runtime_CompilerServices_Unsafe_ReadUnaligned_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_ReadUnaligned_T")
+System_Runtime_CompilerServices_Unsafe_WriteUnaligned_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_WriteUnaligned_T")
+System_Runtime_CompilerServices_Unsafe_Read_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_Read_T")
+System_Runtime_CompilerServices_Unsafe_Write_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_Write_T")
+System_Runtime_CompilerServices_Unsafe_AsRef_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_AsRef_T")
+System_Runtime_CompilerServices_Unsafe_ByteOffset_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_ByteOffset_T")
+System_Runtime_CompilerServices_Unsafe_NullRef_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_NullRef_T")
+System_Runtime_CompilerServices_Unsafe_IsNullRef_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_IsNullRef_T")
+System_Runtime_CompilerServices_Unsafe_SkipInit_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_SkipInit_T")
+System_Runtime_CompilerServices_Unsafe_Subtract_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_Subtract_T")
+System_Runtime_CompilerServices_Unsafe_SubtractByteOffset_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_SubtractByteOffset_T")
+System_Runtime_CompilerServices_Unsafe_Unbox_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_Unbox_T")
+System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine")
+System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter")
+System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine")
+System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter")
+System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine")
+System_Runtime_CompilerServices_AsyncHelpers_UnsafeAwaitAwaiter_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncHelpers_UnsafeAwaitAwaiter_TAwaiter")
+System_Runtime_CompilerServices_AsyncHelpers_AwaitAwaiter_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncHelpers_AwaitAwaiter_TAwaiter")
+System_Runtime_CompilerServices_AsyncHelpers_Await_T = typing.TypeVar("System_Runtime_CompilerServices_AsyncHelpers_Await_T")
+System_Runtime_CompilerServices_RuntimeHelpers_GetSubArray_T = typing.TypeVar("System_Runtime_CompilerServices_RuntimeHelpers_GetSubArray_T")
+System_Runtime_CompilerServices_RuntimeHelpers_CreateSpan_T = typing.TypeVar("System_Runtime_CompilerServices_RuntimeHelpers_CreateSpan_T")
+System_Runtime_CompilerServices_RuntimeHelpers_IsReferenceOrContainsReferences_T = typing.TypeVar("System_Runtime_CompilerServices_RuntimeHelpers_IsReferenceOrContainsReferences_T")
+System_Runtime_CompilerServices_DefaultInterpolatedStringHandler_AppendFormatted_T = typing.TypeVar("System_Runtime_CompilerServices_DefaultInterpolatedStringHandler_AppendFormatted_T")
+System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg = typing.TypeVar("System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg")
+System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_MoveNext_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_MoveNext_TStateMachine")
+System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TAwaiter")
+System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TStateMachine")
+System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter")
+System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine")
+System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine")
+System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter")
+System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine")
+System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter")
+System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine")
+System_Runtime_CompilerServices_AsyncVoidMethodBuilder_Start_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncVoidMethodBuilder_Start_TStateMachine")
+System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TAwaiter")
+System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TStateMachine")
+System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter")
+System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine")
+
+
+class _Typed_AsyncTaskMethodBuilder_Start(typing.Generic[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine]):
+    """"""
+
+    @overload
+    def __call__(self, state_machine: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine) -> None:
+        ...
+
+    @overload
+    def __call__(self, state_machine: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine) -> None:
+        ...
+
+
+class _AsyncTaskMethodBuilder_Start:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine]) -> System.Runtime.CompilerServices._Typed_AsyncTaskMethodBuilder_Start[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine]:
+        ...
+
+
+class _Typed_AsyncTaskMethodBuilder_AwaitOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
+        ...
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
+        ...
+
+
+class _AsyncTaskMethodBuilder_AwaitOnCompleted:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncTaskMethodBuilder_AwaitOnCompleted[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter]:
+        ...
+
+
+class _Typed_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
+        ...
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
+        ...
+
+
+class _AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]:
+        ...
 
 
 class IAsyncStateMachine(metaclass=abc.ABCMeta):
@@ -57,6 +173,18 @@ class AsyncTaskMethodBuilder(typing.Generic[System_Runtime_CompilerServices_Asyn
 
     @property
     def task(self) -> System.Threading.Tasks.Task:
+        ...
+
+    @property
+    def start(self) -> System.Runtime.CompilerServices._AsyncTaskMethodBuilder_Start:
+        ...
+
+    @property
+    def await_on_completed(self) -> System.Runtime.CompilerServices._AsyncTaskMethodBuilder_AwaitOnCompleted:
+        ...
+
+    @property
+    def await_unsafe_on_completed(self) -> System.Runtime.CompilerServices._AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted:
         ...
 
     @staticmethod
@@ -89,8 +217,468 @@ class ParamCollectionAttribute(System.Attribute):
     """This class has no documentation."""
 
 
+class _Typed_Unsafe_AsPointer(typing.Generic[System_Runtime_CompilerServices_Unsafe_AsPointer_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Runtime_CompilerServices_Unsafe_AsPointer_T) -> typing.Any:
+        ...
+
+
+class _Unsafe_AsPointer:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_AsPointer_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_AsPointer[System_Runtime_CompilerServices_Unsafe_AsPointer_T]:
+        ...
+
+
+class _Typed_Unsafe_SizeOf(typing.Generic[System_Runtime_CompilerServices_Unsafe_SizeOf_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> int:
+        ...
+
+
+class _Unsafe_SizeOf:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_SizeOf_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_SizeOf[System_Runtime_CompilerServices_Unsafe_SizeOf_T]:
+        ...
+
+
+class _Typed_Unsafe_As(typing.Generic[System_Runtime_CompilerServices_Unsafe_As_T]):
+    """"""
+
+    @overload
+    def __call__(self, o: typing.Any) -> System_Runtime_CompilerServices_Unsafe_As_T:
+        ...
+
+    @overload
+    def __call__(self, source: System_Runtime_CompilerServices_Unsafe_As_TFrom) -> typing.Any:
+        ...
+
+
+class _Unsafe_As:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_As_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_As[System_Runtime_CompilerServices_Unsafe_As_T]:
+        ...
+
+
+class _Typed_Unsafe_Add(typing.Generic[System_Runtime_CompilerServices_Unsafe_Add_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: System_Runtime_CompilerServices_Unsafe_Add_T, element_offset: int) -> typing.Any:
+        ...
+
+    @overload
+    def __call__(self, source: System_Runtime_CompilerServices_Unsafe_Add_T, element_offset: System.IntPtr) -> typing.Any:
+        ...
+
+    @overload
+    def __call__(self, source: typing.Any, element_offset: int) -> typing.Any:
+        ...
+
+    @overload
+    def __call__(self, source: System_Runtime_CompilerServices_Unsafe_Add_T, element_offset: System.UIntPtr) -> typing.Any:
+        ...
+
+
+class _Unsafe_Add:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_Add_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_Add[System_Runtime_CompilerServices_Unsafe_Add_T]:
+        ...
+
+
+class _Typed_Unsafe_AddByteOffset(typing.Generic[System_Runtime_CompilerServices_Unsafe_AddByteOffset_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: System_Runtime_CompilerServices_Unsafe_AddByteOffset_T, byte_offset: System.UIntPtr) -> typing.Any:
+        ...
+
+    @overload
+    def __call__(self, source: System_Runtime_CompilerServices_Unsafe_AddByteOffset_T, byte_offset: System.IntPtr) -> typing.Any:
+        ...
+
+
+class _Unsafe_AddByteOffset:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_AddByteOffset_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_AddByteOffset[System_Runtime_CompilerServices_Unsafe_AddByteOffset_T]:
+        ...
+
+
+class _Typed_Unsafe_AreSame(typing.Generic[System_Runtime_CompilerServices_Unsafe_AreSame_T]):
+    """"""
+
+    @overload
+    def __call__(self, left: System_Runtime_CompilerServices_Unsafe_AreSame_T, right: System_Runtime_CompilerServices_Unsafe_AreSame_T) -> bool:
+        ...
+
+
+class _Unsafe_AreSame:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_AreSame_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_AreSame[System_Runtime_CompilerServices_Unsafe_AreSame_T]:
+        ...
+
+
+class _Typed_Unsafe_BitCast(typing.Generic[System_Runtime_CompilerServices_Unsafe_BitCast_TFrom]):
+    """"""
+
+    @overload
+    def __call__(self, source: System_Runtime_CompilerServices_Unsafe_BitCast_TFrom) -> System_Runtime_CompilerServices_Unsafe_BitCast_TTo:
+        ...
+
+
+class _Unsafe_BitCast:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_BitCast_TFrom]) -> System.Runtime.CompilerServices._Typed_Unsafe_BitCast[System_Runtime_CompilerServices_Unsafe_BitCast_TFrom]:
+        ...
+
+
+class _Typed_Unsafe_Copy(typing.Generic[System_Runtime_CompilerServices_Unsafe_Copy_T]):
+    """"""
+
+    @overload
+    def __call__(self, destination: typing.Any, source: System_Runtime_CompilerServices_Unsafe_Copy_T) -> None:
+        ...
+
+    @overload
+    def __call__(self, destination: System_Runtime_CompilerServices_Unsafe_Copy_T, source: typing.Any) -> None:
+        ...
+
+
+class _Unsafe_Copy:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_Copy_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_Copy[System_Runtime_CompilerServices_Unsafe_Copy_T]:
+        ...
+
+
+class _Typed_Unsafe_IsAddressGreaterThan(typing.Generic[System_Runtime_CompilerServices_Unsafe_IsAddressGreaterThan_T]):
+    """"""
+
+    @overload
+    def __call__(self, left: System_Runtime_CompilerServices_Unsafe_IsAddressGreaterThan_T, right: System_Runtime_CompilerServices_Unsafe_IsAddressGreaterThan_T) -> bool:
+        ...
+
+
+class _Unsafe_IsAddressGreaterThan:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_IsAddressGreaterThan_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_IsAddressGreaterThan[System_Runtime_CompilerServices_Unsafe_IsAddressGreaterThan_T]:
+        ...
+
+
+class _Typed_Unsafe_IsAddressGreaterThanOrEqualTo(typing.Generic[System_Runtime_CompilerServices_Unsafe_IsAddressGreaterThanOrEqualTo_T]):
+    """"""
+
+    @overload
+    def __call__(self, left: System_Runtime_CompilerServices_Unsafe_IsAddressGreaterThanOrEqualTo_T, right: System_Runtime_CompilerServices_Unsafe_IsAddressGreaterThanOrEqualTo_T) -> bool:
+        ...
+
+
+class _Unsafe_IsAddressGreaterThanOrEqualTo:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_IsAddressGreaterThanOrEqualTo_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_IsAddressGreaterThanOrEqualTo[System_Runtime_CompilerServices_Unsafe_IsAddressGreaterThanOrEqualTo_T]:
+        ...
+
+
+class _Typed_Unsafe_IsAddressLessThan(typing.Generic[System_Runtime_CompilerServices_Unsafe_IsAddressLessThan_T]):
+    """"""
+
+    @overload
+    def __call__(self, left: System_Runtime_CompilerServices_Unsafe_IsAddressLessThan_T, right: System_Runtime_CompilerServices_Unsafe_IsAddressLessThan_T) -> bool:
+        ...
+
+
+class _Unsafe_IsAddressLessThan:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_IsAddressLessThan_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_IsAddressLessThan[System_Runtime_CompilerServices_Unsafe_IsAddressLessThan_T]:
+        ...
+
+
+class _Typed_Unsafe_IsAddressLessThanOrEqualTo(typing.Generic[System_Runtime_CompilerServices_Unsafe_IsAddressLessThanOrEqualTo_T]):
+    """"""
+
+    @overload
+    def __call__(self, left: System_Runtime_CompilerServices_Unsafe_IsAddressLessThanOrEqualTo_T, right: System_Runtime_CompilerServices_Unsafe_IsAddressLessThanOrEqualTo_T) -> bool:
+        ...
+
+
+class _Unsafe_IsAddressLessThanOrEqualTo:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_IsAddressLessThanOrEqualTo_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_IsAddressLessThanOrEqualTo[System_Runtime_CompilerServices_Unsafe_IsAddressLessThanOrEqualTo_T]:
+        ...
+
+
+class _Typed_Unsafe_ReadUnaligned(typing.Generic[System_Runtime_CompilerServices_Unsafe_ReadUnaligned_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: typing.Any) -> System_Runtime_CompilerServices_Unsafe_ReadUnaligned_T:
+        ...
+
+    @overload
+    def __call__(self, source: int) -> System_Runtime_CompilerServices_Unsafe_ReadUnaligned_T:
+        ...
+
+
+class _Unsafe_ReadUnaligned:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_ReadUnaligned_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_ReadUnaligned[System_Runtime_CompilerServices_Unsafe_ReadUnaligned_T]:
+        ...
+
+
+class _Typed_Unsafe_WriteUnaligned(typing.Generic[System_Runtime_CompilerServices_Unsafe_WriteUnaligned_T]):
+    """"""
+
+    @overload
+    def __call__(self, destination: typing.Any, value: System_Runtime_CompilerServices_Unsafe_WriteUnaligned_T) -> None:
+        ...
+
+    @overload
+    def __call__(self, destination: int, value: System_Runtime_CompilerServices_Unsafe_WriteUnaligned_T) -> None:
+        ...
+
+
+class _Unsafe_WriteUnaligned:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_WriteUnaligned_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_WriteUnaligned[System_Runtime_CompilerServices_Unsafe_WriteUnaligned_T]:
+        ...
+
+
+class _Typed_Unsafe_Read(typing.Generic[System_Runtime_CompilerServices_Unsafe_Read_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: typing.Any) -> System_Runtime_CompilerServices_Unsafe_Read_T:
+        ...
+
+
+class _Unsafe_Read:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_Read_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_Read[System_Runtime_CompilerServices_Unsafe_Read_T]:
+        ...
+
+
+class _Typed_Unsafe_Write(typing.Generic[System_Runtime_CompilerServices_Unsafe_Write_T]):
+    """"""
+
+    @overload
+    def __call__(self, destination: typing.Any, value: System_Runtime_CompilerServices_Unsafe_Write_T) -> None:
+        ...
+
+
+class _Unsafe_Write:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_Write_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_Write[System_Runtime_CompilerServices_Unsafe_Write_T]:
+        ...
+
+
+class _Typed_Unsafe_AsRef(typing.Generic[System_Runtime_CompilerServices_Unsafe_AsRef_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: typing.Any) -> typing.Any:
+        ...
+
+    @overload
+    def __call__(self, source: System_Runtime_CompilerServices_Unsafe_AsRef_T) -> typing.Any:
+        ...
+
+
+class _Unsafe_AsRef:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_AsRef_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_AsRef[System_Runtime_CompilerServices_Unsafe_AsRef_T]:
+        ...
+
+
+class _Typed_Unsafe_ByteOffset(typing.Generic[System_Runtime_CompilerServices_Unsafe_ByteOffset_T]):
+    """"""
+
+    @overload
+    def __call__(self, origin: System_Runtime_CompilerServices_Unsafe_ByteOffset_T, target: System_Runtime_CompilerServices_Unsafe_ByteOffset_T) -> System.IntPtr:
+        ...
+
+
+class _Unsafe_ByteOffset:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_ByteOffset_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_ByteOffset[System_Runtime_CompilerServices_Unsafe_ByteOffset_T]:
+        ...
+
+
+class _Typed_Unsafe_NullRef(typing.Generic[System_Runtime_CompilerServices_Unsafe_NullRef_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> typing.Any:
+        ...
+
+
+class _Unsafe_NullRef:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_NullRef_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_NullRef[System_Runtime_CompilerServices_Unsafe_NullRef_T]:
+        ...
+
+
+class _Typed_Unsafe_IsNullRef(typing.Generic[System_Runtime_CompilerServices_Unsafe_IsNullRef_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: System_Runtime_CompilerServices_Unsafe_IsNullRef_T) -> bool:
+        ...
+
+
+class _Unsafe_IsNullRef:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_IsNullRef_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_IsNullRef[System_Runtime_CompilerServices_Unsafe_IsNullRef_T]:
+        ...
+
+
+class _Typed_Unsafe_SkipInit(typing.Generic[System_Runtime_CompilerServices_Unsafe_SkipInit_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: typing.Optional[System_Runtime_CompilerServices_Unsafe_SkipInit_T]) -> typing.Tuple[None, System_Runtime_CompilerServices_Unsafe_SkipInit_T]:
+        ...
+
+
+class _Unsafe_SkipInit:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_SkipInit_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_SkipInit[System_Runtime_CompilerServices_Unsafe_SkipInit_T]:
+        ...
+
+
+class _Typed_Unsafe_Subtract(typing.Generic[System_Runtime_CompilerServices_Unsafe_Subtract_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: System_Runtime_CompilerServices_Unsafe_Subtract_T, element_offset: int) -> typing.Any:
+        ...
+
+    @overload
+    def __call__(self, source: typing.Any, element_offset: int) -> typing.Any:
+        ...
+
+    @overload
+    def __call__(self, source: System_Runtime_CompilerServices_Unsafe_Subtract_T, element_offset: System.IntPtr) -> typing.Any:
+        ...
+
+    @overload
+    def __call__(self, source: System_Runtime_CompilerServices_Unsafe_Subtract_T, element_offset: System.UIntPtr) -> typing.Any:
+        ...
+
+
+class _Unsafe_Subtract:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_Subtract_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_Subtract[System_Runtime_CompilerServices_Unsafe_Subtract_T]:
+        ...
+
+
+class _Typed_Unsafe_SubtractByteOffset(typing.Generic[System_Runtime_CompilerServices_Unsafe_SubtractByteOffset_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: System_Runtime_CompilerServices_Unsafe_SubtractByteOffset_T, byte_offset: System.IntPtr) -> typing.Any:
+        ...
+
+    @overload
+    def __call__(self, source: System_Runtime_CompilerServices_Unsafe_SubtractByteOffset_T, byte_offset: System.UIntPtr) -> typing.Any:
+        ...
+
+
+class _Unsafe_SubtractByteOffset:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_SubtractByteOffset_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_SubtractByteOffset[System_Runtime_CompilerServices_Unsafe_SubtractByteOffset_T]:
+        ...
+
+
+class _Typed_Unsafe_Unbox(typing.Generic[System_Runtime_CompilerServices_Unsafe_Unbox_T]):
+    """"""
+
+    @overload
+    def __call__(self, box: typing.Any) -> typing.Any:
+        ...
+
+
+class _Unsafe_Unbox:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_Unsafe_Unbox_T]) -> System.Runtime.CompilerServices._Typed_Unsafe_Unbox[System_Runtime_CompilerServices_Unsafe_Unbox_T]:
+        ...
+
+
 class Unsafe(System.Object):
     """This class has no documentation."""
+
+    as_pointer: System.Runtime.CompilerServices._Unsafe_AsPointer
+
+    size_of: System.Runtime.CompilerServices._Unsafe_SizeOf
+
+    As: System.Runtime.CompilerServices._Unsafe_As
+
+    add: System.Runtime.CompilerServices._Unsafe_Add
+
+    add_byte_offset: System.Runtime.CompilerServices._Unsafe_AddByteOffset
+
+    are_same: System.Runtime.CompilerServices._Unsafe_AreSame
+
+    bit_cast: System.Runtime.CompilerServices._Unsafe_BitCast
+
+    copy: System.Runtime.CompilerServices._Unsafe_Copy
+
+    is_address_greater_than: System.Runtime.CompilerServices._Unsafe_IsAddressGreaterThan
+
+    is_address_greater_than_or_equal_to: System.Runtime.CompilerServices._Unsafe_IsAddressGreaterThanOrEqualTo
+
+    is_address_less_than: System.Runtime.CompilerServices._Unsafe_IsAddressLessThan
+
+    is_address_less_than_or_equal_to: System.Runtime.CompilerServices._Unsafe_IsAddressLessThanOrEqualTo
+
+    read_unaligned: System.Runtime.CompilerServices._Unsafe_ReadUnaligned
+
+    write_unaligned: System.Runtime.CompilerServices._Unsafe_WriteUnaligned
+
+    read: System.Runtime.CompilerServices._Unsafe_Read
+
+    write: System.Runtime.CompilerServices._Unsafe_Write
+
+    as_ref: System.Runtime.CompilerServices._Unsafe_AsRef
+
+    byte_offset: System.Runtime.CompilerServices._Unsafe_ByteOffset
+
+    null_ref: System.Runtime.CompilerServices._Unsafe_NullRef
+
+    is_null_ref: System.Runtime.CompilerServices._Unsafe_IsNullRef
+
+    skip_init: System.Runtime.CompilerServices._Unsafe_SkipInit
+
+    subtract: System.Runtime.CompilerServices._Unsafe_Subtract
+
+    subtract_byte_offset: System.Runtime.CompilerServices._Unsafe_SubtractByteOffset
+
+    unbox: System.Runtime.CompilerServices._Unsafe_Unbox
 
     @staticmethod
     @overload
@@ -133,11 +721,80 @@ class Unsafe(System.Object):
         ...
 
 
+class _Typed_AsyncValueTaskMethodBuilder_Start(typing.Generic[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine]):
+    """"""
+
+    @overload
+    def __call__(self, state_machine: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine) -> None:
+        ...
+
+    @overload
+    def __call__(self, state_machine: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine) -> None:
+        ...
+
+
+class _AsyncValueTaskMethodBuilder_Start:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine]) -> System.Runtime.CompilerServices._Typed_AsyncValueTaskMethodBuilder_Start[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine]:
+        ...
+
+
+class _Typed_AsyncValueTaskMethodBuilder_AwaitOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
+        ...
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
+        ...
+
+
+class _AsyncValueTaskMethodBuilder_AwaitOnCompleted:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncValueTaskMethodBuilder_AwaitOnCompleted[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter]:
+        ...
+
+
+class _Typed_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
+        ...
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
+        ...
+
+
+class _AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]:
+        ...
+
+
 class AsyncValueTaskMethodBuilder(typing.Generic[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_TResult]):
     """This class has no documentation."""
 
     @property
     def task(self) -> System.Threading.Tasks.ValueTask:
+        ...
+
+    @property
+    def start(self) -> System.Runtime.CompilerServices._AsyncValueTaskMethodBuilder_Start:
+        ...
+
+    @property
+    def await_on_completed(self) -> System.Runtime.CompilerServices._AsyncValueTaskMethodBuilder_AwaitOnCompleted:
+        ...
+
+    @property
+    def await_unsafe_on_completed(self) -> System.Runtime.CompilerServices._AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted:
         ...
 
     @staticmethod
@@ -189,28 +846,87 @@ class RuntimeFeature(System.Object):
         ...
 
 
+class _Typed_AsyncHelpers_UnsafeAwaitAwaiter(typing.Generic[System_Runtime_CompilerServices_AsyncHelpers_UnsafeAwaitAwaiter_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncHelpers_UnsafeAwaitAwaiter_TAwaiter) -> None:
+        ...
+
+
+class _AsyncHelpers_UnsafeAwaitAwaiter:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncHelpers_UnsafeAwaitAwaiter_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncHelpers_UnsafeAwaitAwaiter[System_Runtime_CompilerServices_AsyncHelpers_UnsafeAwaitAwaiter_TAwaiter]:
+        ...
+
+
+class _Typed_AsyncHelpers_AwaitAwaiter(typing.Generic[System_Runtime_CompilerServices_AsyncHelpers_AwaitAwaiter_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncHelpers_AwaitAwaiter_TAwaiter) -> None:
+        ...
+
+
+class _AsyncHelpers_AwaitAwaiter:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncHelpers_AwaitAwaiter_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncHelpers_AwaitAwaiter[System_Runtime_CompilerServices_AsyncHelpers_AwaitAwaiter_TAwaiter]:
+        ...
+
+
+class _Typed_AsyncHelpers_Await(typing.Generic[System_Runtime_CompilerServices_AsyncHelpers_Await_T]):
+    """"""
+
+    @overload
+    def __call__(self, task: System.Threading.Tasks.Task[System_Runtime_CompilerServices_AsyncHelpers_Await_T]) -> System_Runtime_CompilerServices_AsyncHelpers_Await_T:
+        ...
+
+    @overload
+    def __call__(self, task: System.Threading.Tasks.ValueTask[System_Runtime_CompilerServices_AsyncHelpers_Await_T]) -> System_Runtime_CompilerServices_AsyncHelpers_Await_T:
+        ...
+
+    @overload
+    def __call__(self, configured_awaitable: System.Runtime.CompilerServices.ConfiguredTaskAwaitable[System_Runtime_CompilerServices_AsyncHelpers_Await_T]) -> System_Runtime_CompilerServices_AsyncHelpers_Await_T:
+        ...
+
+    @overload
+    def __call__(self, configured_awaitable: System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable[System_Runtime_CompilerServices_AsyncHelpers_Await_T]) -> System_Runtime_CompilerServices_AsyncHelpers_Await_T:
+        ...
+
+
+class _AsyncHelpers_Await:
+    """"""
+
+    @overload
+    def __call__(self, task: System.Threading.Tasks.Task) -> None:
+        ...
+
+    @overload
+    def __call__(self, task: System.Threading.Tasks.ValueTask) -> None:
+        ...
+
+    @overload
+    def __call__(self, configured_awaitable: System.Runtime.CompilerServices.ConfiguredTaskAwaitable) -> None:
+        ...
+
+    @overload
+    def __call__(self, configured_awaitable: System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable) -> None:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncHelpers_Await_T]) -> System.Runtime.CompilerServices._Typed_AsyncHelpers_Await[System_Runtime_CompilerServices_AsyncHelpers_Await_T]:
+        ...
+
+
 class AsyncHelpers(System.Object):
     """This class has no documentation."""
 
-    @staticmethod
-    @overload
-    def Await(task: System.Threading.Tasks.Task) -> None:
-        ...
+    unsafe_await_awaiter: System.Runtime.CompilerServices._AsyncHelpers_UnsafeAwaitAwaiter
 
-    @staticmethod
-    @overload
-    def Await(task: System.Threading.Tasks.ValueTask) -> None:
-        ...
+    await_awaiter: System.Runtime.CompilerServices._AsyncHelpers_AwaitAwaiter
 
-    @staticmethod
-    @overload
-    def Await(configuredAwaitable: System.Runtime.CompilerServices.ConfiguredTaskAwaitable) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def Await(configuredAwaitable: System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable) -> None:
-        ...
+    Await: System.Runtime.CompilerServices._AsyncHelpers_Await
 
     @staticmethod
     @overload
@@ -417,10 +1133,61 @@ class InterpolatedStringHandlerAttribute(System.Attribute):
         ...
 
 
+class _Typed_RuntimeHelpers_GetSubArray(typing.Generic[System_Runtime_CompilerServices_RuntimeHelpers_GetSubArray_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Runtime_CompilerServices_RuntimeHelpers_GetSubArray_T], range: System.Range) -> typing.List[System_Runtime_CompilerServices_RuntimeHelpers_GetSubArray_T]:
+        ...
+
+
+class _RuntimeHelpers_GetSubArray:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_RuntimeHelpers_GetSubArray_T]) -> System.Runtime.CompilerServices._Typed_RuntimeHelpers_GetSubArray[System_Runtime_CompilerServices_RuntimeHelpers_GetSubArray_T]:
+        ...
+
+
+class _Typed_RuntimeHelpers_CreateSpan(typing.Generic[System_Runtime_CompilerServices_RuntimeHelpers_CreateSpan_T]):
+    """"""
+
+    @overload
+    def __call__(self, fld_handle: System.RuntimeFieldHandle) -> System.ReadOnlySpan[System_Runtime_CompilerServices_RuntimeHelpers_CreateSpan_T]:
+        ...
+
+
+class _RuntimeHelpers_CreateSpan:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_RuntimeHelpers_CreateSpan_T]) -> System.Runtime.CompilerServices._Typed_RuntimeHelpers_CreateSpan[System_Runtime_CompilerServices_RuntimeHelpers_CreateSpan_T]:
+        ...
+
+
+class _Typed_RuntimeHelpers_IsReferenceOrContainsReferences(typing.Generic[System_Runtime_CompilerServices_RuntimeHelpers_IsReferenceOrContainsReferences_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> bool:
+        ...
+
+
+class _RuntimeHelpers_IsReferenceOrContainsReferences:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_RuntimeHelpers_IsReferenceOrContainsReferences_T]) -> System.Runtime.CompilerServices._Typed_RuntimeHelpers_IsReferenceOrContainsReferences[System_Runtime_CompilerServices_RuntimeHelpers_IsReferenceOrContainsReferences_T]:
+        ...
+
+
 class RuntimeHelpers(System.Object):
     """This class has no documentation."""
 
     OFFSET_TO_STRING_DATA: int
+
+    get_sub_array: System.Runtime.CompilerServices._RuntimeHelpers_GetSubArray
+
+    create_span: System.Runtime.CompilerServices._RuntimeHelpers_CreateSpan
+
+    is_reference_or_contains_references: System.Runtime.CompilerServices._RuntimeHelpers_IsReferenceOrContainsReferences
 
     @staticmethod
     @overload
@@ -759,11 +1526,62 @@ class CallerLineNumberAttribute(System.Attribute):
         ...
 
 
+class _Typed_DefaultInterpolatedStringHandler_AppendFormatted(typing.Generic[System_Runtime_CompilerServices_DefaultInterpolatedStringHandler_AppendFormatted_T]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Runtime_CompilerServices_DefaultInterpolatedStringHandler_AppendFormatted_T) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: System_Runtime_CompilerServices_DefaultInterpolatedStringHandler_AppendFormatted_T, format: str) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: System_Runtime_CompilerServices_DefaultInterpolatedStringHandler_AppendFormatted_T, alignment: int) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: System_Runtime_CompilerServices_DefaultInterpolatedStringHandler_AppendFormatted_T, alignment: int, format: str) -> None:
+        ...
+
+
+class _DefaultInterpolatedStringHandler_AppendFormatted:
+    """"""
+
+    @overload
+    def __call__(self, value: System.ReadOnlySpan[str]) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: System.ReadOnlySpan[str], alignment: int = 0, format: str = None) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: str) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: str, alignment: int = 0, format: str = None) -> None:
+        ...
+
+    @overload
+    def __call__(self, value: typing.Any, alignment: int = 0, format: str = None) -> None:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_DefaultInterpolatedStringHandler_AppendFormatted_T]) -> System.Runtime.CompilerServices._Typed_DefaultInterpolatedStringHandler_AppendFormatted[System_Runtime_CompilerServices_DefaultInterpolatedStringHandler_AppendFormatted_T]:
+        ...
+
+
 class DefaultInterpolatedStringHandler:
     """This class has no documentation."""
 
     @property
     def text(self) -> System.ReadOnlySpan[str]:
+        ...
+
+    @property
+    def append_formatted(self) -> System.Runtime.CompilerServices._DefaultInterpolatedStringHandler_AppendFormatted:
         ...
 
     @overload
@@ -776,26 +1594,6 @@ class DefaultInterpolatedStringHandler:
 
     @overload
     def __init__(self, literal_length: int, formatted_count: int, provider: System.IFormatProvider, initial_buffer: System.Span[str]) -> None:
-        ...
-
-    @overload
-    def append_formatted(self, value: System.ReadOnlySpan[str]) -> None:
-        ...
-
-    @overload
-    def append_formatted(self, value: System.ReadOnlySpan[str], alignment: int = 0, format: str = None) -> None:
-        ...
-
-    @overload
-    def append_formatted(self, value: str) -> None:
-        ...
-
-    @overload
-    def append_formatted(self, value: str, alignment: int = 0, format: str = None) -> None:
-        ...
-
-    @overload
-    def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> None:
         ...
 
     def append_literal(self, value: str) -> None:
@@ -1031,8 +1829,35 @@ class UnsafeValueTypeAttribute(System.Attribute):
     """This class has no documentation."""
 
 
+class _Typed_ConditionalWeakTable_GetOrAdd(typing.Generic[System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg]):
+    """"""
+
+    @overload
+    def __call__(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value_factory: typing.Callable[[System_Runtime_CompilerServices_ConditionalWeakTable_TKey, System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg], System_Runtime_CompilerServices_ConditionalWeakTable_TValue], factory_argument: System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
+        ...
+
+
+class _ConditionalWeakTable_GetOrAdd:
+    """"""
+
+    @overload
+    def __call__(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value: System_Runtime_CompilerServices_ConditionalWeakTable_TValue) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
+        ...
+
+    @overload
+    def __call__(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value_factory: typing.Callable[[System_Runtime_CompilerServices_ConditionalWeakTable_TKey], System_Runtime_CompilerServices_ConditionalWeakTable_TValue]) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg]) -> System.Runtime.CompilerServices._Typed_ConditionalWeakTable_GetOrAdd[System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg]:
+        ...
+
+
 class ConditionalWeakTable(typing.Generic[System_Runtime_CompilerServices_ConditionalWeakTable_TKey, System_Runtime_CompilerServices_ConditionalWeakTable_TValue], System.Object, System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Runtime_CompilerServices_ConditionalWeakTable_TKey, System_Runtime_CompilerServices_ConditionalWeakTable_TValue]], typing.Iterable[System.Collections.Generic.KeyValuePair[System_Runtime_CompilerServices_ConditionalWeakTable_TKey, System_Runtime_CompilerServices_ConditionalWeakTable_TValue]]):
     """This class has no documentation."""
+
+    @property
+    def get_or_add(self) -> System.Runtime.CompilerServices._ConditionalWeakTable_GetOrAdd:
+        ...
 
     def __init__(self) -> None:
         ...
@@ -1050,14 +1875,6 @@ class ConditionalWeakTable(typing.Generic[System_Runtime_CompilerServices_Condit
         ...
 
     def create_value_callback(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
-        ...
-
-    @overload
-    def get_or_add(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value: System_Runtime_CompilerServices_ConditionalWeakTable_TValue) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
-        ...
-
-    @overload
-    def get_or_add(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value_factory: typing.Callable[[System_Runtime_CompilerServices_ConditionalWeakTable_TKey], System_Runtime_CompilerServices_ConditionalWeakTable_TValue]) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
         ...
 
     def get_or_create_value(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
@@ -1252,8 +2069,65 @@ class ContractHelper(System.Object):
         ...
 
 
+class _Typed_AsyncIteratorMethodBuilder_MoveNext(typing.Generic[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_MoveNext_TStateMachine]):
+    """"""
+
+    @overload
+    def __call__(self, state_machine: System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_MoveNext_TStateMachine) -> None:
+        ...
+
+
+class _AsyncIteratorMethodBuilder_MoveNext:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_MoveNext_TStateMachine]) -> System.Runtime.CompilerServices._Typed_AsyncIteratorMethodBuilder_MoveNext[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_MoveNext_TStateMachine]:
+        ...
+
+
+class _Typed_AsyncIteratorMethodBuilder_AwaitOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
+        ...
+
+
+class _AsyncIteratorMethodBuilder_AwaitOnCompleted:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncIteratorMethodBuilder_AwaitOnCompleted[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TAwaiter]:
+        ...
+
+
+class _Typed_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
+        ...
+
+
+class _AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]:
+        ...
+
+
 class AsyncIteratorMethodBuilder:
     """This class has no documentation."""
+
+    @property
+    def move_next(self) -> System.Runtime.CompilerServices._AsyncIteratorMethodBuilder_MoveNext:
+        ...
+
+    @property
+    def await_on_completed(self) -> System.Runtime.CompilerServices._AsyncIteratorMethodBuilder_AwaitOnCompleted:
+        ...
+
+    @property
+    def await_unsafe_on_completed(self) -> System.Runtime.CompilerServices._AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted:
+        ...
 
     def complete(self) -> None:
         ...
@@ -1296,11 +2170,80 @@ class RequiresLocationAttribute(System.Attribute):
         ...
 
 
+class _Typed_PoolingAsyncValueTaskMethodBuilder_Start(typing.Generic[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine]):
+    """"""
+
+    @overload
+    def __call__(self, state_machine: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine) -> None:
+        ...
+
+    @overload
+    def __call__(self, state_machine: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine) -> None:
+        ...
+
+
+class _PoolingAsyncValueTaskMethodBuilder_Start:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine]) -> System.Runtime.CompilerServices._Typed_PoolingAsyncValueTaskMethodBuilder_Start[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine]:
+        ...
+
+
+class _Typed_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted(typing.Generic[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
+        ...
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
+        ...
+
+
+class _PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter]:
+        ...
+
+
+class _Typed_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted(typing.Generic[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
+        ...
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
+        ...
+
+
+class _PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]:
+        ...
+
+
 class PoolingAsyncValueTaskMethodBuilder(typing.Generic[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_TResult]):
     """This class has no documentation."""
 
     @property
     def task(self) -> System.Threading.Tasks.ValueTask[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_TResult]:
+        ...
+
+    @property
+    def start(self) -> System.Runtime.CompilerServices._PoolingAsyncValueTaskMethodBuilder_Start:
+        ...
+
+    @property
+    def await_on_completed(self) -> System.Runtime.CompilerServices._PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted:
+        ...
+
+    @property
+    def await_unsafe_on_completed(self) -> System.Runtime.CompilerServices._PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted:
         ...
 
     @staticmethod
@@ -1428,8 +2371,65 @@ class InlineArray16(typing.Generic[System_Runtime_CompilerServices_InlineArray16
     """This class has no documentation."""
 
 
+class _Typed_AsyncVoidMethodBuilder_Start(typing.Generic[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_Start_TStateMachine]):
+    """"""
+
+    @overload
+    def __call__(self, state_machine: System_Runtime_CompilerServices_AsyncVoidMethodBuilder_Start_TStateMachine) -> None:
+        ...
+
+
+class _AsyncVoidMethodBuilder_Start:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_Start_TStateMachine]) -> System.Runtime.CompilerServices._Typed_AsyncVoidMethodBuilder_Start[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_Start_TStateMachine]:
+        ...
+
+
+class _Typed_AsyncVoidMethodBuilder_AwaitOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
+        ...
+
+
+class _AsyncVoidMethodBuilder_AwaitOnCompleted:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncVoidMethodBuilder_AwaitOnCompleted[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TAwaiter]:
+        ...
+
+
+class _Typed_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
+        ...
+
+
+class _AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]:
+        ...
+
+
 class AsyncVoidMethodBuilder:
     """This class has no documentation."""
+
+    @property
+    def start(self) -> System.Runtime.CompilerServices._AsyncVoidMethodBuilder_Start:
+        ...
+
+    @property
+    def await_on_completed(self) -> System.Runtime.CompilerServices._AsyncVoidMethodBuilder_AwaitOnCompleted:
+        ...
+
+    @property
+    def await_unsafe_on_completed(self) -> System.Runtime.CompilerServices._AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted:
+        ...
 
     @staticmethod
     def create() -> System.Runtime.CompilerServices.AsyncVoidMethodBuilder:

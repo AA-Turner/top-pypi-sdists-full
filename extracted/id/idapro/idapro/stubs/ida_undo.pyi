@@ -1,10 +1,8 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
-def create_undo_point(args: Any) -> bool:
+def create_undo_point(action_name: str, label: str) -> bool:
     r"""Create a new restore point. The user can undo to this point in the future. 
             
-    :param bytes: body of the record for UNDO_ACTION_START
-    :param size: size of the record for UNDO_ACTION_START
     :returns: success; fails if undo is disabled
     """
     ...
@@ -38,6 +36,6 @@ def perform_undo() -> bool:
     ...
 
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ida_idaapi: module
 weakref: module

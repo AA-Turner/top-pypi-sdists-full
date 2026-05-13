@@ -1371,7 +1371,7 @@ async def test_auto_handler_passes_state_interview_timeout_to_driver(monkeypatch
     result = await AutoHandler().handle({"goal": "Build a CLI", "cwd": str(tmp_path)})
 
     assert result.is_ok
-    assert captured["driver_timeout_seconds"] == 120.0
+    assert captured["driver_timeout_seconds"] == 600.0
 
 
 @pytest.mark.asyncio
@@ -2041,6 +2041,111 @@ def test_auto_save_seed_encodes_windows_reserved_basename_seed_id(
     assert path.exists()
     assert not (seeds_dir / "CON.yaml").exists()
     assert load_seed(path).metadata.seed_id == "CON"
+
+
+def test_auto_save_seed_bounds_long_unicode_seed_id_filename_without_metadata_drift(
+    tmp_path: Path,
+) -> None:
+    from ouroboros.auto.adapters import load_seed, save_seed
+    from ouroboros.core.seed import OntologySchema, Seed, SeedMetadata
+
+    seeds_dir = tmp_path / "seeds"
+    seed_id = "漢" * 80
+    seed = Seed(
+        goal="Demo goal",
+        ontology_schema=OntologySchema(name="demo", description="demo ontology"),
+        metadata=SeedMetadata(seed_id=seed_id),
+    )
+
+    path = Path(save_seed(seed, seeds_dir=seeds_dir)).resolve()
+
+    assert path.parent == seeds_dir.resolve()
+    assert path.exists()
+    assert len(path.name.encode("utf-8")) <= 255
+    assert path.name.endswith(".yaml")
+    assert "--" in path.stem
+    assert load_seed(path).metadata.seed_id == seed_id
+
+
+def test_auto_save_seed_bounds_long_ascii_seed_id_filename_without_metadata_drift(
+    tmp_path: Path,
+) -> None:
+    from ouroboros.auto.adapters import load_seed, save_seed
+    from ouroboros.core.seed import OntologySchema, Seed, SeedMetadata
+
+    seeds_dir = tmp_path / "seeds"
+    seed_id = "seed_" + ("a" * 300)
+    seed = Seed(
+        goal="Demo goal",
+        ontology_schema=OntologySchema(name="demo", description="demo ontology"),
+        metadata=SeedMetadata(seed_id=seed_id),
+    )
+
+    path = Path(save_seed(seed, seeds_dir=seeds_dir)).resolve()
+
+    assert path.parent == seeds_dir.resolve()
+    assert path.exists()
+    assert len(path.name.encode("utf-8")) <= 255
+    assert "--%TRUNC%" in path.stem
+    assert load_seed(path).metadata.seed_id == seed_id
+
+
+def test_auto_save_seed_long_unicode_filename_digest_avoids_prefix_collision(
+    tmp_path: Path,
+) -> None:
+    from ouroboros.auto.adapters import save_seed
+    from ouroboros.core.seed import OntologySchema, Seed, SeedMetadata
+
+    seeds_dir = tmp_path / "seeds"
+    ontology = OntologySchema(name="demo", description="demo ontology")
+    first = Seed(
+        goal="Demo goal", ontology_schema=ontology, metadata=SeedMetadata(seed_id="漢" * 80)
+    )
+    second = Seed(
+        goal="Demo goal",
+        ontology_schema=ontology,
+        metadata=SeedMetadata(seed_id=("漢" * 79) + "字"),
+    )
+
+    first_path = Path(save_seed(first, seeds_dir=seeds_dir)).resolve()
+    second_path = Path(save_seed(second, seeds_dir=seeds_dir)).resolve()
+
+    assert first_path != second_path
+    assert first_path.exists()
+    assert second_path.exists()
+    assert len(first_path.name.encode("utf-8")) <= 255
+    assert len(second_path.name.encode("utf-8")) <= 255
+
+
+def test_auto_save_seed_truncated_filename_namespace_cannot_overwrite_untruncated_id(
+    tmp_path: Path,
+) -> None:
+    from ouroboros.auto.adapters import load_seed, save_seed
+    from ouroboros.core.seed import OntologySchema, Seed, SeedMetadata
+
+    seeds_dir = tmp_path / "seeds"
+    ontology = OntologySchema(name="demo", description="demo ontology")
+    long_seed = Seed(
+        goal="Long Unicode goal",
+        ontology_schema=ontology,
+        metadata=SeedMetadata(seed_id="漢" * 80),
+    )
+
+    long_path = Path(save_seed(long_seed, seeds_dir=seeds_dir)).resolve()
+    colliding_semantic_id = long_path.stem
+    safe_ascii_seed = Seed(
+        goal="Safe ASCII goal",
+        ontology_schema=ontology,
+        metadata=SeedMetadata(seed_id=colliding_semantic_id),
+    )
+
+    safe_ascii_path = Path(save_seed(safe_ascii_seed, seeds_dir=seeds_dir)).resolve()
+
+    assert long_path != safe_ascii_path
+    assert long_path.exists()
+    assert safe_ascii_path.exists()
+    assert load_seed(long_path).metadata.seed_id == "漢" * 80
+    assert load_seed(safe_ascii_path).metadata.seed_id == colliding_semantic_id
 
 
 def test_auto_save_seed_accepts_default_seed_id_inside_seed_dir(tmp_path: Path) -> None:

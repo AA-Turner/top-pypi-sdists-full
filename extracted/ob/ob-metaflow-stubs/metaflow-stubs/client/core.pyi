@@ -1,20 +1,20 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.788652                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.022090                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import datetime
-    import tempfile
-    import tarfile
     import metaflow.client.core
-    import metaflow.events
+    import datetime
     import typing
+    import tarfile
+    import metaflow.events
+    import tempfile
 
 from ..metaflow_current import current as current
 from ..events import Trigger as Trigger
@@ -126,7 +126,7 @@ def default_metadata() -> str:
     """
     ...
 
-def namespace(ns: typing.Optional[str]) -> typing.Optional[str]:
+def namespace(ns: typing.Union[str, None]) -> typing.Union[str, None]:
     """
     Switch namespace to the one provided.
     
@@ -146,7 +146,7 @@ def namespace(ns: typing.Optional[str]) -> typing.Optional[str]:
     """
     ...
 
-def get_namespace() -> typing.Optional[str]:
+def get_namespace() -> typing.Union[str, None]:
     """
     Return the current namespace that is currently being used to filter objects.
     
@@ -223,7 +223,7 @@ class MetaflowObject(object, metaclass=type):
         Pathspec of the original object this object was cloned from (in the case of a resume).
         None if not applicable.
     """
-    def __init__(self, pathspec: typing.Optional[str] = None, attempt: typing.Optional[int] = None, _object: typing.Optional["MetaflowObject"] = None, _parent: typing.Optional["MetaflowObject"] = None, _namespace_check: bool = True, _metaflow: typing.Optional["Metaflow"] = None, _current_namespace: typing.Optional[str] = None, _current_metadata: typing.Optional[str] = None):
+    def __init__(self, pathspec: typing.Union[str, None] = None, attempt: typing.Union[int, None] = None, _object: typing.Union["MetaflowObject", None] = None, _parent: typing.Union["MetaflowObject", None] = None, _namespace_check: bool = True, _metaflow: typing.Union["Metaflow", None] = None, _current_namespace: typing.Union[str, None] = None, _current_metadata: typing.Union[str, None] = None):
         ...
     def __iter__(self) -> typing.Iterator["MetaflowObject"]:
         """
@@ -356,7 +356,7 @@ class MetaflowObject(object, metaclass=type):
         """
         ...
     @property
-    def origin_pathspec(self) -> typing.Optional[str]:
+    def origin_pathspec(self) -> typing.Union[str, None]:
         """
         The pathspec of the object from which the current object was cloned.
         
@@ -366,7 +366,7 @@ class MetaflowObject(object, metaclass=type):
         """
         ...
     @property
-    def parent(self) -> typing.Optional["MetaflowObject"]:
+    def parent(self) -> typing.Union["MetaflowObject", None]:
         """
         Returns the parent object of this object or None if none exists.
         
@@ -760,7 +760,7 @@ class Task(MetaflowObject, metaclass=type):
         """
         ...
     @property
-    def index(self) -> typing.Optional[int]:
+    def index(self) -> typing.Union[int, None]:
         """
         Returns the index of the innermost foreach loop if this task is run inside at least
         one foreach.
@@ -837,7 +837,7 @@ class Task(MetaflowObject, metaclass=type):
         """
         ...
     @property
-    def exception(self) -> typing.Optional[typing.Any]:
+    def exception(self) -> typing.Union[typing.Any, None]:
         """
         Returns the exception that caused the task to fail, if any.
         
@@ -852,7 +852,7 @@ class Task(MetaflowObject, metaclass=type):
         """
         ...
     @property
-    def finished_at(self) -> typing.Optional[datetime.datetime]:
+    def finished_at(self) -> typing.Union[datetime.datetime, None]:
         """
         Returns the datetime object of when the task finished (successfully or not).
         
@@ -866,7 +866,7 @@ class Task(MetaflowObject, metaclass=type):
         """
         ...
     @property
-    def runtime_name(self) -> typing.Optional[str]:
+    def runtime_name(self) -> typing.Union[str, None]:
         """
         Returns the name of the runtime this task executed on.
         
@@ -958,7 +958,7 @@ class Task(MetaflowObject, metaclass=type):
         """
         ...
     @property
-    def code(self) -> typing.Optional[metaflow.client.core.MetaflowCode]:
+    def code(self) -> typing.Union[metaflow.client.core.MetaflowCode, None]:
         """
         Returns the MetaflowCode object for this task, if present.
         
@@ -985,7 +985,7 @@ class Task(MetaflowObject, metaclass=type):
             Dictionary describing the environment
         """
         ...
-    def loglines(self, stream: str, as_unicode: bool = True, meta_dict: typing.Optional[typing.Dict[str, typing.Any]] = None) -> typing.Iterator[typing.Tuple[datetime.datetime, str]]:
+    def loglines(self, stream: str, as_unicode: bool = True, meta_dict: typing.Union[typing.Dict[str, typing.Any], None] = None) -> typing.Iterator[typing.Tuple[datetime.datetime, str]]:
         """
         Return an iterator over (utc_timestamp, logline) tuples.
         
@@ -1058,7 +1058,7 @@ class Step(MetaflowObject, metaclass=type):
         Information about the execution environment.
     """
     @property
-    def task(self) -> typing.Optional[metaflow.client.core.Task]:
+    def task(self) -> typing.Union[metaflow.client.core.Task, None]:
         """
         Returns a Task object belonging to this step.
         
@@ -1092,7 +1092,7 @@ class Step(MetaflowObject, metaclass=type):
         """
         ...
     @property
-    def control_task(self) -> typing.Optional[metaflow.client.core.Task]:
+    def control_task(self) -> typing.Union[metaflow.client.core.Task, None]:
         """
         [Unpublished API - use with caution!]
         
@@ -1159,7 +1159,7 @@ class Step(MetaflowObject, metaclass=type):
     def __setstate__(self, state):
         ...
     @property
-    def finished_at(self) -> typing.Optional[datetime.datetime]:
+    def finished_at(self) -> typing.Union[datetime.datetime, None]:
         """
         Returns the datetime object of when the step finished (successfully or not).
         
@@ -1173,7 +1173,7 @@ class Step(MetaflowObject, metaclass=type):
         """
         ...
     @property
-    def environment_info(self) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def environment_info(self) -> typing.Union[typing.Dict[str, typing.Any], None]:
         """
         Returns information about the environment that was used to execute this step. As an
         example, if the Conda environment is selected, this will return information about the
@@ -1219,7 +1219,7 @@ class Run(MetaflowObject, metaclass=type):
     Attributes
     ----------
     data : MetaflowData
-        a shortcut to run['end'].task.data, i.e. data produced by this run.
+        A shortcut to the terminal step's task data produced by this run.
     successful : bool
         True if the run completed successfully.
     finished : bool
@@ -1231,8 +1231,23 @@ class Run(MetaflowObject, metaclass=type):
     trigger : MetaflowTrigger
         Information about event(s) that triggered this run (if present). See `MetaflowTrigger`.
     end_task : Task
-        `Task` for the end step (if it is present already).
+        `Task` for the terminal step (if it is present already).
     """
+    @property
+    def _graph_endpoints(self):
+        """
+        Returns (start_step_name, end_step_name) from ``_parameters`` task
+        metadata.
+        
+        The metadata is written by ``persist_constants``, which every
+        runtime path calls before any step executes — the native runtime
+        directly, and orchestrators (Argo Workflows, Airflow, Step
+        Functions) through the ``init`` command they insert into their
+        generated command line. Falls back to the literal
+        ``("start", "end")`` for old runs that predate custom endpoint
+        support.
+        """
+        ...
     def steps(self, *tags: str) -> typing.Iterator[metaflow.client.core.Step]:
         """
         [Legacy function - do not use]
@@ -1255,7 +1270,7 @@ class Run(MetaflowObject, metaclass=type):
         """
         ...
     @property
-    def code(self) -> typing.Optional[metaflow.client.core.MetaflowCode]:
+    def code(self) -> typing.Union[metaflow.client.core.MetaflowCode, None]:
         """
         Returns the MetaflowCode object for this run, if present.
         Code is packed if atleast one `Step` runs remotely, else None is returned.
@@ -1267,7 +1282,7 @@ class Run(MetaflowObject, metaclass=type):
         """
         ...
     @property
-    def data(self) -> typing.Optional[metaflow.client.core.MetaflowData]:
+    def data(self) -> typing.Union[metaflow.client.core.MetaflowData, None]:
         """
         Returns a container of data artifacts produced by this run.
         
@@ -1311,7 +1326,7 @@ class Run(MetaflowObject, metaclass=type):
         """
         ...
     @property
-    def finished_at(self) -> typing.Optional[datetime.datetime]:
+    def finished_at(self) -> typing.Union[datetime.datetime, None]:
         """
         Returns the datetime object of when the run finished (successfully or not).
         
@@ -1325,16 +1340,16 @@ class Run(MetaflowObject, metaclass=type):
         """
         ...
     @property
-    def end_task(self) -> typing.Optional[metaflow.client.core.Task]:
+    def end_task(self) -> typing.Union[metaflow.client.core.Task, None]:
         """
-        Returns the Task corresponding to the 'end' step.
+        Returns the Task corresponding to the terminal step.
         
-        This returns None if the end step does not yet exist.
+        This returns None if the terminal step does not yet exist.
         
         Returns
         -------
         Task, optional
-            The 'end' task
+            The terminal step's task
         """
         ...
     def add_tag(self, tag: str):
@@ -1450,7 +1465,7 @@ class Run(MetaflowObject, metaclass=type):
     def __setstate__(self, state):
         ...
     @property
-    def trigger(self) -> typing.Optional[metaflow.events.Trigger]:
+    def trigger(self) -> typing.Union[metaflow.events.Trigger, None]:
         """
         Returns a container of events that triggered this run.
         
@@ -1479,7 +1494,7 @@ class Flow(MetaflowObject, metaclass=type):
     def __init__(self, *args, **kwargs):
         ...
     @property
-    def latest_run(self) -> typing.Optional[metaflow.client.core.Run]:
+    def latest_run(self) -> typing.Union[metaflow.client.core.Run, None]:
         """
         Returns the latest run (either in progress or completed) of this flow.
         
@@ -1493,7 +1508,7 @@ class Flow(MetaflowObject, metaclass=type):
         """
         ...
     @property
-    def latest_successful_run(self) -> typing.Optional[metaflow.client.core.Run]:
+    def latest_successful_run(self) -> typing.Union[metaflow.client.core.Run, None]:
         """
         Returns the latest successful run of this flow.
         
@@ -1575,7 +1590,7 @@ class Metaflow(object, metaclass=type):
         flows present in the current namespace will be returned. A `Flow` is present in a namespace
         if it has at least one run in the namespace.
     """
-    def __init__(self, _current_metadata: typing.Optional[str] = None):
+    def __init__(self, _current_metadata: typing.Union[str, None] = None):
         ...
     @property
     def flows(self) -> typing.List[metaflow.client.core.Flow]:

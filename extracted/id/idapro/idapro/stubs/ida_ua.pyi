@@ -1,22 +1,47 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Functions that deal with the disassembling of program instructions.
 
 There are 2 kinds of functions:
-* functions that are called from the kernel to disassemble an instruction. These functions call IDP module for it.
-* functions that are called from IDP module to disassemble an instruction. We will call them 'helper functions'.
+
+* functions that are called from the kernel to disassemble an instruction.
+  These functions call IDP module for it.
+* functions that are called from IDP module to disassemble an instruction.
+  We will call them 'helper functions'.
 
 
 Disassembly of an instruction is made in three steps:
+
 0. analysis: ana.cpp
 1. emulation: emu.cpp
 2. conversion to text: out.cpp
 
 
-The kernel calls the IDP module to perform these steps. At first, the kernel always calls the analysis. The analyzer must decode the instruction and fill the insn_t instance that it receives through its callback. It must not change anything in the database.
-The second step, the emulation, is called for each instruction. This step must make necessary changes to the database, plan analysis of subsequent instructions, track register values, memory contents, etc. Please keep in mind that the kernel may call the emulation step for any address in the program - there is no ordering of addresses. Usually, the emulation is called for consecutive addresses but this is not guaranteed.
-The last step, conversion to text, is called each time an instruction is displayed on the screen. The kernel will always call the analysis step before calling the text conversion step. The emulation and the text conversion steps should use the information stored in the insn_t instance they receive. They should not access the bytes of the instruction and decode it again - this should only be done in the analysis step. 
-    
+The kernel calls the IDP module to perform these steps. At first, the kernel
+always calls the analysis. The analyzer must decode the instruction and fill
+the insn_t instance that it receives through its callback. It must not change
+anything in the database.
+
+The second step, the emulation, is called for each instruction. This step must
+make necessary changes to the database, plan analysis of subsequent instructions,
+track register values, memory contents, etc. Please keep in mind that the kernel
+may call the emulation step for any address in the program - there is no ordering
+of addresses. Usually, the emulation is called for consecutive addresses but
+this is not guaranteed.
+
+The last step, conversion to text, is called each time an instruction is
+displayed on the screen. The kernel will always call the analysis step before
+calling the text conversion step. The emulation and the text conversion steps
+should use the information stored in the insn_t instance they receive. They
+should not access the bytes of the instruction and decode it again - this
+should only be done in the analysis step.
+
+.. tip::
+   The `IDA Domain API <https://ida-domain.docs.hex-rays.com/>`_ simplifies
+   common tasks and provides better type hints, while remaining fully compatible
+   with IDAPython for advanced use cases.
+
+   For instruction operations, see :mod:`ida_domain.instructions`.
 """
 
 class insn_t:
@@ -37,70 +62,76 @@ class insn_t:
     @property
     def Op8(self) -> Any: ...
     @property
-    def auxpref(self) -> Any: ...
+    def auxpref(self) -> int: ...
     @property
     def auxpref_u16(self) -> Any: ...
     @property
     def auxpref_u8(self) -> Any: ...
     @property
-    def cs(self) -> Any: ...
+    def cs(self) -> ida_idaapi.ea_t: ...
     @property
-    def ea(self) -> Any: ...
+    def ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def flags(self) -> Any: ...
+    def flags(self) -> int: ...
     @property
-    def insnpref(self) -> Any: ...
+    def insnpref(self) -> int: ...
     @property
-    def ip(self) -> Any: ...
+    def ip(self) -> ida_idaapi.ea_t: ...
     @property
-    def itype(self) -> Any: ...
+    def itype(self) -> int: ...
     @property
     def ops(self) -> Any: ...
     @property
-    def segpref(self) -> Any: ...
+    def segpref(self) -> int: ...
     @property
-    def size(self) -> Any: ...
+    def size(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __get_auxpref__(self) -> int:
         ...
     def __get_operand__(self, n: int) -> op_t:
         ...
-    def __get_ops__(self) -> Any:
+    def __get_ops__(self) -> wrapped_array_t:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, idx: Any) -> op_t:
+    def __getitem__(self, idx: Any) -> Any:
         r"""
-                Operands can be accessed directly as indexes
+        Operands can be accessed directly as indexes
         
-                :returns: an operand of type op_t
-                
+        :returns: an operand of type op_t
+        
         """
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -110,16 +141,16 @@ class insn_t:
         ...
     def __iter__(self) -> Any:
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -138,10 +169,10 @@ class insn_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -151,65 +182,44 @@ class insn_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def add_cref(self, to: ida_idaapi.ea_t, opoff: int, type: cref_t) -> None:
-        r"""Add a code cross-reference from the instruction. 
-                
-        :param to: target linear address
-        :param opoff: offset of the operand from the start of instruction. if the offset is unknown, then 0.
-        :param type: type of xref
-        """
         ...
     def add_dref(self, to: ida_idaapi.ea_t, opoff: int, type: dref_t) -> None:
-        r"""Add a data cross-reference from the instruction. See add_off_drefs() - usually it can be used in most cases. 
-                
-        :param to: target linear address
-        :param opoff: offset of the operand from the start of instruction if the offset is unknown, then 0
-        :param type: type of xref
-        """
         ...
     def add_off_drefs(self, x: op_t, type: dref_t, outf: int) -> ida_idaapi.ea_t:
-        r"""Add xrefs for an operand of the instruction. This function creates all cross references for 'enum', 'offset' and 'structure offset' operands. Use add_off_drefs() in the presence of negative offsets. 
-                
-        :param x: reference to operand
-        :param type: type of xref
-        :param outf: out_value() flags. These flags should match the flags used to output the operand
-        :returns: if: is_off(): the reference target address (the same as calc_reference_data).
-        :returns: if: is_stroff(): BADADDR because for stroffs the target address is unknown
-        :returns: otherwise: BADADDR because enums do not represent addresses
-        """
         ...
     def assign(self, other: insn_t) -> None:
         ...
-    def create_op_data(self, args: Any) -> bool:
+    def create_op_data(self, *args: Any) -> bool:
         ...
-    def create_stkvar(self, x: op_t, v: adiff_t, flags_: int) -> bool:
+    def create_stkvar(self, x: op_t, v: int, stkvar_flags: int) -> bool:
         ...
-    def get_canon_feature(self, args: Any) -> int:
+    def get_canon_feature(self, *args: Any) -> int:
         r"""see instruc_t::feature
         
         """
         ...
-    def get_canon_mnem(self, args: Any) -> str:
+    def get_canon_mnem(self, *args: Any) -> str:
         r"""see instruc_t::name
         
         """
         ...
-    def get_next_byte(self) -> uint8:
+    def get_next_byte(self) -> int:
         ...
     def get_next_dword(self) -> int:
         ...
-    def get_next_qword(self) -> uint64:
+    def get_next_qword(self) -> int:
         ...
-    def get_next_word(self) -> uint16:
+    def get_next_word(self) -> int:
         ...
     def is_64bit(self) -> bool:
-        r"""Belongs to a 64bit segment?
+        r"""Belongs to a 64-bit segment?
         
         """
         ...
-    def is_canon_insn(self, args: Any) -> bool:
+    def is_canon_insn(self, *args: Any) -> bool:
         r"""see processor_t::is_canon_insn()
         
         """
@@ -222,7 +232,7 @@ class insn_t:
 
 class macro_constructor_t:
     @property
-    def reserved(self) -> Any: ...
+    def reserved(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -231,27 +241,33 @@ class macro_constructor_t:
         ...
     def __disown__(self) -> Any:
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -259,16 +275,16 @@ class macro_constructor_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -285,10 +301,10 @@ class macro_constructor_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -298,7 +314,7 @@ class macro_constructor_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def build_macro(self, insn: insn_t, may_go_forward: bool) -> bool:
         r"""Try to extend the instruction.
@@ -323,35 +339,35 @@ class macro_constructor_t:
 
 class op_t:
     @property
-    def addr(self) -> Any: ...
+    def addr(self) -> ida_idaapi.ea_t: ...
     @property
-    def dtype(self) -> Any: ...
+    def dtype(self) -> op_dtype_t: ...
     @property
-    def flags(self) -> Any: ...
+    def flags(self) -> int: ...
     @property
-    def n(self) -> Any: ...
+    def n(self) -> int: ...
     @property
-    def offb(self) -> Any: ...
+    def offb(self) -> int: ...
     @property
-    def offo(self) -> Any: ...
+    def offo(self) -> int: ...
     @property
-    def phrase(self) -> Any: ...
+    def phrase(self) -> int: ...
     @property
-    def reg(self) -> Any: ...
+    def reg(self) -> int: ...
     @property
-    def specflag1(self) -> Any: ...
+    def specflag1(self) -> int: ...
     @property
-    def specflag2(self) -> Any: ...
+    def specflag2(self) -> int: ...
     @property
-    def specflag3(self) -> Any: ...
+    def specflag3(self) -> int: ...
     @property
-    def specflag4(self) -> Any: ...
+    def specflag4(self) -> int: ...
     @property
-    def specval(self) -> Any: ...
+    def specval(self) -> ida_idaapi.ea_t: ...
     @property
-    def type(self) -> Any: ...
+    def type(self) -> optype_t: ...
     @property
-    def value(self) -> Any: ...
+    def value(self) -> int: ...
     @property
     def value64(self) -> Any: ...
     def __delattr__(self, name: Any) -> Any:
@@ -360,37 +376,43 @@ class op_t:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __get_addr__(self) -> ida_idaapi.ea_t:
         ...
-    def __get_reg_phrase__(self) -> uint16:
+    def __get_reg_phrase__(self) -> int:
         ...
     def __get_specval__(self) -> ida_idaapi.ea_t:
         ...
-    def __get_value64__(self) -> uint64:
+    def __get_value64__(self) -> int:
         ...
     def __get_value__(self) -> ida_idaapi.ea_t:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -398,16 +420,16 @@ class op_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -420,11 +442,11 @@ class op_t:
         ...
     def __set_addr__(self, v: ida_idaapi.ea_t) -> None:
         ...
-    def __set_reg_phrase__(self, r: uint16) -> None:
+    def __set_reg_phrase__(self, r: int) -> None:
         ...
     def __set_specval__(self, v: ida_idaapi.ea_t) -> None:
         ...
-    def __set_value64__(self, v: uint64) -> None:
+    def __set_value64__(self, v: int) -> None:
         ...
     def __set_value__(self, v: ida_idaapi.ea_t) -> None:
         ...
@@ -434,10 +456,10 @@ class op_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -447,7 +469,7 @@ class op_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def assign(self, other: op_t) -> None:
         ...
@@ -491,29 +513,35 @@ class operands_array:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> op_t:
+    def __getitem__(self, i: int) -> op_t:
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, data: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -521,21 +549,21 @@ class operands_array:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[op_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
     def __len__(self) -> int:
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -549,15 +577,15 @@ class operands_array:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: op_t) -> None:
+    def __setitem__(self, i: int, v: op_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -567,45 +595,51 @@ class operands_array:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class outctx_base_t:
     @property
-    def F32(self) -> Any: ...
+    def F32(self) -> int: ...
     @property
-    def default_lnnum(self) -> Any: ...
+    def default_lnnum(self) -> int: ...
     @property
-    def insn_ea(self) -> Any: ...
+    def insn_ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def outbuf(self) -> Any: ...
+    def outbuf(self) -> str: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any, kwargs: Any) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -613,16 +647,16 @@ class outctx_base_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -639,10 +673,10 @@ class outctx_base_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -721,9 +755,9 @@ class outctx_base_t:
         ...
     def gen_xref_lines(self) -> bool:
         ...
-    def getF(self) -> flags64_t:
+    def getF(self) -> int:
         ...
-    def get_stkvar(self, x: op_t, v: int, vv: sval_t, is_sp_based: int, _frame: tinfo_t) -> ssize_t:
+    def get_stkvar(self, x: op_t, v: int, vv: sval_t, is_sp_based: int, _frame: tinfo_t) -> int:
         ...
     def init_lines_array(self, answers: qstrvec_t, maxsize: int) -> None:
         ...
@@ -736,17 +770,17 @@ class outctx_base_t:
         
         """
         ...
-    def out_btoa(self, Word: int, radix: char = 0) -> None:
+    def out_btoa(self, Word: int, radix: int = 0) -> None:
         r"""Output a number with the specified base (binary, octal, decimal, hex) The number is output without color codes. see also out_long() 
                 
         """
         ...
-    def out_char(self, c: char) -> None:
+    def out_char(self, c: int) -> None:
         r"""Output one character. The character is output without color codes. see also out_symbol() 
                 
         """
         ...
-    def out_chars(self, c: char, n: int) -> None:
+    def out_chars(self, c: int, n: int) -> None:
         r"""Append a character multiple times.
         
         """
@@ -766,7 +800,7 @@ class outctx_base_t:
         
         """
         ...
-    def out_long(self, v: int, radix: char) -> None:
+    def out_long(self, v: int, radix: int) -> None:
         r"""Output a number with appropriate color. Low level function. Use out_value() if you can. if 'suspop' is set then this function uses COLOR_VOIDOP instead of COLOR_NUMBER. 'suspop' is initialized:
         * in out_one_operand()
         * in ..\ida\gl.cpp (before calling processor_t::d_out())
@@ -782,7 +816,7 @@ class outctx_base_t:
         
         """
         ...
-    def out_name_expr(self, args: Any) -> bool:
+    def out_name_expr(self, *args: Any) -> bool:
         r"""Output a name expression. 
                 
         :param x: instruction operand referencing the name expression
@@ -802,12 +836,12 @@ class outctx_base_t:
         
         """
         ...
-    def out_spaces(self, len: ssize_t) -> None:
+    def out_spaces(self, len: int) -> None:
         r"""Appends spaces to outbuf until its tag_strlen becomes 'len'.
         
         """
         ...
-    def out_symbol(self, c: char) -> None:
+    def out_symbol(self, c: int) -> None:
         r"""Output a character with COLOR_SYMBOL color.
         
         """
@@ -822,7 +856,7 @@ class outctx_base_t:
         
         """
         ...
-    def out_value(self, x: op_t, outf: int = 0) -> flags64_t:
+    def out_value(self, x: op_t, outf: int = 0) -> int:
         r"""Output immediate value. Try to use this function to output all constants of instruction operands. This function outputs a number from x.addr or x.value in the form determined by F. It outputs colored text. 
                 
         :param x: value to output
@@ -836,9 +870,9 @@ class outctx_base_t:
         ...
     def restore_ctxflags(self, saved_flags: int) -> None:
         ...
-    def retrieve_cmt(self) -> ssize_t:
+    def retrieve_cmt(self) -> int:
         ...
-    def retrieve_name(self, arg2: str, arg3: color_t) -> ssize_t:
+    def retrieve_name(self, arg2: str, arg3: color_t) -> int:
         ...
     def set_comment_addr(self, ea: ida_idaapi.ea_t) -> None:
         ...
@@ -868,66 +902,72 @@ class outctx_base_t:
 
 class outctx_t(outctx_base_t):
     @property
-    def F32(self) -> Any: ...
+    def F32(self) -> int: ...
     @property
-    def ash(self) -> Any: ...
+    def ash(self) -> asm_t: ...
     @property
-    def bin_ea(self) -> Any: ...
+    def bin_ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def bin_state(self) -> Any: ...
+    def bin_state(self) -> int: ...
     @property
-    def bin_width(self) -> Any: ...
+    def bin_width(self) -> int: ...
     @property
-    def curlabel(self) -> Any: ...
+    def curlabel(self) -> str: ...
     @property
-    def default_lnnum(self) -> Any: ...
+    def default_lnnum(self) -> int: ...
     @property
-    def gl_bpsize(self) -> Any: ...
+    def gl_bpsize(self) -> int: ...
     @property
-    def insn(self) -> Any: ...
+    def insn(self) -> insn_t: ...
     @property
-    def insn_ea(self) -> Any: ...
+    def insn_ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def next_line_ea(self) -> Any: ...
+    def next_line_ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def outbuf(self) -> Any: ...
+    def outbuf(self) -> str: ...
     @property
-    def ph(self) -> Any: ...
+    def ph(self) -> processor_t: ...
     @property
-    def prefix_ea(self) -> Any: ...
+    def prefix_ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def procmod(self) -> Any: ...
+    def procmod(self) -> procmod_t: ...
     @property
     def saved_immvals(self) -> Any: ...
     @property
-    def wif(self) -> Any: ...
+    def wif(self) -> printop_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any, kwargs: Any) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -935,16 +975,16 @@ class outctx_t(outctx_base_t):
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -961,10 +1001,10 @@ class outctx_t(outctx_base_t):
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -1037,7 +1077,7 @@ class outctx_t(outctx_base_t):
         ...
     def gen_func_header(self, pfn: func_t) -> None:
         ...
-    def gen_header(self, args: Any) -> None:
+    def gen_header(self, *args: Any) -> None:
         ...
     def gen_header_extra(self) -> None:
         ...
@@ -1051,9 +1091,9 @@ class outctx_t(outctx_base_t):
         ...
     def gen_xref_lines(self) -> bool:
         ...
-    def getF(self) -> flags64_t:
+    def getF(self) -> int:
         ...
-    def get_stkvar(self, x: op_t, v: int, vv: sval_t, is_sp_based: int, _frame: tinfo_t) -> ssize_t:
+    def get_stkvar(self, x: op_t, v: int, vv: sval_t, is_sp_based: int, _frame: tinfo_t) -> int:
         ...
     def init_lines_array(self, answers: qstrvec_t, maxsize: int) -> None:
         ...
@@ -1066,17 +1106,17 @@ class outctx_t(outctx_base_t):
         
         """
         ...
-    def out_btoa(self, Word: int, radix: char = 0) -> None:
+    def out_btoa(self, Word: int, radix: int = 0) -> None:
         r"""Output a number with the specified base (binary, octal, decimal, hex) The number is output without color codes. see also out_long() 
                 
         """
         ...
-    def out_char(self, c: char) -> None:
+    def out_char(self, c: int) -> None:
         r"""Output one character. The character is output without color codes. see also out_symbol() 
                 
         """
         ...
-    def out_chars(self, c: char, n: int) -> None:
+    def out_chars(self, c: int, n: int) -> None:
         r"""Append a character multiple times.
         
         """
@@ -1116,7 +1156,7 @@ class outctx_t(outctx_base_t):
         
         """
         ...
-    def out_long(self, v: int, radix: char) -> None:
+    def out_long(self, v: int, radix: int) -> None:
         r"""Output a number with appropriate color. Low level function. Use out_value() if you can. if 'suspop' is set then this function uses COLOR_VOIDOP instead of COLOR_NUMBER. 'suspop' is initialized:
         * in out_one_operand()
         * in ..\ida\gl.cpp (before calling processor_t::d_out())
@@ -1144,7 +1184,7 @@ class outctx_t(outctx_base_t):
                 
         """
         ...
-    def out_name_expr(self, args: Any) -> bool:
+    def out_name_expr(self, *args: Any) -> bool:
         r"""Output a name expression. 
                 
         :param x: instruction operand referencing the name expression
@@ -1172,14 +1212,14 @@ class outctx_t(outctx_base_t):
         
         """
         ...
-    def out_spaces(self, len: ssize_t) -> None:
+    def out_spaces(self, len: int) -> None:
         r"""Appends spaces to outbuf until its tag_strlen becomes 'len'.
         
         """
         ...
-    def out_specea(self, segtype: uchar) -> bool:
+    def out_specea(self, segtype: int) -> bool:
         ...
-    def out_symbol(self, c: char) -> None:
+    def out_symbol(self, c: int) -> None:
         r"""Output a character with COLOR_SYMBOL color.
         
         """
@@ -1194,7 +1234,7 @@ class outctx_t(outctx_base_t):
         
         """
         ...
-    def out_value(self, x: op_t, outf: int = 0) -> flags64_t:
+    def out_value(self, x: op_t, outf: int = 0) -> int:
         r"""Output immediate value. Try to use this function to output all constants of instruction operands. This function outputs a number from x.addr or x.value in the form determined by F. It outputs colored text. 
                 
         :param x: value to output
@@ -1208,9 +1248,9 @@ class outctx_t(outctx_base_t):
         ...
     def restore_ctxflags(self, saved_flags: int) -> None:
         ...
-    def retrieve_cmt(self) -> ssize_t:
+    def retrieve_cmt(self) -> int:
         ...
-    def retrieve_name(self, arg2: str, arg3: color_t) -> ssize_t:
+    def retrieve_name(self, arg2: str, arg3: color_t) -> int:
         ...
     def set_bin_state(self, value: int) -> None:
         ...
@@ -1251,7 +1291,7 @@ def can_decode(ea: ida_idaapi.ea_t) -> bool:
     """
     ...
 
-def construct_macro(args: Any) -> bool:
+def construct_macro(*args: Any) -> Any:
     r"""See ua.hpp's construct_macro().
     
     This function has the following signatures
@@ -1278,7 +1318,7 @@ def create_insn(ea: ida_idaapi.ea_t, out: insn_t = None) -> int:
     """
     ...
 
-def create_outctx(ea: ida_idaapi.ea_t, F: flags64_t = 0, suspop: int = 0) -> outctx_base_t:
+def create_outctx(ea: ida_idaapi.ea_t, F: int = 0, suspop: int = 0) -> outctx_base_t:
     r"""Create a new output context. To delete it, just use "delete pctx" 
             
     """
@@ -1293,7 +1333,7 @@ def decode_insn(out: insn_t, ea: ida_idaapi.ea_t) -> int:
     """
     ...
 
-def decode_preceding_insn(out: insn_t, ea: ida_idaapi.ea_t) -> Any:
+def decode_preceding_insn(out: insn_t, ea: ida_idaapi.ea_t) -> Tuple[ida_idaapi.ea_t, bool]:
     r"""Decodes the preceding instruction.
     
     :param out: instruction storage
@@ -1311,13 +1351,13 @@ def decode_prev_insn(out: insn_t, ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
     """
     ...
 
-def get_dtype_by_size(size: asize_t) -> int:
+def get_dtype_by_size(size: int) -> int:
     r"""Get op_t::dtype from size.
     
     """
     ...
 
-def get_dtype_flag(dtype: op_dtype_t) -> flags64_t:
+def get_dtype_flag(dtype: op_dtype_t) -> int:
     r"""Get flags for op_t::dtype field.
     
     """
@@ -1329,7 +1369,7 @@ def get_dtype_size(dtype: op_dtype_t) -> int:
     """
     ...
 
-def get_immvals(ea: ida_idaapi.ea_t, n: int, F: flags64_t = 0) -> Any:
+def get_immvals(ea: ida_idaapi.ea_t, n: int, F: int = 0) -> Any:
     r"""Get immediate values at the specified address. This function decodes instruction at the specified address or inspects the data item. It finds immediate values and copies them to 'out'. This function will store the original value of the operands in 'out', unless the last bits of 'F' are "...0 11111111", in which case the transformed values (as needed for printing) will be stored instead. 
             
     :param ea: address to analyze
@@ -1345,7 +1385,7 @@ def get_lookback() -> int:
     """
     ...
 
-def get_printable_immvals(ea: ida_idaapi.ea_t, n: int, F: flags64_t = 0) -> Any:
+def get_printable_immvals(ea: ida_idaapi.ea_t, n: int, F: int = 0) -> Any:
     r"""Get immediate ready-to-print values at the specified address 
             
     :param ea: address to analyze
@@ -1364,10 +1404,10 @@ def insn_add_dref(insn: insn_t, to: ida_idaapi.ea_t, opoff: int, type: dref_t) -
 def insn_add_off_drefs(insn: insn_t, x: op_t, type: dref_t, outf: int) -> ida_idaapi.ea_t:
     ...
 
-def insn_create_stkvar(insn: insn_t, x: op_t, v: adiff_t, flags: int) -> bool:
+def insn_create_stkvar(insn: insn_t, x: op_t, v: int, flags: int) -> bool:
     ...
 
-def insn_t__from_ptrval__(ptrval: size_t) -> Optional[insn_t]:
+def insn_t__from_ptrval__(ptrval: int) -> Optional[insn_t]:
     ...
 
 def is_floating_dtype(dtype: op_dtype_t) -> bool:
@@ -1376,22 +1416,22 @@ def is_floating_dtype(dtype: op_dtype_t) -> bool:
     """
     ...
 
-def map_code_ea(args: Any) -> ida_idaapi.ea_t:
+def map_code_ea(*args: Any) -> ida_idaapi.ea_t:
     ...
 
-def map_data_ea(args: Any) -> ida_idaapi.ea_t:
+def map_data_ea(*args: Any) -> ida_idaapi.ea_t:
     ...
 
-def map_ea(args: Any) -> ida_idaapi.ea_t:
+def map_ea(*args: Any) -> ida_idaapi.ea_t:
     ...
 
-def op_t__from_ptrval__(ptrval: size_t) -> op_t:
+def op_t__from_ptrval__(ptrval: int) -> op_t:
     ...
 
-def outctx_base_t__from_ptrval__(ptrval: size_t) -> outctx_base_t:
+def outctx_base_t__from_ptrval__(ptrval: int) -> outctx_base_t:
     ...
 
-def outctx_t__from_ptrval__(ptrval: size_t) -> outctx_t:
+def outctx_t__from_ptrval__(ptrval: int) -> outctx_t:
     ...
 
 def print_insn_mnem(ea: ida_idaapi.ea_t) -> str:
@@ -1500,7 +1540,7 @@ SWIG_PYTHON_LEGACY_BOOL: int  # 1
 XREFSTATE_DONE: int  # 64
 XREFSTATE_GO: int  # 32
 XREFSTATE_NONE: int  # 0
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 cvar: swigvarlink
 dt_bitfild: int  # 12
 dt_byte: int  # 0

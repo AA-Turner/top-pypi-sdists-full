@@ -3,13 +3,13 @@ from __future__ import annotations
 from torch import Tensor, nn
 
 from sentence_transformers.cross_encoder.model import CrossEncoder
-from sentence_transformers.util import fullname
+from sentence_transformers.util import batch_to_device, fullname
 
 
 class MSELoss(nn.Module):
     def __init__(self, model: CrossEncoder, activation_fn: nn.Module = nn.Identity(), **kwargs) -> None:
         """
-        Computes the MSE loss between the computed query-passage score and a target query-passage score. This loss
+        Computes the MSE loss between the computed query-document score and a target query-document score. This loss
         is used to distill a cross-encoder model from a teacher cross-encoder model or gold labels.
 
         Args:
@@ -32,9 +32,9 @@ class MSELoss(nn.Module):
 
         Inputs:
             +-----------------------------------------+-----------------------------+-------------------------------+
-            | Texts                                   | Labels                      | Number of Model Output Labels |
+            | Inputs                                  | Labels                      | Number of Model Output Labels |
             +=========================================+=============================+===============================+
-            | (sentence_A, sentence_B) pairs          | similarity score            | 1                             |
+            | (input_A, input_B) pairs                | similarity score            | 1                             |
             +-----------------------------------------+-----------------------------+-------------------------------+
 
         Relations:
@@ -95,7 +95,7 @@ class MSELoss(nn.Module):
 
         pairs = list(zip(inputs[0], inputs[1]))
         inputs = self.model.preprocess(pairs, prompt=prompt, task=task)
-        inputs = inputs.to(self.model.device)
+        inputs = batch_to_device(inputs, self.model.device)
         logits = self.model(inputs)["scores"].view(-1)
         logits = self.activation_fn(logits)
         loss = self.loss_fct(logits, labels.float())

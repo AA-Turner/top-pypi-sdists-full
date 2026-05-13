@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-reversion
-Version: 6.1.0
+Version: 6.2.0
 Summary: An extension to the Django web framework that provides version control for model instances.
 Home-page: https://github.com/etianen/django-reversion
 Author: Dave Hall
@@ -17,7 +17,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Django
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Requires-Python: >=3.9
 License-File: LICENSE
 Requires-Dist: django>=4.2

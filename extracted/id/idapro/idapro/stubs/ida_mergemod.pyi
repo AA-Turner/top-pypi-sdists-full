@@ -1,4 +1,4 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Merge functionality for modules.
 
@@ -31,8 +31,8 @@ A module can use the create_std_modmerge_handlers() function to create necessary
 helper - a helper class responsible for access to the internal module data for the sources #1-4. It can be used to prepare a pointer to the internal module structure and load/save data before/after merging (example: plugins/mex2). Im most cases the default helper class moddata_diff_helper_t can be used. merge_node_info - array of descriptions for the source #5. Note that the same module node is used for all array elements. If you need this kind of mergers for other netnodes, you should add them manually using the create_nodeval_merge_handler() function (example: plugins/mex3)
 See also module/mergecmn.cpp for procmod-specific functions and macros.
 Glossary:
-modmerger = module merger moddata = module data moddata_id = module data id 
-    
+modmerger = module merger moddata = module data moddata_id = module data id
+
 """
 
 def create_std_modmerge_handlers(mhp: merge_handler_params_t, helper: moddata_diff_helper_t, merge_node_info: merge_node_info2_t = None) -> None:
@@ -42,6 +42,6 @@ def create_std_modmerge_handlers(mhp: merge_handler_params_t, helper: moddata_di
     ...
 
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ida_idaapi: module
 weakref: module

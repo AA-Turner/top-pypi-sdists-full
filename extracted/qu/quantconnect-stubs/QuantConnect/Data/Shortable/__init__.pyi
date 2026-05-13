@@ -61,7 +61,7 @@ class LocalDiskShortableProvider(System.Object, QuantConnect.Interfaces.IShortab
     The data provider instance to use
     
     
-    This codeEntityType is protected.
+    This Field is protected.
     """
 
     @property
@@ -70,7 +70,7 @@ class LocalDiskShortableProvider(System.Object, QuantConnect.Interfaces.IShortab
         The short availability provider
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 

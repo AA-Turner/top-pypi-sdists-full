@@ -20,7 +20,7 @@ def test_state_transition_and_stale_detection() -> None:
     assert state.phase == AutoPhase.INTERVIEW
     assert state.last_progress_message == "starting interview"
 
-    future = datetime.fromisoformat(state.last_progress_at) + timedelta(seconds=121)
+    future = datetime.fromisoformat(state.last_progress_at) + timedelta(seconds=601)
     assert state.is_stale(future)
 
 
@@ -71,7 +71,7 @@ def test_phase_timeout_seconds_falls_back_to_canonical_default() -> None:
     state.timeout_seconds_by_phase.pop(AutoPhase.INTERVIEW.value)
 
     expected = float(DEFAULT_TIMEOUT_SECONDS_BY_PHASE[AutoPhase.INTERVIEW.value])
-    assert expected == 120.0
+    assert expected == 600.0
     assert state.phase_timeout_seconds(AutoPhase.INTERVIEW) == expected
 
 
@@ -160,6 +160,41 @@ def test_store_load_wraps_malformed_container_and_counter_fields(tmp_path) -> No
         data[field_name] = value
         path.write_text(__import__("json").dumps(data), encoding="utf-8")
 
+        with pytest.raises(ValueError, match="Auto session state is invalid"):
+            store.load(state.auto_session_id)
+
+
+def test_store_load_rejects_malformed_recovery_loop_fields(tmp_path) -> None:
+    """RFC #809 Phase 2.2b — the four durable recovery-loop fields
+    (``evaluate_round``, ``failure_fingerprints``, ``personas_invoked``,
+    ``recovery_guard_tripped``) must fail at load time when malformed,
+    not crash later inside ``_run_evaluate`` / ``_run_lateral``."""
+    store = AutoStore(tmp_path)
+    state = AutoPipelineState(goal="Build a CLI", cwd="/tmp/project")
+    path = store.path_for(state.auto_session_id)
+
+    malformed_cases = (
+        # evaluate_round must be a non-negative int (not a string, not bool,
+        # not negative)
+        ("evaluate_round", "3"),
+        ("evaluate_round", True),
+        ("evaluate_round", -1),
+        # failure_fingerprints must be a list of non-empty strings
+        ("failure_fingerprints", "abc"),
+        ("failure_fingerprints", [123]),
+        ("failure_fingerprints", [""]),
+        # personas_invoked entries must come from the ThinkingPersona allowlist
+        ("personas_invoked", "hacker"),  # not a list
+        ("personas_invoked", ["bogus_persona"]),
+        ("personas_invoked", [None]),
+        # recovery_guard_tripped must be one of the three tags or null
+        ("recovery_guard_tripped", "made_up_tag"),
+        ("recovery_guard_tripped", 42),
+    )
+    for field_name, value in malformed_cases:
+        data = state.to_dict()
+        data[field_name] = value
+        path.write_text(__import__("json").dumps(data), encoding="utf-8")
         with pytest.raises(ValueError, match="Auto session state is invalid"):
             store.load(state.auto_session_id)
 
@@ -282,6 +317,32 @@ def test_store_load_rejects_truncated_state_without_default_backfill(tmp_path) -
         store.load(state.auto_session_id)
 
 
+def test_legacy_state_without_active_domain_profile_loads(tmp_path) -> None:
+    store = AutoStore(tmp_path)
+    state = AutoPipelineState(goal="Build a CLI", cwd="/tmp/project")
+    data = state.to_dict()
+    data.pop("active_domain_profile_name")
+    path = store.path_for(state.auto_session_id)
+    path.write_text(__import__("json").dumps(data), encoding="utf-8")
+
+    loaded = store.load(state.auto_session_id)
+
+    assert loaded.active_domain_profile_name is None
+
+
+def test_store_load_accepts_non_empty_active_domain_profile_name(tmp_path) -> None:
+    store = AutoStore(tmp_path)
+    state = AutoPipelineState(goal="Build a CLI", cwd="/tmp/project")
+    data = state.to_dict()
+    data["active_domain_profile_name"] = "research"
+    path = store.path_for(state.auto_session_id)
+    path.write_text(__import__("json").dumps(data), encoding="utf-8")
+
+    loaded = store.load(state.auto_session_id)
+
+    assert loaded.active_domain_profile_name == "research"
+
+
 def test_store_load_rejects_session_id_mismatch(tmp_path) -> None:
     store = AutoStore(tmp_path)
     state = AutoPipelineState(goal="Build a CLI", cwd="/tmp/project")
@@ -315,7 +376,11 @@ def test_store_load_rejects_malformed_optional_strings(tmp_path) -> None:
         ("seed_path", {"path": "seed.json"}),
         ("seed_id", ""),
         ("execution_id", []),
+        ("ralph_opencode_mode", []),
         ("last_progress_message", []),
+        ("active_domain_profile_name", ""),
+        ("active_domain_profile_name", "   "),
+        ("active_domain_profile_name", {"name": "coding"}),
     ):
         data = state.to_dict()
         data[field_name] = value
@@ -661,3 +726,32 @@ def test_resume_capability_failed_mirrors_blocked() -> None:
     assert state.phase is AutoPhase.FAILED
     assert state.interview_session_id is None
     assert state.resume_capability() is AutoResumeCapability.RETRY
+
+
+def test_phase_timeout_env_override_applied(monkeypatch: pytest.MonkeyPatch) -> None:
+    """OUROBOROS_PHASE_TIMEOUT_<PHASE>_SECONDS overrides the default at import."""
+    from ouroboros.auto import state as state_module
+
+    monkeypatch.setenv("OUROBOROS_PHASE_TIMEOUT_INTERVIEW_SECONDS", "900")
+    monkeypatch.setenv("OUROBOROS_PHASE_TIMEOUT_RUN_SECONDS", "0")  # invalid -> ignored
+    monkeypatch.setenv("OUROBOROS_PHASE_TIMEOUT_REVIEW_SECONDS", "garbage")  # invalid
+
+    merged = state_module._apply_phase_timeout_env_overrides(
+        {
+            AutoPhase.INTERVIEW.value: 600,
+            AutoPhase.RUN.value: 60,
+            AutoPhase.REVIEW.value: 90,
+        }
+    )
+
+    assert merged[AutoPhase.INTERVIEW.value] == 900
+    assert merged[AutoPhase.RUN.value] == 60  # invalid override silently ignored
+    assert merged[AutoPhase.REVIEW.value] == 90  # invalid override silently ignored
+
+
+def test_state_rejects_malformed_recovery_plan() -> None:
+    state = AutoPipelineState(goal="Build a CLI", cwd="/tmp")
+    data = state.to_dict()
+    data["last_recovery_plan"] = {"action": "ralph_redispatch", "safe_to_redispatch": False}
+    with pytest.raises(ValueError, match="last_recovery_plan"):
+        AutoPipelineState.from_dict(data)

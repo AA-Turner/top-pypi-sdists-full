@@ -77,7 +77,7 @@ class BaseVolatilityModel(System.Object, QuantConnect.Securities.IVolatilityMode
         """
         Provides access to registered SubscriptionDataConfig
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 

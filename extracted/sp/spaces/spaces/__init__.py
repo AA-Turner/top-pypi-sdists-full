@@ -50,9 +50,29 @@ def _aoti_compile():
     from .zero.torch.aoti import aoti_compile
     return aoti_compile
 
+def _aoti_compile_and_save(): # pragma: no cover
+    from .zero.torch.aoti import aoti_compile_and_save
+    return aoti_compile_and_save
+
 def _aoti_apply():
     from .zero.torch.aoti import aoti_apply
     return aoti_apply
+
+def _aoti_patch(): # pragma: no cover
+    from .zero.torch.aoti import aoti_patch
+    return aoti_patch
+
+def _aoti_load(): # pragma: no cover
+    from .zero.torch.aoti import aoti_load
+    return aoti_load
+
+def _aoti_load_call_source(): # pragma: no cover
+    from .zero.torch.aoti import aoti_load_call_source
+    return aoti_load_call_source
+
+def _aoti_load_from_package_dir(): # pragma: no cover
+    from .zero.torch.aoti import aoti_load_from_package_dir
+    return aoti_load_from_package_dir
 
 def _aoti_blocks_load():
     from .zero.torch.aoti import aoti_blocks_load
@@ -61,14 +81,24 @@ def _aoti_blocks_load():
 
 aoti_capture = LazyImported(_aoti_capture)
 aoti_compile = LazyImported(_aoti_compile)
+aoti_compile_and_save = LazyImported(_aoti_compile_and_save)
 aoti_apply = LazyImported(_aoti_apply)
+aoti_patch = LazyImported(_aoti_patch)
+aoti_load = LazyImported(_aoti_load)
+aoti_load_call_source = LazyImported(_aoti_load_call_source)
+aoti_load_from_package_dir = LazyImported(_aoti_load_from_package_dir)
 aoti_blocks_load = LazyImported(_aoti_blocks_load)
 
 
 if TYPE_CHECKING:
     from .zero.torch.aoti import aoti_capture
     from .zero.torch.aoti import aoti_compile
+    from .zero.torch.aoti import aoti_compile_and_save
     from .zero.torch.aoti import aoti_apply
+    from .zero.torch.aoti import aoti_patch
+    from .zero.torch.aoti import aoti_load
+    from .zero.torch.aoti import aoti_load_call_source
+    from .zero.torch.aoti import aoti_load_from_package_dir
     from .zero.torch.aoti import aoti_blocks_load
 
 
@@ -79,6 +109,11 @@ __all__ = [
     'enable_gradio_auto_wrap',
     'aoti_capture',
     'aoti_compile',
+    'aoti_compile_and_save',
     'aoti_apply',
+    'aoti_patch',
+    'aoti_load',
+    'aoti_load_call_source',
+    'aoti_load_from_package_dir',
     'aoti_blocks_load',
 ]

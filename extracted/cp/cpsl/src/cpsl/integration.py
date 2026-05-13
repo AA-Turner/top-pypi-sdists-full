@@ -1,10 +1,12 @@
 """Integration declarations for Capsule apps.
 
 Integrations are user-facing connections declared at the app level via
-``app.add_integration()``. Two modes:
+``app.add_integration()``. Three modes:
 
 - **OAuth** (``gmail``, ``github``, …): user completes an OAuth redirect.
 - **Secret** (``tailscale``, ``aws``, …): user submits credentials via a form.
+- **Pipedream**: user connects any supported Pipedream app; Capsule stores the
+  Pipedream account reference and app code uses its own client.
 
 At runtime, credentials are available on ``session.integrations``. For
 scheduled handlers and background tasks without an explicit session
@@ -47,6 +49,7 @@ KNOWN_SECRET_INTEGRATIONS: dict[str, list[str]] = {
 
 MODE_OAUTH = "oauth"
 MODE_SECRET = "secret"
+MODE_PIPEDREAM = "pipedream"
 
 
 class Integration(str, Enum):
@@ -82,6 +85,7 @@ class IntegrationConfig:
     For OAuth integrations supply ``client_id`` / ``client_secret``.
     For secret-based integrations (Tailscale, AWS, or custom) just pass the
     type name — fields are inferred — or supply ``fields`` explicitly.
+    For Pipedream-backed integrations use :func:`Pipedream`.
     """
 
     type: str | Integration
@@ -225,6 +229,50 @@ def Tailscale() -> IntegrationConfig:
 
 def AWS() -> IntegrationConfig:
     return IntegrationConfig(type=Integration.AWS, mode=MODE_SECRET)
+
+
+def Pipedream(
+    app_slug: str,
+    *,
+    client_id: Union[str, Secret] = "",
+    client_secret: Union[str, Secret] = "",
+    project_id: Union[str, Secret] = "",
+    environment: str = "development",
+    api_base_url: str = "",
+) -> IntegrationConfig:
+    """Declare a Pipedream-managed account connection.
+
+    ``app_slug`` must match Pipedream's app ``name_slug`` (for example
+    ``gmail``, ``slack``, or ``google_sheets``). Capsule handles the end-user
+    Connect flow and exposes Pipedream account metadata at runtime via
+    ``session.integrations[app_slug].fields``.
+
+    By default Capsule can use platform-managed Pipedream credentials. To bring
+    your own Pipedream project, pass ``client_id``, ``client_secret``, and
+    ``project_id`` as workspace secrets.
+    """
+    if not app_slug or not str(app_slug).strip():
+        raise ValueError("Pipedream app slug must not be empty")
+    has_byo = bool(client_id or client_secret or project_id)
+    if has_byo and not (client_id and client_secret and project_id):
+        raise ValueError(
+            "Pipedream BYO config requires client_id, client_secret, and project_id"
+        )
+    fields: list[str] = []
+    if project_id:
+        project_secret = project_id._name if isinstance(project_id, Secret) else str(project_id)
+        fields.append(f"project_id_secret:{project_secret}")
+    if environment:
+        fields.append(f"environment:{environment}")
+    if api_base_url:
+        fields.append(f"api_base_url:{api_base_url}")
+    return IntegrationConfig(
+        type=str(app_slug).strip(),
+        client_id=client_id,
+        client_secret=client_secret,
+        fields=fields,
+        mode=MODE_PIPEDREAM,
+    )
 
 
 @dataclass

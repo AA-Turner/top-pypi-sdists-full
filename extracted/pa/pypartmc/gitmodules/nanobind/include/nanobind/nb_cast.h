@@ -252,6 +252,7 @@ template <typename T> struct none_caster {
 };
 
 template <> struct type_caster<std::nullptr_t> : none_caster<std::nullptr_t> { };
+template <> struct has_arg_defaults<std::nullptr_t> : std::true_type {};
 
 template <> struct type_caster<bool> {
     bool from_python(handle src, uint8_t, cleanup_list *) noexcept {

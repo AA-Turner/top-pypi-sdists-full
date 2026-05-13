@@ -56,24 +56,22 @@ static void* win_dlsym(const char* symbol) {
 // #include "printf.h"
 const int NEWLINE_TRIGGER_LENGTH = 98820;
 
-static bool last_profiled_invalidated = false;
+static std::atomic<bool> last_profiled_invalidated{false};
 
-// sys.monitoring support for Python 3.13+
-#if PY_VERSION_HEX >= 0x030D0000
+// sys.monitoring support for Python 3.12+
+#if PY_VERSION_HEX >= 0x030C0000
 // Tool ID for sys.monitoring (PROFILER_ID = 2)
 static const int SCALENE_TOOL_ID = 2;
 
 // Whether sys.monitoring tracing is currently active
-static bool sysmon_tracing_active = false;
+static std::atomic<bool> sysmon_tracing_active{false};
 
-// Call depth tracking to avoid on_stack check
-// When we enable tracing, we record the call depth
-// When we see a LINE event at the same or lower depth, we know we've moved to a new line
-static int sysmon_initial_call_depth = 0;
-static int sysmon_current_call_depth = 0;
+// Call depth tracking — per-thread since each thread has its own call stack
+static thread_local int sysmon_initial_call_depth = 0;
+static thread_local int sysmon_current_call_depth = 0;
 
-// Cached sys.monitoring.DISABLE constant
-static PyObject* sysmon_DISABLE = nullptr;
+// Cached sys.monitoring.DISABLE constant (set once, read many)
+static std::atomic<PyObject*> sysmon_DISABLE{nullptr};
 #endif
 // An RAII class to simplify acquiring and releasing the GIL.
 class GIL {
@@ -130,26 +128,6 @@ typedef struct _frame {
 typedef PyFrameObject PyFrameType;
 #endif
 
-static PyPtr<PyFrameObject> findMainPythonThread_frame() {
-  PyThreadState* main = nullptr;
-
-  PyThreadState* t = PyInterpreterState_ThreadHead(PyInterpreterState_Main());
-  for (; t != nullptr; t = PyThreadState_Next(t)) {
-    // Recognize the main thread as the one with the smallest ID.
-    // In Juan's experiments, it's the last thread on the list and has id 1.
-    //
-    // FIXME this could be brittle...  another way would be to use
-    // _PyRuntime.main_thread (a native thread ID) and compare it to
-    // PyThreadState.thread_id, with the caveats that main_thread, etc.
-    // might go away or change, and thread_id is initialized with the
-    // native thread ID of whichever thread creates that PyThreadState.
-    if (main == nullptr || main->id > t->id) {
-      main = t;
-    }
-  }
-
-  return PyPtr<PyFrameObject>(main ? PyThreadState_GetFrame(main) : nullptr);
-}
 // I'm not sure whether last_profiled_invalidated is quite needed, so I'm
 // leaving this infrastructure here
 //
@@ -171,34 +149,52 @@ PyObject* set_last_profiled_invalidated_false(PyObject* self, PyObject* args) {
 }
 
 PyObject* set_scalene_done_true(PyObject* self, PyObject* args) {
+  // Resolve p_scalene_done from the preloaded libscalene. The symbol is
+  // only present on runs that preloaded the allocator interposer (i.e.
+  // memory profiling). When it's absent (CPU-only / platforms without
+  // libscalene) there is nothing to gate, so return successfully rather
+  // than raising — this lets callers safely invoke set_scalene_done_true
+  // during shutdown regardless of the profiling mode.
   auto scalene_done = (std::atomic_bool*)dlsym(RTLD_DEFAULT, "p_scalene_done");
-  if (scalene_done == nullptr) {
-    PyErr_SetString(PyExc_Exception, "Unable to find p_scalene_done");
-    return NULL;
+  if (scalene_done != nullptr) {
+    *scalene_done = true;
   }
-  *scalene_done = true;
   Py_RETURN_NONE;
 }
 PyObject* set_scalene_done_false(PyObject* self, PyObject* args) {
+  // Symmetric to set_scalene_done_true. When the interposer isn't
+  // loaded, nothing is tracking allocations and there is nothing to
+  // un-gate; silently succeed.
   auto scalene_done = (std::atomic_bool*)dlsym(RTLD_DEFAULT, "p_scalene_done");
-  if (scalene_done == nullptr) {
-    PyErr_SetString(PyExc_Exception, "Unable to find p_whereInPython");
-    return NULL;
+  if (scalene_done != nullptr) {
+    *scalene_done = false;
   }
-  *scalene_done = false;
   Py_RETURN_NONE;
 }
 
-int whereInPython(std::string& filename, int& lineno, int& bytei) {
+// Core stack-walk used by both whereInPython and whereInPythonWithStack.
+// If ``stack_buf`` is non-null and ``stack_buf_size`` > 0, every traced
+// frame encountered (leaf-first) is appended to the buffer as the
+// substring "|<filename>;<lineno>". No dynamic allocation is performed
+// inside the stack-writing path — the caller owns the buffer. This is
+// deliberate: this function runs inside ``process_malloc`` on the
+// allocator hot path, so any heap traffic here would either recurse
+// through libscalene's interposer or become a visible artifact in the
+// recorded profile.
+//
+// ``stack_bytes_written`` is updated to reflect the total bytes appended
+// (never greater than ``stack_buf_size`` — truncation is silent). The
+// returned triple (filename/lineno/bytei) always refers to the innermost
+// traced frame found, matching whereInPython's historical contract.
+static int whereInPythonImpl(std::string& filename, int& lineno, int& bytei,
+                             char* stack_buf, size_t stack_buf_size,
+                             size_t* stack_bytes_written) {
+  if (stack_bytes_written != nullptr) {
+    *stack_bytes_written = 0;
+  }
   if (!Py_IsInitialized()) {  // No python, no python stack.
     return 0;
   }
-  // This function walks the Python stack until it finds a frame
-  // corresponding to a file we are actually profiling. On success,
-  // it updates filename, lineno, and byte code index appropriately,
-  // and returns 1.  If the stack walk encounters no such file, it
-  // sets the filename to the pseudo-filename "<BOGUS>" for special
-  // treatment within Scalene, and returns 0.
   filename = "<BOGUS>";
   lineno = 1;
   bytei = 0;
@@ -209,9 +205,11 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
       threadState ? PyThreadState_GetFrame(threadState) : nullptr;
 
   if (static_cast<PyFrameObject*>(frame) == nullptr) {
-    // Various packages may create native threads; attribute what they do
-    // to what the main thread is doing, as it's likely to have requested it.
-    frame = findMainPythonThread_frame();  // note this may be nullptr
+    // Native thread with no live Python frame — see whereInPython comment.
+    filename = "<native>";
+    lineno = 0;
+    bytei = 0;
+    return 1;
   }
 
   auto traceConfig = TraceConfig::getInstance();
@@ -219,6 +217,9 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
     return 0;
   }
 
+  bool found_leaf = false;
+  size_t written = 0;
+  const bool want_stack = (stack_buf != nullptr && stack_buf_size > 0);
   while (static_cast<PyFrameObject*>(frame) != nullptr) {
     PyPtr<PyCodeObject> code =
         PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
@@ -226,32 +227,74 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
         PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename);
 
     if (!(static_cast<PyObject*>(co_filename))) {
-      return 0;
+      if (stack_bytes_written != nullptr) *stack_bytes_written = written;
+      return found_leaf ? 1 : 0;
     }
 
     auto filenameStr = PyBytes_AsString(static_cast<PyObject*>(co_filename));
-    if (filenameStr == NULL || strlen(filenameStr) == 0) {
-      continue;
-    }
-
-    if (traceConfig->should_trace(filenameStr)) {
+    if (filenameStr != NULL && strlen(filenameStr) > 0 &&
+        traceConfig->should_trace(filenameStr)) {
+      int this_lineno = PyFrame_GetLineNumber(static_cast<PyFrameObject*>(frame));
+      if (!found_leaf) {
 #if defined(PyPy_FatalError)
-      // If this macro is defined, we are compiling PyPy, which
-      // AFAICT does not have any way to access bytecode index, so
-      // we punt and set it to 0.
-      bytei = 0;
+        bytei = 0;
 #else
-      bytei = PyFrame_GetLasti(static_cast<PyFrameObject*>(frame));
+        bytei = PyFrame_GetLasti(static_cast<PyFrameObject*>(frame));
 #endif
-      lineno = PyFrame_GetLineNumber(static_cast<PyFrameObject*>(frame));
-
-      filename = filenameStr;
-      return 1;
+        lineno = this_lineno;
+        filename = filenameStr;
+        found_leaf = true;
+        // When caller only wants the leaf (no stack buffer), stop here to
+        // preserve whereInPython's historical cost.
+        if (!want_stack) {
+          return 1;
+        }
+      }
+      if (want_stack && written < stack_buf_size) {
+        // Append "|<filename>;<lineno>" into the caller buffer. Use
+        // snprintf into the remaining slice; on truncation, stop adding
+        // further frames — the frames that made it in are still valid.
+        size_t remaining = stack_buf_size - written;
+        int n = snprintf(stack_buf + written, remaining, "|%s;%d",
+                         filenameStr, this_lineno);
+        if (n <= 0 || (size_t)n >= remaining) {
+          // Truncated — roll back the partial write and stop.
+          stack_buf[written] = '\0';
+          break;
+        }
+        written += (size_t)n;
+      }
     }
 
     frame = PyFrame_GetBack(static_cast<PyFrameObject*>(frame));
   }
-  return 0;
+  if (stack_bytes_written != nullptr) *stack_bytes_written = written;
+  return found_leaf ? 1 : 0;
+}
+
+int whereInPython(std::string& filename, int& lineno, int& bytei) {
+  return whereInPythonImpl(filename, lineno, bytei, nullptr, 0, nullptr);
+}
+
+int whereInPythonWithStack(std::string& filename, int& lineno, int& bytei,
+                           char* stack_buf, size_t stack_buf_size,
+                           size_t* stack_bytes_written) {
+  // NOTE: An earlier version of this function also published the
+  // synchronously-captured leaf into Scalene.__last_profiled so that
+  // per-line malloc counts (the n_mallocs field / memory timeline
+  // sparkline) would credit the true allocator line rather than whichever
+  // frame the async Python signal handler happened to see. That publish
+  // path turned out to be unsafe on Python 3.13 under Linux (observed as
+  // SIGSEGV in the decorator smoketest): the sys.monitoring LINE callback
+  // and the per-line update path can hold borrowed references to the slots
+  // we were about to overwrite via PyList_SetItem. Rather than fight the
+  // lifetimes, we keep the stack buffer populated (memory-stacks view
+  // remains accurate) and let the existing async-handler-driven Python
+  // logic continue to maintain __last_profiled. Per-line malloc attribution
+  // (bytes) still works correctly because it keys off the sample record's
+  // own (filename, lineno), which whereInPython stamps synchronously.
+  return whereInPythonImpl(filename, lineno, bytei, stack_buf, stack_buf_size,
+                           stack_bytes_written);
 }
 
 // Collect frames from all threads for CPU profiling.
@@ -333,14 +376,21 @@ static PyObject* setup_trace_config(PyObject* self, PyObject* args) {
   PyObject* a_list;
   PyObject* base_path;
   int profile_all;
-  if (!PyArg_ParseTuple(args, "OOp", &a_list, &base_path, &profile_all))
+  PyObject* scalene_pkg_path = nullptr;
+  // Optional 4th arg: canonical path to the scalene package directory, used
+  // by TraceConfig::should_trace to recognize Scalene-internal frames via
+  // an absolute-path prefix match. Callers that don't pass it fall back to
+  // the legacy "immediate parent directory named scalene" heuristic alone.
+  if (!PyArg_ParseTuple(args, "OOp|O", &a_list, &base_path, &profile_all,
+                        &scalene_pkg_path))
     return NULL;
   auto is_list = PyList_Check(a_list);
   if (!is_list) {
     PyErr_SetString(PyExc_Exception, "Requires list or list-like object");
     return NULL;
   }
-  TraceConfig::setInstance(new TraceConfig(a_list, base_path, profile_all));
+  TraceConfig::setInstance(
+      new TraceConfig(a_list, base_path, profile_all, scalene_pkg_path));
   Py_RETURN_NONE;
 }
 
@@ -348,14 +398,17 @@ static PyObject* register_files_to_profile(PyObject* self, PyObject* args) {
   PyObject* a_list;
   PyObject* base_path;
   int profile_all;
-  if (!PyArg_ParseTuple(args, "OOp", &a_list, &base_path, &profile_all))
+  PyObject* scalene_pkg_path = nullptr;
+  if (!PyArg_ParseTuple(args, "OOp|O", &a_list, &base_path, &profile_all,
+                        &scalene_pkg_path))
     return NULL;
   auto is_list = PyList_Check(a_list);
   if (!is_list) {
     PyErr_SetString(PyExc_Exception, "Requires list or list-like object");
     return NULL;
   }
-  TraceConfig::setInstance(new TraceConfig(a_list, base_path, profile_all));
+  TraceConfig::setInstance(
+      new TraceConfig(a_list, base_path, profile_all, scalene_pkg_path));
 
   auto p_where =
       (decltype(p_whereInPython)*)dlsym(RTLD_DEFAULT, "p_whereInPython");
@@ -364,6 +417,17 @@ static PyObject* register_files_to_profile(PyObject* self, PyObject* args) {
     return NULL;
   }
   *p_where = whereInPython;
+
+  // Also publish the stack-capturing variant so the native sampler can walk
+  // the Python stack synchronously at allocation time. Absence is
+  // non-fatal: older libscalene builds won't have this symbol, and the
+  // sampler simply falls back to the leaf-only path.
+  auto p_where_stack =
+      (decltype(p_whereInPythonWithStack)*)dlsym(RTLD_DEFAULT,
+                                                 "p_whereInPythonWithStack");
+  if (p_where_stack != nullptr) {
+    *p_where_stack = whereInPythonWithStack;
+  }
 
   Py_RETURN_NONE;
 }
@@ -387,6 +451,7 @@ typedef struct {
 } unchanging_modules;
 
 static unchanging_modules module_pointers;
+static std::atomic<bool> module_pointers_ready{false};
 
 static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
   while (frame != NULL) {
@@ -413,8 +478,8 @@ static void allocate_newline() {
   PyPtr<> tmp(PyByteArray_FromObject(static_cast<PyObject*>(abc)));
 }
 
-// sys.monitoring implementation for Python 3.13+
-#if PY_VERSION_HEX >= 0x030D0000
+// sys.monitoring implementation for Python 3.12+
+#if PY_VERSION_HEX >= 0x030C0000
 
 // Get current call depth by walking the stack
 static int get_call_depth() {
@@ -433,6 +498,10 @@ static int get_call_depth() {
 // Finalize the current line for sys.monitoring
 static void sysmon_finalize_line() {
   sysmon_tracing_active = false;
+
+  if (!module_pointers_ready.load(std::memory_order_acquire)) {
+    return;
+  }
 
   // Get the last profiled location
   PyObject* last_fname = PyList_GetItem(module_pointers.scalene_last_profiled, 0);
@@ -492,7 +561,7 @@ static void sysmon_finalize_line() {
 
 // Initialize the cached DISABLE constant
 static void ensure_sysmon_disable_cached() {
-  if (sysmon_DISABLE != nullptr) {
+  if (sysmon_DISABLE.load(std::memory_order_acquire) != nullptr) {
     return;
   }
   PyObject* sys_module = PyImport_ImportModule("sys");
@@ -500,7 +569,9 @@ static void ensure_sysmon_disable_cached() {
   PyObject* monitoring = PyObject_GetAttrString(sys_module, "monitoring");
   Py_DECREF(sys_module);
   if (!monitoring) return;
-  sysmon_DISABLE = PyObject_GetAttrString(monitoring, "DISABLE");
+  sysmon_DISABLE.store(
+      PyObject_GetAttrString(monitoring, "DISABLE"),
+      std::memory_order_release);
   Py_DECREF(monitoring);
   // Keep a reference to DISABLE for the lifetime of the module
 }
@@ -522,8 +593,13 @@ static PyObject* sysmon_line_callback(PyObject* self, PyObject* args) {
   }
 
   if (!sysmon_tracing_active) {
-    Py_INCREF(sysmon_DISABLE);
-    return sysmon_DISABLE;
+    Py_INCREF(sysmon_DISABLE.load());
+    return sysmon_DISABLE.load();
+  }
+
+  if (!module_pointers_ready.load(std::memory_order_acquire)) {
+    Py_INCREF(sysmon_DISABLE.load());
+    return sysmon_DISABLE.load();
   }
 
   // Get the last profiled location
@@ -531,8 +607,8 @@ static PyObject* sysmon_line_callback(PyObject* self, PyObject* args) {
   PyObject* last_lineno_obj = PyList_GetItem(module_pointers.scalene_last_profiled, 1);
 
   if (last_fname == nullptr || last_lineno_obj == nullptr) {
-    Py_INCREF(sysmon_DISABLE);
-    return sysmon_DISABLE;
+    Py_INCREF(sysmon_DISABLE.load());
+    return sysmon_DISABLE.load();
   }
 
   long last_lineno = PyLong_AsLong(last_lineno_obj);
@@ -561,8 +637,8 @@ static PyObject* sysmon_line_callback(PyObject* self, PyObject* args) {
   // We've moved to a genuinely different line - finalize the previous line
   sysmon_finalize_line();
 
-  Py_INCREF(sysmon_DISABLE);
-  return sysmon_DISABLE;
+  Py_INCREF(sysmon_DISABLE.load());
+  return sysmon_DISABLE.load();
 }
 
 // CALL event callback for sys.monitoring - tracks call depth
@@ -751,7 +827,7 @@ static PyObject* setup_sysmon(PyObject* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
-// Check if sys.monitoring is available (Python 3.13+)
+// Check if sys.monitoring is available (Python 3.12+)
 static PyObject* sysmon_available(PyObject* self, PyObject* args) {
   Py_RETURN_TRUE;
 }
@@ -770,20 +846,20 @@ static PyObject* is_sysmon_active(PyObject* self, PyObject* args) {
 }
 
 #else
-// Stubs for Python < 3.13
+// Stubs for Python < 3.12
 
 static PyObject* enable_sysmon(PyObject* self, PyObject* args) {
-  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.13+");
+  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.12+");
   return nullptr;
 }
 
 static PyObject* disable_sysmon(PyObject* self, PyObject* args) {
-  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.13+");
+  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.12+");
   return nullptr;
 }
 
 static PyObject* setup_sysmon(PyObject* self, PyObject* args) {
-  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.13+");
+  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.12+");
   return nullptr;
 }
 
@@ -800,11 +876,11 @@ static PyObject* is_sysmon_active(PyObject* self, PyObject* args) {
 }
 
 static PyObject* sysmon_line_callback(PyObject* self, PyObject* args) {
-  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.13+");
+  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.12+");
   return nullptr;
 }
 
-#endif  // PY_VERSION_HEX >= 0x030D0000
+#endif  // PY_VERSION_HEX >= 0x030C0000
 
 static int trace_func(PyObject* obj, PyFrameObject* frame, int what,
                       PyObject* arg) {
@@ -898,6 +974,15 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what,
 }
 
 static PyObject* populate_struct(PyObject* self, PyObject* args) {
+  // Re-install Scalene's allocator wrappers in case Py_Initialize reset them.
+  // This is needed on free-threaded Python where the runtime reinitializes
+  // allocators to mimalloc during startup, overwriting our LD_PRELOAD setup.
+  {
+    typedef void (*reinstall_fn)();
+    auto fn = (reinstall_fn)dlsym(RTLD_DEFAULT, "scalene_reinstall_local_allocators");
+    if (fn) fn();
+  }
+
   PyObject* scalene_module(
       PyImport_GetModule(PyUnicode_FromString("scalene")));  // New reference
   PyObject* scalene_dict(
@@ -925,10 +1010,12 @@ static PyObject* populate_struct(PyObject* self, PyObject* args) {
                      invalidate_queue,
                      nada,
                      zero};
+  module_pointers_ready.store(true, std::memory_order_release);
   Py_RETURN_NONE;
 }
 
 static PyObject* depopulate_struct(PyObject* self, PyObject* args) {
+  module_pointers_ready.store(false, std::memory_order_release);
   auto m = module_pointers;
   Py_DECREF(m.scalene_module);
   Py_DECREF(m.scalene_dict);
@@ -985,7 +1072,7 @@ static PyMethodDef EmbMethods[] = {
      METH_NOARGS, ""},
     {"set_scalene_done_true", set_scalene_done_true, METH_NOARGS, ""},
     {"set_scalene_done_false", set_scalene_done_false, METH_NOARGS, ""},
-    // sys.monitoring support (Python 3.13+)
+    // sys.monitoring support (Python 3.12+)
     {"enable_sysmon", enable_sysmon, METH_NOARGS,
      "Enable sys.monitoring line tracing"},
     {"disable_sysmon", disable_sysmon, METH_NOARGS,
@@ -993,7 +1080,7 @@ static PyMethodDef EmbMethods[] = {
     {"setup_sysmon", setup_sysmon, METH_VARARGS,
      "Set up sys.monitoring with a line callback"},
     {"sysmon_available", sysmon_available, METH_NOARGS,
-     "Check if sys.monitoring C API is available (Python 3.13+)"},
+     "Check if sys.monitoring C API is available (Python 3.12+)"},
     {"get_sysmon_tool_id", get_sysmon_tool_id, METH_NOARGS,
      "Get the sys.monitoring tool ID used by scalene"},
     {"is_sysmon_active", is_sysmon_active, METH_NOARGS,
@@ -1013,4 +1100,12 @@ static PyModuleDef EmbedModule = {PyModuleDef_HEAD_INIT,
                                   NULL,
                                   NULL};
 
-PyMODINIT_FUNC PyInit_pywhere() { return PyModule_Create(&EmbedModule); }
+PyMODINIT_FUNC PyInit_pywhere() {
+  PyObject* m = PyModule_Create(&EmbedModule);
+#ifdef Py_GIL_DISABLED
+  if (m != NULL) {
+    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
+  }
+#endif
+  return m;
+}

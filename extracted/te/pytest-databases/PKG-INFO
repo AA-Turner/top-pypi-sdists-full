@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-databases
-Version: 0.17.0
+Version: 0.18.0
 Summary: Reusable database fixtures for any and all databases.
 Project-URL: Documentation, https://github.com/litestar-org/pytest-databases#readme
 Project-URL: Issues, https://github.com/litestar-org/pytest-databases/issues
@@ -8,7 +8,7 @@ Project-URL: Source, https://github.com/litestar-org/pytest-databases
 Author-email: Cody Fincher <cody@litestar.dev>
 License-Expression: MIT
 License-File: LICENSE
-Keywords: alloydb,alloydbomni,azure,bigquery,cockroachdb,database,dragonflydb,duckdb,elasticsearch,flightsql,gizmosql,migration,mongodb,mssql,mysql,oracle,postgres,redis,spanner,valkey
+Keywords: alloydb,alloydbomni,azure,bigquery,cockroachdb,database,doltdb,dragonflydb,duckdb,elasticsearch,flightsql,gizmosql,migration,mongodb,mssql,mysql,oracle,postgres,redis,spanner,valkey
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.9
@@ -40,15 +40,10 @@ Requires-Dist: pyarrow; extra == 'gizmosql'
 Provides-Extra: keydb
 Requires-Dist: redis; extra == 'keydb'
 Provides-Extra: mariadb
-Requires-Dist: mariadb; extra == 'mariadb'
-Provides-Extra: minio
-Requires-Dist: minio; extra == 'minio'
 Provides-Extra: mongodb
 Requires-Dist: pymongo; extra == 'mongodb'
 Provides-Extra: mssql
-Requires-Dist: pymssql; extra == 'mssql'
 Provides-Extra: mysql
-Requires-Dist: mysql-connector-python; extra == 'mysql'
 Provides-Extra: oracle
 Requires-Dist: oracledb; extra == 'oracle'
 Provides-Extra: postgres
@@ -60,7 +55,6 @@ Requires-Dist: google-cloud-spanner; extra == 'spanner'
 Provides-Extra: valkey
 Requires-Dist: valkey; extra == 'valkey'
 Provides-Extra: yugabyte
-Requires-Dist: psycopg2-yugabytedb; extra == 'yugabyte'
 Description-Content-Type: text/markdown
 
 <!-- markdownlint-disable no-inline-html -->

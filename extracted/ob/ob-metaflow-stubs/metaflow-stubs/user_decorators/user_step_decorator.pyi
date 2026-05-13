@@ -1,20 +1,20 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.781799                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.012216                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import metaflow.datastore.inputs
+    import typing
     import metaflow.decorators
+    import metaflow.user_decorators.mutable_step
     import metaflow.flowspec
     import metaflow.user_decorators.user_step_decorator
-    import typing
-    import metaflow.user_decorators.mutable_step
 
 from ..exception import MetaflowException as MetaflowException
 from ..user_configs.config_parameters import resolve_delayed_evaluator as resolve_delayed_evaluator
@@ -59,7 +59,7 @@ class UserStepDecoratorMeta(type, metaclass=type):
         """
         ...
     @classmethod
-    def get_decorator_name(mcs, decorator_type: type) -> typing.Optional[str]:
+    def get_decorator_name(mcs, decorator_type: type) -> typing.Union[str, None]:
         """
         Get the minimally unique classpath name for a decorator type.
         
@@ -83,7 +83,17 @@ class UserStepDecoratorBase(object, metaclass=UserStepDecoratorMeta):
         ...
     def __call__(self, step: typing.Union[typing.Callable[["metaflow.decorators.FlowSpecDerived"], None], typing.Callable[["metaflow.decorators.FlowSpecDerived", typing.Any], None], None] = None, **kwargs) -> typing.Union[typing.Callable[["metaflow.decorators.FlowSpecDerived"], None], typing.Callable[["metaflow.decorators.FlowSpecDerived", typing.Any], None]]:
         ...
-    def add_or_raise(self, step: typing.Union[typing.Callable[["metaflow.decorators.FlowSpecDerived"], None], typing.Callable[["metaflow.decorators.FlowSpecDerived", typing.Any], None]], statically_defined: bool, duplicates: int, inserted_by: typing.Optional[str] = None):
+    def add_or_raise(self, step: typing.Union[typing.Callable[["metaflow.decorators.FlowSpecDerived"], None], typing.Callable[["metaflow.decorators.FlowSpecDerived", typing.Any], None]], statically_defined: bool, duplicates: int, inserted_by: typing.Union[str, None] = None):
+        """
+        Register this decorator on *step*.
+        
+        Returns
+        -------
+        Optional[UserStepDecoratorBase]
+            ``self`` if the decorator was registered, ``None`` if a duplicate
+            already existed and the *duplicates* policy suppressed the
+            addition (IGNORE, or ERROR on a non-statically-defined step).
+        """
         ...
     def __str__(self):
         ...
@@ -91,7 +101,7 @@ class UserStepDecoratorBase(object, metaclass=UserStepDecoratorMeta):
     def extract_args_kwargs_from_decorator_spec(cls, deco_spec: str) -> typing.Tuple[typing.List[typing.Any], typing.Dict[str, typing.Any]]:
         ...
     @classmethod
-    def parse_decorator_spec(cls, deco_spec: str) -> typing.Optional["UserStepDecoratorBase"]:
+    def parse_decorator_spec(cls, deco_spec: str) -> typing.Union["UserStepDecoratorBase", None]:
         ...
     def make_decorator_spec(self):
         ...
@@ -139,7 +149,7 @@ class UserStepDecorator(UserStepDecoratorBase, metaclass=UserStepDecoratorMeta):
         ```
         """
         ...
-    def pre_step(self, step_name: str, flow: "metaflow.flowspec.FlowSpec", inputs: typing.Optional["metaflow.datastore.inputs.Inputs"] = None) -> typing.Optional[typing.Callable[["metaflow.flowspec.FlowSpec", typing.Optional[typing.Any]], typing.Any]]:
+    def pre_step(self, step_name: str, flow: "metaflow.flowspec.FlowSpec", inputs: typing.Union["metaflow.datastore.inputs.Inputs", None] = None) -> typing.Union[typing.Callable[["metaflow.flowspec.FlowSpec", typing.Union[typing.Any, None]], typing.Any], None]:
         """
         Implement this method to perform any action prior to the execution of a step.
         
@@ -164,7 +174,7 @@ class UserStepDecorator(UserStepDecoratorBase, metaclass=UserStepDecoratorMeta):
             take an additional "inputs" argument).
         """
         ...
-    def post_step(self, step_name: str, flow: "metaflow.flowspec.FlowSpec", exception: typing.Optional[Exception] = None) -> typing.Union[Exception, None, typing.Tuple[typing.Optional[Exception], typing.Optional[typing.Dict[str, typing.Any]]]]:
+    def post_step(self, step_name: str, flow: "metaflow.flowspec.FlowSpec", exception: typing.Union[Exception, None] = None) -> typing.Union[Exception, None, typing.Tuple[typing.Union[Exception, None], typing.Union[typing.Dict[str, typing.Any], None]]]:
         """
         Implement this method to perform any action after the execution of a step.
         
@@ -341,8 +351,39 @@ class StepMutator(UserStepDecoratorBase, metaclass=UserStepDecoratorMeta):
             A representation of this step
         """
         ...
-    @classmethod
-    def __init_subclass__(cls_, **_kwargs):
+    def add_to_package(self):
+        """
+        Called to add custom files needed by this step mutator. This hook will be
+        called in the `MetaflowPackage` class where metaflow compiles the code package
+        tarball. This hook can return one of two things (the first is for backwards
+        compatibility -- move to the second):
+          - a generator yielding a tuple of `(file_path, arcname)` to add files to
+            the code package. `file_path` is the path to the file on the local filesystem
+            and `arcname` is the path relative to the packaged code.
+          - a generator yielding a tuple of `(content, arcname, type)` where:
+            - type is one of
+            ContentType.{USER_CONTENT, CODE_CONTENT, MODULE_CONTENT, OTHER_CONTENT}
+            - for USER_CONTENT:
+              - the file will be included relative to the directory containing the
+                user's flow file.
+              - content: path to the file to include
+              - arcname: path relative to the directory containing the user's flow file
+            - for CODE_CONTENT:
+              - the file will be included relative to the code directory in the package.
+                This will be the directory containing `metaflow`.
+              - content: path to the file to include
+              - arcname: path relative to the code directory in the package
+            - for MODULE_CONTENT:
+              - the module will be added to the code package as a python module. It will
+                be accessible as usual (import <module_name>)
+              - content: name of the module
+              - arcname: None (ignored)
+            - for OTHER_CONTENT:
+              - the file will be included relative to any other configuration/metadata
+                files for the flow
+              - content: path to the file to include
+              - arcname: path relative to the config directory in the package
+        """
         ...
     ...
 

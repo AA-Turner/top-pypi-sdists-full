@@ -19,6 +19,8 @@ import System
 import System.Collections.Generic
 import System.Threading
 
+QuantConnect_Orders_OrderTicket_Get_T = typing.TypeVar("QuantConnect_Orders_OrderTicket_Get_T")
+
 
 class OrderType(IntEnum):
     """Type of the order: market, limit or stop"""
@@ -517,7 +519,7 @@ class Order(System.Object, metaclass=abc.ABCMeta):
         New order constructor
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param symbol: Symbol asset we're seeking to trade
         :param quantity: Quantity of the asset we're seeking to trade
@@ -534,7 +536,7 @@ class Order(System.Object, metaclass=abc.ABCMeta):
         New order constructor
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param symbol: Symbol asset we're seeking to trade
         :param quantity: Quantity of the asset we're seeking to trade
@@ -550,7 +552,7 @@ class Order(System.Object, metaclass=abc.ABCMeta):
         Added a default constructor for JSON Deserialization:
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -575,7 +577,7 @@ class Order(System.Object, metaclass=abc.ABCMeta):
         Copies base Order properties to the specified order
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param order: The target of the copy
         """
@@ -624,7 +626,7 @@ class Order(System.Object, metaclass=abc.ABCMeta):
         cost of a single share in an option contract.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param security: The security matching this order's symbol
         """
@@ -679,7 +681,7 @@ class OptionExerciseOrder(QuantConnect.Orders.Order):
         Gets the order value in option contracts quoted in options's currency
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param security: The security matching this order's symbol
         """
@@ -957,7 +959,7 @@ class OrderRequest(System.Object, metaclass=abc.ABCMeta):
         Initializes a new instance of the OrderRequest class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param time: The time this request was created
         :param order_id: The order id this request acts on, specify zero for SubmitOrderRequest
@@ -1027,6 +1029,37 @@ class OrderField(IntEnum):
 
     TRAILING_AS_PERCENTAGE = 4
     """Whether the trailing amount for a TrailingStopOrder is a percentage or an absolute currency value (4)"""
+
+
+class _Typed_OrderTicket_Get(typing.Generic[QuantConnect_Orders_OrderTicket_Get_T]):
+    """"""
+
+    @overload
+    def __call__(self, field: QuantConnect.Orders.OrderField) -> QuantConnect_Orders_OrderTicket_Get_T:
+        """
+        Gets the specified field from the ticket and tries to convert it to the specified type
+        
+        :param field: The order field to get
+        :returns: The value of the field.
+        """
+        ...
+
+
+class _OrderTicket_Get:
+    """"""
+
+    @overload
+    def __call__(self, field: QuantConnect.Orders.OrderField) -> float:
+        """
+        Gets the specified field from the ticket
+        
+        :param field: The order field to get
+        :returns: The value of the field.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Orders_OrderTicket_Get_T]) -> QuantConnect.Orders._Typed_OrderTicket_Get[QuantConnect_Orders_OrderTicket_Get_T]:
+        ...
 
 
 class UpdateOrderFields(System.Object):
@@ -1259,6 +1292,10 @@ class OrderTicket(System.Object):
         """Gets a wait handle that can be used to wait until the order has been set"""
         ...
 
+    @property
+    def get(self) -> QuantConnect.Orders._OrderTicket_Get:
+        ...
+
     def __init__(self, transaction_manager: QuantConnect.Securities.SecurityTransactionManager, submit_request: QuantConnect.Orders.SubmitOrderRequest) -> None:
         """
         Initializes a new instance of the OrderTicket class
@@ -1270,15 +1307,6 @@ class OrderTicket(System.Object):
 
     def cancel(self, tag: str = None) -> QuantConnect.Orders.OrderResponse:
         """Submits a new request to cancel this order"""
-        ...
-
-    def get(self, field: QuantConnect.Orders.OrderField) -> float:
-        """
-        Gets the specified field from the ticket
-        
-        :param field: The order field to get
-        :returns: The value of the field.
-        """
         ...
 
     def get_most_recent_order_request(self) -> QuantConnect.Orders.OrderRequest:
@@ -1847,7 +1875,7 @@ class StopLimitOrder(QuantConnect.Orders.Order):
         Gets the order value in units of the security's quote currency
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param security: The security matching this order's symbol
         """
@@ -2054,7 +2082,7 @@ class ComboLimitOrder(QuantConnect.Orders.ComboOrder):
         Gets the order value in units of the security's quote currency
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param security: The security matching this order's symbol
         """
@@ -2237,7 +2265,7 @@ class ComboMarketOrder(QuantConnect.Orders.ComboOrder):
         Gets the order value in units of the security's quote currency
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param security: The security matching this order's symbol
         """
@@ -2412,7 +2440,7 @@ class LimitOrder(QuantConnect.Orders.Order):
         Gets the order value in units of the security's quote currency
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param security: The security matching this order's symbol
         """
@@ -2600,7 +2628,7 @@ class MarketOrder(QuantConnect.Orders.Order):
         Gets the order value in units of the security's quote currency
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param security: The security matching this order's symbol
         """
@@ -2686,7 +2714,7 @@ class LimitIfTouchedOrder(QuantConnect.Orders.Order):
         cost of a single share in an option contract.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param security: The security matching this order's symbol
         """
@@ -2762,7 +2790,7 @@ class StopMarketOrder(QuantConnect.Orders.Order):
         Gets the order value in units of the security's quote currency
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param security: The security matching this order's symbol
         """
@@ -2887,7 +2915,7 @@ class MarketOnCloseOrder(QuantConnect.Orders.Order):
         Gets the order value in units of the security's quote currency
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param security: The security matching this order's symbol
         """
@@ -3443,7 +3471,7 @@ class MarketOnOpenOrder(QuantConnect.Orders.Order):
         Gets the order value in units of the security's quote currency
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param security: The security matching this order's symbol
         """
@@ -3864,7 +3892,7 @@ class ComboLegLimitOrder(QuantConnect.Orders.ComboOrder):
         Gets the order value in units of the security's quote currency
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param security: The security matching this order's symbol
         """

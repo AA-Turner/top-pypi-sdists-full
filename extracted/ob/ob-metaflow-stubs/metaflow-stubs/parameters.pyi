@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.777970                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.007507                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
+    import metaflow.parameters
     import metaflow._vendor.click.types
     import typing
-    import metaflow.parameters
 
 from ._vendor import click as click
 from .exception import ParameterFieldFailed as ParameterFieldFailed
@@ -25,7 +25,7 @@ class ParameterContext(tuple, metaclass=type):
     ParameterContext(flow_name, user_name, parameter_name, logger, ds_type, configs)
     """
     @staticmethod
-    def __new__(_cls, flow_name: str, user_name: str, parameter_name: str, logger: typing.Callable[..., None], ds_type: str, configs: typing.Optional["ConfigValue"]):
+    def __new__(_cls, flow_name: str, user_name: str, parameter_name: str, logger: typing.Callable[..., None], ds_type: str, configs: typing.Union["ConfigValue", None]):
         """
         Create new instance of ParameterContext(flow_name, user_name, parameter_name, logger, ds_type, configs)
         """
@@ -40,7 +40,7 @@ class ParameterContext(tuple, metaclass=type):
         Return self as a plain tuple.  Used by copy and pickle.
         """
         ...
-    def __init__(self, flow_name: str, user_name: str, parameter_name: str, logger: typing.Callable[..., None], ds_type: str, configs: typing.Optional["ConfigValue"]):
+    def __init__(self, flow_name: str, user_name: str, parameter_name: str, logger: typing.Callable[..., None], ds_type: str, configs: typing.Union["ConfigValue", None]):
         ...
     ...
 
@@ -167,7 +167,7 @@ class Parameter(object, metaclass=type):
         If True, show the default value in the help text. A value of None is equivalent
         to True.
     """
-    def __init__(self, name: str, default: typing.Union[str, float, int, bool, typing.Dict[str, typing.Any], typing.Callable[[metaflow.parameters.ParameterContext], typing.Union[str, float, int, bool, typing.Dict[str, typing.Any]]], None] = None, type: typing.Union[typing.Type[str], typing.Type[float], typing.Type[int], typing.Type[bool], metaflow.parameters.JSONTypeClass, None] = None, help: typing.Optional[str] = None, required: typing.Optional[bool] = None, show_default: typing.Optional[bool] = None, **kwargs: typing.Dict[str, typing.Any]):
+    def __init__(self, name: str, default: typing.Union[str, float, int, bool, typing.Dict[str, typing.Any], typing.Callable[[metaflow.parameters.ParameterContext], typing.Union[str, float, int, bool, typing.Dict[str, typing.Any]]], None] = None, type: typing.Union[typing.Type[str], typing.Type[float], typing.Type[int], typing.Type[bool], metaflow.parameters.JSONTypeClass, None] = None, help: typing.Union[str, None] = None, required: typing.Union[bool, None] = None, show_default: typing.Union[bool, None] = None, **kwargs: typing.Dict[str, typing.Any]):
         ...
     def init(self, ignore_errors = False):
         ...

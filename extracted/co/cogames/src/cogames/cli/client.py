@@ -37,7 +37,7 @@ from cogames.cli.generated_models import (
     TeamSummary,
     TeamTournamentProgress,
 )
-from softmax.auth import load_current_cogames_token
+from softmax.auth import fetch_cogames_whoami, get_login_server, load_current_cogames_token
 
 T = TypeVar("T")
 
@@ -47,11 +47,9 @@ class TournamentServerClient:
         self,
         server_url: str,
         token: str | None = None,
-        login_server: str | None = None,
     ):
         self._server_url = server_url
         self._token = token
-        self._login_server = login_server
         self._http_client = httpx.Client(base_url=server_url, timeout=30.0)
 
     def __enter__(self):
@@ -64,14 +62,24 @@ class TournamentServerClient:
         self._http_client.close()
 
     @classmethod
-    def from_login(cls, server_url: str, login_server: str) -> TournamentServerClient | None:
-        token = load_current_cogames_token(login_server=login_server)
+    def from_login(cls, server_url: str) -> TournamentServerClient | None:
+        token = load_current_cogames_token(login_server=get_login_server())
         if token is None:
             console.print("[red]Error:[/red] Not authenticated.")
             console.print("Please run: [cyan]cogames auth login[/cyan]")
             return None
 
-        return cls(server_url=server_url, token=token, login_server=login_server)
+        try:
+            fetch_cogames_whoami(api_server=server_url, token=token)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 401:
+                console.print("[red]Error:[/red] Saved token is expired or invalid.")
+                console.print("Please re-authenticate: [cyan]cogames auth login --force[/cyan]")
+                return None
+        except httpx.HTTPError:
+            pass
+
+        return cls(server_url=server_url, token=token)
 
     def _headers(self, headers: dict[str, str] | None = None) -> dict[str, str]:
         request_headers = dict(headers or {})

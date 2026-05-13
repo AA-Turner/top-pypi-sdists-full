@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ghoststream
-Version: 1.2.5
+Version: 1.2.6
 Summary: Open Source Cross-Platform Transcoding Service & SDK
 Home-page: https://github.com/BleedingXiko/GhostStream
 Author: GhostStream Contributors
@@ -24,6 +24,7 @@ Requires-Dist: httpx>=0.27.0
 Requires-Dist: pydantic>=2.6.0
 Requires-Dist: zeroconf>=0.131.0
 Provides-Extra: server
+Requires-Dist: specter-runtime>=0.1.2; extra == "server"
 Requires-Dist: flask>=3.0.0; extra == "server"
 Requires-Dist: gevent-websocket>=0.10.1; extra == "server"
 Requires-Dist: pyyaml>=6.0.1; extra == "server"
@@ -37,6 +38,7 @@ Requires-Dist: gevent>=24.2.1; extra == "all"
 Requires-Dist: httpx>=0.27.0; extra == "all"
 Requires-Dist: pydantic>=2.6.0; extra == "all"
 Requires-Dist: zeroconf>=0.131.0; extra == "all"
+Requires-Dist: specter-runtime>=0.1.2; extra == "all"
 Requires-Dist: flask>=3.0.0; extra == "all"
 Requires-Dist: gevent-websocket>=0.10.1; extra == "all"
 Requires-Dist: pyyaml>=6.0.1; extra == "all"
@@ -86,7 +88,6 @@ Requires FFmpeg. On startup, GhostStream launches the Textual dashboard by defau
 ```bash
 git clone https://github.com/BleedingXiko/GhostStream.git
 cd GhostStream
-git submodule update --init --recursive
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -354,18 +355,15 @@ For multi-job filtered subscriptions, send a `job_tokens` object keyed by job ID
 
 ## Contributing
 
-After cloning, initialize the Specter submodule before running the server or tests:
+After cloning, install the Python dependencies before running the server or tests:
 
 ```bash
-git submodule update --init --recursive
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-The `ghoststream/specter` directory is sourced from [BleedingXiko/SPECTER](https://github.com/BleedingXiko/SPECTER). If you need to make changes inside the submodule:
-
-1. Commit and push from within `ghoststream/specter`.
-2. Return to the GhostStream repo and commit the updated submodule pointer.
-
-That keeps GhostStream pinned to an explicit Specter revision while still letting contributors iterate on both projects.
+GhostStream consumes Specter through the `specter-runtime` Python package instead of a vendored submodule.
 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 

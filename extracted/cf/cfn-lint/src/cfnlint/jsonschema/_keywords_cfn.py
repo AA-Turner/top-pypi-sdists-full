@@ -131,6 +131,8 @@ def resolve_data_in_schema(schema: Any, root_instance: Any) -> Any:
                         resolved = int(resolved)
                     except (ValueError, TypeError):
                         continue
+                if k == "pattern" and not isinstance(resolved, str):
+                    continue
                 result[k] = resolved
             else:
                 result[k] = resolve_data_in_schema(v, root_instance)
@@ -649,4 +651,5 @@ cfn_validators: dict[str, V] = {
     "fn_tojsonstring": _function_unknown,
     "fn_length": _function_unknown,
     "fn_if": _function_unknown,
+    "fn_getstackoutput": _function_unknown,
 }

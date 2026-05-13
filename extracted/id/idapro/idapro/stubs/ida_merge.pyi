@@ -1,4 +1,4 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Merge functionality.
 
@@ -40,8 +40,8 @@ To let processor modules and plugins merge their data, we introduce a new event:
 While the kernel can create arbitrary merge handlers, modules can create only the standard ones returned by:
 create_nodeval_merge_handler() create_nodeval_merge_handlers() create_std_modmerge_handlers()
 We do not document merge_handler_t because once a merge handler is created, it is used exclusively by the kernel.
-See mergemod.hpp for more information about the merge mode for modules. 
-    
+See mergemod.hpp for more information about the merge mode for modules.
+
 """
 
 class item_block_locator_t:
@@ -53,27 +53,33 @@ class item_block_locator_t:
         ...
     def __disown__(self) -> Any:
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -81,16 +87,16 @@ class item_block_locator_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -107,10 +113,10 @@ class item_block_locator_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -120,7 +126,7 @@ class item_block_locator_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def get_block_head(self, md: merge_data_t, idx: diff_source_idx_t, item_head: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
         ...
@@ -131,40 +137,46 @@ class merge_data_t:
     @property
     def dbctx_ids(self) -> Any: ...
     @property
-    def ev_handlers(self) -> Any: ...
+    def ev_handlers(self) -> merge_handlers_t: ...
     @property
-    def item_block_locator(self) -> Any: ...
+    def item_block_locator(self) -> item_block_locator_t: ...
     @property
-    def last_udt_related_merger(self) -> Any: ...
+    def last_udt_related_merger(self) -> merge_handler_t: ...
     @property
-    def nbases(self) -> Any: ...
+    def nbases(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any, kwargs: Any) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -172,16 +184,16 @@ class merge_data_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -198,10 +210,10 @@ class merge_data_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -234,7 +246,7 @@ class merge_data_t:
         ...
     def local_id(self) -> int:
         ...
-    def map_privrange_id(self, tid: tid_t, ea: ida_idaapi.ea_t, _from: diff_source_idx_t, to: diff_source_idx_t, strict: bool = True) -> bool:
+    def map_privrange_id(self, tid: int, ea: ida_idaapi.ea_t, _from: diff_source_idx_t, to: diff_source_idx_t, strict: bool = True) -> bool:
         r"""map IDs of structures, enumerations and their members 
                 
         :param tid: item ID in TO database
@@ -264,42 +276,48 @@ class merge_data_t:
 
 class merge_handler_params_t:
     @property
-    def insert_after(self) -> Any: ...
+    def insert_after(self) -> merge_kind_t: ...
     @property
-    def kind(self) -> Any: ...
+    def kind(self) -> merge_kind_t: ...
     @property
-    def label(self) -> Any: ...
+    def label(self) -> str: ...
     @property
-    def md(self) -> Any: ...
+    def md(self) -> merge_data_t: ...
     @property
-    def mh_flags(self) -> Any: ...
+    def mh_flags(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, _md: merge_data_t, _label: str, _kind: merge_kind_t, _insert_after: merge_kind_t, _mh_flags: int) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -307,16 +325,16 @@ class merge_handler_params_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -333,10 +351,10 @@ class merge_handler_params_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -346,132 +364,52 @@ class merge_handler_params_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def ui_complex_details(self, args: Any) -> bool:
-        r"""This function has the following signatures:
-        
-            0. ui_complex_details() -> bool
-            1. ui_complex_details(_mh_flags: int) -> bool
-        
-        # 0: ui_complex_details() -> bool
-        
-        
-        # 1: ui_complex_details(_mh_flags: int) -> bool
-        
-        Do not display the diffpos details in the chooser. For example, the MERGE_KIND_SCRIPTS handler puts the script body as the diffpos detail. It would not be great to show them as part of the chooser. 
-                
-        
-        """
+    @overload
+    def ui_complex_details(self) -> bool: ...
+    @overload
+    def ui_complex_details(self, _mh_flags: int) -> bool:
+        r"""Do not display the diffpos details in the chooser. For example, the MERGE_KIND_SCRIPTS handler puts the script body as the diffpos detail. It would not be great to show them as part of the chooser."""
         ...
-    def ui_complex_name(self, args: Any) -> bool:
-        r"""This function has the following signatures:
-        
-            0. ui_complex_name() -> bool
-            1. ui_complex_name(_mh_flags: int) -> bool
-        
-        # 0: ui_complex_name() -> bool
-        
-        
-        # 1: ui_complex_name(_mh_flags: int) -> bool
-        
-        It customary to create long diffpos names having many components that are separated by any 7-bit ASCII character (besides of '\0'). In this case it is possible to instruct IDA to use this separator to create a multi-column chooser. For example the MERGE_KIND_ENUMS handler has the following diffpos name: enum_1,enum_2 If MH_UI_COMMANAME is specified, IDA will create 2 columns for these names. 
-                
-        
-        """
+    @overload
+    def ui_complex_name(self) -> bool: ...
+    @overload
+    def ui_complex_name(self, _mh_flags: int) -> bool:
+        r"""It customary to create long diffpos names having many components that are separated by any 7-bit ASCII character (besides of '\0'). In this case it is possible to instruct IDA to use this separator to create a multi-column chooser. For example the MERGE_KIND_ENUMS handler has the following diffpos name: enum_1,enum_2 If MH_UI_COMMANAME is specified, IDA will create 2 columns for these names."""
         ...
-    def ui_dp_shortname(self, args: Any) -> bool:
-        r"""This function has the following signatures:
-        
-            0. ui_dp_shortname() -> bool
-            1. ui_dp_shortname(_mh_flags: int) -> bool
-        
-        # 0: ui_dp_shortname() -> bool
-        
-        
-        # 1: ui_dp_shortname(_mh_flags: int) -> bool
-        
-        The detail pane shows the diffpos details for the current diffpos range as a tree-like view. In this pane the diffpos names are used as tree node names and the diffpos details as their children. Sometimes, for complex diffpos names, the first part of the name looks better than the entire name. For example, the MERGE_KIND_SEGMENTS handler has the following diffpos name: <range>,<segm1>,<segm2>,<segm3> if MH_UI_DP_SHORTNAME is specified, IDA will use <range> as a tree node name 
-                
-        
-        """
+    @overload
+    def ui_dp_shortname(self) -> bool: ...
+    @overload
+    def ui_dp_shortname(self, _mh_flags: int) -> bool:
+        r"""The detail pane shows the diffpos details for the current diffpos range as a tree-like view. In this pane the diffpos names are used as tree node names and the diffpos details as their children. Sometimes, for complex diffpos names, the first part of the name looks better than the entire name. For example, the MERGE_KIND_SEGMENTS handler has the following diffpos name: <range>,<segm1>,<segm2>,<segm3> if MH_UI_DP_SHORTNAME is specified, IDA will use <range> as a tree node name"""
         ...
-    def ui_has_details(self, args: Any) -> bool:
-        r"""This function has the following signatures:
-        
-            0. ui_has_details() -> bool
-            1. ui_has_details(_mh_flags: int) -> bool
-        
-        # 0: ui_has_details() -> bool
-        
-        
-        # 1: ui_has_details(_mh_flags: int) -> bool
-        
-        Should IDA display the diffpos detail pane?
-        
-        
-        """
+    @overload
+    def ui_has_details(self) -> bool: ...
+    @overload
+    def ui_has_details(self, _mh_flags: int) -> bool:
+        r"""Should IDA display the diffpos detail pane?"""
         ...
-    def ui_indent(self, args: Any) -> bool:
-        r"""This function has the following signatures:
-        
-            0. ui_indent() -> bool
-            1. ui_indent(_mh_flags: int) -> bool
-        
-        # 0: ui_indent() -> bool
-        
-        
-        # 1: ui_indent(_mh_flags: int) -> bool
-        
-        In the ordinary situation the spaces from the both sides of diffpos name are trimmed. Use this UI hint to preserve the leading spaces. 
-                
-        
-        """
+    @overload
+    def ui_indent(self) -> bool: ...
+    @overload
+    def ui_indent(self, _mh_flags: int) -> bool:
+        r"""In the ordinary situation the spaces from the both sides of diffpos name are trimmed. Use this UI hint to preserve the leading spaces."""
         ...
-    def ui_linediff(self, args: Any) -> bool:
-        r"""This function has the following signatures:
-        
-            0. ui_linediff() -> bool
-            1. ui_linediff(_mh_flags: int) -> bool
-        
-        # 0: ui_linediff() -> bool
-        
-        
-        # 1: ui_linediff(_mh_flags: int) -> bool
-        
-        In detail pane IDA shows difference between diffpos details. IDA marks added or deleted detail by color. In the modified detail the changes are marked. Use this UI hint if you do not want to show the differences inside detail. 
-                
-        
-        """
+    @overload
+    def ui_linediff(self) -> bool: ...
+    @overload
+    def ui_linediff(self, _mh_flags: int) -> bool:
+        r"""In detail pane IDA shows difference between diffpos details. IDA marks added or deleted detail by color. In the modified detail the changes are marked. Use this UI hint if you do not want to show the differences inside detail."""
         ...
-    def ui_split_char(self, args: Any) -> char:
-        r"""This function has the following signatures:
-        
-            0. ui_split_char() -> char
-            1. ui_split_char(_mh_flags: int) -> char
-        
-        # 0: ui_split_char() -> char
-        
-        
-        # 1: ui_split_char(_mh_flags: int) -> char
-        
-        
-        """
-        ...
-    def ui_split_str(self, args: Any) -> str:
-        r"""This function has the following signatures:
-        
-            0. ui_split_str() -> str
-            1. ui_split_str(_mh_flags: int) -> str
-        
-        # 0: ui_split_str() -> str
-        
-        
-        # 1: ui_split_str(_mh_flags: int) -> str
-        
-        
-        """
-        ...
+    @overload
+    def ui_split_char(self) -> int: ...
+    @overload
+    def ui_split_char(self, _mh_flags: int) -> int: ...
+    @overload
+    def ui_split_str(self) -> str: ...
+    @overload
+    def ui_split_str(self, _mh_flags: int) -> str: ...
 
 class merge_node_helper_t:
     def __delattr__(self, name: Any) -> Any:
@@ -482,27 +420,33 @@ class merge_node_helper_t:
         ...
     def __disown__(self) -> Any:
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -510,16 +454,16 @@ class merge_node_helper_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -536,10 +480,10 @@ class merge_node_helper_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -549,14 +493,14 @@ class merge_node_helper_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def append_eavec(self, s: str, prefix: str, eas: eavec_t) -> None:
         r"""can be used by derived classes
         
         """
         ...
-    def get_column_headers(self, arg0: qstrvec_t, arg1: uchar, arg2: void) -> None:
+    def get_column_headers(self, arg0: qstrvec_t, arg1: int, arg2: Any) -> None:
         r"""get column headers for chooser (to be used in linear_diff_source_t::get_column_headers) 
                 
         """
@@ -566,29 +510,29 @@ class merge_node_helper_t:
                 
         """
         ...
-    def is_mergeable(self, arg0: uchar, arg1: nodeidx_t) -> bool:
+    def is_mergeable(self, arg0: int, arg1: int) -> bool:
         r"""filter: check if we should perform merging for given record
         
         """
         ...
-    def map_scalar(self, arg0: nodeidx_t, arg1: void, arg2: diff_source_idx_t, arg3: diff_source_idx_t) -> None:
+    def map_scalar(self, arg0: int, arg1: Any, arg2: diff_source_idx_t, arg3: diff_source_idx_t) -> None:
         r"""map scalar/string/buffered value
         
         """
         ...
-    def map_string(self, arg0: str, arg1: void, arg2: diff_source_idx_t, arg3: diff_source_idx_t) -> None:
+    def map_string(self, arg0: str, arg1: Any, arg2: diff_source_idx_t, arg3: diff_source_idx_t) -> None:
         ...
-    def print_entry_details(self, arg0: qstrvec_t, arg1: uchar, arg2: nodeidx_t, arg3: void) -> None:
+    def print_entry_details(self, arg0: qstrvec_t, arg1: int, arg2: int, arg3: Any) -> None:
         r"""print the details of the specified entry usually contains multiple lines, one for each attribute or detail. (to be used in print_diffpos_details) 
                 
         """
         ...
-    def print_entry_name(self, arg0: uchar, arg1: nodeidx_t, arg2: void) -> str:
+    def print_entry_name(self, arg0: int, arg1: int, arg2: Any) -> str:
         r"""print the name of the specified entry (to be used in print_diffpos_name) 
                 
         """
         ...
-    def refresh(self, arg0: uchar, arg1: void) -> None:
+    def refresh(self, arg0: int, arg1: Any) -> None:
         r"""notify helper that some data was changed in the database and internal structures (e.g. caches) should be refreshed 
                 
         """
@@ -596,40 +540,46 @@ class merge_node_helper_t:
 
 class merge_node_info_t:
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     @property
-    def nds_flags(self) -> Any: ...
+    def nds_flags(self) -> int: ...
     @property
-    def node_helper(self) -> Any: ...
+    def node_helper(self) -> merge_node_helper_t: ...
     @property
-    def tag(self) -> Any: ...
+    def tag(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, name: str, tag: uchar, nds_flags: int, node_helper: merge_node_helper_t = None) -> Any:
+    def __init__(self, name: str, tag: int, nds_flags: int, node_helper: merge_node_helper_t = None) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -637,16 +587,16 @@ class merge_node_info_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -663,10 +613,10 @@ class merge_node_info_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -676,20 +626,20 @@ class merge_node_info_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class moddata_diff_helper_t:
     @property
-    def additional_mh_flags(self) -> Any: ...
+    def additional_mh_flags(self) -> int: ...
     @property
-    def fields(self) -> Any: ...
+    def fields(self) -> idbattr_info_t: ...
     @property
-    def module_name(self) -> Any: ...
+    def module_name(self) -> str: ...
     @property
-    def netnode_name(self) -> Any: ...
+    def netnode_name(self) -> str: ...
     @property
-    def nfields(self) -> Any: ...
+    def nfields(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -698,27 +648,33 @@ class moddata_diff_helper_t:
         ...
     def __disown__(self) -> Any:
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, _module_name: str, _netnode_name: str, _fields: idbattr_info_t) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -726,16 +682,16 @@ class moddata_diff_helper_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -752,10 +708,10 @@ class moddata_diff_helper_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -765,22 +721,22 @@ class moddata_diff_helper_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def get_struc_ptr(self, arg0: merge_data_t, arg1: diff_source_idx_t, arg2: idbattr_info_t) -> None:
         ...
-    def merge_ending(self, arg0: diff_source_idx_t, arg1: void) -> None:
+    def merge_ending(self, arg0: diff_source_idx_t, arg1: Any) -> None:
         ...
-    def merge_starting(self, arg0: diff_source_idx_t, arg1: void) -> None:
+    def merge_starting(self, arg0: diff_source_idx_t, arg1: Any) -> None:
         ...
     def print_diffpos_details(self, arg0: qstrvec_t, arg1: idbattr_info_t) -> None:
         ...
-    def str2val(self, arg0: uint64, arg1: idbattr_info_t, arg2: str) -> bool:
+    def str2val(self, arg0: int, arg1: idbattr_info_t, arg2: str) -> bool:
         ...
-    def val2str(self, arg0: str, arg1: idbattr_info_t, arg2: uint64) -> bool:
+    def val2str(self, arg0: str, arg1: idbattr_info_t, arg2: int) -> bool:
         ...
 
-def create_nodeval_merge_handler(mhp: merge_handler_params_t, label: str, nodename: str, tag: uchar, nds_flags: int, node_helper: merge_node_helper_t = None, skip_empty_nodes: bool = True) -> merge_handler_t:
+def create_nodeval_merge_handler(mhp: merge_handler_params_t, label: str, nodename: str, tag: int, nds_flags: int, node_helper: merge_node_helper_t = None, skip_empty_nodes: bool = True) -> merge_handler_t:
     r"""Create a merge handler for netnode scalar/string values 
             
     :param mhp: merging parameters
@@ -907,6 +863,6 @@ NDS_SUPVAL: int  # 16
 NDS_UI_ND: int  # 16384
 NDS_VAL8: int  # 4096
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ida_idaapi: module
 weakref: module

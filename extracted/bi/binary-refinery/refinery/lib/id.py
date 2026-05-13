@@ -445,8 +445,11 @@ def get_pe_type(data: buf):
         return None
     if data[nt + 0x17] & 0x20:
         return dll
-    subsystem = data[nt + 0x5C] - 1
-    if not 0 <= subsystem <= 2:
+    try:
+        subsystem = data[nt + 0x5C] - 1
+        if not 0 <= subsystem <= 2:
+            return None
+    except IndexError:
         return None
     return sub[subsystem]
 
@@ -792,7 +795,7 @@ def guess_text_encoding(
     if step > 1:
         if len(data) % step != 0:
             return None
-        if not win or ascii_count(win) / len(win) < ascii_ratio:
+        if bom == 0 and (not win or ascii_count(win) / len(win) < ascii_ratio):
             return None
         assert enc is not None
         return TextEncoding(enc, bom, lsb, step)

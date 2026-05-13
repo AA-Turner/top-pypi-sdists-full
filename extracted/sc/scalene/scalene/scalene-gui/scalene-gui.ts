@@ -77,6 +77,31 @@ interface FileData {
   leaks?: Record<number, { velocity_mb_s: number }>;
 }
 
+type CombinedFrame =
+  | {
+      kind: "py";
+      display_name: string;
+      filename_or_module: string;
+      line: number;
+      // ``code_line`` was emitted by older profiles for every py frame;
+      // newer profiles omit it and the GUI looks up the source text
+      // from ``profile.files[filename].lines`` at render time. Keep the
+      // field in the type so legacy profiles still deserialize.
+      code_line?: string;
+      ip: null;
+      offset: null;
+    }
+  | {
+      kind: "native";
+      display_name: string;
+      filename_or_module: string;
+      line: null;
+      ip: number;
+      offset: number;
+    };
+
+type CombinedStackEntry = [CombinedFrame[], number];
+
 interface Profile {
   files: Record<string, FileData>;
   gpu: boolean;
@@ -84,11 +109,29 @@ interface Profile {
   memory: boolean;
   async_profile?: boolean;
   max_footprint_mb: number;
+  max_footprint_python_fraction?: number;
+  native_allocations_mb?: number;
   elapsed_time_sec: number;
   samples: [number, number][];
   growth_rate: number;
   program?: string;
   stacks?: unknown;
+  combined_stacks?: CombinedStackEntry[];
+  combined_stacks_timeline?: CombinedStackTimelineEvent[];
+  memory_stacks?: CombinedStackEntry[];
+  /** Main thread ID for identifying main vs worker threads in timeline */
+  main_thread_id?: number | null;
+}
+
+interface CombinedStackTimelineEvent {
+  /** Start time of the run, seconds since the first sample. */
+  t_sec: number;
+  /** Index into prof.combined_stacks. */
+  stack_index: number;
+  /** Number of CPU samples that fired this same stack consecutively. */
+  count: number;
+  /** Python thread ID (from threading.get_ident()), null for main/unknown. */
+  thread_id?: number | null;
 }
 
 interface Column {
@@ -107,20 +150,84 @@ declare const globalThis: {
 };
 
 export function vsNavigate(filename: string, lineno: number): void {
-  // If we are in VS Code, clicking on a line number in Scalene's web UI will navigate to that line in the source code.
+  // VS Code webview: use the host postMessage API.
   try {
-    const vscode = (window as unknown as { acquireVsCodeApi: () => { postMessage: (msg: unknown) => void } }).acquireVsCodeApi();
+    const vscode = (
+      window as unknown as {
+        acquireVsCodeApi: () => { postMessage: (msg: unknown) => void };
+      }
+    ).acquireVsCodeApi();
     vscode.postMessage({
       command: "jumpToLine",
       filePath: filename,
       lineNumber: lineno,
     });
+    return;
   } catch {
-    // Do nothing
+    // Not running in VS Code's webview — fall through to in-page nav.
+  }
+
+  const decoded =
+    filename.indexOf("%") >= 0 ? decodeURIComponent(filename) : filename;
+
+  // Standalone browser: scroll to the line within the rendered per-file
+  // table. file_number is assigned during display() and the line span IDs
+  // are `code-${file_number}-${lineno}`.
+  const fileNumber = fileNumberByFilename.get(decoded);
+  if (fileNumber !== undefined) {
+    const fileId = `file-${fileNumber}`;
+    const fileSection = document.getElementById(`profile-${fileId}`);
+    if (fileSection && fileSection.style.display === "none") {
+      // Expand the per-file section first so the line can scroll into view.
+      toggleDisplay(fileId);
+    }
+    const target = document.getElementById(`code-${fileNumber}-${lineno}`);
+    if (target) {
+      // The line span exists in the DOM, but the surrounding <tr> may be
+      // hidden by the file's display mode (default is "profiled-functions",
+      // which suppresses empty rows). If so, switch the per-file display
+      // mode to "all" so the line is actually visible after scroll.
+      const tr = target.closest("tr") as HTMLElement | null;
+      if (tr && tr.style.display === "none") {
+        const select = document.getElementById(
+          `display-mode-${fileId}`,
+        ) as HTMLSelectElement | null;
+        if (select) {
+          select.value = "all";
+        }
+        applyFileDisplayMode(fileId, "all");
+      }
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Brief yellow flash so the user can see what got selected.
+      const td = target.closest("td") as HTMLElement | null;
+      const flashTarget = td ?? target;
+      const prevBg = flashTarget.style.backgroundColor;
+      flashTarget.style.transition = "background-color 0.2s ease";
+      flashTarget.style.backgroundColor = "#fff3a8";
+      window.setTimeout(() => {
+        flashTarget.style.backgroundColor = prevBg;
+      }, 1200);
+      return;
+    }
+  }
+
+  // File isn't displayed in the GUI (excluded by the per-file CPU/memory
+  // threshold, or referenced from a stack but not in prof.files). Last
+  // resort: vscode:// URL — opens VS Code if installed, otherwise no-op.
+  try {
+    window.location.href = `vscode://file/${decoded}:${lineno}:1`;
+  } catch {
+    // Truly nothing we can do.
   }
 }
 
 const maxLinesPerRegion = 50; // Only show regions that are no more than this many lines.
+
+// Filled in by display() each time the profile renders. Maps the filename
+// (matching keys of prof.files) to the file_number used in per-line code
+// span IDs (`code-${file_number}-${lineno}`). vsNavigate() consults this
+// to scroll within the page when running in a regular browser.
+const fileNumberByFilename: Map<string, number> = new Map();
 
 let showedExplosion: Record<string, boolean> = {}; // Used so we only show one explosion per region.
 
@@ -607,7 +714,7 @@ function makeProfileLine(
     if (line.n_avg_mb) {
       memory_bars.push(
         makeMemoryBar(
-          line.n_avg_mb.toFixed(0),
+          line.n_avg_mb.toFixed(1),
           "average memory",
           parseFloat(String(line.n_python_fraction)),
           prof.max_footprint_mb.toFixed(2),
@@ -846,6 +953,1505 @@ function expandDisplay(id: string): void {
   }
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function basename(path: string): string {
+  if (!path) return "";
+  const parts = path.split(/[\\/]/);
+  return parts[parts.length - 1] || path;
+}
+
+// Flame-chart rendering for combined_stacks. Stacks sharing a common
+// outermost-prefix collapse into wider parent rectangles; siblings split.
+// Layout is "icicle" — root at top, leaves at bottom — which reads
+// naturally for call-from-the-top stacks (outermost-first).
+const FLAME_ROW_HEIGHT = 18;
+const FLAME_MIN_LABEL_WIDTH_PCT = 1.5;
+
+interface FlameNode {
+  kind: "py" | "native" | "root";
+  name: string;
+  filename: string;
+  line: number | null;
+  code_line: string | undefined;
+  selfHits: number;
+  totalHits: number;
+  children: FlameNode[];
+}
+
+// Return a function that maps (filename, 1-based lineno) to the source
+// line text, using the already-emitted ``profile.files`` section. Returns
+// the empty string when the file isn't in the profile or the line is out
+// of range. Used by the flame-tree builder so per-frame source text
+// doesn't need to be duplicated in the profile JSON.
+function makeFileSourceLookup(
+  prof: Profile,
+): (filename: string, line: number) => string {
+  return (filename: string, line: number): string => {
+    const fileData = prof.files?.[filename];
+    if (!fileData) return "";
+    const row = fileData.lines?.[line - 1];
+    if (!row || row.lineno !== line) {
+      // Fall back to a linear scan if the row at (line-1) isn't the
+      // requested lineno — some older profiles emit sparse line arrays.
+      for (const candidate of fileData.lines ?? []) {
+        if (candidate.lineno === line) return (candidate.line ?? "").trimEnd();
+      }
+      return "";
+    }
+    return (row.line ?? "").trimEnd();
+  };
+}
+
+function buildFlameTree(
+  stacks: CombinedStackEntry[],
+  sourceLookup?: (filename: string, line: number) => string,
+): FlameNode {
+  const root: FlameNode = {
+    kind: "root",
+    name: "(all stacks)",
+    filename: "",
+    line: null,
+    code_line: undefined,
+    selfHits: 0,
+    totalHits: 0,
+    children: [],
+  };
+  const childMaps = new WeakMap<FlameNode, Map<string, FlameNode>>();
+  childMaps.set(root, new Map());
+  for (const [frames, hits] of stacks) {
+    let node: FlameNode = root;
+    node.totalHits += hits;
+    for (const f of frames) {
+      const key = `${f.kind}|${f.filename_or_module}|${
+        f.kind === "py" ? f.line : "x"
+      }|${f.display_name}`;
+      const map = childMaps.get(node);
+      if (!map) continue;
+      let child = map.get(key);
+      if (!child) {
+        // Prefer the frame's own code_line when present (legacy profiles);
+        // otherwise look it up from the profile's files section. Falls back
+        // to undefined if neither is available.
+        let resolvedCodeLine: string | undefined = undefined;
+        if (f.kind === "py") {
+          if (f.code_line !== undefined && f.code_line !== null) {
+            resolvedCodeLine = f.code_line;
+          } else if (sourceLookup) {
+            const src = sourceLookup(f.filename_or_module, f.line);
+            resolvedCodeLine = src || undefined;
+          }
+        }
+        child = {
+          kind: f.kind,
+          name: f.display_name,
+          filename: f.filename_or_module,
+          line: f.kind === "py" ? f.line : null,
+          code_line: resolvedCodeLine,
+          selfHits: 0,
+          totalHits: 0,
+          children: [],
+        };
+        map.set(key, child);
+        childMaps.set(child, new Map());
+        node.children.push(child);
+      }
+      child.totalHits += hits;
+      node = child;
+    }
+    node.selfHits += hits;
+  }
+  function sortDescByHits(n: FlameNode): void {
+    n.children.sort((a, b) => b.totalHits - a.totalHits);
+    for (const c of n.children) sortDescByHits(c);
+  }
+  sortDescByHits(root);
+  return root;
+}
+
+function flameMaxDepth(node: FlameNode): number {
+  if (node.children.length === 0) return 0;
+  let m = 0;
+  for (const c of node.children) {
+    const d = flameMaxDepth(c);
+    if (d > m) m = d;
+  }
+  return 1 + m;
+}
+
+function flameColor(name: string, kind: "py" | "native" | "root"): string {
+  if (kind === "root") return "#ddd";
+  let h = 0;
+  for (let i = 0; i < name.length; i++) {
+    h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+  }
+  const hue = Math.abs(h) % 360;
+  // py frames muted/cool, native frames warmer/saturated so the seam is
+  // visible at a glance.
+  if (kind === "py") return `hsl(${hue}, 45%, 78%)`;
+  return `hsl(${(hue + 30) % 360}, 70%, 65%)`;
+}
+
+function renderFlameNode(
+  node: FlameNode,
+  depth: number,
+  leftPct: number,
+  widthPct: number,
+  total: number,
+  formatQuantity: (q: number) => string = (q) => `${q} hits`,
+): string {
+  const pct = total > 0 ? ((node.totalHits / total) * 100).toFixed(1) : "0.0";
+  const codeLineText = (node.code_line ?? "").trim();
+  const qty = formatQuantity(node.totalHits);
+  let tooltip: string;
+  if (node.kind === "py") {
+    const tail = codeLineText ? `\n${codeLineText}` : "";
+    tooltip = `[py] ${node.name}\n${node.filename}:${node.line}\n${qty} (${pct}%)${tail}`;
+  } else {
+    tooltip = `[native] ${node.name}\n${node.filename}\n${qty} (${pct}%)`;
+  }
+  const top = depth * FLAME_ROW_HEIGHT;
+  const color = flameColor(node.name, node.kind);
+  const showLabel = widthPct >= FLAME_MIN_LABEL_WIDTH_PCT;
+  const labelHtml = showLabel ? escapeHtml(node.name) : "";
+  const cursor = node.kind === "py" && node.line !== null ? "pointer" : "default";
+  const clickAttr =
+    node.kind === "py" && node.line !== null
+      ? ` onclick="vsNavigate('${escape(node.filename)}',${node.line})"`
+      : "";
+  return (
+    `<div class="flame-segment" style="position:absolute;` +
+    `top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;` +
+    `height:${FLAME_ROW_HEIGHT - 1}px;background:${color};` +
+    `border:1px solid rgba(0,0,0,0.12);overflow:hidden;` +
+    `font-family:monospace;font-size:11px;` +
+    `line-height:${FLAME_ROW_HEIGHT - 1}px;padding:0 4px;` +
+    `white-space:nowrap;text-overflow:ellipsis;cursor:${cursor};box-sizing:border-box;"` +
+    ` title="${escapeHtml(tooltip)}"${clickAttr}>${labelHtml}</div>`
+  );
+}
+
+function renderFlameRecursive(
+  node: FlameNode,
+  depth: number,
+  leftPct: number,
+  widthPct: number,
+  total: number,
+  formatQuantity?: (q: number) => string,
+): string {
+  let s = "";
+  if (depth > 0) {
+    s += renderFlameNode(node, depth - 1, leftPct, widthPct, total, formatQuantity);
+  }
+  let childLeft = leftPct;
+  for (const child of node.children) {
+    const childWidth = total > 0 ? (child.totalHits / total) * widthPct * (total / node.totalHits) : 0;
+    // Equivalent: child.totalHits / node.totalHits * widthPct (parent's width slice).
+    const w = node.totalHits > 0 ? (child.totalHits / node.totalHits) * widthPct : 0;
+    s += renderFlameRecursive(child, depth + 1, childLeft, w, total, formatQuantity);
+    childLeft += w;
+    void childWidth;
+  }
+  return s;
+}
+
+export function renderCombinedStacks(prof: Profile): string {
+  const stacks = prof.combined_stacks ?? [];
+  if (stacks.length === 0) return "";
+
+  const root = buildFlameTree(stacks, makeFileSourceLookup(prof));
+  const totalHits = root.totalHits;
+  const depth = flameMaxDepth(root);
+  const containerHeight = depth * FLAME_ROW_HEIGHT;
+
+  let s = `<hr><div class="container-fluid combined-stacks-section">`;
+  s += `<p style="margin-bottom: 4px;">`;
+  s += `<span id="button-combined-stacks" class="disclosure-triangle" title="Click to show or hide stitched Python+native call stacks." onClick="toggleCombinedStacks()">${RightTriangle}</span>`;
+  s += ` <strong style="cursor: pointer;" title="Click to show or hide stitched Python+native call stacks." onClick="toggleCombinedStacks()">Call stacks</strong> `;
+  s += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stitched stacks, ${totalHits} samples — hover for details, click a [py] frame to jump to its source line</span>`;
+  s += `</p>`;
+  s += `<div id="combined-stacks-body" style="display: none;">`;
+  s += `<div class="combined-stacks-flame resizable-chart" style="position:relative;width:100%;height:${containerHeight}px;min-height:50px;max-height:80vh;border:1px solid #ccc;background:#f0f0f0;overflow:auto;resize:vertical;">`;
+  s += renderFlameRecursive(root, 0, 0, 100, totalHits);
+  s += `</div></div></div>`;
+  return s;
+}
+
+export function toggleCombinedStacks(): void {
+  const body = document.getElementById("combined-stacks-body");
+  const btn = document.getElementById("button-combined-stacks");
+  if (!body || !btn) return;
+  if (body.style.display === "none") {
+    body.style.display = "block";
+    btn.innerHTML = DownTriangle;
+  } else {
+    body.style.display = "none";
+    btn.innerHTML = RightTriangle;
+  }
+}
+
+// Memory-weighted flame chart. Each stack entry's weight is MB allocated,
+// so frame widths are proportional to bytes attributed to that call path
+// at malloc-sample time (not hit counts). Reuses the flame-tree machinery.
+function formatMb(mb: number): string {
+  if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`;
+  if (mb >= 1) return `${mb.toFixed(2)} MB`;
+  if (mb >= 0.001) return `${(mb * 1024).toFixed(2)} KB`;
+  return `${(mb * 1024 * 1024).toFixed(0)} B`;
+}
+
+// Memory-chart axis. Mirrors the timeline ruler: a horizontal strip at
+// the top of the memory flame chart with labeled ticks at "nice" MB
+// intervals (1 / 2 / 5 × 10^k MB), plus faint vertical gridlines at each
+// tick that extend down through the flame chart below.
+//
+// The flame-chart x-axis measures *cumulative* MB allocated across the
+// root's children: the leftmost pixel is 0 MB, the rightmost is
+// ``totalMb``. A user looking at the chart can then answer "how much of
+// the total did allocations above 100 MB account for?" at a glance
+// rather than summing frame widths by eye.
+
+const MEMORY_AXIS_HEIGHT = 18;
+const MEMORY_AXIS_GAP = 2;
+
+// Format an MB tick label. Differs from formatMb (which targets tooltips
+// and always shows two decimals) — axis labels prefer round integers
+// ("100 MB", "1.0 GB") and drop unit clutter when they'd be redundant
+// with neighboring ticks. The ``stepMb`` argument controls precision:
+// fractional MB only appear when the step itself is fractional.
+function formatMemoryTickLabel(mb: number, stepMb: number): string {
+  if (mb === 0) return "0";
+  if (mb >= 1024) {
+    const gb = mb / 1024;
+    const digits = stepMb >= 1024 ? 0 : stepMb >= 102.4 ? 1 : 2;
+    return `${gb.toFixed(digits)} GB`;
+  }
+  if (mb >= 1) {
+    const digits = stepMb >= 1 ? 0 : stepMb >= 0.1 ? 1 : 2;
+    return `${mb.toFixed(digits)} MB`;
+  }
+  // Sub-MB: KB. Fractional KB only for sub-KB steps.
+  const kb = mb * 1024;
+  const digits = stepMb * 1024 >= 1 ? 0 : 1;
+  return `${kb.toFixed(digits)} KB`;
+}
+
+function renderMemoryAxis(
+  totalMb: number,
+  topPx: number,
+): { html: string; tickOffsetsMb: number[]; stepMb: number } {
+  if (totalMb <= 0) return { html: "", tickOffsetsMb: [], stepMb: 0 };
+  // Same "nice ticks" algorithm as the timeline — decade-scaled 1/2/5
+  // steps. TIMELINE_BUCKETS is our standard pixel-width proxy (same used
+  // to gate frame-label visibility), so tick density matches the
+  // timeline ruler's density.
+  const stepMb = pickNiceTickInterval(totalMb, TIMELINE_BUCKETS);
+  if (stepMb <= 0) return { html: "", tickOffsetsMb: [], stepMb: 0 };
+  const tickOffsetsMb: number[] = [];
+  const nTicks = Math.floor(totalMb / stepMb) + 1;
+  for (let k = 0; k <= nTicks; k++) {
+    const offset = k * stepMb;
+    if (offset > totalMb + stepMb * 0.5) break;
+    tickOffsetsMb.push(offset);
+  }
+  let s = "";
+  // Use position:sticky with top:0 so axis stays visible when scrolling
+  // vertically within the container.
+  s +=
+    `<div class="memory-axis" style="position:sticky;top:0;left:0;right:0;z-index:10;` +
+    `height:${MEMORY_AXIS_HEIGHT}px;background:#f0f0f0;` +
+    `border-bottom:1px solid #bbb;box-sizing:border-box;">`;
+  for (const offset of tickOffsetsMb) {
+    const leftPct = (offset / totalMb) * 100;
+    // Tick mark at the bottom of the strip.
+    s +=
+      `<div style="position:absolute;left:${leftPct.toFixed(4)}%;` +
+      `bottom:0;width:1px;height:4px;background:#888;"></div>`;
+    // Label, centered under the tick; first/last nudged to stay inside.
+    const isFirst = offset === 0;
+    const isLast = offset >= totalMb - stepMb * 0.5;
+    const transform = isFirst
+      ? "translateX(0)"
+      : isLast
+        ? "translateX(-100%)"
+        : "translateX(-50%)";
+    const label = formatMemoryTickLabel(offset, stepMb);
+    s +=
+      `<div style="position:absolute;left:${leftPct.toFixed(4)}%;` +
+      `top:0;transform:${transform};font-family:monospace;font-size:10px;` +
+      `color:#444;white-space:nowrap;line-height:${MEMORY_AXIS_HEIGHT - 4}px;` +
+      `padding:0 2px;">${label}</div>`;
+  }
+  s += `</div>`;
+  return { html: s, tickOffsetsMb, stepMb };
+}
+
+function renderMemoryGridlines(
+  tickOffsetsMb: number[],
+  totalMb: number,
+  topPx: number,
+  heightPx: number,
+): string {
+  if (totalMb <= 0 || tickOffsetsMb.length === 0 || heightPx <= 0) return "";
+  // Gridlines are position:absolute so they scroll with the flame chart content,
+  // keeping tick marks aligned with the data they represent.
+  let s =
+    `<div class="memory-gridlines" style="position:absolute;left:0;right:0;` +
+    `top:${topPx}px;height:${heightPx}px;pointer-events:none;">`;
+  for (const offset of tickOffsetsMb) {
+    const leftPct = (offset / totalMb) * 100;
+    s +=
+      `<div style="position:absolute;left:${leftPct.toFixed(4)}%;top:0;` +
+      `bottom:0;width:1px;background:rgba(0,0,0,0.08);"></div>`;
+  }
+  s += `</div>`;
+  return s;
+}
+
+export function renderMemoryStacks(prof: Profile): string {
+  const stacks = prof.memory_stacks ?? [];
+  if (stacks.length === 0) return "";
+
+  const root = buildFlameTree(stacks, makeFileSourceLookup(prof));
+  const totalMb = root.totalHits;
+  if (totalMb <= 0) return "";
+  const depth = flameMaxDepth(root);
+
+  // Layout: axis ruler at top, gap, then the flame chart. Gridlines
+  // overlay the flame chart only (not the axis itself — the axis has
+  // its own tick marks).
+  const axisTop = 0;
+  const flameTop = axisTop + MEMORY_AXIS_HEIGHT + MEMORY_AXIS_GAP;
+  const flameHeight = depth * FLAME_ROW_HEIGHT;
+  const containerHeight = flameTop + flameHeight;
+  const axis = renderMemoryAxis(totalMb, axisTop);
+
+  let s = `<hr><div class="container-fluid memory-stacks-section">`;
+  s += `<p style="margin-bottom: 4px;">`;
+  s += `<span id="button-memory-stacks" class="disclosure-triangle" title="Click to show or hide memory-weighted call stacks." onClick="toggleMemoryStacks()">${RightTriangle}</span>`;
+  s += ` <strong style="cursor: pointer;" title="Click to show or hide memory-weighted call stacks." onClick="toggleMemoryStacks()">Memory stacks</strong> `;
+  s += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stacks, ${formatMb(totalMb)} attributed — frame widths are proportional to MB allocated; hover for details, click a frame to jump to its source line</span>`;
+  s += `</p>`;
+  s += `<div id="memory-stacks-body" style="display: none;">`;
+  s +=
+    `<div class="memory-stacks-flame resizable-chart" style="position:relative;width:100%;` +
+    `height:${containerHeight}px;min-height:50px;max-height:80vh;border:1px solid #ccc;background:#f0f0f0;` +
+    `overflow:auto;resize:vertical;">`;
+  // Axis is sticky at top:0. Content wrapper is relative so it flows after axis.
+  s += axis.html;
+  // Content wrapper: relative positioning, margin-top accounts for sticky axis height
+  s += `<div style="position:relative;width:100%;height:${flameHeight}px;">`;
+  s += renderMemoryGridlines(
+    axis.tickOffsetsMb,
+    totalMb,
+    0,
+    flameHeight,
+  );
+  s += `<div style="position:absolute;left:0;right:0;top:0;height:${flameHeight}px;">`;
+  s += renderFlameRecursive(root, 0, 0, 100, totalMb, formatMb);
+  s += `</div>`;
+  s += `</div>`;
+  s += `</div></div></div>`;
+  return s;
+}
+
+export function toggleMemoryStacks(): void {
+  const body = document.getElementById("memory-stacks-body");
+  const btn = document.getElementById("button-memory-stacks");
+  if (!body || !btn) return;
+  if (body.style.display === "none") {
+    body.style.display = "block";
+    btn.innerHTML = DownTriangle;
+  } else {
+    body.style.display = "none";
+    btn.innerHTML = RightTriangle;
+  }
+}
+
+// Timeline view for combined_stacks_timeline.
+//
+// Layout, inspired by Chrome DevTools / Firefox Profiler "Stack Chart":
+//   - Top: time-axis ruler with labeled ticks at a "nice" interval
+//     (1ms / 10ms / 100ms / 1s / 10s depending on total duration).
+//     Vertical gridlines extend from each tick down through the tracks
+//     and the main panel so the eye can line up events against time.
+//   - GC and I/O activity tracks: thin bars whose opacity reflects the
+//     share of samples in that time bucket whose stack contains a frame
+//     classified as GC or I/O respectively.
+//   - Main panel: y-axis (icicle) is stack depth. Outermost frame at the
+//     top, leaf at the bottom. The full stack at each time bucket is
+//     drawn as a stack of horizontal frames.
+//
+// Data is run-length-encoded: each event in combined_stacks_timeline says
+// "starting at t_sec, the next `count` samples all hit combined_stacks
+// entry stack_index". We compute each run's duration from the next run's
+// start, with elapsed_time capping the trailing run.
+
+const TIMELINE_ROW_HEIGHT = 14;
+const TIMELINE_MIN_LABEL_WIDTH_PX = 40;
+const TIMELINE_TRACK_HEIGHT = 10;
+const TIMELINE_TRACK_GAP = 2;
+const TIMELINE_BUCKETS = 600; // resolution along x (vertical pixel columns).
+
+// Time-axis ruler.
+const TIMELINE_AXIS_HEIGHT = 18; // enough for one line of 10px monospace text
+const TIMELINE_AXIS_GAP = 2; // spacing between axis and the first track
+// Target minimum spacing between adjacent tick labels, in pixels. Tick
+// intervals are chosen so most labels sit at least this far apart; we then
+// space them to a "nice" 1/2/5 × 10^k time value rather than a pixel grid
+// so the labels read as round numbers.
+const TIMELINE_MIN_TICK_SPACING_PX = 60;
+// Left gutter that the tracks and main panel use (for the "GC" / "I/O"
+// row labels). The axis and gridlines have to align with this same
+// offset so ticks sit above their matching time slices.
+const TIMELINE_LEFT_GUTTER_PX = 60;
+
+type FrameClass = "gc" | "io" | "gil" | "other";
+
+// Native symbols are typically `prefix_root_suffix` (e.g.
+// `select_kqueue_control_impl`, `_io_FileIO_read`, `os_read`,
+// `BaseEventLoop_run_once`). A plain `\bread\b` won't match `os_read`
+// because `_` is a regex word character — there's no word boundary
+// between `_` and `r`. To classify these robustly we treat `_` as a
+// token separator equivalent to a word boundary on both sides:
+// `(?:\b|_)read(?:_|\b)` matches `read`, `os_read`, `_io_FileIO_read`,
+// `read_buf`, etc., without falsely matching `mread` or `readme`.
+const GC_NAME_PATTERNS = [
+  /(?:\b|_)gc[._]collect(?:_|\b)/i,
+  /(?:\b|_)PyGC(?:_|\b)/,
+  /(?:\b|_)_PyGC_/,
+  /(?:\b|_)gc_collect_main(?:_|\b)/,
+  /(?:\b|_)gc_collect_region(?:_|\b)/,
+  /(?:\b|_)deallocate(?:_|\b)/,
+  // Internal helpers from gcmodule.c that often appear as the leaf on
+  // Python 3.9–3.12 (where the static `collect()` workhorse + helpers
+  // are what the unwinder lands on rather than the gc_collect_main /
+  // _PyGC_Collect names introduced in 3.13).
+  /(?:\b|_)collect_with_callback(?:_|\b)/,
+  /(?:\b|_)subtract_refs(?:_|\b)/,
+  /(?:\b|_)move_unreachable(?:_|\b)/,
+  /(?:\b|_)untrack_tuples(?:_|\b)/,
+  /(?:\b|_)untrack_dicts(?:_|\b)/,
+  /(?:\b|_)deduce_unreachable(?:_|\b)/,
+  /(?:\b|_)delete_garbage(?:_|\b)/,
+  /(?:\b|_)handle_weakrefs(?:_|\b)/,
+  /(?:\b|_)invoke_gc_callback(?:_|\b)/,
+  /(?:\b|_)move_legacy_finalizers?(?:_|\b)/,
+];
+// I/O syscall patterns - must be specific to avoid false positives.
+// These match actual blocking I/O syscalls, not general functions with
+// similar names (e.g., we want "read" the syscall, not "_PyBytes_Repeat").
+const IO_NAME_PATTERNS = [
+  // Synthetic await frame emitted by add_async_await_run when a sample
+  // lands inside the event loop with coroutines suspended.
+  /^\[await\]/,
+  // Exact syscall names (must be the whole symbol or at word boundary)
+  /^read$/,
+  /^write$/,
+  /^pread(?:64)?$/,
+  /^pwrite(?:64)?$/,
+  /^readv$/,
+  /^writev$/,
+  /^recv$/,
+  /^recvfrom$/,
+  /^recvmsg$/,
+  /^send$/,
+  /^sendto$/,
+  /^sendmsg$/,
+  /^select$/,
+  /^pselect$/,
+  /^poll$/,
+  /^ppoll$/,
+  /^epoll_wait$/,
+  /^epoll_pwait$/,
+  /^kevent$/,
+  /^accept$/,
+  /^accept4$/,
+  /^connect$/,
+  /^open$/,
+  /^openat$/,
+  /^close$/,
+  /^fsync$/,
+  /^fdatasync$/,
+  /^fread$/,
+  /^fwrite$/,
+  /^lseek$/,
+  // Underscore-prefixed variants (macOS/glibc internal names)
+  /^__(?:read|write|pread|pwrite|recv|send|select|poll|open|close)$/,
+  /^_(?:read|write|pread|pwrite|recv|send|select|poll|open|close)$/,
+  // pthread blocking (when not GIL-related - GIL is detected separately)
+  /^pthread_cond_wait$/,
+  /^pthread_cond_timedwait$/,
+  /^__psynch_cvwait$/,  // macOS condition variable
+  // Python I/O module functions
+  /^_io_FileIO_read(?:all|into)?$/,
+  /^_io_FileIO_write$/,
+  /^_io_BufferedReader_read/,
+  /^_io_BufferedWriter_write/,
+];
+// GIL contention patterns - threads waiting to acquire the Global Interpreter Lock
+const GIL_NAME_PATTERNS = [
+  /^take_gil$/,
+  /^_PyEval_LockGIL$/,
+  /^PyGILState_Ensure$/,
+];
+// File path patterns for Python I/O modules
+const IO_FILE_PATTERNS = [
+  /\b_io\b/,
+  /\bsocket\.py$/,
+  /\bselectors\.py$/,
+  /\bselector_events\.py$/,
+  /\basyncio\b/,
+  /\bsubprocess\.py$/,
+];
+
+function classifyFrame(f: CombinedFrame): FrameClass {
+  const name = f.display_name ?? "";
+  for (const re of GC_NAME_PATTERNS) {
+    if (re.test(name)) return "gc";
+  }
+  for (const re of GIL_NAME_PATTERNS) {
+    if (re.test(name)) return "gil";
+  }
+  for (const re of IO_NAME_PATTERNS) {
+    if (re.test(name)) return "io";
+  }
+  if (f.kind === "py") {
+    for (const re of IO_FILE_PATTERNS) {
+      if (re.test(f.filename_or_module ?? "")) return "io";
+    }
+  }
+  return "other";
+}
+
+function classifyStack(stack: CombinedFrame[]): {
+  gc: boolean;
+  io: boolean;
+  gil: boolean;
+} {
+  let gc = false;
+  let io = false;
+  let gil = false;
+  for (const f of stack) {
+    const c = classifyFrame(f);
+    if (c === "gc") gc = true;
+    else if (c === "gil") gil = true;
+    else if (c === "io") io = true;
+    if (gc && io && gil) break;
+  }
+  // GIL contention takes precedence over I/O classification when both are present
+  // (e.g., pthread_cond_wait inside take_gil is GIL, not I/O)
+  if (gil) io = false;
+  return { gc, io, gil };
+}
+
+function timelineColor(name: string, kind: "py" | "native"): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) {
+    h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+  }
+  const hue = Math.abs(h) % 360;
+  if (kind === "py") return `hsl(${hue}, 45%, 78%)`;
+  return `hsl(${(hue + 30) % 360}, 70%, 65%)`;
+}
+
+// Color palette for threads. Uses high-saturation, perceptually distinct hues.
+// Main thread gets a distinct blue, worker threads cycle through the rest.
+const THREAD_COLORS = [
+  "#4e79a7", // blue (main thread)
+  "#f28e2b", // orange
+  "#e15759", // red
+  "#76b7b2", // teal
+  "#59a14f", // green
+  "#edc948", // yellow
+  "#b07aa1", // purple
+  "#ff9da7", // pink
+  "#9c755f", // brown
+  "#bab0ac", // gray
+];
+
+function buildThreadColorMap(
+  threadIds: Set<number | null>,
+  mainThreadId: number | null | undefined,
+): Map<number | null, string> {
+  const colorMap = new Map<number | null, string>();
+  // Sort threads: main thread first, then by thread ID
+  const sortedIds = Array.from(threadIds).sort((a, b) => {
+    if (a === mainThreadId) return -1;
+    if (b === mainThreadId) return 1;
+    if (a === null) return -1;
+    if (b === null) return 1;
+    return a - b;
+  });
+  let workerIndex = 1; // Start at 1 so main gets color[0]
+  for (const tid of sortedIds) {
+    if (tid === mainThreadId) {
+      colorMap.set(tid, THREAD_COLORS[0]); // main thread gets first color
+    } else {
+      colorMap.set(tid, THREAD_COLORS[workerIndex % THREAD_COLORS.length]);
+      workerIndex++;
+    }
+  }
+  return colorMap;
+}
+
+function getThreadLabel(threadId: number | null, mainThreadId: number | null | undefined): string {
+  if (threadId === mainThreadId) return "main";
+  if (threadId === null) return "unknown";
+  return `T${threadId}`;
+}
+
+interface TimelineRun {
+  startSec: number;
+  endSec: number;
+  stackIndex: number;
+  hits: number;
+  threadId: number | null;
+}
+
+function buildTimelineRuns(
+  events: CombinedStackTimelineEvent[],
+  totalElapsedSec: number,
+): { runs: TimelineRun[]; totalSec: number; threadIds: Set<number | null> } {
+  if (events.length === 0) return { runs: [], totalSec: 0, threadIds: new Set() };
+  const runs: TimelineRun[] = [];
+  const threadIds = new Set<number | null>();
+
+  // Build a sorted list of unique timestamps to determine run durations.
+  // Multiple threads can be sampled at the same timestamp (concurrent execution),
+  // so each run's end should be the NEXT DISTINCT timestamp, not the next event.
+  const uniqueTimestamps = Array.from(new Set(events.map((e) => e.t_sec))).sort(
+    (a, b) => a - b
+  );
+  const timestampToNextTimestamp = new Map<number, number>();
+  for (let i = 0; i < uniqueTimestamps.length; i++) {
+    const nextTs = uniqueTimestamps[i + 1];
+    if (nextTs !== undefined) {
+      timestampToNextTimestamp.set(uniqueTimestamps[i], nextTs);
+    }
+  }
+
+  for (let i = 0; i < events.length; i++) {
+    const ev = events[i];
+    let end: number;
+    const nextTs = timestampToNextTimestamp.get(ev.t_sec);
+    if (nextTs !== undefined) {
+      end = nextTs;
+    } else {
+      // Last timestamp group: extend to elapsed_time or use synthetic duration
+      const synthetic = ev.t_sec + ev.count * 0.001;
+      end = Math.max(ev.t_sec + 0.001, totalElapsedSec || synthetic, synthetic);
+    }
+    const threadId = ev.thread_id ?? null;
+    threadIds.add(threadId);
+    runs.push({
+      startSec: ev.t_sec,
+      endSec: end,
+      stackIndex: ev.stack_index,
+      hits: ev.count,
+      threadId,
+    });
+  }
+  const totalSec =
+    Math.max(totalElapsedSec, runs[runs.length - 1].endSec) - runs[0].startSec;
+  return { runs, totalSec, threadIds };
+}
+
+interface MergedSegment {
+  frame: CombinedFrame;
+  startSec: number;
+  endSec: number;
+  totalHits: number;
+  depth: number;
+  threadId: number | null;
+}
+
+function frameKey(f: CombinedFrame): string {
+  if (f.kind === "py") {
+    return `py:${f.filename_or_module}:${f.line}`;
+  }
+  return `native:${f.filename_or_module}:${f.display_name}`;
+}
+
+function renderTimelineFrames(
+  runs: TimelineRun[],
+  stacks: CombinedStackEntry[],
+  totalSec: number,
+  startSec: number,
+  sourceLookup?: (filename: string, line: number) => string,
+  threadColorMap?: Map<number | null, string>,
+  mainThreadId?: number | null,
+): string {
+  // Build segments per depth, then merge consecutive ones with the same location and thread
+  const segmentsByDepth: Map<number, MergedSegment[]> = new Map();
+
+  for (const run of runs) {
+    const stackEntry = stacks[run.stackIndex];
+    if (!stackEntry) continue;
+    const frames = stackEntry[0];
+    const runStart = run.startSec;
+    const runEnd = run.endSec;
+    if (runEnd <= runStart) continue;
+
+    for (let depth = 0; depth < frames.length; depth++) {
+      const f = frames[depth];
+      const key = frameKey(f);
+
+      if (!segmentsByDepth.has(depth)) {
+        segmentsByDepth.set(depth, []);
+      }
+      const segments = segmentsByDepth.get(depth)!;
+
+      // Try to merge with the last segment if it has the same key, thread, and is adjacent
+      const last = segments.length > 0 ? segments[segments.length - 1] : null;
+      if (
+        last &&
+        frameKey(last.frame) === key &&
+        last.endSec === runStart &&
+        last.threadId === run.threadId
+      ) {
+        last.endSec = runEnd;
+        last.totalHits += run.hits;
+      } else {
+        segments.push({
+          frame: f,
+          startSec: runStart,
+          endSec: runEnd,
+          totalHits: run.hits,
+          depth: depth,
+          threadId: run.threadId,
+        });
+      }
+    }
+  }
+
+  // Render merged segments
+  let s = "";
+  for (const [depth, segments] of segmentsByDepth) {
+    for (const seg of segments) {
+      const f = seg.frame;
+      const leftPct = ((seg.startSec - startSec) / totalSec) * 100;
+      const widthPct = ((seg.endSec - seg.startSec) / totalSec) * 100;
+      if (widthPct <= 0) continue;
+
+      const showLabels =
+        (widthPct / 100) * TIMELINE_BUCKETS >= TIMELINE_MIN_LABEL_WIDTH_PX / 2;
+      const color = timelineColor(f.display_name, f.kind);
+      const top = depth * TIMELINE_ROW_HEIGHT;
+      // Thread color for left border accent (if multiple threads)
+      const threadColor = threadColorMap?.get(seg.threadId) ?? null;
+      const threadLabel = getThreadLabel(seg.threadId, mainThreadId);
+      // Match the flame-chart tooltip convention: show the source line
+      // text under the filename:lineno for py frames (resolved on demand
+      // from profile.files via the same lookup buildFlameTree uses — see
+      // P5). Native frames carry no source location, so skip.
+      const range = `${seg.startSec.toFixed(3)}s — ${seg.endSec.toFixed(3)}s`;
+      const samples = `(${seg.totalHits} samples)`;
+      const threadInfo = threadColorMap ? `\n[${threadLabel}]` : "";
+      let tooltip: string;
+      if (f.kind === "py") {
+        const codeLine =
+          sourceLookup && f.line !== null
+            ? sourceLookup(f.filename_or_module, f.line).trim()
+            : "";
+        const tail = codeLine ? `\n${codeLine}` : "";
+        tooltip =
+          `[py] ${f.display_name}\n${f.filename_or_module}:${f.line}\n` +
+          `${range} ${samples}${threadInfo}${tail}`;
+      } else {
+        tooltip =
+          `[native] ${f.display_name}\n${f.filename_or_module}\n` +
+          `${range} ${samples}${threadInfo}`;
+      }
+      const label = showLabels ? escapeHtml(f.display_name) : "";
+      const cursor =
+        f.kind === "py" && f.line !== null ? "pointer" : "default";
+      const clickAttr =
+        f.kind === "py" && f.line !== null
+          ? ` onclick="vsNavigate('${escape(f.filename_or_module)}',${f.line})"`
+          : "";
+      // Add colored left border accent when showing multiple threads
+      const borderStyle = threadColor
+        ? `border-left:3px solid ${threadColor};border-top:1px solid rgba(0,0,0,0.10);border-right:1px solid rgba(0,0,0,0.10);border-bottom:1px solid rgba(0,0,0,0.10);`
+        : `border:1px solid rgba(0,0,0,0.10);`;
+      s +=
+        `<div class="flame-segment" style="position:absolute;` +
+        `top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;` +
+        `height:${TIMELINE_ROW_HEIGHT - 1}px;background:${color};` +
+        `${borderStyle}overflow:hidden;` +
+        `font-family:monospace;font-size:10px;` +
+        `line-height:${TIMELINE_ROW_HEIGHT - 1}px;padding:0 2px;` +
+        `white-space:nowrap;text-overflow:ellipsis;cursor:${cursor};` +
+        `box-sizing:border-box;"` +
+        ` title="${escapeHtml(tooltip)}"${clickAttr}>${label}</div>`;
+    }
+  }
+  return s;
+}
+
+// Pick a "nice" tick interval that produces round labels (e.g. 100, 200,
+// 500, 1000) while keeping the number of visible ticks in a reasonable
+// range given the available pixel width. The algorithm is the standard
+// 1/2/5 decade-based "pretty ticks": start at the raw interval implied by
+// TIMELINE_MIN_TICK_SPACING_PX and round up to the next {1, 2, 5} × 10^k
+// value. Unit-agnostic — used for both the timeline's time axis (seconds)
+// and the memory flame chart's magnitude axis (MB).
+function pickNiceTickInterval(total: number, pixelWidth: number): number {
+  if (total <= 0 || pixelWidth <= 0) return 0;
+  const maxTicks = Math.max(2, Math.floor(pixelWidth / TIMELINE_MIN_TICK_SPACING_PX));
+  const rawStep = total / maxTicks;
+  if (rawStep <= 0) return 0;
+  const decade = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const normalized = rawStep / decade; // in [1, 10)
+  let niceFactor: number;
+  if (normalized <= 1) niceFactor = 1;
+  else if (normalized <= 2) niceFactor = 2;
+  else if (normalized <= 5) niceFactor = 5;
+  else niceFactor = 10;
+  return niceFactor * decade;
+}
+
+// Format a time value in seconds for the axis ruler. Uses ms for values
+// under 1s (with enough precision to distinguish adjacent ticks) and s for
+// values ≥ 1s. Digits after the decimal come from the *step*, not the
+// absolute value — a 100ms step produces integer-ms labels even at t=2.3s,
+// which would render as "2.3s" (not "2300ms"), following Chrome DevTools
+// conventions.
+function formatTimelineTickLabel(sec: number, stepSec: number): string {
+  // Render t=0 as a bare "0" so the leftmost label reads cleanly
+  // regardless of whether the rest of the axis is in ms or s.
+  if (sec === 0) return "0";
+  if (sec >= 1) {
+    // Number of decimals needed to distinguish ticks at this step.
+    // step >= 1s → 0 decimals ("1s", "2s"); step = 0.1 → 1 decimal ("1.5s");
+    // step = 0.01 → 2 decimals ("1.23s").
+    const digits =
+      stepSec >= 1 ? 0 : stepSec >= 0.1 ? 1 : stepSec >= 0.01 ? 2 : 3;
+    return `${sec.toFixed(digits)}s`;
+  }
+  // Sub-second values: render in ms. Fractional ms only for sub-ms steps.
+  const ms = sec * 1000;
+  const digits = stepSec >= 0.001 ? 0 : 2;
+  return `${ms.toFixed(digits)}ms`;
+}
+
+// Render the top time-axis ruler. Returns only the axis strip — the caller
+// is responsible for rendering overlay gridlines (``renderTimelineGridlines``)
+// that span the full container height, since the ruler sits in its own
+// absolute slot and the gridlines need to stretch through the tracks +
+// main panel below.
+function renderTimelineAxis(
+  totalSec: number,
+  startSec: number,
+  topPx: number,
+): { html: string; tickOffsetsSec: number[]; stepSec: number } {
+  if (totalSec <= 0) {
+    return { html: "", tickOffsetsSec: [], stepSec: 0 };
+  }
+  // We don't know the container's pixel width at render time (CSS does the
+  // sizing), so estimate from TIMELINE_BUCKETS — the same resolution the
+  // frame-label visibility heuristic uses. That gives a consistent tick
+  // density regardless of viewport.
+  const stepSec = pickNiceTickInterval(totalSec, TIMELINE_BUCKETS);
+  if (stepSec <= 0) {
+    return { html: "", tickOffsetsSec: [], stepSec: 0 };
+  }
+  // Collect tick offsets (in seconds, relative to startSec) at multiples of
+  // stepSec that land inside [0, totalSec]. Always include 0 so the leftmost
+  // label reads as the run's start time.
+  const tickOffsetsSec: number[] = [];
+  // Floating-point add-up of `k * step` for integer k accumulates error; use
+  // multiplication so each tick is as exact as the step itself.
+  const nTicks = Math.floor(totalSec / stepSec) + 1;
+  for (let k = 0; k <= nTicks; k++) {
+    const offset = k * stepSec;
+    if (offset > totalSec + stepSec * 0.5) break;
+    tickOffsetsSec.push(offset);
+  }
+  let s = "";
+  // Use position:sticky with top:0 so axis stays visible when scrolling
+  // vertically within the container.
+  s +=
+    `<div style="position:sticky;top:0;left:0;z-index:10;` +
+    `width:${TIMELINE_LEFT_GUTTER_PX}px;height:${TIMELINE_AXIS_HEIGHT}px;` +
+    `font-family:monospace;font-size:10px;color:#444;background:#f0f0f0;` +
+    `line-height:${TIMELINE_AXIS_HEIGHT}px;text-align:right;padding-right:4px;` +
+    `box-sizing:border-box;float:left;">time</div>`;
+  s +=
+    `<div class="timeline-axis" style="position:sticky;top:0;z-index:10;` +
+    `margin-left:${TIMELINE_LEFT_GUTTER_PX}px;height:${TIMELINE_AXIS_HEIGHT}px;` +
+    `border-bottom:1px solid #bbb;background:#f0f0f0;` +
+    `box-sizing:border-box;">`;
+  for (const offset of tickOffsetsSec) {
+    const leftPct = (offset / totalSec) * 100;
+    // Tick mark: 4px vertical tick flush against the axis bottom.
+    s +=
+      `<div style="position:absolute;left:${leftPct.toFixed(4)}%;` +
+      `bottom:0;width:1px;height:4px;background:#888;"></div>`;
+    // Label: translate -50% so the text is centered under the tick. The
+    // leftmost and rightmost labels would otherwise hang off the container;
+    // nudge them inward so they stay readable.
+    const isFirst = offset === 0;
+    const isLast = offset >= totalSec - stepSec * 0.5;
+    const transform = isFirst
+      ? "translateX(0)"
+      : isLast
+        ? "translateX(-100%)"
+        : "translateX(-50%)";
+    const label = formatTimelineTickLabel(startSec + offset, stepSec);
+    s +=
+      `<div style="position:absolute;left:${leftPct.toFixed(4)}%;` +
+      `top:0;transform:${transform};font-family:monospace;font-size:10px;` +
+      `color:#444;white-space:nowrap;line-height:${TIMELINE_AXIS_HEIGHT - 4}px;` +
+      `padding:0 2px;">${label}</div>`;
+  }
+  s += `</div>`;
+  return { html: s, tickOffsetsSec, stepSec };
+}
+
+// Render vertical gridlines aligned with the axis ticks. The gridlines are
+// a separate overlay that spans from the top of the track row through the
+// bottom of the main panel, so they visually tie the whole timeline
+// together. Rendered *before* the tracks / main panel so frame rectangles
+// draw on top (the gridlines are meant to be a subtle background).
+function renderTimelineGridlines(
+  tickOffsetsSec: number[],
+  totalSec: number,
+  topPx: number,
+  heightPx: number,
+): string {
+  if (totalSec <= 0 || tickOffsetsSec.length === 0 || heightPx <= 0) return "";
+  // Gridlines are position:absolute so they scroll with the timeline content,
+  // keeping tick marks aligned with the data they represent.
+  let s =
+    `<div class="timeline-gridlines" style="position:absolute;` +
+    `left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;top:${topPx}px;` +
+    `height:${heightPx}px;pointer-events:none;">`;
+  for (const offset of tickOffsetsSec) {
+    const leftPct = (offset / totalSec) * 100;
+    s +=
+      `<div style="position:absolute;left:${leftPct.toFixed(4)}%;top:0;` +
+      `bottom:0;width:1px;background:rgba(0,0,0,0.08);"></div>`;
+  }
+  s += `</div>`;
+  return s;
+}
+
+function renderTimelineTrack(
+  label: string,
+  color: string,
+  runs: TimelineRun[],
+  classifiedRuns: boolean[],
+  totalSec: number,
+  startSec: number,
+  topPx: number,
+): string {
+  let s = "";
+  s +=
+    `<div style="position:absolute;left:0;top:${topPx}px;` +
+    `width:${TIMELINE_LEFT_GUTTER_PX}px;height:${TIMELINE_TRACK_HEIGHT}px;` +
+    `font-family:monospace;font-size:10px;` +
+    `line-height:${TIMELINE_TRACK_HEIGHT}px;color:#444;` +
+    `text-align:right;padding-right:4px;box-sizing:border-box;">${label}</div>`;
+  s +=
+    `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;` +
+    `top:${topPx}px;height:${TIMELINE_TRACK_HEIGHT}px;background:#f7f7f7;` +
+    `border:1px solid #ddd;box-sizing:border-box;">`;
+  for (let i = 0; i < runs.length; i++) {
+    if (!classifiedRuns[i]) continue;
+    const run = runs[i];
+    const leftPct = ((run.startSec - startSec) / totalSec) * 100;
+    const widthPct = ((run.endSec - run.startSec) / totalSec) * 100;
+    if (widthPct <= 0) continue;
+    s +=
+      `<div class="flame-segment" style="position:absolute;` +
+      `left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;` +
+      `top:0;height:100%;background:${color};` +
+      `box-sizing:border-box;" title="${escapeHtml(label)} during ` +
+      `${run.startSec.toFixed(3)}s — ${run.endSec.toFixed(3)}s"></div>`;
+  }
+  s += `</div>`;
+  return s;
+}
+
+function renderThreadTrack(
+  runs: TimelineRun[],
+  threadColorMap: Map<number | null, string>,
+  mainThreadId: number | null | undefined,
+  totalSec: number,
+  startSec: number,
+  topPx: number,
+): string {
+  let s = "";
+  s +=
+    `<div style="position:absolute;left:0;top:${topPx}px;` +
+    `width:${TIMELINE_LEFT_GUTTER_PX}px;height:${TIMELINE_TRACK_HEIGHT}px;` +
+    `font-family:monospace;font-size:10px;` +
+    `line-height:${TIMELINE_TRACK_HEIGHT}px;color:#444;` +
+    `text-align:right;padding-right:4px;box-sizing:border-box;">Thread</div>`;
+  s +=
+    `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;` +
+    `top:${topPx}px;height:${TIMELINE_TRACK_HEIGHT}px;background:#f7f7f7;` +
+    `border:1px solid #ddd;box-sizing:border-box;">`;
+  for (const run of runs) {
+    const leftPct = ((run.startSec - startSec) / totalSec) * 100;
+    const widthPct = ((run.endSec - run.startSec) / totalSec) * 100;
+    if (widthPct <= 0) continue;
+    const color = threadColorMap.get(run.threadId) ?? "#888";
+    const label = getThreadLabel(run.threadId, mainThreadId);
+    s +=
+      `<div class="flame-segment" style="position:absolute;` +
+      `left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;` +
+      `top:0;height:100%;background:${color};` +
+      `box-sizing:border-box;" title="${escapeHtml(label)} during ` +
+      `${run.startSec.toFixed(3)}s — ${run.endSec.toFixed(3)}s"></div>`;
+  }
+  s += `</div>`;
+  return s;
+}
+
+// Timeline view modes for multi-threaded profiles
+type TimelineViewMode = "interleaved" | "swimlanes" | number | null; // number/null = specific thread ID
+
+// Cached timeline data for re-rendering on view mode change
+let cachedTimelineData: {
+  runs: TimelineRun[];
+  stacks: CombinedStackEntry[];
+  totalSec: number;
+  startSec: number;
+  threadIds: Set<number | null>;
+  threadColorMap: Map<number | null, string>;
+  mainThreadId: number | null | undefined;
+  isGcRun: boolean[];
+  isIoRun: boolean[];
+  isGilRun: boolean[];
+  maxDepth: number;
+  sourceLookup: ((filename: string, line: number) => string) | undefined;
+} | null = null;
+
+function renderTimelineContent(
+  viewMode: TimelineViewMode,
+  runs: TimelineRun[],
+  stacks: CombinedStackEntry[],
+  totalSec: number,
+  startSec: number,
+  threadIds: Set<number | null>,
+  threadColorMap: Map<number | null, string>,
+  mainThreadId: number | null | undefined,
+  isGcRun: boolean[],
+  isIoRun: boolean[],
+  isGilRun: boolean[],
+  maxDepth: number,
+  sourceLookup?: (filename: string, line: number) => string,
+): string {
+  const hasMultipleThreads = threadIds.size > 1;
+
+  if (viewMode === "swimlanes" && hasMultipleThreads) {
+    return renderSwimlanesView(
+      runs, stacks, totalSec, startSec, threadIds, threadColorMap, mainThreadId,
+      isGcRun, isIoRun, isGilRun, maxDepth, sourceLookup
+    );
+  } else if (viewMode !== "interleaved" && viewMode !== "swimlanes") {
+    // Specific thread filter
+    return renderFilteredThreadView(
+      viewMode, runs, stacks, totalSec, startSec, threadColorMap, mainThreadId,
+      isGcRun, isIoRun, isGilRun, maxDepth, sourceLookup
+    );
+  } else {
+    // Interleaved (default)
+    return renderInterleavedView(
+      runs, stacks, totalSec, startSec, threadIds, threadColorMap, mainThreadId,
+      isGcRun, isIoRun, isGilRun, maxDepth, sourceLookup
+    );
+  }
+}
+
+function renderInterleavedView(
+  runs: TimelineRun[],
+  stacks: CombinedStackEntry[],
+  totalSec: number,
+  startSec: number,
+  threadIds: Set<number | null>,
+  threadColorMap: Map<number | null, string>,
+  mainThreadId: number | null | undefined,
+  isGcRun: boolean[],
+  isIoRun: boolean[],
+  isGilRun: boolean[],
+  maxDepth: number,
+  sourceLookup?: (filename: string, line: number) => string,
+): string {
+  const hasMultipleThreads = threadIds.size > 1;
+
+  const axisTop = 0;
+  const trackGcTop = axisTop + TIMELINE_AXIS_HEIGHT + TIMELINE_AXIS_GAP;
+  const trackIoTop = trackGcTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
+  const trackGilTop = trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
+  const trackThreadTop = trackGilTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
+  const mainTop = hasMultipleThreads
+    ? trackThreadTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2
+    : trackGilTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
+  const mainHeight = Math.max(maxDepth, 1) * TIMELINE_ROW_HEIGHT;
+  const containerHeight = mainTop + mainHeight + 4;
+  const gridlinesTop = trackGcTop;
+  const gridlinesHeight = mainTop + mainHeight - gridlinesTop;
+
+  const axis = renderTimelineAxis(totalSec, startSec, axisTop);
+
+  let s =
+    `<div class="combined-stacks-timeline resizable-chart" style="position:relative;width:100%;` +
+    `height:${containerHeight}px;min-height:50px;max-height:80vh;border:1px solid #ccc;background:#f0f0f0;` +
+    `overflow:auto;resize:vertical;padding:0;">`;
+  s += axis.html;
+  s += renderTimelineGridlines(axis.tickOffsetsSec, totalSec, gridlinesTop, gridlinesHeight);
+  s += renderTimelineTrack("GC", "#d62728", runs, isGcRun, totalSec, startSec, trackGcTop);
+  s += renderTimelineTrack("I/O", "#1f77b4", runs, isIoRun, totalSec, startSec, trackIoTop);
+  s += renderTimelineTrack("GIL", "#9467bd", runs, isGilRun, totalSec, startSec, trackGilTop);
+  if (hasMultipleThreads) {
+    s += renderThreadTrack(runs, threadColorMap, mainThreadId, totalSec, startSec, trackThreadTop);
+  }
+  s +=
+    `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;` +
+    `top:${mainTop}px;height:${mainHeight}px;background:#fafafa;` +
+    `border:1px solid #ddd;box-sizing:border-box;">`;
+  s += renderTimelineFrames(runs, stacks, totalSec, startSec, sourceLookup, threadColorMap, mainThreadId);
+  s += `</div></div>`;
+  return s;
+}
+
+function renderSwimlanesView(
+  runs: TimelineRun[],
+  stacks: CombinedStackEntry[],
+  totalSec: number,
+  startSec: number,
+  threadIds: Set<number | null>,
+  threadColorMap: Map<number | null, string>,
+  mainThreadId: number | null | undefined,
+  isGcRun: boolean[],
+  isIoRun: boolean[],
+  isGilRun: boolean[],
+  maxDepth: number,
+  sourceLookup?: (filename: string, line: number) => string,
+): string {
+  // Sort threads: main first, then by ID
+  const sortedThreads = Array.from(threadIds).sort((a, b) => {
+    if (a === mainThreadId) return -1;
+    if (b === mainThreadId) return 1;
+    if (a === null) return -1;
+    if (b === null) return 1;
+    return a - b;
+  });
+
+  // Calculate max depth per thread
+  const threadMaxDepth: Map<number | null, number> = new Map();
+  for (const tid of sortedThreads) {
+    threadMaxDepth.set(tid, 1);
+  }
+  for (let i = 0; i < runs.length; i++) {
+    const run = runs[i];
+    const stackEntry = stacks[run.stackIndex];
+    if (!stackEntry) continue;
+    const depth = stackEntry[0].length;
+    const current = threadMaxDepth.get(run.threadId) ?? 1;
+    if (depth > current) {
+      threadMaxDepth.set(run.threadId, depth);
+    }
+  }
+
+  // Layout: axis, GC track, I/O track, GIL track, then one swimlane per thread
+  const axisTop = 0;
+  const trackGcTop = axisTop + TIMELINE_AXIS_HEIGHT + TIMELINE_AXIS_GAP;
+  const trackIoTop = trackGcTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
+  const trackGilTop = trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
+
+  // Calculate swimlane positions
+  const SWIMLANE_LABEL_HEIGHT = 16;
+  const SWIMLANE_GAP = 8;
+  let currentTop = trackGilTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
+  const swimlanePositions: Map<number | null, { top: number; height: number }> = new Map();
+
+  for (const tid of sortedThreads) {
+    const depth = threadMaxDepth.get(tid) ?? 1;
+    const height = Math.max(depth, 1) * TIMELINE_ROW_HEIGHT;
+    swimlanePositions.set(tid, { top: currentTop + SWIMLANE_LABEL_HEIGHT, height });
+    currentTop += SWIMLANE_LABEL_HEIGHT + height + SWIMLANE_GAP;
+  }
+
+  const containerHeight = currentTop + 4;
+  const gridlinesTop = trackGcTop;
+  const gridlinesHeight = currentTop - gridlinesTop;
+
+  const axis = renderTimelineAxis(totalSec, startSec, axisTop);
+
+  let s =
+    `<div class="combined-stacks-timeline resizable-chart" style="position:relative;width:100%;` +
+    `height:${containerHeight}px;min-height:50px;max-height:80vh;border:1px solid #ccc;background:#f0f0f0;` +
+    `overflow:auto;resize:vertical;padding:0;">`;
+  s += axis.html;
+  s += renderTimelineGridlines(axis.tickOffsetsSec, totalSec, gridlinesTop, gridlinesHeight);
+  s += renderTimelineTrack("GC", "#d62728", runs, isGcRun, totalSec, startSec, trackGcTop);
+  s += renderTimelineTrack("I/O", "#1f77b4", runs, isIoRun, totalSec, startSec, trackIoTop);
+  s += renderTimelineTrack("GIL", "#9467bd", runs, isGilRun, totalSec, startSec, trackGilTop);
+
+  // Render each swimlane
+  for (const tid of sortedThreads) {
+    const pos = swimlanePositions.get(tid)!;
+    const color = threadColorMap.get(tid) ?? "#888";
+    const label = getThreadLabel(tid, mainThreadId);
+
+    // Filter runs for this thread
+    const threadRuns = runs.filter(r => r.threadId === tid);
+    const threadIsGc = runs.map((r, i) => r.threadId === tid && isGcRun[i]);
+    const threadIsIo = runs.map((r, i) => r.threadId === tid && isIoRun[i]);
+
+    // Swimlane label
+    s +=
+      `<div style="position:absolute;left:0;top:${pos.top - SWIMLANE_LABEL_HEIGHT}px;` +
+      `width:${TIMELINE_LEFT_GUTTER_PX}px;height:${SWIMLANE_LABEL_HEIGHT}px;` +
+      `font-family:monospace;font-size:10px;font-weight:bold;` +
+      `line-height:${SWIMLANE_LABEL_HEIGHT}px;color:#333;` +
+      `text-align:right;padding-right:4px;box-sizing:border-box;">` +
+      `<span style="display:inline-block;width:8px;height:8px;background:${color};` +
+      `margin-right:4px;border-radius:2px;vertical-align:middle;"></span>${label}</div>`;
+
+    // Swimlane background
+    s +=
+      `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;` +
+      `top:${pos.top}px;height:${pos.height}px;background:#fafafa;` +
+      `border:1px solid #ddd;border-left:3px solid ${color};box-sizing:border-box;">`;
+
+    // Render frames for this thread only
+    s += renderTimelineFrames(threadRuns, stacks, totalSec, startSec, sourceLookup, threadColorMap, mainThreadId);
+    s += `</div>`;
+  }
+
+  s += `</div>`;
+  return s;
+}
+
+function renderFilteredThreadView(
+  threadId: number | null,
+  runs: TimelineRun[],
+  stacks: CombinedStackEntry[],
+  totalSec: number,
+  startSec: number,
+  threadColorMap: Map<number | null, string>,
+  mainThreadId: number | null | undefined,
+  isGcRun: boolean[],
+  isIoRun: boolean[],
+  isGilRun: boolean[],
+  maxDepth: number,
+  sourceLookup?: (filename: string, line: number) => string,
+): string {
+  // Filter runs for this thread
+  const filteredRuns = runs.filter(r => r.threadId === threadId);
+  const filteredIsGc: boolean[] = [];
+  const filteredIsIo: boolean[] = [];
+  const filteredIsGil: boolean[] = [];
+
+  for (let i = 0; i < runs.length; i++) {
+    if (runs[i].threadId === threadId) {
+      filteredIsGc.push(isGcRun[i]);
+      filteredIsIo.push(isIoRun[i]);
+      filteredIsGil.push(isGilRun[i]);
+    }
+  }
+
+  if (filteredRuns.length === 0) {
+    return `<div style="padding:20px;text-align:center;color:#666;">No samples for this thread</div>`;
+  }
+
+  // Calculate max depth for filtered runs
+  let filteredMaxDepth = 1;
+  for (const run of filteredRuns) {
+    const stackEntry = stacks[run.stackIndex];
+    if (stackEntry && stackEntry[0].length > filteredMaxDepth) {
+      filteredMaxDepth = stackEntry[0].length;
+    }
+  }
+
+  const axisTop = 0;
+  const trackGcTop = axisTop + TIMELINE_AXIS_HEIGHT + TIMELINE_AXIS_GAP;
+  const trackIoTop = trackGcTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
+  const trackGilTop = trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
+  const mainTop = trackGilTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
+  const mainHeight = Math.max(filteredMaxDepth, 1) * TIMELINE_ROW_HEIGHT;
+  const containerHeight = mainTop + mainHeight + 4;
+  const gridlinesTop = trackGcTop;
+  const gridlinesHeight = mainTop + mainHeight - gridlinesTop;
+
+  const axis = renderTimelineAxis(totalSec, startSec, axisTop);
+  const color = threadColorMap.get(threadId) ?? "#888";
+
+  let s =
+    `<div class="combined-stacks-timeline resizable-chart" style="position:relative;width:100%;` +
+    `height:${containerHeight}px;min-height:50px;max-height:80vh;border:1px solid #ccc;background:#f0f0f0;` +
+    `overflow:auto;resize:vertical;padding:0;">`;
+  s += axis.html;
+  s += renderTimelineGridlines(axis.tickOffsetsSec, totalSec, gridlinesTop, gridlinesHeight);
+  s += renderTimelineTrack("GC", "#d62728", filteredRuns, filteredIsGc, totalSec, startSec, trackGcTop);
+  s += renderTimelineTrack("I/O", "#1f77b4", filteredRuns, filteredIsIo, totalSec, startSec, trackIoTop);
+  s += renderTimelineTrack("GIL", "#9467bd", filteredRuns, filteredIsGil, totalSec, startSec, trackGilTop);
+  s +=
+    `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;` +
+    `top:${mainTop}px;height:${mainHeight}px;background:#fafafa;` +
+    `border:1px solid #ddd;border-left:3px solid ${color};box-sizing:border-box;">`;
+  s += renderTimelineFrames(filteredRuns, stacks, totalSec, startSec, sourceLookup, threadColorMap, mainThreadId);
+  s += `</div></div>`;
+  return s;
+}
+
+export function changeTimelineViewMode(selectEl: HTMLSelectElement): void {
+  if (!cachedTimelineData) return;
+
+  const value = selectEl.value;
+  let viewMode: TimelineViewMode;
+  if (value === "interleaved") {
+    viewMode = "interleaved";
+  } else if (value === "swimlanes") {
+    viewMode = "swimlanes";
+  } else if (value === "main") {
+    viewMode = cachedTimelineData.mainThreadId ?? null;
+  } else {
+    viewMode = parseInt(value, 10);
+  }
+
+  const container = document.getElementById("timeline-content-container");
+  if (!container) return;
+
+  const { runs, stacks, totalSec, startSec, threadIds, threadColorMap, mainThreadId,
+          isGcRun, isIoRun, isGilRun, maxDepth, sourceLookup } = cachedTimelineData;
+
+  container.innerHTML = renderTimelineContent(
+    viewMode, runs, stacks, totalSec, startSec, threadIds, threadColorMap, mainThreadId,
+    isGcRun, isIoRun, isGilRun, maxDepth, sourceLookup
+  );
+}
+
+export function renderCombinedStacksTimeline(prof: Profile): string {
+  const events = prof.combined_stacks_timeline ?? [];
+  const stacks = prof.combined_stacks ?? [];
+  if (events.length === 0 || stacks.length === 0) return "";
+
+  const elapsed = prof.elapsed_time_sec ?? 0;
+  const { runs, totalSec, threadIds } = buildTimelineRuns(events, elapsed);
+  if (runs.length === 0 || totalSec <= 0) return "";
+
+  const startSec = runs[0].startSec;
+  const mainThreadId = prof.main_thread_id;
+  const threadColorMap = buildThreadColorMap(threadIds, mainThreadId);
+  const hasMultipleThreads = threadIds.size > 1;
+
+  // Pre-classify each run
+  let maxDepth = 0;
+  const isGcRun: boolean[] = new Array(runs.length).fill(false);
+  const isIoRun: boolean[] = new Array(runs.length).fill(false);
+  const isGilRun: boolean[] = new Array(runs.length).fill(false);
+  for (let i = 0; i < runs.length; i++) {
+    const stackEntry = stacks[runs[i].stackIndex];
+    if (!stackEntry) continue;
+    const frames = stackEntry[0];
+    if (frames.length > maxDepth) maxDepth = frames.length;
+    const c = classifyStack(frames);
+    isGcRun[i] = c.gc;
+    isIoRun[i] = c.io;
+    isGilRun[i] = c.gil;
+  }
+
+  const sourceLookup = makeFileSourceLookup(prof);
+
+  // Cache data for view mode switching
+  cachedTimelineData = {
+    runs, stacks, totalSec, startSec, threadIds, threadColorMap, mainThreadId,
+    isGcRun, isIoRun, isGilRun, maxDepth, sourceLookup
+  };
+
+  // Build thread legend
+  let threadLegend = "";
+  if (hasMultipleThreads) {
+    threadLegend = " Threads: ";
+    const sortedThreads = Array.from(threadIds).sort((a, b) => {
+      if (a === mainThreadId) return -1;
+      if (b === mainThreadId) return 1;
+      if (a === null) return -1;
+      if (b === null) return 1;
+      return a - b;
+    });
+    for (const tid of sortedThreads) {
+      const color = threadColorMap.get(tid) ?? "#888";
+      const label = getThreadLabel(tid, mainThreadId);
+      threadLegend +=
+        `<span style="display:inline-block;width:10px;height:10px;` +
+        `background:${color};margin-right:2px;border-radius:2px;"></span>` +
+        `<span style="margin-right:8px;">${label}</span>`;
+    }
+  }
+
+  // Build view mode dropdown if multiple threads
+  let viewModeDropdown = "";
+  if (hasMultipleThreads) {
+    const sortedThreads = Array.from(threadIds).sort((a, b) => {
+      if (a === mainThreadId) return -1;
+      if (b === mainThreadId) return 1;
+      if (a === null) return -1;
+      if (b === null) return 1;
+      return a - b;
+    });
+    viewModeDropdown = `
+      <select id="timeline-view-mode" onchange="changeTimelineViewMode(this)"
+              style="margin-left:10px;font-size:12px;padding:2px 4px;">
+        <option value="interleaved">All threads (interleaved)</option>
+        <option value="swimlanes">Swimlanes (per-thread rows)</option>
+        <optgroup label="Single thread">`;
+    for (const tid of sortedThreads) {
+      const label = tid === mainThreadId ? "main thread" : getThreadLabel(tid, mainThreadId);
+      const value = tid === mainThreadId ? "main" : (tid === null ? "unknown" : tid.toString());
+      viewModeDropdown += `<option value="${value}">${label}</option>`;
+    }
+    viewModeDropdown += `</optgroup></select>`;
+  }
+
+  let s = `<hr><div class="container-fluid combined-stacks-timeline-section">`;
+  s += `<p style="margin-bottom: 4px;">`;
+  s += `<span id="button-combined-timeline" class="disclosure-triangle" title="Click to show or hide the timeline view." onClick="toggleCombinedStacksTimeline()">${RightTriangle}</span>`;
+  s += ` <strong style="cursor: pointer;" title="Click to show or hide the timeline view." onClick="toggleCombinedStacksTimeline()">Timeline</strong> `;
+  const threadInfo = hasMultipleThreads ? `; ${threadIds.size} threads` : "";
+  s += `<span class="text-muted" style="font-size: 80%;">${runs.length} runs over ${totalSec.toFixed(2)}s — x: time, y: stack depth${threadInfo}</span>`;
+  s += viewModeDropdown;
+  if (hasMultipleThreads) {
+    s += `<br><span class="text-muted" style="font-size: 80%;">${threadLegend}</span>`;
+  }
+  s += `</p>`;
+  s += `<div id="combined-timeline-body" style="display: none;">`;
+  s += `<div id="timeline-content-container">`;
+  // Default to interleaved view
+  s += renderTimelineContent(
+    "interleaved", runs, stacks, totalSec, startSec, threadIds, threadColorMap, mainThreadId,
+    isGcRun, isIoRun, isGilRun, maxDepth, sourceLookup
+  );
+  s += `</div></div></div>`;
+  return s;
+}
+
+export function toggleCombinedStacksTimeline(): void {
+  const body = document.getElementById("combined-timeline-body");
+  const btn = document.getElementById("button-combined-timeline");
+  if (!body || !btn) return;
+  if (body.style.display === "none") {
+    body.style.display = "block";
+    btn.innerHTML = DownTriangle;
+  } else {
+    body.style.display = "none";
+    btn.innerHTML = RightTriangle;
+  }
+}
+
 export function toggleDisplay(id: string): void {
   const d = document.getElementById(`profile-${id}`);
   if (d) {
@@ -922,7 +2528,7 @@ async function display(prof: Profile): Promise<void> {
       cs[f] += line.n_sys_percent;
       if (line.n_peak_mb > ma[f]) {
         ma[f] = line.n_peak_mb;
-        mp[f] += line.n_peak_mb * line.n_python_fraction;
+        mp[f] = line.n_peak_mb * line.n_python_fraction;
       }
       max_alloc += line.n_malloc_mb;
       if (line.nc_time_ms !== undefined && line.nc_time_ms > 0) {
@@ -995,9 +2601,13 @@ async function display(prof: Profile): Promise<void> {
     s += `<td><font style="font-size: small"><b>Memory:</b> <font color="darkgreen">Python</font> | <font color="#50C878">native</font><br /></font></td>`;
     s += '<td width="10"></td>';
     s += '<td valign="middle" style="vertical-align: middle">';
+    const nativeMb = prof.native_allocations_mb ?? 0;
+    const nativeNote = nativeMb > 0
+      ? `, ${memory_consumed_str(nativeMb)} from native threads`
+      : "";
     s += `<font style="font-size: small"><b>Memory timeline: </b>(max: ${memory_consumed_str(
       prof.max_footprint_mb
-    )}, growth: ${prof.growth_rate.toFixed(1)}%)</font>`;
+    )}, growth: ${prof.growth_rate.toFixed(1)}%${nativeNote})</font>`;
     s += "</td>";
   }
   s += "</tr>";
@@ -1032,7 +2642,7 @@ async function display(prof: Profile): Promise<void> {
       makeMemoryBar(
         prof.max_footprint_mb.toFixed(2),
         "memory",
-        mem_python / max_alloc,
+        prof.max_footprint_python_fraction ?? 0,
         prof.max_footprint_mb.toFixed(2),
         "darkgreen",
         { height: 20, width: 150 }
@@ -1081,6 +2691,7 @@ async function display(prof: Profile): Promise<void> {
   let fileIteration = 0;
   allIds = [];
   const excludedFiles = new Set<[string, FileData]>();
+  fileNumberByFilename.clear();
   for (const ff of files) {
     fileIteration++;
     // Stop once total CPU time / memory consumption are below some threshold (1%)
@@ -1090,6 +2701,7 @@ async function display(prof: Profile): Promise<void> {
     }
     const id = `file-${fileIteration}`;
     allIds.push(id);
+    fileNumberByFilename.set(ff[0], fileIteration);
     s +=
       '<p class="text-left sticky-top bg-white bg-opacity-75" style="backdrop-filter: blur(2px)">';
     let displayStr = "display:block;";
@@ -1164,10 +2776,10 @@ async function display(prof: Profile): Promise<void> {
 
     s += `</font>`;
 
-    s += `<br /><span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue;" onClick="toggleDisplay('${id}')">`;
+    s += `<br /><span id="button-${id}" class="disclosure-triangle" title="Click to show or hide profile." onClick="toggleDisplay('${id}')">`;
     s += `${triangle}`;
     s += "</span>";
-    s += `<code> ${ff[0]}</code>`;
+    s += `<code style="cursor: pointer;" title="Click to show or hide profile." onClick="toggleDisplay('${id}')"> ${ff[0]}</code>`;
     s += ` <select id="display-mode-${id}" style="font-size: 80%; margin-left: 10px;" onchange="onFileDisplayModeChange('${id}')">`;
     s += `<option value="profiled-functions" selected>profiled functions</option>`;
     s += `<option value="profiled-lines">profiled lines only</option>`;
@@ -1305,6 +2917,9 @@ async function display(prof: Profile): Promise<void> {
   // Remove any excluded files.
   files = files.filter((x) => !excludedFiles.has(x));
   s += "</div>";
+  s += renderCombinedStacks(prof);
+  s += renderCombinedStacksTimeline(prof);
+  s += renderMemoryStacks(prof);
   const p = document.getElementById("profile");
   if (p) {
     p.innerHTML = s;
@@ -1716,6 +3331,10 @@ setInterval(sendHeartbeat, 10000); // Send heartbeat every 10 seconds
 (window as unknown as Record<string, unknown>).collapseAll = collapseAll;
 (window as unknown as Record<string, unknown>).expandAll = expandAll;
 (window as unknown as Record<string, unknown>).toggleDisplay = toggleDisplay;
+(window as unknown as Record<string, unknown>).toggleCombinedStacks = toggleCombinedStacks;
+(window as unknown as Record<string, unknown>).toggleCombinedStacksTimeline = toggleCombinedStacksTimeline;
+(window as unknown as Record<string, unknown>).changeTimelineViewMode = changeTimelineViewMode;
+(window as unknown as Record<string, unknown>).toggleMemoryStacks = toggleMemoryStacks;
 (window as unknown as Record<string, unknown>).toggleReduced = toggleReduced;
 (window as unknown as Record<string, unknown>).onFileDisplayModeChange = onFileDisplayModeChange;
 (window as unknown as Record<string, unknown>).load = load;

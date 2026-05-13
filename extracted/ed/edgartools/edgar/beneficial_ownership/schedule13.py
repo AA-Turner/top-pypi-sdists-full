@@ -188,7 +188,13 @@ class Schedule13D:
                     zipcode=child_text(address_el, 'zipCode')
                 )
 
-            cusip = child_text(issuer_el, 'issuerCUSIP') or ''
+            # Check for the legacy flat tag first
+            cusip = child_text(issuer_el, 'issuerCUSIP')
+            # If missing, check for the new nested SEC schema
+            if not cusip:
+                cusip = child_text(issuer_el, 'issuerCusipNumber')
+            cusip = cusip or ''
+
             result['issuer_info'] = IssuerInfo(
                 cik=child_text(issuer_el, 'issuerCIK') or '',
                 name=child_text(issuer_el, 'issuerName') or '',
@@ -365,6 +371,11 @@ class Schedule13D:
     def filing_date(self) -> date:
         """Get the filing date"""
         return self._filing.filing_date
+
+    @property
+    def event_date(self) -> str:
+        """Alias for ``date_of_event`` for API consistency with ``Schedule13G``."""
+        return self.date_of_event
 
     @property
     def total_shares(self) -> int:
@@ -601,7 +612,13 @@ class Schedule13G:
                     zipcode=child_text(address_el, 'zipCode')
                 )
 
-            cusip = child_text(issuer_el, 'issuerCusip') or ''
+            # Check for the legacy flat tag first
+            cusip = child_text(issuer_el, 'issuerCusip')
+            # If missing, check for the new nested SEC schema
+            if not cusip:
+                cusip = child_text(issuer_el, 'issuerCusipNumber')
+            cusip = cusip or ''
+
             result['issuer_info'] = IssuerInfo(
                 cik=child_text(issuer_el, 'issuerCik') or '',
                 name=child_text(issuer_el, 'issuerName') or '',
@@ -798,6 +815,11 @@ class Schedule13G:
     def filing_date(self) -> date:
         """Get the filing date"""
         return self._filing.filing_date
+
+    @property
+    def date_of_event(self) -> str:
+        """Alias for ``event_date`` for API consistency with ``Schedule13D``."""
+        return self.event_date
 
     @property
     def total_shares(self) -> int:

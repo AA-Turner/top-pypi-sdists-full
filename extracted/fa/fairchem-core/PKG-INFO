@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fairchem-core
-Version: 2.19.0
+Version: 2.20.0
 Summary: Machine learning models for chemistry and materials science by the FAIR Chemistry team
 Project-URL: repository, https://github.com/facebookresearch/fairchem
 Project-URL: home, https://opencatalystproject.org/
@@ -14,7 +14,7 @@ Requires-Dist: e3nn>=0.5
 Requires-Dist: huggingface-hub>=0.27.1
 Requires-Dist: hydra-core
 Requires-Dist: lmdb<=1.7.3,>=1.6.2
-Requires-Dist: monty>=v2025.1.3
+Requires-Dist: monty>=2026.2.18
 Requires-Dist: numba>=0.62.0
 Requires-Dist: numpy<2.5,>=2.0
 Requires-Dist: orjson
@@ -52,13 +52,13 @@ Requires-Dist: torch-dftd; extra == 'docs'
 Requires-Dist: umap-learn; extra == 'docs'
 Requires-Dist: vdict; extra == 'docs'
 Provides-Extra: extras
-Requires-Dist: nvalchemi-toolkit-ops==0.2.0; extra == 'extras'
+Requires-Dist: nvalchemi-toolkit-ops>=0.3.0; extra == 'extras'
 Requires-Dist: pandas; extra == 'extras'
 Requires-Dist: pyarrow; extra == 'extras'
-Requires-Dist: pymatgen; extra == 'extras'
+Requires-Dist: pymatgen>=2025.1.9; extra == 'extras'
 Requires-Dist: quacc[phonons]>=0.15.3; extra == 'extras'
 Provides-Extra: torchsim
-Requires-Dist: torch-sim-atomistic>=0.5.2; (python_version >= '3.12') and extra == 'torchsim'
+Requires-Dist: torch-sim-atomistic>=0.6.0; (python_version >= '3.12') and extra == 'torchsim'
 Description-Content-Type: text/markdown
 
 [//]: # (<h1 align="center">)
@@ -204,7 +204,8 @@ opt = FIRE(FrechetCellFilter(atoms))
 opt.run(0.05, 100)
 ```
 
-#### Run molecular MD,
+#### Run Molecular Dynamics (MD)
+Note: `pretrained_mlip.get_predict_unit()` currently uses a seed to set the global state of the numpy RNG. In order to obtain different trajectories for different runs of the following code, we have to set a random seed as shown below:
 ```python
 from ase import units
 from ase.io import Trajectory
@@ -212,7 +213,8 @@ from ase.md.langevin import Langevin
 from ase.build import molecule
 from fairchem.core import pretrained_mlip, FAIRChemCalculator
 
-predictor = pretrained_mlip.get_predict_unit("uma-s-1p2", device="cuda")
+seed = np.random.randint(0, np.iinfo(np.int32).max, dtype=int)
+predictor = pretrained_mlip.get_predict_unit("uma-s-1p2", device="cuda", seed=seed)
 calc = FAIRChemCalculator(predictor, task_name="omol")
 
 atoms = molecule("H2O")
@@ -263,8 +265,9 @@ import time
 
 from fairchem.core.datasets.common_structures import get_fcc_crystal_by_num_atoms
 
+seed = np.random.randint(0, np.iinfo(np.int32).max, dtype=int)
 predictor = pretrained_mlip.get_predict_unit(
-    "uma-s-1p2", inference_settings="turbo", device="cuda", workers=8
+    "uma-s-1p2", inference_settings="turbo", device="cuda", workers=8, seed=seed,
 )
 calc = FAIRChemCalculator(predictor, task_name="omat")
 

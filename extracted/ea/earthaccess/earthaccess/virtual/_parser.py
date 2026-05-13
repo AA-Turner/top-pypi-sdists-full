@@ -13,6 +13,8 @@ from earthaccess.virtual._types import AccessType, ParserType
 
 if TYPE_CHECKING:
     import earthaccess
+    from earthaccess.virtual._types import AccessType, ParserType
+
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +26,7 @@ SUPPORTED_PARSERS: frozenset[str] = frozenset(
         "NetCDF3Parser",
         "KerchunkJSONParser",
         "KerchunkParquetParser",
-    }
+    },
 )
 
 # Maps user-facing lowercase aliases → canonical class name.
@@ -77,7 +79,7 @@ def resolve_parser(
         )
     except ImportError:
         raise ImportError(
-            "earthaccess.virtualize() requires `pip install earthaccess[virtualizarr]`"
+            "earthaccess.virtualize() requires `pip install earthaccess[virtualizarr]`",
         ) from None
 
     # Normalise to canonical name (try aliases for lowercase input).
@@ -87,7 +89,7 @@ def resolve_parser(
         raise ValueError(
             f"Unknown parser {parser!r}. "
             f"Supported parsers: {sorted(SUPPORTED_PARSERS)}. "
-            "You can also pass a pre-built parser instance directly."
+            "You can also pass a pre-built parser instance directly.",
         )
 
     _parser_map = {

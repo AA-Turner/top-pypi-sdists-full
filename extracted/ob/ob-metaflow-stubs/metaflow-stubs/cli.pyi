@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.796400                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.032345                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 from ._vendor import click as click
 from . import parameters as parameters
 from . import plugins as plugins
+from .system_context import system_context as system_context
 from .cli_components.utils import LazyGroup as LazyGroup
 from .cli_components.utils import LazyPluginCommandCollection as LazyPluginCommandCollection
 from .exception import CommandException as CommandException

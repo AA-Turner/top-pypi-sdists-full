@@ -60,6 +60,32 @@ Changelog = "https://github.com/GoogleCloudPlatform/alloydb-python-connector/blo
 [project.optional-dependencies]
 pg8000 = ["pg8000>=1.31.1"]
 asyncpg = ["asyncpg>=0.31.0"]
+psycopg = ["psycopg>=3.1.0"]
+
+[dependency-groups]
+test = [
+    "asyncpg>=0.31.0",
+    "mock>=5.2.0",
+    "pg8000>=1.31.5",
+    "psycopg2-binary>=2.9.11",
+    "psycopg>=3.3.3",
+    "psycopg-binary>=3.3.3",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "pytest-cov>=7.0.0",
+    "SQLAlchemy[asyncio]>=2.0.48",
+    "aioresponses>=0.7.8",
+    "coverage",
+]
+lint = [
+    "ruff==0.15.12",
+    "mypy",
+    "types-aiofiles",
+    "types-requests",
+    "build",
+    "twine",
+    {include-group = "test"},
+]
 
 [tool.setuptools.dynamic]
 version = { attr = "google.cloud.alloydbconnector.version.__version__" }
@@ -71,6 +97,35 @@ version = { attr = "google.cloud.alloydbconnector.version.__version__" }
 # Only include packages under the 'google' namespace. Do not include tests,
 # benchmarks, etc.
 include = ["google*"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+exclude = [
+    "google/api/*",
+    "google/cloud/alloydb_connectors_v1/*",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "ANN", # flake8-annotations
+]
+ignore = [
+    "ANN401", # Any is needed for pass-through **kwargs
+    "E501",   # line too long — enforced by ruff format
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ANN"]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+force-sort-within-sections = true
+known-first-party = ["google"]
 
 [tool.mypy]
 python_version = "3.10"

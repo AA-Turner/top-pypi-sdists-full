@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.777133                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.006362                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ _R = typing.TypeVar("_R", contravariant=False, covariant=False)
 class MulticoreException(Exception, metaclass=type):
     ...
 
-def parallel_imap_unordered(func: typing.Callable[[_A], _R], iterable: typing.Iterable[_A], max_parallel: typing.Optional[int] = None, dir: typing.Optional[str] = None) -> typing.Iterator[_R]:
+def parallel_imap_unordered(func: typing.Callable[[_A], _R], iterable: typing.Iterable[_A], max_parallel: typing.Union[int, None] = None, dir: typing.Union[str, None] = None) -> typing.Iterator[_R]:
     """
     Parallelizes execution of a function using multiprocessing. The result
     order is not guaranteed.
@@ -37,7 +37,7 @@ def parallel_imap_unordered(func: typing.Callable[[_A], _R], iterable: typing.It
     """
     ...
 
-def parallel_map(func: typing.Callable[[_A], _R], iterable: typing.Iterable[_A], max_parallel: typing.Optional[int] = None, dir: typing.Optional[str] = None) -> typing.List[_R]:
+def parallel_map(func: typing.Callable[[_A], _R], iterable: typing.Iterable[_A], max_parallel: typing.Union[int, None] = None, dir: typing.Union[str, None] = None) -> typing.List[_R]:
     """
     Parallelizes execution of a function using multiprocessing. The result
     order is that of the arguments in `iterable`.

@@ -9,14 +9,16 @@ from typing import ClassVar as _ClassVar, Optional as _Optional
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class MarkBatchesCompletedRequest(_message.Message):
-    __slots__ = ("ingest_job_rid", "dataset_file_id", "batch_ids")
+    __slots__ = ("ingest_job_rid", "dataset_file_id", "batch_ids", "is_primary")
     INGEST_JOB_RID_FIELD_NUMBER: _ClassVar[int]
     DATASET_FILE_ID_FIELD_NUMBER: _ClassVar[int]
     BATCH_IDS_FIELD_NUMBER: _ClassVar[int]
+    IS_PRIMARY_FIELD_NUMBER: _ClassVar[int]
     ingest_job_rid: str
     dataset_file_id: str
     batch_ids: _containers.RepeatedScalarFieldContainer[int]
-    def __init__(self, ingest_job_rid: _Optional[str] = ..., dataset_file_id: _Optional[str] = ..., batch_ids: _Optional[_Iterable[int]] = ...) -> None: ...
+    is_primary: bool
+    def __init__(self, ingest_job_rid: _Optional[str] = ..., dataset_file_id: _Optional[str] = ..., batch_ids: _Optional[_Iterable[int]] = ..., is_primary: bool = ...) -> None: ...
 
 class MarkBatchesCompletedResponse(_message.Message):
     __slots__ = ()

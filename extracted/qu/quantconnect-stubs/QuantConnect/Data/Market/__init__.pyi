@@ -24,6 +24,15 @@ QuantConnect_Data_Market_DataDictionary_T = typing.TypeVar("QuantConnect_Data_Ma
 QuantConnect_Data_Market_BaseChains_T = typing.TypeVar("QuantConnect_Data_Market_BaseChains_T")
 QuantConnect_Data_Market_BaseChains_TContract = typing.TypeVar("QuantConnect_Data_Market_BaseChains_TContract")
 QuantConnect_Data_Market_BaseChains_TContractsCollection = typing.TypeVar("QuantConnect_Data_Market_BaseChains_TContractsCollection")
+QuantConnect_Data_Market_BaseChain_GetAux_TAux = typing.TypeVar("QuantConnect_Data_Market_BaseChain_GetAux_TAux")
+QuantConnect_Data_Market_BaseChain_GetAuxList_TAux = typing.TypeVar("QuantConnect_Data_Market_BaseChain_GetAuxList_TAux")
+QuantConnect_Data_Market_DataDictionaryExtensions_Add_T = typing.TypeVar("QuantConnect_Data_Market_DataDictionaryExtensions_Add_T")
+QuantConnect_Data_Market_TradeBar_ParseEquity_T = typing.TypeVar("QuantConnect_Data_Market_TradeBar_ParseEquity_T")
+QuantConnect_Data_Market_TradeBar_ParseForex_T = typing.TypeVar("QuantConnect_Data_Market_TradeBar_ParseForex_T")
+QuantConnect_Data_Market_TradeBar_ParseCrypto_T = typing.TypeVar("QuantConnect_Data_Market_TradeBar_ParseCrypto_T")
+QuantConnect_Data_Market_TradeBar_ParseCfd_T = typing.TypeVar("QuantConnect_Data_Market_TradeBar_ParseCfd_T")
+QuantConnect_Data_Market_TradeBar_ParseOption_T = typing.TypeVar("QuantConnect_Data_Market_TradeBar_ParseOption_T")
+QuantConnect_Data_Market_TradeBar_ParseFuture_T = typing.TypeVar("QuantConnect_Data_Market_TradeBar_ParseFuture_T")
 
 
 class BaseContract(System.Object, QuantConnect.Data.ISymbolProvider, metaclass=abc.ABCMeta):
@@ -130,7 +139,7 @@ class BaseContract(System.Object, QuantConnect.Data.ISymbolProvider, metaclass=a
         Initializes a new instance of the BaseContract class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param symbol: The contract symbol
         """
@@ -534,6 +543,292 @@ class IBaseDataBar(QuantConnect.Data.IBaseData, QuantConnect.Data.Market.IBar, m
     """Represents a type that is both a bar and base data"""
 
 
+class _Typed_TradeBar_ParseEquity(typing.Generic[QuantConnect_Data_Market_TradeBar_ParseEquity_T]):
+    """"""
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect_Data_Market_TradeBar_ParseEquity_T:
+        """
+        Parses equity trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: Date of this reader request
+        """
+        ...
+
+
+class _TradeBar_ParseEquity:
+    """"""
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses equity trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param stream_reader: The data stream of the requested file
+        :param date: Date of this reader request
+        """
+        ...
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses equity trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: Date of this reader request
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_Market_TradeBar_ParseEquity_T]) -> QuantConnect.Data.Market._Typed_TradeBar_ParseEquity[QuantConnect_Data_Market_TradeBar_ParseEquity_T]:
+        ...
+
+
+class _Typed_TradeBar_ParseForex(typing.Generic[QuantConnect_Data_Market_TradeBar_ParseForex_T]):
+    """"""
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect_Data_Market_TradeBar_ParseForex_T:
+        """
+        Parses forex trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+
+class _TradeBar_ParseForex:
+    """"""
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses forex trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses forex trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param stream_reader: The data stream of the requested file
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_Market_TradeBar_ParseForex_T]) -> QuantConnect.Data.Market._Typed_TradeBar_ParseForex[QuantConnect_Data_Market_TradeBar_ParseForex_T]:
+        ...
+
+
+class _Typed_TradeBar_ParseCrypto(typing.Generic[QuantConnect_Data_Market_TradeBar_ParseCrypto_T]):
+    """"""
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect_Data_Market_TradeBar_ParseCrypto_T:
+        """
+        Parses crypto trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+
+class _TradeBar_ParseCrypto:
+    """"""
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses crypto trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses crypto trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param stream_reader: The data stream of the requested file
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_Market_TradeBar_ParseCrypto_T]) -> QuantConnect.Data.Market._Typed_TradeBar_ParseCrypto[QuantConnect_Data_Market_TradeBar_ParseCrypto_T]:
+        ...
+
+
+class _Typed_TradeBar_ParseCfd(typing.Generic[QuantConnect_Data_Market_TradeBar_ParseCfd_T]):
+    """"""
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect_Data_Market_TradeBar_ParseCfd_T:
+        """
+        Parses CFD trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+
+class _TradeBar_ParseCfd:
+    """"""
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses CFD trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses CFD trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param stream_reader: The data stream of the requested file
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_Market_TradeBar_ParseCfd_T]) -> QuantConnect.Data.Market._Typed_TradeBar_ParseCfd[QuantConnect_Data_Market_TradeBar_ParseCfd_T]:
+        ...
+
+
+class _Typed_TradeBar_ParseOption(typing.Generic[QuantConnect_Data_Market_TradeBar_ParseOption_T]):
+    """"""
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect_Data_Market_TradeBar_ParseOption_T:
+        """
+        Parses Option trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect_Data_Market_TradeBar_ParseOption_T:
+        """
+        Parses Option trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param stream_reader: The data stream of the requested file
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+
+class _TradeBar_ParseOption:
+    """"""
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses Option trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses Option trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param stream_reader: The data stream of the requested file
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_Market_TradeBar_ParseOption_T]) -> QuantConnect.Data.Market._Typed_TradeBar_ParseOption[QuantConnect_Data_Market_TradeBar_ParseOption_T]:
+        ...
+
+
+class _Typed_TradeBar_ParseFuture(typing.Generic[QuantConnect_Data_Market_TradeBar_ParseFuture_T]):
+    """"""
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect_Data_Market_TradeBar_ParseFuture_T:
+        """
+        Parses Future trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param stream_reader: The data stream of the requested file
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect_Data_Market_TradeBar_ParseFuture_T:
+        """
+        Parses Future trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+
+class _TradeBar_ParseFuture:
+    """"""
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses Future trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    @overload
+    def __call__(self, config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses Future trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param stream_reader: The data stream of the requested file
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_Market_TradeBar_ParseFuture_T]) -> QuantConnect.Data.Market._Typed_TradeBar_ParseFuture[QuantConnect_Data_Market_TradeBar_ParseFuture_T]:
+        ...
+
+
 class TradeBar(QuantConnect.Data.BaseData, QuantConnect.Data.Market.IBaseDataBar):
     """
     TradeBar class for second and minute resolution data:
@@ -542,7 +837,7 @@ class TradeBar(QuantConnect.Data.BaseData, QuantConnect.Data.Market.IBaseDataBar
 
     @property
     def initialized(self) -> int:
-        """This codeEntityType is protected."""
+        """This Field is protected."""
         ...
 
     @initialized.setter
@@ -612,6 +907,18 @@ class TradeBar(QuantConnect.Data.BaseData, QuantConnect.Data.Market.IBaseDataBar
     def period(self, value: datetime.timedelta) -> None:
         ...
 
+    parse_equity: QuantConnect.Data.Market._TradeBar_ParseEquity
+
+    parse_forex: QuantConnect.Data.Market._TradeBar_ParseForex
+
+    parse_crypto: QuantConnect.Data.Market._TradeBar_ParseCrypto
+
+    parse_cfd: QuantConnect.Data.Market._TradeBar_ParseCfd
+
+    parse_option: QuantConnect.Data.Market._TradeBar_ParseOption
+
+    parse_future: QuantConnect.Data.Market._TradeBar_ParseFuture
+
     @overload
     def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], open: float, high: float, low: float, close: float, volume: float, period: typing.Optional[datetime.timedelta] = None) -> None:
         """
@@ -677,126 +984,6 @@ class TradeBar(QuantConnect.Data.BaseData, QuantConnect.Data.Market.IBaseDataBar
 
     @staticmethod
     @overload
-    def parse_cfd(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses CFD trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param line: Line from the data file requested
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_cfd(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses CFD trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param stream_reader: The data stream of the requested file
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_crypto(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses crypto trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param line: Line from the data file requested
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_crypto(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses crypto trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param stream_reader: The data stream of the requested file
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_equity(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses equity trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param stream_reader: The data stream of the requested file
-        :param date: Date of this reader request
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_equity(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses equity trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param line: Line from the data file requested
-        :param date: Date of this reader request
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_forex(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses forex trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param line: Line from the data file requested
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_forex(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses forex trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param stream_reader: The data stream of the requested file
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_future(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses Future trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param line: Line from the data file requested
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_future(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses Future trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param stream_reader: The data stream of the requested file
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    @staticmethod
-    @overload
     def parse_index(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
         """Parse an index bar from the LEAN disk format"""
         ...
@@ -805,30 +992,6 @@ class TradeBar(QuantConnect.Data.BaseData, QuantConnect.Data.Market.IBaseDataBar
     @overload
     def parse_index(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
         """Parse an index bar from the LEAN disk format"""
-        ...
-
-    @staticmethod
-    @overload
-    def parse_option(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses Option trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param line: Line from the data file requested
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_option(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses Option trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param stream_reader: The data stream of the requested file
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
         ...
 
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
@@ -1258,6 +1421,66 @@ class QuoteBars(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market
         ...
 
 
+class _Typed_BaseChain_GetAux(typing.Generic[QuantConnect_Data_Market_BaseChain_GetAux_TAux]):
+    """"""
+
+    @overload
+    def __call__(self, symbol: QuantConnect.Symbol) -> QuantConnect_Data_Market_BaseChain_GetAux_TAux:
+        """
+        Gets the auxiliary data with the specified type and symbol
+        
+        :param symbol: The symbol of the auxiliary data
+        :returns: The last auxiliary data with the specified type and symbol.
+        """
+        ...
+
+    @overload
+    def __call__(self) -> QuantConnect.Data.Market.DataDictionary[QuantConnect_Data_Market_BaseChain_GetAux_TAux]:
+        """
+        Gets all auxiliary data of the specified type as a dictionary keyed by symbol
+        
+        :returns: A dictionary containing all auxiliary data of the specified type.
+        """
+        ...
+
+
+class _BaseChain_GetAux:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_Market_BaseChain_GetAux_TAux]) -> QuantConnect.Data.Market._Typed_BaseChain_GetAux[QuantConnect_Data_Market_BaseChain_GetAux_TAux]:
+        ...
+
+
+class _Typed_BaseChain_GetAuxList(typing.Generic[QuantConnect_Data_Market_BaseChain_GetAuxList_TAux]):
+    """"""
+
+    @overload
+    def __call__(self) -> System.Collections.Generic.Dictionary[QuantConnect.Symbol, typing.List[QuantConnect.Data.BaseData]]:
+        """
+        Gets all auxiliary data of the specified type as a dictionary keyed by symbol
+        
+        :returns: A dictionary containing all auxiliary data of the specified type.
+        """
+        ...
+
+    @overload
+    def __call__(self, symbol: QuantConnect.Symbol) -> typing.List[QuantConnect_Data_Market_BaseChain_GetAuxList_TAux]:
+        """
+        Gets a list of auxiliary data with the specified type and symbol
+        
+        :param symbol: The symbol of the auxiliary data
+        :returns: The list of auxiliary data with the specified type and symbol.
+        """
+        ...
+
+
+class _BaseChain_GetAuxList:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_Market_BaseChain_GetAuxList_TAux]) -> QuantConnect.Data.Market._Typed_BaseChain_GetAuxList[QuantConnect_Data_Market_BaseChain_GetAuxList_TAux]:
+        ...
+
+
 class BaseChain(typing.Generic[QuantConnect_Data_Market_BaseChain_T, QuantConnect_Data_Market_BaseChain_TContractsCollection], QuantConnect.Data.BaseData, typing.Iterable[QuantConnect_Data_Market_BaseChain_T]):
     """
     Base representation of an entire chain of contracts for a single underlying security.
@@ -1323,6 +1546,14 @@ class BaseChain(typing.Generic[QuantConnect_Data_Market_BaseChain_T, QuantConnec
         """The number of contracts in this chain"""
         ...
 
+    @property
+    def get_aux(self) -> QuantConnect.Data.Market._BaseChain_GetAux:
+        ...
+
+    @property
+    def get_aux_list(self) -> QuantConnect.Data.Market._BaseChain_GetAuxList:
+        ...
+
     def __contains__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
         """
         Checks if the chain contains a contract with the specified symbol
@@ -1338,7 +1569,7 @@ class BaseChain(typing.Generic[QuantConnect_Data_Market_BaseChain_T, QuantConnec
         Initializes a new instance of the BaseChain{T, TContractsCollection} class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param canonical_option_symbol: The symbol for this chain.
         :param time: The time of this chain
@@ -1352,7 +1583,7 @@ class BaseChain(typing.Generic[QuantConnect_Data_Market_BaseChain_T, QuantConnec
         Initializes a new default instance of the BaseChain{T, TContractsCollection} class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1362,7 +1593,7 @@ class BaseChain(typing.Generic[QuantConnect_Data_Market_BaseChain_T, QuantConnec
         Initializes a new instance of the BaseChain{T, TContractsCollection} class as a copy of the specified chain
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1877,7 +2108,7 @@ class DataDictionary(typing.Generic[QuantConnect_Data_Market_DataDictionary_T], 
         Gets a collection containing the keys in the dictionary
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1887,7 +2118,7 @@ class DataDictionary(typing.Generic[QuantConnect_Data_Market_DataDictionary_T], 
         Gets a collection containing the values in the dictionary
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1991,8 +2222,26 @@ class DataDictionary(typing.Generic[QuantConnect_Data_Market_DataDictionary_T], 
         ...
 
 
+class _Typed_DataDictionaryExtensions_Add(typing.Generic[QuantConnect_Data_Market_DataDictionaryExtensions_Add_T]):
+    """"""
+
+    @overload
+    def __call__(self, dictionary: QuantConnect.Data.Market.DataDictionary[QuantConnect_Data_Market_DataDictionaryExtensions_Add_T], data: QuantConnect_Data_Market_DataDictionaryExtensions_Add_T) -> None:
+        """Provides a convenience method for adding a base data instance to our data dictionary"""
+        ...
+
+
+class _DataDictionaryExtensions_Add:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_Market_DataDictionaryExtensions_Add_T]) -> QuantConnect.Data.Market._Typed_DataDictionaryExtensions_Add[QuantConnect_Data_Market_DataDictionaryExtensions_Add_T]:
+        ...
+
+
 class DataDictionaryExtensions(System.Object):
     """Provides extension methods for the DataDictionary class"""
+
+    add: QuantConnect.Data.Market._DataDictionaryExtensions_Add
 
 
 class Split(QuantConnect.Data.BaseData):
@@ -3045,7 +3294,7 @@ class BaseChains(typing.Generic[QuantConnect_Data_Market_BaseChains_T, QuantConn
         Creates a new instance of the BaseChains{T, TContract, TContractsCollection} dictionary
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -3055,7 +3304,7 @@ class BaseChains(typing.Generic[QuantConnect_Data_Market_BaseChains_T, QuantConn
         Creates a new instance of the BaseChains{T, TContract, TContractsCollection} dictionary
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -3065,7 +3314,7 @@ class BaseChains(typing.Generic[QuantConnect_Data_Market_BaseChains_T, QuantConn
         Creates a new instance of the BaseChains{T, TContract, TContractsCollection} dictionary
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

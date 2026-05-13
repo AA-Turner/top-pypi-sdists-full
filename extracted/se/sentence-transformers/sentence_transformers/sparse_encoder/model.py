@@ -134,6 +134,7 @@ class SparseEncoder(BaseModel):
     default_huggingface_organization: str | None = "sparse-encoder"
     _default_prompts: dict[str, str | None] = {"query": None, "document": None}
     _model_card_model_id_placeholder = "sparse_encoder_model_id"
+    model_type: str = "SparseEncoder"
 
     @deprecated_kwargs(tokenizer_kwargs="processor_kwargs")
     def __init__(
@@ -414,6 +415,12 @@ class SparseEncoder(BaseModel):
             chunk_size (int, optional): Size of chunks for multi-process encoding. Only used with multiprocessing, i.e.
                 when ``pool`` is not None or ``device`` is a list. If None, a sensible default is calculated.
                 Defaults to None.
+            **kwargs: Additional keyword arguments forwarded to the model's ``preprocess`` and ``forward``. A notable
+                one is ``processing_kwargs``, which lets you override the processor kwargs configured on the
+                underlying :class:`~sentence_transformers.base.modules.Transformer` for this call only (e.g.
+                ``processing_kwargs={"text": {"max_length": 256, "truncation": True}}``). See
+                :meth:`Transformer.preprocess <sentence_transformers.base.modules.Transformer.preprocess>` for the
+                accepted structure.
 
         Returns:
             Union[list[Tensor], Tensor]: By default, a 2d torch sparse tensor with shape [num_inputs, output_dimension]
@@ -458,7 +465,7 @@ class SparseEncoder(BaseModel):
         # Throw an error if unused kwargs are passed, except 'task' which is always allowed, even
         # when it does not do anything (as e.g. there's no Router module in the model)
         model_kwargs = self.get_model_kwargs()
-        if unused_kwargs := set(kwargs) - set(model_kwargs) - {"task"}:
+        if unused_kwargs := set(kwargs) - set(model_kwargs) - {"task", "processing_kwargs"}:
             raise ValueError(
                 f"{self.__class__.__name__}.encode() has been called with additional keyword arguments that this model does not use: {list(unused_kwargs)}. "
                 + (

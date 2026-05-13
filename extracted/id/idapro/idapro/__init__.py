@@ -63,8 +63,9 @@ try:
                 os.add_dll_directory(root_dir)
         else:
             os.environ['PATH'] = root_dir + os.pathsep + os.environ.get('PATH', '')
-
-    libida = ctypes.cdll.LoadLibrary(idalib_path)
+        libida = ctypes.cdll.LoadLibrary(idalib_path)
+    else:
+        libida = ctypes.CDLL(idalib_path, mode=ctypes.RTLD_GLOBAL)
 except Exception as e:
     raise ImportError(f"Failed loading IDA library file {idalib_path}, exception {e}\n")
 

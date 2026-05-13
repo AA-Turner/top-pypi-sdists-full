@@ -57,7 +57,7 @@ class BacktestingBrokerage(QuantConnect.Brokerages.Brokerage):
         This is the algorithm under test
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -81,7 +81,7 @@ class BacktestingBrokerage(QuantConnect.Brokerages.Brokerage):
         Creates a new BacktestingBrokerage for the specified algorithm
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param algorithm: The algorithm instance
         :param name: The name of the brokerage
@@ -134,7 +134,7 @@ class BacktestingBrokerage(QuantConnect.Brokerages.Brokerage):
         Event invocator for the OrderFilled event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param order_events: The list of order events
         """

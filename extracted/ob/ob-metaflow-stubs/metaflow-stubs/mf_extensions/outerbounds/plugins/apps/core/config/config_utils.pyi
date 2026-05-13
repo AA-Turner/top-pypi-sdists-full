@@ -1,13 +1,13 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.832451                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.080304                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils
     import typing
@@ -180,7 +180,7 @@ class CLIOption(object, metaclass=type):
     click_type : Optional[Any], optional
         Custom Click type for specialized parsing (e.g., KeyValuePair).
     """
-    def __init__(self, name: str, cli_option_str: str, help: typing.Optional[str] = None, short: typing.Optional[str] = None, multiple: bool = False, is_flag: bool = False, choices: typing.Optional[typing.List[str]] = None, default: typing.Any = None, hidden: bool = False, click_type: typing.Optional[typing.Any] = None):
+    def __init__(self, name: str, cli_option_str: str, help: typing.Union[str, None] = None, short: typing.Union[str, None] = None, multiple: bool = False, is_flag: bool = False, choices: typing.Union[typing.List[str], None] = None, default: typing.Any = None, hidden: bool = False, click_type: typing.Union[typing.Any, None] = None):
         ...
     ...
 
@@ -272,7 +272,7 @@ class ConfigField(object, metaclass=type):
         ConfigFieldContext specifying which interfaces this field is available in.
         One of ConfigFieldContext.ALL (default), ConfigFieldContext.CLI, or ConfigFieldContext.PROGRAMMATIC.
     """
-    def __init__(self, default: typing.Union[typing.Any, typing.Callable[["ConfigField"], typing.Any]] = None, cli_meta = None, field_type = None, required = False, help = None, behavior: str = 'union', example = None, strict_types = True, validation_fn: typing.Optional[typing.Callable] = None, is_experimental = False, parsing_fn: typing.Optional[typing.Callable] = None, available_in: str = 'all'):
+    def __init__(self, default: typing.Union[typing.Any, typing.Callable[["ConfigField"], typing.Any]] = None, cli_meta = None, field_type = None, required = False, help = None, behavior: str = 'union', example = None, strict_types = True, validation_fn: typing.Union[typing.Callable, None] = None, is_experimental = False, parsing_fn: typing.Union[typing.Callable, None] = None, available_in: str = 'all'):
         ...
     def fully_qualified_name(self):
         ...
@@ -391,7 +391,7 @@ def apply_defaults(config):
     ...
 
 class ConfigValidationFailedException(Exception, metaclass=type):
-    def __init__(self, field_name: str, field_info: ConfigField, current_value, message: typing.Optional[str] = None):
+    def __init__(self, field_name: str, field_info: ConfigField, current_value, message: typing.Union[str, None] = None):
         ...
     ...
 
@@ -409,7 +409,7 @@ def validate_required_fields(config_instance):
 def validate_config_meta(config_instance):
     ...
 
-def config_meta_to_dict(config_instance) -> typing.Optional[typing.Dict[str, typing.Any]]:
+def config_meta_to_dict(config_instance) -> typing.Union[typing.Dict[str, typing.Any], None]:
     """
     Convert a configuration instance to a nested dictionary.
     

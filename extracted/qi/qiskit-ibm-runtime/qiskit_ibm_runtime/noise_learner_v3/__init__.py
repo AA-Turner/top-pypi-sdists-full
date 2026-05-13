@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2025
+# (C) Copyright IBM 2025-2026.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -27,13 +27,7 @@ Classes
    :toctree: ../stubs/
 
    NoiseLearnerV3
-   NoiseLearnerV3Result
-   NoiseLearnerV3Results
 
 """
 
 from .noise_learner_v3 import NoiseLearnerV3
-from .noise_learner_v3_result import (  # type: ignore[attr-defined]
-    NoiseLearnerV3Result,
-    NoiseLearnerV3Results,
-)

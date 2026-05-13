@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.835252                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.110217                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -146,6 +146,9 @@ class KubernetesDecorator(metaflow.decorators.StepDecorator, metaclass=type):
         Port number to specify in the Kubernetes job object
     compute_pool : str, optional, default None
         Compute pool to be used for for this step.
+        If not specified, any accessible compute pool within the perimeter is used.
+    queue : str, optional, default None
+        Queue to be used for for this step.
         If not specified, any accessible compute pool within the perimeter is used.
     hostname_resolution_timeout: int, default 10 * 60
         Timeout in seconds for the workers tasks in the gang scheduled cluster to resolve the hostname of control task.

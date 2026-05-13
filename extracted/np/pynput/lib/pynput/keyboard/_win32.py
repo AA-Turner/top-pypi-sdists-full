@@ -43,7 +43,8 @@ from pynput._util.win32 import (
     MapVirtualKey,
     SendInput,
     SystemHook,
-    VkKeyScan)
+    VkKeyScan,
+)
 from . import _base
 
 
@@ -51,7 +52,6 @@ class KeyCode(_base.KeyCode):
     _PLATFORM_EXTENSIONS = (
         # Any extra flags.
         '_flags',
-
         #: The scan code.
         '_scan',
     )
@@ -74,8 +74,9 @@ class KeyCode(_base.KeyCode):
         """
         if self.vk:
             vk = self.vk
-            scan = self._scan \
-                or MapVirtualKey(vk, MapVirtualKey.MAPVK_VK_TO_VSC)
+            scan = self._scan or MapVirtualKey(
+                vk, MapVirtualKey.MAPVK_VK_TO_VSC
+            )
             flags = 0
         elif ord(self.char) > 0xFFFF:
             raise ValueError
@@ -83,18 +84,18 @@ class KeyCode(_base.KeyCode):
             res = VkKeyScan(self.char)
             if (res >> 8) & 0xFF == 0:
                 vk = res & 0xFF
-                scan = self._scan \
-                    or MapVirtualKey(vk, MapVirtualKey.MAPVK_VK_TO_VSC)
+                scan = self._scan or MapVirtualKey(
+                    vk, MapVirtualKey.MAPVK_VK_TO_VSC
+                )
                 flags = 0
             else:
                 vk = 0
                 scan = ord(self.char)
                 flags = KEYBDINPUT.UNICODE
-        state_flags = (KEYBDINPUT.KEYUP if not is_press else 0)
+        state_flags = KEYBDINPUT.KEYUP if not is_press else 0
         return dict(
-            dwFlags=(self._flags or 0) | flags | state_flags,
-            wVk=vk,
-            wScan=scan)
+            dwFlags=(self._flags or 0) | flags | state_flags, wVk=vk, wScan=scan
+        )
 
     @classmethod
     def _from_ext(cls, vk, **kwargs):
@@ -178,6 +179,8 @@ class Key(enum.Enum):
     pause = KeyCode.from_vk(VK.PAUSE)
     print_screen = KeyCode._from_ext(VK.SNAPSHOT)
     scroll_lock = KeyCode.from_vk(VK.SCROLL)
+
+
 # pylint: enable=W0212
 
 
@@ -192,11 +195,16 @@ class Controller(_base.Controller):
         try:
             SendInput(
                 1,
-                ctypes.byref(INPUT(
-                    type=INPUT.KEYBOARD,
-                    value=INPUT_union(
-                        ki=KEYBDINPUT(**key._parameters(is_press))))),
-                ctypes.sizeof(INPUT))
+                ctypes.byref(
+                    INPUT(
+                        type=INPUT.KEYBOARD,
+                        value=INPUT_union(
+                            ki=KEYBDINPUT(**key._parameters(is_press))
+                        ),
+                    )
+                ),
+                ctypes.sizeof(INPUT),
+            )
         except ValueError:
             # If key._parameters raises ValueError, the key is a unicode
             # characters outsice of the range of a single UTF-16 value, and we
@@ -204,22 +212,28 @@ class Controller(_base.Controller):
             byte_data = bytearray(key.char.encode('utf-16le'))
             surrogates = [
                 byte_data[i] | (byte_data[i + 1] << 8)
-                for i in range(0, len(byte_data), 2)]
+                for i in range(0, len(byte_data), 2)
+            ]
 
-            state_flags = KEYBDINPUT.UNICODE \
-                | (KEYBDINPUT.KEYUP if not is_press else 0)
+            state_flags = KEYBDINPUT.UNICODE | (
+                KEYBDINPUT.KEYUP if not is_press else 0
+            )
 
             SendInput(
                 len(surrogates),
-                (INPUT * len(surrogates))(*(
-                    INPUT(
-                        INPUT.KEYBOARD,
-                        INPUT_union(
-                            ki=KEYBDINPUT(
-                                dwFlags=state_flags,
-                                wScan=scan)))
-                    for scan in surrogates)),
-                ctypes.sizeof(INPUT))
+                (INPUT * len(surrogates))(
+                    *(
+                        INPUT(
+                            INPUT.KEYBOARD,
+                            INPUT_union(
+                                ki=KEYBDINPUT(dwFlags=state_flags, wScan=scan)
+                            ),
+                        )
+                        for scan in surrogates
+                    )
+                ),
+                ctypes.sizeof(INPUT),
+            )
 
 
 class Listener(ListenerMixin, _base.Listener):
@@ -249,22 +263,18 @@ class Listener(ListenerMixin, _base.Listener):
     _RELEASE_MESSAGES = (_WM_KEYUP, _WM_SYSKEYUP)
 
     #: Additional window messages to propagate to the subclass handler.
-    _WM_NOTIFICATIONS = (
-        _WM_INPUTLANGCHANGE,
-    )
+    _WM_NOTIFICATIONS = (_WM_INPUTLANGCHANGE,)
 
     #: A mapping from keysym to special key
-    _SPECIAL_KEYS = {
-        key.value.vk: key
-        for key in Key}
+    _SPECIAL_KEYS = {key.value.vk: key for key in Key}
 
-    _HANDLED_EXCEPTIONS = (
-        SystemHook.SuppressException,)
+    _HANDLED_EXCEPTIONS = (SystemHook.SuppressException,)
 
     class _KBDLLHOOKSTRUCT(ctypes.Structure):
         """Contains information about a mouse event passed to a
         ``WH_KEYBOARD_LL`` hook procedure, ``LowLevelKeyboardProc``.
         """
+
         LLKHF_INJECTED = 0x00000010
         LLKHF_LOWER_IL_INJECTED = 0x00000002
         _fields_ = [
@@ -272,7 +282,8 @@ class Listener(ListenerMixin, _base.Listener):
             ('scanCode', wintypes.DWORD),
             ('flags', wintypes.DWORD),
             ('time', wintypes.DWORD),
-            ('dwExtraInfo', ctypes.c_void_p)]
+            ('dwExtraInfo', ctypes.c_void_p),
+        ]
 
     #: A pointer to a :class:`KBDLLHOOKSTRUCT`
     _LPKBDLLHOOKSTRUCT = ctypes.POINTER(_KBDLLHOOKSTRUCT)
@@ -281,8 +292,8 @@ class Listener(ListenerMixin, _base.Listener):
         super(Listener, self).__init__(*args, **kwargs)
         self._translator = KeyTranslator()
         self._event_filter = self._options.get(
-            'event_filter',
-            lambda msg, data: True)
+            'event_filter', lambda msg, data: True
+        )
 
     def _convert(self, code, msg, lpdata):
         if code != SystemHook.HC_ACTION:
@@ -290,12 +301,19 @@ class Listener(ListenerMixin, _base.Listener):
 
         data = ctypes.cast(lpdata, self._LPKBDLLHOOKSTRUCT).contents
         is_packet = data.vkCode == self._VK_PACKET
-        injected = (data.flags & (0
-            | self._KBDLLHOOKSTRUCT.LLKHF_INJECTED
-            | self._KBDLLHOOKSTRUCT.LLKHF_LOWER_IL_INJECTED)) != 0
-        message = (msg
+        injected = (
+            data.flags
+            & (
+                0
+                | self._KBDLLHOOKSTRUCT.LLKHF_INJECTED
+                | self._KBDLLHOOKSTRUCT.LLKHF_LOWER_IL_INJECTED
+            )
+        ) != 0
+        message = (
+            msg
             | (self._UTF16_FLAG if is_packet else 0)
-            | (self._INJECTED_FLAG if injected else 0))
+            | (self._INJECTED_FLAG if injected else 0)
+        )
 
         # Suppress further propagation of the event if it is filtered
         if self._event_filter(msg, data) is False:
@@ -334,14 +352,13 @@ class Listener(ListenerMixin, _base.Listener):
     # pylint: disable=R0201
     @contextlib.contextmanager
     def _receive(self):
-        """An empty context manager; we do not need to fake keyboard events.
-        """
+        """An empty context manager; we do not need to fake keyboard events."""
         yield
+
     # pylint: enable=R0201
 
     def _on_notification(self, code, wparam, lparam):
-        """Receives ``WM_INPUTLANGCHANGE`` and updates the cached layout.
-        """
+        """Receives ``WM_INPUTLANGCHANGE`` and updates the cached layout."""
         if code == self._WM_INPUTLANGCHANGE:
             self._translator.update_layout()
 
@@ -360,9 +377,7 @@ class Listener(ListenerMixin, _base.Listener):
         if vk in self._SPECIAL_KEYS:
             return self._SPECIAL_KEYS[vk]
         else:
-            return KeyCode(**self._translate(
-                vk,
-                msg in self._PRESS_MESSAGES))
+            return KeyCode(**self._translate(vk, msg in self._PRESS_MESSAGES))
 
     def _translate(self, vk, is_press):
         """Translates a virtual key code to a parameter list passable to

@@ -284,8 +284,16 @@ class SetTaskStatusRequest(google.protobuf.message.Message):
     ID_FIELD_NUMBER: builtins.int
     STATUS_FIELD_NUMBER: builtins.int
     FETCH_NEXT_TASK_FIELD_NUMBER: builtins.int
+    MAX_ATTEMPTS_FIELD_NUMBER: builtins.int
     id: builtins.str
     status: global___TaskActivationStatus.ValueType
+    max_attempts: builtins.int
+    """Maximum number of attempts for this task (including the initial attempt).
+    When status is RETRY and this field is set, the broker will update
+    the activation's retry_state with this value. This allows workers
+    to communicate the retry policy for tasks from raw topics that
+    don't have retry_state embedded in the message.
+    """
     @property
     def fetch_next_task(self) -> global___FetchNextTask:
         """If fetch_next is provided, receive a new task in the response"""
@@ -296,10 +304,14 @@ class SetTaskStatusRequest(google.protobuf.message.Message):
         id: builtins.str = ...,
         status: global___TaskActivationStatus.ValueType = ...,
         fetch_next_task: global___FetchNextTask | None = ...,
+        max_attempts: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_fetch_next_task", b"_fetch_next_task", "fetch_next_task", b"fetch_next_task"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_fetch_next_task", b"_fetch_next_task", "fetch_next_task", b"fetch_next_task", "id", b"id", "status", b"status"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_fetch_next_task", b"_fetch_next_task", "_max_attempts", b"_max_attempts", "fetch_next_task", b"fetch_next_task", "max_attempts", b"max_attempts"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_fetch_next_task", b"_fetch_next_task", "_max_attempts", b"_max_attempts", "fetch_next_task", b"fetch_next_task", "id", b"id", "max_attempts", b"max_attempts", "status", b"status"]) -> None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_fetch_next_task", b"_fetch_next_task"]) -> typing.Literal["fetch_next_task"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_max_attempts", b"_max_attempts"]) -> typing.Literal["max_attempts"] | None: ...
 
 global___SetTaskStatusRequest = SetTaskStatusRequest
 

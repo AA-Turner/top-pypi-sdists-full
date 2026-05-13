@@ -1,12 +1,213 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: batchgenerators
-Version: 0.25.1
+Version: 0.25.2
 Summary: Data augmentation toolkit
-Home-page: https://github.com/MIC-DKFZ/batchgenerators
-Author: Division of Medical Image Computing, German Cancer Research Center AND Applied Computer Vision Lab, Helmholtz Imaging Platform
-Author-email: f.isensee@dkfz-heidelberg.de
-License: Apache License Version 2.0, January 2004
+Author-email: "Division of Medical Image Computing, German Cancer Research Center AND Applied Computer Vision Lab, Helmholtz Imaging Platform" <f.isensee@dkfz-heidelberg.de>
+License:                                  Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+           APPENDIX: How to apply the Apache License to your work.
+        
+              To apply the Apache License to your work, attach the following
+              boilerplate notice, with the fields enclosed by brackets "{}"
+              replaced with your own identifying information. (Don't include
+              the brackets!)  The text should be enclosed in the appropriate
+              comment syntax for the file format. We also recommend that a
+              file or class name and description of purpose be included on the
+              same "printed page" as the copyright notice for easier
+              identification within third-party archives.
+        
+           Copyright [2021] [Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
+           AND Applied Computer Vision Lab, Helmholtz Imaging Platform]
+        
+           Licensed under the Apache License, Version 2.0 (the "License");
+           you may not use this file except in compliance with the License.
+           You may obtain a copy of the License at
+        
+               http://www.apache.org/licenses/LICENSE-2.0
+        
+           Unless required by applicable law or agreed to in writing, software
+           distributed under the License is distributed on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+           See the License for the specific language governing permissions and
+           limitations under the License.
+Project-URL: Homepage, https://github.com/MIC-DKFZ/batchgenerators
 Keywords: data augmentation,deep learning,image segmentation,image classification,medical image analysis,medical image segmentation
+Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pillow>=7.1.2
 Requires-Dist: numpy>=1.10.2
@@ -17,3 +218,183 @@ Requires-Dist: future
 Requires-Dist: pandas
 Requires-Dist: unittest2
 Requires-Dist: threadpoolctl
+Dynamic: license-file
+
+# batchgenerators by MIC@DKFZ
+
+Copyright German Cancer Research Center (DKFZ) and contributors.
+Please make sure that your usage of this code is in compliance with its
+[`license`](https://github.com/MIC-DKFZ/batchgenerators/blob/master/LICENSE).
+
+batchgenerators is a python package for data augmentation. It is developed jointly between the Division of
+Medical Image Computing at the German Cancer Research Center (DKFZ) and the Applied Computer 
+Vision Lab of the Helmholtz Imaging Platform.
+
+It is not (yet) perfect, but we feel it is good enough to be shared with the community. If you encounter bug, feel free
+to contact us or open a github issue.
+
+If you use it please cite the following work:
+```
+Isensee Fabian, Jäger Paul, Wasserthal Jakob, Zimmerer David, Petersen Jens, Kohl Simon, 
+Schock Justus, Klein Andre, Roß Tobias, Wirkert Sebastian, Neher Peter, Dinkelacker Stefan, 
+Köhler Gregor, Maier-Hein Klaus (2020). batchgenerators - a python framework for data 
+augmentation. doi:10.5281/zenodo.3632567
+```
+
+batchgenerators also contains the following application-specific augmentations:
+* **Anatomy-informed Data Augmentation**  
+Proposed at [MICCAI 2023](https://arxiv.org/abs/2309.03652) for simulation of soft-tissue deformations. Implementation details can be found [here](https://github.com/MIC-DKFZ/anatomy_informed_DA).
+* **Misalignment Data Augmentation**  
+Proposed in [Nature Scientific Reports 2023](https://www.nature.com/articles/s41598-023-46747-z)
+for enhancing model's adaptability to diverse misalignments\
+between multi-modal (multi-channel) images and thereby ensuring robust performance. Implementation details can be found [here](https://github.com/MIC-DKFZ/misalignment_DA).
+
+If you use these augmentations please cite them too.
+
+[![Build Status](https://travis-ci.com/MIC-DKFZ/batchgenerators.svg?branch=master)](https://travis-ci.com/github/MIC-DKFZ/batchgenerators)
+
+## Supported Augmentations
+We supports a variety of augmentations, all of which are compatible with **2D and 3D input data**! (This is something
+that was missing in most other frameworks).
+
+* **Spatial Augmentations**
+  * mirroring
+  * channel translation (to simulate registration errors)
+  * elastic deformations
+  * rotations
+  * scaling
+  * resampling
+  * multi-channel misalignments
+* **Color Augmentations**
+  * brightness (additive, multiplivative)
+  * contrast
+  * gamma (like gamma correction in photo editing)
+* **Noise Augmentations**
+  * Gaussian Noise
+  * Rician Noise
+  * ...will be expanded in future commits
+* **Cropping**
+  * random crop
+  * center crop
+  * padding
+* **Anatomy-informed Augmentation**
+
+Note: Stack transforms by using batchgenerators.transforms.abstract_transforms.Compose. Finish it up by plugging the
+composed transform into our **multithreader**: batchgenerators.dataloading.multi_threaded_augmenter.MultiThreadedAugmenter
+
+
+## How to use it
+
+The working principle is simple: Derive from DataLoaderBase class, reimplement generate_train_batch member function and
+use it to stack your augmentations!
+For simple example see `batchgenerators/examples/example_ipynb.ipynb`
+
+A heavily commented example for using SlimDataLoaderBase and MultithreadedAugmentor is available at:
+`batchgenerators/examples/multithreaded_with_batches.ipynb`. 
+It gives an idea of the interplay between the SlimDataLoaderBase and the MultiThreadedAugmentor.
+The example uses the MultiThreadedAugmentor for loading and augmentation on mutiple processes, while 
+covering the entire dataset only once per epoch (basically sampling without replacement).
+
+We also now have an extensive example for BraTS2017/2018 with both 2D and 3D DataLoader and augmentations: 
+`batchgenerators/examples/brats2017/`
+
+There are also CIFAR10/100 datasets and DataLoader available at `batchgenerators/datasets/cifar.py`
+
+## Data Structure
+
+The data structure that is used internally (and with which you have to comply when implementing generate_train_batch)
+is kept simple as well: It is just a regular python dictionary! We did this to allow maximum flexibility in the kind of
+data that is passed along through the pipeline. The dictionary must have a 'data' key:value pair. It optionally can
+handle a 'seg' key:vlaue pair to hold a segmentation. If a 'seg' key:value pair is present all spatial transformations
+will also be applied to the segmentation! A part from 'data' and 'seg' you are free to do whatever you want (your image
+classification/regression target for example). All key:value pairs other than 'data' and 'seg' will be passed through the
+pipeline unmodified.
+
+'data' value must have shape (b, c, x, y) for 2D or shape (b, c, x, y, z) for 3D!
+'seg' value must have shape (b, c, x, y) for 2D or shape (b, c, x, y, z) for 3D! Color channel may be used here to
+allow for several segmentation maps. If you have only one segmentation, make sure to have shape (b, 1, x, y (, z))
+
+## How to install locally
+
+Install batchgenerators
+```
+pip install --upgrade batchgenerators
+```
+
+Import as follows
+```
+from batchgenerators.transforms.color_transforms import ContrastAugmentationTransform
+```
+
+## Windows Support is very experimental!
+Batchgenerators makes heavy use of python multiprocessing and python multiprocessing on windows is different from linux. 
+To prevent the workers from freezing in windows, you have to guard your code with `if __name__ == '__main__'` and use multiprocessing's [`freeze_support`](https://docs.python.org/3/library/multiprocessing.html#multiprocessing.freeze_support). The executed script may then look like this:
+
+```
+# some imports and functions here
+
+def main():
+    # do some stuff
+
+if __name__ == '__main__':
+    from multiprocessing import freeze_support
+    freeze_support()
+    main()
+```
+
+This is not required on Linux.
+
+
+## Release Notes
+(only highlights, not an exhaustive list)
+- 0.23.2:
+  - Misalignment data augmentation added
+- 0.23.1:
+  - Anatomy-informed data augmentation added
+- 0.23: 
+  - fixed the import mess. `__init__.py` files are now empty. This is a breaking change for some users! 
+  Please adapt your imports :-)
+  - local_transforms are now a thing, check them out!
+  - resize_segmentation now uses 'edge' mode and no longer takes a cval argument. Resizing segmentations with constant
+  border values (previous default) can cause problems and should not be done.
+- 0.20.0: 
+  - fixed an issue with MultiThreadedAugmenter not terminating properly after KeyboardInterrupt; Fixed an error 
+  with the number and order of samples being returned when pin_memory=True; Improved performance by always hiding 
+  process-process communication bottleneck through threading
+- 0.19.5: 
+  - fixed OMP_NUM_THREADS issue by using threadpoolctl package; dropped python 2 support (threadpoolctl is not 
+  available for python 2)
+- 0.19:
+   - There is now a complete example for BraTS2017/8 available for both 2D and 3D. Use this if you would like to get 
+   some insights on how I (Fabian) do my experiments
+   - Windows is now supported! Thanks @justusschock for your support!
+   - new, simple parametrization of elastic deformation. Use SpatialTransform_2!
+   - CIFAR10/100 DataLoader are now available for your convenience
+   - a bug in MultiThreadedAugmenter that could interfere with reproducibility is now fixed
+
+- 0.18:
+    - all augmentations (there are some exceptions though) are implemented on a per-sample basis. This should make it 
+    easier to use the augmentations outside of the Transforms of batchgenerators 
+    - applicable Transforms now have a keyword p_per_sample with which the user can specify a probability with which this
+     transform is applied to a sample. Before, this was handled by RndTransform and applied to the whole batch (so 
+     either all samples were augmented or none). Now this decision is made on a per-sample basis and increases 
+     variability by a lot.
+    - following the previous point, RndTransform is now deprecated
+    - AlternativeMultiThreadedAugmenter is now deprecated as well (no need to have this anymore)
+    - pytorch users can now transform numpy arrays to pytorch tensors within batchgenerators (NumpyToTensor). For some 
+    reason, inter-process communication is faster with tensors (~factor 4), so this is recommended!
+    - if numpy arrays were converted to pytorch tensors, MultithreadedAugmenter now allows to pin the memory as well 
+    (pin_memory=True). This will happen in a background thread (inspired by pytorch DataLoader). pinned memory can be 
+    copied to the GPU much faster. My (Fabian) classification experiment with Resnet50 got a speed boost of 12% from just 
+    that.
+
+
+-------------------------
+
+<img src="DKFZ_Logo.png" width="512px" />
+
+<img src="HIP_Logo.png" width="512px" />
+
+batchgenerators is developed by the [Division of Medical Image Computing](https://www.dkfz.de/en/mic/index.php) of the 
+German Cancer Research Center (DKFZ) and the Applied Computer Vision Lab (ACVL) of the
+[Helmholtz Imaging Platform](https://helmholtz-imaging.de).

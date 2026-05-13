@@ -1,25 +1,62 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-echo "starting postgres"
-(su postgres -c '${POSTGRES_PATH}/bin/pg_ctl start' > /dev/null 2>&1) &
-
-while ! ${POSTGRES_PATH}/bin/pg_isready --quiet; do
-    sleep 0.2
+echo "waiting for postgres at ${POSTGRES_HOST}"
+until PGPASSWORD="${POSTGRES_PASSWORD}" pg_isready \
+    -h "${POSTGRES_HOST}" \
+    -U "${POSTGRES_USER}" \
+    -d "${POSTGRES_DB}" \
+    --quiet; do
+    sleep 0.5
 done
 
-echo "starting mysql"
-/etc/init.d/mysql start
-
-echo "waiting for mysql to start"
-while ! mysqladmin ping -h 127.0.0.1 --silent; do
-    sleep 0.2
+echo "waiting for mysql at ${MYSQL_HOST}"
+until mysqladmin ping \
+    -h "${MYSQL_HOST}" \
+    -u root \
+    --password="${MYSQL_ROOT_PASSWORD}" \
+    --silent; do
+    sleep 0.5
 done
+
+echo "waiting for mariadb at ${MARIADB_HOST}"
+until mysqladmin ping \
+    -h "${MARIADB_HOST}" \
+    -u root \
+    --password="${MARIADB_ROOT_PASSWORD}" \
+    --silent; do
+    sleep 0.5
+done
+
+echo "waiting for cockroachdb at ${COCKROACH_HOST}:${COCKROACH_PORT}"
+until psql "postgresql://root@${COCKROACH_HOST}:${COCKROACH_PORT}/defaultdb?sslmode=disable" \
+    -v ON_ERROR_STOP=1 \
+    -c "SELECT 1" >/dev/null 2>&1; do
+    sleep 0.5
+done
+
+echo "configuring postgres"
+/configure_postgres.sh
+
+echo "configuring mysql"
+/configure_mysql.sh
+
+echo "configuring mariadb"
+/configure_mariadb.sh
+
+echo "initializing mssql"
+/init_mssql.sh
+
+echo "configuring cockroachdb"
+/configure_cockroach.sh
 
 echo "###############################"
 echo "GeoAlchemy2 Test Container"
 echo ""
 echo 'run tests with `tox --workdir /output -v run`'
 echo 'run only a specific job, e.g. `py310-sqlalatest`, with `tox --workdir /output -v run -e py310-sqlalatest`'
+echo "MSSQL defaults: server=${MSSQL_HOST} db=${MSSQL_TEST_DB} user=${MSSQL_TEST_LOGIN} password=${MSSQL_TEST_PASSWORD}"
+echo "CockroachDB defaults: server=${COCKROACH_HOST}:${COCKROACH_PORT} db=${COCKROACH_DATABASE} user=${COCKROACH_USER}"
 echo "###############################"
 
 ###############################
@@ -53,5 +90,9 @@ git commit -m "dummy commit" > /dev/null
 export MYPY_CACHE_DIR=/output/.mypy_cache
 
 ###############################
+
+if [ "$#" -gt 0 ]; then
+    exec "$@"
+fi
 
 exec bash

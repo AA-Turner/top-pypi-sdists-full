@@ -203,12 +203,33 @@ def dataRequest(api_request, output_type):
     request = Request(api_request)
     if hasattr(glob, "apikey") and glob.apikey:
         request.add_header("Authorization", glob.apikey)
+    request.add_header("Accept-Encoding", "gzip, deflate")
+    request.add_header("Accept", "application/json")
 
     try:
         # Execute HTTP request and parse JSON response
         with urlopen(request) as response:
             code = response.getcode()
-            webResults = json.loads(response.read().decode("utf-8"))
+            raw_data = response.read()
+            # Handle gzip/deflate compressed responses
+            content_encoding = response.headers.get("Content-Encoding", "")
+            if content_encoding == "gzip":
+                import gzip
+                raw_data = gzip.decompress(raw_data)
+            elif content_encoding == "deflate":
+                import zlib
+                raw_data = zlib.decompress(raw_data)
+            # Determine charset from Content-Type header
+            content_type = response.headers.get("Content-Type", "")
+            charset = "utf-8"
+            if "charset=" in content_type:
+                charset = content_type.split("charset=")[-1].strip().split(";")[0]
+            # Decode response body
+            try:
+                decoded = raw_data.decode(charset)
+            except (UnicodeDecodeError, LookupError):
+                decoded = raw_data.decode("utf-8", errors="replace")
+            webResults = json.loads(decoded)
 
     except HTTPError as e:
         # Handle HTTP errors with specific status codes
@@ -216,7 +237,11 @@ def dataRequest(api_request, output_type):
         error_body = ""
 
         try:
-            error_body = e.read().decode("utf-8")
+            raw_err = e.read()
+            try:
+                error_body = raw_err.decode("utf-8")
+            except UnicodeDecodeError:
+                error_body = raw_err.decode("utf-8-sig")
             # Try to parse JSON error message from API
             try:
                 error_json = json.loads(error_body)

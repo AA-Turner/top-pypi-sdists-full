@@ -1,8 +1,6 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
-r"""Third-party compiler support.
-
-"""
+r"""Third-party compiler support."""
 
 def get_parser_option(parser_name: str, option_name: str) -> str:
     r"""Get option for the parser with the specified name 
@@ -95,8 +93,9 @@ SRCLANG_C: int  # 1
 SRCLANG_CPP: int  # 2
 SRCLANG_GO: int  # 16
 SRCLANG_OBJC: int  # 4
+SRCLANG_OBJCPP: int  # 32
 SRCLANG_SWIFT: int  # 8
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ida_idaapi: module
 weakref: module

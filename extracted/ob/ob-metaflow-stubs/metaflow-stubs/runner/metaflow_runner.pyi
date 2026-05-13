@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.789640                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.023473                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow.client.core
-    import metaflow.runner.metaflow_runner
     import metaflow.runner.subprocess_manager
+    import metaflow.runner.metaflow_runner
+    import metaflow.client.core
 
 from ..client.core import Run as Run
 from ..client.core import Task as Task
@@ -69,7 +69,7 @@ class ExecutingProcess(object, metaclass=type):
         ...
     def __exit__(self, exc_type, exc_value, traceback):
         ...
-    def wait(self, timeout: typing.Optional[float] = None, stream: typing.Optional[str] = None) -> "ExecutingProcess":
+    def wait(self, timeout: typing.Union[float, None] = None, stream: typing.Union[str, None] = None) -> "ExecutingProcess":
         """
         Wait for this run to finish, optionally with a timeout
         and optionally streaming its output.
@@ -93,7 +93,7 @@ class ExecutingProcess(object, metaclass=type):
         """
         ...
     @property
-    def returncode(self) -> typing.Optional[int]:
+    def returncode(self) -> typing.Union[int, None]:
         """
         Gets the return code of the underlying subprocess. A non-zero
         code indicates a failure, `None` a currently executing run.
@@ -148,7 +148,7 @@ class ExecutingProcess(object, metaclass=type):
             The current snapshot of stderr.
         """
         ...
-    def stream_log(self, stream: str, position: typing.Optional[int] = None) -> typing.Iterator[typing.Tuple[int, str]]:
+    def stream_log(self, stream: str, position: typing.Union[int, None] = None) -> typing.Iterator[typing.Tuple[int, str]]:
         """
         Asynchronous iterator to stream logs from the subprocess line by line.
         
@@ -280,7 +280,7 @@ class Runner(object, metaclass=RunnerMeta):
         Additional arguments that you would pass to `python myflow.py` before
         the `run` command.
     """
-    def __init__(self, flow_file: str, show_output: bool = True, profile: typing.Optional[str] = None, env: typing.Optional[typing.Dict[str, str]] = None, cwd: typing.Optional[str] = None, file_read_timeout: int = 3600, **kwargs):
+    def __init__(self, flow_file: str, show_output: bool = True, profile: typing.Union[str, None] = None, env: typing.Union[typing.Dict[str, str], None] = None, cwd: typing.Union[str, None] = None, file_read_timeout: int = 3600, **kwargs):
         ...
     def __enter__(self) -> "Runner":
         ...

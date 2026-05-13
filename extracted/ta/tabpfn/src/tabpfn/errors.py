@@ -1,6 +1,6 @@
 """Custom exception classes for TabPFN."""
 
-#  Copyright (c) Prior Labs GmbH 2025.
+#  Copyright (c) Prior Labs GmbH 2026.
 
 from __future__ import annotations
 
@@ -117,10 +117,8 @@ class TabPFNOutOfMemoryError(TabPFNError):
             f"        predictions.append(pred)\n"
             f"    predictions = np.vstack(predictions)\n\n"
             f"2) Large training set — batching won't help.\n"
-            f"   You need subsampling or ensembling, see:\n"
-            f"   https://github.com/PriorLabs/tabpfn-extensions/"
-            f"blob/main/examples/large_datasets/"
-            f"large_datasets_example.py\n\n"
+            f"   Subsample your training data; see https://docs.priorlabs.ai\n"
+            f"   for further guidance.\n\n"
             f"{size_line}"
             f"Not sure which? If model.{predict_method}(X_test[:1]) "
             f"also fails, it's (2)."

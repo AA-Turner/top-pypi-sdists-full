@@ -176,6 +176,32 @@ def test_allow_indefinite() -> None:
         decoder.decode()
 
 
+class TestAllowDuplicateKeys:
+    def test_default(self) -> None:
+        decoder = CBORDecoder(BytesIO())
+        assert decoder.allow_duplicate_keys
+
+    def test_false(self) -> None:
+        decoder = CBORDecoder(BytesIO(), allow_duplicate_keys=False)
+        assert not decoder.allow_duplicate_keys
+
+    def test_default_allows_duplicates(self) -> None:
+        # Definite map {"a": 1, "a": 2} — last value wins
+        assert loads(unhexlify("a2616101616102")) == {"a": 2}
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            pytest.param("a2616101616102", id="definite"),
+            pytest.param("bf616101616102ff", id="indefinite"),
+        ],
+    )
+    @pytest.mark.parametrize("immutable", [False, True])
+    def test_raises_on_duplicate(self, payload: str, immutable: bool) -> None:
+        with pytest.raises(CBORDecodeError, match="Duplicate map key: 'a'"):
+            loads(unhexlify(payload), allow_duplicate_keys=False, immutable=immutable)
+
+
 def test_readonly_attributes() -> None:
     decoder = CBORDecoder(BytesIO())
     assert decoder.read_size == 4096
@@ -1330,3 +1356,16 @@ def test_override_semantic_decoder() -> None:
 
     payload = unhexlify("c11a514b67b0")  # datetime(2013, 3, 21, 20, 4, 0, tzinfo=timezone.utc)
     assert loads(payload, semantic_decoders={1: date_decoder}) == datetime(2026, 2, 18)
+
+
+@pytest.mark.parametrize(
+    "input_type",
+    [
+        pytest.param(bytes, id="bytes"),
+        pytest.param(bytearray, id="bytearray"),
+        pytest.param(memoryview, id="memoryview"),
+    ],
+)
+def test_loads_buffer_input(input_type: type) -> None:
+    payload = unhexlify("82010a")
+    assert loads(input_type(payload)) == [1, 10]

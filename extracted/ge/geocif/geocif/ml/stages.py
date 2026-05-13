@@ -3,6 +3,7 @@ from typing import Union
 from tqdm.rich import tqdm
 
 from geocif import utils
+from geocif.progress import pbar as _pbar
 
 
 def add_stage_information(df, method, label=""):
@@ -74,7 +75,7 @@ def add_stage_information(df, method, label=""):
 
     # Loop through groups with tqdm
     desc = f"Computing Percentage Season ({label})" if label else "Computing Percentage Season"
-    for (region, year), group in tqdm(grouped, desc=desc):
+    for (region, year), group in _pbar(grouped, desc=desc):
         idx = group.index
         n = len(group)
         df.loc[idx, "Percentage Season"] = [i * 100.0 / n for i in range(n)]

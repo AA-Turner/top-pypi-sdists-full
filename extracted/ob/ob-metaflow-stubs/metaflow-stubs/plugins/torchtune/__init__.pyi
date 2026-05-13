@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.771719                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:57.999284                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import typing
 from ...metaflow_current import current as current
 
 class TorchTune(object, metaclass=type):
-    def __init__(self, use_multi_node_config: bool = False, config_overrides: typing.Optional[typing.Dict] = None):
+    def __init__(self, use_multi_node_config: bool = False, config_overrides: typing.Union[typing.Dict, None] = None):
         """
         Initialize the Tune launcher.
         
@@ -20,7 +20,7 @@ class TorchTune(object, metaclass=type):
         :param config_overrides: Optional dictionary of config overrides for tune run.
         """
         ...
-    def run(self, recipe: str, config_dict: typing.Dict, additional_cli_options: typing.Optional[typing.List[str]] = None):
+    def run(self, recipe: str, config_dict: typing.Dict, additional_cli_options: typing.Union[typing.List[str], None] = None):
         """
         Launch the torchtune job via its CLI.
         

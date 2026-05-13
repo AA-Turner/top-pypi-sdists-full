@@ -1,18 +1,18 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.809938                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.050057                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow.plugins.cards.card_modules.json_viewer
-    import typing
     import metaflow.plugins.cards.card_modules.components
     import metaflow.plugins.cards.card_modules.card
+    import typing
+    import metaflow.plugins.cards.card_modules.json_viewer
 
 from .basic import LogComponent as LogComponent
 from .basic import ErrorComponent as ErrorComponent
@@ -62,7 +62,7 @@ class Artifact(UserComponent, metaclass=type):
     """
     def update(self, artifact):
         ...
-    def __init__(self, artifact: typing.Any, name: typing.Optional[str] = None, compressed: bool = True):
+    def __init__(self, artifact: typing.Any, name: typing.Union[str, None] = None, compressed: bool = True):
         ...
     def render(self, *args, **kwargs):
         ...
@@ -110,7 +110,7 @@ class Table(UserComponent, metaclass=type):
     """
     def update(self, *args, **kwargs):
         ...
-    def __init__(self, data: typing.Optional[typing.List[typing.List[typing.Union[str, metaflow.plugins.cards.card_modules.card.MetaflowCardComponent]]]] = None, headers: typing.Optional[typing.List[str]] = None, disable_updates: bool = False):
+    def __init__(self, data: typing.Union[typing.List[typing.List[typing.Union[str, metaflow.plugins.cards.card_modules.card.MetaflowCardComponent]]], None] = None, headers: typing.Union[typing.List[str], None] = None, disable_updates: bool = False):
         ...
     @classmethod
     def from_dataframe(cls, dataframe = None, truncate: bool = True):
@@ -185,7 +185,7 @@ class Image(UserComponent, metaclass=type):
     def __init__(self, src = None, label = None, disable_updates: bool = True):
         ...
     @classmethod
-    def from_pil_image(cls, pilimage, label: typing.Optional[str] = None, disable_updates: bool = False):
+    def from_pil_image(cls, pilimage, label: typing.Union[str, None] = None, disable_updates: bool = False):
         """
         Create an `Image` from a PIL image.
         
@@ -198,7 +198,7 @@ class Image(UserComponent, metaclass=type):
         """
         ...
     @classmethod
-    def from_matplotlib(cls, plot, label: typing.Optional[str] = None, disable_updates: bool = False):
+    def from_matplotlib(cls, plot, label: typing.Union[str, None] = None, disable_updates: bool = False):
         """
         Create an `Image` from a Matplotlib plot.
         
@@ -327,9 +327,9 @@ class ProgressBar(UserComponent, metaclass=type):
     metadata : str, optional, default None
         Optional additional information to show on the progress bar.
     """
-    def __init__(self, max: int = 100, label: typing.Optional[str] = None, value: int = 0, unit: typing.Optional[str] = None, metadata: typing.Optional[str] = None):
+    def __init__(self, max: int = 100, label: typing.Union[str, None] = None, value: int = 0, unit: typing.Union[str, None] = None, metadata: typing.Union[str, None] = None):
         ...
-    def update(self, new_value: int, metadata: typing.Optional[str] = None):
+    def update(self, new_value: int, metadata: typing.Union[str, None] = None):
         ...
     def render(self, *args, **kwargs):
         ...
@@ -391,9 +391,9 @@ class ValueBox(UserComponent, metaclass=type):
         Text indicating change or additional context (e.g., "Up 30% VS PREVIOUS 30 DAYS").
         Must be 200 characters or less.
     """
-    def __init__(self, title: typing.Optional[str] = None, value: typing.Union[str, int, float] = '', subtitle: typing.Optional[str] = None, theme: typing.Optional[str] = None, change_indicator: typing.Optional[str] = None):
+    def __init__(self, title: typing.Union[str, None] = None, value: typing.Union[str, int, float] = '', subtitle: typing.Union[str, None] = None, theme: typing.Union[str, None] = None, change_indicator: typing.Union[str, None] = None):
         ...
-    def update(self, title: typing.Optional[str] = None, value: typing.Union[str, int, float, None] = None, subtitle: typing.Optional[str] = None, theme: typing.Optional[str] = None, change_indicator: typing.Optional[str] = None):
+    def update(self, title: typing.Union[str, None] = None, value: typing.Union[str, int, float, None] = None, subtitle: typing.Union[str, None] = None, theme: typing.Union[str, None] = None, change_indicator: typing.Union[str, None] = None):
         """
         Update the value box with new data.
         
@@ -471,7 +471,7 @@ class PythonCode(UserComponent, metaclass=type):
         A string containing Python code to display.
         Either code_func or code_string must be provided.
     """
-    def __init__(self, code_func: typing.Optional[typing.Callable[..., typing.Any]] = None, code_string: typing.Optional[str] = None):
+    def __init__(self, code_func: typing.Union[typing.Callable[..., typing.Any], None] = None, code_string: typing.Union[str, None] = None):
         ...
     def render(self, *args, **kwargs):
         ...
@@ -549,9 +549,9 @@ class EventsTimeline(UserComponent, metaclass=type):
         Maximum number of events to display. Older events are removed from display
         but total count is still tracked. Stats and relative time display are always enabled.
     """
-    def __init__(self, title: typing.Optional[str] = None, max_events: int = 100):
+    def __init__(self, title: typing.Union[str, None] = None, max_events: int = 100):
         ...
-    def update(self, event_data: dict, style_theme: typing.Optional[str] = None, priority: typing.Optional[str] = None, payloads: typing.Optional[dict] = None, finished: typing.Optional[bool] = None):
+    def update(self, event_data: dict, style_theme: typing.Union[str, None] = None, priority: typing.Union[str, None] = None, payloads: typing.Union[dict, None] = None, finished: typing.Union[bool, None] = None):
         """
         Add a new event to the timeline.
         

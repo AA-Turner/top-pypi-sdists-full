@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.790255                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.024259                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ class NBDeployer(object, metaclass=type):
         Additional arguments that you would pass to `python myflow.py` i.e. options
         listed in `python myflow.py --help`
     """
-    def __init__(self, flow, show_output: bool = True, profile: typing.Optional[str] = None, env: typing.Optional[typing.Dict] = None, base_dir: typing.Optional[str] = None, file_read_timeout: int = 3600, **kwargs):
+    def __init__(self, flow, show_output: bool = True, profile: typing.Union[str, None] = None, env: typing.Union[typing.Dict, None] = None, base_dir: typing.Union[str, None] = None, file_read_timeout: int = 3600, **kwargs):
         ...
     def __getattr__(self, name):
         """

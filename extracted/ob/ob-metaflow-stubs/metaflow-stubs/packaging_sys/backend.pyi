@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.803476                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.041565                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import abc
+import typing
 if typing.TYPE_CHECKING:
+    import abc
     import io
     import typing
-    import abc
 
 
 class PackagingBackend(abc.ABC, metaclass=abc.ABCMeta):
@@ -31,7 +31,7 @@ class PackagingBackend(abc.ABC, metaclass=abc.ABCMeta):
         ...
     def create(self) -> "PackagingBackend":
         ...
-    def add_file(self, filename: str, arcname: typing.Optional[str] = None):
+    def add_file(self, filename: str, arcname: typing.Union[str, None] = None):
         ...
     def add_data(self, data: io.BytesIO, arcname: str):
         ...
@@ -56,27 +56,27 @@ class PackagingBackend(abc.ABC, metaclass=abc.ABCMeta):
     def cls_has_member(cls, archive: typing.Any, name: str) -> bool:
         ...
     @classmethod
-    def cls_get_member(cls, archive: typing.Any, name: str) -> typing.Optional[bytes]:
+    def cls_get_member(cls, archive: typing.Any, name: str) -> typing.Union[bytes, None]:
         ...
     @classmethod
-    def cls_extract_members(cls, archive: typing.Any, members: typing.Optional[typing.List[typing.Any]] = None, dest_dir: str = '.'):
+    def cls_extract_members(cls, archive: typing.Any, members: typing.Union[typing.List[typing.Any], None] = None, dest_dir: str = '.'):
         ...
     @classmethod
-    def cls_list_names(cls, archive: typing.Any) -> typing.Optional[typing.List[str]]:
+    def cls_list_names(cls, archive: typing.Any) -> typing.Union[typing.List[str], None]:
         ...
     @classmethod
-    def cls_list_members(cls, archive: typing.Any) -> typing.Optional[typing.List[typing.Any]]:
+    def cls_list_members(cls, archive: typing.Any) -> typing.Union[typing.List[typing.Any], None]:
         """
         List all members in the archive.
         """
         ...
     def has_member(self, name: str) -> bool:
         ...
-    def get_member(self, name: str) -> typing.Optional[bytes]:
+    def get_member(self, name: str) -> typing.Union[bytes, None]:
         ...
-    def extract_members(self, members: typing.Optional[typing.List[typing.Any]] = None, dest_dir: str = '.'):
+    def extract_members(self, members: typing.Union[typing.List[typing.Any], None] = None, dest_dir: str = '.'):
         ...
-    def list_names(self) -> typing.Optional[typing.List[str]]:
+    def list_names(self) -> typing.Union[typing.List[str], None]:
         ...
     def __enter__(self):
         ...

@@ -52,7 +52,7 @@ class DiscoveredField(BaseModel):
     "Enter the phone ending in (**_) _**-\\**\\**92")
     """
 
-    linked_mfa_type: Optional[Literal["sms", "call", "email", "totp", "push", "password"]] = None
+    linked_mfa_type: Optional[Literal["sms", "call", "email", "totp", "push", "password", "switch"]] = None
     """
     If this field is associated with an MFA option, the type of that option (e.g.,
     password field linked to "Enter password" option)
@@ -71,9 +71,12 @@ class MfaOption(BaseModel):
     label: str
     """The visible option text"""
 
-    type: Literal["sms", "call", "email", "totp", "push", "password"]
-    """
-    The MFA delivery method type (includes password for auth method selection pages)
+    type: Literal["sms", "call", "email", "totp", "push", "password", "switch"]
+    """The MFA delivery method type.
+
+    Includes 'password' for auth method selection pages and 'switch' for generic
+    method-switcher links like "Use another method" that do not name a specific
+    method.
     """
 
     description: Optional[str] = None
@@ -126,6 +129,12 @@ class ManagedAuth(BaseModel):
 
     profile_name: str
     """Name of the profile associated with this auth connection"""
+
+    record_session: bool
+    """Whether to record browser session replays for this connection by default.
+
+    Useful for debugging login flows. Can be overridden per-login.
+    """
 
     save_credentials: bool
     """Whether credentials are saved after every successful login.
@@ -182,7 +191,10 @@ class ManagedAuth(BaseModel):
     """
 
     discovered_fields: Optional[List[DiscoveredField]] = None
-    """Fields awaiting input (present when flow_step=awaiting_input)"""
+    """
+    Fields awaiting input (present when flow_step=awaiting_input; may also be
+    present with awaiting_external_action as fallback actions)
+    """
 
     error_code: Optional[str] = None
     """Machine-readable error code (present when flow_status=failed)"""
@@ -251,12 +263,15 @@ class ManagedAuth(BaseModel):
 
     mfa_options: Optional[List[MfaOption]] = None
     """
-    MFA method options (present when flow_step=awaiting_input and MFA selection
-    required)
+    MFA method options (present when flow_step=awaiting_input; may also be present
+    with awaiting_external_action as fallback actions)
     """
 
     pending_sso_buttons: Optional[List[PendingSSOButton]] = None
-    """SSO buttons available (present when flow_step=awaiting_input)"""
+    """
+    SSO buttons available (present when flow_step=awaiting_input; may also be
+    present with awaiting_external_action as fallback actions)
+    """
 
     post_login_url: Optional[str] = None
     """URL where the browser landed after successful login"""
@@ -267,7 +282,8 @@ class ManagedAuth(BaseModel):
     sign_in_options: Optional[List[SignInOption]] = None
     """
     Non-MFA choices presented during the auth flow, such as account selection or org
-    pickers (present when flow_step=awaiting_input).
+    pickers (present when flow_step=awaiting_input; may also be present with
+    awaiting_external_action as fallback actions).
     """
 
     sso_provider: Optional[str] = None

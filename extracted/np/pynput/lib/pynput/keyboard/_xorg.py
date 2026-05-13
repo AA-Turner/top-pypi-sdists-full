@@ -53,13 +53,15 @@ from pynput._util.xorg import (
     ListenerMixin,
     numlock_mask,
     shift_to_index,
-    symbol_to_keysym)
+    symbol_to_keysym,
+)
 from pynput._util.xorg_keysyms import (
     CHARS,
     DEAD_KEYS,
     KEYPAD_KEYS,
     KEYSYMS,
-    SYMBOLS)
+    SYMBOLS,
+)
 from . import _base
 
 
@@ -93,12 +95,12 @@ class KeyCode(_base.KeyCode):
                 return cls.from_vk(
                     getattr(Xlib.keysymdef.xkb, symbol, 0),
                     _symbol=symbol,
-                    **kwargs)
+                    **kwargs,
+                )
             except:
                 return cls.from_vk(
-                    SYMBOLS.get(symbol, (0,))[0],
-                    _symbol=symbol,
-                    **kwargs)
+                    SYMBOLS.get(symbol, (0,))[0], _symbol=symbol, **kwargs
+                )
             # pylint: enable=W0702
 
     @classmethod
@@ -178,6 +180,8 @@ class Key(enum.Enum):
     pause = KeyCode._from_symbol('Pause')
     print_screen = KeyCode._from_symbol('Print')
     scroll_lock = KeyCode._from_symbol('Scroll_Lock')
+
+
 # pylint: enable=W0212
 
 
@@ -226,8 +230,11 @@ class Controller(NotifierMixin, _base.Controller):
         :param int key: The key to handle.
         :param bool is_press: Whether this is a press.
         """
-        event = Xlib.display.event.KeyPress if is_press \
+        event = (
+            Xlib.display.event.KeyPress
+            if is_press
             else Xlib.display.event.KeyRelease
+        )
         keysym = self._keysym(key)
 
         # Make sure to verify that the key was resolved
@@ -242,7 +249,8 @@ class Controller(NotifierMixin, _base.Controller):
                 Xlib.ext.xtest.fake_input(
                     dm,
                     Xlib.X.KeyPress if is_press else Xlib.X.KeyRelease,
-                    dm.keysym_to_keycode(key.vk))
+                    dm.keysym_to_keycode(key.vk),
+                )
 
         # Otherwise use XSendEvent; we need to use this in the general case to
         # work around problems with keyboard layouts
@@ -255,9 +263,8 @@ class Controller(NotifierMixin, _base.Controller):
                 with self._borrow_lock:
                     keycode, index, count = self._borrows[keysym]
                     self._send_key(
-                        event,
-                        keycode,
-                        index_to_shift(self._display, index))
+                        event, keycode, index_to_shift(self._display, index)
+                    )
                     count += 1 if is_press else -1
                     self._borrows[keysym] = (keycode, index, count)
 
@@ -269,11 +276,15 @@ class Controller(NotifierMixin, _base.Controller):
 
         :param KeyCode key: The key code to convert.
         """
-        return self._resolve_dead(key) if key.is_dead else None \
-            or self._resolve_special(key) \
-            or self._resolve_normal(key) \
-            or self._resolve_borrowed(key) \
+        return (
+            self._resolve_dead(key)
+            if key.is_dead
+            else None
+            or self._resolve_special(key)
+            or self._resolve_normal(key)
+            or self._resolve_borrowed(key)
             or self._resolve_borrowing(key)
+        )
 
     def _send_key(self, event, keycode, shift_state):
         """Sends a single keyboard event.
@@ -290,18 +301,23 @@ class Controller(NotifierMixin, _base.Controller):
             # the value returned by dm.get_input_focus is an int
             window = dm.get_input_focus().focus
             send_event = getattr(
-                window,
-                'send_event',
-                lambda event: dm.send_event(window, event))
-            send_event(event(
-                detail=keycode,
-                state=shift_state | self._shift_mask(modifiers),
-                time=0,
-                root=dm.screen().root,
-                window=window,
-                same_screen=0,
-                child=Xlib.X.NONE,
-                root_x=0, root_y=0, event_x=0, event_y=0))
+                window, 'send_event', lambda event: dm.send_event(window, event)
+            )
+            send_event(
+                event(
+                    detail=keycode,
+                    state=shift_state | self._shift_mask(modifiers),
+                    time=0,
+                    root=dm.screen().root,
+                    window=window,
+                    same_screen=0,
+                    child=Xlib.X.NONE,
+                    root_x=0,
+                    root_y=0,
+                    event_x=0,
+                    event_y=0,
+                )
+            )
 
     def _resolve_dead(self, key):
         """Tries to resolve a dead key.
@@ -418,9 +434,12 @@ class Controller(NotifierMixin, _base.Controller):
             # and lower forms
             lower = key.char.lower()
             upper = key.char.upper()
-            if lower != upper and len(lower) == 1 and len(upper) == 1 and all(
-                    m == Xlib.XK.NoSymbol
-                    for m in mapping[i]):
+            if (
+                lower != upper
+                and len(lower) == 1
+                and len(upper) == 1
+                and all(m == Xlib.XK.NoSymbol for m in mapping[i])
+            ):
                 lower = self._key_to_keysym(KeyCode.from_char(lower))
                 upper = self._key_to_keysym(KeyCode.from_char(upper))
                 if lower:
@@ -432,16 +451,13 @@ class Controller(NotifierMixin, _base.Controller):
             else:
                 mapping[i][index] = keysym
                 self._borrows[keysym] = (keycode, index, 0)
-            dm.change_keyboard_mapping(keycode, mapping[i:i + 1])
+            dm.change_keyboard_mapping(keycode, mapping[i : i + 1])
 
         try:
             with display_manager(self._display) as dm, self._borrow_lock as _:
                 # First try an already used keycode, then try a new one, and
                 # fall back on reusing one that is not currently pressed
-                register(dm, *(
-                    reuse() or
-                    borrow() or
-                    overwrite()))
+                register(dm, *(reuse() or borrow() or overwrite()))
             return keysym
 
         except TypeError:
@@ -484,35 +500,24 @@ class Controller(NotifierMixin, _base.Controller):
         """
         return (
             0
-            | (self.ALT_MASK
-               if Key.alt in modifiers else 0)
-
-            | (self.ALT_GR_MASK
-               if Key.alt_gr in modifiers else 0)
-
-            | (self.CTRL_MASK
-               if Key.ctrl in modifiers else 0)
-
-            | (self.SHIFT_MASK
-               if Key.shift in modifiers else 0))
+            | (self.ALT_MASK if Key.alt in modifiers else 0)
+            | (self.ALT_GR_MASK if Key.alt_gr in modifiers else 0)
+            | (self.CTRL_MASK if Key.ctrl in modifiers else 0)
+            | (self.SHIFT_MASK if Key.shift in modifiers else 0)
+        )
 
     def _update_keyboard_mapping(self):
-        """Updates the keyboard mapping.
-        """
+        """Updates the keyboard mapping."""
         with display_manager(self._display) as dm:
             self._keyboard_mapping = keyboard_mapping(dm)
 
 
 @Controller._receiver
 class Listener(ListenerMixin, _base.Listener):
-    _EVENTS = (
-        Xlib.X.KeyPress,
-        Xlib.X.KeyRelease)
+    _EVENTS = (Xlib.X.KeyPress, Xlib.X.KeyRelease)
 
     #: A mapping from keysym to special key
-    _SPECIAL_KEYS = {
-        key.value.vk: key
-        for key in Key}
+    _SPECIAL_KEYS = {key.value.vk: key for key in Key}
 
     #: A mapping from numeric keypad keys to keys
     _KEYPAD_KEYS = {
@@ -548,7 +553,8 @@ class Listener(ListenerMixin, _base.Listener):
         KEYPAD_KEYS['KP_Space']: Key.space,
         KEYPAD_KEYS['KP_Subtract']: KeyCode.from_char('-'),
         KEYPAD_KEYS['KP_Tab']: Key.tab,
-        KEYPAD_KEYS['KP_Up']: Key.up}
+        KEYPAD_KEYS['KP_Up']: Key.up,
+    }
 
     def __init__(self, *args, **kwargs):
         super(Listener, self).__init__(*args, **kwargs)
@@ -564,7 +570,8 @@ class Listener(ListenerMixin, _base.Listener):
         min_keycode = display.display.info.min_keycode
         keycode_count = display.display.info.max_keycode - min_keycode + 1
         self._keyboard_mapping = display.get_keyboard_mapping(
-            min_keycode, keycode_count)
+            min_keycode, keycode_count
+        )
 
     def _handle_message(self, display, event, injected):
         # Convert the event to a KeyCode; this may fail, and in that case we
@@ -582,8 +589,11 @@ class Listener(ListenerMixin, _base.Listener):
 
     def _suppress_start(self, display):
         display.screen().root.grab_keyboard(
-            self._event_mask, Xlib.X.GrabModeAsync, Xlib.X.GrabModeAsync,
-            Xlib.X.CurrentTime)
+            self._event_mask,
+            Xlib.X.GrabModeAsync,
+            Xlib.X.GrabModeAsync,
+            Xlib.X.CurrentTime,
+        )
 
     def _suppress_stop(self, display):
         display.ungrab_keyboard(Xlib.X.CurrentTime)
@@ -596,7 +606,8 @@ class Listener(ListenerMixin, _base.Listener):
         :param bool is_press: Whether this is a press event.
         """
         (self.on_press if is_press else self.on_release)(
-            self._SPECIAL_KEYS.get(key.vk, key), True)
+            self._SPECIAL_KEYS.get(key.vk, key), True
+        )
 
     def _keycode_to_keysym(self, display, keycode, index):
         """Converts a keycode and shift state index to a keysym.
@@ -649,7 +660,9 @@ class Listener(ListenerMixin, _base.Listener):
                     self._keycode_to_keysym(
                         display,
                         keycode,
-                        bool(event.state & numlock_mask(display)))]
+                        bool(event.state & numlock_mask(display)),
+                    )
+                ]
             except KeyError:
                 # Since we recalculated the key, this may happen
                 pass

@@ -15,7 +15,7 @@
 
 import traceback
 from copy import deepcopy
-from typing import List, Union
+from typing import List, Union, Callable
 import threading
 from builtins import range
 from multiprocessing import Process
@@ -37,9 +37,15 @@ except ImportError:
 
 def producer(queue: Queue, data_loader, transform, thread_id: int, seed,
              abort_event: Event, wait_time: float = 0.02):
+    if torch is not None:
+        torch.set_num_threads(1)
+        if seed is not None:
+            torch.manual_seed(seed)
+
+    np.random.seed(seed)
+
     # the producer will set the abort event if something happens
     with threadpool_limits(1, None):
-        np.random.seed(seed)
         data_loader.set_thread_id(thread_id)
         item = None
 
@@ -139,7 +145,7 @@ class NonDetMultiThreadedAugmenter(object):
     """
 
     def __init__(self, data_loader, transform, num_processes, num_cached=2, seeds=None, pin_memory=False,
-                 wait_time=0.02):
+                 wait_time=0.02, results_loop_fn: Callable = results_loop):
         self.pin_memory = pin_memory
         self.transform = transform
         self.num_cached = num_cached
@@ -151,6 +157,7 @@ class NonDetMultiThreadedAugmenter(object):
 
         self._queue = None
         self._processes = []
+        self.results_loop_fn = results_loop
         self.results_loop_thread = None
         self.results_loop_queue = None
         self.abort_event = None
@@ -208,18 +215,13 @@ class NonDetMultiThreadedAugmenter(object):
             if isinstance(self.generator, DataLoader):
                 self.generator.was_initialized = False
 
-            if torch is not None:
-                torch_nthreads = torch.get_num_threads()
-                torch.set_num_threads(1)
-            with threadpool_limits(limits=1, user_api=None):
-                for i in range(self.num_processes):
-                    self._processes.append(Process(target=producer, args=(
-                        self._queue, self.generator, self.transform, i, self.seeds[i], self.abort_event, self.wait_time
-                    )))
-                    self._processes[-1].daemon = True
-                _ = [i.start() for i in self._processes]
-            if torch is not None:
-                torch.set_num_threads(torch_nthreads)
+
+            for i in range(self.num_processes):
+                self._processes.append(Process(target=producer, args=(
+                    self._queue, self.generator, self.transform, i, self.seeds[i], self.abort_event, self.wait_time
+                )))
+                self._processes[-1].daemon = True
+            _ = [i.start() for i in self._processes]
 
             if torch is not None and torch.cuda.is_available():
                 gpu = torch.cuda.current_device()
@@ -228,7 +230,7 @@ class NonDetMultiThreadedAugmenter(object):
 
             # in_queue: Queue, out_queue: thrQueue, abort_event: Event, pin_memory: bool, worker_list: List[Process],
             # gpu: Union[int, None] = None, wait_time: float = 0.02
-            self.results_loop_thread = threading.Thread(target=results_loop, args=(
+            self.results_loop_thread = threading.Thread(target=self.results_loop_fn, args=(
                 self._queue, self.results_loop_queue, self.abort_event, self.pin_memory, self._processes, gpu,
                 self.wait_time)
                                                         )

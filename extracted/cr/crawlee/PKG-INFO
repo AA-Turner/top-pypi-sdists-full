@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crawlee
-Version: 1.6.3
+Version: 1.7.0
 Summary: Crawlee for Python
 Project-URL: Apify Homepage, https://apify.com
 Project-URL: Changelog, https://crawlee.dev/python/docs/changelog
@@ -271,6 +271,7 @@ Requires-Dist: redis[hiredis]>=7.0.0; extra == 'all'
 Requires-Dist: rich>=13.9.0; extra == 'all'
 Requires-Dist: scikit-learn>=1.6.0; extra == 'all'
 Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.0; extra == 'all'
+Requires-Dist: stagehand>=3.19.5; extra == 'all'
 Requires-Dist: typer>=0.12.0; extra == 'all'
 Requires-Dist: wrapt>=1.17.0; extra == 'all'
 Provides-Extra: beautifulsoup
@@ -313,6 +314,11 @@ Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.0; extra == 'sql-postgres'
 Provides-Extra: sql-sqlite
 Requires-Dist: aiosqlite>=0.21.0; extra == 'sql-sqlite'
 Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.0; extra == 'sql-sqlite'
+Provides-Extra: stagehand
+Requires-Dist: apify-fingerprint-datapoints>=0.0.2; extra == 'stagehand'
+Requires-Dist: browserforge>=1.2.3; extra == 'stagehand'
+Requires-Dist: playwright>=1.27.0; extra == 'stagehand'
+Requires-Dist: stagehand>=3.19.5; extra == 'stagehand'
 Description-Content-Type: text/markdown
 
 <h1 align="center">

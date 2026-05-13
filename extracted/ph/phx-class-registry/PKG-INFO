@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: phx-class-registry
-Version: 5.2.1
+Version: 5.2.2
 Summary: Factory+Registry pattern for Python classes
 Project-URL: Repository, https://github.com/todofixthis/class-registry
 Project-URL: Documentation, https://class-registry.readthedocs.io/

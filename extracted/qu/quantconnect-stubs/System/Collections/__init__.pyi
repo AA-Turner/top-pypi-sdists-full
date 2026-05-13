@@ -50,6 +50,9 @@ class ICollection(System.Collections.IEnumerable, metaclass=abc.ABCMeta):
     def is_synchronized(self) -> bool:
         ...
 
+    def __len__(self) -> int:
+        ...
+
     def copy_to(self, array: System.Array, index: int) -> None:
         ...
 
@@ -172,6 +175,9 @@ class BitArray(System.Object, System.Collections.ICollection, System.ICloneable,
 
     @overload
     def __init__(self, bits: System.Collections.BitArray) -> None:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def __setitem__(self, index: int, value: bool) -> None:
@@ -308,6 +314,9 @@ class ListDictionaryInternal(System.Object, System.Collections.IDictionary):
     def __init__(self) -> None:
         ...
 
+    def __len__(self) -> int:
+        ...
+
     def __setitem__(self, key: typing.Any, value: typing.Any) -> None:
         ...
 
@@ -415,6 +424,9 @@ class ArrayList(System.Object, System.Collections.IList, System.ICloneable):
 
     @overload
     def __init__(self, c: System.Collections.ICollection) -> None:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def __setitem__(self, index: int, value: typing.Any) -> None:

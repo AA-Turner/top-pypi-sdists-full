@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bravado-core
-Version: 6.3.1
+Version: 6.4.1
 Summary: Library for adding Swagger support to clients and servers
 Author-email: "Digium, Inc. and Yelp, Inc." <opensource+bravado-core@yelp.com>
 License: BSD 3-Clause

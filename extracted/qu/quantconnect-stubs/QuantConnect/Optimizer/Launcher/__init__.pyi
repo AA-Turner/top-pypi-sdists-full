@@ -32,7 +32,7 @@ class ConsoleLeanOptimizer(QuantConnect.Optimizer.LeanOptimizer):
         Stops lean process
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param backtest_id: Specified backtest id
         """
@@ -43,7 +43,7 @@ class ConsoleLeanOptimizer(QuantConnect.Optimizer.LeanOptimizer):
         Handles starting Lean for a given parameter set
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param parameter_set: The parameter set for the backtest to run
         :param backtest_name: The backtest name to use
@@ -56,7 +56,7 @@ class ConsoleLeanOptimizer(QuantConnect.Optimizer.LeanOptimizer):
         Sends an update of the current optimization status to the user
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

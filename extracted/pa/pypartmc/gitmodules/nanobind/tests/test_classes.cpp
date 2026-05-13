@@ -130,6 +130,15 @@ struct UniqueInt {
 };
 std::map<int, std::weak_ptr<UniqueInt>> UniqueInt::instances;
 
+struct DefVisitor : nb::def_visitor<DefVisitor> {
+  int mem;
+};
+
+// Default- and aggregate-initialization compile.
+DefVisitor dv1;
+DefVisitor dv2 { };
+DefVisitor dv3 { {}, 1 };
+
 int wrapper_tp_traverse(PyObject *self, visitproc visit, void *arg) {
     // We must traverse the implicit dependency of an object on its associated type object.
     Py_VISIT(Py_TYPE(self));
@@ -179,12 +188,30 @@ NB_MODULE(test_classes_ext, m) {
         .def("__setstate__", &Struct::setstate)
         .def_static("static_test", nb::overload_cast<int>(&Struct::static_test))
         .def_static("static_test", nb::overload_cast<float>(&Struct::static_test))
+        .def_prop_ro_static("static_ro", [](nb::handle) { return 42; })
+        .def_prop_rw_static("static_rw",
+            [](nb::handle) { return 42; },
+            [](nb::handle, int) {})
         .def_static("create_move", &Struct::create_move)
         .def_static("create_reference", &Struct::create_reference,
                     nb::rv_policy::reference)
         .def_static("create_copy", &Struct::create_copy,
                     nb::rv_policy::copy)
         .def_static("create_take", &Struct::create_take);
+
+    cls.attr("class_method") =
+        nb::module_::import_("builtins").attr("classmethod")(
+            nb::cpp_function(
+                [](nb::handle, int value) -> int { return value * 2; },
+                "cls"_a, "value"_a = 0,
+                "A classmethod that wraps a nanobind function."));
+
+    cls.attr("static_method") =
+        nb::module_::import_("builtins").attr("staticmethod")(
+            nb::cpp_function(
+                [](int value) -> int { return value * 3; },
+                "value"_a = 0,
+                "A staticmethod that wraps a nanobind function."));
 
     if (!nb::type<Struct>().is(cls))
         nb::detail::raise("type lookup failed!");

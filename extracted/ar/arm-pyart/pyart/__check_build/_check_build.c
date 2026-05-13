@@ -10,7 +10,7 @@
             ]
         ],
         "include_dirs": [
-            "/tmp/build-env-kadqbksx/lib/python3.12/site-packages/numpy/_core/include"
+            "/tmp/build-env-3t6sei0c/lib/python3.12/site-packages/numpy/_core/include"
         ],
         "name": "pyart.__check_build._check_build",
         "sources": [

@@ -32,6 +32,7 @@ QuantConnect_Indicators_IReadOnlyWindow_T = typing.TypeVar("QuantConnect_Indicat
 QuantConnect_Indicators_IIndicator_T = typing.TypeVar("QuantConnect_Indicators_IIndicator_T")
 QuantConnect_Indicators__EventContainer_Callable = typing.TypeVar("QuantConnect_Indicators__EventContainer_Callable")
 QuantConnect_Indicators__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Indicators__EventContainer_ReturnType")
+QuantConnect_Indicators_IndicatorExtensions_Of_T = typing.TypeVar("QuantConnect_Indicators_IndicatorExtensions_Of_T")
 
 
 class BarIndicator(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data.Market.IBaseDataBar], metaclass=abc.ABCMeta):
@@ -46,7 +47,7 @@ class BarIndicator(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data.Marke
         Creates a new TradeBarIndicator with the specified name
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: The name of this indicator
         """
@@ -159,7 +160,7 @@ class AverageTrueRange(QuantConnect.Indicators.BarIndicator, QuantConnect.Indica
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -183,7 +184,7 @@ class TradeBarIndicator(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data.
         Creates a new TradeBarIndicator with the specified name
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: The name of this indicator
         """
@@ -333,7 +334,7 @@ class Indicator(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.In
         Initializes a new instance of the Indicator class using the specified name.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: The name of this indicator
         """
@@ -406,7 +407,7 @@ class ExponentialMovingAverage(QuantConnect.Indicators.Indicator, QuantConnect.I
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -481,7 +482,7 @@ class KlingerVolumeOscillator(QuantConnect.Indicators.TradeBarIndicator, QuantCo
         Computes the next value of the Klinger Volume Oscillator based on the input data point.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -520,7 +521,7 @@ class TimeSeriesForecast(QuantConnect.Indicators.WindowIndicator[QuantConnect.In
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input value to this indicator on this time step
@@ -571,7 +572,7 @@ class Identity(QuantConnect.Indicators.Indicator, QuantConnect.Indicators.IIndic
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -593,7 +594,7 @@ class OptionIndicatorBase(QuantConnect.Indicators.MultiSymbolIndicator[QuantConn
         Mirror option symbol (by option right), for implied volatility
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -603,7 +604,7 @@ class OptionIndicatorBase(QuantConnect.Indicators.MultiSymbolIndicator[QuantConn
         Underlying security's symbol object
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -613,7 +614,7 @@ class OptionIndicatorBase(QuantConnect.Indicators.MultiSymbolIndicator[QuantConn
         Option pricing model used to calculate indicator
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -627,7 +628,7 @@ class OptionIndicatorBase(QuantConnect.Indicators.MultiSymbolIndicator[QuantConn
         Risk-free rate model
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -637,7 +638,7 @@ class OptionIndicatorBase(QuantConnect.Indicators.MultiSymbolIndicator[QuantConn
         Dividend yield model, for continuous dividend yield
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -704,7 +705,7 @@ class OptionIndicatorBase(QuantConnect.Indicators.MultiSymbolIndicator[QuantConn
         Initializes a new instance of the OptionIndicatorBase class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: The name of this indicator
         :param option: The option to be tracked
@@ -722,7 +723,7 @@ class OptionIndicatorBase(QuantConnect.Indicators.MultiSymbolIndicator[QuantConn
         This will round the result to 7 decimal places.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -893,7 +894,7 @@ class ImpliedVolatility(QuantConnect.Indicators.OptionIndicatorBase):
         Computes the IV of the option
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param time_till_expiry: the time until expiration in years
         :returns: Smoothened IV of the option.
@@ -905,7 +906,7 @@ class ImpliedVolatility(QuantConnect.Indicators.OptionIndicatorBase):
         Computes the next value
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: The input is returned unmodified.
         """
@@ -957,7 +958,7 @@ class OptionGreeksIndicatorBase(QuantConnect.Indicators.OptionIndicatorBase, met
         Initializes a new instance of the OptionGreeksIndicatorBase class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: The name of this indicator
         :param option: The option to be tracked
@@ -975,7 +976,7 @@ class OptionGreeksIndicatorBase(QuantConnect.Indicators.OptionIndicatorBase, met
         Initializes a new instance of the OptionGreeksIndicatorBase class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: The name of this indicator
         :param option: The option to be tracked
@@ -993,7 +994,7 @@ class OptionGreeksIndicatorBase(QuantConnect.Indicators.OptionIndicatorBase, met
         Initializes a new instance of the OptionGreeksIndicatorBase class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: The name of this indicator
         :param option: The option to be tracked
@@ -1011,7 +1012,7 @@ class OptionGreeksIndicatorBase(QuantConnect.Indicators.OptionIndicatorBase, met
         Initializes a new instance of the OptionGreeksIndicatorBase class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: The name of this indicator
         :param option: The option to be tracked
@@ -1029,7 +1030,7 @@ class OptionGreeksIndicatorBase(QuantConnect.Indicators.OptionIndicatorBase, met
         Initializes a new instance of the OptionGreeksIndicatorBase class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: The name of this indicator
         :param option: The option to be tracked
@@ -1046,7 +1047,7 @@ class OptionGreeksIndicatorBase(QuantConnect.Indicators.OptionIndicatorBase, met
         Calculate the greek of the option
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1055,7 +1056,7 @@ class OptionGreeksIndicatorBase(QuantConnect.Indicators.OptionIndicatorBase, met
         Computes the next value of the option greek indicator
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :returns: The input is returned unmodified.
         """
@@ -1219,7 +1220,7 @@ class Vega(QuantConnect.Indicators.OptionGreeksIndicatorBase):
         Calculate the Vega of the option
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1264,7 +1265,7 @@ class DualSymbolIndicator(typing.Generic[QuantConnect_Indicators_DualSymbolIndic
         RollingWindow to store the data points of the target symbol
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1274,7 +1275,7 @@ class DualSymbolIndicator(typing.Generic[QuantConnect_Indicators_DualSymbolIndic
         RollingWindow to store the data points of the reference symbol
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1284,7 +1285,7 @@ class DualSymbolIndicator(typing.Generic[QuantConnect_Indicators_DualSymbolIndic
         Symbol of the reference used
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1294,7 +1295,7 @@ class DualSymbolIndicator(typing.Generic[QuantConnect_Indicators_DualSymbolIndic
         Symbol of the target used
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1306,7 +1307,7 @@ class DualSymbolIndicator(typing.Generic[QuantConnect_Indicators_DualSymbolIndic
         the time zones for both symbols and checks if they are different.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: The name of the indicator.
         :param target_symbol: The symbol of the target asset.
@@ -1381,7 +1382,7 @@ class CommodityChannelIndex(QuantConnect.Indicators.BarIndicator, QuantConnect.I
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -1429,7 +1430,7 @@ class AccumulationDistribution(QuantConnect.Indicators.TradeBarIndicator, QuantC
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -1483,7 +1484,7 @@ class Trix(QuantConnect.Indicators.Indicator, QuantConnect.Indicators.IIndicator
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -1536,7 +1537,7 @@ class MidPoint(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.Ind
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -1557,7 +1558,7 @@ class TimeSeriesIndicator(QuantConnect.Indicators.IndicatorBase[QuantConnect.Ind
         "Integration" constants
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1576,7 +1577,7 @@ class TimeSeriesIndicator(QuantConnect.Indicators.IndicatorBase[QuantConnect.Ind
         A constructor for a basic Time Series indicator.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: The name of this indicator
         """
@@ -1711,7 +1712,7 @@ class AdvanceDeclineIndicator(QuantConnect.Indicators.TradeBarIndicator, QuantCo
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -1744,7 +1745,7 @@ class AdvanceDeclineIndicator(QuantConnect.Indicators.TradeBarIndicator, QuantCo
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -1831,7 +1832,7 @@ class McClellanOscillator(QuantConnect.Indicators.TradeBarIndicator, QuantConnec
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -1903,7 +1904,7 @@ class MesaAdaptiveMovingAverage(QuantConnect.Indicators.BarIndicator, QuantConne
         It calculates the MAMA by applying a series of steps including smoothing, detrending, and phase adjustments.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input bar (price data).
         :returns: The calculated MAMA value.
@@ -2068,7 +2069,7 @@ class Delta(QuantConnect.Indicators.OptionGreeksIndicatorBase):
         Calculate the Delta of the option
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2226,7 +2227,7 @@ class Gamma(QuantConnect.Indicators.OptionGreeksIndicatorBase):
         Calculate the Gamma of the option
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2384,7 +2385,7 @@ class Theta(QuantConnect.Indicators.OptionGreeksIndicatorBase):
         Calculate the Theta of the option
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2542,7 +2543,7 @@ class Rho(QuantConnect.Indicators.OptionGreeksIndicatorBase):
         Calculate the Rho of the option
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2646,7 +2647,7 @@ class WindowIndicator(typing.Generic[QuantConnect_Indicators_WindowIndicator_T],
         Initializes a new instance of the WindowIndicator class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: The name of this indicator
         :param period: The number of data points to hold in the window
@@ -2659,7 +2660,7 @@ class WindowIndicator(typing.Generic[QuantConnect_Indicators_WindowIndicator_T],
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -2672,7 +2673,7 @@ class WindowIndicator(typing.Generic[QuantConnect_Indicators_WindowIndicator_T],
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input value to this indicator on this time step
@@ -2739,7 +2740,7 @@ class ParabolicStopAndReverseExtended(QuantConnect.Indicators.BarIndicator, Quan
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The trade bar input given to the indicator
         :returns: A new value for this indicator.
@@ -2777,7 +2778,7 @@ class ParabolicStopAndReverse(QuantConnect.Indicators.ParabolicStopAndReverseExt
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The trade bar input given to the indicator
         :returns: A new value for this indicator.
@@ -2798,7 +2799,7 @@ class McClellanSummationIndex(QuantConnect.Indicators.TradeBarIndicator, QuantCo
         The McClellan Summation Index value
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -2853,7 +2854,7 @@ class McClellanSummationIndex(QuantConnect.Indicators.TradeBarIndicator, QuantCo
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -2930,7 +2931,7 @@ class RelativeStrengthIndex(QuantConnect.Indicators.Indicator, QuantConnect.Indi
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -2986,7 +2987,7 @@ class RateOfChange(QuantConnect.Indicators.WindowIndicator[QuantConnect.Indicato
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input value to this indicator on this time step
@@ -3025,7 +3026,7 @@ class RateOfChangePercent(QuantConnect.Indicators.RateOfChange):
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input value to this indicator on this time step
@@ -3190,7 +3191,7 @@ class IchimokuKinkoHyo(QuantConnect.Indicators.BarIndicator, QuantConnect.Indica
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         """
@@ -3219,7 +3220,7 @@ class RelativeVigorIndexSignal(QuantConnect.Indicators.Indicator, QuantConnect.I
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -3267,7 +3268,7 @@ class KaufmanEfficiencyRatio(QuantConnect.Indicators.WindowIndicator[QuantConnec
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :param window: The window for the input history
@@ -3345,7 +3346,7 @@ class Momersion(QuantConnect.Indicators.WindowIndicator[QuantConnect.Indicators.
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: 
         :param input: The input given to the indicator
@@ -3441,7 +3442,7 @@ class HurstExponent(QuantConnect.Indicators.Indicator, QuantConnect.Indicators.I
         Computes the next value of the Hurst Exponent indicator.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input data point to use for the next value computation.
         :returns: The computed Hurst Exponent value, or zero if insufficient data is available.
@@ -3485,7 +3486,7 @@ class Sum(QuantConnect.Indicators.WindowIndicator[QuantConnect.Indicators.Indica
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input value to this indicator on this time step
@@ -3539,7 +3540,7 @@ class VolumeWeightedMovingAverage(QuantConnect.Indicators.TradeBarIndicator, Qua
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -3594,7 +3595,7 @@ class McGinleyDynamic(QuantConnect.Indicators.WindowIndicator[QuantConnect.Indic
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input value to this indicator on this time step
@@ -3735,7 +3736,7 @@ class PivotPointsHighLow(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -3747,7 +3748,7 @@ class PivotPointsHighLow(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data
         Method for converting high and low pivot points to a decimal value.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param high_point: new high point or null
         :param low_point: new low point or null
@@ -3760,7 +3761,7 @@ class PivotPointsHighLow(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data
         Looks for the next high pivot point.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window_highs: rolling window that tracks the highs
         :param mid_point_index_or_surrounding_bars_count: The midpoint index or surrounding bars count for highs
@@ -3773,7 +3774,7 @@ class PivotPointsHighLow(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data
         Looks for the next low pivot point.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window_lows: rolling window that tracks the lows
         :param mid_point_index_or_surrounding_bars_count: The midpoint index or surrounding bars count for lows
@@ -3848,7 +3849,7 @@ class Maximum(QuantConnect.Indicators.WindowIndicator[QuantConnect.Indicators.In
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Indicators.IndicatorDataPoint], input: QuantConnect.Indicators.IndicatorDataPoint) -> float:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
     def reset(self) -> None:
@@ -3894,7 +3895,7 @@ class Minimum(QuantConnect.Indicators.WindowIndicator[QuantConnect.Indicators.In
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Indicators.IndicatorDataPoint], input: QuantConnect.Indicators.IndicatorDataPoint) -> float:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
     def reset(self) -> None:
@@ -3954,7 +3955,7 @@ class WilliamsPercentR(QuantConnect.Indicators.BarIndicator, QuantConnect.Indica
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -4008,7 +4009,7 @@ class TriangularMovingAverage(QuantConnect.Indicators.Indicator, QuantConnect.In
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -4063,7 +4064,7 @@ class DetrendedPriceOscillator(QuantConnect.Indicators.IndicatorBase[QuantConnec
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -4116,7 +4117,7 @@ class NormalizedAverageTrueRange(QuantConnect.Indicators.BarIndicator, QuantConn
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -4176,7 +4177,7 @@ class FractalAdaptiveMovingAverage(QuantConnect.Indicators.BarIndicator, QuantCo
         Computes the average value
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The data for the calculation
         :returns: The average value.
@@ -4224,7 +4225,7 @@ class InternalBarStrength(QuantConnect.Indicators.BarIndicator, QuantConnect.Ind
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -4269,7 +4270,7 @@ class LogReturn(QuantConnect.Indicators.WindowIndicator[QuantConnect.Indicators.
         - logr = log (current price / last price in period)
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input value to this indicator on this time step
@@ -4296,7 +4297,7 @@ class SharpeRatio(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.
         RateOfChange indicator for calculating the sharpe ratio
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -4306,7 +4307,7 @@ class SharpeRatio(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.
         RiskFreeRate indicator for calculating the sharpe ratio
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -4316,7 +4317,7 @@ class SharpeRatio(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.
         Indicator to store the calculation of the sharpe ratio
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -4330,7 +4331,7 @@ class SharpeRatio(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.
         Indicator to store the numerator of the Sharpe ratio calculation
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -4411,7 +4412,7 @@ class SharpeRatio(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -4464,7 +4465,7 @@ class SortinoRatio(QuantConnect.Indicators.SharpeRatio):
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -4500,7 +4501,7 @@ class NewHighsNewLowsVolume(QuantConnect.Indicators.NewHighsNewLows[QuantConnect
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -4535,7 +4536,7 @@ class IntradayVwap(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data.BaseD
         will never be invoked since we've override the validate method above.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -4547,7 +4548,7 @@ class IntradayVwap(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data.BaseD
         Determines the volume and price to be used for the current input in the VWAP computation
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -4556,7 +4557,7 @@ class IntradayVwap(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data.BaseD
         Computes the new VWAP
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -4612,7 +4613,7 @@ class ConnorsRelativeStrengthIndex(QuantConnect.Indicators.Indicator, QuantConne
         The CRSI is calculated as the average of the traditional RSI, Streak RSI, and Percent Rank.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The current input data point (typically the price data for the current period).
         :returns: The computed CRSI value, which combines the RSI, Streak RSI, and Percent Rank into a single value.
@@ -4625,6 +4626,43 @@ class ConnorsRelativeStrengthIndex(QuantConnect.Indicators.Indicator, QuantConne
         Resets the indicator to its initial state. This clears all internal data and resets
         the RSI, Streak RSI, and PriceChangeRatios, as well as the trend streak counter.
         """
+        ...
+
+
+class _Typed_IndicatorExtensions_Of(typing.Generic[QuantConnect_Indicators_IndicatorExtensions_Of_T]):
+    """"""
+
+    @overload
+    def __call__(self, second: QuantConnect_Indicators_IndicatorExtensions_Of_T, first: QuantConnect.Indicators.IIndicator, wait_for_first_to_ready: bool = True) -> QuantConnect_Indicators_IndicatorExtensions_Of_T:
+        """
+        Configures the second indicator to receive automatic updates from the first by attaching an event handler
+        to first.DataConsolidated
+        
+        :param second: The indicator that receives data from the first
+        :param first: The indicator that sends data via DataConsolidated even to the second
+        :param wait_for_first_to_ready: True to only send updates to the second if first.IsReady returns true, false to always send updates to second
+        :returns: The reference to the second indicator to allow for method chaining.
+        """
+        ...
+
+
+class _IndicatorExtensions_Of:
+    """"""
+
+    @overload
+    def __call__(self, second: typing.Any, first: typing.Any, wait_for_first_to_ready: bool = True) -> QuantConnect.Indicators.IndicatorBase:
+        """
+        Configures the second indicator to receive automatic updates from the first by attaching an event handler
+        to first.DataConsolidated
+        
+        :param second: The indicator that receives data from the first
+        :param first: The indicator that sends data via DataConsolidated even to the second
+        :param wait_for_first_to_ready: True to only send updates to the second if first.IsReady returns true, false to always send updates to second
+        :returns: The reference to the second indicator to allow for method chaining.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Indicators_IndicatorExtensions_Of_T]) -> QuantConnect.Indicators._Typed_IndicatorExtensions_Of[QuantConnect_Indicators_IndicatorExtensions_Of_T]:
         ...
 
 
@@ -4704,7 +4742,7 @@ class CompositeIndicator(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indi
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param _: The input given to the indicator
         :returns: A new value for this indicator.
@@ -4731,7 +4769,7 @@ class CompositeIndicator(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indi
         and returns an instance of the IndicatorResult class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: An IndicatorResult object including the status of the indicator.
@@ -4781,7 +4819,7 @@ class SimpleMovingAverage(QuantConnect.Indicators.WindowIndicator[QuantConnect.I
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input value to this indicator on this time step
@@ -4835,7 +4873,7 @@ class PythonIndicator(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data.IB
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -4853,6 +4891,8 @@ class PythonIndicator(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data.IB
 
 class IndicatorExtensions(System.Object):
     """Provides extension methods for Indicator"""
+
+    of: QuantConnect.Indicators._IndicatorExtensions_Of
 
     @staticmethod
     @overload
@@ -4993,19 +5033,6 @@ class IndicatorExtensions(System.Object):
         :param right: The right indicator
         :param name: The name of this indicator
         :returns: The difference of the left and right indicators.
-        """
-        ...
-
-    @staticmethod
-    def of(second: typing.Any, first: typing.Any, wait_for_first_to_ready: bool = True) -> QuantConnect.Indicators.IndicatorBase:
-        """
-        Configures the second indicator to receive automatic updates from the first by attaching an event handler
-        to first.DataConsolidated
-        
-        :param second: The indicator that receives data from the first
-        :param first: The indicator that sends data via DataConsolidated even to the second
-        :param wait_for_first_to_ready: True to only send updates to the second if first.IsReady returns true, false to always send updates to second
-        :returns: The reference to the second indicator to allow for method chaining.
         """
         ...
 
@@ -5300,7 +5327,7 @@ class ValueAtRisk(QuantConnect.Indicators.WindowIndicator[QuantConnect.Indicator
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input value to this indicator on this time step
@@ -5350,7 +5377,7 @@ class Delay(QuantConnect.Indicators.WindowIndicator[QuantConnect.Indicators.Indi
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input value to this indicator on this time step
@@ -5413,7 +5440,7 @@ class AroonOscillator(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicat
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -5489,7 +5516,7 @@ class HeikinAshi(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.I
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -5539,7 +5566,7 @@ class OnBalanceVolume(QuantConnect.Indicators.TradeBarIndicator, QuantConnect.In
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -5592,7 +5619,7 @@ class ZeroLagExponentialMovingAverage(QuantConnect.Indicators.WindowIndicator[Qu
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input value to this indicator on this time step
@@ -5640,7 +5667,7 @@ class WindowIdentity(QuantConnect.Indicators.WindowIndicator[QuantConnect.Indica
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input value to this indicator on this time step
@@ -5704,7 +5731,7 @@ class Covariance(QuantConnect.Indicators.DualSymbolIndicator[QuantConnect.Data.M
         using the target and reference returns
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -5767,7 +5794,7 @@ class FilteredIdentity(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data.I
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -5804,7 +5831,7 @@ class NewHighsNewLows(typing.Generic[QuantConnect_Indicators_NewHighsNewLows_T],
         List of assets that reached new high
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -5814,7 +5841,7 @@ class NewHighsNewLows(typing.Generic[QuantConnect_Indicators_NewHighsNewLows_T],
         List of assets that reached new high
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -5845,7 +5872,7 @@ class NewHighsNewLows(typing.Generic[QuantConnect_Indicators_NewHighsNewLows_T],
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -5869,7 +5896,7 @@ class NewHighsNewLows(typing.Generic[QuantConnect_Indicators_NewHighsNewLows_T],
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -5941,7 +5968,7 @@ class ArnaudLegouxMovingAverage(QuantConnect.Indicators.WindowIndicator[QuantCon
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input value to this indicator on this time step
@@ -5990,7 +6017,7 @@ class ChoppinessIndex(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicat
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -6043,7 +6070,7 @@ class MidPrice(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.IIn
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -6104,7 +6131,7 @@ class DeMarkerIndicator(QuantConnect.Indicators.BarIndicator, QuantConnect.Indic
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -6181,7 +6208,7 @@ class ArmsIndex(QuantConnect.Indicators.TradeBarIndicator, QuantConnect.Indicato
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -6246,7 +6273,7 @@ class WilderSwingIndex(QuantConnect.Indicators.TradeBarIndicator, QuantConnect.I
         Holds the bar for the current period.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -6256,7 +6283,7 @@ class WilderSwingIndex(QuantConnect.Indicators.TradeBarIndicator, QuantConnect.I
         Holds the bar for the previous period.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -6294,7 +6321,7 @@ class WilderSwingIndex(QuantConnect.Indicators.TradeBarIndicator, QuantConnect.I
         Computes the next value of this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator.
         :returns: A new value for this indicator.
@@ -6342,7 +6369,7 @@ class WilderMovingAverage(QuantConnect.Indicators.Indicator, QuantConnect.Indica
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -6393,7 +6420,7 @@ class FunctionalIndicator(typing.Generic[QuantConnect_Indicators_FunctionalIndic
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -6476,7 +6503,7 @@ class LinearWeightedMovingAverage(QuantConnect.Indicators.WindowIndicator[QuantC
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input value to this indicator on this time step
@@ -6525,7 +6552,7 @@ class HullMovingAverage(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indic
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -6583,7 +6610,7 @@ class VariableIndexDynamicAverage(QuantConnect.Indicators.WindowIndicator[QuantC
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :param window: The window for the input history
@@ -6681,7 +6708,7 @@ class SwissArmyKnife(QuantConnect.Indicators.Indicator, QuantConnect.Indicators.
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -6767,7 +6794,7 @@ class DonchianChannel(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicat
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator, which by convention is the mean value of the upper band and lower band.
@@ -6849,7 +6876,7 @@ class MovingAverageConvergenceDivergence(QuantConnect.Indicators.Indicator, Quan
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -6927,7 +6954,7 @@ class PercentagePriceOscillator(QuantConnect.Indicators.AbsolutePriceOscillator)
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -6967,7 +6994,7 @@ class Variance(QuantConnect.Indicators.WindowIndicator[QuantConnect.Indicators.I
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :param window: The window for the input history
@@ -7028,7 +7055,7 @@ class WilderAccumulativeSwingIndex(QuantConnect.Indicators.TradeBarIndicator, Qu
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -7105,7 +7132,7 @@ class MoneyFlowIndex(QuantConnect.Indicators.TradeBarIndicator, QuantConnect.Ind
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -7181,7 +7208,7 @@ class KeltnerChannels(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicat
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The TradeBar to this indicator on this time step
         :returns: A new value for this indicator.
@@ -7268,7 +7295,7 @@ class MassIndex(QuantConnect.Indicators.TradeBarIndicator, QuantConnect.Indicato
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -7339,7 +7366,7 @@ class TrueStrengthIndex(QuantConnect.Indicators.Indicator, QuantConnect.Indicato
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -7416,7 +7443,7 @@ class SuperTrend(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.I
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -7519,7 +7546,7 @@ class BollingerBands(QuantConnect.Indicators.Indicator, QuantConnect.Indicators.
         StandardDeviation, MiddleBand, UpperBand, LowerBand, BandWidth, %B
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: The input is returned unmodified.
@@ -7535,7 +7562,7 @@ class BollingerBands(QuantConnect.Indicators.Indicator, QuantConnect.Indicators.
         Validate and Compute the next value for this indicator
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: Input for this indicator
         :returns: IndicatorResult of this update.
@@ -7606,7 +7633,7 @@ class SqueezeMomentum(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicat
         Computes the next value of the indicator based on the input data bar.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input data bar.
         :returns: Returns 1 if the Bollinger Bands are inside the Keltner Channels (squeeze on),
@@ -7678,7 +7705,7 @@ class FisherTransform(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicat
         preclude the transform from blowing up by having an input larger than unity.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: IndicatorDataPoint - the time and value of the next price
         """
@@ -7761,7 +7788,7 @@ class DoubleExponentialMovingAverage(QuantConnect.Indicators.IndicatorBase[Quant
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -7821,7 +7848,7 @@ class PremierStochasticOscillator(QuantConnect.Indicators.BarIndicator, QuantCon
         PSO = (exp(EMA2) - 1) / (exp(EMA2) + 1)
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The current input bar containing market data.
         :returns: The computed value of the PSO.
@@ -7887,7 +7914,7 @@ class RelativeVigorIndex(QuantConnect.Indicators.BarIndicator, QuantConnect.Indi
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -7945,7 +7972,7 @@ class DerivativeOscillator(QuantConnect.Indicators.Indicator, QuantConnect.Indic
         Computes the next value for the derivative oscillator indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input value to this indicator on this time step
         :returns: A new value for this indicator.
@@ -7995,7 +8022,7 @@ class TrueRange(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.II
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -8103,7 +8130,7 @@ class AutoRegressiveIntegratedMovingAverage(QuantConnect.Indicators.TimeSeriesIn
         Forecasts the series of the fitted model one point ahead.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -8170,7 +8197,7 @@ class AverageDirectionalIndex(QuantConnect.Indicators.BarIndicator, QuantConnect
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -8228,7 +8255,7 @@ class AverageDirectionalMovementIndexRating(QuantConnect.Indicators.BarIndicator
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -8302,7 +8329,7 @@ class StochasticRelativeStrengthIndex(QuantConnect.Indicators.Indicator, QuantCo
         K (%K) and D (%D)
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: The input is returned unmodified.
@@ -8369,7 +8396,7 @@ class TargetDownsideDeviation(QuantConnect.Indicators.IndicatorBase[QuantConnect
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -8563,7 +8590,7 @@ class Alpha(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.IIndic
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: 
         """
@@ -8630,7 +8657,7 @@ class RelativeMovingAverage(QuantConnect.Indicators.Indicator, QuantConnect.Indi
         Copmutes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input value to this indicator on this time step
         :returns: A new value for this indicator.
@@ -8698,7 +8725,7 @@ class ChandeKrollStop(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicat
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: The input is returned unmodified.
@@ -8760,7 +8787,7 @@ class CoppockCurve(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -8828,7 +8855,7 @@ class Correlation(QuantConnect.Indicators.DualSymbolIndicator[QuantConnect.Data.
         correlation values assing into _correlation property
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -8868,7 +8895,7 @@ class KaufmanAdaptiveMovingAverage(QuantConnect.Indicators.KaufmanEfficiencyRati
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :param window: The window for the input history
@@ -8924,7 +8951,7 @@ class AccumulationDistributionOscillator(QuantConnect.Indicators.TradeBarIndicat
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -9044,7 +9071,7 @@ class KnowSureThing(QuantConnect.Indicators.Indicator, QuantConnect.Indicators.I
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: The next value of the KST based on input.
@@ -9114,7 +9141,7 @@ class AwesomeOscillator(QuantConnect.Indicators.BarIndicator, QuantConnect.Indic
         Computes the next value of this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -9202,7 +9229,7 @@ class WaveTrendOscillator(QuantConnect.Indicators.BarIndicator, QuantConnect.Ind
         Computes the next value of this indicator from the given bar.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input bar
         :returns: The next WT1 value (EMA of the channel index).
@@ -9259,7 +9286,7 @@ class UltimateOscillator(QuantConnect.Indicators.BarIndicator, QuantConnect.Indi
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -9314,7 +9341,7 @@ class ChandeMomentumOscillator(QuantConnect.Indicators.WindowIndicator[QuantConn
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :param window: The window for the input history
@@ -9526,7 +9553,7 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         Initializes a new instance of the Indicator class.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -9536,7 +9563,7 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         Initializes a new instance of the Indicator class using the specified name.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: The name of this indicator
         """
@@ -9690,7 +9717,7 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -9727,7 +9754,7 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         Event invocator for the Updated event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param consolidated: This is the new piece of data produced by this indicator
         """
@@ -9782,7 +9809,7 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         and returns an instance of the IndicatorResult class
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: An IndicatorResult object including the status of the indicator.
@@ -9832,7 +9859,7 @@ class ForceIndex(QuantConnect.Indicators.TradeBarIndicator, QuantConnect.Indicat
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -9924,7 +9951,7 @@ class TomDemarkSequential(QuantConnect.Indicators.WindowIndicator[QuantConnect.D
         Computes the next value of the TD Sequential indicator based on the provided TradeBar.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param current: The current input value to this indicator on this time step
@@ -10011,7 +10038,7 @@ class MeanAbsoluteDeviation(QuantConnect.Indicators.WindowIndicator[QuantConnect
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :param window: The window for the input history
@@ -10057,7 +10084,7 @@ class MultiSymbolIndicator(typing.Generic[QuantConnect_Indicators_MultiSymbolInd
         Contains the data points, the current input and other relevant indicator data for a symbol.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
 
         @property
@@ -10116,7 +10143,7 @@ class MultiSymbolIndicator(typing.Generic[QuantConnect_Indicators_MultiSymbolInd
         and actual data points used for calculation.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -10126,7 +10153,7 @@ class MultiSymbolIndicator(typing.Generic[QuantConnect_Indicators_MultiSymbolInd
         The most recently computed value of the indicator.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -10156,7 +10183,7 @@ class MultiSymbolIndicator(typing.Generic[QuantConnect_Indicators_MultiSymbolInd
         the time zones for both symbols and checks if they are different.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: The name of the indicator.
         :param symbols: The symbols the indicator works on .
@@ -10171,7 +10198,7 @@ class MultiSymbolIndicator(typing.Generic[QuantConnect_Indicators_MultiSymbolInd
         when data for all symbols at a given time is available.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -10181,7 +10208,7 @@ class MultiSymbolIndicator(typing.Generic[QuantConnect_Indicators_MultiSymbolInd
         This method ensures the input data points are from matching time periods and different symbols.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input data point (e.g., TradeBar for a symbol).
         :returns: The most recently computed value of the indicator.
@@ -10233,7 +10260,7 @@ class Momentum(QuantConnect.Indicators.WindowIndicator[QuantConnect.Indicators.I
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input value to this indicator on this time step
@@ -10286,7 +10313,7 @@ class SchaffTrendCycle(QuantConnect.Indicators.Indicator, QuantConnect.Indicator
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -10359,7 +10386,7 @@ class Stochastic(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.I
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         """
@@ -10456,7 +10483,7 @@ class MarketProfile(QuantConnect.Indicators.TradeBarIndicator, QuantConnect.Indi
         Creates a new MarkProfile indicator with the specified period
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: The name of this indicator
         :param period: The period of this indicator
@@ -10471,7 +10498,7 @@ class MarketProfile(QuantConnect.Indicators.TradeBarIndicator, QuantConnect.Indi
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input value to this indicator on this time step
         :returns: A a value for this indicator, Point of Control (POC) price.
@@ -10483,7 +10510,7 @@ class MarketProfile(QuantConnect.Indicators.TradeBarIndicator, QuantConnect.Indi
         Get the Volume value that's going to be used
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: Data
         :returns: The Volume value it's going to be used.
@@ -10520,7 +10547,7 @@ class TimeProfile(QuantConnect.Indicators.MarketProfile):
         Define the Volume in Time Profile mode
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: 
         :returns: 1.
@@ -10564,7 +10591,7 @@ class BalanceOfPower(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicato
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -10603,7 +10630,7 @@ class RateOfChangeRatio(QuantConnect.Indicators.RateOfChange):
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input value to this indicator on this time step
@@ -10682,7 +10709,7 @@ class AccelerationBands(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data.
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -10758,7 +10785,7 @@ class HilbertTransform(QuantConnect.Indicators.Indicator, QuantConnect.Indicator
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -10817,7 +10844,7 @@ class LeastSquaresMovingAverage(QuantConnect.Indicators.WindowIndicator[QuantCon
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: 
         :param input: The input given to the indicator
@@ -10899,7 +10926,7 @@ class RegressionChannel(QuantConnect.Indicators.Indicator, QuantConnect.Indicato
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -10952,7 +10979,7 @@ class RogersSatchellVolatility(QuantConnect.Indicators.BarIndicator, QuantConnec
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -11020,7 +11047,7 @@ class AugenPriceSpike(QuantConnect.Indicators.Indicator, QuantConnect.Indicators
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input value to this indicator on this time step
         :returns: A a value for this indicator.
@@ -11084,7 +11111,7 @@ class Vortex(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.IIndi
         Computes the next value of the Vortex Indicator based on the provided input.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input data used to compute the indicator value.
         :returns: The computed value of the indicator.
@@ -11243,7 +11270,7 @@ class ZigZag(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.IIndi
         Determines whether the input bar forms a new pivot or updates the current trend.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The current bar of market data used for the calculation.
         :returns: The value of the most recent pivot, either a high or low, depending on the current trend.
@@ -11299,7 +11326,7 @@ class TripleExponentialMovingAverage(QuantConnect.Indicators.IndicatorBase[Quant
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -11349,7 +11376,7 @@ class RelativeDailyVolume(QuantConnect.Indicators.TradeBarIndicator):
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input value to this indicator on this time step
         :returns: A a value for this indicator.
@@ -11407,7 +11434,7 @@ class T3MovingAverage(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicat
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -11458,7 +11485,7 @@ class StandardDeviation(QuantConnect.Indicators.Variance):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :param window: The window for the input history
@@ -11492,7 +11519,7 @@ class VolumeProfile(QuantConnect.Indicators.MarketProfile):
         Define the Volume for the Volume Profile mode
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: 
         :returns: The volume of the input Data Point.
@@ -11551,7 +11578,7 @@ class ChaikinMoneyFlow(QuantConnect.Indicators.TradeBarIndicator, QuantConnect.I
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input value to this indicator on this time step
         :returns: A new value for this indicator.
@@ -11597,7 +11624,7 @@ class AverageRange(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators
         and passing it to the SMA to get the smoothed value.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input data for the current bar, including open, high, low, close values.
         :returns: The computed AR value, which is the smoothed average of price ranges.
@@ -11631,7 +11658,7 @@ class ConstantIndicator(typing.Generic[QuantConnect_Indicators_ConstantIndicator
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -11705,7 +11732,7 @@ class Beta(QuantConnect.Indicators.DualSymbolIndicator[QuantConnect.Data.Market.
         using the target and reference returns
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -11727,7 +11754,7 @@ class VolumeWeightedAveragePriceIndicator(QuantConnect.Indicators.TradeBarIndica
         Indentity indicator for price
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -11737,7 +11764,7 @@ class VolumeWeightedAveragePriceIndicator(QuantConnect.Indicators.TradeBarIndica
         Identity indicator for volume
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -11747,7 +11774,7 @@ class VolumeWeightedAveragePriceIndicator(QuantConnect.Indicators.TradeBarIndica
         Volume Weighted Average Price
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -11785,7 +11812,7 @@ class VolumeWeightedAveragePriceIndicator(QuantConnect.Indicators.TradeBarIndica
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -11797,7 +11824,7 @@ class VolumeWeightedAveragePriceIndicator(QuantConnect.Indicators.TradeBarIndica
         Gets an estimated average price to use for the interval covered by the input trade bar.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The current trade bar input
         :returns: An estimated average price over the trade bar's interval.
@@ -11856,7 +11883,7 @@ class EaseOfMovementValue(QuantConnect.Indicators.TradeBarIndicator, QuantConnec
         Computes the next value for this indicator from the given state.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input value to this indicator on this time step
         :returns: A a value for this indicator.
@@ -11912,7 +11939,7 @@ class SmoothedOnBalanceVolume(QuantConnect.Indicators.BarIndicator, QuantConnect
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
@@ -11965,7 +11992,7 @@ class InternalIndicatorValues(System.Object, typing.Iterable[QuantConnect.Indica
         The target indicator
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -12065,6 +12092,9 @@ class RollingWindow(typing.Generic[QuantConnect_Indicators_RollingWindow_T], Sys
     def __iter__(self) -> typing.Iterator[QuantConnect_Indicators_RollingWindow_T]:
         ...
 
+    def __len__(self) -> int:
+        ...
+
     def __setitem__(self, i: int, value: QuantConnect_Indicators_RollingWindow_T) -> None:
         """
         Indexes into this window, where index 0 is the most recently
@@ -12144,6 +12174,9 @@ class IReadOnlyWindow(typing.Generic[QuantConnect_Indicators_IReadOnlyWindow_T],
         :param i: the index, i
         :returns: the ith most recent entry.
         """
+        ...
+
+    def __len__(self) -> int:
         ...
 
 

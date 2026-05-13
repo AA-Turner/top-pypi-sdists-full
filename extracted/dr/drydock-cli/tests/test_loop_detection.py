@@ -616,3 +616,283 @@ class TestHallucinatedToolLoop:
             _add_tool_call(al, "ghost_tool", '{}')
         al._check_tool_call_repetition()
         assert al._hot_tool_path is None
+
+
+# ============================================================================
+# Mid-turn user injection (Claude Code "type while busy" feature)
+# ============================================================================
+
+class TestUserInjection:
+    """`queue_user_injection` + `_drain_user_injections` fold a queued user
+    message into the last tool result as a SYSTEM note. This is the bridge
+    between the TUI submit-while-busy path and the agent loop."""
+
+    def _make(self) -> AgentLoop:
+        al = _make_agent()
+        al._pending_user_injections = []
+        return al
+
+    def test_queue_appends_to_pending_list(self):
+        al = self._make()
+        al.queue_user_injection("also add a CLI flag for verbose mode")
+        assert al._pending_user_injections == [
+            "also add a CLI flag for verbose mode"
+        ]
+
+    def test_queue_strips_and_drops_empty(self):
+        al = self._make()
+        al.queue_user_injection("   ")
+        al.queue_user_injection("")
+        al.queue_user_injection("  real message  ")
+        assert al._pending_user_injections == ["real message"]
+
+    def test_drain_folds_into_last_tool_result(self):
+        al = self._make()
+        _add_tool_call(al, "read_file", '{"path": "foo.py"}')
+        original_tool_result = al.messages[-1].content
+        al.queue_user_injection("also rename foo to bar")
+        al._drain_user_injections()
+        assert al._pending_user_injections == []
+        # The injection landed on the last tool result, not as a new
+        # user-after-tool message (which vLLM/Mistral reject).
+        assert al.messages[-1].role == Role.tool
+        last_content = al.messages[-1].content or ""
+        assert original_tool_result in last_content
+        assert "USER (typed while you were working" in last_content
+        assert "also rename foo to bar" in last_content
+
+    def test_drain_no_messages_is_noop(self):
+        al = self._make()
+        # Empty queue, empty history — no crash, no message creation.
+        al._drain_user_injections()
+        assert len(al.messages) == 0
+
+    def test_drain_multiple_injections_in_order(self):
+        al = self._make()
+        _add_tool_call(al, "grep", '{"pattern": "foo"}')
+        al.queue_user_injection("first follow-up")
+        al.queue_user_injection("second follow-up")
+        al._drain_user_injections()
+        content = al.messages[-1].content or ""
+        assert "first follow-up" in content
+        assert "second follow-up" in content
+        assert content.index("first follow-up") < content.index("second follow-up")
+
+    def test_idempotent_drain(self):
+        al = self._make()
+        _add_tool_call(al, "bash", '{"command": "ls"}')
+        al.queue_user_injection("test injection")
+        al._drain_user_injections()
+        snapshot = al.messages[-1].content
+        # Second drain with empty queue must not duplicate.
+        al._drain_user_injections()
+        assert al.messages[-1].content == snapshot
+
+
+# ============================================================================
+# Agent-loop curiosity hooks (SOVEREIGN_PRD §5.7 tier-2 integration)
+# ============================================================================
+
+class TestAgentLoopCuriosityHooks:
+    """`_log_curiosity_gaps` and `_maybe_log_surprise` bridge the curiosity
+    module into the live agent loop. These tests pin the integration
+    points so a future refactor can't silently break the §5.7 producers."""
+
+    def _make_with_session(self) -> AgentLoop:
+        al = _make_agent()
+        al.session_id = "test-session-abc"
+        return al
+
+    def test_log_curiosity_gaps_writes_to_queue(self, tmp_path, monkeypatch):
+        monkeypatch.setenv(
+            "DRYDOCK_CURIOSITY_QUEUE", str(tmp_path / "c.jsonl")
+        )
+        al = self._make_with_session()
+        al._log_curiosity_gaps("Investigate the MCP server config and GraphRAG corpus.")
+        # Should have enqueued at least one UNKNOWN_TERM item (MCP or GraphRAG).
+        from drydock.curiosity import read_recent
+        items = read_recent(limit=10)
+        assert items, "expected at least one curiosity item"
+        assert all(i["kind"] == "unknown_term" for i in items)
+        terms = {i["term"] for i in items}
+        assert "MCP" in terms or any("GraphRAG" in t for t in terms)
+
+    def test_log_curiosity_gaps_silent_on_empty(self, tmp_path, monkeypatch):
+        monkeypatch.setenv(
+            "DRYDOCK_CURIOSITY_QUEUE", str(tmp_path / "c.jsonl")
+        )
+        al = self._make_with_session()
+        # Empty / boring input → no gaps, no enqueue.
+        al._log_curiosity_gaps("fix the bug")
+        from drydock.curiosity import read_recent
+        assert read_recent() == []
+
+    def test_log_curiosity_gaps_handles_empty_msg(self, tmp_path, monkeypatch):
+        monkeypatch.setenv(
+            "DRYDOCK_CURIOSITY_QUEUE", str(tmp_path / "c.jsonl")
+        )
+        al = self._make_with_session()
+        # Must not raise on empty/None.
+        al._log_curiosity_gaps("")
+        al._log_curiosity_gaps(None)  # type: ignore[arg-type]
+
+    def test_log_curiosity_gaps_session_tagged(self, tmp_path, monkeypatch):
+        monkeypatch.setenv(
+            "DRYDOCK_CURIOSITY_QUEUE", str(tmp_path / "c.jsonl")
+        )
+        al = self._make_with_session()
+        al._log_curiosity_gaps("Question about the FAISS index.")
+        from drydock.curiosity import read_recent
+        items = read_recent(limit=10)
+        assert items
+        assert items[0]["source"] == "session:test-session-abc"
+
+    def test_maybe_log_surprise_confident_wrong_enqueues(
+        self, tmp_path, monkeypatch
+    ):
+        """Confident assertion + tool error → EVIDENCE_CONFLICT enqueued."""
+        monkeypatch.setenv(
+            "DRYDOCK_CURIOSITY_QUEUE", str(tmp_path / "c.jsonl")
+        )
+        al = self._make_with_session()
+        # Plant a confident assistant assertion.
+        al.messages.append(LLMMessage(
+            role=Role.assistant,
+            content="All tests pass and the code works correctly.",
+        ))
+
+        # Simulate the tool_call object _handle_tool_response receives.
+        from types import SimpleNamespace
+        tool_call = SimpleNamespace(
+            function=SimpleNamespace(name="bash", arguments="{}")
+        )
+        tool_text = (
+            "<tool_error>\nTraceback (most recent call last):\n"
+            "AssertionError: 1 != 2"
+        )
+        al._maybe_log_surprise(tool_call, tool_text)
+        from drydock.curiosity import read_recent
+        items = read_recent(limit=5)
+        assert items, "expected EVIDENCE_CONFLICT enqueued"
+        assert items[0]["kind"] == "evidence_conflict"
+        assert "bash" in items[0]["term"]
+
+    def test_maybe_log_surprise_no_assertion_silent(
+        self, tmp_path, monkeypatch
+    ):
+        """If there's no prior assistant content, nothing to compare → no enqueue."""
+        monkeypatch.setenv(
+            "DRYDOCK_CURIOSITY_QUEUE", str(tmp_path / "c.jsonl")
+        )
+        al = self._make_with_session()
+        from types import SimpleNamespace
+        tool_call = SimpleNamespace(
+            function=SimpleNamespace(name="grep", arguments="{}")
+        )
+        al._maybe_log_surprise(tool_call, "<tool_error>\nTraceback: ...")
+        from drydock.curiosity import read_recent
+        assert read_recent() == []
+
+    def test_maybe_log_surprise_below_threshold_skips(
+        self, tmp_path, monkeypatch
+    ):
+        """Generic tool error without a confident claim → score < threshold → skip."""
+        monkeypatch.setenv(
+            "DRYDOCK_CURIOSITY_QUEUE", str(tmp_path / "c.jsonl")
+        )
+        al = self._make_with_session()
+        # Tentative phrasing, no "passes/correct/works" markers.
+        al.messages.append(LLMMessage(
+            role=Role.assistant,
+            content="Running the tests now to see what happens.",
+        ))
+        from types import SimpleNamespace
+        tool_call = SimpleNamespace(
+            function=SimpleNamespace(name="bash", arguments="{}")
+        )
+        al._maybe_log_surprise(
+            tool_call, "<tool_error>\nTraceback: failure on row 3"
+        )
+        from drydock.curiosity import read_recent
+        # Some surprise present, but below 0.6 → not enqueued.
+        assert read_recent() == []
+
+
+# ============================================================================
+# DRYDOCK.md auto-create
+# ============================================================================
+
+class TestDrydockMdAutoCreate:
+    """`_ensure_drydock_md` writes a lean per-project instructions file
+    on first session in a fresh directory. Mirrors the AGENTS.md pattern
+    but uses drydock's own format and tool inventory."""
+
+    def _run(self, monkeypatch, cwd: Path):
+        monkeypatch.chdir(cwd)
+        al = object.__new__(AgentLoop)
+        al._ensure_drydock_md()
+
+    def test_creates_file_when_missing(self, tmp_path: Path, monkeypatch):
+        self._run(monkeypatch, tmp_path)
+        f = tmp_path / "DRYDOCK.md"
+        assert f.is_file()
+        assert f.stat().st_size > 0
+
+    def test_lean_under_4kb(self, tmp_path: Path, monkeypatch):
+        # The whole point is "don't blow up context budget".
+        self._run(monkeypatch, tmp_path)
+        assert (tmp_path / "DRYDOCK.md").stat().st_size < 4000
+
+    def test_contains_tool_inventory(self, tmp_path: Path, monkeypatch):
+        self._run(monkeypatch, tmp_path)
+        text = (tmp_path / "DRYDOCK.md").read_text()
+        for tool in ("math", "count", "memory", "verify", "retrieve"):
+            assert tool in text, f"missing tool mention: {tool}"
+
+    def test_contains_4_core_principles(self, tmp_path: Path, monkeypatch):
+        self._run(monkeypatch, tmp_path)
+        text = (tmp_path / "DRYDOCK.md").read_text()
+        # Look for the load-bearing phrase from each principle.
+        for phrase in (
+            "Don't assume",
+            "Minimum code",
+            "Touch only what you must",
+            "Loop until verified",
+        ):
+            assert phrase in text, f"missing principle: {phrase}"
+
+    def test_detects_python_project(self, tmp_path: Path, monkeypatch):
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'x'\n")
+        self._run(monkeypatch, tmp_path)
+        text = (tmp_path / "DRYDOCK.md").read_text()
+        assert "Python" in text and "Stack" in text
+
+    def test_detects_javascript_project(self, tmp_path: Path, monkeypatch):
+        (tmp_path / "package.json").write_text("{}")
+        self._run(monkeypatch, tmp_path)
+        text = (tmp_path / "DRYDOCK.md").read_text()
+        assert "JavaScript" in text or "TypeScript" in text
+
+    def test_detects_rust_project(self, tmp_path: Path, monkeypatch):
+        (tmp_path / "Cargo.toml").write_text("[package]\nname = 'x'\n")
+        self._run(monkeypatch, tmp_path)
+        text = (tmp_path / "DRYDOCK.md").read_text()
+        assert "Rust" in text
+
+    def test_unknown_stack_falls_back(self, tmp_path: Path, monkeypatch):
+        # No manifests at all.
+        self._run(monkeypatch, tmp_path)
+        text = (tmp_path / "DRYDOCK.md").read_text()
+        assert "Unknown stack" in text
+
+    def test_does_not_overwrite_existing(self, tmp_path: Path, monkeypatch):
+        (tmp_path / "DRYDOCK.md").write_text("USER CONTENT — do not overwrite")
+        self._run(monkeypatch, tmp_path)
+        assert (tmp_path / "DRYDOCK.md").read_text() == "USER CONTENT — do not overwrite"
+
+    def test_respects_lowercase_drydock_md(self, tmp_path: Path, monkeypatch):
+        (tmp_path / "drydock.md").write_text("lowercase wins")
+        self._run(monkeypatch, tmp_path)
+        # Should NOT create DRYDOCK.md when drydock.md exists.
+        assert not (tmp_path / "DRYDOCK.md").exists()
+        assert (tmp_path / "drydock.md").read_text() == "lowercase wins"

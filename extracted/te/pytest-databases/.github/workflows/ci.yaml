@@ -18,18 +18,15 @@ jobs:
   test:
     name: Python ${{ matrix.python-version }} - ${{ matrix.cdist-group }}/3
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
         cdist-group: [1, 2, 3]
 
     steps:
       - uses: actions/checkout@v6
-
-      - name: Install additional dependencies
-        run: sudo apt-get update && sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 libmariadb-dev && sudo apt-get autoremove -y  && sudo apt-get clean -y
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
@@ -41,6 +38,50 @@ jobs:
 
       - name: Intall dependencies
         run: uv sync --frozen --all-extras
+
+      # Pre-pull docker images with retry to absorb transient registry failures
+      # (MCR WAF blocks on mcr.microsoft.com, Docker Hub anonymous rate limits)
+      # before pytest starts spawning fixture subprocesses. Pull in parallel
+      # (-P 6) - sequential pulls of ~30 images cost 10+ min on a runner.
+      - name: Pre-pull docker images
+        run: |
+          set -u
+          images=(
+            "mcr.microsoft.com/azure-storage/azurite"
+            "mcr.microsoft.com/mssql/server:2022-latest"
+            "dolthub/dolt-sql-server:latest"
+            "postgres:11" "postgres:12" "postgres:13" "postgres:14"
+            "postgres:15" "postgres:16" "postgres:17" "postgres:18"
+            "pgvector/pgvector:pg15"
+            "paradedb/paradedb:0.21.5-pg16"
+            "google/alloydbomni:16"
+            "mysql:5.6" "mysql:5.7" "mysql:8"
+            "mariadb:11.3"
+            "gvenzl/oracle-free:23-slim-faststart"
+            "gvenzl/oracle-xe:18-slim-faststart"
+            "redis:latest"
+            "valkey/valkey:latest"
+            "mongo:latest"
+            "cockroachdb/cockroach:latest"
+            "software.yugabyte.com/yugabytedb/yugabyte:latest"
+            "quay.io/minio/minio"
+            "minio/mc:latest"
+            "rustfs/rustfs:latest"
+            "rustfs/rc:latest"
+            "gcr.io/cloud-spanner-emulator/emulator:latest"
+            "ghcr.io/goccy/bigquery-emulator:latest"
+            "gizmodata/gizmosql:latest"
+          )
+          printf '%s\n' "${images[@]}" | xargs -n1 -P6 -I{} bash -c '
+            image="$1"
+            for attempt in 1 2 3 4 5; do
+              if docker pull --quiet "$image"; then
+                exit 0
+              fi
+              [ "$attempt" -lt 5 ] && sleep $((attempt * attempt * 5))
+            done
+            echo "::warning::Failed to pull $image after 5 attempts"
+          ' _ {}
 
       - if: matrix.python-version == '3.12'
         name: Run tests with coverage tracking
@@ -58,7 +99,7 @@ jobs:
 
       - if: matrix.python-version == '3.12'
         name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5.5.2
+        uses: codecov/codecov-action@v6.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: litestar-org/pytest-databases
@@ -67,9 +108,6 @@ jobs:
   test_elasticsearch:
     runs-on: ubuntu-latest
     steps:
-      - name: Install additional dependencies
-        run: sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 libmariadb-dev
-
       - uses: actions/checkout@v6
 
       - name: Set up Python
@@ -82,6 +120,18 @@ jobs:
 
       - name: Intall dependencies
         run: uv sync --frozen --all-extras
+
+      - name: Pre-pull docker images
+        run: |
+          set -u
+          for image in "elasticsearch:7.17.19" "elasticsearch:8.13.0"; do
+            for attempt in 1 2 3 4 5; do
+              if docker pull --quiet "$image"; then
+                break
+              fi
+              [ "$attempt" -eq 5 ] && echo "::warning::Failed to pull $image" || sleep $((attempt * attempt * 5))
+            done
+          done
 
       - name: Run tests with coverage tracking
         run: uv run pytest -k elasticsearch

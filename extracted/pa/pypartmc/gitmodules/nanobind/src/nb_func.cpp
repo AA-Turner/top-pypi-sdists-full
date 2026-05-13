@@ -1368,7 +1368,9 @@ static PyObject *nb_func_get_qualname(PyObject *self) {
         (f->flags & (uint32_t) func_flags::has_name)) {
         PyObject *scope_name = PyObject_GetAttrString(f->scope, "__qualname__");
         if (scope_name) {
-            return PyUnicode_FromFormat("%U.%s", scope_name, f->name);
+            PyObject *result = PyUnicode_FromFormat("%U.%s", scope_name, f->name);
+            Py_DECREF(scope_name);
+            return result;
         } else {
             PyErr_Clear();
             return PyUnicode_FromString(f->name);

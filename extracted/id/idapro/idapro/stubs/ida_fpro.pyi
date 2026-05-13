@@ -1,44 +1,50 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""System independent counterparts of FILE* related functions from Clib.
 
 You should not use C standard I/O functions in your modules. The reason: Each module compiled with Borland (and statically linked to Borland's library) will host a copy of the FILE * information.
 So, if you open a file in the plugin and pass the handle to the kernel, the kernel will not be able to use it.
-If you really need to use the standard functions, define USE_STANDARD_FILE_FUNCTIONS. In this case do not mix them with q... functions. 
-    
+If you really need to use the standard functions, define USE_STANDARD_FILE_FUNCTIONS. In this case do not mix them with q... functions.
+
 """
 
 class qfile_t:
     r"""A helper class to work with FILE related functions."""
     @property
-    def __idc_cvt_id__(self) -> Any: ...
+    def __idc_cvt_id__(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -46,16 +52,16 @@ class qfile_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -72,10 +78,10 @@ class qfile_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -85,7 +91,7 @@ class qfile_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def close(self) -> Any:
         r"""Closes the file"""
@@ -96,12 +102,12 @@ class qfile_t:
         ...
     def from_capsule(self, pycapsule: Any) -> qfile_t:
         ...
-    def from_fp(self, fp: FILE) -> qfile_t:
+    def from_fp(self, fp: Any) -> qfile_t:
         ...
     def get_byte(self) -> Any:
         r"""Reads a single byte from the file. Returns None if EOF or the read byte"""
         ...
-    def get_fp(self) -> FILE:
+    def get_fp(self) -> Any:
         ...
     def gets(self, len: Any) -> Any:
         r"""Reads a line from the input file. Returns the read line or None
@@ -151,7 +157,7 @@ class qfile_t:
         :returns: the new position (not 0 as fseek!)
         """
         ...
-    def size(self) -> int64:
+    def size(self) -> int:
         ...
     def tell(self) -> Any:
         r"""Returns the current position"""
@@ -175,13 +181,13 @@ class qfile_t:
         """
         ...
 
-def qfclose(fp: FILE) -> int:
+def qfclose(fp: Any) -> int:
     ...
 
 def qfile_t_from_capsule(pycapsule: Any) -> qfile_t:
     ...
 
-def qfile_t_from_fp(fp: FILE) -> qfile_t:
+def qfile_t_from_fp(fp: Any) -> qfile_t:
     ...
 
 def qfile_t_tmpfile() -> Any:
@@ -192,6 +198,6 @@ QMOVE_CROSS_FS: int  # 1
 QMOVE_OVERWRITE: int  # 2
 QMOVE_OVR_RO: int  # 4
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ida_idaapi: module
 weakref: module

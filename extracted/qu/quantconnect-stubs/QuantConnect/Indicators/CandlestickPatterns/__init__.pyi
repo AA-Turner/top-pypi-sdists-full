@@ -73,7 +73,7 @@ class CandlestickPattern(QuantConnect.Indicators.WindowIndicator[QuantConnect.Da
         Creates a new CandlestickPattern with the specified name
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param name: The name of this indicator
         :param period: The number of data points to hold in the window
@@ -86,7 +86,7 @@ class CandlestickPattern(QuantConnect.Indicators.WindowIndicator[QuantConnect.Da
         Returns the average range of the previous candles
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param type: The type of setting to use
         :param sum: The sum of the previous candles ranges
@@ -100,7 +100,7 @@ class CandlestickPattern(QuantConnect.Indicators.WindowIndicator[QuantConnect.Da
         Returns the candle color of a candle
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param trade_bar: The input candle
         """
@@ -112,7 +112,7 @@ class CandlestickPattern(QuantConnect.Indicators.WindowIndicator[QuantConnect.Da
         Returns true if the candle is lower than the previous one
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -122,7 +122,7 @@ class CandlestickPattern(QuantConnect.Indicators.WindowIndicator[QuantConnect.Da
         Returns true if the candle is higher than the previous one
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -132,7 +132,7 @@ class CandlestickPattern(QuantConnect.Indicators.WindowIndicator[QuantConnect.Da
         Returns the range of a candle
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param type: The type of setting to use
         :param trade_bar: The input candle
@@ -145,7 +145,7 @@ class CandlestickPattern(QuantConnect.Indicators.WindowIndicator[QuantConnect.Da
         Returns the full range of the candle
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param trade_bar: The input candle
         """
@@ -157,7 +157,7 @@ class CandlestickPattern(QuantConnect.Indicators.WindowIndicator[QuantConnect.Da
         Returns the range of the candle's lower shadow
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param trade_bar: The input candle
         """
@@ -169,7 +169,7 @@ class CandlestickPattern(QuantConnect.Indicators.WindowIndicator[QuantConnect.Da
         Returns the distance between the close and the open of a candle
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param trade_bar: The input candle
         """
@@ -181,7 +181,7 @@ class CandlestickPattern(QuantConnect.Indicators.WindowIndicator[QuantConnect.Da
         Returns true if the candle is lower than the previous one (with no body overlap)
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -191,7 +191,7 @@ class CandlestickPattern(QuantConnect.Indicators.WindowIndicator[QuantConnect.Da
         Returns true if the candle is higher than the previous one (with no body overlap)
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -201,7 +201,7 @@ class CandlestickPattern(QuantConnect.Indicators.WindowIndicator[QuantConnect.Da
         Returns the range of the candle's upper shadow
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param trade_bar: The input candle
         """
@@ -235,7 +235,7 @@ class ThreeOutside(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatter
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -271,7 +271,7 @@ class RickshawMan(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -311,7 +311,7 @@ class Doji(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -351,7 +351,7 @@ class LadderBottom(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatter
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -391,7 +391,7 @@ class Marubozu(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -431,7 +431,7 @@ class OnNeck(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -471,7 +471,7 @@ class ShootingStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatter
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -511,7 +511,7 @@ class UniqueThreeRiver(QuantConnect.Indicators.CandlestickPatterns.CandlestickPa
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -551,7 +551,7 @@ class ThreeInside(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -591,7 +591,7 @@ class GapSideBySideWhite(QuantConnect.Indicators.CandlestickPatterns.Candlestick
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -631,7 +631,7 @@ class LongLeggedDoji(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatt
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -671,7 +671,7 @@ class ThreeWhiteSoldiers(QuantConnect.Indicators.CandlestickPatterns.Candlestick
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -711,7 +711,7 @@ class ClosingMarubozu(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -751,7 +751,7 @@ class ShortLineCandle(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -791,7 +791,7 @@ class Hammer(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -831,7 +831,7 @@ class HaramiCross(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -881,7 +881,7 @@ class MorningDojiStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -931,7 +931,7 @@ class AbandonedBaby(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatte
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -971,7 +971,7 @@ class HikkakeModified(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1011,7 +1011,7 @@ class SeparatingLines(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1051,7 +1051,7 @@ class KickingByLength(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1091,7 +1091,7 @@ class Tristar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1141,7 +1141,7 @@ class MorningStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1181,7 +1181,7 @@ class UpDownGapThreeMethods(QuantConnect.Indicators.CandlestickPatterns.Candlest
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1217,7 +1217,7 @@ class ThreeBlackCrows(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1257,7 +1257,7 @@ class SpinningTop(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1297,7 +1297,7 @@ class TasukiGap(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1337,7 +1337,7 @@ class Piercing(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1377,7 +1377,7 @@ class DojiStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1417,7 +1417,7 @@ class MatchingLow(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1457,7 +1457,7 @@ class StalledPattern(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatt
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1497,7 +1497,7 @@ class HomingPigeon(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatter
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1537,7 +1537,7 @@ class ConcealedBabySwallow(QuantConnect.Indicators.CandlestickPatterns.Candlesti
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1642,7 +1642,7 @@ class HangingMan(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern)
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1682,7 +1682,7 @@ class LongLineCandle(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatt
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1732,7 +1732,7 @@ class EveningStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1772,7 +1772,7 @@ class TwoCrows(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1812,7 +1812,7 @@ class Breakaway(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1852,7 +1852,7 @@ class IdenticalThreeCrows(QuantConnect.Indicators.CandlestickPatterns.Candlestic
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1892,7 +1892,7 @@ class Engulfing(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1928,7 +1928,7 @@ class DragonflyDoji(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatte
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -1968,7 +1968,7 @@ class StickSandwich(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatte
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2008,7 +2008,7 @@ class GravestoneDoji(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatt
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2048,7 +2048,7 @@ class ThreeLineStrike(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2088,7 +2088,7 @@ class Hikkake(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2128,7 +2128,7 @@ class ThreeStarsInSouth(QuantConnect.Indicators.CandlestickPatterns.CandlestickP
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2178,7 +2178,7 @@ class DarkCloudCover(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatt
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2218,7 +2218,7 @@ class UpsideGapTwoCrows(QuantConnect.Indicators.CandlestickPatterns.CandlestickP
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2258,7 +2258,7 @@ class InvertedHammer(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatt
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2298,7 +2298,7 @@ class Kicking(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2338,7 +2338,7 @@ class RiseFallThreeMethods(QuantConnect.Indicators.CandlestickPatterns.Candlesti
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2378,7 +2378,7 @@ class Takuri(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2418,7 +2418,7 @@ class Harami(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2458,7 +2458,7 @@ class HighWaveCandle(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatt
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2498,7 +2498,7 @@ class BeltHold(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2548,7 +2548,7 @@ class EveningDojiStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2588,7 +2588,7 @@ class InNeck(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2628,7 +2628,7 @@ class Thrusting(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2678,7 +2678,7 @@ class MatHold(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2718,7 +2718,7 @@ class Counterattack(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatte
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator
@@ -2758,7 +2758,7 @@ class AdvanceBlock(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatter
         Computes the next value of this indicator from the given state
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param window: The window of data held in this indicator
         :param input: The input given to the indicator

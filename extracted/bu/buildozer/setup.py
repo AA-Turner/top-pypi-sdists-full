@@ -13,7 +13,7 @@ import io
 here = os.path.abspath(os.path.dirname(__file__))
 
 CURRENT_PYTHON = sys.version_info[:2]
-REQUIRED_PYTHON = (3, 6)
+REQUIRED_PYTHON = (3, 8)
 
 # This check and everything above must remain compatible with Python 2.7.
 if CURRENT_PYTHON < REQUIRED_PYTHON:
@@ -25,7 +25,6 @@ This version of buildozer requires Python {}.{}, but you're trying to
 install it on Python {}.{}.
 """.format(*(REQUIRED_PYTHON + CURRENT_PYTHON)))
     sys.exit(1)
-
 
 
 def find_version(*file_paths):
@@ -52,27 +51,54 @@ with io.open(join(curdir, "CHANGELOG.md"), encoding="utf-8") as fd:
 setup(
     name='buildozer',
     version=find_version('buildozer', '__init__.py'),
-    description='Generic Python packager for Android / iOS and Desktop',
+    description='Turns Python applications into binary packages ready for '
+        'installation on a number of platforms.',
     long_description=readme + "\n\n" + changelog,
     long_description_content_type='text/markdown',
     author='Mathieu Virbel',
     author_email='mat@kivy.org',
     url='https://github.com/kivy/buildozer',
+    project_urls={
+        'Website': "https://kivy.org",
+        'Documentation': "https://buildozer.readthedocs.io/en/stable/#",
+        'Source': "https://github.com/kivy/buildozer",
+        'Bug Reports': "https://github.com/kivy/buildozer/issues",
+    },
     license='MIT',
     packages=[
-        'buildozer', 'buildozer.targets', 'buildozer.libs', 'buildozer.scripts'
-        ],
+        'buildozer', 'buildozer.targets', 'buildozer.scripts'
+    ],
     package_data={'buildozer': ['default.spec']},
     include_package_data=True,
-    install_requires=['pexpect', 'virtualenv', 'sh'],
+    install_requires=[
+        'pexpect',
+        'packaging',
+        # Cython is required by both kivy-ios and python-for-android.
+        # However, python-for-android does not include it in its dependencies
+        # and kivy-ios's dependencies are not always checked, so it is included
+        # here.
+        # Restricted version because python-for-android's recipes can't handle
+        # later versions.
+        'cython<3.0'
+    ],
+    extras_require={
+        'test': ['pytest'],
+        'docs': ['sphinx', 'sphinxawesome_theme>=5.3,<6'],
+        'ios': ['kivy-ios'],
+    },
+    python_requires='>=3.8',
     classifiers=[
-        'Development Status :: 5 - Production/Stable', 
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'Topic :: Software Development :: Build Tools',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
     ],
     entry_points={
         'console_scripts': [

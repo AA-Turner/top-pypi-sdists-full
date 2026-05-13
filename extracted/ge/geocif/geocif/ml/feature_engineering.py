@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 from tqdm.rich import tqdm
 
+from geocif.progress import pbar as _pbar
+
 
 def compute_last_year_yield(df, target_col="Yield (tn per ha)"):
     """
@@ -21,7 +23,7 @@ def compute_last_year_yield(df, target_col="Yield (tn per ha)"):
     # Initialize the new column with NaNs
     df[f"Last Year {target_col}"] = np.nan
 
-    for region, group in tqdm(
+    for region, group in _pbar(
         df.groupby("Region"), desc="Last year yields", leave=False
     ):
         unique_years = group["Harvest Year"].unique()
@@ -90,7 +92,7 @@ def compute_median_statistics(
     # Initialize the new column with NaNs
     df[f"Median {target_col}"] = np.nan
 
-    for region, group in tqdm(df.groupby("Region"), desc="Median yield", leave=False):
+    for region, group in _pbar(df.groupby("Region"), desc="Median yield", leave=False):
         unique_years = group["Harvest Year"].unique()
 
         # Check if the target column is empty for the current group
@@ -141,7 +143,7 @@ def compute_user_median_statistics(df, user_years, target_col="Yield (tn per ha)
     df[new_col_name] = np.nan
 
     # Group by region and compute the median yield for the specified years.
-    for region, group in tqdm(df.groupby("Region"), desc="Median yield", leave=False):
+    for region, group in _pbar(df.groupby("Region"), desc="Median yield", leave=False):
         # Skip if the target column is completely null for this region.
         if group[target_col].isnull().all():
             continue
@@ -175,7 +177,7 @@ def compute_lag_yield(
         if col not in df.columns:
             df[col] = np.nan
 
-    for region, group in tqdm(df.groupby("Region"), desc="Lag yields", leave=False):
+    for region, group in _pbar(df.groupby("Region"), desc="Lag yields", leave=False):
         unique_years = group["Harvest Year"].unique()
 
         # Check if the target column is empty for the current group
@@ -249,7 +251,7 @@ def compute_analogous_yield(
 
     all_years = df["Harvest Year"].unique()
 
-    for harvest_year in tqdm(all_years, desc="Computing analogous yields", leave=False):
+    for harvest_year in _pbar(all_years, desc="Computing analogous yields", leave=False):
         lag_years = compute_closest_years(
             all_seasons_with_yield, harvest_year, number_lag_years
         )

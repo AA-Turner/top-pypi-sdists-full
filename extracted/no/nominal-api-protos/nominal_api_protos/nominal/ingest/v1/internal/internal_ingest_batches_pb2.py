@@ -26,7 +26,7 @@ from buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
 from nominal_api_protos.nominal.gen.v1 import alias_pb2 as nominal_dot_gen_dot_v1_dot_alias__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n8nominal/ingest/v1/internal/internal_ingest_batches.proto\x12\x1anominal.ingest.v1.internal\x1a\x1b\x62uf/validate/validate.proto\x1a\x1anominal/gen/v1/alias.proto\"\xc2\x01\n\x1bMarkBatchesCompletedRequest\x12\x46\n\x0eingest_job_rid\x18\x01 \x01(\tB.\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a$\n\"io.nominal.ingest.api.IngestJobRid\x12H\n\x0f\x64\x61taset_file_id\x18\x02 \x01(\tB/\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a%\n#io.nominal.datasource.DatasetFileId\x12\x11\n\tbatch_ids\x18\x03 \x03(\x05\"\x1e\n\x1cMarkBatchesCompletedResponse2\xa8\x01\n\x1aInternalIngestBatchService\x12\x89\x01\n\x14MarkBatchesCompleted\x12\x37.nominal.ingest.v1.internal.MarkBatchesCompletedRequest\x1a\x38.nominal.ingest.v1.internal.MarkBatchesCompletedResponseB!\n\x1dio.nominal.ingest.v1.internalP\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n8nominal/ingest/v1/internal/internal_ingest_batches.proto\x12\x1anominal.ingest.v1.internal\x1a\x1b\x62uf/validate/validate.proto\x1a\x1anominal/gen/v1/alias.proto\"\xd6\x01\n\x1bMarkBatchesCompletedRequest\x12\x46\n\x0eingest_job_rid\x18\x01 \x01(\tB.\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a$\n\"io.nominal.ingest.api.IngestJobRid\x12H\n\x0f\x64\x61taset_file_id\x18\x02 \x01(\tB/\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a%\n#io.nominal.datasource.DatasetFileId\x12\x11\n\tbatch_ids\x18\x03 \x03(\x05\x12\x12\n\nis_primary\x18\x04 \x01(\x08\"\x1e\n\x1cMarkBatchesCompletedResponse2\xa8\x01\n\x1aInternalIngestBatchService\x12\x89\x01\n\x14MarkBatchesCompleted\x12\x37.nominal.ingest.v1.internal.MarkBatchesCompletedRequest\x1a\x38.nominal.ingest.v1.internal.MarkBatchesCompletedResponseB!\n\x1dio.nominal.ingest.v1.internalP\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -39,9 +39,9 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_MARKBATCHESCOMPLETEDREQUEST'].fields_by_name['dataset_file_id']._loaded_options = None
   _globals['_MARKBATCHESCOMPLETEDREQUEST'].fields_by_name['dataset_file_id']._serialized_options = b'\272H\003\310\001\001\232\262\032%\n#io.nominal.datasource.DatasetFileId'
   _globals['_MARKBATCHESCOMPLETEDREQUEST']._serialized_start=146
-  _globals['_MARKBATCHESCOMPLETEDREQUEST']._serialized_end=340
-  _globals['_MARKBATCHESCOMPLETEDRESPONSE']._serialized_start=342
-  _globals['_MARKBATCHESCOMPLETEDRESPONSE']._serialized_end=372
-  _globals['_INTERNALINGESTBATCHSERVICE']._serialized_start=375
-  _globals['_INTERNALINGESTBATCHSERVICE']._serialized_end=543
+  _globals['_MARKBATCHESCOMPLETEDREQUEST']._serialized_end=360
+  _globals['_MARKBATCHESCOMPLETEDRESPONSE']._serialized_start=362
+  _globals['_MARKBATCHESCOMPLETEDRESPONSE']._serialized_end=392
+  _globals['_INTERNALINGESTBATCHSERVICE']._serialized_start=395
+  _globals['_INTERNALINGESTBATCHSERVICE']._serialized_end=563
 # @@protoc_insertion_point(module_scope)

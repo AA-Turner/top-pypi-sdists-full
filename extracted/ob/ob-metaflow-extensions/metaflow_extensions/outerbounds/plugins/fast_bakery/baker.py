@@ -28,6 +28,7 @@ def bake_image(
     base_image: Optional[str] = None,
     logger: Optional[Callable[[str], Any]] = None,
     fast_bakery_url: Optional[str] = None,
+    channels: Optional[list] = None,
 ) -> FastBakeryApiResponse:
     """
     Bakes a Docker image with the specified dependencies.
@@ -70,6 +71,7 @@ def bake_image(
         pypi_packages=None,
         conda_packages=None,
         base_image=None,
+        channels=None,
     ):
         try:
             bakery = FastBakery(url=fast_bakery_url)
@@ -77,6 +79,9 @@ def bake_image(
             bakery.python_version(python)
             bakery.pypi_packages(pypi_packages)
             bakery.conda_packages(conda_packages)
+            if channels:
+                bakery.default_conda_channel(channels[0])
+                bakery.conda_channels(channels)
             bakery.base_image(base_image)
             # bakery.ignore_cache()
 
@@ -116,4 +121,5 @@ def bake_image(
         pypi_packages=pypi_packages,
         conda_packages=conda_packages,
         base_image=base_image,
+        channels=channels,
     )

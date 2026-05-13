@@ -1,47 +1,68 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Functions that work with the autoanalyzer queue.
 
-The autoanalyzer works when IDA is not busy processing the user keystrokes. It has several queues, each queue having its own priority. The analyzer stops when all queues are empty.
-A queue contains addresses or address ranges. The addresses are kept sorted by their values. The analyzer will process all addresses from the first queue, then switch to the second queue and so on. There are no limitations on the size of the queues.
-This file also contains functions that deal with the IDA status indicator and the autoanalysis indicator. You may use these functions to change the indicator value. 
-    
+The autoanalyzer works when IDA is not busy processing the user keystrokes.
+It has several queues, each queue having its own priority. The analyzer stops
+when all queues are empty.
+
+A queue contains addresses or address ranges. The addresses are kept sorted by
+their values. The analyzer will process all addresses from the first queue,
+then switch to the second queue and so on. There are no limitations on the
+size of the queues.
+
+This file also contains functions that deal with the IDA status indicator and
+the autoanalysis indicator. You may use these functions to change the
+indicator value.
+
+.. tip::
+   The `IDA Domain API <https://ida-domain.docs.hex-rays.com/>`_ simplifies
+   common tasks and provides better type hints, while remaining fully compatible
+   with IDAPython for advanced use cases.
+
+   For auto-analysis operations, see :mod:`ida_domain.database`.
 """
 
 class auto_display_t:
     @property
-    def ea(self) -> Any: ...
+    def ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def state(self) -> Any: ...
+    def state(self) -> idastate_t: ...
     @property
-    def type(self) -> Any: ...
+    def type(self) -> atype_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -49,16 +70,16 @@ class auto_display_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -75,10 +96,10 @@ class auto_display_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -88,7 +109,7 @@ class auto_display_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 def auto_apply_tail(tail_ea: ida_idaapi.ea_t, parent_ea: ida_idaapi.ea_t) -> None:
@@ -181,7 +202,7 @@ def auto_wait() -> bool:
     """
     ...
 
-def auto_wait_range(ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t) -> ssize_t:
+def auto_wait_range(ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t) -> int:
     r"""Process everything in the specified range and return true. 
             
     :returns: number of autoanalysis steps made. -1 if the user clicked cancel. (the wait box must be displayed by the caller if desired)
@@ -214,13 +235,13 @@ def is_auto_enabled() -> bool:
     ...
 
 def may_create_stkvars() -> bool:
-    r"""Is it allowed to create stack variables automatically?. This function should be used by IDP modules before creating stack vars. 
+    r"""Is it allowed to create stack variables automatically? This function should be used by IDP modules before creating stack vars. 
             
     """
     ...
 
 def may_trace_sp() -> bool:
-    r"""Is it allowed to trace stack pointer automatically?. This function should be used by IDP modules before tracing sp. 
+    r"""Is it allowed to trace stack pointer automatically? This function should be used by IDP modules before tracing sp. 
             
     """
     ...
@@ -235,7 +256,7 @@ def peek_auto_queue(low_ea: ida_idaapi.ea_t, type: atype_t) -> ida_idaapi.ea_t:
 def plan_and_wait(ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, final_pass: bool = True) -> int:
     r"""Analyze the specified range. Try to create instructions where possible. Make the final pass over the specified range if specified. This function doesn't return until the range is analyzed. 
             
-    :returns: 1: ok
+    :returns: 1: OK
     :returns: 0: Ctrl-Break was pressed
     """
     ...
@@ -261,7 +282,7 @@ def reanalyze_callers(ea: ida_idaapi.ea_t, noret: bool) -> None:
     ...
 
 def revert_ida_decisions(ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t) -> None:
-    r"""Delete all analysis info that IDA generated for for the given range.
+    r"""Delete all analysis info that IDA generated for the given range.
     
     """
     ...
@@ -289,7 +310,7 @@ def show_addr(ea: ida_idaapi.ea_t) -> None:
     """
     ...
 
-def show_auto(args: Any) -> None:
+def show_auto(*args: Any) -> None:
     r"""Change autoanalysis indicator value. 
             
     :param ea: linear address being analyzed
@@ -313,7 +334,7 @@ AU_USD2: int  # 45
 AU_USED: int  # 40
 AU_WEAK: int  # 25
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 cvar: swigvarlink
 ida_idaapi: module
 st_Ready: int  # 0

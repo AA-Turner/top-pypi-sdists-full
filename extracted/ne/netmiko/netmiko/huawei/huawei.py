@@ -162,13 +162,9 @@ class HuaweiSSH(HuaweiBase):
             self.read_until_pattern(pattern=self.prompt_pattern)
 
         # Huawei prompts for secure the configuration before displaying the initial base prompt.
-        if re.search(
-            r"security\srisks\sin\sthe\sconfiguration\sfile.*\[y\/n\]", data, flags=re.I
-        ):
+        if re.search(r"security\srisks\sin\sthe\sconfiguration\sfile.*\[y\/n\]", data, flags=re.I):
             self.send_command("Y", expect_string=r"(?i)continue.*\[y\/n\]")
-            self.send_command(
-                "Y", expect_string=r"saved\ssuccessfully", read_timeout=60
-            )
+            self.send_command("Y", expect_string=r"saved\ssuccessfully", read_timeout=60)
             self.read_until_pattern(pattern=self.prompt_pattern)
 
 
@@ -197,7 +193,8 @@ class HuaweiTelnet(HuaweiBase):
             output = self.read_until_pattern(pattern=pwd_pattern, re_flags=re.I)
             return_msg += output
             assert self.password is not None
-            self.write_channel(self.password + self.TELNET_RETURN)
+            # Huawei might require only "\r" for password to be accepted
+            self.write_channel(self.password + "\r")
 
             # Waiting for the prompt or password change message
             output = self.read_until_pattern(pattern=self.prompt_or_password_change)

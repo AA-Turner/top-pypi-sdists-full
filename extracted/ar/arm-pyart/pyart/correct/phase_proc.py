@@ -108,11 +108,7 @@ def fzl_index(fzl, ranges, elevation, radar_height):
     p_r = 4.0 * Re / 3.0
     z = (
         radar_height
-        + (
-            ranges**2
-            + p_r**2
-            + 2.0 * ranges * p_r * np.sin(elevation * np.pi / 180.0)
-        )
+        + (ranges**2 + p_r**2 + 2.0 * ranges * p_r * np.sin(elevation * np.pi / 180.0))
         ** 0.5
         - p_r
     )
@@ -1043,7 +1039,7 @@ def phase_proc_lp(
     coef=0.914,
 ):
     """
-    Phase process using a LP method [1].
+    Phase process using a LP method [Giangrande2013]_.
 
     Parameters
     ----------
@@ -1108,9 +1104,9 @@ def phase_proc_lp(
 
     References
     ----------
-    [1] Giangrande, S.E., R. McGraw, and L. Lei. An Application of
-    Linear Programming to Polarimetric Radar Differential Phase Processing.
-    J. Atmos. and Oceanic Tech, 2013, 30, 1716.
+    .. [Giangrande2013] Giangrande, S.E., R. McGraw, and L. Lei. An Application of
+        Linear Programming to Polarimetric Radar Differential Phase Processing.
+        J. Atmos. and Oceanic Tech, 2013, 30, 1716.
 
     """
     # parse the field parameters
@@ -1259,7 +1255,7 @@ def phase_proc_lp_gf(
     doc=0,
 ):
     """
-    Phase process using a LP method [1] using Py-ART's Gatefilter.
+    Phase process using a LP method [Giangrande2013]_ using Py-ART's Gatefilter.
 
     Parameters
     ----------
@@ -1323,9 +1319,9 @@ def phase_proc_lp_gf(
 
     References
     ----------
-    [1] Giangrande, S.E., R. McGraw, and L. Lei. An Application of
-    Linear Programming to Polarimetric Radar Differential Phase Processing.
-    J. Atmos. and Oceanic Tech, 2013, 30, 1716.
+    .. [Giangrande2013] Giangrande, S.E., R. McGraw, and L. Lei. An Application of
+        Linear Programming to Polarimetric Radar Differential Phase Processing.
+        J. Atmos. and Oceanic Tech, 2013, 30, 1716.
 
     """
     # parse the field parameters

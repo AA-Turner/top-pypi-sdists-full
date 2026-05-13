@@ -1,19 +1,19 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-04-25T15:30:23.803859                                                            #
+# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-12T17:11:58.042073                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
-import metaflow
 import abc
+import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow.packaging_sys.backend
-    import tarfile
     import io
+    import tarfile
     import typing
+    import metaflow.packaging_sys.backend
     import abc
 
 from .backend import PackagingBackend as PackagingBackend
@@ -26,7 +26,7 @@ class TarPackagingBackend(metaflow.packaging_sys.backend.PackagingBackend, metac
         ...
     def create(self):
         ...
-    def add_file(self, filename: str, arcname: typing.Optional[str] = None):
+    def add_file(self, filename: str, arcname: typing.Union[str, None] = None):
         ...
     def add_data(self, data: io.BytesIO, arcname: str):
         ...
@@ -47,16 +47,16 @@ class TarPackagingBackend(metaflow.packaging_sys.backend.PackagingBackend, metac
     def cls_has_member(cls, archive: tarfile.TarFile, name: str) -> bool:
         ...
     @classmethod
-    def cls_get_member(cls, archive: tarfile.TarFile, name: str) -> typing.Optional[bytes]:
+    def cls_get_member(cls, archive: tarfile.TarFile, name: str) -> typing.Union[bytes, None]:
         ...
     @classmethod
-    def cls_extract_members(cls, archive: tarfile.TarFile, members: typing.Optional[typing.List[typing.Any]] = None, dest_dir: str = '.'):
+    def cls_extract_members(cls, archive: tarfile.TarFile, members: typing.Union[typing.List[typing.Any], None] = None, dest_dir: str = '.'):
         ...
     @classmethod
-    def cls_list_members(cls, archive: tarfile.TarFile) -> typing.Optional[typing.List[tarfile.TarInfo]]:
+    def cls_list_members(cls, archive: tarfile.TarFile) -> typing.Union[typing.List[tarfile.TarInfo], None]:
         ...
     @classmethod
-    def cls_list_names(cls, archive: tarfile.TarFile) -> typing.Optional[typing.List[str]]:
+    def cls_list_names(cls, archive: tarfile.TarFile) -> typing.Union[typing.List[str], None]:
         ...
     ...
 

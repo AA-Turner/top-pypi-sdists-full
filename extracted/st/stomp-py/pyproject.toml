@@ -1,12 +1,12 @@
 [tool.poetry]
 name = "stomp.py"
-version = "8.3.0"
+version = "9.0.0"
 description = "Python STOMP client, supporting versions 1.0, 1.1 and 1.2 of the protocol"
 authors = ["Jason R Briggs <jasonrbriggs@gmail.com>"]
 license = "Apache-2.0"
 readme = "README.rst"
-repository = "https://github.com/jasonrbriggs/stomp.py"
-documentation = "http://jasonrbriggs.github.io/stomp.py/"
+repository = "https://codeberg.org/jasonrbriggs/stomp.py"
+documentation = "https://jasonrbriggs.codeberg.page/stomp.py.pages/"
 keywords = ["stomp", "messaging", "events", "client"]
 classifiers = [
 	"Development Status :: 5 - Production/Stable",
@@ -19,12 +19,12 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 docopt-ng = "^0.9.0"
 websocket-client = "^1.2.3"
 
 [tool.poetry.group.dev.dependencies]
-pytest = ">=8.3.4 "
+pytest = "^9.0.3"
 pytest-cov = ">=6.0.0"
 pytest-mock = ">=3.14.0"
 pytest-html = ">=4.1.1"

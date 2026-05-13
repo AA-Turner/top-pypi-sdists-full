@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pkg_about
-Version: 2.3.0
+Version: 2.4.0
 Summary: Unified access to Python package metadata at runtime.
 Author-email: Adam Karpierz <adam@karpierz.net>
 Maintainer-email: Adam Karpierz <adam@karpierz.net>
@@ -20,7 +20,6 @@ Classifier: Natural Language :: Polish
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -28,15 +27,15 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python :: Implementation :: GraalPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: <4.0.0,>=3.10.0
+Requires-Python: <4.0.0,>=3.11.0
 Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE
-Requires-Dist: importlib-metadata>=4.6; python_full_version < "3.10.2"
 Requires-Dist: typing-extensions>=4.15.0
-Requires-Dist: packaging>=26.0.0
-Requires-Dist: build>=1.4.2
+Requires-Dist: packaging>=26.2.0
+Requires-Dist: build>=1.5.0
 Dynamic: license-file
 
 pkg_about
@@ -74,7 +73,7 @@ Installation
 
 Prerequisites:
 
-+ Python 3.10 or higher
++ Python 3.11 or higher
 
   * https://www.python.org/
 

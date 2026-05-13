@@ -965,6 +965,61 @@ def test_positive_oneof_number_branch_covered_when_example_pins_string(ctx):
     )
 
 
+def test_positive_oneof_query_array_and_string_both_reach_valid(ctx):
+    # Without a non-empty bare string the wire form `?domain=` matches the array branch too,
+    # so the string branch never reaches `valid` in tools that match by serialized form.
+    schema = build_schema(
+        ctx,
+        [
+            {
+                "name": "domain",
+                "in": "query",
+                "required": False,
+                "schema": {
+                    "oneOf": [
+                        {"type": "array", "items": {"type": "string"}, "maxItems": 20},
+                        {"type": "string"},
+                    ],
+                },
+            },
+        ],
+        method="get",
+    )
+    loaded = schemathesis.openapi.from_dict(schema)
+    loaded.config.phases.coverage.generate_duplicate_query_parameters = False
+    operation = loaded["/foo"]["get"]
+    config = operation.schema.config
+    config.generation.update(modes=[GenerationMode.POSITIVE])
+    config.phases.examples.enabled = False
+    config.phases.fuzzing.enabled = False
+    config.phases.stateful.enabled = False
+    values = []
+
+    def collect(case):
+        if case.meta.phase.name != TestPhase.COVERAGE:
+            return
+        if case.meta.phase.data.scenario == CoverageScenario.UNSPECIFIED_HTTP_METHOD:
+            return
+        values.append(case.query.get("domain"))
+
+    test_func = create_test(
+        operation=operation,
+        test_func=collect,
+        config=HypothesisTestConfig(
+            modes=[HypothesisTestMode.COVERAGE],
+            project=config,
+            settings=settings(phases=[Phase.explicit]),
+        ),
+    )
+    test_func()
+
+    has_non_empty_bare_string = any(isinstance(v, str) and v for v in values)
+    has_array = any(isinstance(v, list) for v in values)
+    assert has_non_empty_bare_string and has_array, (
+        f"Each oneOf branch must yield at least one positive case; got {values!r}"
+    )
+
+
 def test_no_redundant_type_violations_for_enum_string_property_in_multipart(ctx):
     # Multipart stringifies every value, so non-strings for a string-typed property
     # collapse into the enum negation already emitted.
@@ -2010,14 +2065,14 @@ def test_query_parameters_with_nested_enum(ctx):
             },
             {
                 "query": {
-                    "q1": [
-                        "A",
-                    ],
+                    "q1": [],
                 },
             },
             {
                 "query": {
-                    "q1": [],
+                    "q1": [
+                        "A",
+                    ],
                 },
             },
         ],
@@ -3156,6 +3211,49 @@ def test_additional_properties_with_schema_positive(ctx):
     )
 
 
+def test_additional_properties_without_type_positive(ctx):
+    # Azure swagger 2.0 schemas commonly omit `type: object` on tag maps; the implicit object
+    # must still get a positive case satisfying `additionalProperties` so coverage flips `valid`.
+    loaded = load_schema(
+        ctx,
+        request_body={
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "properties": {
+                            "tags": {
+                                "additionalProperties": {"type": "string"},
+                            }
+                        },
+                    }
+                }
+            },
+        },
+    )
+    operation = loaded["/foo"]["post"]
+
+    cases = []
+
+    def collect(case):
+        if case.meta.phase.name == TestPhase.COVERAGE:
+            cases.append(case)
+
+    run_positive_test(operation, collect)
+
+    with_string_value = [
+        c
+        for c in cases
+        if isinstance(c.body, dict)
+        and isinstance(c.body.get("tags"), dict)
+        and any(isinstance(v, str) for v in c.body["tags"].values())
+    ]
+    assert with_string_value, (
+        f"Expected a positive case with a string-valued additional property under 'tags'. "
+        f"Got bodies: {[c.body for c in cases]}"
+    )
+
+
 def test_additional_properties_with_schema_negative(ctx):
     loaded = load_schema(
         ctx,
@@ -3359,6 +3457,47 @@ def test_positive_body_generated_for_object_with_metadata_and_unsatisfiable_opti
     assert positive_bodies, "Expected at least one positive body case"
     assert all(isinstance(body, dict) for body in positive_bodies), (
         f"Positive bodies must be objects per `type: object`; got: {positive_bodies}"
+    )
+
+
+def test_positive_body_generated_when_required_excludes_forbidden_properties(ctx):
+    # A `readOnly` field listed in `required` must not block positive body generation.
+    schema = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "post": {
+                    "consumes": ["application/json"],
+                    "parameters": [
+                        {
+                            "in": "body",
+                            "name": "body",
+                            "required": True,
+                            "schema": {
+                                "type": "object",
+                                "allOf": [{"type": "object"}],
+                                "properties": {
+                                    "id": {"type": "string", "readOnly": True},
+                                    "name": {"type": "string"},
+                                },
+                                "required": ["id", "name"],
+                            },
+                        }
+                    ],
+                    "responses": {"default": {"description": "OK"}},
+                }
+            }
+        },
+        version="2.0",
+    )
+    operation = schema["/foo"]["POST"]
+    positive_bodies = [
+        case.body
+        for case in _iter_cases(operation, GenerationMode.POSITIVE)
+        if case.meta.phase.data.parameter_location == ParameterLocation.BODY
+    ]
+    assert positive_bodies, "Expected at least one positive body case"
+    assert all("id" not in body for body in positive_bodies), (
+        f"Positive bodies must not contain forbidden `id`; got: {positive_bodies}"
     )
 
 
@@ -7783,6 +7922,45 @@ def test_coverage_pool_draws_survive_numeric_id_serialization(ctx):
     )
 
 
+@pytest.mark.parametrize(
+    "consumes",
+    [["*/*"], ["*/*", "application/json"], ["application/xml", "*/*"]],
+    ids=["wildcard-only", "wildcard-then-json", "xml-then-wildcard"],
+)
+def test_wildcard_consumes_picks_concrete_media_type(ctx, consumes):
+    # Real clients never send Content-Type: */*; coverage must pick a concrete media type.
+    schema = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "post": {
+                    "consumes": consumes,
+                    "parameters": [
+                        {
+                            "in": "body",
+                            "name": "body",
+                            "required": True,
+                            "schema": {"type": "object", "properties": {"x": {"type": "string"}}},
+                        }
+                    ],
+                    "responses": {"default": {"description": "OK"}},
+                }
+            }
+        },
+        version="2.0",
+    )
+    operation = schema["/foo"]["POST"]
+    media_types = {
+        case.media_type for case in _iter_cases(operation, GenerationMode.POSITIVE) if case.body is not NOT_SET
+    }
+    assert "*/*" not in media_types, f"Wildcard leaked into Content-Type: {media_types}"
+    assert media_types, "expected at least one body-carrying case"
+    concrete = [m for m in consumes if m != "*/*"]
+    if concrete:
+        assert media_types <= set(concrete), f"Unexpected media types: {media_types}"
+    else:
+        assert media_types == {"application/json"}
+
+
 def test_multipart_body_with_binary_ref_completes_coverage(ctx):
     # Multipart bodies whose schema referenced a nested $ref aborted with a validator error mid-iteration.
     schema = ctx.openapi.from_full_schema(
@@ -7828,3 +8006,53 @@ def test_multipart_body_with_binary_ref_completes_coverage(ctx):
         prepare_request(case, headers=None, config=config)
         count += 1
     assert count > 0
+
+
+def test_explicit_content_type_header_does_not_collide_with_body_coverage(ctx):
+    # When CT is declared as an explicit header parameter, body cases must keep CT pinned to the
+    # body's media type, and CT-mutation cases must not also carry a body (the two sweeps are independent).
+    schema = ctx.openapi.load_schema(
+        {
+            "/forgot": {
+                "post": {
+                    "consumes": ["application/json"],
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "in": "header",
+                            "type": "string",
+                            "enum": ["application/json", "application/xml"],
+                            "default": "application/json",
+                        },
+                        {
+                            "name": "body",
+                            "in": "body",
+                            "required": True,
+                            "schema": {"type": "object", "properties": {"email": {"type": "string"}}},
+                        },
+                    ],
+                    "responses": {"default": {"description": "OK"}},
+                }
+            }
+        },
+        version="2.0",
+    )
+    operation = schema["/forgot"]["POST"]
+    body_cases_cts = set()
+    ct_mutation_bodies = []
+    for case in _iter_cases(operation, GenerationMode.POSITIVE) + _iter_cases(operation, GenerationMode.NEGATIVE):
+        headers = case.headers or {}
+        ct = headers.get("Content-Type")
+        param_loc = case.meta.phase.data.parameter_location
+        param_name = case.meta.phase.data.parameter
+        is_ct_mutation = param_loc == ParameterLocation.HEADER and (param_name or "").lower() == "content-type"
+        if is_ct_mutation:
+            ct_mutation_bodies.append(case.body)
+        elif case.body is not NOT_SET:
+            assert ct == "application/json", f"body case got Content-Type={ct!r}, expected 'application/json'"
+            body_cases_cts.add(ct)
+    assert body_cases_cts == {"application/json"}, f"expected body cases pinned to JSON, got {body_cases_cts}"
+    assert ct_mutation_bodies, "expected Content-Type mutation cases to be generated"
+    assert all(b is NOT_SET for b in ct_mutation_bodies), (
+        f"CT-mutation cases should not carry a body, got: {ct_mutation_bodies}"
+    )

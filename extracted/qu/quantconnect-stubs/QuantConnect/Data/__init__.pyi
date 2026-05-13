@@ -29,6 +29,9 @@ QuantConnect_Data_SubscriptionDataSource = typing.Any
 QuantConnect_Data_DataHistory_T = typing.TypeVar("QuantConnect_Data_DataHistory_T")
 QuantConnect_Data__EventContainer_Callable = typing.TypeVar("QuantConnect_Data__EventContainer_Callable")
 QuantConnect_Data__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Data__EventContainer_ReturnType")
+QuantConnect_Data_Slice_Get_T = typing.TypeVar("QuantConnect_Data_Slice_Get_T")
+QuantConnect_Data_SliceExtensions_Get_T = typing.TypeVar("QuantConnect_Data_SliceExtensions_Get_T")
+QuantConnect_Data_SliceExtensions_TryGet_T = typing.TypeVar("QuantConnect_Data_SliceExtensions_TryGet_T")
 
 
 class HistoryProviderInitializeParameters(System.Object):
@@ -557,21 +560,21 @@ class BaseData(System.Object, QuantConnect.Data.IBaseData, metaclass=abc.ABCMeta
     """
     A list of all Resolution
     
-    This codeEntityType is protected.
+    This Field is protected.
     """
 
     DAILY_RESOLUTION: typing.List[QuantConnect.Resolution] = ...
     """
     A list of Resolution.DAILY
     
-    This codeEntityType is protected.
+    This Field is protected.
     """
 
     MINUTE_RESOLUTION: typing.List[QuantConnect.Resolution] = ...
     """
     A list of Resolution.MINUTE
     
-    This codeEntityType is protected.
+    This Field is protected.
     """
 
     HIGH_RESOLUTION: typing.List[QuantConnect.Resolution] = ...
@@ -579,7 +582,7 @@ class BaseData(System.Object, QuantConnect.Data.IBaseData, metaclass=abc.ABCMeta
     A list of high Resolution, including minute, second, and tick.
     
     
-    This codeEntityType is protected.
+    This Field is protected.
     """
 
     OPTION_RESOLUTIONS: typing.List[QuantConnect.Resolution] = ...
@@ -587,7 +590,7 @@ class BaseData(System.Object, QuantConnect.Data.IBaseData, metaclass=abc.ABCMeta
     A list of resolutions support by Options
     
     
-    This codeEntityType is protected.
+    This Field is protected.
     """
 
     @property
@@ -916,6 +919,81 @@ class Channel(System.Object):
         ...
 
 
+class _Typed_Slice_Get(typing.Generic[QuantConnect_Data_Slice_Get_T]):
+    """"""
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect_Data_Slice_Get_T:
+        """
+        Gets the data of the specified symbol and type.
+        
+        :param symbol: The specific symbol was seek
+        :returns: The data for the requested symbol.
+        """
+        ...
+
+
+class _Slice_Get:
+    """"""
+
+    @overload
+    def __call__(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Any:
+        """
+        Gets the data of the specified symbol and type.
+        
+        :param type: The type of data we seek
+        :param symbol: The specific symbol was seek
+        :returns: The data point for the requested symbol.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type) -> typing.Any:
+        """
+        Gets the data of the specified data type.
+        
+        :param type: The type of data we seek
+        :returns: The data dictionary for the requested data type.
+        """
+        ...
+
+    @overload
+    def __call__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Any:
+        """
+        Returns the value for the specified key if key is in dictionary.
+        
+        :param key: key to be searched in the dictionary
+        :returns: The value for the specified key if key is in dictionary.
+        None if the key is not found, or if the key is None.
+        """
+        ...
+
+    @overload
+    def __call__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], default_value: typing.Any) -> typing.Any:
+        """
+        Returns the value for the specified key if key is in dictionary.
+        
+        :param key: key to be searched in the dictionary
+        :param default_value: Value to be returned if the key is not found or if the key is None.
+        :returns: The value for the specified key if key is in dictionary.
+        default_value if the key is not found, or if the key is None.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: QuantConnect_Data_Slice_Get_T) -> QuantConnect.Data.Market.DataDictionary[QuantConnect_Data_Slice_Get_T]:
+        """
+        Gets the data of the specified type.
+        
+        :param type: The type of data we seek
+        :returns: The DataDictionary{T} instance for the requested type.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_Slice_Get_T]) -> QuantConnect.Data._Typed_Slice_Get[QuantConnect_Data_Slice_Get_T]:
+        ...
+
+
 class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Data.BaseData]]):
     """Provides a data structure for all of an algorithm's data at a single time step"""
 
@@ -1005,7 +1083,7 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         Gets an System.Collections.Generic.ICollection`1 containing the Symbol objects of the System.Collections.Generic.IDictionary`2.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1015,8 +1093,12 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         Gets an System.Collections.Generic.ICollection`1 containing the values in the System.Collections.Generic.IDictionary`2.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
+        ...
+
+    @property
+    def get(self) -> QuantConnect.Data._Slice_Get:
         ...
 
     @overload
@@ -1080,7 +1162,7 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         """
         Initializes a new instance used by the PythonSlice
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param slice: slice object to wrap
         """
@@ -1154,50 +1236,6 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         
         :param key: The key to locate in the dictionary
         :returns: true if the dictionary contains an element with the specified key; otherwise, false.
-        """
-        ...
-
-    @overload
-    def get(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Any:
-        """
-        Returns the value for the specified key if key is in dictionary.
-        
-        :param key: key to be searched in the dictionary
-        :returns: The value for the specified key if key is in dictionary.
-        None if the key is not found, or if the key is None.
-        """
-        ...
-
-    @overload
-    def get(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], default_value: typing.Any) -> typing.Any:
-        """
-        Returns the value for the specified key if key is in dictionary.
-        
-        :param key: key to be searched in the dictionary
-        :param default_value: Value to be returned if the key is not found or if the key is None.
-        :returns: The value for the specified key if key is in dictionary.
-        default_value if the key is not found, or if the key is None.
-        """
-        ...
-
-    @overload
-    def get(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Any:
-        """
-        Gets the data of the specified symbol and type.
-        
-        :param type: The type of data we seek
-        :param symbol: The specific symbol was seek
-        :returns: The data point for the requested symbol.
-        """
-        ...
-
-    @overload
-    def get(self, type: typing.Type) -> typing.Any:
-        """
-        Gets the data of the specified type.
-        
-        :param type: The type of data we seek
-        :returns: The DataDictionary{T} instance for the requested type.
         """
         ...
 
@@ -1312,7 +1350,7 @@ class DataHistory(typing.Generic[QuantConnect_Data_DataHistory_T], System.Object
         The data we hold
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1333,6 +1371,9 @@ class DataHistory(typing.Generic[QuantConnect_Data_DataHistory_T], System.Object
     def __iter__(self) -> typing.Iterator[QuantConnect_Data_DataHistory_T]:
         ...
 
+    def __len__(self) -> int:
+        ...
+
     def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect_Data_DataHistory_T]:
         """Returns an enumerator for the data"""
         ...
@@ -1351,7 +1392,7 @@ class DataQueueHandlerSubscriptionManager(System.Object, System.IDisposable, met
         Counter
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -1360,7 +1401,7 @@ class DataQueueHandlerSubscriptionManager(System.Object, System.IDisposable, met
         Brokerage maps TickType to real socket/api channel
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param tick_type: Type of tick data
         """
@@ -1414,7 +1455,7 @@ class DataQueueHandlerSubscriptionManager(System.Object, System.IDisposable, met
         Describes the way IDataQueueHandler implements subscription
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param symbols: Symbols to subscribe
         :param tick_type: Type of tick data
@@ -1437,7 +1478,7 @@ class DataQueueHandlerSubscriptionManager(System.Object, System.IDisposable, met
         Describes the way IDataQueueHandler implements unsubscription
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param symbols: Symbols to unsubscribe
         :param tick_type: Type of tick data
@@ -1486,7 +1527,7 @@ class EventBasedDataQueueHandlerSubscriptionManager(QuantConnect.Data.DataQueueH
         Channel name
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param tick_type: Type of tick data
         :returns: Returns Socket channel name corresponding tick_type.
@@ -1498,7 +1539,7 @@ class EventBasedDataQueueHandlerSubscriptionManager(QuantConnect.Data.DataQueueH
         The way Brokerage subscribes to symbol tickers
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param symbols: Symbols to subscribe
         :param tick_type: Type of tick data
@@ -1510,7 +1551,7 @@ class EventBasedDataQueueHandlerSubscriptionManager(QuantConnect.Data.DataQueueH
         The way Brokerage unsubscribes from symbol tickers
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param symbols: Symbols to unsubscribe
         :param tick_type: Type of tick data
@@ -1722,7 +1763,7 @@ class InterestRateProvider(System.Object, QuantConnect.Data.IRiskFreeInterestRat
         Generate the daily historical US primary credit rate
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -1855,7 +1896,7 @@ class BaseDataRequest(System.Object, metaclass=abc.ABCMeta):
         Initializes the base data request
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param start_time_utc: The start time for this request,
         :param end_time_utc: The start time for this request
@@ -2086,7 +2127,7 @@ class HistoryProviderBase(System.Object, QuantConnect.Interfaces.IHistoryProvide
         Event invocator for the download_failed event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: Event arguments for the download_failed event
         """
@@ -2097,7 +2138,7 @@ class HistoryProviderBase(System.Object, QuantConnect.Interfaces.IHistoryProvide
         Event invocator for the invalid_configuration_detected event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: Event arguments for the invalid_configuration_detected event
         """
@@ -2108,7 +2149,7 @@ class HistoryProviderBase(System.Object, QuantConnect.Interfaces.IHistoryProvide
         Event invocator for the numerical_precision_limited event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: Event arguments for the numerical_precision_limited event
         """
@@ -2119,7 +2160,7 @@ class HistoryProviderBase(System.Object, QuantConnect.Interfaces.IHistoryProvide
         Event invocator for the reader_error_detected event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: Event arguments for the reader_error_detected event
         """
@@ -2130,7 +2171,7 @@ class HistoryProviderBase(System.Object, QuantConnect.Interfaces.IHistoryProvide
         Event invocator for the start_date_limited event
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param e: Event arguments for the start_date_limited event
         """
@@ -2340,7 +2381,7 @@ class DividendYieldProvider(System.Object, QuantConnect.Data.IDividendYieldModel
     The dividends by symbol
     
     
-    This codeEntityType is protected.
+    This Field is protected.
     """
 
     _cache_clear_task: System.Threading.Tasks.Task
@@ -2348,7 +2389,7 @@ class DividendYieldProvider(System.Object, QuantConnect.Data.IDividendYieldModel
     Task to clear the cache
     
     
-    This codeEntityType is protected.
+    This Field is protected.
     """
 
     DEFAULT_DIVIDEND_YIELD_RATE: float = 0.0
@@ -2360,7 +2401,7 @@ class DividendYieldProvider(System.Object, QuantConnect.Data.IDividendYieldModel
         The cached refresh period for the dividend yield rate
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -2418,7 +2459,7 @@ class DividendYieldProvider(System.Object, QuantConnect.Data.IDividendYieldModel
         Generate the corporate events from the corporate factor file for the specified symbol
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -2601,12 +2642,60 @@ class FuncRiskFreeRateInterestRateModel(System.Object, QuantConnect.Data.IRiskFr
         ...
 
 
-class SliceExtensions(System.Object):
-    """Provides extension methods to slices and slice enumerables"""
+class _Typed_SliceExtensions_Get(typing.Generic[QuantConnect_Data_SliceExtensions_Get_T]):
+    """"""
 
-    @staticmethod
     @overload
-    def get(slices: typing.List[QuantConnect.Data.Slice], type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None) -> typing.Sequence[typing.Any]:
+    def __call__(self, data_dictionaries: typing.List[QuantConnect.Data.Market.DataDictionary[QuantConnect_Data_SliceExtensions_Get_T]], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Sequence[QuantConnect_Data_SliceExtensions_Get_T]:
+        """
+        Gets an enumerable of T for the given symbol. This method does not vify
+        that the specified symbol points to a T
+        
+        :param data_dictionaries: The data dictionary enumerable to access
+        :param symbol: The symbol to retrieve
+        :returns: An enumerable of T for the matching symbol, if no T is found for symbol, empty enumerable is returned.
+        """
+        ...
+
+    @overload
+    def __call__(self, data_dictionaries: typing.List[QuantConnect.Data.Market.DataDictionary[QuantConnect_Data_SliceExtensions_Get_T]], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], field: str) -> typing.Sequence[float]:
+        """
+        Gets an enumerable of decimals by accessing the specified field on data for the symbol
+        
+        :param data_dictionaries: An enumerable of data dictionaries
+        :param symbol: The symbol to retrieve
+        :param field: The field to access
+        :returns: An enumerable of decimals.
+        """
+        ...
+
+    @overload
+    def __call__(self, slices: typing.List[QuantConnect.Data.Slice], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Sequence[QuantConnect_Data_SliceExtensions_Get_T]:
+        """
+        Gets an enumerable of T by accessing the slices for the requested symbol
+        
+        :param slices: The enumerable of slice
+        :param symbol: The symbol to retrieve
+        :returns: An enumerable of T by accessing each slice for the requested symbol.
+        """
+        ...
+
+    @overload
+    def __call__(self, slices: typing.List[QuantConnect.Data.Slice]) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[QuantConnect_Data_SliceExtensions_Get_T]]:
+        """
+        Gets the data dictionaries of the requested type in each slice
+        
+        :param slices: The enumerable of slice
+        :returns: An enumerable of data dictionary of the requested type.
+        """
+        ...
+
+
+class _SliceExtensions_Get:
+    """"""
+
+    @overload
+    def __call__(self, slices: typing.List[QuantConnect.Data.Slice], type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None) -> typing.Sequence[typing.Any]:
         """
         Gets the data dictionaries or points of the requested type in each slice
         
@@ -2617,9 +2706,8 @@ class SliceExtensions(System.Object):
         """
         ...
 
-    @staticmethod
     @overload
-    def get(slices: typing.List[QuantConnect.Data.Slice], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Sequence[QuantConnect.Data.Market.TradeBar]:
+    def __call__(self, slices: typing.List[QuantConnect.Data.Slice], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Sequence[QuantConnect.Data.Market.TradeBar]:
         """
         Gets an enumerable of TradeBar for the given symbol. This method does not verify
         that the specified symbol points to a TradeBar
@@ -2630,9 +2718,8 @@ class SliceExtensions(System.Object):
         """
         ...
 
-    @staticmethod
     @overload
-    def get(slices: typing.List[QuantConnect.Data.Slice], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], field: typing.Callable[[QuantConnect.Data.BaseData], float]) -> typing.Sequence[float]:
+    def __call__(self, slices: typing.List[QuantConnect.Data.Slice], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], field: typing.Callable[[QuantConnect.Data.BaseData], float]) -> typing.Sequence[float]:
         """
         Gets an enumerable of decimal by accessing the slice for the symbol and then retrieving the specified
         field on each piece of data
@@ -2643,6 +2730,53 @@ class SliceExtensions(System.Object):
         :returns: An enumerable of decimal.
         """
         ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_SliceExtensions_Get_T]) -> QuantConnect.Data._Typed_SliceExtensions_Get[QuantConnect_Data_SliceExtensions_Get_T]:
+        ...
+
+
+class _Typed_SliceExtensions_TryGet(typing.Generic[QuantConnect_Data_SliceExtensions_TryGet_T]):
+    """"""
+
+    @overload
+    def __call__(self, slice: QuantConnect.Data.Slice, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], data: typing.Optional[QuantConnect_Data_SliceExtensions_TryGet_T]) -> typing.Tuple[bool, QuantConnect_Data_SliceExtensions_TryGet_T]:
+        """
+        Tries to get the data for the specified symbol and type
+        
+        :param slice: The slice
+        :param symbol: The symbol data is sought for
+        :param data: The found data
+        :returns: True if data was found for the specified type and symbol.
+        """
+        ...
+
+
+class _SliceExtensions_TryGet:
+    """"""
+
+    @overload
+    def __call__(self, slice: QuantConnect.Data.Slice, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], data: typing.Optional[typing.Any]) -> typing.Tuple[bool, typing.Any]:
+        """
+        Tries to get the data for the specified symbol and type
+        
+        :param slice: The slice
+        :param type: The type of data we seek
+        :param symbol: The symbol data is sought for
+        :param data: The found data
+        :returns: True if data was found for the specified type and symbol.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_SliceExtensions_TryGet_T]) -> QuantConnect.Data._Typed_SliceExtensions_TryGet[QuantConnect_Data_SliceExtensions_TryGet_T]:
+        ...
+
+
+class SliceExtensions(System.Object):
+    """Provides extension methods to slices and slice enumerables"""
+
+    get: QuantConnect.Data._SliceExtensions_Get
+
+    try_get: QuantConnect.Data._SliceExtensions_TryGet
 
     @staticmethod
     def get_universe_data(slices: typing.List[QuantConnect.Data.Slice]) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.UniverseSelection.BaseDataCollection]]:
@@ -2720,19 +2854,6 @@ class SliceExtensions(System.Object):
         """
         ...
 
-    @staticmethod
-    def try_get(slice: QuantConnect.Data.Slice, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], data: typing.Optional[typing.Any]) -> typing.Tuple[bool, typing.Any]:
-        """
-        Tries to get the data for the specified symbol and type
-        
-        :param slice: The slice
-        :param type: The type of data we seek
-        :param symbol: The symbol data is sought for
-        :param data: The found data
-        :returns: True if data was found for the specified type and symbol.
-        """
-        ...
-
 
 class IndexedBaseData(QuantConnect.Data.BaseData, metaclass=abc.ABCMeta):
     """
@@ -2789,7 +2910,7 @@ class DataMonitor(System.Object, QuantConnect.Interfaces.IDataMonitor):
         Strips the given data folder path
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 

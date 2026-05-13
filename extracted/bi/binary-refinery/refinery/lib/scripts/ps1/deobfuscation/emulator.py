@@ -15,25 +15,25 @@ if TYPE_CHECKING:
     _Value: TypeAlias = str | int | float | bool | list | None
 
 from refinery.lib.scripts import Block, Transformer
+from refinery.lib.scripts.ps1.deobfuscation.data import (
+    COMPARISON_OPS,
+    ENCODING_MAP,
+    is_type,
+)
 from refinery.lib.scripts.ps1.deobfuscation.helpers import (
     StringMethodError,
+    apply_format_string,
     apply_string_method,
     detect_encoding_chain,
     extract_foreach_scriptblock,
     get_command_name,
     get_member_name,
     make_string_literal,
+    normalize_dotnet_type_name,
+    normalize_type_expression,
     string_value,
     unwrap_to_array_literal,
 )
-from refinery.lib.scripts.ps1.deobfuscation.names import (
-    COMPARISON_OPS,
-    ENCODING_MAP,
-    apply_format_string,
-    normalize_dotnet_type_name,
-    normalize_type_expression,
-)
-from refinery.lib.scripts.ps1.deobfuscation.typenames import is_type
 from refinery.lib.scripts.ps1.model import (
     Expression,
     Ps1AccessKind,
@@ -43,11 +43,13 @@ from refinery.lib.scripts.ps1.model import (
     Ps1BinaryExpression,
     Ps1BreakStatement,
     Ps1CastExpression,
+    Ps1ClassDefinition,
     Ps1CommandArgument,
     Ps1CommandArgumentKind,
     Ps1CommandInvocation,
     Ps1ContinueStatement,
     Ps1DoLoop,
+    Ps1EnumDefinition,
     Ps1ErrorNode,
     Ps1ExpandableHereString,
     Ps1ExpandableString,
@@ -792,12 +794,11 @@ class _Ps1Interpreter:
             raise _Ps1InterpreterError
 
     def _invoke_string_static(self, method: str, args: list[_Value]) -> _Value:
-        if method == 'join' and len(args) == 2:
+        if method == 'join' and len(args) >= 2:
             separator = self._to_str(args[0])
-            collection = args[1]
-            if isinstance(collection, list):
-                return separator.join(self._to_str(item) for item in collection)
-            return self._to_str(collection)
+            if len(args) > 2 or not isinstance(args[1], list):
+                return separator.join(self._to_str(a) for a in args[1:])
+            return separator.join(self._to_str(item) for item in args[1])
         if method == 'format' and len(args) >= 1:
             fmt = self._to_str(args[0])
             str_args = [self._to_str(a) for a in args[1:]]
@@ -1163,6 +1164,12 @@ class Ps1FunctionEvaluator(Transformer):
                             self._callers.setdefault(callee, set()).add(caller_key)
 
     def visit_Ps1FunctionDefinition(self, node: Ps1FunctionDefinition):
+        return None
+
+    def visit_Ps1ClassDefinition(self, node: Ps1ClassDefinition):
+        return None
+
+    def visit_Ps1EnumDefinition(self, node: Ps1EnumDefinition):
         return None
 
     def visit_Ps1CommandInvocation(self, node: Ps1CommandInvocation):

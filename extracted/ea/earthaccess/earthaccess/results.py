@@ -2,7 +2,7 @@ import json
 import uuid
 import warnings
 from functools import cache
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import requests
 
@@ -13,23 +13,23 @@ from .services import DataServices
 
 
 @cache
-def _citation(*, doi: str, format: str, language: str) -> str:
+def _citation(*, doi: str, format_: str, language: str) -> str:
     response = requests.get(
         "https://citation.doi.org/format",
-        params={"doi": doi, "style": format, "lang": language},
+        params={"doi": doi, "style": format_, "lang": language},
     )
     response.raise_for_status()
     return response.text
 
 
 class CustomDict(dict):
-    _basic_umm_fields_: List = []
-    _basic_meta_fields_: List = []
+    _basic_umm_fields_: list = []
+    _basic_meta_fields_: list = []
 
     def __init__(
         self,
-        collection: Dict[str, Any],
-        fields: Optional[List[str]] = None,
+        collection: dict[str, Any],
+        fields: list[str] | None = None,
         cloud_hosted: bool = False,
     ):
         super().__init__(collection)
@@ -44,30 +44,29 @@ class CustomDict(dict):
         else:
             self.render_dict = self._filter_fields_(fields)
 
-    def _filter_fields_(self, fields: List[str]) -> Dict[str, Any]:
+    def _filter_fields_(self, fields: list[str]) -> dict[str, Any]:
         filtered_dict = {
-            "umm": dict(
+            "umm": {
                 (field, self["umm"][field]) for field in fields if field in self["umm"]
-            )
+            },
         }
         basic_dict = {
-            "meta": dict(
+            "meta": {
                 (field, self["meta"][field])
                 for field in self._basic_meta_fields_
                 if field in self["meta"]
-            )
+            },
         }
         basic_dict.update(filtered_dict)
         return basic_dict
 
-    def _filter_related_links(self, filter: str) -> List[str]:
+    def _filter_related_links(self, link_type: str) -> list[str]:
         """Filter RelatedUrls from the UMM fields on CMR."""
-        matched_links: List = []
-        if "RelatedUrls" in self["umm"]:
-            for link in self["umm"]["RelatedUrls"]:
-                if link["Type"] == filter:
-                    matched_links.append(link["URL"])
-        return matched_links
+        return [
+            link["URL"]
+            for link in self["umm"].get("RelatedUrls", [])
+            if link.get("Type") == link_type
+        ]
 
 
 class DataCollection(CustomDict):
@@ -90,7 +89,7 @@ class DataCollection(CustomDict):
         "DirectDistributionInformation",
     ]
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         """Summary containing short_name, concept-id, file-type, and cloud-info (if cloud-hosted).
 
         Returns:
@@ -110,7 +109,7 @@ class DataCollection(CustomDict):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=FutureWarning)
 
-            summary_dict: Dict[str, Any]
+            summary_dict: dict[str, Any]
             summary_dict = {
                 "short-name": self.get_umm("ShortName"),
                 "concept-id": self.concept_id(),
@@ -123,8 +122,8 @@ class DataCollection(CustomDict):
 
         return summary_dict
 
-    def get_umm(self, umm_field: str) -> Union[str, Dict[str, Any]]:
-        """Placeholder.
+    def get_umm(self, umm_field: str) -> str | dict[str, Any]:
+        """Return a field value from the collection UMM record.
 
         Parameters:
             umm_field: Valid UMM item, i.e. `TemporalExtent`.
@@ -153,7 +152,7 @@ class DataCollection(CustomDict):
             return doi.get("DOI", None)
         return None
 
-    def citation(self, *, format: str, language: str) -> str | None:
+    def citation(self, *, format: str, language: str) -> str | None:  # noqa:A002
         """Fetch a formatted citation for this collection using its DOI.
 
         Parameters:
@@ -171,11 +170,11 @@ class DataCollection(CustomDict):
         return (
             None
             if not (doi := self.doi())
-            else _citation(doi=doi, format=format, language=language)
+            else _citation(doi=doi, format_=format, language=language)
         )
 
     def concept_id(self) -> str:
-        """Placeholder.
+        """Return the collection concept ID.
 
         Returns:
             A collection's `concept_id`.This id is the most relevant search field on granule queries.
@@ -191,7 +190,7 @@ class DataCollection(CustomDict):
         return self["meta"]["concept-id"]
 
     def data_type(self) -> str:
-        """Placeholder.
+        """Return the collection file distribution type.
 
         Returns:
             The collection data type, i.e. HDF5, CSV etc., if available.
@@ -207,11 +206,11 @@ class DataCollection(CustomDict):
         return str(
             self["umm"]
             .get("ArchiveAndDistributionInformation", {})
-            .get("FileDistributionInformation", "")
+            .get("FileDistributionInformation", ""),
         )
 
     def version(self) -> str:
-        """Placeholder.
+        """Return the collection version.
 
         Returns:
             The collection's version.
@@ -227,7 +226,7 @@ class DataCollection(CustomDict):
         return self["umm"].get("Version", "")
 
     def abstract(self) -> str:
-        """Placeholder.
+        """Return the collection abstract.
 
         Returns:
             The abstract of a collection.
@@ -243,7 +242,7 @@ class DataCollection(CustomDict):
         return self["umm"].get("Abstract", "")
 
     def landing_page(self) -> str:
-        """Placeholder.
+        """Return the first landing page link for the collection.
 
         Returns:
             The first landing page for the collection (can be many), if available.
@@ -259,8 +258,8 @@ class DataCollection(CustomDict):
         links = self._filter_related_links("LANDING PAGE")
         return links[0] if len(links) > 0 else ""
 
-    def get_data(self) -> List[str]:
-        """Placeholder.
+    def get_data(self) -> list[str]:
+        """Return the collection GET DATA links.
 
         Returns:
             The GET DATA links (usually a landing page link, a DAAC portal, or an FTP location).
@@ -275,8 +274,8 @@ class DataCollection(CustomDict):
 
         return self._filter_related_links("GET DATA")
 
-    def s3_bucket(self) -> Dict[str, Any]:
-        """Placeholder.
+    def s3_bucket(self) -> dict[str, Any]:
+        """Return the collection direct distribution information.
 
         Returns:
             The S3 bucket information if the collection has it (**cloud hosted collections only**).
@@ -291,7 +290,7 @@ class DataCollection(CustomDict):
 
         return self["umm"].get("DirectDistributionInformation", {})
 
-    def services(self) -> Dict[Any, List[Dict[str, Any]]]:
+    def services(self) -> dict[Any, list[dict[str, Any]]]:
         """Return list of services available for this collection."""
         warnings.warn(
             "As of version 1.0, `DataCollection.services` will be accessed as an "
@@ -307,11 +306,17 @@ class DataCollection(CustomDict):
             for service in services
         )
 
-        return {service: query.get_all() for service, query in zip(services, queries)}
+        return {
+            service: query.get_all()
+            for service, query in zip(services, queries, strict=False)
+        }
 
     def __repr__(self) -> str:
         return json.dumps(
-            self.render_dict, sort_keys=False, indent=2, separators=(",", ": ")
+            self.render_dict,
+            sort_keys=False,
+            indent=2,
+            separators=(",", ": "),
         )
 
 
@@ -333,8 +338,8 @@ class DataGranule(CustomDict):
 
     def __init__(
         self,
-        collection: Dict[str, Any],
-        fields: Optional[List[str]] = None,
+        collection: dict[str, Any],
+        fields: list[str] | None = None,
         cloud_hosted: bool = False,
     ):
         super().__init__(collection)
@@ -351,41 +356,45 @@ class DataGranule(CustomDict):
             self.render_dict = self._filter_fields_(fields)
 
     def __repr__(self) -> str:
-        """Placeholder.
+        """Return a basic string representation of the granule.
 
         Returns:
             A basic representation of a data granule.
         """
-        data_links = [link for link in self.data_links()]
-        rep_str = f"""
+        data_links = list(self.data_links())
+
+        # Not all granules have spatial coverage, set to None if missing
+        # TODO: We should have a granule metadata validator method
+        if "SpatialExtent" not in self["umm"]:
+            self["umm"]["SpatialExtent"] = None
+
+        return f"""
         Collection: {self["umm"]["CollectionReference"]}
         Spatial coverage: {self["umm"]["SpatialExtent"]}
         Temporal coverage: {self["umm"]["TemporalExtent"]}
         Size(MB): {self.size()}
         Data: {data_links}\n\n
         """.strip().replace("  ", "")
-        return rep_str
 
     def _repr_html_(self) -> str:
-        """Placeholder.
+        """Return an HTML representation of the granule.
 
         Returns:
             A rich representation for a data granule if we are in a Jupyter notebook.
         """
-        granule_html_repr = _repr_granule_html(self)
-        return granule_html_repr
+        return _repr_granule_html(self)
 
     def __hash__(self) -> int:  # type: ignore[override]
         return hash(self["meta"]["concept-id"])
 
-    def get_s3_credentials_endpoint(self) -> Union[str, None]:
+    def get_s3_credentials_endpoint(self) -> str | None:
         for link in self["umm"]["RelatedUrls"]:
             if "/s3credentials" in link["URL"]:
                 return link["URL"]
         return None
 
     def size(self) -> float:
-        """Placeholder.
+        """Return the total granule size in MB.
 
         Returns:
             The total size for the granule in MB.
@@ -405,7 +414,7 @@ class DataGranule(CustomDict):
                     float(s["Size"])
                     for s in data_granule["ArchiveAndDistributionInformation"]
                     if "ArchiveAndDistributionInformation" in data_granule
-                ]
+                ],
             )
         except Exception:
             try:
@@ -415,13 +424,13 @@ class DataGranule(CustomDict):
                         float(s["SizeInBytes"])
                         for s in data_granule["ArchiveAndDistributionInformation"]
                         if "ArchiveAndDistributionInformation" in data_granule
-                    ]
+                    ],
                 ) / (1024 * 1024)
             except Exception:
                 total_size = 0
         return total_size
 
-    def _derive_s3_link(self, links: List[str]) -> List[str]:
+    def _derive_s3_link(self, links: list[str]) -> list[str]:
         s3_links = []
         for link in links:
             if link.startswith("s3"):
@@ -433,9 +442,11 @@ class DataGranule(CustomDict):
         return s3_links
 
     def data_links(
-        self, access: Optional[str] = None, in_region: bool = False
-    ) -> List[str]:
-        """Placeholder.
+        self,
+        access: str | None = None,
+        in_region: bool = False,
+    ) -> list[str]:
+        """Return data links for the requested granule access mode.
 
         Returns the data links from a granule.
 
@@ -459,32 +470,27 @@ class DataGranule(CustomDict):
                     # This is guessing the S3 links for some cloud collections that for
                     # some reason only offered HTTPS links
                     return self._derive_s3_link(https_links)
-                else:
-                    # we have the s3 links so we return those
-                    return s3_links
-            else:
-                # Even though we are in us-west-2, the user wants the HTTPS links used in-region.
-                # They are S3 signed links from TEA.
-                # <https://github.com/asfadmin/thin-egress-app>
-                return https_links
-        else:
-            # we are not in-region
-            if access == "direct":
-                # maybe the user wants to collect S3 links and use them later
-                # from the cloud
+                # we have the s3 links so we return those
                 return s3_links
-            else:
-                # we are not in us-west-2, even cloud collections have HTTPS links
-                return https_links
+            # Even though we are in us-west-2, the user wants the HTTPS links used in-region.
+            # They are S3 signed links from TEA.
+            # <https://github.com/asfadmin/thin-egress-app>
+            return https_links
+        # we are not in-region
+        if access == "direct":
+            # maybe the user wants to collect S3 links and use them later
+            # from the cloud
+            return s3_links
+        # we are not in us-west-2, even cloud collections have HTTPS links
+        return https_links
 
-    def dataviz_links(self) -> List[str]:
-        """Placeholder.
+    def dataviz_links(self) -> list[str]:
+        """Return related visualization links for the granule.
 
         Returns:
             The data visualization links, usually the browse images.
         """
-        links = self._filter_related_links("GET RELATED VISUALIZATION")
-        return links
+        return self._filter_related_links("GET RELATED VISUALIZATION")
 
     @property
     def __geo_interface__(self) -> dict[str, object]:
@@ -542,7 +548,8 @@ class DataGranule(CustomDict):
                             ]
                             # In UMM-G, ExclusiveZone is optional.
                             for boundary in poly.get("ExclusiveZone", {}).get(
-                                "Boundaries", []
+                                "Boundaries",
+                                [],
                             )
                         ),
                     ]
@@ -576,7 +583,7 @@ class DataGranule(CustomDict):
                                 rect["WestBoundingCoordinate"],
                                 rect["SouthBoundingCoordinate"],
                             ],
-                        ]
+                        ],
                     ]
                     for rect in geometry["BoundingRectangles"]
                 ],

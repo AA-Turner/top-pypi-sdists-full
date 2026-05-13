@@ -114,7 +114,7 @@ class LeanOAuthTokenHandler(typing.Generic[QuantConnect_Brokerages_Authenticatio
         The maximum number of retry attempts when fetching an access token.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -128,7 +128,7 @@ class LeanOAuthTokenHandler(typing.Generic[QuantConnect_Brokerages_Authenticatio
         The time interval to wait between retry attempts when fetching an access token.
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -232,7 +232,7 @@ class LeanTokenHandler(typing.Generic[QuantConnect_Brokerages_Authentication_Lea
         Initializes a new instance of the LeanTokenHandler{T} class.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param create_auth_header: An optional delegate for creating an AuthenticationHeaderValue
         from the token type and access token. If not provided, a default implementation is used.
@@ -257,7 +257,7 @@ class LeanTokenHandler(typing.Generic[QuantConnect_Brokerages_Authentication_Lea
         Derived classes call this when authentication fails after exhausting all retry attempts.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param exception: The exception that caused the authentication failure.
         """
@@ -268,7 +268,7 @@ class LeanTokenHandler(typing.Generic[QuantConnect_Brokerages_Authentication_Lea
         Sends an HTTP request synchronously, applying token-based authentication.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param request: The HTTP request message to send.
         :param cancellation_token: A cancellation token to cancel operation.
@@ -282,7 +282,7 @@ class LeanTokenHandler(typing.Generic[QuantConnect_Brokerages_Authentication_Lea
         This is useful for compatibility with components that require an asynchronous pipeline, even though the core logic is synchronous.
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param request: The HTTP request message to send.
         :param cancellation_token: A cancellation token to cancel the operation.

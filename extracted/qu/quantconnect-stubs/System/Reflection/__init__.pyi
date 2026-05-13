@@ -18,6 +18,9 @@ System_Reflection_CustomAttributeNamedArgument = typing.Any
 
 System_Reflection__EventContainer_Callable = typing.TypeVar("System_Reflection__EventContainer_Callable")
 System_Reflection__EventContainer_ReturnType = typing.TypeVar("System_Reflection__EventContainer_ReturnType")
+System_Reflection_MethodInfo_CreateDelegate_T = typing.TypeVar("System_Reflection_MethodInfo_CreateDelegate_T")
+System_Reflection_CustomAttributeExtensions_GetCustomAttribute_T = typing.TypeVar("System_Reflection_CustomAttributeExtensions_GetCustomAttribute_T")
+System_Reflection_CustomAttributeExtensions_GetCustomAttributes_T = typing.TypeVar("System_Reflection_CustomAttributeExtensions_GetCustomAttributes_T")
 
 
 class InvalidFilterCriteriaException(System.ApplicationException):
@@ -596,6 +599,33 @@ class PropertyAttributes(IntEnum):
     RESERVED_MASK = ...
 
 
+class _Typed_MethodInfo_CreateDelegate(typing.Generic[System_Reflection_MethodInfo_CreateDelegate_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> System_Reflection_MethodInfo_CreateDelegate_T:
+        ...
+
+    @overload
+    def __call__(self, target: typing.Any) -> System_Reflection_MethodInfo_CreateDelegate_T:
+        ...
+
+
+class _MethodInfo_CreateDelegate:
+    """"""
+
+    @overload
+    def __call__(self, delegate_type: typing.Type) -> System.Delegate:
+        ...
+
+    @overload
+    def __call__(self, delegate_type: typing.Type, target: typing.Any) -> System.Delegate:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Reflection_MethodInfo_CreateDelegate_T]) -> System.Reflection._Typed_MethodInfo_CreateDelegate[System_Reflection_MethodInfo_CreateDelegate_T]:
+        ...
+
+
 class MethodInfo(System.Reflection.MethodBase, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -616,6 +646,10 @@ class MethodInfo(System.Reflection.MethodBase, metaclass=abc.ABCMeta):
     def return_type_custom_attributes(self) -> System.Reflection.ICustomAttributeProvider:
         ...
 
+    @property
+    def create_delegate(self) -> System.Reflection._MethodInfo_CreateDelegate:
+        ...
+
     def __eq__(self, right: System.Reflection.MethodInfo) -> bool:
         ...
 
@@ -623,14 +657,6 @@ class MethodInfo(System.Reflection.MethodBase, metaclass=abc.ABCMeta):
         ...
 
     def __ne__(self, right: System.Reflection.MethodInfo) -> bool:
-        ...
-
-    @overload
-    def create_delegate(self, delegate_type: typing.Type) -> System.Delegate:
-        ...
-
-    @overload
-    def create_delegate(self, delegate_type: typing.Type, target: typing.Any) -> System.Delegate:
         ...
 
     def equals(self, obj: typing.Any) -> bool:
@@ -2669,98 +2695,154 @@ class AssemblyCultureAttribute(System.Attribute):
         ...
 
 
+class _Typed_CustomAttributeExtensions_GetCustomAttribute(typing.Generic[System_Reflection_CustomAttributeExtensions_GetCustomAttribute_T]):
+    """"""
+
+    @overload
+    def __call__(self, element: System.Reflection.Assembly) -> System_Reflection_CustomAttributeExtensions_GetCustomAttribute_T:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.Module) -> System_Reflection_CustomAttributeExtensions_GetCustomAttribute_T:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.MemberInfo) -> System_Reflection_CustomAttributeExtensions_GetCustomAttribute_T:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.ParameterInfo) -> System_Reflection_CustomAttributeExtensions_GetCustomAttribute_T:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.MemberInfo, inherit: bool) -> System_Reflection_CustomAttributeExtensions_GetCustomAttribute_T:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.ParameterInfo, inherit: bool) -> System_Reflection_CustomAttributeExtensions_GetCustomAttribute_T:
+        ...
+
+
+class _CustomAttributeExtensions_GetCustomAttribute:
+    """"""
+
+    @overload
+    def __call__(self, element: System.Reflection.Assembly, attribute_type: typing.Type) -> System.Attribute:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.Module, attribute_type: typing.Type) -> System.Attribute:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.MemberInfo, attribute_type: typing.Type) -> System.Attribute:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.ParameterInfo, attribute_type: typing.Type) -> System.Attribute:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.MemberInfo, attribute_type: typing.Type, inherit: bool) -> System.Attribute:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.ParameterInfo, attribute_type: typing.Type, inherit: bool) -> System.Attribute:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Reflection_CustomAttributeExtensions_GetCustomAttribute_T]) -> System.Reflection._Typed_CustomAttributeExtensions_GetCustomAttribute[System_Reflection_CustomAttributeExtensions_GetCustomAttribute_T]:
+        ...
+
+
+class _Typed_CustomAttributeExtensions_GetCustomAttributes(typing.Generic[System_Reflection_CustomAttributeExtensions_GetCustomAttributes_T]):
+    """"""
+
+    @overload
+    def __call__(self, element: System.Reflection.Assembly) -> System.Collections.Generic.IEnumerable[System_Reflection_CustomAttributeExtensions_GetCustomAttributes_T]:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.Module) -> System.Collections.Generic.IEnumerable[System_Reflection_CustomAttributeExtensions_GetCustomAttributes_T]:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.MemberInfo) -> System.Collections.Generic.IEnumerable[System_Reflection_CustomAttributeExtensions_GetCustomAttributes_T]:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.ParameterInfo) -> System.Collections.Generic.IEnumerable[System_Reflection_CustomAttributeExtensions_GetCustomAttributes_T]:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.MemberInfo, inherit: bool) -> System.Collections.Generic.IEnumerable[System_Reflection_CustomAttributeExtensions_GetCustomAttributes_T]:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.ParameterInfo, inherit: bool) -> System.Collections.Generic.IEnumerable[System_Reflection_CustomAttributeExtensions_GetCustomAttributes_T]:
+        ...
+
+
+class _CustomAttributeExtensions_GetCustomAttributes:
+    """"""
+
+    @overload
+    def __call__(self, element: System.Reflection.Assembly) -> System.Collections.Generic.IEnumerable[System.Attribute]:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.Module) -> System.Collections.Generic.IEnumerable[System.Attribute]:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.MemberInfo) -> System.Collections.Generic.IEnumerable[System.Attribute]:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.ParameterInfo) -> System.Collections.Generic.IEnumerable[System.Attribute]:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.MemberInfo, inherit: bool) -> System.Collections.Generic.IEnumerable[System.Attribute]:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.ParameterInfo, inherit: bool) -> System.Collections.Generic.IEnumerable[System.Attribute]:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.Assembly, attribute_type: typing.Type) -> System.Collections.Generic.IEnumerable[System.Attribute]:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.Module, attribute_type: typing.Type) -> System.Collections.Generic.IEnumerable[System.Attribute]:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.MemberInfo, attribute_type: typing.Type) -> System.Collections.Generic.IEnumerable[System.Attribute]:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.ParameterInfo, attribute_type: typing.Type) -> System.Collections.Generic.IEnumerable[System.Attribute]:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.MemberInfo, attribute_type: typing.Type, inherit: bool) -> System.Collections.Generic.IEnumerable[System.Attribute]:
+        ...
+
+    @overload
+    def __call__(self, element: System.Reflection.ParameterInfo, attribute_type: typing.Type, inherit: bool) -> System.Collections.Generic.IEnumerable[System.Attribute]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Reflection_CustomAttributeExtensions_GetCustomAttributes_T]) -> System.Reflection._Typed_CustomAttributeExtensions_GetCustomAttributes[System_Reflection_CustomAttributeExtensions_GetCustomAttributes_T]:
+        ...
+
+
 class CustomAttributeExtensions(System.Object):
     """This class has no documentation."""
 
-    @staticmethod
-    @overload
-    def get_custom_attribute(element: System.Reflection.Assembly, attribute_type: typing.Type) -> System.Attribute:
-        ...
+    get_custom_attribute: System.Reflection._CustomAttributeExtensions_GetCustomAttribute
 
-    @staticmethod
-    @overload
-    def get_custom_attribute(element: System.Reflection.Module, attribute_type: typing.Type) -> System.Attribute:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attribute(element: System.Reflection.MemberInfo, attribute_type: typing.Type) -> System.Attribute:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attribute(element: System.Reflection.ParameterInfo, attribute_type: typing.Type) -> System.Attribute:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attribute(element: System.Reflection.MemberInfo, attribute_type: typing.Type, inherit: bool) -> System.Attribute:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attribute(element: System.Reflection.ParameterInfo, attribute_type: typing.Type, inherit: bool) -> System.Attribute:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.Assembly) -> System.Collections.Generic.IEnumerable[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.Module) -> System.Collections.Generic.IEnumerable[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.MemberInfo) -> System.Collections.Generic.IEnumerable[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.ParameterInfo) -> System.Collections.Generic.IEnumerable[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.MemberInfo, inherit: bool) -> System.Collections.Generic.IEnumerable[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.ParameterInfo, inherit: bool) -> System.Collections.Generic.IEnumerable[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.Assembly, attribute_type: typing.Type) -> System.Collections.Generic.IEnumerable[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.Module, attribute_type: typing.Type) -> System.Collections.Generic.IEnumerable[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.MemberInfo, attribute_type: typing.Type) -> System.Collections.Generic.IEnumerable[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.ParameterInfo, attribute_type: typing.Type) -> System.Collections.Generic.IEnumerable[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.MemberInfo, attribute_type: typing.Type, inherit: bool) -> System.Collections.Generic.IEnumerable[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.ParameterInfo, attribute_type: typing.Type, inherit: bool) -> System.Collections.Generic.IEnumerable[System.Attribute]:
-        ...
+    get_custom_attributes: System.Reflection._CustomAttributeExtensions_GetCustomAttributes
 
     @staticmethod
     @overload

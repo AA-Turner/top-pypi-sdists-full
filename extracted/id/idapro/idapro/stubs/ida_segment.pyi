@@ -1,13 +1,40 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Functions that deal with segments.
 
-IDA requires that all program addresses belong to segments (each address must belong to exactly one segment). The situation when an address doesn't belong to any segment is allowed as a temporary situation only when the user changes program segmentation. Bytes outside a segment can't be converted to instructions, have names, comments, etc. Each segment has its start address, ending address and represents a contiguous range of addresses. There might be unused holes between segments.
-Each segment has its unique segment selector. This selector is used to distinguish the segment from other segments. For 16-bit programs the selector is equal to the segment base paragraph. For 32-bit programs there is special array to translate the selectors to the segment base paragraphs. A selector is a 32/64 bit value.
-The segment base paragraph determines the offsets in the segment. If the start address of the segment == (base << 4) then the first offset in the segment will be 0. The start address should be higher or equal to (base << 4). We will call the offsets in the segment 'virtual addresses'. So, the virtual address of the first byte of the segment is
-(start address of segment - segment base linear address)
-For IBM PC, the virtual address corresponds to the offset part of the address. For other processors (Z80, for example), virtual addresses correspond to Z80 addresses and linear addresses are used only internally. For MS Windows programs the segment base paragraph is 0 and therefore the segment virtual addresses are equal to linear addresses. 
-    
+IDA requires that all program addresses belong to segments (each address must
+belong to exactly one segment). The situation when an address doesn't belong to
+any segment is allowed as a temporary situation only when the user changes
+program segmentation. Bytes outside a segment can't be converted to instructions,
+have names, comments, etc. Each segment has its start address, ending address
+and represents a contiguous range of addresses. There might be unused holes
+between segments.
+
+Each segment has its unique segment selector. This selector is used to
+distinguish the segment from other segments. For 16-bit programs the selector
+is equal to the segment base paragraph. For 32-bit programs there is special
+array to translate the selectors to the segment base paragraphs. A selector is
+a 32/64 bit value.
+
+The segment base paragraph determines the offsets in the segment. If the start
+address of the segment == (base << 4) then the first offset in the segment will
+be 0. The start address should be higher or equal to (base << 4). We will call
+the offsets in the segment 'virtual addresses'. So, the virtual address of the
+first byte of the segment is (start address of segment - segment base linear
+address).
+
+For IBM PC, the virtual address corresponds to the offset part of the address.
+For other processors (Z80, for example), virtual addresses correspond to Z80
+addresses and linear addresses are used only internally. For MS Windows programs
+the segment base paragraph is 0 and therefore the segment virtual addresses are
+equal to linear addresses.
+
+.. tip::
+   The `IDA Domain API <https://ida-domain.docs.hex-rays.com/>`_ simplifies
+   common tasks and provides better type hints, while remaining fully compatible
+   with IDAPython for advanced use cases.
+
+   For segment operations, see :mod:`ida_domain.segments`.
 """
 
 class lock_segment:
@@ -17,27 +44,33 @@ class lock_segment:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, _segm: segment_t) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -45,16 +78,16 @@ class lock_segment:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -71,10 +104,10 @@ class lock_segment:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -84,7 +117,7 @@ class lock_segment:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class segment_defsr_array:
@@ -98,29 +131,35 @@ class segment_defsr_array:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> int:
+    def __getitem__(self, i: int) -> int:
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, data: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -128,21 +167,21 @@ class segment_defsr_array:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[int]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
     def __len__(self) -> int:
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -156,15 +195,15 @@ class segment_defsr_array:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: int) -> None:
+    def __setitem__(self, i: int, v: int) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -174,38 +213,38 @@ class segment_defsr_array:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class segment_t:
     @property
-    def align(self) -> Any: ...
+    def align(self) -> int: ...
     @property
-    def bitness(self) -> Any: ...
+    def bitness(self) -> int: ...
     @property
-    def color(self) -> Any: ...
+    def color(self) -> int: ...
     @property
-    def comb(self) -> Any: ...
+    def comb(self) -> int: ...
     @property
     def defsr(self) -> Any: ...
     @property
-    def end_ea(self) -> Any: ...
+    def end_ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def flags(self) -> Any: ...
+    def flags(self) -> int: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> int: ...
     @property
-    def orgbase(self) -> Any: ...
+    def orgbase(self) -> int: ...
     @property
-    def perm(self) -> Any: ...
+    def perm(self) -> int: ...
     @property
-    def sclass(self) -> Any: ...
+    def sclass(self) -> int: ...
     @property
-    def sel(self) -> Any: ...
+    def sel(self) -> int: ...
     @property
-    def start_ea(self) -> Any: ...
+    def start_ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def type(self) -> Any: ...
+    def type(self) -> int: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -214,19 +253,25 @@ class segment_t:
         ...
     def __eq__(self, r: range_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
     def __ge__(self, r: range_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
     def __gt__(self, r: range_t) -> bool:
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -240,7 +285,7 @@ class segment_t:
         ...
     def __ne__(self, r: range_t) -> bool:
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -257,10 +302,10 @@ class segment_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -270,7 +315,7 @@ class segment_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def abits(self) -> int:
         r"""Get number of address bits.
@@ -295,25 +340,16 @@ class segment_t:
         ...
     def compare(self, r: range_t) -> int:
         ...
-    def contains(self, args: Any) -> bool:
-        r"""This function has the following signatures:
+    @overload
+    def contains(self, ea: ida_idaapi.ea_t) -> bool:
+        r"""Compare two range_t instances, based on the start_ea.
         
-            0. contains(ea: ida_idaapi.ea_t) -> bool
-            1. contains(r: const range_t &) -> bool
-        
-        # 0: contains(ea: ida_idaapi.ea_t) -> bool
-        
-        Compare two range_t instances, based on the start_ea.
-        
-        Is 'ea' in the address range? 
-                
-        
-        # 1: contains(r: const range_t &) -> bool
-        
-        Is every ea in 'r' also in this range_t?
-        
-        
+        Is 'ea' in the address range?
         """
+        ...
+    @overload
+    def contains(self, r: range_t) -> bool:
+        r"""Is every ea in 'r' also in this range_t?"""
         ...
     def empty(self) -> bool:
         r"""Is the size of the range_t <= 0?
@@ -392,9 +428,9 @@ class segment_t:
         ...
 
 def add_segm(para: ida_idaapi.ea_t, start: ida_idaapi.ea_t, end: ida_idaapi.ea_t, name: str, sclass: str, flags: int = 0) -> bool:
-    r"""Add a new segment, second form. Segment alignment is set to saRelByte. Segment combination is "public" or "stack" (if segment class is "STACK"). Addressing mode of segment is taken as default (16bit or 32bit). Default segment registers are set to BADSEL. If a segment already exists at the specified range of addresses, this segment will be truncated. Instructions and data in the old segment will be deleted if the new segment has another addressing mode or another segment base address. 
+    r"""Add a new segment, second form. Segment alignment is set to saRelByte. Segment combination is "public" or "stack" (if segment class is "STACK"). Addressing mode of segment is taken as default (16-bit or 32-bit). Default segment registers are set to BADSEL. If a segment already exists at the specified range of addresses, this segment will be truncated. Instructions and data in the old segment will be deleted if the new segment has another addressing mode or another segment base address. 
             
-    :param para: segment base paragraph. if paragraph can't fit in 16bit, then a new selector is allocated and mapped to the paragraph.
+    :param para: segment base paragraph. if paragraph can't fit in 16-bit, then a new selector is allocated and mapped to the paragraph.
     :param start: start address of the segment. if start==BADADDR then start <- to_ea(para,0).
     :param end: end address of the segment. end address should be higher than start address. For emulate empty segments, use SEG_NULL segment type. If the end address is lower than start address, then fail. If end==BADADDR, then a segment up to the next segment will be created (if the next segment doesn't exist, then 1 byte segment will be created). If 'end' is too high and the new segment would overlap the next segment, 'end' is adjusted properly.
     :param name: name of new segment. may be nullptr
@@ -413,14 +449,19 @@ def add_segm(para: ida_idaapi.ea_t, start: ida_idaapi.ea_t, end: ida_idaapi.ea_t
     """
     ...
 
-def add_segm_ex(NONNULL_s: segment_t, name: str, sclass: str, flags: int) -> bool:
+def add_segm_ex(s: segment_t, name: str, sclass: str, flags: int) -> bool:
     r"""Add a new segment. If a segment already exists at the specified range of addresses, this segment will be truncated. Instructions and data in the old segment will be deleted if the new segment has another addressing mode or another segment base address. 
             
+    :param s: pointer to filled segment structure. segment selector should have proper mapping (see set_selector()).
+    * if s.start_ea==BADADDR then s.start_ea <- get_segm_base(&s)
+    * if s.end_ea==BADADDR, then a segment up to the next segment will be created (if the next segment doesn't exist, then 1 byte segment will be created).
+    * if the s.end_ea < s.start_ea, then fail.
+    * if s.end_ea is too high and the new segment would overlap the next segment, s.end_ea is adjusted properly.
     :param name: name of new segment. may be nullptr. if specified, the segment is immediately renamed
     :param sclass: class of the segment. may be nullptr. if specified, the segment class is immediately changed
     :param flags: Add segment flags
     :returns: 1: ok
-    :returns: 0: failed, a warning message is displayed
+    :returns: 0: failed, a warning message is displayed The specified default segment register values may be modified by processor modules (see ev_creating_segm). Also, if the default data segment value is BADSEL, it will be changed to the selector of the newly created segment. This ensures that the data segment is always correctly set, which is a good default for most processors.
     """
     ...
 
@@ -434,7 +475,7 @@ def add_segment_translation(segstart: ida_idaapi.ea_t, mappedseg: ida_idaapi.ea_
     """
     ...
 
-def allocate_selector(segbase: ida_idaapi.ea_t) -> sel_t:
+def allocate_selector(segbase: ida_idaapi.ea_t) -> int:
     r"""Allocate a selector for a segment unconditionally. You must call this function before calling add_segm_ex(). add_segm() calls this function itself, so you don't need to allocate a selector. This function will allocate a new free selector and setup its mapping using find_free_selector() and set_selector() functions. 
             
     :param segbase: a new segment base paragraph
@@ -468,21 +509,21 @@ def del_segment_translations(segstart: ida_idaapi.ea_t) -> None:
     """
     ...
 
-def del_selector(selector: sel_t) -> None:
+def del_selector(selector: int) -> None:
     r"""Delete mapping of a selector. Be wary of deleting selectors that are being used in the program, this can make a mess in the segments. 
             
     :param selector: number of selector to remove from the translation table
     """
     ...
 
-def find_free_selector() -> sel_t:
+def find_free_selector() -> int:
     r"""Find first unused selector. 
             
     :returns: a number >= 1
     """
     ...
 
-def find_selector(base: ida_idaapi.ea_t) -> sel_t:
+def find_selector(base: ida_idaapi.ea_t) -> int:
     r"""Find a selector that has mapping to the specified paragraph. 
             
     :param base: paragraph to search in the translation table
@@ -492,7 +533,7 @@ def find_selector(base: ida_idaapi.ea_t) -> sel_t:
 
 def get_defsr(s: Any, reg: Any) -> Any:
     r"""Deprecated, use instead:
-        value = s.defsr[reg]
+    value = s.defsr[reg]
     """
     ...
 
@@ -502,7 +543,7 @@ def get_first_seg() -> Optional[segment_t]:
     """
     ...
 
-def get_group_selector(grpsel: sel_t) -> sel_t:
+def get_group_selector(grpsel: int) -> int:
     r"""Get common selector for a group of segments. 
             
     :param grpsel: selector of group segment
@@ -544,7 +585,7 @@ def get_segm_by_name(name: str) -> Optional[segment_t]:
     """
     ...
 
-def get_segm_by_sel(selector: sel_t) -> Optional[segment_t]:
+def get_segm_by_sel(selector: int) -> Optional[segment_t]:
     r"""Get pointer to segment structure. This function finds a segment by its selector. If there are several segments with the same selectors, the last one will be returned. 
             
     :param selector: a segment with the specified selector will be returned
@@ -591,7 +632,7 @@ def get_segm_qty() -> int:
     """
     ...
 
-def get_segment_alignment(align: uchar) -> str:
+def get_segment_alignment(align: int) -> str:
     r"""Get text representation of segment alignment code. 
             
     :returns: text digestable by IBM PC assembler.
@@ -607,14 +648,14 @@ def get_segment_cmt(s: segment_t, repeatable: bool) -> str:
     """
     ...
 
-def get_segment_combination(comb: uchar) -> str:
+def get_segment_combination(comb: int) -> str:
     r"""Get text representation of segment combination code. 
             
     :returns: text digestable by IBM PC assembler.
     """
     ...
 
-def get_segment_translations(transmap: eavec_t, segstart: ida_idaapi.ea_t) -> ssize_t:
+def get_segment_translations(transmap: eavec_t, segstart: ida_idaapi.ea_t) -> int:
     r"""Get segment translation list. 
             
     :param transmap: vector of segment start addresses for the translation list
@@ -666,7 +707,7 @@ def is_finally_visible_segm(s: segment_t) -> bool:
     ...
 
 def is_miniidb() -> bool:
-    r"""Is the database a miniidb created by the debugger?. 
+    r"""Is the database a miniidb created by the debugger? 
             
     :returns: true if the database contains no segments or only debugger segments
     """
@@ -679,14 +720,14 @@ def is_segm_locked(segm: segment_t) -> bool:
     ...
 
 def is_spec_ea(ea: ida_idaapi.ea_t) -> bool:
-    r"""Does the address belong to a segment with a special type?. (SEG_XTRN, SEG_GRP, SEG_ABSSYM, SEG_COMM) 
+    r"""Does the address belong to a segment with a special type? (SEG_XTRN, SEG_GRP, SEG_ABSSYM, SEG_COMM) 
             
     :param ea: linear address
     """
     ...
 
-def is_spec_segm(seg_type: uchar) -> bool:
-    r"""Has segment a special type?. (SEG_XTRN, SEG_GRP, SEG_ABSSYM, SEG_COMM) 
+def is_spec_segm(seg_type: int) -> bool:
+    r"""Has segment a special type? (SEG_XTRN, SEG_GRP, SEG_ABSSYM, SEG_COMM) 
             
     """
     ...
@@ -743,7 +784,7 @@ def rebase_program(delta: Any, flags: int) -> int:
     """
     ...
 
-def segm_adjust_diff(s: segment_t, delta: adiff_t) -> adiff_t:
+def segm_adjust_diff(s: segment_t, delta: int) -> int:
     r"""Truncate and sign extend a delta depending on the segment.
     
     """
@@ -755,7 +796,7 @@ def segm_adjust_ea(s: segment_t, ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
     """
     ...
 
-def segtype(ea: ida_idaapi.ea_t) -> uchar:
+def segtype(ea: ida_idaapi.ea_t) -> int:
     r"""Get segment type. 
             
     :param ea: any linear address within the segment
@@ -763,7 +804,7 @@ def segtype(ea: ida_idaapi.ea_t) -> uchar:
     """
     ...
 
-def sel2ea(selector: sel_t) -> ida_idaapi.ea_t:
+def sel2ea(selector: int) -> ida_idaapi.ea_t:
     r"""Get mapping of a selector as a linear address. 
             
     :param selector: number of selector to translate to linear address
@@ -771,7 +812,7 @@ def sel2ea(selector: sel_t) -> ida_idaapi.ea_t:
     """
     ...
 
-def sel2para(selector: sel_t) -> ida_idaapi.ea_t:
+def sel2para(selector: int) -> ida_idaapi.ea_t:
     r"""Get mapping of a selector. 
             
     :param selector: number of selector to translate
@@ -781,11 +822,11 @@ def sel2para(selector: sel_t) -> ida_idaapi.ea_t:
 
 def set_defsr(s: Any, reg: Any, value: Any) -> Any:
     r"""Deprecated, use instead:
-        s.defsr[reg] = value
+    s.defsr[reg] = value
     """
     ...
 
-def set_group_selector(grp: sel_t, sel: sel_t) -> int:
+def set_group_selector(grp: int, sel: int) -> int:
     r"""Create a new group of segments (used OMF files). 
             
     :param grp: selector of group segment (segment type is SEG_GRP) You should create an 'empty' (1 byte) group segment It won't contain anything and will be used to redirect references to the group of segments to the common selector.
@@ -795,14 +836,14 @@ def set_group_selector(grp: sel_t, sel: sel_t) -> int:
     """
     ...
 
-def set_segm_addressing(s: segment_t, bitness: size_t) -> bool:
+def set_segm_addressing(s: segment_t, bitness: int) -> bool:
     r"""Change segment addressing mode (16, 32, 64 bits). You must use this function to change segment addressing, never change the 'bitness' field directly. This function will delete all instructions, comments and names in the segment 
             
     :param s: pointer to segment
     :param bitness: new addressing mode of segment
-    * 2: 64bit segment
-    * 1: 32bit segment
-    * 0: 16bit segment
+    * 2: 64-bit segment
+    * 1: 32-bit segment
+    * 0: 16-bit segment
     :returns: success
     """
     ...
@@ -882,7 +923,7 @@ def set_segment_translations(segstart: ida_idaapi.ea_t, transmap: eavec_t) -> bo
     """
     ...
 
-def set_selector(selector: sel_t, paragraph: ida_idaapi.ea_t) -> int:
+def set_selector(selector: int, paragraph: ida_idaapi.ea_t) -> int:
     r"""Set mapping of selector to a paragraph. You should call this function _before_ creating a segment which uses the selector, otherwise the creation of the segment will fail. 
             
     :param selector: number of selector to map
@@ -901,7 +942,7 @@ def set_visible_segm(s: segment_t, visible: bool) -> None:
     """
     ...
 
-def setup_selector(segbase: ida_idaapi.ea_t) -> sel_t:
+def setup_selector(segbase: ida_idaapi.ea_t) -> int:
     r"""Allocate a selector for a segment if necessary. You must call this function before calling add_segm_ex(). add_segm() calls this function itself, so you don't need to allocate a selector. This function will allocate a selector if 'segbase' requires more than 16 bits and the current processor is IBM PC. Otherwise it will return the segbase value. 
             
     :param segbase: a new segment base paragraph
@@ -996,7 +1037,7 @@ SNAP_CUR_SEG: int  # 2
 SNAP_LOAD_SEG: int  # 1
 SREG_NUM: int  # 16
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ida_idaapi: module
 ida_range: module
 saAbs: int  # 0

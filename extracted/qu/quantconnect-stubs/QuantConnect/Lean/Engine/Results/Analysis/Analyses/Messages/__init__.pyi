@@ -18,7 +18,7 @@ class MessageAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseRes
     @property
     @abc.abstractmethod
     def expected_message_text(self) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Property is protected."""
         ...
 
     def match(self, messages: typing.Sequence[str], expected_messages: typing.List[str]) -> typing.Sequence[str]:
@@ -27,7 +27,7 @@ class MessageAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseRes
         (case-insensitive).
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
@@ -44,7 +44,7 @@ class MessageAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseRes
         ...
 
     def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
-        """This codeEntityType is protected."""
+        """This Class is protected."""
         ...
 
 

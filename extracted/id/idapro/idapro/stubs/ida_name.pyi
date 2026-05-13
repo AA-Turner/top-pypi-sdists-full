@@ -1,15 +1,21 @@
-from typing import Any, Optional, List, Dict, Tuple, Callable, Union
+from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
 r"""Functions that deal with names.
 
-A non-tail address of the program may have a name. Tail addresses (i.e. the addresses in the middle of an instruction or data item) cannot have names. 
-    
+A non-tail address of the program may have a name. Tail addresses (i.e. the addresses in the middle of an instruction or data item) cannot have names.
+
+.. tip::
+   The `IDA Domain API <https://ida-domain.docs.hex-rays.com/>`_ simplifies
+   common tasks and provides better type hints, while remaining fully compatible
+   with IDAPython for advanced use cases.
+
+   For name and symbol operations, see :mod:`ida_domain.names`.
 """
 
 class NearestName:
     r"""
-        Utility class to help find the nearest name in a given ea/name dictionary
-        
+    Utility class to help find the nearest name in a given ea/name dictionary
+    
     """
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
@@ -17,30 +23,36 @@ class NearestName:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, index: Any) -> ea_name_t:
+    def __getitem__(self, index: Any) -> Any:
         r"""Returns the tupple (ea, name, index)"""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
     def __init__(self, ea_names: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -50,16 +62,16 @@ class NearestName:
         ...
     def __iter__(self) -> Any:
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -68,7 +80,7 @@ class NearestName:
     def __reduce_ex__(self, protocol: Any) -> Any:
         r"""Helper for pickle."""
         ...
-    def __repr__(self) -> Any:
+    def __repr__(self) -> str:
         r"""Return repr(self)."""
         ...
     def __setattr__(self, name: Any, value: Any) -> Any:
@@ -77,10 +89,10 @@ class NearestName:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -92,9 +104,9 @@ class NearestName:
         ...
     def find(self, ea: Any) -> Any:
         r"""
-                Returns a tupple (ea, name, pos) that is the nearest to the passed ea
-                If no name is matched then None is returned
-                
+        Returns a tupple (ea, name, pos) that is the nearest to the passed ea
+        If no name is matched then None is returned
+        
         """
         ...
     def update(self, ea_names: Any) -> Any:
@@ -103,36 +115,42 @@ class NearestName:
 
 class ea_name_t:
     @property
-    def ea(self) -> Any: ...
+    def ea(self) -> ida_idaapi.ea_t: ...
     @property
-    def name(self) -> Any: ...
+    def name(self) -> str: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -140,16 +158,16 @@ class ea_name_t:
         
         """
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -166,10 +184,10 @@ class ea_name_t:
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -179,7 +197,7 @@ class ea_name_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class ea_name_vec_t:
@@ -189,29 +207,35 @@ class ea_name_vec_t:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> Any:
+    def __eq__(self, value: Any) -> bool:
         r"""Return self==value."""
         ...
-    def __format__(self, format_spec: Any) -> Any:
-        r"""Default object formatter."""
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
         ...
-    def __ge__(self, value: Any) -> Any:
+    def __ge__(self, value: Any) -> bool:
         r"""Return self>=value."""
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
-    def __getitem__(self, i: size_t) -> ea_name_t:
+    def __getitem__(self, i: int) -> ea_name_t:
         ...
-    def __gt__(self, value: Any) -> Any:
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
         r"""Return self>value."""
         ...
-    def __hash__(self) -> Any:
+    def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, args: Any) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> Any:
+    def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
         
         The default implementation does nothing. It may be
@@ -219,21 +243,21 @@ class ea_name_vec_t:
         
         """
         ...
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[ea_name_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
-    def __le__(self, value: Any) -> Any:
+    def __le__(self, value: Any) -> bool:
         r"""Return self<=value."""
         ...
     def __len__(self) -> int:
         ...
-    def __lt__(self, value: Any) -> Any:
+    def __lt__(self, value: Any) -> bool:
         r"""Return self<value."""
         ...
-    def __ne__(self, value: Any) -> Any:
+    def __ne__(self, value: Any) -> bool:
         r"""Return self!=value."""
         ...
-    def __new__(self, args: Any, kwargs: Any) -> Any:
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
         ...
     def __reduce__(self) -> Any:
@@ -247,15 +271,15 @@ class ea_name_vec_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
-    def __setitem__(self, i: size_t, v: ea_name_t) -> None:
+    def __setitem__(self, i: int, v: ea_name_t) -> None:
         ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
-    def __str__(self) -> Any:
+    def __str__(self) -> str:
         r"""Return str(self)."""
         ...
-    def __subclasshook__(self, *args: Any, **kwargs: Any) -> Any:
+    def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
         
         This is invoked early on by abc.ABCMeta.__subclasscheck__().
@@ -265,15 +289,15 @@ class ea_name_vec_t:
         
         """
         ...
-    def __swig_destroy__(self, *args: Any, **kwargs: Any) -> Any:
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
     def append(self, x: ea_name_t) -> None:
         ...
-    def at(self, _idx: size_t) -> ea_name_t:
+    def at(self, _idx: int) -> ea_name_t:
         ...
     def back(self) -> Any:
         ...
-    def begin(self, args: Any) -> qvector:
+    def begin(self, *args: Any) -> qvector:
         ...
     def capacity(self) -> int:
         ...
@@ -281,9 +305,9 @@ class ea_name_vec_t:
         ...
     def empty(self) -> bool:
         ...
-    def end(self, args: Any) -> qvector:
+    def end(self, *args: Any) -> qvector:
         ...
-    def erase(self, args: Any) -> qvector:
+    def erase(self, *args: Any) -> qvector:
         ...
     def extend(self, x: ea_name_vec_t) -> None:
         ...
@@ -291,21 +315,21 @@ class ea_name_vec_t:
         ...
     def front(self) -> Any:
         ...
-    def grow(self, args: Any) -> None:
+    def grow(self, *args: Any) -> None:
         ...
-    def inject(self, s: ea_name_t, len: size_t) -> None:
+    def inject(self, s: ea_name_t, len: int) -> None:
         ...
     def insert(self, it: ea_name_t, x: ea_name_t) -> qvector:
         ...
     def pop_back(self) -> None:
         ...
-    def push_back(self, args: Any) -> ea_name_t:
+    def push_back(self, *args: Any) -> ea_name_t:
         ...
     def qclear(self) -> None:
         ...
-    def reserve(self, cnt: size_t) -> None:
+    def reserve(self, cnt: int) -> None:
         ...
-    def resize(self, args: Any) -> None:
+    def resize(self, *args: Any) -> None:
         ...
     def size(self) -> int:
         ...
@@ -314,7 +338,7 @@ class ea_name_vec_t:
     def truncate(self) -> None:
         ...
 
-def append_struct_fields(disp: adiff_t, n: int, path: tid_t, flags: flags64_t, delta: adiff_t, appzero: bool) -> str:
+def append_struct_fields(disp: int, n: int, path: int, flags: int, delta: int, appzero: bool) -> str:
     r"""Append names of struct fields to a name if the name is a struct name. 
             
     :param disp: displacement from the name
@@ -329,13 +353,13 @@ def append_struct_fields(disp: adiff_t, n: int, path: tid_t, flags: flags64_t, d
 
 def calc_gtn_flags(fromaddr: Any, ea: Any) -> Any:
     r"""
-        Calculate flags for get_ea_name() function
+    Calculate flags for get_ea_name() function
     
-        :param fromaddr: the referring address. May be BADADDR.
-        :param ea: linear address
+    :param fromaddr: the referring address. May be BADADDR.
+    :param ea: linear address
     
-        :returns: flags
-        
+    :returns: flags
+    
     """
     ...
 
@@ -385,19 +409,19 @@ def get_colored_name(ea: ida_idaapi.ea_t) -> str:
 def get_colored_short_name(ea: ida_idaapi.ea_t, gtn_flags: int = 0) -> str:
     ...
 
-def get_cp_validity(args: Any) -> bool:
+def get_cp_validity(*args: Any) -> bool:
     r"""Is the given codepoint (or range) acceptable in the given context? If 'endcp' is not BADCP, it is considered to be the end of the range: [cp, endcp), and is not included in the range 
             
     """
     ...
 
-def get_debug_name(ea_ptr: ea_t, how: debug_name_how_t) -> str:
+def get_debug_name(ea_ptr: int, how: debug_name_how_t) -> str:
     ...
 
 def get_debug_name_ea(name: str) -> ida_idaapi.ea_t:
     ...
 
-def get_debug_names(args: Any) -> Any:
+def get_debug_names(*args: Any) -> Any:
     ...
 
 def get_demangled_name(ea: ida_idaapi.ea_t, inhibitor: int, demform: int, gtn_flags: int = 0) -> str:
@@ -481,13 +505,13 @@ def get_nice_colored_name(ea: ida_idaapi.ea_t, flags: int = 0) -> str:
     """
     ...
 
-def get_nlist_ea(idx: size_t) -> ida_idaapi.ea_t:
+def get_nlist_ea(idx: int) -> ida_idaapi.ea_t:
     ...
 
 def get_nlist_idx(ea: ida_idaapi.ea_t) -> int:
     ...
 
-def get_nlist_name(idx: size_t) -> str:
+def get_nlist_name(idx: int) -> str:
     ...
 
 def get_nlist_size() -> int:
@@ -521,7 +545,7 @@ def is_ident_cp(cp: wchar32_t) -> bool:
 def is_in_nlist(ea: ida_idaapi.ea_t) -> bool:
     ...
 
-def is_name_defined_locally(args: Any) -> bool:
+def is_name_defined_locally(*args: Any) -> bool:
     r"""Is the name defined locally in the specified function? 
             
     :param pfn: pointer to function
@@ -551,7 +575,7 @@ def is_uname(name: str) -> bool:
     """
     ...
 
-def is_valid_cp(cp: wchar32_t, kind: nametype_t, data: void = None) -> bool:
+def is_valid_cp(cp: wchar32_t, kind: nametype_t, data: Any = None) -> bool:
     r"""Is the given codepoint acceptable in the given context?
     
     """
@@ -602,7 +626,7 @@ def reorder_dummy_names() -> None:
     """
     ...
 
-def set_cp_validity(args: Any) -> None:
+def set_cp_validity(*args: Any) -> None:
     r"""Mark the given codepoint (or range) as acceptable or unacceptable in the given context If 'endcp' is not BADCP, it is considered to be the end of the range: [cp, endcp), and is not included in the range 
             
     """
@@ -824,7 +848,7 @@ VNT_STRLIT: int  # 1
 VNT_TYPE: int  # 8
 VNT_UDTMEM: int  # 2
 VNT_VISIBLE: int  # 2
-annotations: _Feature
+annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 bisect: module
 cvar: swigvarlink
 ida_idaapi: module

@@ -169,7 +169,7 @@ class BacktestingSetupHandler(System.Object, QuantConnect.Lean.Engine.Setup.ISet
         Get the maximum time that the initialization of an algorithm can take
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -183,7 +183,7 @@ class BacktestingSetupHandler(System.Object, QuantConnect.Lean.Engine.Setup.ISet
         Get the maximum time that the creation of an algorithm can take
         
         
-        This codeEntityType is protected.
+        This Property is protected.
         """
         ...
 
@@ -371,7 +371,7 @@ class BrokerageSetupHandler(System.Object, QuantConnect.Lean.Engine.Setup.ISetup
         Get the open orders from a brokerage. Adds Orders.Order and Orders.OrderTicket to the transaction handler
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         
         :param algorithm: Algorithm instance
         :param result_handler: The configured result handler
@@ -385,7 +385,7 @@ class BrokerageSetupHandler(System.Object, QuantConnect.Lean.Engine.Setup.ISetup
         Loads existing holdings and orders
         
         
-        This codeEntityType is protected.
+        This Class is protected.
         """
         ...
 
