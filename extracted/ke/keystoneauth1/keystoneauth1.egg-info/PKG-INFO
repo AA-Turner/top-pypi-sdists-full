@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: keystoneauth1
-Version: 5.13.1
+Version: 5.14.0
 Summary: Authentication Library for OpenStack Identity
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Documentation, https://docs.openstack.org/keystoneauth/latest/
 Project-URL: Source, https://opendev.org/openstack/keystoneauth/
 Project-URL: Bugs, https://bugs.launchpad.net/keystoneauth/
@@ -11,7 +11,6 @@ Project-URL: Release Notes, https://docs.openstack.org/releasenotes/keystoneauth
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3

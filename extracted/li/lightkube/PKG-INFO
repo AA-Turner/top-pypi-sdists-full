@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lightkube
-Version: 0.19.1
+Version: 0.21.0
 Summary: Lightweight kubernetes client library
 Author: Giuseppe Tribulato
 Author-email: Giuseppe Tribulato <gtsystem@gmail.com>
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: lightkube-models>=1.15.12.0
 Requires-Dist: httpx[http2]>=0.28.1,<1.0.0
 Requires-Dist: pyyaml
+Requires-Dist: httpx-ws>=0.6.2
 Requires-Dist: jinja2 ; extra == 'jinja-templates'
 Requires-Python: >=3.8
 Project-URL: Repository, https://github.com/gtsystem/lightkube
@@ -52,9 +53,13 @@ This module is powered by [httpx](https://github.com/encode/httpx/tree/master/ht
 
 This module requires python >= 3.8 
 
-    pip install lightkube
+```sh
+pip install lightkube
+```
 
 ## Usage
+
+### List
 
 Read a pod
 
@@ -68,6 +73,7 @@ print(pod.namespace.uid)
 ```
 
 List nodes
+
 ```python
 from lightkube import Client
 from lightkube.resources.core_v1 import Node
@@ -77,21 +83,16 @@ for node in client.list(Node):
     print(node.metadata.name)
 ```
 
-Watch deployments
-```python
-from lightkube import Client
-from lightkube.resources.apps_v1 import Deployment
-
-client = Client()
-for op, dep in client.watch(Deployment, namespace="default"):
-    print(f"{dep.namespace.name} {dep.spec.replicas}")
-```
+### Create
 
 Create a config map
+
 ```python
+from lightkube import Client
 from lightkube.resources.core_v1 import ConfigMap
 from lightkube.models.meta_v1 import ObjectMeta
 
+client = Client()
 config = ConfigMap(
     metadata=ObjectMeta(name='my-config', namespace='default'),
     data={'key1': 'value1', 'key2': 'value2'}
@@ -100,41 +101,8 @@ config = ConfigMap(
 client.create(config)
 ```
 
-Replace the previous config with a different content
-```python
-config.data['key1'] = 'new value'
-client.replace(config)
-```
-
-Patch an existing config adding more data
-```python
-patch = {"data": {"key3": "value3"}}
-cm = client.patch(ConfigMap, name="my-config", obj=patch)
-```
-
-Remove the just added data key `key3`
-```python
-# When using PatchType.MERGE, setting a value of a key/value to None, will remove the current item 
-patch = {'metadata': {"key3": None}}
-client.patch(ConfigMap, name='my-config', namespace='default', obj=patch, patch_type=PatchType.MERGE)
-```
-
-Add a label
-```python
-cm = client.set(ConfigMap, name="my-config", labels={'env': 'prod'})
-```
-
-Remove a label
-```python
-cm = client.set(ConfigMap, name="my-config", labels={'env': None})
-```
-
-Delete a namespaced resource
-```python
-client.delete(ConfigMap, name='my-config', namespace='default')
-```
-
 Create resources defined in a file
+
 ```python
 from lightkube import Client, codecs
 
@@ -144,12 +112,51 @@ with open('deployment.yaml') as f:
         client.create(obj)
 ```
 
-Scale a deployment
+### Modify
+
+Replace the previous config with a different content
+
 ```python
+config.data['key1'] = 'new value'
+client.replace(config)
+```
+
+Patch an existing config adding more data
+
+```python
+patch = {"data": {"key3": "value3"}}
+client.patch(ConfigMap, name="my-config", obj=patch)
+```
+
+Remove the just added data key `key3`
+
+```python
+# When using PatchType.MERGE, setting a value of a key/value to None, will remove the current item 
+patch = {'metadata': {"key3": None}}
+client.patch(ConfigMap, name='my-config', namespace='default', obj=patch, patch_type=PatchType.MERGE)
+```
+
+Add a label
+
+```python
+client.set(ConfigMap, name="my-config", labels={'env': 'prod'})
+```
+
+Remove a label
+
+```python
+client.set(ConfigMap, name="my-config", labels={'env': None})
+```
+
+Scale a deployment
+
+```python
+from lightkube import Client
 from lightkube.resources.apps_v1 import Deployment
 from lightkube.models.meta_v1 import ObjectMeta
 from lightkube.models.autoscaling_v1 import ScaleSpec
 
+client = Client()
 obj = Deployment.Scale(
     metadata=ObjectMeta(name='metrics-server', namespace='kube-system'),
     spec=ScaleSpec(replicas=1)
@@ -158,16 +165,18 @@ client.replace(obj)
 ```
 
 Update Status of a deployment
+
 ```python
+from lightkube import Client
 from lightkube.resources.apps_v1 import Deployment
 from lightkube.models.apps_v1 import DeploymentStatus
 
+client = Client()
 obj = Deployment.Status(
     status=DeploymentStatus(observedGeneration=99)
 )
 client.apply(obj, name='metrics-server', namespace='kube-system')
 ```
-
 
 Create and modify resources using [server side apply](https://kubernetes.io/docs/reference/using-api/server-side-apply/)
 
@@ -199,7 +208,29 @@ print(res.data)
 # prints {'key2': 'value2', 'key3': 'value3'}
 ```
 
+### Delete
+
+Delete a namespaced resource
+
+```python
+client.delete(ConfigMap, name='my-config', namespace='default')
+```
+
+### Monitoring & Interaction
+
+Watch deployments
+
+```python
+from lightkube import Client
+from lightkube.resources.apps_v1 import Deployment
+
+client = Client()
+for op, dep in client.watch(Deployment, namespace="default"):
+    print(f"{dep.namespace.name} {dep.spec.replicas}")
+```
+
 Stream pod logs
+
 ```python
 from lightkube import Client
 
@@ -208,10 +239,29 @@ for line in client.log('my-pod', follow=True):
     print(line)
 ```
 
+Execute a command inside a pod
+
+```python
+from lightkube import Client
+
+client = Client()
+
+# Capture stdout or raise ApiError if error code is != 0
+res = client.exec('my-pod', namespace='default', container='main', command=['ls', '-l', '/'], 
+    stdout=True, raise_on_error=True)
+print(res.stdout)
+
+# Send data to stdin and capture output
+res = client.exec('my-pod', namespace='default', container='main', command=['cat'], 
+    stdin='hello\n', stdout=True)
+print(res.stdout)
+print(res.exit_code)
+```
+
 ## Unsupported features
 
 The following features are not supported at the moment:
 
-* Special subresources `attach`, `exec`, `portforward` and `proxy`.
-* `auth-provider` authentication method is not supported. The supported
-  authentication methods are `token`, `username` + `password` and `exec`.
+* Special subresources `attach`, `portforward` and `proxy`.
+* `auth-provider` authentication method is not supported. The supported authentication methods are `token`, `tokenFile`, `username` + `password` and `exec`.
+

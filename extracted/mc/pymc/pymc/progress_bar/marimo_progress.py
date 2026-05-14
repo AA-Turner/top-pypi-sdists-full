@@ -45,49 +45,6 @@ def in_marimo_notebook() -> bool:
         return False
 
 
-def _mo_write_internal(cell_id: str, value: object) -> None:
-    """Write to marimo cell given cell_id."""
-    from marimo._messaging.cell_output import CellChannel
-    from marimo._messaging.notification_utils import CellNotificationUtils
-    from marimo._messaging.tracebacks import write_traceback
-    from marimo._output import formatting
-
-    output = formatting.try_format(value)
-    if output.traceback is not None:
-        write_traceback(output.traceback)
-    CellNotificationUtils.broadcast_output(
-        channel=CellChannel.OUTPUT,
-        mimetype=output.mimetype,
-        data=output.data,
-        cell_id=cell_id,  # type: ignore[arg-type]
-        status=None,
-    )
-
-
-def _mo_create_replace() -> Callable[[object], None] | None:
-    """Create mo.output.replace with current cell context pinned."""
-    from marimo._output import formatting
-    from marimo._runtime.context import get_context
-    from marimo._runtime.context.types import ContextNotInitializedError
-
-    try:
-        ctx = get_context()
-    except ContextNotInitializedError:
-        return None
-
-    if ctx.execution_context is None:
-        return None
-
-    cell_id = ctx.execution_context.cell_id
-    execution_context = ctx.execution_context
-
-    def replace(value: object) -> None:
-        execution_context.output = [formatting.as_html(value)]
-        _mo_write_internal(cell_id=cell_id, value=value)
-
-    return replace
-
-
 class MarimoProgressBackend:
     """Marimo-based progress bar backend for HTML rendering.
 
@@ -99,7 +56,7 @@ class MarimoProgressBackend:
         self,
         step_name: str,
         n_bars: int,
-        total: int | float,
+        total: int | float | None,
         combined: bool,
         full_stats: bool,
         css_theme: str | None = None,
@@ -113,7 +70,7 @@ class MarimoProgressBackend:
 
         self._mo_replace: Callable[[object], None] | None = None
         self._task_state: list[dict[str, Any]] = []
-        self._start_times: list[float] = []
+        self._start_times: list[float | None] = []
         self._last_render_time: float = 0.0
         self._min_render_interval: float = 0.1
 
@@ -126,7 +83,7 @@ class MarimoProgressBackend:
         """Enter the context manager and initialize display."""
         import marimo as mo
 
-        self._mo_replace = _mo_create_replace()
+        self._mo_replace = mo.output.replace
         self._initialize_tasks()
         mo.output.clear()
         self._render()
@@ -137,27 +94,19 @@ class MarimoProgressBackend:
 
     def _initialize_tasks(self) -> None:
         """Initialize progress tracking state for all tasks."""
-        if self.combined:
-            self._task_state = [
-                {
-                    "completed": 0,
-                    "total": self.total * self.n_bars,
-                    "failing": False,
-                    "stats": {},
-                }
-            ]
-            self._start_times = [perf_counter()]
-        else:
-            self._task_state = [
-                {
-                    "completed": 0,
-                    "total": self.total,
-                    "failing": False,
-                    "stats": {},
-                }
-                for _ in range(self.n_bars)
-            ]
-            self._start_times = [perf_counter() for _ in range(self.n_bars)]
+        self._task_state = [
+            {
+                "completed": 0,
+                "total": self.total,
+                "failing": False,
+                "stats": {},
+            }
+            for _ in range(self.n_bars)
+        ]
+        # Per-bar clocks start lazily on the first update so that, with
+        # ``cores < chains``, later chains aren't timed from the first chain's
+        # start.
+        self._start_times = [None] * self.n_bars
 
     def update(
         self,
@@ -166,6 +115,7 @@ class MarimoProgressBackend:
         failing: bool,
         stats: dict[str, Any],
         is_last: bool,
+        total: int | None = None,
     ) -> None:
         """Update progress for a specific task.
 
@@ -181,7 +131,17 @@ class MarimoProgressBackend:
             Statistics to display
         is_last : bool
             Whether this is the final update
+        total : int, optional
+            Updated total for the bar. If None, the existing total is kept.
+            Pass an integer when the total wasn't known at construction time
+            (e.g. nutpie's tune count) or changes mid-run.
         """
+        if total is not None:
+            self._task_state[task_id]["total"] = total
+
+        if self._start_times[task_id] is None:
+            self._start_times[task_id] = perf_counter()
+
         self._task_state[task_id]["completed"] += advance
         self._task_state[task_id]["failing"] = failing
         self._task_state[task_id]["stats"] = stats
@@ -253,11 +213,17 @@ class MarimoProgressBackend:
         failing = state["failing"]
         stats = state["stats"]
 
-        pct = (completed / total * 100) if total > 0 else 0
-        elapsed = perf_counter() - self._start_times[task_id]
+        pct = (completed / total * 100) if total else 0
+        start_time = self._start_times[task_id]
+        elapsed = 0.0 if start_time is None else perf_counter() - start_time
 
         action = self.step_name.lower()
-        speed = completed / max(elapsed, 1e-6)
+        # Wait for a small window of elapsed time before computing speed so the
+        # first reading isn't ``completed / ~0 ≈ infinity``.
+        if elapsed > 0.25:
+            speed = completed / elapsed
+        else:
+            speed = 0
         if speed > 1 or speed == 0:
             unit = f"{action}s/s"
         else:
@@ -270,9 +236,10 @@ class MarimoProgressBackend:
         elif pct >= 100:
             bar_class += " finished"
 
+        total_str = "?" if total is None else str(total)
         cells = [
             f'<td><div class="pymc-progress-bar-container"><div class="{bar_class}" style="width: {pct:.1f}%"></div></div></td>',
-            f"<td>{completed}/{total} ({pct:.0f}%)</td>",
+            f"<td>{completed}/{total_str} ({pct:.0f}%)</td>",
         ]
 
         for key in stat_keys:
@@ -309,11 +276,10 @@ class MarimoSimpleProgress:
 
     def __enter__(self) -> Self:
         """Enter the context manager."""
-        self._mo_replace = _mo_create_replace()
-        self._start_time = perf_counter()
-
         import marimo as mo
 
+        self._mo_replace = mo.output.replace
+        self._start_time = perf_counter()
         mo.output.clear()
         self._render()
         return self

@@ -14,6 +14,9 @@ Usage::
         ListAgentSpacesPaginator,
         ListApplicationsPaginator,
         ListArtifactsPaginator,
+        ListCodeReviewJobTasksPaginator,
+        ListCodeReviewJobsForCodeReviewPaginator,
+        ListCodeReviewsPaginator,
         ListDiscoveredEndpointsPaginator,
         ListFindingsPaginator,
         ListIntegratedResourcesPaginator,
@@ -32,6 +35,9 @@ Usage::
     list_agent_spaces_paginator: ListAgentSpacesPaginator = client.get_paginator("list_agent_spaces")
     list_applications_paginator: ListApplicationsPaginator = client.get_paginator("list_applications")
     list_artifacts_paginator: ListArtifactsPaginator = client.get_paginator("list_artifacts")
+    list_code_review_job_tasks_paginator: ListCodeReviewJobTasksPaginator = client.get_paginator("list_code_review_job_tasks")
+    list_code_review_jobs_for_code_review_paginator: ListCodeReviewJobsForCodeReviewPaginator = client.get_paginator("list_code_review_jobs_for_code_review")
+    list_code_reviews_paginator: ListCodeReviewsPaginator = client.get_paginator("list_code_reviews")
     list_discovered_endpoints_paginator: ListDiscoveredEndpointsPaginator = client.get_paginator("list_discovered_endpoints")
     list_findings_paginator: ListFindingsPaginator = client.get_paginator("list_findings")
     list_integrated_resources_paginator: ListIntegratedResourcesPaginator = client.get_paginator("list_integrated_resources")
@@ -49,6 +55,9 @@ from .paginator import (
     ListAgentSpacesPaginator,
     ListApplicationsPaginator,
     ListArtifactsPaginator,
+    ListCodeReviewJobsForCodeReviewPaginator,
+    ListCodeReviewJobTasksPaginator,
+    ListCodeReviewsPaginator,
     ListDiscoveredEndpointsPaginator,
     ListFindingsPaginator,
     ListIntegratedResourcesPaginator,
@@ -67,6 +76,9 @@ __all__ = (
     "ListAgentSpacesPaginator",
     "ListApplicationsPaginator",
     "ListArtifactsPaginator",
+    "ListCodeReviewJobTasksPaginator",
+    "ListCodeReviewJobsForCodeReviewPaginator",
+    "ListCodeReviewsPaginator",
     "ListDiscoveredEndpointsPaginator",
     "ListFindingsPaginator",
     "ListIntegratedResourcesPaginator",

@@ -22,9 +22,9 @@ import sys
 import tempfile
 import time
 from collections.abc import Iterable, Iterator, Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
-from typing_extensions import Any, Literal, Protocol, Self
+from typing_extensions import Any, Protocol, Self
 
 import wandb
 import wandb.env
@@ -783,6 +783,7 @@ class _WandbInit:
             "restore",
             "status",
             "watch",
+            "write_logs",
             "unwatch",
             "upsert_artifact",
             "_finish",
@@ -1301,7 +1302,12 @@ def init(  # noqa: C901
 
     `wandb.init()` spawns a new background process to log data to a run, and it
     also syncs data to https://wandb.ai by default, so you can see your results
-    in real-time. When you're done logging data, call `wandb.Run.finish()` to end the run.
+    in real-time. When you're done logging data, call `run.finish()` to
+    end the run, or use the run as a context manager to call it automatically:
+
+        with wandb.init() as run:
+            ...  # run.finish() executes at the end of the block
+
     If you don't call `run.finish()`, the run will end when your script exits.
 
     Run IDs must not contain any of the following special characters `/ \ # ? % :`
@@ -1539,6 +1545,10 @@ def init(  # noqa: C901
             init_telemetry.feature.set_init_name = True
         if run_settings.run_tags is not None:
             init_telemetry.feature.set_init_tags = True
+        if run_settings.finish_timeout > 0:
+            init_telemetry.feature.finish_timeout = True
+        if run_settings.finish_timeout_raises:
+            init_telemetry.feature.finish_timeout_raises = True
         if run_settings._offline:
             init_telemetry.feature.offline = True
         if run_settings.fork_from is not None:
@@ -1547,6 +1557,7 @@ def init(  # noqa: C901
             init_telemetry.feature.rewind_mode = True
 
         wi.set_run_id(run_settings)
+        try_create_root_dir(run_settings)
         wi.set_sync_dir_suffix(run_settings)
         run_printer = printer.new_printer(run_settings)
         show_warnings(run_printer)
@@ -1564,7 +1575,6 @@ def init(  # noqa: C901
             if run_settings._noop:
                 return wi.make_disabled_run(run_config)
 
-            try_create_root_dir(run_settings)
             exit_stack.enter_context(wi.setup_run_log_directory(run_settings))
 
             if run_settings._jupyter:

@@ -44,7 +44,6 @@ class AthenaSqlHelper(SqlHelper):
         region = aws_location.get("awsRegion")
         work_group = connection_data["workgroup_name"]
         s3_staging_dir = AthenaSqlHelper._get_s3_staging_dir(work_group, region)
-        connection_creds = connection_data["connection_creds"]
         catalog_name = kwargs.get("catalog_name")
         schema_name = kwargs.get("schema_name")
 
@@ -52,12 +51,20 @@ class AthenaSqlHelper(SqlHelper):
             "region": region,
             "work_group": work_group,
             "s3_staging_dir": s3_staging_dir,
-            "aws_access_key_id": connection_creds.get("access_key_id"),
-            "aws_secret_access_key": connection_creds.get("secret_access_key"),
         }
 
-        if connection_creds.get("session_token"):
-            config["aws_session_token"] = connection_creds.get("session_token")
+        # Use credential_provider if provided, otherwise use static credentials
+        credential_provider = kwargs.get("credential_provider")
+
+        if credential_provider is not None:
+            config["credential_provider"] = credential_provider
+        else:
+            connection_creds = connection_data["connection_creds"]
+            config["aws_access_key_id"] = connection_creds.get("access_key_id")
+            config["aws_secret_access_key"] = connection_creds.get("secret_access_key")
+            if connection_creds.get("session_token"):
+                config["aws_session_token"] = connection_creds.get("session_token")
+
         if catalog_name:
             config["catalog_name"] = catalog_name
         if schema_name:

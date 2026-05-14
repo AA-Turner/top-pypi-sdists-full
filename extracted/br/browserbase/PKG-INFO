@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: browserbase
-Version: 1.8.0
+Version: 1.10.0
 Summary: The official Python library for the Browserbase API
 Project-URL: Homepage, https://github.com/browserbase/sdk-python
 Project-URL: Repository, https://github.com/browserbase/sdk-python

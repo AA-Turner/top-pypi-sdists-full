@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Perception
-Version: 0.8.5
+Version: 0.9.0
 Summary: Perception provides flexible, well-documented, and comprehensively tested tooling for perceptual hashing research, development, and production use.
 Author-email: Thorn <info@wearethorn.org>
 License-Expression: Apache-2.0
@@ -9,19 +9,22 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy<3.0.0,>=1.26.4
 Requires-Dist: opencv-contrib-python-headless<5.0.0,>=4.10.0
-Requires-Dist: faiss-cpu<2.0.0,>=1.8.0
-Requires-Dist: networkit<12.0.0,>=11.1; sys_platform != "darwin"
-Requires-Dist: networkx<4.0,>=3.0; sys_platform == "darwin"
-Requires-Dist: pandas
 Requires-Dist: Pillow
 Requires-Dist: pywavelets<2.0.0,>=1.5.0
 Requires-Dist: validators<1.0.0,>=0.22.0
 Requires-Dist: rich<14.0.0,>=13.7.0
 Requires-Dist: scipy
 Requires-Dist: tqdm<5.0.0,>=4.67.1
+Requires-Dist: typing_extensions<5.0,>=4.0
+Provides-Extra: approximate-deduplication
+Requires-Dist: faiss-cpu<2.0.0,>=1.8.0; extra == "approximate-deduplication"
+Requires-Dist: networkit<12.0.0,>=11.1; sys_platform != "darwin" and extra == "approximate-deduplication"
+Requires-Dist: networkx<4.0,>=3.0; sys_platform == "darwin" and extra == "approximate-deduplication"
+Requires-Dist: pandas; extra == "approximate-deduplication"
 Provides-Extra: benchmarking
 Requires-Dist: matplotlib; extra == "benchmarking"
 Requires-Dist: albumentations<3.0.0,>=2.0.8; extra == "benchmarking"
+Requires-Dist: pandas; extra == "benchmarking"
 Requires-Dist: tabulate; extra == "benchmarking"
 Requires-Dist: scikit-learn; extra == "benchmarking"
 Requires-Dist: ffmpeg-python; extra == "benchmarking"
@@ -50,6 +53,10 @@ Dynamic: license-file
 
 `perception` provides optional extras for additional functionality:
 
+- `approximate-deduplication` – FAISS-based approximate-nearest-neighbor
+  deduplication and graph community/clique detection (used by
+  `perception.approximate_deduplication` and
+  `perception.local_descriptor_deduplication`)
 - `benchmarking` – tools for benchmarking perceptual hashes
 - `matching` – async matching utilities
 - `pdq` – Facebook's PDQ hash support

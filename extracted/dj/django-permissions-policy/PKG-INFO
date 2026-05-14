@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-permissions-policy
-Version: 4.29.0
+Version: 4.30.0
 Summary: Set the Permissions-Policy HTTP header on your Django app.
 Author-email: Adam Johnson <me@adamj.eu>
 License-Expression: MIT

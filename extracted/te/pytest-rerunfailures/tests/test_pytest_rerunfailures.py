@@ -821,6 +821,30 @@ def test_only_rerun_flag_in_flaky_marker(
 
 
 @pytest.mark.parametrize(
+    "filter_kwarg,should_rerun",
+    [
+        ("only_rerun=[AssertionError]", True),
+        ("only_rerun=[ValueError]", False),
+        ("rerun_except=[AssertionError]", False),
+        ("rerun_except=[ValueError]", True),
+    ],
+)
+def test_rerun_filter_accepts_exception_classes(testdir, filter_kwarg, should_rerun):
+    testdir.makepyfile(
+        f"""
+        import pytest
+
+        @pytest.mark.flaky(reruns=1, {filter_kwarg})
+        def test_fail():
+            raise AssertionError("ERR")
+        """
+    )
+    result = testdir.runpytest()
+    num_reruns = 1 if should_rerun else 0
+    assert_outcomes(result, passed=0, failed=1, rerun=num_reruns)
+
+
+@pytest.mark.parametrize(
     "marker_rerun_except,cli_rerun_except,raised_error,should_rerun",
     [
         ("AssertionError", None, "AssertionError", False),
@@ -1168,6 +1192,40 @@ def test_run_session_teardown_once_after_reruns(testdir):
 
     logging.info.assert_has_calls(expected_calls, any_order=False)
     assert_outcomes(result, failed=8, passed=2, rerun=18, skipped=5, error=1)
+
+
+def test_run_session_teardown_when_fixture_teardown_fails(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        @pytest.fixture(scope='session', autouse=True)
+        def session_fixture():
+            yield
+            print('session teardown')
+
+        @pytest.fixture(scope='module', autouse=True)
+        def module_fixture():
+            yield
+            print('module teardown')
+
+        @pytest.fixture
+        def broken_fixture():
+            yield
+            raise Exception("fixture teardown error")
+
+        def test_fail_in_fixture(broken_fixture):
+            pass
+
+        def test_ok():
+            pass
+    """
+    )
+
+    result = testdir.runpytest("--reruns", "1", "-s")
+    result.stdout.fnmatch_lines("*session teardown*")
+    result.stdout.fnmatch_lines("*module teardown*")
+    assert_outcomes(result, passed=3, rerun=1, error=1)
 
 
 def test_exception_matches_rerun_except_query(testdir):

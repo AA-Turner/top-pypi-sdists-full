@@ -23921,14 +23921,6 @@ class CfnModel(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="attrModelArn")
     def attr_model_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the model.

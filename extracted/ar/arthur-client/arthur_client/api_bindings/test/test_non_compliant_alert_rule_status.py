@@ -39,15 +39,13 @@ class TestNonCompliantAlertRuleStatus(unittest.TestCase):
                 name = '',
                 alert = arthur_client.api_bindings.models.compliance_alert_summary.ComplianceAlertSummary(
                     description = '', 
-                    id = '', )
+                    id = '', ),
+                error_message = ''
             )
         else:
             return NonCompliantAlertRuleStatus(
                 id = '',
                 name = '',
-                alert = arthur_client.api_bindings.models.compliance_alert_summary.ComplianceAlertSummary(
-                    description = '', 
-                    id = '', ),
         )
         """
 

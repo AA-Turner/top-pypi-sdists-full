@@ -6,6 +6,15 @@ from dataclasses import dataclass, field
 from importlib.metadata import version
 from pathlib import Path
 
+_FRAGMENT_CHROME_WARNED = False
+
+
+def _fragment_chrome_warned() -> bool:
+    global _FRAGMENT_CHROME_WARNED
+    already = _FRAGMENT_CHROME_WARNED
+    _FRAGMENT_CHROME_WARNED = True
+    return already
+
 
 @dataclass
 class DockerConfig:
@@ -515,7 +524,7 @@ class ProjectManifest:
     # first paint regardless of any stale cookie state.
     app_theme: str | None = None  # v0.61.36: app-shell theme preset (overrides
     # the default shadcn-zinc tokens with an alternate :root block). One of
-    # the presets shipped in src/dazzle_ui/runtime/static/css/themes/<name>.css
+    # the presets shipped in src/dazzle/ui/runtime/static/css/themes/<name>.css
     # — e.g. "linear-dark", "paper", "stripe". None = default theme.
     # Distinct from [theme] which covers site/marketing-page tokens.
     haptic: bool = False  # #958 cycle 5 — haptic opt-in. When True, the
@@ -523,6 +532,11 @@ class ProjectManifest:
     # success, swipe, pull-to-refresh complete, confirm submit) on
     # mobile devices that support the Vibration API. Off by default so
     # adopters consciously opt in — uninvited vibration is jarring.
+    # Phase 4 app-shell migration (v0.67.45): the `fragment_chrome`
+    # flag is retired. Typed-Fragment is the only render path now.
+    # Backward-compat aliases keep accepting `[ui] fragment_chrome =
+    # true` in dazzle.toml without raising — the loader logs a
+    # deprecation notice but does NOT toggle anything.
     environments: dict[str, EnvironmentProfile] = field(default_factory=dict)
     extensions: ExtensionsConfig = field(default_factory=ExtensionsConfig)
     # v0.61.104 (#932): per-name `[storage.<name>]` blocks. Keyed by the
@@ -819,6 +833,19 @@ def load_manifest(path: Path) -> ProjectManifest:
     app_theme_name = ui_data.get("theme") or ui_data.get("app_theme")
     dark_mode_toggle_enabled = bool(ui_data.get("dark_mode_toggle", True))
     haptic_enabled = bool(ui_data.get("haptic", False))
+    # Phase 4 app-shell migration (v0.67.45): `[ui] fragment_chrome` is
+    # retired. The key is still accepted in dazzle.toml without raising
+    # so existing project manifests keep loading; a deprecation log
+    # surfaces the no-op. Dedupe via module-level guard: load_manifest is
+    # called 3× per boot (manifest, appspec loader, extensions router).
+    if "fragment_chrome" in ui_data and not _fragment_chrome_warned():
+        import logging as _logging
+
+        _logging.getLogger("dazzle.manifest").info(
+            "[ui] fragment_chrome is deprecated and ignored — typed-Fragment "
+            "is the only render path since v0.67.43. Remove the key from "
+            "dazzle.toml."
+        )
     assets_mode = ui_data.get("assets", "auto")
     if assets_mode not in ("auto", "always", "never"):
         raise ValueError(f"[ui] assets must be 'auto', 'always', or 'never'; got {assets_mode!r}")

@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from google.cloud import bigquery
 import pytest
+from google.cloud import bigquery
 
+import bigframes.operations.aggregations as agg_ops
 from bigframes.core import (
     agg_expressions,
     array_value,
@@ -24,7 +25,6 @@ from bigframes.core import (
     nodes,
     window_spec,
 )
-import bigframes.operations.aggregations as agg_ops
 from bigframes.session import direct_gbq_execution, polars_executor
 from bigframes.testing.engine_utils import assert_equivalence_execution
 
@@ -46,8 +46,9 @@ def test_engines_with_offsets(
 @pytest.mark.parametrize("agg_op", [agg_ops.sum_op, agg_ops.count_op])
 def test_engines_with_rows_window(
     scalars_array_value: array_value.ArrayValue,
-    bigquery_client: bigquery.Client,
     agg_op,
+    bq_engine,
+    sqlglot_engine,
 ):
     window = window_spec.WindowSpec(
         bounds=window_spec.RowsWindowBounds.from_window_size(3, "left"),
@@ -62,12 +63,4 @@ def test_engines_with_rows_window(
         ),
         window_spec=window,
     )
-
-    publisher = events.Publisher()
-    bq_executor = direct_gbq_execution.DirectGbqExecutor(
-        bigquery_client, publisher=publisher
-    )
-    bq_sqlgot_executor = direct_gbq_execution.DirectGbqExecutor(
-        bigquery_client, compiler="sqlglot", publisher=publisher
-    )
-    assert_equivalence_execution(window_node, bq_executor, bq_sqlgot_executor)
+    assert_equivalence_execution(window_node, bq_engine, sqlglot_engine)

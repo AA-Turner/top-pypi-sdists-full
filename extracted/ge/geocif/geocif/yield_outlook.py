@@ -875,7 +875,7 @@ def _build_cid_type_map():
     from geocif.cid import definitions as di
     m = {}
     for d in [di.dict_indices, di.dict_ndvi, di.dict_gcvi, di.dict_esi4wk,
-              di.dict_hindex, di.dict_aef, di.dict_fldas, di.dict_s2s,
+              di.dict_etref, di.dict_hindex, di.dict_aef, di.dict_fldas, di.dict_s2s,
               di.dict_fldas_engineered, di.dict_s2s_engineered]:
         for k, (typ, _) in d.items():
             m[k] = typ
@@ -1645,6 +1645,125 @@ def _generate_outlook_map(
     )
 
 
+def _plot_observed_yields(parser, dir_outlook):
+    """Plot observed-yield time series per (country, crop) — one line per
+    region — into ``${dir_outlook}/plots/observed_yields/*.png`` plus a
+    companion CSV per combo.
+
+    Runs at the start of yield_outlook before the ML phase so the user
+    can sanity-check the training-data ground truth while training is
+    still warming up.
+    """
+    import matplotlib.pyplot as plt
+    from geocif.progress import pbar as _pbar
+
+    countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
+    project_name = parser.get("DEFAULT", "project_name", fallback="geocif")
+    dir_output_proj = Path(parser.get("PATHS", "dir_output")) / project_name
+
+    out_png_dir = dir_outlook / "plots" / "observed_yields"
+    out_csv_dir = dir_outlook / "csvs" / "observed_yields"
+    out_png_dir.mkdir(parents=True, exist_ok=True)
+    out_csv_dir.mkdir(parents=True, exist_ok=True)
+
+    combos = []
+    for country in countries:
+        try:
+            crops = ast.literal_eval(parser.get(country, "crops"))
+        except Exception:
+            continue
+        method = parser.get(country, "method", fallback="monthly_r")
+        for crop in crops:
+            combos.append((country, crop, method))
+
+    if not combos:
+        logger.info("Observed yields: no (country, crop) combos found in config")
+        return
+
+    logger.info(
+        f"Plotting observed yields for {len(combos)} (country, crop) combos "
+        f"before ML phase — output under {out_png_dir}"
+    )
+
+    n_plotted = 0
+    for country, crop, method in _pbar(combos, desc="Observed yields"):
+        stats_file = ut.statistics_file_path(dir_output_proj, method, country, crop)
+        if not stats_file.exists():
+            logger.warning(
+                f"Observed yields: stats file missing for {country} {crop} "
+                f"at {stats_file}; skipping"
+            )
+            continue
+        try:
+            df = pd.read_csv(stats_file)
+        except Exception as e:
+            logger.warning(f"Observed yields: failed to read {stats_file}: {e}")
+            continue
+
+        needed = {"Region", "Harvest Year", "Yield (tn per ha)"}
+        if not needed.issubset(df.columns):
+            logger.warning(
+                f"Observed yields: {country} {crop} stats CSV missing "
+                f"columns {needed - set(df.columns)}; skipping"
+            )
+            continue
+
+        df = df[["Region", "Harvest Year", "Yield (tn per ha)"]].dropna()
+        if df.empty:
+            continue
+        df["Harvest Year"] = df["Harvest Year"].astype(int)
+
+        # Collapse duplicates (region, year) -> mean, then pivot wide.
+        df_plot = (
+            df.groupby(["Region", "Harvest Year"], as_index=False)
+              ["Yield (tn per ha)"].mean()
+        )
+        df_wide = df_plot.pivot(
+            index="Harvest Year", columns="Region", values="Yield (tn per ha)"
+        ).sort_index()
+
+        logger.info(
+            f"  {country} {crop}: {df_wide.shape[1]} regions, "
+            f"{df_wide.index.min()}-{df_wide.index.max()}"
+        )
+
+        try:
+            import scienceplots  # noqa: F401
+            ctx = plt.style.context(["science", "no-latex"])
+        except (ImportError, OSError):
+            from contextlib import nullcontext
+            ctx = nullcontext()
+
+        with ctx:
+            fig, ax = plt.subplots(figsize=(12, 6))
+            df_wide.plot(
+                ax=ax, marker="o", linewidth=1.2, markersize=3, alpha=0.85
+            )
+            ax.set_xlabel("Harvest Year")
+            ax.set_ylabel("Yield (tn per ha)")
+            ax.set_title(
+                f"Observed yields — "
+                f"{country.title().replace('_', ' ')} {crop.title()}",
+                fontsize=11, fontweight="bold",
+            )
+            ax.legend(
+                loc="center left", bbox_to_anchor=(1.0, 0.5),
+                fontsize=8, frameon=False,
+            )
+            plt.tight_layout()
+            fname_png = f"observed_yields_{country}_{crop}.png"
+            fig.savefig(out_png_dir / fname_png, dpi=200, bbox_inches="tight")
+            plt.close(fig)
+
+        df_wide.to_csv(out_csv_dir / f"observed_yields_{country}_{crop}.csv")
+        n_plotted += 1
+
+    logger.info(
+        f"Observed yields: plotted {n_plotted}/{len(combos)} combos to "
+        f"{out_png_dir}"
+    )
+
+
 def run(path_config_files=None, current_year=None, n_years=None, aggregation=None,
         reuse_db=None, use_latest_stage=True, fdw_export=False, since_year=None,
         parser=None, logger_obj=None, outlook_db_name=None, analysis_dir=None):
@@ -1689,6 +1808,27 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
 
     countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
     experiment_name = parser.get("DEFAULT", "experiment_name", fallback="default")
+
+    # Set up dir_outlook early so observed-yield plots can render BEFORE
+    # the ML phase starts. (The same dir is reused later for the
+    # post-training plots/maps; later setup at Step-3 is now skipped
+    # because dir_outlook is already defined.)
+    _project_name = parser.get("DEFAULT", "project_name", fallback="geocif")
+    _dir_output_proj = Path(parser.get("PATHS", "dir_output")) / _project_name
+    if analysis_dir:
+        dir_outlook = Path(analysis_dir) / "outlook"
+    else:
+        _today_tag = ar.utcnow().to("America/New_York").format("MMMM_DD_YYYY_HH[h]mm")
+        dir_outlook = _dir_output_proj / "ml" / "analysis" / _today_tag / "outlook"
+    os.makedirs(dir_outlook, exist_ok=True)
+
+    # Pre-ML observed-yield line plots (one PNG per country/crop, one
+    # line per region) so the user can see the training-data ground
+    # truth while the long-running ML pipeline starts.
+    try:
+        _plot_observed_yields(parser, dir_outlook)
+    except Exception as e:
+        logger.warning(f"Observed-yields plotting failed (non-fatal): {e}")
 
     if reuse_db is not None:
         # ---- Skip ML, reuse existing DB ----
@@ -1830,6 +1970,10 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     dg, dict_config = _load_shapefiles(parser)
 
     # ---- Step 3: Query DB, compute outlook, generate maps ----
+    # `dir_outlook` was set up earlier (before the ML phase) so observed-
+    # yield plots could render up-front; reusing the same path here so
+    # all plots land in one timestamped run directory. `dir_output` and
+    # `db_path` still need to be computed here.
     project_name = parser.get("DEFAULT", "project_name", fallback="geocif")
     dir_output = Path(parser.get("PATHS", "dir_output")) / project_name
     if reuse_db is not None:
@@ -1837,24 +1981,42 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     else:
         db_path = dir_output / "ml" / "db" / outlook_db
 
-    if analysis_dir:
-        dir_outlook = Path(analysis_dir) / "outlook"
-    else:
-        today = ar.utcnow().to("America/New_York").format("MMMM_DD_YYYY_HH[h]mm")
-        dir_outlook = dir_output / "ml" / "analysis" / today / "outlook"
-    os.makedirs(dir_outlook, exist_ok=True)
-
     all_outlook_frames = []
     df_pred_store = {}  # keyed by (country, crop, model) for diagnostics
 
-    for country_crop, config in dict_config.items():
-        crop = config["crops"]
+    # Build flat (country_crop, model) list so we can wrap the outer
+    # post-training plotting loop in one progress bar. Without this, the
+    # phase appears silent for many minutes after the ML bar hits 100%
+    # while it does DB queries, shapefile renders, and dozens of plots
+    # per combo.
+    from geocif.progress import pbar as _pbar, pwrite as _pwrite
+    plot_combos = [
+        (cc, cfg["crops"], m, cfg)
+        for cc, cfg in dict_config.items()
+        for m in cfg["models"]
+    ]
+    logger.info(
+        f"Post-training: generating plots + outputs for {len(plot_combos)} "
+        f"(country_crop, model) combos (DB queries + shapefile renders + "
+        f"per-stage maps + diagnostics) — first DB read may be slow as "
+        f"SQLite catches up on the WAL"
+    )
+
+    _last_country_crop = None
+    obs_baselines = {}
+    for country_crop, crop, model, config in _pbar(plot_combos, desc="Plotting"):
         country = country_crop.replace(f"_{crop}", "")
         is_pooled = country == "pooled"
         models = config["models"]
-        obs_baselines = _load_observed_baselines([country], crop, parser, current_year=current_year)
+        # Reload observed baselines only when country_crop changes
+        if country_crop != _last_country_crop:
+            obs_baselines = _load_observed_baselines(
+                [country], crop, parser, current_year=current_year
+            )
+            _last_country_crop = country_crop
 
-        for model in models:
+        if True:  # preserve original indentation of the per-model body
+            _pwrite(f"[plot] {country} {crop} {model}: querying DB...")
             logger.info(f"Yield outlook: {country} {crop} {model}")
 
             df = _query_predictions(db_path, country_crop, model, experiment_name="outlook")

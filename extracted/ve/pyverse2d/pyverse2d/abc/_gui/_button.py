@@ -7,11 +7,11 @@ from ...math import Point
 from ._widget import Widget
 
 from numbers import Real
-from typing import Callable, Any, TYPE_CHECKING
+from typing import Callable, Any, TYPE_CHECKING, Type, ClassVar
 
 if TYPE_CHECKING:
     from ..._rendering import Pipeline
-    from ...gui import RenderContext
+    from ...gui import RenderContext, HoverBehavior, ClickBehavior
 
 # ======================================== WIDGET ========================================
 class Button(Widget):
@@ -33,7 +33,26 @@ class Button(Widget):
         "_callback", "_condition", "_id", "_give_id",
     )
 
-    _ACTION_NAME: str = "_default"
+    _ACTION_NAME: ClassVar[str] = "_default"
+
+    _HOVER_CLS: Type[HoverBehavior] = None
+    _CLICK_CLS: Type[ClickBehavior] = None
+
+    @classmethod
+    def _get_hover_cls(cls) -> Type[HoverBehavior]:
+        """Renvoie la classe ``HoverBehavior``"""
+        if cls._HOVER_CLS is None:
+            from ...gui import HoverBehavior
+            cls._HOVER_CLS = HoverBehavior
+        return cls._HOVER_CLS
+    
+    @classmethod
+    def _get_click_cls(cls) -> Type[ClickBehavior]:
+        """Renvoie la classe ``ClickBehavior``"""
+        if cls._CLICK_CLS is None:
+            from ...gui import ClickBehavior
+            cls._CLICK_CLS = ClickBehavior
+        return cls._CLICK_CLS
 
     def __init__(
             self,
@@ -48,6 +67,7 @@ class Button(Widget):
             id: Any = None,
             give_id: bool = False,
         ):
+        # Transtypage et vérifications
         if __debug__:
             expect_callable(callback, include_none=True, arg="callback")
             expect_callable(condition, include_none=True, arg="condition")
@@ -63,9 +83,8 @@ class Button(Widget):
         super().__init__(position, anchor, scale, rotation, opacity, clipping=clipping)
 
         # Comportements prédéfinis
-        from ...gui import HoverBehavior, ClickBehavior
-        self.add_behavior(HoverBehavior())
-        self.add_behavior(ClickBehavior())
+        self.add_behavior(self._get_hover_cls())
+        self.add_behavior(self._get_click_cls())
 
         # Application du callback
         self._apply_callback()

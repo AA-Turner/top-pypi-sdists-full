@@ -43,6 +43,10 @@ class AISecret(TypedDict):
     """
     Date of last AI secret update
     """
+    secret_updated_at: NotRequired[str | None]
+    """
+    Date of last update to the encrypted secret value itself
+    """
     org_id: str
     """
     Unique identifier for the organization
@@ -53,6 +57,10 @@ class AISecret(TypedDict):
     """
     type: NotRequired[str | None]
     metadata: NotRequired[Mapping[str, Any] | None]
+    secret_updated_by_user_id: NotRequired[str | None]
+    """
+    User id of the last update to the encrypted secret value
+    """
     preview_secret: NotRequired[str | None]
 
 
@@ -408,6 +416,7 @@ class ChatCompletionOpenAIMessageParamChatCompletionOpenAIMessageParam2(TypedDic
     name: NotRequired[str | None]
     tool_calls: NotRequired[Sequence[ChatCompletionMessageToolCall] | None]
     reasoning: NotRequired[Sequence[ChatCompletionMessageReasoning] | None]
+    reasoning_signature: NotRequired[str | None]
 
 
 class ChatCompletionOpenAIMessageParamChatCompletionOpenAIMessageParam3(TypedDict):
@@ -608,6 +617,14 @@ class EnvVar(TypedDict):
     """
     Date of environment variable creation
     """
+    secret_updated_at: NotRequired[str | None]
+    """
+    Date of last update to the encrypted secret value itself
+    """
+    secret_updated_by_user_id: NotRequired[str | None]
+    """
+    User id of the last update to the encrypted secret value
+    """
     used: NotRequired[str | None]
     """
     Date the environment variable was last used
@@ -615,6 +632,10 @@ class EnvVar(TypedDict):
     metadata: NotRequired[Mapping[str, Any] | None]
     """
     Optional metadata associated with the environment variable when managed via the function secrets API
+    """
+    preview_secret: NotRequired[str | None]
+    """
+    Redacted preview of the stored secret value
     """
     secret_type: NotRequired[str | None]
     """
@@ -2398,6 +2419,14 @@ Optional data scope for topic automation.
 """
 
 
+TopicAutomationFacetModel: TypeAlias = Literal[
+    'brain-facet-latest', 'brain-facet-1', 'brain-facet-2'
+]
+"""
+Optional facet model override for topic automation
+"""
+
+
 class Function1Function1(TypedDict):
     type: Literal['function']
     id: str
@@ -2756,6 +2785,7 @@ class ChatCompletionMessageParamChatCompletionMessageParam2(TypedDict):
     name: NotRequired[str | None]
     tool_calls: NotRequired[Sequence[ChatCompletionMessageToolCall] | None]
     reasoning: NotRequired[Sequence[ChatCompletionMessageReasoning] | None]
+    reasoning_signature: NotRequired[str | None]
 
 
 ChatCompletionMessageParam: TypeAlias = (
@@ -3311,6 +3341,7 @@ class TopicAutomationConfig(TypedDict):
     """
     The sampling rate for topic automation
     """
+    facet_model: NotRequired[TopicAutomationFacetModel | None]
     facet_functions: Sequence[SavedFunctionId]
     """
     Facet functions used by the topic automation

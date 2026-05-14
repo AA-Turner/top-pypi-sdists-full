@@ -53,6 +53,16 @@ class ExecutionController:
             worker_id=worker_id,
         )
 
+        AbstraLogger.lifecycle(
+            f"[RUN {execution.id}] User code starting",
+            {
+                "executionId": execution.id,
+                "jobId": self.stage.id,
+                "filePath": str(self.stage.file_path),
+                "stage": "runtime.user_code.start",
+            },
+        )
+
         with SDKContext(execution, self.client, self.repositories, self.user_jwt):
             status = DEFAULT_STATUS
             create_thread = threading.Thread(

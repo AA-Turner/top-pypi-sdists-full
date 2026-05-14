@@ -289,20 +289,15 @@ other.
 
 ## Accessing resources in a different stack and region
 
-> **This feature is currently experimental**
-
-You can enable the Stack property `crossRegionReferences`
-in order to access resources in a different stack *and* region. With this feature flag
-enabled it is possible to do something like creating a CloudFront distribution in `us-east-2` and
-an ACM certificate in `us-east-1`.
+You can access resources in a different stack and region. For example, you can create
+a CloudFront distribution in `us-east-2` that references an ACM certificate in `us-east-1`.
 
 ```python
 from aws_cdk import Environment, Environment
 stack1 = Stack(app, "Stack1",
     env=Environment(
         region="us-east-1"
-    ),
-    cross_region_references=True
+    )
 )
 cert = acm.Certificate(stack1, "Cert",
     domain_name="*.example.com",
@@ -312,8 +307,7 @@ cert = acm.Certificate(stack1, "Cert",
 stack2 = Stack(app, "Stack2",
     env=Environment(
         region="us-east-2"
-    ),
-    cross_region_references=True
+    )
 )
 cloudfront.Distribution(stack2, "Distribution",
     default_behavior=cloudfront.BehaviorOptions(
@@ -324,27 +318,85 @@ cloudfront.Distribution(stack2, "Distribution",
 )
 ```
 
-When the AWS CDK determines that the resource is in a different stack *and* is in a different
-region, it will "export" the value by creating a custom resource in the producing stack which
-creates SSM Parameters in the consuming region for each exported value. The parameters will be
-created with the name '/cdk/exports/${consumingStackName}/${export-name}'.
-In order to "import" the exports into the consuming stack a [SSM Dynamic reference](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references.html#dynamic-references-ssm)
-is used to reference the SSM parameter which was created.
+### Cross-stack reference strength
 
-In order to mimic strong references, a Custom Resource is also created in the consuming
-stack which marks the SSM parameters as being "imported". When a parameter has been successfully
-imported, the producing stack cannot update the value.
+The context key `@aws-cdk/core:defaultCrossStackReferences` controls the mechanism used for
+cross-stack references. It accepts three values: `"strong"` (default), `"weak"`, and `"both"`.
+
+**Strong references** (default) create a tight coupling between stacks. For same-region references,
+the producer creates a CloudFormation Export and the consumer uses `Fn::ImportValue`. For
+cross-region references, a pair of Custom Resources (ExportWriter/ExportReader) write values to
+SSM Parameters in the consuming region. In both cases, the producing stack cannot be deleted
+while consumers exist.
+
+**Weak references** use `Fn::GetStackOutput`, a CloudFormation intrinsic that reads an output
+directly from the producing stack. This is simpler (no extra infrastructure), but the producing
+stack can be deleted independently of its consumers.
+
+**Both** is a transitional state used during migration from strong to weak. The producer keeps
+the strong-side artifacts (Export for same-region, ExportWriter for cross-region), and also adds
+a plain Output. The consumer switches to `Fn::GetStackOutput`. This ensures the consumer is no
+longer dependent on the strong mechanism before it is removed.
+
+Configure the reference strength in your `cdk.json`:
+
+```json
+{
+  "context": {
+    "@aws-cdk/core:defaultCrossStackReferences": "strong"
+  }
+}
+```
 
 > [!NOTE]
-> As a consequence of this feature being built on a Custom Resource, we are restricted to a
-> CloudFormation response body size limitation of [4096 bytes](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/crpg-ref-responses.html).
-> To prevent deployment errors related to the Custom Resource Provider response body being too
-> large, we recommend limiting the use of nested stacks and minimizing the length of stack names.
-> Doing this will prevent SSM parameter names from becoming too long which will reduce the size of the
-> response body.
+> When using `"strong"` references, the feature is built on Custom Resources, which are restricted
+> to a CloudFormation response body size limitation of
+> [4096 bytes](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/crpg-ref-responses.html).
+> To prevent deployment errors, we recommend limiting the use of nested stacks and minimizing
+> the length of stack names.
 
-See the [adr](https://github.com/aws/aws-cdk/blob/main/packages/aws-cdk-lib/core/adr/cross-region-stack-references.md)
-for more details on this feature.
+The full behavior is summarized in the following table:
+
+|                            | Flag=strong/unset                                 | Flag=both                                                                                    | Flag=weak                                                  |
+|----------------------------|---------------------------------------------------|----------------------------------------------------------------------------------------------|------------------------------------------------------------|
+| Same account and region    | Generates a `Fn::ImportValue` reference           | Generates a `Fn::GetStackOutput` reference AND an Export, but not the `Fn::ImportValue`      | Generates a `Fn::GetStackOutput` reference                 |
+| Same account, cross-region | Generates a pair of `ExportWriter`/`ExportReader` | Generates a `Fn::GetStackOutput` reference AND an `ExportWriter`, but not the `ExportReader` | Generates a `Fn::GetStackOutput` reference                 |
+| Cross-account              | Not possible. Falls back to weak.                 | Generates a `Fn::GetStackOutput` reference + cross-account role                              | Generates a `Fn::GetStackOutput` reference + cross-account role |
+
+### Migrating from strong to weak references
+
+If you have existing stacks deployed with strong references and want to switch to weak
+references, you must do so in two deployments to avoid the
+[deadly embrace](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/best-practices.html)
+problem:
+
+**DEPLOYMENT 1**: set the flag to `"both"` and deploy.
+
+```json
+{
+  "context": {
+    "@aws-cdk/core:defaultCrossStackReferences": "both"
+  }
+}
+```
+
+This adds `Fn::GetStackOutput` references in the consumers (weak) while keeping the
+strong-side artifacts in the producer (Export for same-region, ExportWriter for cross-region).
+After this deployment, consumers no longer depend on the strong mechanism.
+
+**DEPLOYMENT 2**: set the flag to `"weak"` and deploy.
+
+```json
+{
+  "context": {
+    "@aws-cdk/core:defaultCrossStackReferences": "weak"
+  }
+}
+```
+
+This removes the strong-side infrastructure entirely (Exports for same-region,
+ExportWriter/ExportReader for cross-region). All references now use the lightweight
+`Fn::GetStackOutput` mechanism.
 
 ### Removing automatic cross-stack references
 
@@ -3278,6 +3330,81 @@ class ArnFormat(enum.Enum):
     Like in: 'arn:aws:service:region:account:/resource/resourceName'.
     Note that the leading slash is *not* included in the parsed 'resource' part.
     '''
+
+
+class ArrayMergeStrategy(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.ArrayMergeStrategy",
+):
+    '''Strategies for merging arrays in L1 property mixins.
+
+    Array elements are never deep-merged.
+    '''
+
+    @jsii.member(jsii_name="append")
+    @builtins.classmethod
+    def append(cls) -> "IArrayMergeStrategy":
+        '''Append source elements after the existing target elements.
+
+        Example::
+
+            
+        '''
+        return typing.cast("IArrayMergeStrategy", jsii.sinvoke(cls, "append", []))
+
+    @jsii.member(jsii_name="prepend")
+    @builtins.classmethod
+    def prepend(cls) -> "IArrayMergeStrategy":
+        '''Prepend source elements before the existing target elements.
+
+        Example::
+
+            
+        '''
+        return typing.cast("IArrayMergeStrategy", jsii.sinvoke(cls, "prepend", []))
+
+    @jsii.member(jsii_name="replace")
+    @builtins.classmethod
+    def replace(cls) -> "IArrayMergeStrategy":
+        '''Replace the target array entirely with the source array.
+
+        Example::
+
+            
+        '''
+        return typing.cast("IArrayMergeStrategy", jsii.sinvoke(cls, "replace", []))
+
+    @jsii.member(jsii_name="replaceByIndex")
+    @builtins.classmethod
+    def replace_by_index(cls) -> "IArrayMergeStrategy":
+        '''Overwrite target elements positionally with source elements.
+
+        Target elements beyond the source length are preserved.
+
+        Example::
+
+            
+        '''
+        return typing.cast("IArrayMergeStrategy", jsii.sinvoke(cls, "replaceByIndex", []))
+
+    @jsii.member(jsii_name="replaceByKey")
+    @builtins.classmethod
+    def replace_by_key(cls, key: builtins.str) -> "IArrayMergeStrategy":
+        '''Match source and target elements by a shared key property.
+
+        Matching target elements are replaced (not deep-merged).
+        Unmatched source elements are appended.
+
+        :param key: - The property name to match elements on.
+
+        Example::
+
+            
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9f8e851f7003cd41d8f79d80b843557a58db25b7793405123469c40bc4709553)
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+        return typing.cast("IArrayMergeStrategy", jsii.sinvoke(cls, "replaceByKey", [key]))
 
 
 class AspectApplication(
@@ -11709,6 +11836,63 @@ class CliCredentialsStackSynthesizerProps:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.CombineStrategyOptions",
+    jsii_struct_bases=[],
+    name_mapping={"arrays": "arrays"},
+)
+class CombineStrategyOptions:
+    def __init__(
+        self,
+        *,
+        arrays: typing.Optional["IArrayMergeStrategy"] = None,
+    ) -> None:
+        '''Options for the combine strategy.
+
+        :param arrays: Strategy for merging arrays. Default: ArrayMergeStrategy.replace()
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            
+            # array_merge_strategy: cdk.IArrayMergeStrategy
+            
+            combine_strategy_options = cdk.CombineStrategyOptions(
+                arrays=array_merge_strategy
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cde364a9aa77bbd97dd0e769b0644ed38f00875b127819215bc6204d00f9fc38)
+            check_type(argname="argument arrays", value=arrays, expected_type=type_hints["arrays"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if arrays is not None:
+            self._values["arrays"] = arrays
+
+    @builtins.property
+    def arrays(self) -> typing.Optional["IArrayMergeStrategy"]:
+        '''Strategy for merging arrays.
+
+        :default: ArrayMergeStrategy.replace()
+        '''
+        result = self._values.get("arrays")
+        return typing.cast(typing.Optional["IArrayMergeStrategy"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CombineStrategyOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class ConstructSelector(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.ConstructSelector",
@@ -16990,6 +17174,50 @@ class _IAnyProducerProxy:
 typing.cast(typing.Any, IAnyProducer).__jsii_proxy_class__ = lambda : _IAnyProducerProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.IArrayMergeStrategy")
+class IArrayMergeStrategy(typing_extensions.Protocol):
+    '''Interface for merging arrays.'''
+
+    @jsii.member(jsii_name="merge")
+    def merge(
+        self,
+        target: typing.Sequence[typing.Any],
+        source: typing.Sequence[typing.Any],
+    ) -> typing.List[typing.Any]:
+        '''Merge source array into target array.
+
+        :param target: -
+        :param source: -
+        '''
+        ...
+
+
+class _IArrayMergeStrategyProxy:
+    '''Interface for merging arrays.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.IArrayMergeStrategy"
+
+    @jsii.member(jsii_name="merge")
+    def merge(
+        self,
+        target: typing.Sequence[typing.Any],
+        source: typing.Sequence[typing.Any],
+    ) -> typing.List[typing.Any]:
+        '''Merge source array into target array.
+
+        :param target: -
+        :param source: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d7466bae591871e8b20b913b3ea88c6691e74ed6c9a76e16c82db57847ec92b3)
+            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
+            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+        return typing.cast(typing.List[typing.Any], jsii.invoke(self, "merge", [target, source]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IArrayMergeStrategy).__jsii_proxy_class__ = lambda : _IArrayMergeStrategyProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.IAspect")
 class IAspect(typing_extensions.Protocol):
     '''Represents an Aspect.'''
@@ -22050,14 +22278,22 @@ class PropertyMergeStrategy(
 
     @jsii.member(jsii_name="combine")
     @builtins.classmethod
-    def combine(cls) -> "IMergeStrategy":
+    def combine(
+        cls,
+        *,
+        arrays: typing.Optional["IArrayMergeStrategy"] = None,
+    ) -> "IMergeStrategy":
         '''Deep merges nested objects from source into target.
 
         When both the existing and new value for a key are plain objects,
         their properties are merged recursively. Primitives, arrays, and
         mismatched types are overridden by the source value.
+
+        :param arrays: Strategy for merging arrays. Default: ArrayMergeStrategy.replace()
         '''
-        return typing.cast("IMergeStrategy", jsii.sinvoke(cls, "combine", []))
+        options = CombineStrategyOptions(arrays=arrays)
+
+        return typing.cast("IMergeStrategy", jsii.sinvoke(cls, "combine", [options]))
 
     @jsii.member(jsii_name="override")
     @builtins.classmethod
@@ -23430,20 +23666,13 @@ class SecretValue(
 
     Example::
 
-        # Read the secret from Secrets Manager
-        pipeline = codepipeline.Pipeline(self, "MyPipeline")
-        source_output = codepipeline.Artifact()
-        source_action = codepipeline_actions.GitHubSourceAction(
-            action_name="GitHub_Source",
-            owner="awslabs",
-            repo="aws-cdk",
-            oauth_token=SecretValue.secrets_manager("my-github-token"),
-            output=source_output,
-            branch="develop"
-        )
-        pipeline.add_stage(
-            stage_name="Source",
-            actions=[source_action]
+        amplify_app = amplify.App(self, "MyApp",
+            source_code_provider=amplify.GitHubSourceCodeProvider(
+                owner="<user>",
+                repository="<repo>",
+                oauth_token=SecretValue.secrets_manager("my-github-token")
+            ),
+            basic_auth=amplify.BasicAuth.from_credentials("username", SecretValue.secrets_manager("my-github-token"))
         )
     '''
 
@@ -24968,8 +25197,7 @@ class StackProps:
             stack1 = Stack(app, "Stack1",
                 env=Environment(
                     region="us-east-1"
-                ),
-                cross_region_references=True
+                )
             )
             cert = acm.Certificate(stack1, "Cert",
                 domain_name="*.example.com",
@@ -24979,8 +25207,7 @@ class StackProps:
             stack2 = Stack(app, "Stack2",
                 env=Environment(
                     region="us-east-2"
-                ),
-                cross_region_references=True
+                )
             )
             cloudfront.Distribution(stack2, "Distribution",
                 default_behavior=cloudfront.BehaviorOptions(
@@ -26343,11 +26570,27 @@ class SymlinkFollowMode(enum.Enum):
     '''Determines how symlinks are followed.'''
 
     NEVER = "NEVER"
-    '''Never follow symlinks.'''
+    '''Copy symlinks themselves (do not follow, preserve the symlink contents).
+
+    If any of the symlinks point outside the source directory and the Cloud
+    Assembly gets moved to a different computer, the asset may end up pointing
+    to files that don't exist on that other computer.
+    '''
     ALWAYS = "ALWAYS"
-    '''Materialize all symlinks, whether they are internal or external to the source directory.'''
+    '''Copy all the files the symlinks point to (always follow).
+
+    This reads target files even if the symlinks point outside the source
+    directory.  Uses more disk space but is guaranteed to end up with a
+    complete asset directory.
+    '''
     EXTERNAL = "EXTERNAL"
-    '''Only follows symlinks that are external to the source directory.'''
+    '''Materialize symlinks pointing outside, leave symlinks pointing inside.
+
+    If the symlink points to a file outside the source, copy the target file.
+    Otherwise copy the symlink itself.
+
+    This produces a complete asset bundle, while saving space.
+    '''
     BLOCK_EXTERNAL = "BLOCK_EXTERNAL"
     '''Forbids source from having any symlinks pointing outside of the source tree.
 
@@ -40744,6 +40987,7 @@ __all__ = [
     "Arn",
     "ArnComponents",
     "ArnFormat",
+    "ArrayMergeStrategy",
     "AspectApplication",
     "AspectOptions",
     "AspectPriority",
@@ -40846,6 +41090,7 @@ __all__ = [
     "CfnWaitConditionProps",
     "CliCredentialsStackSynthesizer",
     "CliCredentialsStackSynthesizerProps",
+    "CombineStrategyOptions",
     "ConstructSelector",
     "ContextProvider",
     "CopyOptions",
@@ -40893,6 +41138,7 @@ __all__ = [
     "GitIgnoreStrategy",
     "GlobIgnoreStrategy",
     "IAnyProducer",
+    "IArrayMergeStrategy",
     "IAspect",
     "IAsset",
     "IBoundStackSynthesizer",
@@ -41794,6 +42040,12 @@ def _typecheckingstub__4565cb9b5469dd4d4c1d23e54f8933087065a599bfce16e56da30ffbc
     partition: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     resource_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9f8e851f7003cd41d8f79d80b843557a58db25b7793405123469c40bc4709553(
+    key: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -42761,6 +43013,13 @@ def _typecheckingstub__582012b1da715680697bba8cad465d232673167a367d4087116d4afdd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cde364a9aa77bbd97dd0e769b0644ed38f00875b127819215bc6204d00f9fc38(
+    *,
+    arrays: typing.Optional[IArrayMergeStrategy] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__87304fead78c2fd8908c5a577a7d2330cfab8cba9ecd85326083817331620c4d(
     pattern: builtins.str,
 ) -> None:
@@ -43501,6 +43760,13 @@ def _typecheckingstub__511e716563179c71c9d4244900fd8533b6991157b613101e2f6e7d24b
 
 def _typecheckingstub__92276a48d407daf25e6b28030d1b6162cfbd4f06c1c44b55d1b6fec6cf13d391(
     context: IResolveContext,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7466bae591871e8b20b913b3ea88c6691e74ed6c9a76e16c82db57847ec92b3(
+    target: typing.Sequence[typing.Any],
+    source: typing.Sequence[typing.Any],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -46896,5 +47162,5 @@ def _typecheckingstub__47e469f0015340593bcbbe8474c853bc170a6dfd3bcb31e6795042408
     """Type checking stubs"""
     pass
 
-for cls in [IAnyProducer, IAspect, IAsset, IBoundStackSynthesizer, ICfnConditionExpression, ICfnResourceOptions, ICfnRuleConditionExpression, IConstructSelector, IFragmentConcatenator, IInspectable, IListProducer, ILocalBundling, IMergeStrategy, INumberProducer, IPolicyValidationContext, IPolicyValidationContextBeta1, IPolicyValidationPlugin, IPolicyValidationPluginBeta1, IPostProcessor, IPropertyInjector, IResolvable, IResolveContext, IResource, IReusableStackSynthesizer, IStableAnyProducer, IStableListProducer, IStableNumberProducer, IStableStringProducer, IStackSynthesizer, IStringProducer, ISynthesisSession, ITaggable, ITaggableV2, ITemplateOptions, ITokenMapper, ITokenResolver]:
+for cls in [IAnyProducer, IArrayMergeStrategy, IAspect, IAsset, IBoundStackSynthesizer, ICfnConditionExpression, ICfnResourceOptions, ICfnRuleConditionExpression, IConstructSelector, IFragmentConcatenator, IInspectable, IListProducer, ILocalBundling, IMergeStrategy, INumberProducer, IPolicyValidationContext, IPolicyValidationContextBeta1, IPolicyValidationPlugin, IPolicyValidationPluginBeta1, IPostProcessor, IPropertyInjector, IResolvable, IResolveContext, IResource, IReusableStackSynthesizer, IStableAnyProducer, IStableListProducer, IStableNumberProducer, IStableStringProducer, IStackSynthesizer, IStringProducer, ISynthesisSession, ITaggable, ITaggableV2, ITemplateOptions, ITokenMapper, ITokenResolver]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

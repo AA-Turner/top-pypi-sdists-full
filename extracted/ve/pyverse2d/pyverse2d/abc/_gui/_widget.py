@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from ..._internal import expect, clamped, over, CallbackList, profile_section
 from ...math import Point
-from ..._core import Transform, Geometry
+from ..._core import Transformable, Transform, Geometry
 
 from .._shape import Shape
 
@@ -15,7 +15,7 @@ from pyglet.graphics import Group
 from abc import ABC, abstractmethod
 from bisect import insort
 from numbers import Real
-from typing import Type, TYPE_CHECKING
+from typing import Type, TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
     from ..._rendering import Pipeline
@@ -30,11 +30,20 @@ if TYPE_CHECKING:
 
 # ======================================== GROUP ========================================
 class WidgetGroup(Group):
-    """Groupe spécialisé des widgets"""
-    _cache: dict[tuple, WidgetGroup] = {}
+    """Groupe spécialisé des widgets
+    
+    Args:
+        order: z-order
+        parent: groupe parent
+        scissor: limitation du rendu
+    """
+    _cache: ClassVar[dict[tuple, WidgetGroup]] = {}
 
     def __init__(self, order=0, parent=None, scissor=None):
+        # Initialisation du grouope
         super().__init__(order=order, parent=parent)
+
+        # Attributs publiques
         self.scissor = scissor
         self.resolved = (
             intersect(parent.resolved, scissor) if scissor and isinstance(parent, WidgetGroup) and parent.resolved
@@ -82,7 +91,7 @@ class WidgetGroup(Group):
         cls._cache = {k: v for k, v in cls._cache.items() if k[1] != parent_id}
 
 # ======================================== ABSTRACT CLASS ========================================
-class Widget(ABC):
+class Widget(ABC, Transformable):
     """Classe abstraite des composants UI
 
     Args:
@@ -121,8 +130,10 @@ class Widget(ABC):
             opacity: float = 1.0,
             clipping: bool = False,
         ):
+        # Initialisation de la transformation
+        Transformable.__init__(self, position, anchor, rotation, scale)
+
         # Transtyping
-        transform: Transform = Transform(position, anchor, rotation, scale)
         opacity = float(opacity)
 
         if __debug__:
@@ -130,7 +141,6 @@ class Widget(ABC):
             expect(clipping, bool)
 
         # Attributs publique
-        self._transform: Transform = transform
         self._world_transform: Transform = self._transform.copy()
         self._geometry: Geometry = Geometry(self.hitbox, self._world_transform)
         self._opacity: float = opacity
@@ -928,10 +938,22 @@ class Widget(ABC):
 
 # ======================================== WRAPPER ========================================
 class WidgetWrapper:
-    """Wrapper des composants UI"""
-    __slots__ = ("_widget", "name", "z", "share_scale", "share_rotation")
+    """Wrapper des composants UI
+    
+    Args:
+        widget: ``Widget`` associé
+        name: nom temporaire du widget
+        z: z-order
+        share_scale: suivi du facteur de redimensionnement du parent
+        share_rotation: suivi de l'angle de rotation du parent
+    """
+    __slots__ = (
+        "_widget", "name", "z",
+        "share_scale", "share_rotation",
+    )
 
     def __init__(self, widget: Widget, name: str, z: int, share_scale: bool, share_rotation: bool):
+        # Attributs publiques
         self._widget: Widget = widget
         self.name: str = name
         self.z: int = z
@@ -940,7 +962,7 @@ class WidgetWrapper:
     
     @property
     def widget(self) -> Widget:
-        """``Widget`` contenu"""
+        """``Widget`` associe *(lecture seule)*"""
         return self._widget
 
     def __eq__(self, other: Widget | WidgetWrapper) -> bool:

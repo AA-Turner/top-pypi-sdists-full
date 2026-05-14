@@ -5,6 +5,7 @@ import re
 from copy import deepcopy
 
 from .types import (
+    About,
     Account,
     Broadcast,
     Collection,
@@ -39,6 +40,11 @@ from .types import (
 from .utils import InstagramIdCodec, json_value
 
 MEDIA_TYPES_GQL = {"GraphImage": 1, "GraphVideo": 2, "GraphSidecar": 8, "StoryVideo": 2}
+XDT_MEDIA_TYPES_GQL = {
+    "XDTGraphImage": "GraphImage",
+    "XDTGraphVideo": "GraphVideo",
+    "XDTGraphSidecar": "GraphSidecar",
+}
 
 
 def extract_media_v1(data):
@@ -54,6 +60,9 @@ def extract_media_v1(data):
             media["image_versions2"]["candidates"],
             key=lambda o: o["height"] * o["width"],
         )[-1]["url"]
+        scrubber = media["image_versions2"].get("scrubber_spritesheet_info_candidates") or {}
+        if scrubber.get("default") and not scrubber["default"].get("sprite_urls"):
+            media["image_versions2"].pop("scrubber_spritesheet_info_candidates", None)
     if media["media_type"] == 8:
         # remove thumbnail_url and video_url for albums
         # see resources
@@ -62,8 +71,9 @@ def extract_media_v1(data):
     location = media.get("location")
     media["location"] = location and extract_location(location)
     media["user"] = extract_user_short(media.get("user"))
+    usertags = media.get("usertags") or {}
     media["usertags"] = sorted(
-        [extract_usertag(usertag) for usertag in media.get("usertags", {}).get("in", [])],
+        [extract_usertag(usertag) for usertag in usertags.get("in", [])],
         key=lambda tag: tag.user.pk,
     )
     media["like_count"] = media.get("like_count", 0)
@@ -73,7 +83,7 @@ def extract_media_v1(data):
     media["coauthor_producers"] = media.get("coauthor_producers", [])
     return Media(
         caption_text=(media.get("caption") or {}).get("text", ""),
-        resources=[extract_resource_v1(edge) for edge in media.get("carousel_media", [])],
+        resources=[extract_resource_v1(edge) for edge in media.get("carousel_media") or []],
         **media,
     )
 
@@ -103,6 +113,7 @@ def extract_media_v1_xma(data):
 def extract_media_gql(data):
     """Extract media from GraphQL"""
     media = deepcopy(data)
+    media["__typename"] = XDT_MEDIA_TYPES_GQL.get(media.get("__typename"), media.get("__typename"))
     user = extract_user_short(media["owner"])
     # if "full_name" in user:
     #     user = extract_user_short(user)
@@ -138,7 +149,14 @@ def extract_media_gql(data):
         location=extract_location(location) if location else None,
         user=user,
         view_count=media.get("video_view_count", 0),
-        comment_count=json_value(media, "edge_media_to_comment", "count"),
+        play_count=media.get("play_count", media.get("video_play_count")),
+        has_liked=media.get("has_liked", media.get("viewer_has_liked")),
+        comment_count=json_value(
+            media,
+            "edge_media_to_comment",
+            "count",
+            default=json_value(media, "edge_media_preview_comment", "count", default=0),
+        ),
         like_count=json_value(media, "edge_media_preview_like", "count"),
         caption_text=json_value(media, "edge_media_to_caption", "edges", 0, "node", "text", default=""),
         usertags=sorted(
@@ -612,3 +630,46 @@ def extract_track(data):
     data["uri"] = html.unescape(items[0]) if items else None
     data["territory_validity_periods"] = data.get("territory_validity_periods") or {}
     return Track(**data)
+
+
+def _extract_about_lispy(c, data):
+    params = {}
+    try:
+        params["country"] = c.split('"')[1]
+    except IndexError:
+        pass
+    try:
+        s = str(data).split("space_evenly")[1].split("stretch")
+        try:
+            params["username"] = s[1].split("center")[1].split(": '")[1].split("',")[0]
+        except IndexError:
+            pass
+        try:
+            params["date"] = s[4].split("&")[1].split("'")[2]
+        except IndexError:
+            pass
+    except IndexError:
+        pass
+    return About(**params)
+
+
+def extract_about_v1(data):
+    c = json_value(data, "layout", "bloks_payload", "data", 0, "data")
+    params = {}
+    if c:
+        if "initial_lispy" in c:
+            return _extract_about_lispy(c["initial_lispy"], data)
+        params["country"] = c["initial"]
+    date_finded = False
+    dumped = json.dumps(data)
+    params["is_verified"] = '"Verified"' in dumped
+    ddata = dumped.split('")":')
+    for i, v in enumerate(ddata):
+        if '"bold"}' in v:
+            params["username"] = v.strip().split(",")[0][1:-1]
+        if date_finded:
+            params["date"] = v.strip().split(",")[0][1:-1]
+        if "Former usernames" in v:
+            params["former_usernames"] = ddata[i + 2].strip().split(",")[0][1:-1]
+        date_finded = '"Date joined"' in v
+    return About(**params)

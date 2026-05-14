@@ -31,6 +31,11 @@ from deepeval.tracing.types import (
     Trace,
     TraceSpanStatus,
 )
+from deepeval.tracing.integrations import Integration
+from deepeval.tracing.utils import (
+    infer_provider_from_model,
+    normalize_span_provider_for_platform,
+)
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -303,7 +308,7 @@ class SpanInterceptor(SpanProcessor):
         # this is the OTel root span, push an implicit ``Trace`` placeholder
         # onto ``current_trace_context`` so ``update_current_trace(...)``
         # from inside tools / nested helpers actually mutates something.
-        # The placeholder is tagged ``is_otel_implicit=True`` so that
+        # The placeholder is tagged ``_is_otel_implicit=True`` so that
         # ``ContextAwareSpanProcessor`` keeps routing to OTLP (caller didn't
         # opt into REST). Mutations are picked up automatically by the
         # existing per-span ``_serialize_trace_context_to_otel_attrs`` since
@@ -344,6 +349,9 @@ class SpanInterceptor(SpanProcessor):
             # they're not mislabeled as agent spans when
             # gen_ai.agent.name is present.
             span.set_attribute("confident.span.type", "llm")
+        span.set_attribute(
+            "confident.span.integration", Integration.PYDANTIC_AI.value
+        )
 
         # ----- push BaseSpan placeholder so update_current_span works -----
         self._push_span_context(span, agent_name, operation_name)
@@ -418,6 +426,28 @@ class SpanInterceptor(SpanProcessor):
             )
             if agent_name and self._is_agent_span(operation_name):
                 self._add_agent_span(span, agent_name)
+
+        attrs = span.attributes or {}
+        if not attrs.get("confident.span.integration"):
+            self._set_attr_post_end(
+                span,
+                "confident.span.integration",
+                Integration.PYDANTIC_AI.value,
+            )
+        if attrs.get("confident.span.type") == "llm" and not attrs.get(
+            "confident.span.provider"
+        ):
+            model = (
+                attrs.get("confident.llm.model")
+                or attrs.get("gen_ai.response.model")
+                or attrs.get("gen_ai.request.model")
+            )
+            provider = infer_provider_from_model(str(model)) if model else None
+            if provider:
+                provider = normalize_span_provider_for_platform(provider)
+                self._set_attr_post_end(
+                    span, "confident.span.provider", provider
+                )
 
         # ----- pop the implicit trace placeholder if we pushed one -----
         # Must run AFTER the trace-context serialization above so that the
@@ -499,8 +529,10 @@ class SpanInterceptor(SpanProcessor):
         has a target to mutate; mutations are picked up automatically by
         the existing per-span ``_serialize_trace_context_to_otel_attrs``.
 
-        Tagged ``is_otel_implicit=True`` so ``ContextAwareSpanProcessor``
+        Tagged ``_is_otel_implicit=True`` so ``ContextAwareSpanProcessor``
         knows NOT to switch routing to REST — bare callers expect OTLP.
+        ``_is_otel_implicit`` is a Pydantic ``PrivateAttr``, so it must be
+        set after construction (it's not a constructor kwarg).
         """
         if current_trace_context.get() is not None:
             return  # user already owns the trace context; don't touch it
@@ -521,8 +553,8 @@ class SpanInterceptor(SpanProcessor):
                 root_spans=[],
                 status=TraceSpanStatus.IN_PROGRESS,
                 start_time=start_time,
-                is_otel_implicit=True,
             )
+            implicit._is_otel_implicit = True
             token = current_trace_context.set(implicit)
             self._trace_tokens[sid] = token
             self._trace_placeholders[sid] = implicit
@@ -558,6 +590,11 @@ class SpanInterceptor(SpanProcessor):
         parent_uuid = getattr(parent_span, "uuid", None)
         if not parent_uuid:
             return
+        if not getattr(parent_span, "integration", None):
+            try:
+                parent_span.integration = Integration.PYDANTIC_AI.value
+            except Exception:
+                pass
         try:
             self._set_attr_post_end(
                 span, "confident.span.parent_uuid", parent_uuid

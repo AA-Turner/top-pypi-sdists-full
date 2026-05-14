@@ -13,12 +13,11 @@
 #   limitations under the License.
 from collections.abc import Sequence
 
-import xarray
-
-from xarray import Dataset
+from xarray import Dataset, DataTree, merge
 
 from pymc.backends.arviz import apply_function_over_dataset, coords_and_dims_for_inferencedata
 from pymc.model.core import Model, modelcontext
+from pymc.pytensorf import resolve_backend_compile_kwargs
 
 
 def compute_deterministics(
@@ -29,6 +28,7 @@ def compute_deterministics(
     sample_dims: Sequence[str] = ("chain", "draw"),
     merge_dataset: bool = False,
     progressbar: bool = True,
+    backend: str | None = None,
     compile_kwargs: dict | None = None,
 ) -> Dataset:
     """Compute model deterministics given a dataset with values for model variables.
@@ -36,7 +36,7 @@ def compute_deterministics(
     Parameters
     ----------
     dataset : Dataset
-        Dataset with values for model variables. Commonly InferenceData["posterior"].
+        Dataset with values for model variables. Commonly DataTree["posterior"].
     var_names : sequence of str, optional
         List of names of deterministic variable to compute.
         If None, compute all deterministics in the model.
@@ -50,8 +50,11 @@ def compute_deterministics(
         Whether to display a progress bar in the command line.
     progressbar_theme : Theme, optional
         Custom theme for the progress bar.
+    backend: str, optional
+        Which computational backend to use. Recommended to be one of "numba", "c", and "jax".
     compile_kwargs: dict, optional
         Additional arguments passed to `model.compile_fn`.
+        ``compile_kwargs["mode"]`` cannot be combined with ``backend``.
 
     Returns
     -------
@@ -94,14 +97,18 @@ def compute_deterministics(
         inputs=model.free_RVs,
         outs=deterministics,
         on_unused_input="ignore",
-        **(compile_kwargs or {}),
+        **resolve_backend_compile_kwargs(backend, compile_kwargs),
     )
 
     coords, dims = coords_and_dims_for_inferencedata(model)
 
+    is_datatree = isinstance(dataset, DataTree)
+    input_dataset = dataset.dataset if is_datatree else dataset
+    input_dataset = input_dataset[[rv.name for rv in model.free_RVs]]
+
     new_dataset = apply_function_over_dataset(
         fn,
-        dataset[[rv.name for rv in model.free_RVs]],
+        input_dataset,
         output_var_names=var_names,
         dims=dims,
         coords=coords,
@@ -110,6 +117,7 @@ def compute_deterministics(
     )
 
     if merge_dataset:
-        new_dataset = xarray.merge([dataset, new_dataset], compat="override")
+        original_dataset = dataset.to_dataset() if is_datatree else dataset
+        new_dataset = merge([original_dataset, new_dataset], compat="override")
 
     return new_dataset

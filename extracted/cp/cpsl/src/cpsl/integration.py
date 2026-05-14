@@ -16,6 +16,7 @@ session and its integrations.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Union
@@ -237,19 +238,22 @@ def Pipedream(
     client_id: Union[str, Secret] = "",
     client_secret: Union[str, Secret] = "",
     project_id: Union[str, Secret] = "",
-    environment: str = "development",
+    environment: str = "",
     api_base_url: str = "",
 ) -> IntegrationConfig:
     """Declare a Pipedream-managed account connection.
 
     ``app_slug`` must match Pipedream's app ``name_slug`` (for example
     ``gmail``, ``slack``, or ``google_sheets``). Capsule handles the end-user
-    Connect flow and exposes Pipedream account metadata at runtime via
+    Connect flow. At runtime, use ``session.pipedream(app_slug)`` or
+    ``cpsl.pipedream(app_slug)`` as a requests-like session for API clients;
+    account metadata is also available via
     ``session.integrations[app_slug].fields``.
 
-    By default Capsule can use platform-managed Pipedream credentials. To bring
-    your own Pipedream project, pass ``client_id``, ``client_secret``, and
-    ``project_id`` as workspace secrets.
+    By default Capsule uses platform-managed Pipedream credentials and
+    environment. To bring your own Pipedream project, pass ``client_id``,
+    ``client_secret``, and ``project_id`` as workspace secrets; ``environment``
+    and ``api_base_url`` are optional advanced overrides for that project.
     """
     if not app_slug or not str(app_slug).strip():
         raise ValueError("Pipedream app slug must not be empty")
@@ -292,3 +296,57 @@ class IntegrationCredentials:
 
     def __bool__(self) -> bool:
         return bool(self.access_token or self.fields)
+
+
+def credentials_from_wire(
+    *,
+    integration_type: str,
+    access_token: str = "",
+    token_type: str = "",
+    scopes: list[str] | None = None,
+    expires_at: int = 0,
+    default_token_type: str = "Bearer",
+) -> IntegrationCredentials:
+    """Convert a gateway IntegrationCredential payload into SDK credentials."""
+
+    wire_token_type = token_type or default_token_type
+    is_field_payload = integration_type in KNOWN_SECRET_INTEGRATIONS or token_type in {
+        "fields",
+        MODE_PIPEDREAM,
+    }
+
+    fields: dict[str, str] = {}
+    if is_field_payload and access_token:
+        try:
+            parsed = json.loads(access_token)
+            if isinstance(parsed, dict):
+                fields = {
+                    str(key): "" if value is None else str(value)
+                    for key, value in parsed.items()
+                }
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    is_pipedream_payload = token_type == MODE_PIPEDREAM
+    field_access_token = fields.get("access_token", "") if is_pipedream_payload else ""
+    field_token_type = fields.get("token_type", "") if is_pipedream_payload else ""
+    field_expires_at = (
+        _field_int(fields.get("expires_at", ""), expires_at)
+        if is_pipedream_payload
+        else expires_at
+    )
+
+    return IntegrationCredentials(
+        access_token=field_access_token or ("" if fields else access_token),
+        token_type=field_token_type or wire_token_type,
+        scopes=list(scopes or []),
+        expires_at=field_expires_at,
+        fields=fields,
+    )
+
+
+def _field_int(value: str, fallback: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return fallback

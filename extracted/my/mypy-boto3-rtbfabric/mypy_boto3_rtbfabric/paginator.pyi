@@ -12,6 +12,8 @@ Usage::
 
     from mypy_boto3_rtbfabric.client import RTBFabricClient
     from mypy_boto3_rtbfabric.paginator import (
+        ListCertificateAssociationsPaginator,
+        ListLinkRoutingRulesPaginator,
         ListLinksPaginator,
         ListRequesterGatewaysPaginator,
         ListResponderGatewaysPaginator,
@@ -20,6 +22,8 @@ Usage::
     session = Session()
     client: RTBFabricClient = session.client("rtbfabric")
 
+    list_certificate_associations_paginator: ListCertificateAssociationsPaginator = client.get_paginator("list_certificate_associations")
+    list_link_routing_rules_paginator: ListLinkRoutingRulesPaginator = client.get_paginator("list_link_routing_rules")
     list_links_paginator: ListLinksPaginator = client.get_paginator("list_links")
     list_requester_gateways_paginator: ListRequesterGatewaysPaginator = client.get_paginator("list_requester_gateways")
     list_responder_gateways_paginator: ListResponderGatewaysPaginator = client.get_paginator("list_responder_gateways")
@@ -34,6 +38,10 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    ListCertificateAssociationsRequestPaginateTypeDef,
+    ListCertificateAssociationsResponseTypeDef,
+    ListLinkRoutingRulesRequestPaginateTypeDef,
+    ListLinkRoutingRulesResponseTypeDef,
     ListLinksRequestPaginateTypeDef,
     ListLinksResponseTypeDef,
     ListRequesterGatewaysRequestPaginateTypeDef,
@@ -47,7 +55,51 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import Unpack
 
-__all__ = ("ListLinksPaginator", "ListRequesterGatewaysPaginator", "ListResponderGatewaysPaginator")
+__all__ = (
+    "ListCertificateAssociationsPaginator",
+    "ListLinkRoutingRulesPaginator",
+    "ListLinksPaginator",
+    "ListRequesterGatewaysPaginator",
+    "ListResponderGatewaysPaginator",
+)
+
+if TYPE_CHECKING:
+    _ListCertificateAssociationsPaginatorBase = Paginator[
+        ListCertificateAssociationsResponseTypeDef
+    ]
+else:
+    _ListCertificateAssociationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListCertificateAssociationsPaginator(_ListCertificateAssociationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/paginator/ListCertificateAssociations.html#RTBFabric.Paginator.ListCertificateAssociations)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/paginators/#listcertificateassociationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCertificateAssociationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListCertificateAssociationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/paginator/ListCertificateAssociations.html#RTBFabric.Paginator.ListCertificateAssociations.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/paginators/#listcertificateassociationspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListLinkRoutingRulesPaginatorBase = Paginator[ListLinkRoutingRulesResponseTypeDef]
+else:
+    _ListLinkRoutingRulesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListLinkRoutingRulesPaginator(_ListLinkRoutingRulesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/paginator/ListLinkRoutingRules.html#RTBFabric.Paginator.ListLinkRoutingRules)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/paginators/#listlinkroutingrulespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListLinkRoutingRulesRequestPaginateTypeDef]
+    ) -> PageIterator[ListLinkRoutingRulesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/paginator/ListLinkRoutingRules.html#RTBFabric.Paginator.ListLinkRoutingRules.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/paginators/#listlinkroutingrulespaginator)
+        """
 
 if TYPE_CHECKING:
     _ListLinksPaginatorBase = Paginator[ListLinksResponseTypeDef]

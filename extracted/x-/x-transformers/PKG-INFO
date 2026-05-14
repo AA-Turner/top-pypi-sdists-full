@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: x-transformers
-Version: 2.19.0
+Version: 2.19.3
 Summary: X-Transformers
 Project-URL: Homepage, https://pypi.org/project/x-transformers/
 Project-URL: Repository, https://codeberg.org/lucidrains/x-transformers
@@ -38,7 +38,7 @@ Requires-Dist: einops>=0.8.0
 Requires-Dist: einx>=0.3.0
 Requires-Dist: loguru
 Requires-Dist: packaging>=21.0
-Requires-Dist: torch-einops-utils>=0.0.33
+Requires-Dist: torch-einops-utils>=0.0.34
 Requires-Dist: torch>=2.0
 Provides-Extra: examples
 Requires-Dist: adam-atan2-pytorch>=0.2.2; extra == 'examples'
@@ -2734,6 +2734,18 @@ ids_out, num_out, is_number_mask = model.generate(start_ids, start_nums, 17)
     archivePrefix = {arXiv},
     primaryClass = {cs.CV},
     url     = {https://arxiv.org/abs/2505.11881},
+}
+```
+
+```bibtex
+@misc{lu2026meanmodescreamingmeanvariance,
+    title   = {Mean Mode Screaming: Mean--Variance Split Residuals for 1000-Layer Diffusion Transformers},
+    author  = {Pengqi Lu},
+    year    = {2026},
+    eprint  = {2605.06169},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.LG},
+    url     = {https://arxiv.org/abs/2605.06169},
 }
 ```
 

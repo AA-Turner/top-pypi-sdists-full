@@ -7,11 +7,14 @@ for orchestration without tokenization.
 
 import asyncio
 import dataclasses
+import hashlib
+import json
 import logging
 import os
 import time
 from collections.abc import AsyncIterator
 from datetime import datetime, timezone
+from pathlib import Path
 
 import grpc
 import msgspec
@@ -23,6 +26,7 @@ import zmq.asyncio
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.struct_pb2 import Struct
 from google.protobuf.timestamp_pb2 import Timestamp
+from sglang.srt.configs.model_config import ModelConfig
 from sglang.srt.disaggregation.kv_events import (
     AllBlocksCleared,
     BlockRemoved,
@@ -37,11 +41,7 @@ from sglang.srt.managers.io_struct import (
     TokenizedEmbeddingReqInput,
     TokenizedGenerateReqInput,
 )
-from sglang.srt.managers.schedule_batch import (
-    Modality,
-    MultimodalDataItem,
-    MultimodalInputs,
-)
+from sglang.srt.managers.schedule_batch import Modality, MultimodalDataItem, MultimodalInputs
 from sglang.srt.sampling.sampling_params import SamplingParams as SGLSamplingParams
 from sglang.srt.server_args import ServerArgs
 from sglang.utils import get_exception_traceback
@@ -51,9 +51,27 @@ from smg_grpc_proto.generated import common_pb2
 from smg_grpc_servicer.sglang.health_servicer import SGLangHealthServicer
 from smg_grpc_servicer.sglang.request_manager import GrpcRequestManager
 from smg_grpc_servicer.sglang.utils import abort_code_from_output
+from smg_grpc_servicer.tokenizer_bundle import CHUNK_SIZE, build_tokenizer_zip
 
 logger = logging.getLogger(__name__)
 HEALTH_CHECK_TIMEOUT = int(os.getenv("SGLANG_HEALTH_CHECK_TIMEOUT", 20))
+SAMPLING_DEFAULT_KEYS = (
+    "temperature",
+    "top_p",
+    "top_k",
+    "min_p",
+    "repetition_penalty",
+)
+
+
+def _filtered_sampling_defaults(params: dict | None) -> dict:
+    if not params:
+        return {}
+    return {
+        key: params[key]
+        for key in SAMPLING_DEFAULT_KEYS
+        if key in params and params[key] is not None
+    }
 
 
 def _convert_loads_to_protobuf(
@@ -160,6 +178,7 @@ class SGLangSchedulerServicer(sglang_scheduler_pb2_grpc.SglangSchedulerServicer)
         self,
         request_manager: GrpcRequestManager,
         server_args: ServerArgs,
+        model_config: ModelConfig,
         model_info: dict,
         scheduler_info: dict,
         health_servicer: SGLangHealthServicer | None = None,
@@ -167,6 +186,7 @@ class SGLangSchedulerServicer(sglang_scheduler_pb2_grpc.SglangSchedulerServicer)
         """Initialize the standalone gRPC service."""
         self.request_manager = request_manager
         self.server_args = server_args
+        self.model_config = model_config
         self.model_info = model_info
         self.scheduler_info = scheduler_info
         self.start_time = time.time()
@@ -421,6 +441,35 @@ class SGLangSchedulerServicer(sglang_scheduler_pb2_grpc.SglangSchedulerServicer)
                 message=str(e),
             )
 
+    def _default_sampling_params_json(self) -> str:
+        defaults = dict(self.model_config.get_default_sampling_params() or {})
+        preferred = self.server_args.preferred_sampling_params
+        if preferred:
+            if isinstance(preferred, str):
+                try:
+                    preferred = json.loads(preferred)
+                except json.JSONDecodeError:
+                    logger.warning("Failed to parse preferred_sampling_params JSON")
+                    preferred = {}
+            if isinstance(preferred, dict):
+                defaults.update(preferred)
+            else:
+                logger.warning(
+                    "Ignoring preferred_sampling_params with unsupported type: %s",
+                    type(preferred).__name__,
+                )
+
+        defaults = _filtered_sampling_defaults(defaults)
+        return json.dumps(defaults, separators=(",", ":")) if defaults else ""
+
+    def _preferred_sampling_params_json(self) -> str:
+        preferred = self.server_args.preferred_sampling_params
+        if isinstance(preferred, dict):
+            return json.dumps(preferred, separators=(",", ":"))
+        if isinstance(preferred, str):
+            return preferred
+        return ""
+
     async def GetModelInfo(
         self,
         _request: sglang_scheduler_pb2.GetModelInfoRequest,
@@ -437,7 +486,8 @@ class SGLangSchedulerServicer(sglang_scheduler_pb2_grpc.SglangSchedulerServicer)
             model_path=self.server_args.model_path,
             tokenizer_path=self.server_args.tokenizer_path or "",
             is_generation=is_generation,
-            preferred_sampling_params=(self.server_args.preferred_sampling_params or ""),
+            preferred_sampling_params=self._preferred_sampling_params_json(),
+            default_sampling_params_json=self._default_sampling_params_json(),
             weight_version=self.server_args.weight_version or "",
             served_model_name=self.server_args.served_model_name,
             max_context_length=self.model_info["max_context_length"],
@@ -549,6 +599,55 @@ class SGLangSchedulerServicer(sglang_scheduler_pb2_grpc.SglangSchedulerServicer)
             loads=loads,
             aggregate=_compute_aggregate_protobuf(loads),
         )
+
+    async def GetTokenizer(
+        self,
+        request: common_pb2.GetTokenizerRequest,
+        context: grpc.aio.ServicerContext,
+    ) -> AsyncIterator[common_pb2.GetTokenizerChunk]:
+        """Stream tokenizer artifacts as a ZIP bundle.
+
+        Resolves the tokenizer directory from server_args, zips all relevant
+        tokenizer files, and streams them as GetTokenizerChunk messages.
+        The final chunk carries the SHA-256 fingerprint of the full archive.
+        """
+        logger.info("Receive GetTokenizer request")
+
+        tokenizer_path = self.server_args.tokenizer_path
+        if not tokenizer_path:
+            await context.abort(
+                grpc.StatusCode.FAILED_PRECONDITION,
+                "Tokenizer path is not configured on this server.",
+            )
+        tokenizer_dir = Path(tokenizer_path)
+
+        # Build ZIP archive in memory
+        try:
+            zip_buffer = build_tokenizer_zip(tokenizer_dir)
+        except Exception as e:
+            logger.error(f"Failed to build tokenizer ZIP: {e}\n{get_exception_traceback()}")
+            await context.abort(grpc.StatusCode.INTERNAL, str(e))
+
+        zip_data = zip_buffer.getbuffer()
+        sha256 = hashlib.sha256(zip_data).hexdigest()
+
+        logger.info(
+            "Streaming tokenizer bundle: %d bytes, sha256=%s",
+            len(zip_data),
+            sha256,
+        )
+
+        # Stream chunks; SHA-256 only on the final chunk
+        offset = 0
+        total = len(zip_data)
+        while offset < total:
+            end = min(offset + CHUNK_SIZE, total)
+            is_last = end == total
+            yield common_pb2.GetTokenizerChunk(
+                data=bytes(zip_data[offset:end]),
+                sha256=sha256 if is_last else "",
+            )
+            offset = end
 
     async def SubscribeKvEvents(
         self,
@@ -773,7 +872,7 @@ class SGLangSchedulerServicer(sglang_scheduler_pb2_grpc.SglangSchedulerServicer)
         return torch.from_numpy(arr)
 
     def _parse_mm_inputs(self, mm_proto) -> MultimodalInputs:
-        """Parse proto MultimodalInputs into the mm_inputs expected by scheduler."""
+        """Parse proto MultimodalInputs into a MultimodalInputs object for the scheduler."""
         # Decode pixel_values from typed TensorData field
         pixel_values = self._decode_tensor_data(mm_proto.pixel_values)
 
@@ -799,12 +898,12 @@ class SGLangSchedulerServicer(sglang_scheduler_pb2_grpc.SglangSchedulerServicer)
             offsets=offsets,
         )
 
-        result = MultimodalInputs(mm_items=[mm_item])
+        im_token_id = mm_proto.im_token_id if mm_proto.HasField("im_token_id") else None
 
-        if mm_proto.HasField("im_token_id"):
-            result.im_token_id = mm_proto.im_token_id
-
-        return result
+        return MultimodalInputs(
+            mm_items=[mm_item],
+            im_token_id=im_token_id,
+        )
 
     def _convert_embed_request(
         self, grpc_req: sglang_scheduler_pb2.EmbedRequest

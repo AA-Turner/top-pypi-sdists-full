@@ -13,8 +13,8 @@
 """Overrides of standard argparse behavior."""
 
 import argparse
-import collections.abc
-import typing as ty
+from collections.abc import Iterable
+from typing import Any
 import warnings
 
 import autopage.argparse
@@ -26,14 +26,14 @@ class ArgumentParser(autopage.argparse.ArgumentParser):
     # special conflict handler.
 
     def add_argument_group(
-        self, *args: ty.Any, **kwargs: ty.Any
+        self, *args: Any, **kwargs: Any
     ) -> '_ArgumentGroup':
         group = _ArgumentGroup(self, *args, **kwargs)
         self._action_groups.append(group)
         return group
 
     def add_mutually_exclusive_group(
-        self, **kwargs: ty.Any
+        self, **kwargs: Any
     ) -> '_MutuallyExclusiveGroup':
         group = _MutuallyExclusiveGroup(self, **kwargs)
         self._mutually_exclusive_groups.append(group)
@@ -42,9 +42,7 @@ class ArgumentParser(autopage.argparse.ArgumentParser):
     def _handle_conflict_ignore(
         self,
         action: argparse.Action,
-        conflicting_actions: collections.abc.Iterable[
-            tuple[str, argparse.Action]
-        ],
+        conflicting_actions: Iterable[tuple[str, argparse.Action]],
     ) -> None:
         _handle_conflict_ignore(
             self,
@@ -58,7 +56,7 @@ def _handle_conflict_ignore(
     container: argparse._ActionsContainer,
     option_string_actions: dict[str, argparse.Action],
     new_action: argparse.Action,
-    conflicting_actions: collections.abc.Iterable[tuple[str, argparse.Action]],
+    conflicting_actions: Iterable[tuple[str, argparse.Action]],
 ) -> None:
     # Remember the option strings the new action starts with so we can
     # restore them as part of error reporting if we need to.
@@ -91,14 +89,14 @@ class _ArgumentGroup(argparse._ArgumentGroup):
     # special conflict handler.
 
     def add_argument_group(
-        self, *args: ty.Any, **kwargs: ty.Any
+        self, *args: Any, **kwargs: Any
     ) -> '_ArgumentGroup':
         group = _ArgumentGroup(self, *args, **kwargs)
         self._action_groups.append(group)
         return group
 
     def add_mutually_exclusive_group(
-        self, **kwargs: ty.Any
+        self, **kwargs: Any
     ) -> '_MutuallyExclusiveGroup':
         group = _MutuallyExclusiveGroup(self, **kwargs)
         self._mutually_exclusive_groups.append(group)
@@ -107,9 +105,7 @@ class _ArgumentGroup(argparse._ArgumentGroup):
     def _handle_conflict_ignore(
         self,
         action: argparse.Action,
-        conflicting_actions: collections.abc.Iterable[
-            tuple[str, argparse.Action]
-        ],
+        conflicting_actions: Iterable[tuple[str, argparse.Action]],
     ) -> None:
         _handle_conflict_ignore(
             self,
@@ -125,14 +121,14 @@ class _MutuallyExclusiveGroup(argparse._MutuallyExclusiveGroup):
     # special conflict handler.
 
     def add_argument_group(
-        self, *args: ty.Any, **kwargs: ty.Any
+        self, *args: Any, **kwargs: Any
     ) -> '_ArgumentGroup':
         group = _ArgumentGroup(self, *args, **kwargs)
         self._action_groups.append(group)
         return group
 
     def add_mutually_exclusive_group(
-        self, **kwargs: ty.Any
+        self, **kwargs: Any
     ) -> '_MutuallyExclusiveGroup':
         group = _MutuallyExclusiveGroup(self, **kwargs)
         self._mutually_exclusive_groups.append(group)
@@ -141,9 +137,7 @@ class _MutuallyExclusiveGroup(argparse._MutuallyExclusiveGroup):
     def _handle_conflict_ignore(
         self,
         action: argparse.Action,
-        conflicting_actions: collections.abc.Iterable[
-            tuple[str, argparse.Action]
-        ],
+        conflicting_actions: Iterable[tuple[str, argparse.Action]],
     ) -> None:
         _handle_conflict_ignore(
             self,

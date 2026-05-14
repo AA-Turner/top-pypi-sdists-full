@@ -13,14 +13,14 @@
 """Output formatters using PyYAML."""
 
 import argparse
-import collections.abc
-import typing as ty
+from collections.abc import Iterable, Sequence
+from typing import Any, TextIO
 
 from cliff import columns
 from cliff.formatters import base
 
 
-def _yaml_friendly(value: ty.Any) -> ty.Any:
+def _yaml_friendly(value: Any) -> Any:
     if isinstance(value, columns.FormattableColumn):
         return value.machine_readable()
     elif hasattr(value, "toDict"):
@@ -37,9 +37,9 @@ class YAMLFormatter(base.ListFormatter, base.SingleFormatter):
 
     def emit_list(
         self,
-        column_names: collections.abc.Sequence[str],
-        data: collections.abc.Iterable[collections.abc.Sequence[ty.Any]],
-        stdout: ty.TextIO,
+        column_names: Sequence[str],
+        data: Iterable[Sequence[Any]],
+        stdout: TextIO,
         parsed_args: argparse.Namespace,
     ) -> None:
         # the yaml import is slow, so defer loading until we know we want it
@@ -54,9 +54,9 @@ class YAMLFormatter(base.ListFormatter, base.SingleFormatter):
 
     def emit_one(
         self,
-        column_names: collections.abc.Sequence[str],
-        data: collections.abc.Sequence[ty.Any],
-        stdout: ty.TextIO,
+        column_names: Sequence[str],
+        data: Sequence[Any],
+        stdout: TextIO,
         parsed_args: argparse.Namespace,
     ) -> None:
         # the yaml import is slow, so defer loading until we know we want it

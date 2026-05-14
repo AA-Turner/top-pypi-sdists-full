@@ -118,6 +118,17 @@ func (s *Settings) GetDisplayName() string {
 	return s.Proto.RunName.GetValue()
 }
 
+// The timeout for finishing a run after receiving an exit record.
+//
+// If not positive, there is no timeout.
+func (s *Settings) GetFinishTimeout() time.Duration {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	timeoutMs := int64(s.Proto.FinishTimeout.GetValue() * 1000)
+	return time.Duration(timeoutMs) * time.Millisecond
+}
+
 // The start time of the run in microseconds since the Unix epoch.
 func (s *Settings) GetStartTime() time.Time {
 	seconds := s.Proto.XStartTime.GetValue()
@@ -441,6 +452,11 @@ func (s *Settings) IsSaveCode() bool {
 	return s.Proto.SaveCode.GetValue()
 }
 
+// Whether to stop the run after an error that prevents further uploads.
+func (s *Settings) IsStopOnFatalError() bool {
+	return s.Proto.StopOnFatalError.GetValue()
+}
+
 // Whether to disable git capture and diff generation.
 func (s *Settings) IsDisableGit() bool {
 	return s.Proto.DisableGit.GetValue()
@@ -586,6 +602,11 @@ func (s *Settings) GetStatsGpuType() string {
 // Whether to track the process-specific metrics for the entire process tree.
 func (s *Settings) GetStatsTrackProcessTree() bool {
 	return s.Proto.XStatsTrackProcessTree.GetValue()
+}
+
+// Whether to skip cgroup resource limits for system metric percentages.
+func (s *Settings) GetStatsNoCgroup() bool {
+	return s.Proto.XStatsNoCgroup.GetValue()
 }
 
 // The label for the run namespacing for console output and system metrics.

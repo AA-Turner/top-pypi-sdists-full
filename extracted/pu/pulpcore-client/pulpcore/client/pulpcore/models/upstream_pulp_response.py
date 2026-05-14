@@ -19,8 +19,9 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
-from typing import Any, ClassVar, Dict, List, Optional
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
+from typing import Any, ClassVar, Dict, List, Optional, Union
+from typing_extensions import Annotated
 from pulpcore.client.pulpcore.models.generic_remote_response_hidden_fields_inner import GenericRemoteResponseHiddenFieldsInner
 from pulpcore.client.pulpcore.models.policy357_enum import Policy357Enum
 from typing import Optional, Set
@@ -41,11 +42,17 @@ class UpstreamPulpResponse(BaseModel):
     ca_cert: Optional[StrictStr] = Field(default=None, description="A PEM encoded CA certificate used to validate the server certificate presented by the remote server.")
     client_cert: Optional[StrictStr] = Field(default=None, description="A PEM encoded client certificate used for authentication.")
     tls_validation: Optional[StrictBool] = Field(default=None, description="If True, TLS peer validation must be performed.")
+    download_concurrency: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Total number of simultaneous connections. If not set then the default value will be used.")
+    max_retries: Optional[StrictInt] = Field(default=None, description="Maximum number of retry attempts after a download failure. If not set then the default value (3) will be used.")
+    total_timeout: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=None, description="aiohttp.ClientTimeout.total (q.v.) for download-connections. The default is null, which will cause the default from the aiohttp library to be used.")
+    connect_timeout: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=None, description="aiohttp.ClientTimeout.connect (q.v.) for download-connections. The default is null, which will cause the default from the aiohttp library to be used.")
+    sock_connect_timeout: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=None, description="aiohttp.ClientTimeout.sock_connect (q.v.) for download-connections. The default is null, which will cause the default from the aiohttp library to be used.")
+    sock_read_timeout: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=None, description="aiohttp.ClientTimeout.sock_read (q.v.) for download-connections. The default is null, which will cause the default from the aiohttp library to be used.")
     hidden_fields: Optional[List[GenericRemoteResponseHiddenFieldsInner]] = Field(default=None, description="List of hidden (write only) fields")
     q_select: Optional[StrictStr] = Field(default=None, description="Filter distributions on the upstream Pulp using complex filtering. E.g. pulp_label_select=\"foo\" OR pulp_label_select=\"key=val\"")
     last_replication: Optional[datetime] = Field(default=None, description="Timestamp of the last replication that occurred. Equals to 'null' if no replication task has been executed.")
     policy: Optional[Policy357Enum] = Field(default=None, description="Policy for how replicate will manage the local objects within the domain.  * `all` - Replicate manages ALL local objects within the domain. * `labeled` - Replicate will only manage the objects created from a previous replication, unlabled local objects will be untouched. * `nodelete` - Replicate will not delete any local object whether they were created by replication or not.")
-    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "name", "base_url", "api_root", "domain", "ca_cert", "client_cert", "tls_validation", "hidden_fields", "q_select", "last_replication", "policy"]
+    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "name", "base_url", "api_root", "domain", "ca_cert", "client_cert", "tls_validation", "download_concurrency", "max_retries", "total_timeout", "connect_timeout", "sock_connect_timeout", "sock_read_timeout", "hidden_fields", "q_select", "last_replication", "policy"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -117,6 +124,36 @@ class UpstreamPulpResponse(BaseModel):
         # and model_fields_set contains the field
         if self.client_cert is None and "client_cert" in self.model_fields_set:
             _dict['client_cert'] = None
+
+        # set to None if download_concurrency (nullable) is None
+        # and model_fields_set contains the field
+        if self.download_concurrency is None and "download_concurrency" in self.model_fields_set:
+            _dict['download_concurrency'] = None
+
+        # set to None if max_retries (nullable) is None
+        # and model_fields_set contains the field
+        if self.max_retries is None and "max_retries" in self.model_fields_set:
+            _dict['max_retries'] = None
+
+        # set to None if total_timeout (nullable) is None
+        # and model_fields_set contains the field
+        if self.total_timeout is None and "total_timeout" in self.model_fields_set:
+            _dict['total_timeout'] = None
+
+        # set to None if connect_timeout (nullable) is None
+        # and model_fields_set contains the field
+        if self.connect_timeout is None and "connect_timeout" in self.model_fields_set:
+            _dict['connect_timeout'] = None
+
+        # set to None if sock_connect_timeout (nullable) is None
+        # and model_fields_set contains the field
+        if self.sock_connect_timeout is None and "sock_connect_timeout" in self.model_fields_set:
+            _dict['sock_connect_timeout'] = None
+
+        # set to None if sock_read_timeout (nullable) is None
+        # and model_fields_set contains the field
+        if self.sock_read_timeout is None and "sock_read_timeout" in self.model_fields_set:
+            _dict['sock_read_timeout'] = None
 
         # set to None if q_select (nullable) is None
         # and model_fields_set contains the field

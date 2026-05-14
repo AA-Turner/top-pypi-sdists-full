@@ -25,11 +25,11 @@ from montecarlodata.agents.fields import (
 from montecarlodata.collector.commands import NETWORK_TEST_OPTIONS
 from montecarlodata.collector.network_tests import CollectorNetworkTestService
 from montecarlodata.common import create_mc_client
-from montecarlodata.common.commands import DC_ID_OPTION
 from montecarlodata.integrations.commands import PASSWORD_VERBIAGE
 from montecarlodata.tools import (
     AdvancedOptions,
     add_common_options,
+    convert_uuid_callback,
     validate_json_callback,
 )
 
@@ -71,6 +71,27 @@ UPDATE_AGENT_OPTIONS = [
     )
 ]
 
+# Agent register-* subcommands changed semantics with YET-1102: when
+# --collector-id is omitted the backend auto-provisions a fresh CaaS
+# collector instead of attaching to an existing one. The shared
+# DC_ID_OPTION (used by collector / discovery / integrations) keeps its
+# disambiguation semantic — only the agent register-* path uses this
+# variant.
+AGENT_REGISTER_DC_ID_OPTION = [
+    click.option(
+        "--collector-id",
+        "dc_id",
+        required=False,
+        type=click.UUID,
+        callback=convert_uuid_callback,
+        help=(
+            "Existing collector to attach the agent to. If omitted, a new "
+            "collector is provisioned automatically."
+        ),
+        cls=AdvancedOptions,
+    ),
+]
+
 
 @click.group(help="Manage a Monte Carlo Agent.")
 def agents():
@@ -95,7 +116,7 @@ def agents():
     required=True,
 )
 @add_common_options(DRY_RUN_OPTIONS)
-@add_common_options(DC_ID_OPTION)
+@add_common_options(AGENT_REGISTER_DC_ID_OPTION)
 @add_common_options(UPDATE_AGENT_OPTIONS)
 def register_azure_blob_store(ctx, container_name, **kwargs):
     AgentService(
@@ -112,25 +133,35 @@ def register_azure_blob_store(ctx, container_name, **kwargs):
     )
 
 
-@agents.command(help="Register a Data Store Agent with remote S3 bucket.")
+@agents.command(
+    help=(
+        "Register a Data Store Agent with remote S3 bucket. "
+        "AWS assume-role registration is a two-step flow: run first without "
+        "--assumable-role / --bucket-name to register a stub and obtain the "
+        "Monte Carlo generated ExternalId, then run again with --agent-id, "
+        "--assumable-role, and --bucket-name to complete the registration "
+        "(the agent is enabled automatically once everything is in place)."
+    )
+)
 @click.pass_obj
 @click.option(
     "--assumable-role",
-    help="ARN of AWS assumable role.",
-    required=True,
+    help=(
+        "ARN of AWS assumable role. Optional on first registration; required "
+        "to complete the registration via --agent-id."
+    ),
+    required=False,
 )
 @click.option(
     "--bucket-name",
-    help="Name of S3 bucket for data store.",
-    required=True,
-)
-@click.option(
-    "--external-id",
-    help="AWS External ID.",
+    help=(
+        "Name of S3 bucket for data store. Optional on first registration; "
+        "required to complete the registration via --agent-id."
+    ),
     required=False,
 )
 @add_common_options(DRY_RUN_OPTIONS)
-@add_common_options(DC_ID_OPTION)
+@add_common_options(AGENT_REGISTER_DC_ID_OPTION)
 @add_common_options(UPDATE_AGENT_OPTIONS)
 def register_s3_store(ctx, bucket_name, **kwargs):
     AgentService(
@@ -147,21 +178,31 @@ def register_s3_store(ctx, bucket_name, **kwargs):
     )
 
 
-@agents.command(help="Register a Remote AWS Agent.")
+@agents.command(
+    help=(
+        "Register a Remote AWS Agent. AWS assume-role registration is a "
+        "two-step flow: run first without --assumable-role / --lambda-arn to "
+        "register a stub and obtain the Monte Carlo generated ExternalId, then run "
+        "again with --agent-id, --assumable-role, and --lambda-arn to "
+        "complete the registration (the agent is enabled automatically once "
+        "everything is in place)."
+    )
+)
 @click.pass_obj
 @click.option(
     "--assumable-role",
-    help="ARN of AWS assumable role.",
-    required=True,
+    help=(
+        "ARN of AWS assumable role. Optional on first registration; required "
+        "to complete the registration via --agent-id."
+    ),
+    required=False,
 )
 @click.option(
     "--lambda-arn",
-    help="ARN of AWS Lambda function.",
-    required=True,
-)
-@click.option(
-    "--external-id",
-    help="AWS External ID.",
+    help=(
+        "ARN of AWS Lambda function. Optional on first registration; "
+        "required to complete the registration via --agent-id."
+    ),
     required=False,
 )
 @click.option(
@@ -173,7 +214,7 @@ def register_s3_store(ctx, bucket_name, **kwargs):
     show_default=True,
 )
 @add_common_options(DRY_RUN_OPTIONS)
-@add_common_options(DC_ID_OPTION)
+@add_common_options(AGENT_REGISTER_DC_ID_OPTION)
 @add_common_options(UPDATE_AGENT_OPTIONS)
 def register_aws_agent(ctx, lambda_arn, storage_type, **kwargs):
     AgentService(
@@ -257,7 +298,7 @@ def register_aws_agent(ctx, lambda_arn, storage_type, **kwargs):
     show_default=True,
 )
 @add_common_options(DRY_RUN_OPTIONS)
-@add_common_options(DC_ID_OPTION)
+@add_common_options(AGENT_REGISTER_DC_ID_OPTION)
 @add_common_options(MUTUAL_TLS_OPTIONS)
 @add_common_options(UPDATE_AGENT_OPTIONS)
 def register_aws_proxied_agent(
@@ -344,7 +385,7 @@ def register_aws_proxied_agent(
     required_with_options=["username", "auth_url", "authentication"],
 )
 @add_common_options(DRY_RUN_OPTIONS)
-@add_common_options(DC_ID_OPTION)
+@add_common_options(AGENT_REGISTER_DC_ID_OPTION)
 @add_common_options(MUTUAL_TLS_OPTIONS)
 @add_common_options(UPDATE_AGENT_OPTIONS)
 def register_gcp_proxied_agent(
@@ -391,7 +432,7 @@ def register_gcp_proxied_agent(
     required=True,
 )
 @add_common_options(DRY_RUN_OPTIONS)
-@add_common_options(DC_ID_OPTION)
+@add_common_options(AGENT_REGISTER_DC_ID_OPTION)
 @add_common_options(UPDATE_AGENT_OPTIONS)
 def register_gcs_store(ctx, bucket_name, **kwargs):
     AgentService(
@@ -421,7 +462,7 @@ def register_gcs_store(ctx, bucket_name, **kwargs):
     required=True,
 )
 @add_common_options(DRY_RUN_OPTIONS)
-@add_common_options(DC_ID_OPTION)
+@add_common_options(AGENT_REGISTER_DC_ID_OPTION)
 @add_common_options(MUTUAL_TLS_OPTIONS)
 @add_common_options(UPDATE_AGENT_OPTIONS)
 def register_gcp_agent(ctx, url, **kwargs):
@@ -454,7 +495,7 @@ def register_gcp_agent(ctx, url, **kwargs):
     required=True,
 )
 @add_common_options(DRY_RUN_OPTIONS)
-@add_common_options(DC_ID_OPTION)
+@add_common_options(AGENT_REGISTER_DC_ID_OPTION)
 @add_common_options(MUTUAL_TLS_OPTIONS)
 @add_common_options(UPDATE_AGENT_OPTIONS)
 def register_azure_agent(ctx, url, **kwargs):
@@ -484,6 +525,61 @@ def deregister(ctx, agent_id):
         mc_client=create_mc_client(ctx),
         command_name="agents deregister",
     ).delete_agent(agent_id)
+
+
+@agents.command(help="Enable an Agent. Runs reachability before flipping the state.")
+@click.pass_obj
+@click.option("--agent-id", help="UUID of Agent to enable.", required=True)
+@click.option(
+    "--dry-run",
+    required=False,
+    default=False,
+    show_default=True,
+    is_flag=True,
+    help="Run the precondition + reachability check without changing the agent's state.",
+)
+def enable(ctx, agent_id, dry_run):
+    AgentService(
+        config=ctx["config"],
+        mc_client=create_mc_client(ctx),
+        command_name="agents enable",
+    ).set_agent_enabled(agent_id=agent_id, enabled=True, dry_run=dry_run)
+
+
+@agents.command(help="Disable an Agent.")
+@click.pass_obj
+@click.option("--agent-id", help="UUID of Agent to disable.", required=True)
+def disable(ctx, agent_id):
+    AgentService(
+        config=ctx["config"],
+        mc_client=create_mc_client(ctx),
+        command_name="agents disable",
+    ).set_agent_enabled(agent_id=agent_id, enabled=False)
+
+
+@agents.command(
+    name="rotate-aws-external-id",
+    help=(
+        "Rotate the AWS IAM ExternalId for an AWS assume-role agent. The agent will fail "
+        "to assume the customer role until the new value is pinned in the role's trust policy."
+    ),
+)
+@click.pass_obj
+@click.option("--agent-id", help="UUID of AWS Agent.", required=True)
+@click.option(
+    "--no-prompt",
+    required=False,
+    default=False,
+    show_default=True,
+    is_flag=True,
+    help="Don't ask for confirmation.",
+)
+def rotate_aws_external_id(ctx, agent_id, no_prompt):
+    AgentService(
+        config=ctx["config"],
+        mc_client=create_mc_client(ctx),
+        command_name="agents rotate_aws_external_id",
+    ).rotate_aws_external_id(agent_id=agent_id, no_prompt=no_prompt)
 
 
 @agents.command(help="Perform a health check of the Agent.")

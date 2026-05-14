@@ -2821,6 +2821,7 @@ class CfnEvaluator(
         
             # the properties below are optional
             description="description",
+            kms_key_arn="kmsKeyArn",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -2837,6 +2838,7 @@ class CfnEvaluator(
         evaluator_name: builtins.str,
         level: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::BedrockAgentCore::Evaluator``.
@@ -2847,6 +2849,7 @@ class CfnEvaluator(
         :param evaluator_name: The name of the evaluator. Must be unique within your account.
         :param level: 
         :param description: The description of the evaluator.
+        :param kms_key_arn: The ARN of the KMS key used to encrypt evaluator data.
         :param tags: A list of tags to assign to the evaluator.
         '''
         if __debug__:
@@ -2858,6 +2861,7 @@ class CfnEvaluator(
             evaluator_name=evaluator_name,
             level=level,
             description=description,
+            kms_key_arn=kms_key_arn,
             tags=tags,
         )
 
@@ -3037,6 +3041,19 @@ class CfnEvaluator(
             type_hints = typing.get_type_hints(_typecheckingstub__e9476feb3976d508ab93e23993f8958690b378207ccac9c804c8644598ec4e9d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyArn")
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the KMS key used to encrypt evaluator data.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyArn"))
+
+    @kms_key_arn.setter
+    def kms_key_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6919c1637e41279834d1c9f16faa696e294278429846cf2b52bdf985f04a8dfb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3916,6 +3933,7 @@ class CfnEvaluator(
         "evaluator_name": "evaluatorName",
         "level": "level",
         "description": "description",
+        "kms_key_arn": "kmsKeyArn",
         "tags": "tags",
     },
 )
@@ -3927,6 +3945,7 @@ class CfnEvaluatorProps:
         evaluator_name: builtins.str,
         level: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnEvaluator``.
@@ -3935,6 +3954,7 @@ class CfnEvaluatorProps:
         :param evaluator_name: The name of the evaluator. Must be unique within your account.
         :param level: 
         :param description: The description of the evaluator.
+        :param kms_key_arn: The ARN of the KMS key used to encrypt evaluator data.
         :param tags: A list of tags to assign to the evaluator.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-evaluator.html
@@ -3992,6 +4012,7 @@ class CfnEvaluatorProps:
             
                 # the properties below are optional
                 description="description",
+                kms_key_arn="kmsKeyArn",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -4004,6 +4025,7 @@ class CfnEvaluatorProps:
             check_type(argname="argument evaluator_name", value=evaluator_name, expected_type=type_hints["evaluator_name"])
             check_type(argname="argument level", value=level, expected_type=type_hints["level"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "evaluator_config": evaluator_config,
@@ -4012,6 +4034,8 @@ class CfnEvaluatorProps:
         }
         if description is not None:
             self._values["description"] = description
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
         if tags is not None:
             self._values["tags"] = tags
 
@@ -4055,6 +4079,15 @@ class CfnEvaluatorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-evaluator.html#cfn-bedrockagentcore-evaluator-description
         '''
         result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the KMS key used to encrypt evaluator data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-evaluator.html#cfn-bedrockagentcore-evaluator-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -14320,8 +14353,6 @@ class CfnOAuth2CredentialProvider(
                     client_secret="clientSecret"
                 ),
                 custom_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.CustomOauth2ProviderConfigInputProperty(
-                    client_id="clientId",
-                    client_secret="clientSecret",
                     oauth_discovery=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty(
                         authorization_server_metadata=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2AuthorizationServerMetadataProperty(
                             authorization_endpoint="authorizationEndpoint",
@@ -14332,6 +14363,21 @@ class CfnOAuth2CredentialProvider(
                             response_types=["responseTypes"]
                         ),
                         discovery_url="discoveryUrl"
+                    ),
+        
+                    # the properties below are optional
+                    client_id="clientId",
+                    client_secret="clientSecret",
+                    on_behalf_of_token_exchange_config=bedrockagentcore.CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty(
+                        grant_type="grantType",
+        
+                        # the properties below are optional
+                        token_exchange_grant_type_config=bedrockagentcore.CfnOAuth2CredentialProvider.TokenExchangeGrantTypeConfigProperty(
+                            actor_token_content="actorTokenContent",
+        
+                            # the properties below are optional
+                            actor_token_scopes=["actorTokenScopes"]
+                        )
                     )
                 ),
                 github_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.GithubOauth2ProviderConfigInputProperty(
@@ -14712,24 +14758,27 @@ class CfnOAuth2CredentialProvider(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.CustomOauth2ProviderConfigInputProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "oauth_discovery": "oauthDiscovery",
             "client_id": "clientId",
             "client_secret": "clientSecret",
-            "oauth_discovery": "oauthDiscovery",
+            "on_behalf_of_token_exchange_config": "onBehalfOfTokenExchangeConfig",
         },
     )
     class CustomOauth2ProviderConfigInputProperty:
         def __init__(
             self,
             *,
-            client_id: builtins.str,
-            client_secret: builtins.str,
             oauth_discovery: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty", typing.Dict[builtins.str, typing.Any]]],
+            client_id: typing.Optional[builtins.str] = None,
+            client_secret: typing.Optional[builtins.str] = None,
+            on_behalf_of_token_exchange_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Input configuration for a custom OAuth2 provider.
 
+            :param oauth_discovery: Discovery information for an OAuth2 provider.
             :param client_id: The client ID for the custom OAuth2 provider.
             :param client_secret: The client secret for the custom OAuth2 provider.
-            :param oauth_discovery: Discovery information for an OAuth2 provider.
+            :param on_behalf_of_token_exchange_config: Configuration for on-behalf-of token exchange.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput.html
             :exampleMetadata: fixture=_generated
@@ -14741,8 +14790,6 @@ class CfnOAuth2CredentialProvider(
                 from aws_cdk import aws_bedrockagentcore as bedrockagentcore
                 
                 custom_oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.CustomOauth2ProviderConfigInputProperty(
-                    client_id="clientId",
-                    client_secret="clientSecret",
                     oauth_discovery=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty(
                         authorization_server_metadata=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2AuthorizationServerMetadataProperty(
                             authorization_endpoint="authorizationEndpoint",
@@ -14753,39 +14800,39 @@ class CfnOAuth2CredentialProvider(
                             response_types=["responseTypes"]
                         ),
                         discovery_url="discoveryUrl"
+                    ),
+                
+                    # the properties below are optional
+                    client_id="clientId",
+                    client_secret="clientSecret",
+                    on_behalf_of_token_exchange_config=bedrockagentcore.CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty(
+                        grant_type="grantType",
+                
+                        # the properties below are optional
+                        token_exchange_grant_type_config=bedrockagentcore.CfnOAuth2CredentialProvider.TokenExchangeGrantTypeConfigProperty(
+                            actor_token_content="actorTokenContent",
+                
+                            # the properties below are optional
+                            actor_token_scopes=["actorTokenScopes"]
+                        )
                     )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__42db5b69a3eb1cbedcb30d7f7d13d301d38de8e6caed7f630567a892724c1f10)
+                check_type(argname="argument oauth_discovery", value=oauth_discovery, expected_type=type_hints["oauth_discovery"])
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
-                check_type(argname="argument oauth_discovery", value=oauth_discovery, expected_type=type_hints["oauth_discovery"])
+                check_type(argname="argument on_behalf_of_token_exchange_config", value=on_behalf_of_token_exchange_config, expected_type=type_hints["on_behalf_of_token_exchange_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
-                "client_id": client_id,
-                "client_secret": client_secret,
                 "oauth_discovery": oauth_discovery,
             }
-
-        @builtins.property
-        def client_id(self) -> builtins.str:
-            '''The client ID for the custom OAuth2 provider.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput-clientid
-            '''
-            result = self._values.get("client_id")
-            assert result is not None, "Required property 'client_id' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def client_secret(self) -> builtins.str:
-            '''The client secret for the custom OAuth2 provider.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput-clientsecret
-            '''
-            result = self._values.get("client_secret")
-            assert result is not None, "Required property 'client_secret' is missing"
-            return typing.cast(builtins.str, result)
+            if client_id is not None:
+                self._values["client_id"] = client_id
+            if client_secret is not None:
+                self._values["client_secret"] = client_secret
+            if on_behalf_of_token_exchange_config is not None:
+                self._values["on_behalf_of_token_exchange_config"] = on_behalf_of_token_exchange_config
 
         @builtins.property
         def oauth_discovery(
@@ -14798,6 +14845,35 @@ class CfnOAuth2CredentialProvider(
             result = self._values.get("oauth_discovery")
             assert result is not None, "Required property 'oauth_discovery' is missing"
             return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty"], result)
+
+        @builtins.property
+        def client_id(self) -> typing.Optional[builtins.str]:
+            '''The client ID for the custom OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput-clientid
+            '''
+            result = self._values.get("client_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def client_secret(self) -> typing.Optional[builtins.str]:
+            '''The client secret for the custom OAuth2 provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def on_behalf_of_token_exchange_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty"]]:
+            '''Configuration for on-behalf-of token exchange.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput-onbehalfoftokenexchangeconfig
+            '''
+            result = self._values.get("on_behalf_of_token_exchange_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15475,8 +15551,6 @@ class CfnOAuth2CredentialProvider(
                         client_secret="clientSecret"
                     ),
                     custom_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.CustomOauth2ProviderConfigInputProperty(
-                        client_id="clientId",
-                        client_secret="clientSecret",
                         oauth_discovery=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty(
                             authorization_server_metadata=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2AuthorizationServerMetadataProperty(
                                 authorization_endpoint="authorizationEndpoint",
@@ -15487,6 +15561,21 @@ class CfnOAuth2CredentialProvider(
                                 response_types=["responseTypes"]
                             ),
                             discovery_url="discoveryUrl"
+                        ),
+                
+                        # the properties below are optional
+                        client_id="clientId",
+                        client_secret="clientSecret",
+                        on_behalf_of_token_exchange_config=bedrockagentcore.CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty(
+                            grant_type="grantType",
+                
+                            # the properties below are optional
+                            token_exchange_grant_type_config=bedrockagentcore.CfnOAuth2CredentialProvider.TokenExchangeGrantTypeConfigProperty(
+                                actor_token_content="actorTokenContent",
+                
+                                # the properties below are optional
+                                actor_token_scopes=["actorTokenScopes"]
+                            )
                         )
                     ),
                     github_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.GithubOauth2ProviderConfigInputProperty(
@@ -15671,7 +15760,11 @@ class CfnOAuth2CredentialProvider(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2ProviderConfigOutputProperty",
         jsii_struct_bases=[],
-        name_mapping={"client_id": "clientId", "oauth_discovery": "oauthDiscovery"},
+        name_mapping={
+            "client_id": "clientId",
+            "oauth_discovery": "oauthDiscovery",
+            "on_behalf_of_token_exchange_config": "onBehalfOfTokenExchangeConfig",
+        },
     )
     class Oauth2ProviderConfigOutputProperty:
         def __init__(
@@ -15679,11 +15772,13 @@ class CfnOAuth2CredentialProvider(
             *,
             client_id: typing.Optional[builtins.str] = None,
             oauth_discovery: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            on_behalf_of_token_exchange_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Output configuration for an OAuth2 provider.
 
             :param client_id: 
             :param oauth_discovery: Discovery information for an OAuth2 provider.
+            :param on_behalf_of_token_exchange_config: Configuration for on-behalf-of token exchange.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2providerconfigoutput.html
             :exampleMetadata: fixture=_generated
@@ -15706,6 +15801,17 @@ class CfnOAuth2CredentialProvider(
                             response_types=["responseTypes"]
                         ),
                         discovery_url="discoveryUrl"
+                    ),
+                    on_behalf_of_token_exchange_config=bedrockagentcore.CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty(
+                        grant_type="grantType",
+                
+                        # the properties below are optional
+                        token_exchange_grant_type_config=bedrockagentcore.CfnOAuth2CredentialProvider.TokenExchangeGrantTypeConfigProperty(
+                            actor_token_content="actorTokenContent",
+                
+                            # the properties below are optional
+                            actor_token_scopes=["actorTokenScopes"]
+                        )
                     )
                 )
             '''
@@ -15713,11 +15819,14 @@ class CfnOAuth2CredentialProvider(
                 type_hints = typing.get_type_hints(_typecheckingstub__80d5d340375743330f03bcce541b4baa53d74dc34fb39c747fa18f2aa3e6e9af)
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument oauth_discovery", value=oauth_discovery, expected_type=type_hints["oauth_discovery"])
+                check_type(argname="argument on_behalf_of_token_exchange_config", value=on_behalf_of_token_exchange_config, expected_type=type_hints["on_behalf_of_token_exchange_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if client_id is not None:
                 self._values["client_id"] = client_id
             if oauth_discovery is not None:
                 self._values["oauth_discovery"] = oauth_discovery
+            if on_behalf_of_token_exchange_config is not None:
+                self._values["on_behalf_of_token_exchange_config"] = on_behalf_of_token_exchange_config
 
         @builtins.property
         def client_id(self) -> typing.Optional[builtins.str]:
@@ -15738,6 +15847,17 @@ class CfnOAuth2CredentialProvider(
             result = self._values.get("oauth_discovery")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty"]], result)
 
+        @builtins.property
+        def on_behalf_of_token_exchange_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty"]]:
+            '''Configuration for on-behalf-of token exchange.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2providerconfigoutput.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2providerconfigoutput-onbehalfoftokenexchangeconfig
+            '''
+            result = self._values.get("on_behalf_of_token_exchange_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty"]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -15746,6 +15866,89 @@ class CfnOAuth2CredentialProvider(
 
         def __repr__(self) -> str:
             return "Oauth2ProviderConfigOutputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "grant_type": "grantType",
+            "token_exchange_grant_type_config": "tokenExchangeGrantTypeConfig",
+        },
+    )
+    class OnBehalfOfTokenExchangeConfigProperty:
+        def __init__(
+            self,
+            *,
+            grant_type: builtins.str,
+            token_exchange_grant_type_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.TokenExchangeGrantTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration for on-behalf-of token exchange.
+
+            :param grant_type: The grant type for on-behalf-of token exchange.
+            :param token_exchange_grant_type_config: Configuration for RFC 8693 Token Exchange.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-onbehalfoftokenexchangeconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                on_behalf_of_token_exchange_config_property = bedrockagentcore.CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty(
+                    grant_type="grantType",
+                
+                    # the properties below are optional
+                    token_exchange_grant_type_config=bedrockagentcore.CfnOAuth2CredentialProvider.TokenExchangeGrantTypeConfigProperty(
+                        actor_token_content="actorTokenContent",
+                
+                        # the properties below are optional
+                        actor_token_scopes=["actorTokenScopes"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__757c643b58d56d1a6fc0dc669693529c32c0cd7d8b55adf9d5f9d7d9b8b48398)
+                check_type(argname="argument grant_type", value=grant_type, expected_type=type_hints["grant_type"])
+                check_type(argname="argument token_exchange_grant_type_config", value=token_exchange_grant_type_config, expected_type=type_hints["token_exchange_grant_type_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "grant_type": grant_type,
+            }
+            if token_exchange_grant_type_config is not None:
+                self._values["token_exchange_grant_type_config"] = token_exchange_grant_type_config
+
+        @builtins.property
+        def grant_type(self) -> builtins.str:
+            '''The grant type for on-behalf-of token exchange.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-onbehalfoftokenexchangeconfig.html#cfn-bedrockagentcore-oauth2credentialprovider-onbehalfoftokenexchangeconfig-granttype
+            '''
+            result = self._values.get("grant_type")
+            assert result is not None, "Required property 'grant_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def token_exchange_grant_type_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.TokenExchangeGrantTypeConfigProperty"]]:
+            '''Configuration for RFC 8693 Token Exchange.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-onbehalfoftokenexchangeconfig.html#cfn-bedrockagentcore-oauth2credentialprovider-onbehalfoftokenexchangeconfig-tokenexchangegranttypeconfig
+            '''
+            result = self._values.get("token_exchange_grant_type_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.TokenExchangeGrantTypeConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OnBehalfOfTokenExchangeConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -15887,6 +16090,84 @@ class CfnOAuth2CredentialProvider(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.TokenExchangeGrantTypeConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "actor_token_content": "actorTokenContent",
+            "actor_token_scopes": "actorTokenScopes",
+        },
+    )
+    class TokenExchangeGrantTypeConfigProperty:
+        def __init__(
+            self,
+            *,
+            actor_token_content: builtins.str,
+            actor_token_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Configuration for RFC 8693 Token Exchange.
+
+            :param actor_token_content: The actor token content type.
+            :param actor_token_scopes: The actor token scopes. Only valid when ActorTokenContent is M2M.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-tokenexchangegranttypeconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                token_exchange_grant_type_config_property = bedrockagentcore.CfnOAuth2CredentialProvider.TokenExchangeGrantTypeConfigProperty(
+                    actor_token_content="actorTokenContent",
+                
+                    # the properties below are optional
+                    actor_token_scopes=["actorTokenScopes"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b6aa49a5c7404ad7526f1fbebe34a0bf9f158945e1399c87a234adf25607a37c)
+                check_type(argname="argument actor_token_content", value=actor_token_content, expected_type=type_hints["actor_token_content"])
+                check_type(argname="argument actor_token_scopes", value=actor_token_scopes, expected_type=type_hints["actor_token_scopes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "actor_token_content": actor_token_content,
+            }
+            if actor_token_scopes is not None:
+                self._values["actor_token_scopes"] = actor_token_scopes
+
+        @builtins.property
+        def actor_token_content(self) -> builtins.str:
+            '''The actor token content type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-tokenexchangegranttypeconfig.html#cfn-bedrockagentcore-oauth2credentialprovider-tokenexchangegranttypeconfig-actortokencontent
+            '''
+            result = self._values.get("actor_token_content")
+            assert result is not None, "Required property 'actor_token_content' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def actor_token_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The actor token scopes.
+
+            Only valid when ActorTokenContent is M2M.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-tokenexchangegranttypeconfig.html#cfn-bedrockagentcore-oauth2credentialprovider-tokenexchangegranttypeconfig-actortokenscopes
+            '''
+            result = self._values.get("actor_token_scopes")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TokenExchangeGrantTypeConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProviderProps",
@@ -15935,8 +16216,6 @@ class CfnOAuth2CredentialProviderProps:
                         client_secret="clientSecret"
                     ),
                     custom_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.CustomOauth2ProviderConfigInputProperty(
-                        client_id="clientId",
-                        client_secret="clientSecret",
                         oauth_discovery=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty(
                             authorization_server_metadata=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2AuthorizationServerMetadataProperty(
                                 authorization_endpoint="authorizationEndpoint",
@@ -15947,6 +16226,21 @@ class CfnOAuth2CredentialProviderProps:
                                 response_types=["responseTypes"]
                             ),
                             discovery_url="discoveryUrl"
+                        ),
+            
+                        # the properties below are optional
+                        client_id="clientId",
+                        client_secret="clientSecret",
+                        on_behalf_of_token_exchange_config=bedrockagentcore.CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty(
+                            grant_type="grantType",
+            
+                            # the properties below are optional
+                            token_exchange_grant_type_config=bedrockagentcore.CfnOAuth2CredentialProvider.TokenExchangeGrantTypeConfigProperty(
+                                actor_token_content="actorTokenContent",
+            
+                                # the properties below are optional
+                                actor_token_scopes=["actorTokenScopes"]
+                            )
                         )
                     ),
                     github_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.GithubOauth2ProviderConfigInputProperty(
@@ -21526,6 +21820,7 @@ def _typecheckingstub__141b6fd05e9e051e0fb07fbc9903cbc471c6f95bd2ce599524db7f08e
     evaluator_name: builtins.str,
     level: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -21574,6 +21869,12 @@ def _typecheckingstub__e5ba897fceb746066253f02e4acaa94a0805d38e5dd7eb06a70ada74a
     pass
 
 def _typecheckingstub__e9476feb3976d508ab93e23993f8958690b378207ccac9c804c8644598ec4e9d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6919c1637e41279834d1c9f16faa696e294278429846cf2b52bdf985f04a8dfb(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -21673,6 +21974,7 @@ def _typecheckingstub__c769c32f0049d1195b80f5b76b8b678dcf5ad1c67ed7fa7571832bf67
     evaluator_name: builtins.str,
     level: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -22707,9 +23009,10 @@ def _typecheckingstub__8eb9a632255092d4608ff9847420b12a146ff9613a10423cd0f2a3e4c
 
 def _typecheckingstub__42db5b69a3eb1cbedcb30d7f7d13d301d38de8e6caed7f630567a892724c1f10(
     *,
-    client_id: builtins.str,
-    client_secret: builtins.str,
     oauth_discovery: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty, typing.Dict[builtins.str, typing.Any]]],
+    client_id: typing.Optional[builtins.str] = None,
+    client_secret: typing.Optional[builtins.str] = None,
+    on_behalf_of_token_exchange_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22795,6 +23098,15 @@ def _typecheckingstub__80d5d340375743330f03bcce541b4baa53d74dc34fb39c747fa18f2aa
     *,
     client_id: typing.Optional[builtins.str] = None,
     oauth_discovery: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    on_behalf_of_token_exchange_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__757c643b58d56d1a6fc0dc669693529c32c0cd7d8b55adf9d5f9d7d9b8b48398(
+    *,
+    grant_type: builtins.str,
+    token_exchange_grant_type_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.TokenExchangeGrantTypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22811,6 +23123,14 @@ def _typecheckingstub__d481c4e03c457cb3488d486219733d6daf49bc2037b001de9ced0c972
     *,
     client_id: builtins.str,
     client_secret: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6aa49a5c7404ad7526f1fbebe34a0bf9f158945e1399c87a234adf25607a37c(
+    *,
+    actor_token_content: builtins.str,
+    actor_token_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

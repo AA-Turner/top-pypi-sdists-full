@@ -5,7 +5,7 @@ from .._internal import positive
 from .._flag import AudioState
 from ..abc import Asset
 
-from typing import TYPE_CHECKING, Callable, Any
+from typing import TYPE_CHECKING, Callable, Any, ClassVar
 from numbers import Real
 import threading
 
@@ -16,11 +16,11 @@ if TYPE_CHECKING:
 
 # ======================================== ASSET ========================================
 class Music(Asset):
-    """Musique streamée depuis le disque *(BGM)*
+    """Descripteur mutable de musique streamée depuis le disque *(BGM)*
 
     Args:
         path: chemin vers le fichier audio
-        volume: volume propre [0, 1]
+        volume: volume propre
     """
     __slots__ = (
         "_path", "_volume",
@@ -28,7 +28,7 @@ class Music(Asset):
         "_source", "_source_lock", "_loading_source",
     )
 
-    _AUDIO_MANAGER: AudioManager = None
+    _AUDIO_MANAGER: ClassVar[AudioManager] = None
 
     @classmethod
     def _get_audio_manager(cls) -> AudioManager:
@@ -69,8 +69,19 @@ class Music(Asset):
 
     @property
     def volume(self) -> float:
-        """Volume propre"""
+        """Volume propre
+        
+        Le volume doit être un ``Real`` positif.
+        Lors de la modification, le changement de volume n'est appliqué qu'à la prochaine lecture.
+        """
         return self._volume
+    
+    @volume.setter
+    def volume(self, value: Real) -> None:
+        value = float(value)
+        if __debug__:
+            positive(value)
+        self._volume = value
 
     # ======================================== PREDICATES ========================================
     def __eq__(self, other: object) -> bool:
@@ -124,16 +135,20 @@ class Music(Asset):
 
     # ======================================== INTERNALS ========================================
     def _set_volume(self, value: float) -> None:
+        """Fixe le volume du ``MusicHandle`` courant"""
         if self._handle is not None:
             self._handle._set_volume(value)
 
     def _set_state(self, value: AudioState) -> None:
+        """Fixe l'état de la musique"""
         self._state = value
 
     def _set_loop(self, value: bool) -> None:
+        """Fixe le loop"""
         self._loop = value
 
     def _set_handle(self, value: MusicHandle | None) -> None:
+        """Fixe le ``MusicHandle`` courant"""
         self._handle = value
 
     def _get_source(self) -> _media.StreamingSource | None:

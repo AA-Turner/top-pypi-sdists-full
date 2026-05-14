@@ -98,18 +98,21 @@ def config_to_db(db_path, parser, today):
     con.close()
 
 
-def store(db_path, experiment_id, df, model, model_name):
-    """
+def store(db_path, experiment_id, df, model, model_name, *, save_model_blobs=False):
+    """Persist results (and optionally a pickled model blob) to SQLite.
 
     Args:
-        db_path:
-        experiment_id:
-        df:
-        model:
-        model_name:
-
-    Returns:
-
+        db_path: SQLite path.
+        experiment_id: Per-task table name for the results frame.
+        df: Results DataFrame.
+        model: Trained model object (only used when ``save_model_blobs``).
+        model_name: Display name of the model.
+        save_model_blobs: If True, also write a row into the shared ``models``
+            table containing ``pickle.dumps(model)``. Off by default because
+            the ``models`` table is the worst SQLite write-lock hot spot
+            (every task hammers the same table) and nothing in geocif reads
+            it. Flip on via ``[ML] save_model_blobs = True`` in the config
+            when the pickled blobs are actually needed downstream.
     """
     # Convert any categorical columns to the values else we get the error
     # Exception: 'Categorical' with dtype category does not support reduction 'all'
@@ -130,9 +133,11 @@ def store(db_path, experiment_id, df, model, model_name):
     except Exception as e:
         print(f"Error: {e}")
 
-    # name the index level
+    if not save_model_blobs:
+        return
+
+    # Optional: pickle the model and store in the shared `models` table.
     try:
-        index_columns = ["Country", "Region", "Crop", "Harvest Year", "Stages"]
         # Output model pickle as a blob to database
         df_model = pd.DataFrame(
             {
@@ -141,10 +146,6 @@ def store(db_path, experiment_id, df, model, model_name):
                 "Model_Blob": [pickle.dumps(model)],
             }
         )
-        # df_model.index = df_model.apply(
-        #     lambda row: "_".join([str(row[col]) for col in index_columns]), axis=1
-        # )
-
         df_model.index.set_names(["Index"], inplace=True)
         utils.to_db(db_path, "models", df_model)
     except Exception as e:

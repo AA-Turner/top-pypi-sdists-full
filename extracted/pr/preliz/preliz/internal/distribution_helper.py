@@ -4,7 +4,7 @@ from sys import modules
 
 import numpy as np
 from pytensor import function
-from pytensor.compile.function.types import Function, In
+from pytensor.compile import Function, In
 from pytensor.tensor import tensor
 from pytensor.tensor.random.type import random_generator_type
 
@@ -125,7 +125,8 @@ def pytensor_jit(func, **compile_kwargs):
         except KeyError:
             pass
         symbolic_args = [
-            tensor(broadcastable=bcast_pattern, dtype=dtype) for (bcast_pattern, dtype) in signature
+            tensor(shape=tuple(1 if b else None for b in bcast_pattern), dtype=dtype)
+            for (bcast_pattern, dtype) in signature
         ]
         symbolic_out = func(*symbolic_args)
         signature_to_function[signature] = compiled_func = function(
@@ -169,7 +170,7 @@ def pytensor_rng_jit(_func=None, **compile_kwargs):
                 pass
 
             symbolic_args = [
-                tensor(broadcastable=bcast_pattern, dtype=dtype)
+                tensor(shape=tuple(1 if b else None for b in bcast_pattern), dtype=dtype)
                 for (bcast_pattern, dtype) in signature[:-1]
             ]
             symbolic_size = (

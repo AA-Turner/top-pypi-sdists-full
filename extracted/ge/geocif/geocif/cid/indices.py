@@ -1210,7 +1210,7 @@ class CIDs:
                 if not df_processed.empty:
                     frames_group.append(df_processed)
             # 2) EO indices (NDVI, ESI, GCVI, H-INDEX, etc.)
-            eo_vars = ["GCVI", "NDVI", "ESI4WK", "H-INDEX", "AEF"]
+            eo_vars = ["GCVI", "NDVI", "ESI4WK", "ETREF", "H-INDEX", "AEF"]
             if any(c.startswith("fldas_") for c in df_group.columns):
                 eo_vars.append("FLDAS")
             if any(c.startswith("s2s_") for c in df_group.columns):
@@ -1331,6 +1331,8 @@ class CIDs:
             dict_eo = di.dict_gcvi
         elif var == "ESI4WK":
             dict_eo = di.dict_esi4wk
+        elif var == "ETREF":
+            dict_eo = di.dict_etref
         elif var == "H-INDEX":
             dict_eo = di.dict_hindex
         elif var == "AEF":
@@ -1355,6 +1357,8 @@ class CIDs:
                 col_name = "ndvi"
             elif "ESI4WK" in iname.upper():
                 col_name = "esi_4wk"
+            elif "ETREF" in iname.upper():
+                col_name = "etref"
             elif "GCVI" in iname.upper():
                 col_name = "gcvi"
             elif "TMAX" in iname.upper():

@@ -206,7 +206,7 @@ def evaluate_condition(item, mark, condition: object) -> bool:
             result = eval(condition_code, globals_)  # noqa: S307
         except SyntaxError as exc:
             msglines = [
-                "Error evaluating %r condition" % mark.name,
+                f"Error evaluating {mark.name!r} condition",
                 "    " + condition,
                 "    " + " " * (exc.offset or 0) + "^",
                 "SyntaxError: invalid syntax",
@@ -214,7 +214,7 @@ def evaluate_condition(item, mark, condition: object) -> bool:
             fail("\n".join(msglines), pytrace=False)
         except Exception as exc:
             msglines = [
-                "Error evaluating %r condition" % mark.name,
+                f"Error evaluating {mark.name!r} condition",
                 "    " + condition,
                 *traceback.format_exception_only(type(exc), exc),
             ]
@@ -226,7 +226,7 @@ def evaluate_condition(item, mark, condition: object) -> bool:
             result = bool(condition)
         except Exception as exc:
             msglines = [
-                "Error evaluating %r condition as a boolean" % mark.name,
+                f"Error evaluating {mark.name!r} condition as a boolean",
                 *traceback.format_exception_only(type(exc), exc),
             ]
             fail("\n".join(msglines), pytrace=False)
@@ -244,17 +244,22 @@ def _remove_cached_results_from_failed_fixtures(item):
                 result, _, err = getattr(fixture_def, cached_result)
                 if err:  # Deleting cached results for only failed fixtures
                     setattr(fixture_def, cached_result, None)
+                    # Clear finalizers registered during the failed execution
+                    # so the fixture can be re-executed cleanly (pytest >= 9
+                    # asserts _finalizers is empty before executing a fixture).
+                    if hasattr(fixture_def, "_finalizers"):
+                        fixture_def._finalizers.clear()
 
 
 def _remove_failed_setup_state_from_session(item):
     """
     Clean up setup state.
 
-    Note: remove all failures from every node in _setupstate stack
-          and clean the stack itself
+    Note: remove only the current item, not higher-scoped items
     """
     setup_state = item.session._setupstate
-    setup_state.stack = {}
+    if item in setup_state.stack:
+        del setup_state.stack[item]
 
 
 def _get_rerun_filter_regex(item, regex_name):
@@ -281,8 +286,11 @@ def _matches_any_rerun_except_error(rerun_except_errors, excinfo):
 def _try_match_error(rerun_errors, excinfo):
     if excinfo:
         err = f"{excinfo.type.__name__}: {excinfo.value}"
-        for rerun_regex in rerun_errors:
-            if re.search(rerun_regex, err):
+        for rerun_error in rerun_errors:
+            if isinstance(rerun_error, type) and issubclass(rerun_error, BaseException):
+                if issubclass(excinfo.type, rerun_error):
+                    return True
+            elif re.search(rerun_error, err):
                 return True
     return False
 

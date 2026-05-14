@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyod
-Version: 3.5.0
+Version: 3.5.1
 Summary: A Python library for anomaly detection across tabular, time series, graph, text, and image data. 60+ detectors, benchmark-backed ADEngine orchestration, and an agentic workflow for AI agents.
 Author-email: Yue Zhao <yzhao062@gmail.com>
 License-Expression: BSD-2-Clause
@@ -803,6 +803,22 @@ More detailed instructions for running examples can be found in `examples direct
 
        visualize(clf_name, X_train, y_train, X_test, y_test, y_train_pred,
            y_test_pred, show_figure=True, save_figure=False)
+
+----
+
+Acknowledgments
+^^^^^^^^^^^^^^^
+
+This material is based upon work supported by the National Science Foundation
+under Award No. `2346158 <https://www.nsf.gov/awardsearch/showAward?AWD_ID=2346158>`_
+for "NSF POSE: Phase II: OpenAD: An Integrated Open-Source Ecosystem for
+Anomaly Detection." The award lists the University of Illinois Chicago as the
+lead organization and Illinois Institute of Technology, Lehigh University, and
+the University of Southern California as sub-awardee organizations.
+
+Any opinions, findings, and conclusions or recommendations expressed in this
+material are those of the author(s) and do not necessarily reflect the views
+of the National Science Foundation.
 
 ----
 

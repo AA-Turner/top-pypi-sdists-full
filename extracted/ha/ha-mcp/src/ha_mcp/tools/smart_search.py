@@ -9,6 +9,9 @@ import random
 import time
 from typing import Any
 
+from fastmcp import Context
+from fastmcp.exceptions import ToolError
+
 from ..client.rest_client import HomeAssistantClient
 from ..config import get_global_settings
 from ..utils.fuzzy_search import (
@@ -18,7 +21,7 @@ from ..utils.fuzzy_search import (
     create_fuzzy_searcher,
     tokenize,
 )
-from .helpers import exception_to_structured_error
+from .helpers import exception_to_structured_error, safe_info, safe_progress
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +32,7 @@ DEFAULT_CONCURRENCY_LIMIT = 20
 BULK_REST_TIMEOUT = 5.0  # Timeout for bulk REST endpoint calls
 BULK_WEBSOCKET_TIMEOUT = 3.0  # Timeout for bulk WebSocket calls
 INDIVIDUAL_CONFIG_TIMEOUT = 5.0  # Timeout for individual config fetches
+
 
 # Time budgets for fallback individual fetching (in seconds).
 # Configurable via env vars for instances with many automations/scripts.
@@ -42,8 +46,10 @@ def _env_float(key: str, default: float) -> float:
         logger.warning(f"Invalid value for {key}={raw!r}, using default {default}")
         return default
 
+
 AUTOMATION_CONFIG_TIME_BUDGET = _env_float("HAMCP_AUTOMATION_CONFIG_TIME_BUDGET", 30.0)
 SCRIPT_CONFIG_TIME_BUDGET = _env_float("HAMCP_SCRIPT_CONFIG_TIME_BUDGET", 20.0)
+SCENE_CONFIG_TIME_BUDGET = _env_float("HAMCP_SCENE_CONFIG_TIME_BUDGET", 20.0)
 
 # Batch size for parallel individual config fetches (Attempt C fallback)
 INDIVIDUAL_FETCH_BATCH_SIZE = 10
@@ -107,9 +113,10 @@ class SmartSearchTools:
         offset: int = 0,
         include_attributes: bool = False,
         domain_filter: str | None = None,
+        include_hidden: bool = True,
     ) -> dict[str, Any]:
         """
-        Advanced entity search with fuzzy matching and typo tolerance.
+        Search entities with fuzzy matching and typo tolerance.
 
         Args:
             query: Search query (can be partial, with typos)
@@ -117,16 +124,120 @@ class SmartSearchTools:
             offset: Number of results to skip for pagination
             include_attributes: Whether to include full entity attributes
             domain_filter: Optional domain to filter entities before search (e.g., "light", "sensor")
+            include_hidden: When True (default), entities with ``hidden_by``
+                set in the entity registry are still returned but receive
+                a score penalty so they sort below comparable visible
+                matches. Pass False to filter them out entirely.
 
         Returns:
             Dictionary with search results and metadata
         """
         try:
-            # Get all entities
-            entities = await self.client.get_states()
+            # HA domains are canonically lowercase and unpadded; defend
+            # the service layer so internal callers get the same
+            # normalization the tool layer applies (strip + lowercase
+            # before the prefix match downstream).
+            if domain_filter:
+                domain_filter = domain_filter.strip().lower()
+            # Fetch states + entity registry list in parallel. The slim
+            # ``list`` view gives us ``hidden_by`` (used to filter
+            # UI-hidden entities by default) and the entity_ids we need
+            # to feed into ``get_entries`` for the full-fidelity data
+            # (aliases live only in get_entries, not the slim list).
+            entities_task = self.client.get_states()
+            entity_registry_task = self.client.send_websocket_message(
+                {"type": "config/entity_registry/list"}
+            )
+            results = await asyncio.gather(
+                entities_task, entity_registry_task, return_exceptions=True
+            )
+            # States-fetch failure is fatal — auth/connection errors must
+            # propagate so the caller sees the real cause instead of a
+            # bogus "zero matches" with success=True.
+            if isinstance(results[0], BaseException):
+                raise results[0]
+            # CancelledError on the registry task must propagate too;
+            # gather captures it like any other exception when
+            # return_exceptions=True.
+            if isinstance(results[1], asyncio.CancelledError):
+                raise results[1]
+            entities = results[0]
 
-            # Filter by domain BEFORE fuzzy search if domain_filter provided
-            # This ensures fuzzy search only looks at entities in the target domain
+            # Build entity_id -> slim registry entry map. Registry-list
+            # failure is tolerated: search continues without alias /
+            # hidden awareness rather than failing the whole call.
+            registry_slim: dict[str, dict[str, Any]] = {}
+            if isinstance(results[1], dict) and results[1].get("success"):
+                for entry in results[1].get("result", []):
+                    eid = entry.get("entity_id")
+                    if eid:
+                        registry_slim[eid] = entry
+
+            # First pass: hidden filter + collect entity_ids for the
+            # alias batch fetch. Pre-filtering shrinks the get_entries
+            # payload on installations with thousands of entities.
+            survivor_ids: list[str] = []
+            survivor_states: list[dict[str, Any]] = []
+            for entity in entities:
+                eid = entity.get("entity_id", "")
+                if not eid:
+                    continue
+                slim = registry_slim.get(eid, {})
+                hidden_by = slim.get("hidden_by")
+                if hidden_by is not None and not include_hidden:
+                    continue
+                survivor_ids.append(eid)
+                survivor_states.append(entity)
+
+            # Second pass: batch-fetch full registry entries for aliases.
+            # ``config/entity_registry/list`` deliberately omits
+            # ``aliases``; ``get_entries`` includes them. One extra
+            # round-trip enriches the survivor set without N+1 fan-out.
+            aliases_map: dict[str, list[str]] = {}
+            if survivor_ids:
+                try:
+                    entries_resp = await self.client.send_websocket_message({
+                        "type": "config/entity_registry/get_entries",
+                        "entity_ids": survivor_ids,
+                    })
+                    if (
+                        isinstance(entries_resp, dict)
+                        and entries_resp.get("success")
+                    ):
+                        for eid, entry in (
+                            entries_resp.get("result", {}) or {}
+                        ).items():
+                            if isinstance(entry, dict):
+                                aliases_map[eid] = entry.get("aliases", []) or []
+                    else:
+                        logger.warning(
+                            "alias_enrichment_failed: get_entries returned "
+                            "non-success for %d entities (resp=%r)",
+                            len(survivor_ids),
+                            entries_resp,
+                        )
+                except (KeyError, TypeError, AttributeError) as alias_err:
+                    logger.warning(
+                        "alias_enrichment_failed: malformed payload for "
+                        "%d entities (err=%r)",
+                        len(survivor_ids),
+                        alias_err,
+                    )
+
+            # Enrich entities with aliases + hidden_by for the fuzzy layer.
+            enriched: list[dict[str, Any]] = []
+            for entity, eid in zip(survivor_states, survivor_ids, strict=True):
+                slim = registry_slim.get(eid, {})
+                # Shallow copy + private-prefixed keys so downstream
+                # consumers that round-trip these dicts don't ship
+                # internal fields back to clients.
+                enriched.append({
+                    **entity,
+                    "_aliases": aliases_map.get(eid, []),
+                    "_hidden_by": slim.get("hidden_by"),
+                })
+
+            entities = enriched
             if domain_filter:
                 entities = [
                     e
@@ -153,19 +264,12 @@ class SmartSearchTools:
 
                 if include_attributes:
                     result["attributes"] = match["attributes"]
-                else:
-                    # Include only essential attributes
-                    attrs = match["attributes"]
-                    essential_attrs = {}
-                    for key in [
-                        "unit_of_measurement",
-                        "device_class",
-                        "icon",
-                        "area_id",
-                    ]:
-                        if key in attrs:
-                            essential_attrs[key] = attrs[key]
-                    result["essential_attributes"] = essential_attrs
+                # No ``essential_attributes`` fallback — the other four
+                # search-type branches (exact_match, area_only,
+                # area_filtered_query, domain_listing) never emit it, so
+                # surfacing it only from fuzzy_search was a shape
+                # asymmetry. Callers needing full state should follow
+                # up with ``ha_get_state``.
 
                 results.append(result)
 
@@ -207,18 +311,25 @@ class SmartSearchTools:
             )
 
     async def get_entities_by_area(
-        self, area_query: str, group_by_domain: bool = True
+        self,
+        area_query: str,
+        group_by_domain: bool = True,
+        include_hidden: bool = True,
     ) -> dict[str, Any]:
         """
         Get entities grouped by area/room using the HA registries for accurate area resolution.
 
         Uses entity registry, device registry, and area registry to determine
         which area each entity belongs to. Fuzzy matches the query against
-        area names/IDs to find the target area(s).
+        area names, IDs, and area-registry aliases to find the target area(s).
 
         Args:
-            area_query: Area/room name to search for
+            area_query: Area/room name (or alias) to search for
             group_by_domain: Whether to group results by domain within each area
+            include_hidden: When True (default), entities with ``hidden_by``
+                set in the entity registry are still grouped under their
+                area but receive a score penalty when ranked. Pass False
+                to filter them out entirely.
 
         Returns:
             Dictionary with area-grouped entities
@@ -254,7 +365,7 @@ class SmartSearchTools:
                     if area_id:
                         area_registry[area_id] = area
 
-            # Parse entity registry: entity_id -> {area_id, device_id}
+            # Parse entity registry: entity_id -> {area_id, device_id, hidden_by}
             entity_reg_map: dict[str, dict[str, str | None]] = {}
             if isinstance(results[2], dict) and results[2].get("success"):
                 for entry in results[2].get("result", []):
@@ -263,6 +374,7 @@ class SmartSearchTools:
                         entity_reg_map[entity_id] = {
                             "area_id": entry.get("area_id"),
                             "device_id": entry.get("device_id"),
+                            "hidden_by": entry.get("hidden_by"),
                         }
 
             # Parse device registry: device_id -> area_id
@@ -273,27 +385,54 @@ class SmartSearchTools:
                     if device_id:
                         device_area_map[device_id] = device.get("area_id")
 
-            # Fuzzy match area_query against known area names and IDs
+            # Two-pass area resolution. Pass 1 collects exact id / name /
+            # alias matches; if any are found, fuzzy aggregation is
+            # skipped entirely. This makes ``area_filter`` honor a
+            # literal area_id from ``ha_config_list_areas`` — pre-fix a
+            # query like ``"bedroom_kids"`` would also fuzzy-match its
+            # parent ``"bedroom"`` (partial_ratio=100) and aggregate
+            # sibling areas' entities. Aliases (per-area registry, used
+            # by HA voice config) mirror the entity-side enrichment in
+            # smart_entity_search.
             area_query_lower = area_query.lower().strip()
-            matched_area_ids: set[str] = set()
+            exact_area_ids: set[str] = set()
+            fuzzy_area_ids: set[str] = set()
 
             for area_id, area_info in area_registry.items():
                 area_name = area_info.get("name", "")
-                # Exact match on area_id or name (case-insensitive)
+                area_aliases = area_info.get("aliases", []) or []
+                # Exact match on area_id, name, or any alias (case-insensitive)
                 if (
                     area_query_lower == area_id.lower()
                     or area_query_lower == area_name.lower()
+                    or any(
+                        area_query_lower == a.lower()
+                        for a in area_aliases
+                        if isinstance(a, str)
+                    )
                 ):
-                    matched_area_ids.add(area_id)
+                    exact_area_ids.add(area_id)
                     continue
-                # Fuzzy match on area name
+                # Fuzzy match on area name, id, or any alias
                 name_score = calculate_partial_ratio(
                     area_query_lower, area_name.lower()
                 )
                 id_score = calculate_partial_ratio(area_query_lower, area_id.lower())
-                best_score = max(name_score, id_score)
+                alias_score = max(
+                    (
+                        calculate_partial_ratio(area_query_lower, a.lower())
+                        for a in area_aliases
+                        if isinstance(a, str)
+                    ),
+                    default=0,
+                )
+                best_score = max(name_score, id_score, alias_score)
                 if best_score >= 80:
-                    matched_area_ids.add(area_id)
+                    fuzzy_area_ids.add(area_id)
+
+            # Exact matches win — fuzzy aggregation only runs when no
+            # area_query_lower is itself an area_id / name / alias.
+            matched_area_ids = exact_area_ids or fuzzy_area_ids
 
             if not matched_area_ids:
                 return {
@@ -307,10 +446,19 @@ class SmartSearchTools:
                     ],
                 }
 
-            # Build entity_id -> resolved area_id mapping
-            # Priority: entity direct area_id > device area_id
+            # Build entity_id -> resolved area_id mapping.
+            # Priority: entity direct area_id > device area_id.
+            # Hidden entities are filtered only when include_hidden is
+            # False; otherwise they pass through and downstream applies
+            # the score penalty so they sort below visible matches.
             entity_area_resolved: dict[str, str] = {}
+            hidden_entity_ids: set[str] = set()
             for entity_id, reg_info in entity_reg_map.items():
+                is_hidden = reg_info.get("hidden_by") is not None
+                if is_hidden and not include_hidden:
+                    continue
+                if is_hidden:
+                    hidden_entity_ids.add(entity_id)
                 area_id = reg_info.get("area_id")
                 device_id = reg_info.get("device_id")
                 if not area_id and device_id:
@@ -325,7 +473,12 @@ class SmartSearchTools:
                 if eid:
                     state_map[eid] = entity
 
-            # Collect entities belonging to matched areas
+            # Collect entities belonging to matched areas. Alias data is
+            # NOT enriched here — exposing private `_aliases` on a public
+            # method would leak through any caller that round-trips this
+            # response (e.g. server.py:get_entities_by_area). The
+            # area+query consumer in tools_search.py fetches aliases on
+            # its own when needed.
             formatted_areas: dict[str, dict[str, Any]] = {}
             total_entities = 0
 
@@ -354,6 +507,9 @@ class SmartSearchTools:
                         state_info = state_map.get(entity_id, {})
                         if domain not in domains:
                             domains[domain] = []
+                        # Carry ``_hidden_by`` as a sentinel ("hidden" or
+                        # None) so downstream branches can apply the
+                        # score penalty without a second registry lookup.
                         domains[domain].append(
                             {
                                 "entity_id": entity_id,
@@ -361,6 +517,11 @@ class SmartSearchTools:
                                     "friendly_name", entity_id
                                 ),
                                 "state": state_info.get("state", "unknown"),
+                                "_hidden_by": (
+                                    "hidden"
+                                    if entity_id in hidden_entity_ids
+                                    else None
+                                ),
                             }
                         )
                     area_data["entities"] = domains
@@ -375,6 +536,11 @@ class SmartSearchTools:
                             .get("friendly_name", entity_id),
                             "domain": entity_id.split(".")[0],
                             "state": state_info.get("state", "unknown"),
+                            "_hidden_by": (
+                                "hidden"
+                                if entity_id in hidden_entity_ids
+                                else None
+                            ),
                         }
                         for entity_id in area_entities
                     ]
@@ -755,7 +921,10 @@ class SmartSearchTools:
                 "system_summary": system_summary,
                 "domain_stats": formatted_domain_stats,
                 "area_analysis": (
-                    {area: {"count": info["count"]} for area, info in area_stats.items()}
+                    {
+                        area: {"count": info["count"]}
+                        for area, info in area_stats.items()
+                    }
                     if detail_level == "minimal"
                     else area_stats
                 ),
@@ -802,16 +971,19 @@ class SmartSearchTools:
         include_config: bool = False,
         concurrency_limit: int = DEFAULT_CONCURRENCY_LIMIT,
         exact_match: bool = True,
+        ctx: Context | None = None,
     ) -> dict[str, Any]:
         """
-        Deep search across automation, script, helper, and dashboard definitions.
+        Deep search across automation, script, scene, helper, and dashboard
+        definitions.
 
         Searches not just entity names but also within configuration definitions
-        including triggers, actions, sequences, and other config fields.
+        including triggers, actions, sequences, scene entity sets, and other
+        config fields.
 
         Args:
             query: Search query (can be partial, with typos when exact_match=False)
-            search_types: Types to search (default: ["automation", "script", "helper"])
+            search_types: Types to search (default: ["automation", "script", "scene", "helper"])
             limit: Maximum total results to return (default: 5)
             offset: Number of results to skip for pagination (default: 0)
             include_config: Include full config in results (default: False)
@@ -822,20 +994,39 @@ class SmartSearchTools:
             Dictionary with search results grouped by type
         """
         if search_types is None:
-            search_types = ["automation", "script", "helper"]
+            search_types = ["automation", "script", "scene", "helper"]
 
         try:
             results: dict[str, list[dict[str, Any]]] = {
                 "automations": [],
                 "scripts": [],
+                "scenes": [],
                 "helpers": [],
                 "dashboards": [],
             }
 
             query_lower = query.lower().strip()
 
+            total_phases = len(search_types) + 1  # +1 for initial state fetch
+            await safe_info(
+                ctx, f"deep_search starting: query={query!r} types={search_types}"
+            )
+            await safe_progress(
+                ctx,
+                progress=0,
+                total=total_phases,
+                message="fetching entity states",
+            )
+
             # Fetch all entities once at the beginning to avoid repeated calls
             all_entities = await self.client.get_states()
+            phase_done = 1
+            await safe_progress(
+                ctx,
+                progress=phase_done,
+                total=total_phases,
+                message=f"fetched {len(all_entities)} entity states",
+            )
 
             # Pre-resolve unique_ids from cached entity states to avoid redundant API calls
             automation_unique_id_map = {}
@@ -939,7 +1130,9 @@ class SmartSearchTools:
                     fetched_count = 0
                     failed_count = 0
 
-                    async def _fetch_automation_config(uid: str) -> tuple[str, dict[str, Any] | None]:
+                    async def _fetch_automation_config(
+                        uid: str,
+                    ) -> tuple[str, dict[str, Any] | None]:
                         try:
                             config = await asyncio.wait_for(
                                 self.client._request(
@@ -1008,6 +1201,14 @@ class SmartSearchTools:
                                 "config": config if config else None,
                             }
                         )
+
+                phase_done += 1
+                await safe_progress(
+                    ctx,
+                    progress=phase_done,
+                    total=total_phases,
+                    message=f"automations searched ({len(results['automations'])} matches)",
+                )
 
             # ================================================================
             # SCRIPT SEARCH (same 3-tier strategy: REST bulk -> WS bulk -> individual)
@@ -1093,7 +1294,9 @@ class SmartSearchTools:
                     fetched_count = 0
                     failed_count = 0
 
-                    async def _fetch_script_config(sid: str) -> tuple[str, dict[str, Any] | None]:
+                    async def _fetch_script_config(
+                        sid: str,
+                    ) -> tuple[str, dict[str, Any] | None]:
                         try:
                             config_resp = await asyncio.wait_for(
                                 self.client.get_script_config(sid),
@@ -1164,6 +1367,312 @@ class SmartSearchTools:
                                 "config": script_config if script_config else None,
                             }
                         )
+
+                phase_done += 1
+                await safe_progress(
+                    ctx,
+                    progress=phase_done,
+                    total=total_phases,
+                    message=f"scripts searched ({len(results['scripts'])} matches)",
+                )
+
+            # ================================================================
+            # SCENE SEARCH (same 3-tier strategy: REST bulk -> WS bulk -> individual)
+            # Scenes have no listing primitive, so entities are enumerated
+            # from get_states() and configs fetched per id. The script branch
+            # uses the same shape today; treat them as parallel implementations
+            # that can diverge if either domain's listing primitive lands later.
+            # ================================================================
+            scene_fetch_failed_count = 0
+            scene_fetch_skipped_count = 0
+            scene_integration_skipped_count = 0
+            scene_registry_fetch_failed = False  # B11: signals fallback engaged
+            if "scene" in search_types:
+                scene_entities = [
+                    e
+                    for e in all_entities
+                    if e.get("entity_id", "").startswith("scene.")
+                ]
+
+                # Phase 1: Score all scenes by name (instant)
+                scene_name_scored: list[tuple[str, str, str, int]] = []
+                for entity in scene_entities:
+                    entity_id = entity.get("entity_id", "")
+                    friendly_name = entity.get("attributes", {}).get(
+                        "friendly_name", entity_id
+                    )
+                    scene_id = entity_id.replace("scene.", "")
+                    name_score = self.fuzzy_searcher._calculate_entity_score(
+                        entity_id, friendly_name, "scene", query_lower
+                    )
+                    scene_name_scored.append(
+                        (entity_id, friendly_name, scene_id, name_score)
+                    )
+
+                # Phase 2: Try bulk fetch for scenes
+                all_scene_configs: dict[str, dict[str, Any]] = {}
+                scene_bulk_fetched = False
+
+                # Attempt A: REST bulk endpoint
+                try:
+                    resp = await asyncio.wait_for(
+                        self.client._request("GET", "/config/scene/config"),
+                        timeout=INDIVIDUAL_CONFIG_TIMEOUT,
+                    )
+                    if isinstance(resp, list):
+                        for item in resp:
+                            sid = item.get("id") or item.get(
+                                "name", ""
+                            ).lower().replace(" ", "_")
+                            if sid:
+                                all_scene_configs[sid] = item
+                        scene_bulk_fetched = True
+                except Exception as e:
+                    logger.debug(f"Scene REST bulk fetch failed: {e}")
+
+                # Attempt B: WebSocket bulk endpoints
+                if not scene_bulk_fetched:
+                    for ws_type in [
+                        "config/scene/config/list",
+                        "scene/config/list",
+                    ]:
+                        if scene_bulk_fetched:
+                            break
+                        try:
+                            ws_resp = await asyncio.wait_for(
+                                self.client.send_websocket_message({"type": ws_type}),
+                                timeout=BULK_WEBSOCKET_TIMEOUT,
+                            )
+                            if isinstance(ws_resp, dict) and ws_resp.get("success"):
+                                for item in ws_resp.get("result", []):
+                                    sid = item.get("id") or item.get(
+                                        "name", ""
+                                    ).lower().replace(" ", "_")
+                                    if sid:
+                                        all_scene_configs[sid] = item
+                                scene_bulk_fetched = True
+                        except Exception as e:
+                            logger.debug(
+                                f"Scene WebSocket bulk fetch ({ws_type}) failed: {e}"
+                            )
+
+                # Phase 2.5: walk the entity registry once. Two outputs:
+                #
+                # 1. ``homeassistant_scene_uids`` — the set of unique_ids
+                #    backed by ``platform == "homeassistant"`` (HA's storage
+                #    collection). Integration-managed scenes (Hue, IKEA,
+                #    deCONZ, …) are entity-only — the per-id REST endpoint
+                #    ``/config/scene/config/<id>`` can't fetch them and
+                #    treating their 404s as ``failed_count`` produces a
+                #    misleading ``partial: true`` flag on every install
+                #    with integration scenes (issue #1168 R3 blocker 2).
+                # 2. Slug-keyed aliases pointing at the bulk-fetched
+                #    config. HA derives a scene's entity_id from the
+                #    ``name`` field via its own slugify (collapsing runs
+                #    of underscores, replacing all non-alnum with
+                #    underscores, etc.); approximating that with
+                #    `.replace()` chains produces near-misses.
+                #
+                # Run the registry fetch unconditionally so the platform
+                # filter is available even when Phase 2 returned nothing
+                # (the common Hue-only case where bulk fetches the lone
+                # HA-managed scene and Attempt C would otherwise try every
+                # Hue scene).
+                homeassistant_scene_uids: set[str] = set()
+                # Issue #1168 R7 blocker 17/21: registry-derived slug→storage
+                # map for the result-builder fallback. When ``all_scene_configs``
+                # has no entry for a scene (bulk omitted it, integration-
+                # managed, or ``id`` field absent), the result-builder
+                # previously fell back silently to the entity-id slug. With
+                # this map the storage key stays correct for any scene the
+                # registry knows about, regardless of bulk-fetch coverage.
+                slug_to_storage_id: dict[str, str] = {}
+                try:
+                    reg_resp = await asyncio.wait_for(
+                        self.client.send_websocket_message(
+                            {"type": "config/entity_registry/list"}
+                        ),
+                        timeout=BULK_WEBSOCKET_TIMEOUT,
+                    )
+                    if isinstance(reg_resp, dict) and reg_resp.get("success"):
+                        for entry in reg_resp.get("result") or []:
+                            ent_id = entry.get("entity_id") or ""
+                            uid = entry.get("unique_id")
+                            if not ent_id.startswith("scene.") or not uid:
+                                continue
+                            if entry.get("platform") == "homeassistant":
+                                homeassistant_scene_uids.add(uid)
+                            slug = ent_id.removeprefix("scene.")
+                            if slug:
+                                slug_to_storage_id[slug] = uid
+                            if uid in all_scene_configs:
+                                if slug and slug != uid:
+                                    all_scene_configs[slug] = all_scene_configs[uid]
+                except Exception as e:
+                    # Issue #1168 R5 blocker 11: promote DEBUG → WARNING
+                    # and signal the fallback so partial_reason can
+                    # explain why the count looks elevated. The previous
+                    # DEBUG-only log meant a true registry outage looked
+                    # identical to the steady-state happy path on stderr.
+                    logger.warning(
+                        "Scene entity-registry augmentation failed: %s; "
+                        "integration-platform filter unavailable, attempting all scenes",
+                        e,
+                    )
+                    scene_registry_fetch_failed = True
+
+                # Attempt C: parallel per-id fetch with a wall-clock budget so a
+                # few slow scenes don't tank the whole search; remaining ids
+                # bail out via SCENE_CONFIG_TIME_BUDGET below.
+                if not scene_bulk_fetched:
+                    budget_start = time.perf_counter()
+                    # Issue #1168 R3 blocker 2: skip integration-managed
+                    # scenes — their per-id REST endpoint 404s by design,
+                    # and surfacing those as fetch failures masks real
+                    # errors. Counted separately so the partial_reason
+                    # string can distinguish the two failure modes. When
+                    # the registry call failed (homeassistant_scene_uids
+                    # empty), fall back to attempting all scenes — false
+                    # partials beat dropping legitimate HA-managed scenes
+                    # silently.
+                    if homeassistant_scene_uids:
+                        sids_to_fetch = []
+                        for _, _, sid, _ in scene_name_scored:
+                            if not sid or sid in all_scene_configs:
+                                continue
+                            if sid in homeassistant_scene_uids:
+                                sids_to_fetch.append(sid)
+                            else:
+                                scene_integration_skipped_count += 1
+                    else:
+                        sids_to_fetch = [
+                            sid
+                            for _, _, sid, _ in scene_name_scored
+                            if sid and sid not in all_scene_configs
+                        ]
+                    total_to_fetch = len(sids_to_fetch)
+                    fetched_count = 0
+                    failed_count = 0
+
+                    async def _fetch_scene_config(
+                        sid: str,
+                    ) -> tuple[str, dict[str, Any] | None]:
+                        try:
+                            config_resp = await asyncio.wait_for(
+                                self.client.get_scene_config(sid),
+                                timeout=INDIVIDUAL_CONFIG_TIMEOUT,
+                            )
+                            return (sid, config_resp.get("config", {}))
+                        except Exception as e:
+                            logger.debug(
+                                f"Scene individual config fetch ({sid}) failed: {e}"
+                            )
+                            return (sid, None)
+
+                    for i in range(0, len(sids_to_fetch), INDIVIDUAL_FETCH_BATCH_SIZE):
+                        if (
+                            time.perf_counter() - budget_start
+                            > SCENE_CONFIG_TIME_BUDGET
+                        ):
+                            scene_fetch_skipped_count = (
+                                total_to_fetch - fetched_count - failed_count
+                            )
+                            logger.warning(
+                                f"Scene config fetch budget exhausted "
+                                f"({SCENE_CONFIG_TIME_BUDGET}s). "
+                                f"Fetched {fetched_count}/{total_to_fetch} "
+                                f"({failed_count} failed), "
+                                f"skipped {scene_fetch_skipped_count} scenes."
+                            )
+                            break
+                        batch = sids_to_fetch[i : i + INDIVIDUAL_FETCH_BATCH_SIZE]
+                        batch_results = await asyncio.gather(
+                            *[_fetch_scene_config(sid) for sid in batch],
+                        )
+                        for sid_result, config_result in batch_results:
+                            if config_result is not None:
+                                all_scene_configs[sid_result] = config_result
+                                fetched_count += 1
+                            else:
+                                failed_count += 1
+                    scene_fetch_failed_count = failed_count
+
+                # Phase 3: Score scenes
+                for (
+                    entity_id,
+                    friendly_name,
+                    scene_id,
+                    name_score,
+                ) in scene_name_scored:
+                    scene_config = all_scene_configs.get(scene_id, {})
+                    config_match_score = (
+                        self._search_in_dict(scene_config, query_lower, exact_match)
+                        if scene_config
+                        else 0
+                    )
+                    total_score, threshold, match_in_name = self._score_deep_match(
+                        entity_id,
+                        friendly_name,
+                        name_score,
+                        config_match_score,
+                        query_lower,
+                        exact_match,
+                    )
+
+                    if total_score >= threshold:
+                        # Issue #1168 R6 blocker 17 (refined per R7
+                        # blockers 17/21): ``scene_id`` here must be the
+                        # storage key (matching the contract used by
+                        # ``ha_config_get_scene`` / ``ha_config_set_scene``),
+                        # not the entity_id-slug derived at fetch time.
+                        # Three-tier resolution:
+                        #   1. ``scene_config["id"]`` — most direct, present
+                        #      whenever the bulk fetch carried this scene.
+                        #   2. ``slug_to_storage_id`` — registry-derived
+                        #      mapping built during the Phase-2.5 walk,
+                        #      covers integration-managed scenes and any
+                        #      scene whose bulk record omitted ``id``.
+                        #   3. ``scene_id`` itself (the entity-id slug) —
+                        #      final fallback when the registry walk also
+                        #      failed; surfaced via ``logger.warning`` so
+                        #      the silent-slug-mismatch path becomes
+                        #      observable.
+                        if isinstance(scene_config, dict) and isinstance(
+                            scene_config.get("id"), str
+                        ):
+                            storage_id = scene_config["id"]
+                        elif scene_id in slug_to_storage_id:
+                            storage_id = slug_to_storage_id[scene_id]
+                        else:
+                            storage_id = scene_id
+                            logger.warning(
+                                "ha_deep_search scene result fell back to "
+                                "entity-id slug for scene_id=%r — neither "
+                                "bulk config nor registry walk produced a "
+                                "storage key. ``ha_config_get_scene`` will "
+                                "rely on its resolver remap to land on the "
+                                "right scene.",
+                                scene_id,
+                            )
+                        results["scenes"].append(
+                            {
+                                "entity_id": entity_id,
+                                "scene_id": storage_id,
+                                "friendly_name": friendly_name,
+                                "score": total_score,
+                                "match_in_name": match_in_name,
+                                "match_in_config": config_match_score >= threshold,
+                                "config": scene_config if scene_config else None,
+                            }
+                        )
+
+                phase_done += 1
+                if ctx is not None:
+                    await ctx.report_progress(
+                        progress=phase_done,
+                        total=total_phases,
+                        message=f"scenes searched ({len(results['scenes'])} matches)",
+                    )
 
             # Search helpers with parallel WebSocket calls
             if "helper" in search_types:
@@ -1247,6 +1756,14 @@ class SmartSearchTools:
                         results["helpers"].extend(result)
                     elif isinstance(result, Exception):
                         logger.debug(f"Helper list fetch failed: {result}")
+
+                phase_done += 1
+                await safe_progress(
+                    ctx,
+                    progress=phase_done,
+                    total=total_phases,
+                    message=f"helpers searched ({len(results['helpers'])} matches)",
+                )
 
             # ================================================================
             # DASHBOARD SEARCH
@@ -1340,6 +1857,14 @@ class SmartSearchTools:
                     logger.error(f"Dashboard search error: {e}")
                     raise
 
+                phase_done += 1
+                await safe_progress(
+                    ctx,
+                    progress=phase_done,
+                    total=total_phases,
+                    message=f"dashboards searched ({len(results['dashboards'])} matches)",
+                )
+
             # Merge all results with their category, sort by score, and paginate
             tagged_results: list[tuple[str, dict[str, Any]]] = []
             for category, items in results.items():
@@ -1354,6 +1879,7 @@ class SmartSearchTools:
             final_results: dict[str, list[dict[str, Any]]] = {
                 "automations": [],
                 "scripts": [],
+                "scenes": [],
                 "helpers": [],
                 "dashboards": [],
             }
@@ -1375,16 +1901,64 @@ class SmartSearchTools:
                 "next_offset": offset + limit if has_more else None,
                 "automations": final_results["automations"],
                 "scripts": final_results["scripts"],
+                "scenes": final_results["scenes"],
                 "helpers": final_results["helpers"],
                 "search_types": search_types,
             }
 
-            # Only include dashboards key when dashboard search was requested
+            # Only include the dashboards key when dashboard search was requested.
+            # ``scenes`` is in the default ``search_types`` so the bucket is
+            # always-present alongside automations/scripts/helpers; gating it
+            # would break test helpers that iterate the standard tuple.
             if "dashboard" in search_types:
                 response["dashboards"] = final_results["dashboards"]
 
+            # Surface partial results from the scene Attempt-C fetch so the
+            # caller can distinguish "no scene matched" from "matches may be
+            # missing because some configs failed or timed out". Only set
+            # ``partial: True`` when something actually went wrong; downstream
+            # consumers should treat absence as success.
+            #
+            # Issue #1168 R3 blocker 2: integration-managed scenes (Hue,
+            # IKEA, deCONZ, …) intentionally don't go through the per-id
+            # fetch — they're scored on entity attributes only — so they
+            # are NOT considered a fault for the partial flag. The
+            # ``_integration_skipped`` count is informational; it never
+            # raises ``partial: true`` on its own.
+            if scene_fetch_failed_count or scene_fetch_skipped_count:
+                response["partial"] = True
+                reason_parts = [
+                    f"Scene config fetch incomplete: "
+                    f"{scene_fetch_failed_count} failed, "
+                    f"{scene_fetch_skipped_count} skipped (time budget)."
+                ]
+                if scene_integration_skipped_count:
+                    reason_parts.append(
+                        f" {scene_integration_skipped_count} integration-managed "
+                        "scenes are scored by attribute only (no per-id fetch)."
+                    )
+                if scene_registry_fetch_failed:
+                    # Issue #1168 R5 blocker 11: when the registry fetch
+                    # errors, the integration-platform filter is
+                    # unavailable and Attempt C falls back to attempting
+                    # all scenes — surface that so an elevated
+                    # ``failed_count`` isn't mistaken for a real config
+                    # outage.
+                    reason_parts.append(
+                        " Entity-registry fetch failed; integration-platform "
+                        "filter unavailable, attempted all scenes "
+                        "(false-positive failures expected for integration-managed scenes)."
+                    )
+                reason_parts.append(
+                    " Some scene matches may be missing config data; tune "
+                    "HAMCP_SCENE_CONFIG_TIME_BUDGET to raise the budget."
+                )
+                response["partial_reason"] = "".join(reason_parts)
+
             return response
 
+        except ToolError:
+            raise
         except Exception as e:
             logger.error(f"Error in deep_search: {e}")
             exception_to_structured_error(

@@ -63,7 +63,8 @@ class TestPolicyAssignment(unittest.TestCase):
                                 name = '', 
                                 alert = arthur_client.api_bindings.models.compliance_alert_summary.ComplianceAlertSummary(
                                     description = '', 
-                                    id = '', ), )
+                                    id = '', ), 
+                                error_message = '', )
                             ], ), 
                     attestation_rules = arthur_client.api_bindings.models.compliance_attestation_rule_results.ComplianceAttestationRuleResults(), ),
                 metrics_calc_job = arthur_client.api_bindings.models.job.Job(
@@ -196,7 +197,8 @@ class TestPolicyAssignment(unittest.TestCase):
                                 name = '', 
                                 alert = arthur_client.api_bindings.models.compliance_alert_summary.ComplianceAlertSummary(
                                     description = '', 
-                                    id = '', ), )
+                                    id = '', ), 
+                                error_message = '', )
                             ], ), 
                     attestation_rules = arthur_client.api_bindings.models.compliance_attestation_rule_results.ComplianceAttestationRuleResults(), ),
         )

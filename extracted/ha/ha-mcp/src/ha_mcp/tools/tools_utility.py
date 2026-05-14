@@ -12,16 +12,42 @@ from typing import Any, Literal
 
 from fastmcp.exceptions import ToolError
 
-from ..client.rest_client import HomeAssistantAPIError, HomeAssistantConnectionError
+from ..client.rest_client import (
+    HomeAssistantAPIError,
+    HomeAssistantAuthError,
+    HomeAssistantConnectionError,
+)
 from ..errors import ErrorCode, create_error_response
 from .helpers import exception_to_structured_error, log_tool_usage, raise_tool_error
-from .util_helpers import add_timezone_metadata, coerce_bool_param, coerce_int_param
+from .util_helpers import (
+    add_timezone_metadata,
+    coerce_bool_param,
+    coerce_int_param,
+    normalize_log_level,
+)
 
 logger = logging.getLogger(__name__)
 
 # Fields to keep in compact logbook mode (strips attribute dictionaries
 # and other bulky fields that can cause context exhaustion — see #683)
-COMPACT_LOGBOOK_FIELDS = {"when", "entity_id", "state", "name", "message", "domain", "context_id", "source"}
+COMPACT_LOGBOOK_FIELDS = {
+    "when",
+    "entity_id",
+    "state",
+    "name",
+    "message",
+    "domain",
+    "context_id",
+    "source",
+}
+
+
+# Supervisor-managed system services exposed via /<slug>/logs. Stable set
+# in HA Core; if Supervisor adds e.g. /cli/logs in a future release, extend
+# here. See #1116.
+SYSTEM_SERVICE_SLUGS = frozenset(
+    {"supervisor", "host", "core", "dns", "audio", "multicast", "observer"}
+)
 
 
 def _compact_logbook_entries(entries: list[Any]) -> list[dict[str, Any]]:
@@ -52,15 +78,24 @@ def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
     ) -> int:
         """Coerce and validate a limit parameter, raising a structured tool error on failure."""
         try:
-            return coerce_int_param(limit, param_name="limit", default=default, min_value=1, max_value=MAX_LIMIT)
+            return coerce_int_param(
+                limit,
+                param_name="limit",
+                default=default,
+                min_value=1,
+                max_value=MAX_LIMIT,
+            )
         except ValueError as e:
             raise_tool_error(
                 create_error_response(
                     ErrorCode.VALIDATION_INVALID_PARAMETER,
                     str(e),
-                    suggestions=[f"Provide limit as an integer (e.g., {suggestion_example})"],
+                    suggestions=[
+                        f"Provide limit as an integer (e.g., {suggestion_example})"
+                    ],
                 )
             )
+
     # Regex to match log level at the start of a log line
     _LOG_LEVEL_RE = re.compile(
         r"(?:^|\s)(DEBUG|INFO|WARNING|ERROR|CRITICAL)(?:\s|:|\])", re.IGNORECASE
@@ -75,11 +110,18 @@ def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             "idempotentHint": True,
             "readOnlyHint": True,
             "title": "Get Logs",
-        }
+        },
     )
     @log_tool_usage
     async def ha_get_logs(
-        source: Literal["logbook", "system", "error_log", "supervisor"] = "logbook",
+        source: Literal[
+            "logbook",
+            "system",
+            "error_log",
+            "supervisor",
+            "system_service",
+            "logger",
+        ] = "logbook",
         # Shared parameters
         limit: int | str | None = None,
         search: str | None = None,
@@ -91,7 +133,7 @@ def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         compact: bool | str = True,
         # System/error_log-specific
         level: str | None = None,
-        # Supervisor-specific
+        # Supervisor + system_service-specific (different namespaces — see below)
         slug: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -101,12 +143,19 @@ def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         - "logbook" (default): Entity state change history with pagination
         - "system": Structured system log entries (errors, warnings) via system_log/list
         - "error_log": Raw home-assistant.log text
-        - "supervisor": Add-on container logs (requires slug parameter)
+        - "supervisor": Add-on container logs (requires slug = add-on slug)
+        - "system_service": HA-Supervisor-managed system service logs (requires
+          slug ∈ {supervisor, host, core, dns, audio, multicast, observer})
+        - "logger": Effective log level per integration via logger/log_info (confirms logger.set_level changes took effect)
 
-        **Shared params:** limit, search (keyword filter on entries/lines)
+        **Shared params:** limit, search (keyword filter on entries/lines; matches integration domain for source='logger')
         **Logbook params:** hours_back, entity_id, end_time, offset, compact (default True — strips attribute dicts to save context)
         **System/error_log params:** level (ERROR, WARNING, INFO, DEBUG)
-        **Supervisor params:** slug (add-on slug, e.g. "core_mosquitto")
+        **Supervisor params:** slug = add-on slug, e.g. "core_mosquitto" (use
+            ha_get_addon() to list installed slugs)
+        **System-service params:** slug = service name. The slug "supervisor"
+            here means the Supervisor service's own logs, NOT an add-on with
+            that name — the source param disambiguates.
         """
 
         # Validate level if provided
@@ -125,15 +174,27 @@ def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         # Collect warnings about source-incompatible parameters
         warnings: list[str] = []
         if source != "logbook" and any(p is not None for p in [entity_id, end_time]):
-            ignored = [p for p, v in [("entity_id", entity_id), ("end_time", end_time)] if v is not None]
+            ignored = [
+                p
+                for p, v in [("entity_id", entity_id), ("end_time", end_time)]
+                if v is not None
+            ]
             warnings.append(
                 f"Parameters {', '.join(ignored)} only apply to source='logbook'; "
                 f"ignored for source='{source}'"
             )
-        if source == "logbook" and level is not None:
+        if (
+            source in ("logbook", "logger", "supervisor", "system_service")
+            and level is not None
+        ):
             warnings.append(
                 "Parameter 'level' only applies to source='system' or 'error_log'; "
-                "ignored for source='logbook'"
+                f"ignored for source='{source}'"
+            )
+        if source not in ("supervisor", "system_service") and slug is not None:
+            warnings.append(
+                "Parameter 'slug' only applies to source='supervisor' or "
+                f"'system_service'; ignored for source='{source}'"
             )
 
         # --- source="logbook" ---
@@ -168,6 +229,48 @@ def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                 limit=limit,
                 search=search,
                 level=level,
+            )
+            if warnings:
+                result["warnings"] = warnings
+            return result
+
+        # --- source="logger" ---
+        if source == "logger":
+            result = await _get_logger_info(limit=limit, search=search)
+            if warnings:
+                result["warnings"] = warnings
+            return result
+
+        # --- source="system_service" ---
+        if source == "system_service":
+            if not slug:
+                raise_tool_error(
+                    create_error_response(
+                        ErrorCode.VALIDATION_INVALID_PARAMETER,
+                        "The 'slug' parameter is required for source='system_service'",
+                        suggestions=[
+                            "Provide a service name, e.g. slug='supervisor' "
+                            f"(allowed: {', '.join(sorted(SYSTEM_SERVICE_SLUGS))})",
+                        ],
+                    )
+                )
+            if slug not in SYSTEM_SERVICE_SLUGS:
+                raise_tool_error(
+                    create_error_response(
+                        ErrorCode.VALIDATION_INVALID_PARAMETER,
+                        f"Invalid system_service slug '{slug}'. Must be one of: "
+                        f"{', '.join(sorted(SYSTEM_SERVICE_SLUGS))}",
+                        suggestions=[
+                            "Pick a valid service name (e.g. 'supervisor', 'host')",
+                            "For add-on container logs use source='supervisor' with "
+                            "the add-on slug instead",
+                        ],
+                    )
+                )
+            result = await _get_system_service_log(
+                service=slug,
+                limit=limit,
+                search=search,
             )
             if warnings:
                 result["warnings"] = warnings
@@ -449,7 +552,9 @@ def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         level: str | None = None,
     ) -> dict[str, Any]:
         """Fetch raw error log text from home-assistant.log."""
-        effective_limit = _coerce_limit(limit, default=DEFAULT_LOG_LIMIT, suggestion_example="100")
+        effective_limit = _coerce_limit(
+            limit, default=DEFAULT_LOG_LIMIT, suggestion_example="100"
+        )
 
         try:
             raw_log = await client.get_error_log()
@@ -508,6 +613,98 @@ def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                 ],
             )
 
+    # ---- Logger info source ----
+
+    async def _get_logger_info(
+        limit: int | str | None = None,
+        search: str | None = None,
+    ) -> dict[str, Any]:
+        """Fetch per-integration log levels via the ``logger/log_info`` WS command."""
+        effective_limit = _coerce_limit(limit)
+
+        try:
+            result = await client.send_websocket_message({"type": "logger/log_info"})
+
+            if not result.get("success"):
+                raise_tool_error(
+                    create_error_response(
+                        ErrorCode.SERVICE_CALL_FAILED,
+                        result.get("error", "Failed to retrieve logger info"),
+                        suggestions=[
+                            "Verify the 'logger' integration is enabled in Home Assistant",
+                            "Check Home Assistant WebSocket connection",
+                        ],
+                    )
+                )
+
+            raw_entries = result.get("result", [])
+            if not isinstance(raw_entries, list):
+                raw_entries = []
+
+            loggers: list[dict[str, Any]] = []
+            for entry in raw_entries:
+                if not isinstance(entry, dict):
+                    continue
+                domain = entry.get("domain")
+                if not isinstance(domain, str) or not domain:
+                    continue
+                raw_level = entry.get("level")
+                level_name = normalize_log_level(raw_level)
+                if level_name is None:
+                    continue
+                loggers.append(
+                    {
+                        "domain": domain,
+                        "level": level_name,
+                        "level_raw": raw_level if isinstance(raw_level, int) else None,
+                    }
+                )
+
+            filters_applied: dict[str, str] = {}
+            if search:
+                search_lower = search.lower()
+                loggers = [
+                    entry
+                    for entry in loggers
+                    if search_lower in entry["domain"].lower()
+                ]
+                filters_applied["search"] = search
+
+            loggers.sort(key=lambda entry: entry["domain"])
+
+            total_entries = len(loggers)
+            loggers = loggers[:effective_limit]
+
+            data: dict[str, Any] = {
+                "success": True,
+                "source": "logger",
+                "loggers": loggers,
+                "total_entries": total_entries,
+                "returned_entries": len(loggers),
+                "limit": effective_limit,
+            }
+            if filters_applied:
+                data["filters_applied"] = filters_applied
+
+            return data
+
+        except ToolError:
+            raise
+        except (
+            HomeAssistantConnectionError,
+            HomeAssistantAPIError,
+            TimeoutError,
+            OSError,
+        ) as e:
+            exception_to_structured_error(
+                e,
+                context={"source": "logger"},
+                suggestions=[
+                    "Check Home Assistant WebSocket connection",
+                    "Verify the 'logger' integration is enabled",
+                ],
+            )
+
     # ---- Supervisor log source ----
 
     async def _get_supervisor_log(
@@ -515,14 +712,18 @@ def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         limit: int | str | None = None,
         search: str | None = None,
     ) -> dict[str, Any]:
-        """Fetch add-on container logs via HA Core's Supervisor REST proxy.
+        """Fetch add-on container logs.
 
-        Routes through `/api/hassio/addons/{slug}/logs` (returned as
-        text/plain) instead of the `supervisor/api` websocket path, which
-        always fails because HA Core's proxy tries to JSON-decode the
-        text body. See #950.
+        Delegates to ``HomeAssistantClient.get_addon_logs`` which branches on
+        ``is_running_in_addon()``: inside the add-on container hits Supervisor
+        directly at ``http://supervisor/addons/<slug>/logs`` (the HA-Core
+        proxy at ``/api/hassio/addons/<slug>/logs`` rejects the Supervisor
+        token there — see #1116); on non-addon installs falls back to the
+        HA-Core proxy. Both paths return ``text/plain``.
         """
-        effective_limit = _coerce_limit(limit, default=DEFAULT_LOG_LIMIT, suggestion_example="100")
+        effective_limit = _coerce_limit(
+            limit, default=DEFAULT_LOG_LIMIT, suggestion_example="100"
+        )
 
         try:
             log_text = await client.get_addon_logs(slug)
@@ -558,6 +759,19 @@ def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
 
         except ToolError:
             raise
+        except HomeAssistantAuthError as e:
+            # Listed before HomeAssistantAPIError because AuthError is a sibling,
+            # not a subclass — without this explicit clause the 401 from
+            # _supervisor_logs_get propagates raw to FastMCP and surfaces
+            # without a structured `code` field.
+            exception_to_structured_error(
+                e,
+                context={"source": "supervisor", "slug": slug},
+                suggestions=[
+                    "Verify SUPERVISOR_TOKEN is set correctly inside the add-on",
+                    "Reinstall the add-on if the token may have rotated",
+                ],
+            )
         except HomeAssistantAPIError as e:
             status = getattr(e, "status_code", None)
             if status == 400:
@@ -609,13 +823,124 @@ def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                 ],
             )
 
+    # ---- System-service log source ----
+
+    async def _get_system_service_log(
+        service: str,
+        limit: int | str | None = None,
+        search: str | None = None,
+    ) -> dict[str, Any]:
+        """Fetch HA system-service logs from Supervisor's per-service endpoint.
+
+        ``service`` ∈ {supervisor, host, core, dns, audio, multicast, observer}.
+        Caller (``ha_get_logs(source='system_service')``) validates against
+        ``SYSTEM_SERVICE_SLUGS`` before dispatch. Hits
+        ``http://supervisor/<service>/logs`` directly via
+        ``HomeAssistantClient._get_system_service_logs`` — same direct-Supervisor
+        path #1116's add-on fix uses, just with a different URL prefix.
+        Requires ``hassio_role: manager`` in the addon manifest.
+        """
+        effective_limit = _coerce_limit(
+            limit, default=DEFAULT_LOG_LIMIT, suggestion_example="100"
+        )
+
+        try:
+            log_text = await client._get_system_service_logs(service)
+
+            lines = log_text.splitlines() if log_text else []
+
+            filters_applied: dict[str, str] = {}
+            if search:
+                search_lower = search.lower()
+                lines = [ln for ln in lines if search_lower in ln.lower()]
+                filters_applied["search"] = search
+
+            total_lines = len(lines)
+            lines = lines[-effective_limit:]
+
+            data: dict[str, Any] = {
+                "success": True,
+                "source": "system_service",
+                "slug": service,
+                "log": "\n".join(lines),
+                "total_lines": total_lines,
+                "returned_lines": len(lines),
+                "limit": effective_limit,
+            }
+            if filters_applied:
+                data["filters_applied"] = filters_applied
+
+            return data
+
+        except ToolError:
+            raise
+        except HomeAssistantAuthError as e:
+            # Listed before HomeAssistantAPIError because AuthError is a sibling,
+            # not a subclass — without this explicit clause the 401 from
+            # _supervisor_logs_get propagates raw to FastMCP and surfaces
+            # without a structured `code` field.
+            exception_to_structured_error(
+                e,
+                context={"source": "system_service", "slug": service},
+                suggestions=[
+                    "Verify SUPERVISOR_TOKEN is set correctly inside the add-on",
+                    "Reinstall the add-on if the token may have rotated",
+                ],
+            )
+        except HomeAssistantAPIError as e:
+            status = getattr(e, "status_code", None)
+            if status == 403:
+                # Same role-too-low cause as the addon-logs branch.
+                exception_to_structured_error(
+                    e,
+                    context={"source": "system_service", "slug": service},
+                    suggestions=[
+                        "Addon's hassio_role must be 'manager' or higher to "
+                        "read /<service>/logs",
+                        "Verify the addon was reinstalled after the role bump "
+                        "took effect",
+                    ],
+                )
+            if status == 404:
+                exception_to_structured_error(
+                    e,
+                    context={"source": "system_service", "slug": service},
+                    suggestions=[
+                        f"Service '{service}' not found at "
+                        f"http://supervisor/{service}/logs — Supervisor may "
+                        "not expose it on this HA OS version",
+                        f"Allowed services: {', '.join(sorted(SYSTEM_SERVICE_SLUGS))}",
+                    ],
+                )
+            exception_to_structured_error(
+                e,
+                context={"source": "system_service", "slug": service},
+                suggestions=[
+                    f"Supervisor returned an error for /{service}/logs",
+                    "Ensure Supervisor is available (HA OS or Supervised install)",
+                ],
+            )
+        except (
+            HomeAssistantConnectionError,
+            TimeoutError,
+            OSError,
+        ) as e:
+            exception_to_structured_error(
+                e,
+                context={"source": "system_service", "slug": service},
+                suggestions=[
+                    "Check Home Assistant connection",
+                    "Ensure Supervisor is available (HA OS or Supervised install)",
+                ],
+            )
+
     @mcp.tool(
         tags={"Utilities"},
         annotations={
             "idempotentHint": True,
             "readOnlyHint": True,
-            "title": "Evaluate Template"
-        }
+            "title": "Evaluate Template",
+        },
     )
     @log_tool_usage
     async def ha_eval_template(
@@ -797,18 +1122,22 @@ def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                     }
             else:
                 error_info = result.get("error", "Unknown error occurred")
-                raise_tool_error(create_error_response(
-                    ErrorCode.SERVICE_CALL_FAILED,
-                    str(error_info) if not isinstance(error_info, str) else error_info,
-                    context={"template": template, "request_id": request_id},
-                    suggestions=[
-                        "Check template syntax - ensure proper Jinja2 formatting",
-                        "Verify entity_ids exist using ha_get_state()",
-                        "Use default values: {{ states('sensor.temp') | float(0) }}",
-                        "Check for typos in function names and entity references",
-                        "Test simpler templates first to isolate issues",
-                    ],
-                ))
+                raise_tool_error(
+                    create_error_response(
+                        ErrorCode.SERVICE_CALL_FAILED,
+                        str(error_info)
+                        if not isinstance(error_info, str)
+                        else error_info,
+                        context={"template": template, "request_id": request_id},
+                        suggestions=[
+                            "Check template syntax - ensure proper Jinja2 formatting",
+                            "Verify entity_ids exist using ha_get_state()",
+                            "Use default values: {{ states('sensor.temp') | float(0) }}",
+                            "Check for typos in function names and entity references",
+                            "Test simpler templates first to isolate issues",
+                        ],
+                    )
+                )
 
         except ToolError:
             raise

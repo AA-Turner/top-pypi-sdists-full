@@ -60,6 +60,9 @@ class JSONLDGenerator(Generator):
     context: str = None
     """Path to a JSONLD context file"""
 
+    metamodel_context: str = None
+    """Override for metamodel context URI/path. When None, uses METAMODEL_CONTEXT_URI."""
+
     def __post_init__(self) -> None:
         self.original_schema = deepcopy(self.schema)
         super().__post_init__()
@@ -137,7 +140,8 @@ class JSONLDGenerator(Generator):
 
     def visit_class(self, cls: ClassDefinition) -> bool:
         self._visit(cls)
-        cls.class_uri = self.namespaces.uri_for(cls.class_uri)
+        if hasattr(cls, "class_uri"):
+            delattr(cls, "class_uri")
         # Slot usage is a construction artifact
         # TODO: Figure out why this is here.  It isn't good form to alter a schema that may be used by other things
         cls.slot_usage = {}
@@ -177,7 +181,8 @@ class JSONLDGenerator(Generator):
             context_kwargs["metadata"] = False
             add_prefixes = ContextGenerator(self.original_schema, **context_kwargs).serialize()
             add_prefixes_json = loads(add_prefixes)
-            context = [METAMODEL_CONTEXT_URI, add_prefixes_json["@context"]]
+            metamodel_ctx = self.metamodel_context or METAMODEL_CONTEXT_URI
+            context = [metamodel_ctx, add_prefixes_json["@context"]]
         elif isinstance(context, str):  # Some of the older code doesn't do multiple contexts
             context = [context]
         elif isinstance(context, tuple):

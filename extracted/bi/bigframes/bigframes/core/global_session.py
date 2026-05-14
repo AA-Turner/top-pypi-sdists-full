@@ -18,8 +18,8 @@ from __future__ import annotations
 
 import threading
 import traceback
-from typing import Callable, Optional, TYPE_CHECKING, TypeVar
 import warnings
+from typing import TYPE_CHECKING, Callable, Optional, TypeVar
 
 import google.auth.exceptions
 
@@ -122,6 +122,14 @@ _T = TypeVar("_T")
 
 def with_default_session(func_: Callable[..., _T], *args, **kwargs) -> _T:
     return func_(get_global_session(), *args, **kwargs)
+
+
+def execution_history() -> "bigframes.session._ExecutionHistory":
+    import pandas  # noqa: F401
+
+    import bigframes.session
+
+    return with_default_session(bigframes.session.Session.execution_history)
 
 
 class _GlobalSessionContext:

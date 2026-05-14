@@ -19,8 +19,8 @@ from typing import Any
 
 import numpy as np
 
-from arviz import InferenceData
 from rich.theme import Theme
+from xarray import DataTree
 
 import pymc
 
@@ -28,15 +28,13 @@ from pymc.backends.arviz import dict_to_dataset, to_inference_data
 from pymc.backends.base import MultiTrace
 from pymc.model import Model, modelcontext
 from pymc.progress_bar import SMCProgressBarManager, default_progress_theme
+from pymc.pytensorf import resolve_backend_compile_kwargs
 from pymc.sampling.mcmc import setup_cores_blas_cores
 from pymc.sampling.parallel import _cpu_count, _initialize_multiprocessing_context
 from pymc.smc.kernels import IMH
 from pymc.smc.parallel import ParallelSMCSampler
 from pymc.stats.convergence import log_warnings, run_convergence_checks
-from pymc.util import (
-    RandomState,
-    _get_seeds_per_chain,
-)
+from pymc.util import RandomState, _get_seeds_per_chain
 
 logger = logging.getLogger(__name__)
 
@@ -56,10 +54,11 @@ def sample_smc(
     idata_kwargs=None,
     progressbar=True,
     progressbar_theme: Theme | None = default_progress_theme,
+    backend: str | None = None,
     compile_kwargs: dict | None = None,
     mp_ctx=None,
     **kernel_kwargs,
-) -> InferenceData | MultiTrace:
+) -> DataTree | MultiTrace:
     r"""
     Sequential Monte Carlo based sampling.
 
@@ -96,7 +95,7 @@ def sample_smc(
         Whether to compute sampler statistics like ``R hat`` and ``effective_n``.
         Defaults to ``True``.
     return_inferencedata : bool, default True
-        Whether to return the trace as an InferenceData (True) object or a MultiTrace (False).
+        Whether to return the trace as a DataTree (True) object or a MultiTrace (False).
         Defaults to ``True``.
     idata_kwargs : dict, optional
         Keyword arguments for :func:`pymc.to_inference_data`.
@@ -104,8 +103,11 @@ def sample_smc(
         Whether or not to display a progress bar in the command line.
     progressbar_theme : Theme, optional
         Custom theme for progress bar. Defaults to the standard PyMC progress bar theme.
+    backend: str, optional
+        Which computational backend to use. Recommended to be one of "numba", "c", and "jax".
     compile_kwargs: dict, optional
-        Keyword arguments to pass to pytensor.function
+        Keyword arguments to pass to pytensor.function.
+        ``compile_kwargs["mode"]`` cannot be combined with ``backend``.
     mp_ctx : multiprocessing.context or str, optional
         Multiprocessing context for parallel chains. Can be a context object or a string
         ("fork", "spawn", or "forkserver"). If None, defaults to "fork" on macOS ARM and
@@ -177,9 +179,7 @@ def sample_smc(
     else:
         cores = min(chains, cores)
 
-    if compile_kwargs is None:
-        compile_kwargs = {}
-
+    compile_kwargs = resolve_backend_compile_kwargs(backend, compile_kwargs)
     kernel_kwargs["compile_kwargs"] = compile_kwargs
 
     random_seed = _get_seeds_per_chain(random_state=random_seed, chains=chains)
@@ -188,7 +188,7 @@ def sample_smc(
 
     logger.info("Initializing SMC sampler...")
 
-    mp_ctx = _initialize_multiprocessing_context(mp_ctx)
+    mp_ctx = _initialize_multiprocessing_context(mp_ctx, mode=compile_kwargs.get("mode"))
     joined_blas_limiter, cores, num_blas_cores_per_worker = setup_cores_blas_cores(
         blas_cores, chains, cores, mp_ctx
     )
@@ -322,7 +322,7 @@ def _save_sample_stats(
     _t_sampling,
     idata_kwargs,
     model: Model,
-) -> tuple[Any | None, InferenceData | None]:
+) -> tuple[Any | None, DataTree | None]:
     sample_settings_dict = sample_settings[0]
     sample_settings_dict["_t_sampling"] = _t_sampling
     sample_stats_dict = sample_stats[0]
@@ -335,7 +335,7 @@ def _save_sample_stats(
                 value_list.append(chain_sample_stats[stat])
             sample_stats_dict[stat] = value_list
 
-    idata: InferenceData | None = None
+    idata: DataTree | None = None
     if not return_inferencedata:
         for stat, value in sample_stats_dict.items():
             setattr(trace.report, stat, value)
@@ -354,14 +354,15 @@ def _save_sample_stats(
         sample_stats = dict_to_dataset(
             sample_stats_dict,
             attrs=sample_settings_dict,
-            library=pymc,
+            inference_library=pymc,
+            sample_dims=["chain"],
         )
 
         ikwargs: dict[str, Any] = {"model": model}
         if idata_kwargs is not None:
             ikwargs.update(idata_kwargs)
-        idata = to_inference_data(trace, **ikwargs)
-        idata = InferenceData(**idata, sample_stats=sample_stats)  # type: ignore[arg-type]
+        idata = DataTree.from_dict(to_inference_data(trace, **ikwargs))
+        idata["sample_stats"] = sample_stats
 
     return sample_stats, idata
 

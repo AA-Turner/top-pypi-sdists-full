@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-rtbfabric
-Version: 1.43.0
-Summary: Type annotations for boto3 RTBFabric 1.43.0 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.7
+Summary: Type annotations for boto3 RTBFabric 1.43.7 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 RTBFabric 1.43.0](https://pypi.org/project/boto3/)
+Type annotations for [boto3 RTBFabric 1.43.7](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.7' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `RTBFabric` service.
 4. Use provided commands to install generated packages.
@@ -339,6 +339,8 @@ from boto3.session import Session
 
 from mypy_boto3_rtbfabric import RTBFabricClient
 from mypy_boto3_rtbfabric.paginator import (
+    ListCertificateAssociationsPaginator,
+    ListLinkRoutingRulesPaginator,
     ListLinksPaginator,
     ListRequesterGatewaysPaginator,
     ListResponderGatewaysPaginator,
@@ -348,6 +350,12 @@ client: RTBFabricClient = Session().client("rtbfabric")
 
 # Explicit type annotations are optional here
 # Types should be correctly discovered by mypy and IDEs
+list_certificate_associations_paginator: ListCertificateAssociationsPaginator = (
+    client.get_paginator("list_certificate_associations")
+)
+list_link_routing_rules_paginator: ListLinkRoutingRulesPaginator = client.get_paginator(
+    "list_link_routing_rules"
+)
 list_links_paginator: ListLinksPaginator = client.get_paginator("list_links")
 list_requester_gateways_paginator: ListRequesterGatewaysPaginator = client.get_paginator(
     "list_requester_gateways"
@@ -368,11 +376,15 @@ from boto3.session import Session
 
 from mypy_boto3_rtbfabric import RTBFabricClient
 from mypy_boto3_rtbfabric.waiter import (
+    CertificateAssociatedWaiter,
+    CertificateDisassociatedWaiter,
     InboundExternalLinkActiveWaiter,
     InboundExternalLinkDeletedWaiter,
     LinkAcceptedWaiter,
     LinkActiveWaiter,
     LinkDeletedWaiter,
+    LinkRoutingRuleActiveWaiter,
+    LinkRoutingRuleDeletedWaiter,
     OutboundExternalLinkActiveWaiter,
     OutboundExternalLinkDeletedWaiter,
     RequesterGatewayActiveWaiter,
@@ -385,6 +397,12 @@ client: RTBFabricClient = Session().client("rtbfabric")
 
 # Explicit type annotations are optional here
 # Types should be correctly discovered by mypy and IDEs
+certificate_associated_waiter: CertificateAssociatedWaiter = client.get_waiter(
+    "certificate_associated"
+)
+certificate_disassociated_waiter: CertificateDisassociatedWaiter = client.get_waiter(
+    "certificate_disassociated"
+)
 inbound_external_link_active_waiter: InboundExternalLinkActiveWaiter = client.get_waiter(
     "inbound_external_link_active"
 )
@@ -394,6 +412,12 @@ inbound_external_link_deleted_waiter: InboundExternalLinkDeletedWaiter = client.
 link_accepted_waiter: LinkAcceptedWaiter = client.get_waiter("link_accepted")
 link_active_waiter: LinkActiveWaiter = client.get_waiter("link_active")
 link_deleted_waiter: LinkDeletedWaiter = client.get_waiter("link_deleted")
+link_routing_rule_active_waiter: LinkRoutingRuleActiveWaiter = client.get_waiter(
+    "link_routing_rule_active"
+)
+link_routing_rule_deleted_waiter: LinkRoutingRuleDeletedWaiter = client.get_waiter(
+    "link_routing_rule_deleted"
+)
 outbound_external_link_active_waiter: OutboundExternalLinkActiveWaiter = client.get_waiter(
     "outbound_external_link_active"
 )
@@ -425,10 +449,10 @@ Full list of `RTBFabric` Literals can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/literals/).
 
 ```python
-from mypy_boto3_rtbfabric.literals import ConnectivityTypeType
+from mypy_boto3_rtbfabric.literals import CertificateAssociatedWaiterName
 
 
-def check_value(value: ConnectivityTypeType) -> bool: ...
+def check_value(value: CertificateAssociatedWaiterName) -> bool: ...
 ```
 
 <a id="type-definitions"></a>

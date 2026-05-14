@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import dataclass
 import inspect
 import typing
+from dataclasses import dataclass
 from typing import Callable, Iterable, Union
 
 import google.cloud.bigquery as bigquery
@@ -103,7 +103,7 @@ AS r\"\"\"
 \"\"\"
         """
 
-        bf_io_bigquery.start_query_with_client(
+        bf_io_bigquery.start_query_with_job(
             self._session.bqclient,
             sql,
             job_config=bigquery.QueryJobConfig(),
@@ -111,7 +111,6 @@ AS r\"\"\"
             location=None,
             project=None,
             timeout=None,
-            query_with_job=True,
             publisher=self._session._publisher,
         )
 
@@ -131,8 +130,8 @@ def exif_func(src_obj_ref_rt: str, verbose: bool) -> str:
         import io
         import json
 
-        from PIL import ExifTags, Image
         import requests
+        from PIL import ExifTags, Image
         from requests import adapters
 
         session = requests.Session()
@@ -629,8 +628,8 @@ def pdf_extract_func(src_obj_ref_rt: str, verbose: bool) -> str:
         import io
         import json
 
-        from pypdf import PdfReader  # type: ignore
         import requests
+        from pypdf import PdfReader  # type: ignore
         from requests import adapters
 
         session = requests.Session()
@@ -676,8 +675,8 @@ def pdf_chunk_func(
         import io
         import json
 
-        from pypdf import PdfReader  # type: ignore
         import requests
+        from pypdf import PdfReader  # type: ignore
         from requests import adapters
 
         session = requests.Session()

@@ -42,7 +42,8 @@ class TestRepositoryAddRemoveContent(unittest.TestCase):
                 remove_content_units = [
                     '0'
                     ],
-                base_version = ''
+                base_version = '',
+                overwrite = True
             )
         else:
             return RepositoryAddRemoveContent(

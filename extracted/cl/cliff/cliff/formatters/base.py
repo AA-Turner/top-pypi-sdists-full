@@ -14,11 +14,11 @@
 
 import abc
 import argparse
-import collections.abc
-import typing as ty
+from collections.abc import Iterable, Sequence
+from typing import Any, TextIO, TypeVar
 
 
-FormatterT = ty.TypeVar('FormatterT', bound='Formatter')
+FormatterT = TypeVar('FormatterT', bound='Formatter')
 
 
 class Formatter(metaclass=abc.ABCMeta):
@@ -36,9 +36,9 @@ class ListFormatter(Formatter, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def emit_list(
         self,
-        column_names: collections.abc.Sequence[str],
-        data: collections.abc.Iterable[collections.abc.Sequence[ty.Any]],
-        stdout: ty.TextIO,
+        column_names: Sequence[str],
+        data: Iterable[Sequence[Any]],
+        stdout: TextIO,
         parsed_args: argparse.Namespace,
     ) -> None:
         """Format and print the list from the iterable data source.
@@ -63,9 +63,9 @@ class SingleFormatter(Formatter, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def emit_one(
         self,
-        column_names: collections.abc.Sequence[str],
-        data: collections.abc.Sequence[ty.Any],
-        stdout: ty.TextIO,
+        column_names: Sequence[str],
+        data: Sequence[Any],
+        stdout: TextIO,
         parsed_args: argparse.Namespace,
     ) -> None:
         """Format and print the values associated with the single object.

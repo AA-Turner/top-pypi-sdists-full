@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -7,14 +8,17 @@ from typing import Any, Dict, Optional
 import click
 import requests
 
+from tinybird.tb.client import TinyB
 from tinybird.tb.modules.cli import cli
 from tinybird.tb.modules.common import (
     echo_safe_humanfriendly_tables_format_smart_table,
     sys_exit,
 )
+from tinybird.tb.modules.create import persist_tinybird_config
 from tinybird.tb.modules.deployment_common import (
     create_deployment,
     discard_deployment,
+    migrate_to_forward_workspace,
     promote_deployment,
 )
 from tinybird.tb.modules.feedback_manager import FeedbackManager
@@ -149,6 +153,47 @@ def api_fetch(url: str, headers: dict, request_from: Optional[str] = None) -> di
         click.echo(FeedbackManager.error(message=message))
         sys_exit("deployment_error", message)
     return {}
+
+
+def _get_classic_workspace_branches(client: TinyB, workspace_id: str) -> list[dict[str, Any]]:
+    branches: list[dict[str, Any]] = client.user_workspace_branches(version="v0").get("workspaces", [])
+    return [branch for branch in branches if str(branch.get("main")) == workspace_id]
+
+
+def _cleanup_classic_migration_blockers(client: TinyB, config: Dict[str, Any]) -> None:
+    workspace_id = str(config["id"])
+
+    try:
+        branches = _get_classic_workspace_branches(client, workspace_id)
+        if not branches:
+            return
+
+        for branch in branches:
+            client.delete_branch(id=str(branch["id"]))
+    except Exception as e:
+        message = f"Error cleaning up Classic branches or releases before migration: {str(e)}"
+        click.echo(FeedbackManager.error(message=message))
+        sys_exit("migration_error", message)
+
+
+def _persist_migrate_to_forward_config(project: Project) -> None:
+    root_folder = os.getcwd()
+    project_folder = os.path.relpath(project.path.resolve(), root_folder)
+
+    config_changed, config_created = persist_tinybird_config(
+        root_folder=root_folder,
+        project_type="cli",
+        dev_mode="manual",
+        folder=project_folder,
+    )
+
+    if not config_changed:
+        return
+
+    message = "Created tinybird.config.json for the Forward CLI"
+    if not config_created:
+        message = "Updated tinybird.config.json for the Forward CLI"
+    click.echo(FeedbackManager.info(message=message))
 
 
 @cli.group(name="deployment")
@@ -371,6 +416,107 @@ def deploy(
     create_deployment_cmd(ctx, wait, auto, check, allow_destructive_operations, template, verbose)
 
 
+@cli.command(name="migrate-to-forward")
+@click.option(
+    "--allow-destructive-operations/--no-allow-destructive-operations",
+    is_flag=True,
+    default=False,
+    help="Allow destructive operations in deployments (for example replacing a Pipe with a Data Source).",
+)
+@click.pass_context
+def migrate_to_forward(ctx: click.Context, allow_destructive_operations: bool) -> None:
+    """Migrate a Tinybird Classic cloud workspace to Tinybird Forward."""
+    client = ctx.ensure_object(dict)["client"]
+    project: Project = ctx.ensure_object(dict)["project"]
+    config: Dict[str, Any] = ctx.ensure_object(dict)["config"]
+    env = ctx.ensure_object(dict)["env"]
+    output = ctx.ensure_object(dict)["output"]
+
+    try:
+        client.workspace_info(version="v1")
+        message = "This command is unavailable for Tinybird Forward workspaces."
+        click.echo(FeedbackManager.error(message=message))
+        sys_exit("migration_error", message)
+    except Exception:
+        pass
+
+    try:
+        client.workspace_info(version="v0")
+    except Exception as e:
+        message = f"Error checking workspace status: {str(e)}"
+        click.echo(FeedbackManager.error(message=message))
+        sys_exit("migration_error", message)
+
+    click.echo(
+        FeedbackManager.warning(
+            message=(
+                "This operation is irreversible: once your workspace is migrated to Tinybird Forward, "
+                "you cannot switch it back to Tinybird Classic. It will also run your first Forward deployment."
+            )
+        )
+    )
+
+    if not click.confirm("Do you want to proceed and run the deployment check now?", default=False):
+        click.echo(FeedbackManager.info(message="Migration cancelled."))
+        return
+
+    check_result = create_deployment(
+        project,
+        client,
+        config,
+        wait=False,
+        auto=False,
+        verbose=False,
+        check=True,
+        allow_destructive_operations=allow_destructive_operations,
+        output=output,
+        env=env,
+        show_migrate_to_forward_hint=False,
+        return_check_result=True,
+        validate_forward_workspace=False,
+    )
+    if not check_result:
+        message = "Deployment check did not complete. Migration cancelled."
+        click.echo(FeedbackManager.error(message=message))
+        sys_exit("migration_error", message)
+
+    if check_result and check_result.get("status") == "no_changes":
+        click.echo(
+            FeedbackManager.warning(
+                message=(
+                    "No deployment changes were detected. Add this dummy pipe to your workspace and run "
+                    "`tb migrate-to-forward` again:"
+                )
+            )
+        )
+        click.echo("NODE n\nSQL >\n    select 'Forward'")
+        return
+
+    if not click.confirm(
+        "Do you want to continue with the migration? This will also delete your branches, releases and switch your workspace from Classic to Forward.",
+        default=False,
+    ):
+        click.echo(FeedbackManager.info(message="Migration cancelled."))
+        return
+
+    _cleanup_classic_migration_blockers(client, config)
+    _persist_migrate_to_forward_config(project)
+    migrate_to_forward_workspace(client=client, output=output, dry_run=False)
+    create_deployment(
+        project,
+        client,
+        config,
+        wait=True,
+        auto=True,
+        verbose=False,
+        check=False,
+        allow_destructive_operations=allow_destructive_operations,
+        output=output,
+        env=env,
+        validate_forward_workspace=False,
+    )
+
+
 def create_deployment_cmd(
     ctx: click.Context,
     wait: bool,
@@ -381,6 +527,7 @@ def create_deployment_cmd(
     verbose: bool = False,
 ) -> None:
     output = ctx.ensure_object(dict)["output"]
+    env = ctx.ensure_object(dict)["env"]
     project: Project = ctx.ensure_object(dict)["project"]
     if template:
         if project.get_project_files():
@@ -416,6 +563,7 @@ def create_deployment_cmd(
         allow_destructive_operations,
         ingest_hint=not is_web_analytics_starter_kit,
         output=output,
+        env=env,
     )
     show_web_analytics_starter_kit_hints(client, is_web_analytics_starter_kit)
 

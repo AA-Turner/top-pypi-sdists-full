@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-dsql
-Version: 1.43.0
-Summary: Type annotations for boto3 AuroraDSQL 1.43.0 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.7
+Summary: Type annotations for boto3 AuroraDSQL 1.43.7 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 AuroraDSQL 1.43.0](https://pypi.org/project/boto3/)
+Type annotations for [boto3 AuroraDSQL 1.43.7](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.7' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `AuroraDSQL` service.
 4. Use provided commands to install generated packages.
@@ -338,13 +338,14 @@ paginators.
 from boto3.session import Session
 
 from mypy_boto3_dsql import AuroraDSQLClient
-from mypy_boto3_dsql.paginator import ListClustersPaginator
+from mypy_boto3_dsql.paginator import ListClustersPaginator, ListStreamsPaginator
 
 client: AuroraDSQLClient = Session().client("dsql")
 
 # Explicit type annotations are optional here
 # Types should be correctly discovered by mypy and IDEs
 list_clusters_paginator: ListClustersPaginator = client.get_paginator("list_clusters")
+list_streams_paginator: ListStreamsPaginator = client.get_paginator("list_streams")
 ```
 
 <a id="waiters-annotations"></a>
@@ -357,7 +358,12 @@ list_clusters_paginator: ListClustersPaginator = client.get_paginator("list_clus
 from boto3.session import Session
 
 from mypy_boto3_dsql import AuroraDSQLClient
-from mypy_boto3_dsql.waiter import ClusterActiveWaiter, ClusterNotExistsWaiter
+from mypy_boto3_dsql.waiter import (
+    ClusterActiveWaiter,
+    ClusterNotExistsWaiter,
+    StreamActiveWaiter,
+    StreamNotExistsWaiter,
+)
 
 client: AuroraDSQLClient = Session().client("dsql")
 
@@ -365,6 +371,8 @@ client: AuroraDSQLClient = Session().client("dsql")
 # Types should be correctly discovered by mypy and IDEs
 cluster_active_waiter: ClusterActiveWaiter = client.get_waiter("cluster_active")
 cluster_not_exists_waiter: ClusterNotExistsWaiter = client.get_waiter("cluster_not_exists")
+stream_active_waiter: StreamActiveWaiter = client.get_waiter("stream_active")
+stream_not_exists_waiter: StreamNotExistsWaiter = client.get_waiter("stream_not_exists")
 ```
 
 <a id="literals"></a>

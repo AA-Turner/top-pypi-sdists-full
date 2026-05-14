@@ -1,5 +1,3 @@
-from typing import Optional
-
 from httpx_oauth.clients.openid import OpenID
 
 BASE_SCOPES = ["openid", "email"]
@@ -13,7 +11,7 @@ class OktaOAuth2(OpenID):
         client_id: str,
         client_secret: str,
         okta_domain: str,
-        scopes: Optional[list[str]] = BASE_SCOPES,
+        scopes: list[str] | None = BASE_SCOPES,
         name: str = "okta",
     ):
         """

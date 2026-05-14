@@ -19,49 +19,49 @@ import inspect
 import os
 import threading
 import typing
+import warnings
 from typing import (
+    IO,
     Any,
     Callable,
     Dict,
-    IO,
     Iterable,
     Literal,
     MutableSequence,
     Optional,
-    overload,
     Sequence,
     Tuple,
     Union,
+    overload,
 )
-import warnings
 
 import bigframes_vendored.constants as constants
 import bigframes_vendored.pandas.io.gbq as vendored_pandas_gbq
-from google.cloud import bigquery
 import numpy
 import pandas
+import pyarrow as pa
+from google.cloud import bigquery
 from pandas._typing import (
     CompressionOptions,
     FilePath,
     ReadPickleBuffer,
     StorageOptions,
 )
-import pyarrow as pa
 
 import bigframes._config as config
 import bigframes._importing
-from bigframes.core import bq_data
 import bigframes.core.global_session as global_session
 import bigframes.core.indexes
 import bigframes.dataframe
 import bigframes.enums
 import bigframes.series
 import bigframes.session
-from bigframes.session import dry_runs
 import bigframes.session._io.bigquery
 import bigframes.session.clients
 import bigframes.session.iceberg
 import bigframes.session.metrics
+from bigframes.core import bq_data
+from bigframes.session import dry_runs
 
 # Note: the following methods are duplicated from Session. This duplication
 # enables the following:
@@ -92,6 +92,21 @@ def read_arrow(pa_table: pa.Table) -> bigframes.dataframe.DataFrame:
     """
     session = global_session.get_global_session()
     return session.read_arrow(pa_table=pa_table)
+
+
+def read_avro(
+    path: str | IO["bytes"],
+    *,
+    engine: str = "auto",
+) -> bigframes.dataframe.DataFrame:
+    return global_session.with_default_session(
+        bigframes.session.Session.read_avro,
+        path,
+        engine=engine,
+    )
+
+
+read_avro.__doc__ = inspect.getdoc(bigframes.session.Session.read_avro)
 
 
 def read_csv(
@@ -191,8 +206,7 @@ def read_gbq(  # type: ignore[overload-overlap]
     col_order: Iterable[str] = ...,
     dry_run: Literal[False] = ...,
     allow_large_results: Optional[bool] = ...,
-) -> bigframes.dataframe.DataFrame:
-    ...
+) -> bigframes.dataframe.DataFrame: ...
 
 
 @overload
@@ -208,8 +222,7 @@ def read_gbq(
     col_order: Iterable[str] = ...,
     dry_run: Literal[True] = ...,
     allow_large_results: Optional[bool] = ...,
-) -> pandas.Series:
-    ...
+) -> pandas.Series: ...
 
 
 def read_gbq(
@@ -289,8 +302,7 @@ def _read_gbq_colab(  # type: ignore[overload-overlap]
     *,
     pyformat_args: Optional[Dict[str, Any]] = ...,
     dry_run: Literal[False] = ...,
-) -> bigframes.dataframe.DataFrame:
-    ...
+) -> bigframes.dataframe.DataFrame: ...
 
 
 @overload
@@ -299,8 +311,7 @@ def _read_gbq_colab(
     *,
     pyformat_args: Optional[Dict[str, Any]] = ...,
     dry_run: Literal[True] = ...,
-) -> pandas.Series:
-    ...
+) -> pandas.Series: ...
 
 
 def _read_gbq_colab(
@@ -411,8 +422,7 @@ def read_gbq_query(  # type: ignore[overload-overlap]
     filters: vendored_pandas_gbq.FiltersType = ...,
     dry_run: Literal[False] = ...,
     allow_large_results: Optional[bool] = ...,
-) -> bigframes.dataframe.DataFrame:
-    ...
+) -> bigframes.dataframe.DataFrame: ...
 
 
 @overload
@@ -428,8 +438,7 @@ def read_gbq_query(
     filters: vendored_pandas_gbq.FiltersType = ...,
     dry_run: Literal[True] = ...,
     allow_large_results: Optional[bool] = ...,
-) -> pandas.Series:
-    ...
+) -> pandas.Series: ...
 
 
 def read_gbq_query(
@@ -475,8 +484,7 @@ def read_gbq_table(  # type: ignore[overload-overlap]
     use_cache: bool = ...,
     col_order: Iterable[str] = ...,
     dry_run: Literal[False] = ...,
-) -> bigframes.dataframe.DataFrame:
-    ...
+) -> bigframes.dataframe.DataFrame: ...
 
 
 @overload
@@ -490,8 +498,7 @@ def read_gbq_table(
     use_cache: bool = ...,
     col_order: Iterable[str] = ...,
     dry_run: Literal[True] = ...,
-) -> pandas.Series:
-    ...
+) -> pandas.Series: ...
 
 
 def read_gbq_table(
@@ -522,13 +529,29 @@ def read_gbq_table(
 read_gbq_table.__doc__ = inspect.getdoc(bigframes.session.Session.read_gbq_table)
 
 
+def read_orc(
+    path: str | IO["bytes"],
+    *,
+    engine: str = "auto",
+    write_engine: constants.WriteEngineType = "default",
+) -> bigframes.dataframe.DataFrame:
+    return global_session.with_default_session(
+        bigframes.session.Session.read_orc,
+        path,
+        engine=engine,
+        write_engine=write_engine,
+    )
+
+
+read_orc.__doc__ = inspect.getdoc(bigframes.session.Session.read_orc)
+
+
 @typing.overload
 def read_pandas(
     pandas_dataframe: pandas.DataFrame,
     *,
     write_engine: constants.WriteEngineType = "default",
-) -> bigframes.dataframe.DataFrame:
-    ...
+) -> bigframes.dataframe.DataFrame: ...
 
 
 @typing.overload
@@ -536,8 +559,7 @@ def read_pandas(
     pandas_dataframe: pandas.Series,
     *,
     write_engine: constants.WriteEngineType = "default",
-) -> bigframes.series.Series:
-    ...
+) -> bigframes.series.Series: ...
 
 
 @typing.overload
@@ -545,8 +567,7 @@ def read_pandas(
     pandas_dataframe: pandas.Index,
     *,
     write_engine: constants.WriteEngineType = "default",
-) -> bigframes.core.indexes.Index:
-    ...
+) -> bigframes.core.indexes.Index: ...
 
 
 def read_pandas(
@@ -633,19 +654,24 @@ _default_location_lock = threading.Lock()
 def _get_bqclient_and_project() -> Tuple[bigquery.Client, str]:
     # Address circular imports in doctest due to bigframes/session/__init__.py
     # containing a lot of logic and samples.
+    import bigframes._config.auth
     from bigframes.session import clients
 
+    credentials, project = bigframes._config.auth.resolve_credentials_and_project(
+        config.options.bigquery
+    )
+
     clients_provider = clients.ClientsProvider(
-        project=config.options.bigquery.project,
+        project=project,
         location=config.options.bigquery.location,
         use_regional_endpoints=config.options.bigquery.use_regional_endpoints,
-        credentials=config.options.bigquery.credentials,
+        credentials=credentials,
         application_name=config.options.bigquery.application_name,
         bq_kms_key_name=config.options.bigquery.kms_key_name,
         client_endpoints_override=config.options.bigquery.client_endpoints_override,
         requests_transport_adapters=config.options.bigquery.requests_transport_adapters,
     )
-    return clients_provider.bqclient, clients_provider._project
+    return clients_provider.bqclient, project
 
 
 def _dry_run(query, bqclient) -> bigquery.QueryJob:

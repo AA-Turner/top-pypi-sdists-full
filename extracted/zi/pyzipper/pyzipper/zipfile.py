@@ -1628,6 +1628,8 @@ class _ZipWriteFile(io.BufferedIOBase):
         self._zinfo.compress_size = self._compress_size
         self._zinfo.CRC = self._crc
         self._zinfo.file_size = self._file_size
+        if self._encrypter:
+            self._encrypter.finalize_zipinfo(self._zinfo)
 
         if not self._zip64:
             if self._file_size > ZIP64_LIMIT:

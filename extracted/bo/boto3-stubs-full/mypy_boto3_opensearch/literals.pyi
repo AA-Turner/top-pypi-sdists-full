@@ -75,6 +75,7 @@ __all__ = (
     "PackageStatusType",
     "PackageTypeType",
     "PaginatorName",
+    "PauseStateType",
     "PrincipalTypeType",
     "PropertyValueTypeType",
     "RegionName",
@@ -333,6 +334,7 @@ PackageStatusType = Literal[
     "VALIDATION_FAILED",
 ]
 PackageTypeType = Literal["PACKAGE-CONFIG", "PACKAGE-LICENSE", "TXT-DICTIONARY", "ZIP-PLUGIN"]
+PauseStateType = Literal["Active", "Completed", "Disabled", "Scheduled"]
 PrincipalTypeType = Literal["AWS_ACCOUNT", "AWS_SERVICE"]
 PropertyValueTypeType = Literal["PLAIN_TEXT", "STRINGIFIED_JSON"]
 RequirementLevelType = Literal["NONE", "OPTIONAL", "REQUIRED"]

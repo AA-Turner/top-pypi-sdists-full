@@ -1,7 +1,8 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._internal import expect, positive
+from ..._internal import positive
+from ..._core import Positionable
 from ...abc import Space
 from ...math import Point, Vector
 
@@ -10,7 +11,7 @@ from pyglet.math import Mat4
 from numbers import Real
 
 # ======================================== VIEWPORT ========================================
-class Viewport(Space):
+class Viewport(Space, Positionable):
     """Zone de l'espace logique
 
     Args:
@@ -22,7 +23,6 @@ class Viewport(Space):
         y_direction: direction locale des coordonnées verticales
     """
     __slots__ = (
-        "_position",
         "_width", "_height",
         "_origin", "_x_direction", "_y_direction",
     )
@@ -38,6 +38,9 @@ class Viewport(Space):
         x_direction: Vector = (1.0, 0.0),
         y_direction: Vector = (0.0, 1.0),
     ):
+        # Initialisation de la position
+        Positionable.__init__(self, position)
+
         # Transtypage
         position = Point(position)
         width = float(width)
@@ -61,42 +64,6 @@ class Viewport(Space):
         self._y_direction: Vector = y_direction
 
     # ======================================== PROPERTIES ========================================
-    @property
-    def position(self) -> Point:
-        """Position du coin bas gauche
-
-        La position peut-être un objet mathématique ``Point`` ou un tuple ``(x, y)``
-        """
-        return self._position
-    
-    @position.setter
-    def position(self, value: Point):
-        self._position.x, self._position.y = value
-
-    @property
-    def x(self) -> float:
-        """Cordonnée horizontale du coin bas gauche
-        
-        La valeur doit être un ``Réel``.
-        """
-        return self._position.x
-    
-    @x.setter
-    def x(self, value: Real):
-        self._position.x = value
-
-    @property
-    def y(self) -> float:
-        """Coordonnée verticale du coin bas gauche
-
-        La valeur doit être un ``Réel``.
-        """
-        return self._position.y
-    
-    @y.setter
-    def y(self, value: Real):
-        self._position.y = value
-
     @property
     def width(self) -> float:
         """Largeur du viewport

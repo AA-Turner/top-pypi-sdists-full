@@ -92,10 +92,16 @@ class TestProjectPlans:
         assert "bcrypt" in sec.must_contain
         assert "plain_password ==" in sec.must_not_contain
 
-    def test_react_plan_pins_react_19(self) -> None:
+    def test_react_plan_pins_react_18(self) -> None:
+        # Pinned to 18.3.1 (NOT 19) to match Expo SDK 52's react requirement.
+        # If you bump Expo, bump react together — they MUST match or
+        # `npm install` fails with a peer-dep conflict.
         pkg = next(f for f in plan_react_frontend() if f.path == "frontend/package.json")
         assert pkg.template is not None
-        assert "\"react\": \"^19" in pkg.template
+        assert '"react"' in pkg.template
+        assert "^18" in pkg.template
+        # No react@19 anywhere in the runtime deps section
+        assert "^19" not in pkg.template
 
     def test_go_plan_forbids_wrong_db_driver(self) -> None:
         plan = plan_go_microservices()

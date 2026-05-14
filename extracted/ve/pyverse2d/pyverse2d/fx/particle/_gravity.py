@@ -12,14 +12,28 @@ class Gravity(ParticleModifier):
     """Modificateur de gravité
 
     Args:
-        strength: intensité de l'accélération en unités monde/s²
-        direction: direction en degrés (0 = droite, 90 = haut, 270 = bas)
+        strength: intensité de l'accélération *(u/s)*
+        direction: direction en degrés *(0 = droite, 90 = haut, 270 = bas)*
     """
-    __slots__ = ("_strength", "_direction", "_ax", "_ay")
+    __slots__ = (
+        "_strength", "_direction",
+        "_ax", "_ay",
+    )
 
     def __init__(self, strength: Real = 9.8, direction: Real = 270.0):
-        self._strength  = float(strength)
-        self._direction = float(direction)
+        # Transtypage
+        strength = float(strength)
+        direction = float(direction)
+
+        # Attributs publiques
+        self._strength: float  = strength
+        self._direction: float = direction
+
+        # Attributs internes
+        self._ax: float = 0.0
+        self._ay: float = 0.0
+
+        # Génération du vecteur directionnel
         self._update_components()
 
     # ======================================== PROPERTIES ========================================

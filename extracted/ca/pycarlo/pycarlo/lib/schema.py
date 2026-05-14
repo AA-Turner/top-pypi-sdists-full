@@ -2967,6 +2967,7 @@ class FieldHealthMetrics(pycarlo.lib.types.Enum):
     * `PERCENTILE_60`None
     * `PERCENTILE_80`None
     * `TEXT_ALL_SPACE_RATE`None
+    * `TEXT_CREDIT_CARD_RATE`None
     * `TEXT_EMAIL_ADDRESS_RATE`None
     * `TEXT_INT_RATE`None
     * `TEXT_MAX_LENGTH`None
@@ -3007,6 +3008,7 @@ class FieldHealthMetrics(pycarlo.lib.types.Enum):
         "PERCENTILE_60",
         "PERCENTILE_80",
         "TEXT_ALL_SPACE_RATE",
+        "TEXT_CREDIT_CARD_RATE",
         "TEXT_EMAIL_ADDRESS_RATE",
         "TEXT_INT_RATE",
         "TEXT_MAX_LENGTH",
@@ -3120,11 +3122,13 @@ class FieldMetricType(pycarlo.lib.types.Enum):
     * `TEXT_ALL_SPACES_RATE`None
     * `TEXT_ALL_SPACE_COUNT`None
     * `TEXT_ALL_SPACE_RATE`None
+    * `TEXT_CREDIT_CARD_RATE`None
     * `TEXT_EMAIL_ADDRESS_RATE`None
     * `TEXT_INT_RATE`None
     * `TEXT_MAX_LENGTH`None
     * `TEXT_MEAN_LENGTH`None
     * `TEXT_MIN_LENGTH`None
+    * `TEXT_NOT_CREDIT_CARD_COUNT`None
     * `TEXT_NOT_EMAIL_ADDRESS_COUNT`None
     * `TEXT_NOT_INT_COUNT`None
     * `TEXT_NOT_NUMBER_COUNT`None
@@ -3216,11 +3220,13 @@ class FieldMetricType(pycarlo.lib.types.Enum):
         "TEXT_ALL_SPACES_RATE",
         "TEXT_ALL_SPACE_COUNT",
         "TEXT_ALL_SPACE_RATE",
+        "TEXT_CREDIT_CARD_RATE",
         "TEXT_EMAIL_ADDRESS_RATE",
         "TEXT_INT_RATE",
         "TEXT_MAX_LENGTH",
         "TEXT_MEAN_LENGTH",
         "TEXT_MIN_LENGTH",
+        "TEXT_NOT_CREDIT_CARD_COUNT",
         "TEXT_NOT_EMAIL_ADDRESS_COUNT",
         "TEXT_NOT_INT_COUNT",
         "TEXT_NOT_NUMBER_COUNT",
@@ -3327,11 +3333,13 @@ class FieldQueryType(pycarlo.lib.types.Enum):
     * `TEXT_ALL_SPACES_RATE`None
     * `TEXT_ALL_SPACE_COUNT`None
     * `TEXT_ALL_SPACE_RATE`None
+    * `TEXT_CREDIT_CARD_RATE`None
     * `TEXT_EMAIL_ADDRESS_RATE`None
     * `TEXT_INT_RATE`None
     * `TEXT_MAX_LENGTH`None
     * `TEXT_MEAN_LENGTH`None
     * `TEXT_MIN_LENGTH`None
+    * `TEXT_NOT_CREDIT_CARD_COUNT`None
     * `TEXT_NOT_EMAIL_ADDRESS_COUNT`None
     * `TEXT_NOT_INT_COUNT`None
     * `TEXT_NOT_NUMBER_COUNT`None
@@ -3424,11 +3432,13 @@ class FieldQueryType(pycarlo.lib.types.Enum):
         "TEXT_ALL_SPACES_RATE",
         "TEXT_ALL_SPACE_COUNT",
         "TEXT_ALL_SPACE_RATE",
+        "TEXT_CREDIT_CARD_RATE",
         "TEXT_EMAIL_ADDRESS_RATE",
         "TEXT_INT_RATE",
         "TEXT_MAX_LENGTH",
         "TEXT_MEAN_LENGTH",
         "TEXT_MIN_LENGTH",
+        "TEXT_NOT_CREDIT_CARD_COUNT",
         "TEXT_NOT_EMAIL_ADDRESS_COUNT",
         "TEXT_NOT_INT_COUNT",
         "TEXT_NOT_NUMBER_COUNT",
@@ -5275,6 +5285,7 @@ class PiiMonitorMode(pycarlo.lib.types.Enum):
 class PiiType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
+    * `CREDIT_CARD`None
     * `EMAIL`None
     * `PHONE`None
     * `SSN`None
@@ -5283,7 +5294,7 @@ class PiiType(pycarlo.lib.types.Enum):
     """
 
     __schema__ = schema
-    __choices__ = ("EMAIL", "PHONE", "SSN", "US_STATE_CODE", "US_ZIP_CODE")
+    __choices__ = ("CREDIT_CARD", "EMAIL", "PHONE", "SSN", "US_STATE_CODE", "US_ZIP_CODE")
 
 
 class PlatformAgentType(pycarlo.lib.types.Enum):
@@ -6120,11 +6131,13 @@ class SamplingEnabledMetricTypes(pycarlo.lib.types.Enum):
     * `SUM`None
     * `TEXT_ALL_SPACE_COUNT`None
     * `TEXT_ALL_SPACE_RATE`None
+    * `TEXT_CREDIT_CARD_RATE`None
     * `TEXT_EMAIL_ADDRESS_RATE`None
     * `TEXT_INT_RATE`None
     * `TEXT_MAX_LENGTH`None
     * `TEXT_MEAN_LENGTH`None
     * `TEXT_MIN_LENGTH`None
+    * `TEXT_NOT_CREDIT_CARD_COUNT`None
     * `TEXT_NOT_EMAIL_ADDRESS_COUNT`None
     * `TEXT_NOT_INT_COUNT`None
     * `TEXT_NOT_NUMBER_COUNT`None
@@ -6189,11 +6202,13 @@ class SamplingEnabledMetricTypes(pycarlo.lib.types.Enum):
         "SUM",
         "TEXT_ALL_SPACE_COUNT",
         "TEXT_ALL_SPACE_RATE",
+        "TEXT_CREDIT_CARD_RATE",
         "TEXT_EMAIL_ADDRESS_RATE",
         "TEXT_INT_RATE",
         "TEXT_MAX_LENGTH",
         "TEXT_MEAN_LENGTH",
         "TEXT_MIN_LENGTH",
+        "TEXT_NOT_CREDIT_CARD_COUNT",
         "TEXT_NOT_EMAIL_ADDRESS_COUNT",
         "TEXT_NOT_INT_COUNT",
         "TEXT_NOT_NUMBER_COUNT",
@@ -10904,6 +10919,45 @@ class InformaticaV2ConnectionDetails(sgqlc.types.Input):
     """
 
 
+class InformaticaV2UpdateConnectionDetails(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("auth_mode", "oauth", "org_id", "username", "password", "base_url")
+    auth_mode = sgqlc.types.Field(
+        sgqlc.types.non_null(InformaticaV2AuthModeEnum), graphql_name="authMode"
+    )
+    """Authentication mode the updated credentials should use. Must be
+    supplied on every edit — switching modes drops the previous mode's
+    fields from the stored credentials.
+    """
+
+    oauth = sgqlc.types.Field("OAuthConfiguration", graphql_name="oauth")
+    """OAuth grant configuration. When `auth_mode` is `oauth`, fields
+    omitted here are filled in from the existing stored OAuth
+    configuration so customers can rotate individual secrets without
+    re-supplying the full block.
+    """
+
+    org_id = sgqlc.types.Field(String, graphql_name="orgId")
+    """Informatica organization ID. Required when `auth_mode` is `oauth`
+    and no existing oauth credentials are stored.
+    """
+
+    username = sgqlc.types.Field(String, graphql_name="username")
+    """Informatica username. Required when `auth_mode` is `password` and
+    no existing password credentials are stored.
+    """
+
+    password = sgqlc.types.Field(String, graphql_name="password")
+    """Informatica password. Required when `auth_mode` is `password` and
+    no existing password credentials are stored.
+    """
+
+    base_url = sgqlc.types.Field(String, graphql_name="baseUrl")
+    """Informatica login base URL. Omit to preserve the previously stored
+    value.
+    """
+
+
 class InputObjectProperty(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("mcon_id", "property_name", "property_value", "property_source_type")
@@ -13025,7 +13079,7 @@ class StorageOptimizationCandidatesFilter(sgqlc.types.Input):
     """
 
     __schema__ = schema
-    __field_names__ = ("database_names", "schema_names")
+    __field_names__ = ("database_names", "schema_names", "tiers", "table_categories", "name_search")
     database_names = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="databaseNames"
     )
@@ -13038,6 +13092,24 @@ class StorageOptimizationCandidatesFilter(sgqlc.types.Input):
     )
     """Filter candidates to tables whose schema/dataset name is in this
     list. Exact match. Null or empty list applies no filter.
+    """
+
+    tiers = sgqlc.types.Field(sgqlc.types.list_of(sgqlc.types.non_null(Int)), graphql_name="tiers")
+    """Filter candidates to the given safety tiers (0 = safest to remove,
+    5 = highest risk). Null or empty list applies no filter.
+    """
+
+    table_categories = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="tableCategories"
+    )
+    """Filter candidates to the given derived table categories
+    (temporary, ad_hoc, archive_snapshot, production, other). Null or
+    empty list applies no filter.
+    """
+
+    name_search = sgqlc.types.Field(String, graphql_name="nameSearch")
+    """Case-insensitive substring match on the table name. Null or empty
+    string applies no filter.
     """
 
 
@@ -34803,6 +34875,7 @@ class Mutation(sgqlc.types.Type):
         "update_self_hosted_credentials_v2",
         "update_dbt_cloud_credentials_v2_mutation",
         "update_transactional_db_credentials_v2",
+        "update_informatica_v2_credentials_v2",
         "update_glue_credentials_v2",
         "update_athena_credentials_v2",
         "update_big_query_credentials_v2",
@@ -38668,6 +38741,38 @@ class Mutation(sgqlc.types.Type):
 
     * `changes` (`TransactionalDbUpdateConnectionDetails!`): Updated
       Transactional DB connection parameters.
+    * `connection_id` (`UUID!`): ID for connection to update.
+    """
+
+    update_informatica_v2_credentials_v2 = sgqlc.types.Field(
+        "UpdateInformaticaV2CredentialsV2Mutation",
+        graphql_name="updateInformaticaV2CredentialsV2",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "changes",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(InformaticaV2UpdateConnectionDetails),
+                        graphql_name="changes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "connection_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Updates Informatica v2 credentials for an existing
+    connection
+
+    Arguments:
+
+    * `changes` (`InformaticaV2UpdateConnectionDetails!`): Updated
+      Informatica v2 connection parameters.
     * `connection_id` (`UUID!`): ID for connection to update.
     """
 
@@ -58748,6 +58853,7 @@ class Query(sgqlc.types.Type):
         "get_conversation_thread",
         "get_conversation_thread_v2",
         "get_conversation_message_content_v2",
+        "get_tool_detail",
         "get_node_detail",
         "get_trace_explanation",
         "get_conversation_explanation",
@@ -60234,6 +60340,45 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `input` (`GetConversationMessageContentV2Input!`)None
+    """
+
+    get_tool_detail = sgqlc.types.Field(
+        "ToolDetail",
+        graphql_name="getToolDetail",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+                (
+                    "tool_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="toolName", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get per-tool detail (last invoked, average latency,
+    invocation count, tables accessed) for a given tool MCON.
+
+    Arguments:
+
+    * `mcon` (`String!`): Trace table or platform agent MCON that
+      scopes the lookup.
+    * `agent_name` (`String!`): Name of the agent whose tool is being
+      looked up.
+    * `tool_name` (`String!`): Name of the tool to retrieve detail
+      for.
     """
 
     get_node_detail = sgqlc.types.Field(
@@ -83644,7 +83789,7 @@ class StorageOptimizationCandidate(sgqlc.types.Type):
 
 class StorageOptimizationCandidatesResult(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("nodes", "total_count", "page_info")
+    __field_names__ = ("nodes", "total_count", "page_info", "breakdown_by_risk_level")
     nodes = sgqlc.types.Field(
         sgqlc.types.non_null(
             sgqlc.types.list_of(sgqlc.types.non_null(StorageOptimizationCandidate))
@@ -83660,6 +83805,15 @@ class StorageOptimizationCandidatesResult(sgqlc.types.Type):
         sgqlc.types.non_null("StorageOptimizationPageInfo"), graphql_name="pageInfo"
     )
     """Pagination information"""
+
+    breakdown_by_risk_level = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(Int))),
+        graphql_name="breakdownByRiskLevel",
+    )
+    """Per-tier candidate counts for the current filter, as a 6-element
+    array indexed by safety tier (0 = safest to remove, 5 = highest
+    risk). Empty tiers report 0.
+    """
 
 
 class StorageOptimizationPageInfo(sgqlc.types.Type):
@@ -86536,6 +86690,31 @@ class ToolCallBlock(sgqlc.types.Type):
     """Unique ID for this tool call (if available)"""
 
 
+class ToolDetail(sgqlc.types.Type):
+    """Per-tool statistics derived from agent traces."""
+
+    __schema__ = schema
+    __field_names__ = ("last_invoked", "avg_latency_seconds", "invocation_count", "tables_accessed")
+    last_invoked = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="lastInvoked")
+    """Timestamp of the most recent invocation of this tool"""
+
+    avg_latency_seconds = sgqlc.types.Field(Float, graphql_name="avgLatencySeconds")
+    """Average latency in seconds across all invocations (null if no
+    data)
+    """
+
+    invocation_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="invocationCount")
+    """Total number of times this tool was invoked"""
+
+    tables_accessed = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(LineageGraphNode))),
+        graphql_name="tablesAccessed",
+    )
+    """Lineage graph nodes for tables accessed by this tool. Returns an
+    empty list when no upstream tables are recorded for the tool.
+    """
+
+
 class TopQueryGroupsResponseType(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("total", "top_query_groups")
@@ -88056,6 +88235,23 @@ class UpdateGlueCredentialsV2Mutation(sgqlc.types.Type):
     to validate the credentials  Call updateCredentialsV2 with the
     same tempCredentialsKey and connectionId to persist the changes.
     See full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("result",)
+    result = sgqlc.types.Field(UpdateCredentialsV2Result, graphql_name="result")
+
+
+class UpdateInformaticaV2CredentialsV2Mutation(sgqlc.types.Type):
+    """Update credentials for an existing Informatica v2 connection.
+    Note: This mutation only uploads credentials and returns a
+    temporary key. To complete the update:  Call
+    testUpdatedCredentialsV2 with the returned key as
+    tempCredentialsKey and the same connectionId to validate the
+    credentials  Call updateCredentialsV2 with the same
+    tempCredentialsKey and connectionId to persist the changes.  See
+    full instructions here -
     https://docs.getmontecarlo.com/docs/updating-integrations#/.
     """
 

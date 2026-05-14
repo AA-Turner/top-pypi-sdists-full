@@ -174,6 +174,7 @@ class Tab(Connection):
     ):
         self._dom = None
         self._window_id = None
+        self.target = target
         super().__init__(target=target, parent=parent, **kwargs)
 
     async def get_frames(self) -> List[IFrame]:
@@ -1435,6 +1436,7 @@ class Tab(Connection):
         filename: Optional[PathLike] = "auto",
         format: Optional[str] = "jpeg",
         full_page: Optional[bool] = False,
+        as_base64: Optional[bool] = False,
     ) -> str:
         """
         Saves a screenshot of the page.
@@ -1446,6 +1448,7 @@ class Tab(Connection):
         :type format: str
         :param full_page: when False (default) it captures the current viewport. when True, it captures the entire page
         :type full_page: bool
+        :param as_base64: whether to return a base64 string. this will ignore path, and will not write to a file
         :return: the path/filename of saved screenshot
         :rtype: str
         """
@@ -1464,7 +1467,8 @@ class Tab(Connection):
             ext = ".png"
             format = "png"
 
-        if not filename or filename == "auto":
+        if not filename or filename == "auto" and not as_base64:
+
             parsed = urllib.parse.urlparse(self.target.url)
             parts = parsed.path.split("/")
             last_part = parts[-1]
@@ -1472,14 +1476,18 @@ class Tab(Connection):
             dt_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             candidate = f"{parsed.hostname}__{last_part}_{dt_str}"
             path = pathlib.Path(candidate + ext)  # noqa
-        else:
+        elif not as_base64:
             path = pathlib.Path(filename)
-        path.parent.mkdir(parents=True, exist_ok=True)
+
+        if not as_base64:
+            path.parent.mkdir(parents=True, exist_ok=True)
         data = await self.send(
             cdp.page.capture_screenshot(
                 format_=format, capture_beyond_viewport=full_page
             )
         )
+        if as_base64:
+            return data
         if not data:
             raise ProtocolException(
                 "could not take screenshot. most possible cause is the page has not finished loading yet."
@@ -1987,7 +1995,7 @@ class Tab(Connection):
 
     async def flash_point(self, x, y, duration=0.5, size=10):
         style = (
-            "position:absolute;z-index:99999999;padding:0;margin:0;"
+            "position:fixed;z-index:99999999;padding:0;margin:0;"
             "left:{:.1f}px; top: {:.1f}px;"
             "opacity:1;"
             "width:{:d}px;height:{:d}px;border-radius:50%;background:red;"

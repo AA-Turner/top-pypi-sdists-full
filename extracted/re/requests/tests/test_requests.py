@@ -2073,6 +2073,21 @@ class TestRequests:
 
         assert "Unable to rewind request body" in str(e)
 
+    def test_getattr_proxy_stream_follows_redirect(self, httpbin):
+        """Ensure stream wrappers that don't implement __iter__ directly are still detected."""
+
+        class AttrProxy:
+            def __init__(self):
+                self._file = io.BytesIO(b"data")
+
+            def __getattr__(self, name):
+                return getattr(self._file, name)
+
+        r = requests.post(
+            httpbin("redirect-to?url=/post&status_code=307"), data=AttrProxy()
+        )
+        assert r.json()["data"] == "data"
+
     def _patch_adapter_gzipped_redirect(self, session, url):
         adapter = session.get_adapter(url=url)
         org_build_response = adapter.build_response

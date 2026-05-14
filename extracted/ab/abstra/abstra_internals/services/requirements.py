@@ -774,6 +774,41 @@ def create_requirement(name: str, version: Optional[str] = None) -> Requirement:
         return Requirement(name)
 
 
+# Abstra is the only package that must always keep a fixed (==) version in
+# requirements.txt, so it's never touched by the "remove fixed version"
+# operations regardless of the input.
+ABSTRA_PACKAGE_NAME = "abstra"
+
+
+def has_exact_version(req: Requirement) -> bool:
+    """Check if a Requirement has a fixed (==) version specifier."""
+    if not req.specifier:
+        return False
+    return any(spec.operator == "==" for spec in req.specifier)
+
+
+def strip_exact_version(req: Requirement) -> Requirement:
+    """Remove == specifiers from a Requirement while preserving extras,
+    markers, url and any non-exact specifiers (e.g. >=, <)."""
+    parts: List[str] = [req.name]
+
+    if req.extras:
+        parts.append(f"[{','.join(sorted(req.extras))}]")
+
+    if req.url:
+        parts.append(f" @ {req.url}")
+    else:
+        other_specs = [s for s in req.specifier if s.operator != "=="]
+        if other_specs:
+            parts.append(",".join(f"{s.operator}{s.version}" for s in other_specs))
+
+    base = "".join(parts)
+    if req.marker:
+        base = f"{base}; {req.marker}"
+
+    return Requirement(base)
+
+
 def iter_uninstall_requirement(req: Requirement) -> Iterator[str]:
     """Uninstall a requirement package, yielding each line of pip output.
 
@@ -1014,6 +1049,56 @@ class Requirements:
             lib if lib.name != name else create_requirement(name, version)
             for lib in self.libraries
         ]
+
+    def remove_fixed_version(self, name: str) -> bool:
+        """Remove the exact (==) version specifier from a single requirement.
+
+        Preserves the original order of requirements and the rest of the
+        requirement metadata (extras, markers, url, non-exact specifiers).
+
+        The `abstra` package is always preserved as-is, regardless of the
+        provided name, since it must keep a fixed version in requirements.txt.
+
+        Returns True if a change was made, False otherwise.
+        """
+        normalized_name = pip_name(name)
+        if normalized_name == ABSTRA_PACKAGE_NAME:
+            return False
+
+        changed = False
+        new_libraries: List[Requirement] = []
+        for lib in self.libraries:
+            if pip_name(lib.name) == normalized_name and has_exact_version(lib):
+                new_libraries.append(strip_exact_version(lib))
+                changed = True
+            else:
+                new_libraries.append(lib)
+        self.libraries = new_libraries
+        return changed
+
+    def remove_all_fixed_versions(self, skip: Optional[Set[str]] = None) -> List[str]:
+        """Remove the exact (==) version specifier from every requirement,
+        except those whose normalized name appears in `skip`.
+
+        The `abstra` package is always implicitly skipped (regardless of the
+        contents of `skip`), since it must keep a fixed version in
+        requirements.txt.
+
+        Returns the list of requirement names that were updated (preserving
+        order).
+        """
+        skip_normalized: Set[str] = {pip_name(s) for s in (skip or set())}
+        skip_normalized.add(ABSTRA_PACKAGE_NAME)
+        updated: List[str] = []
+        new_libraries: List[Requirement] = []
+        for lib in self.libraries:
+            if pip_name(lib.name) not in skip_normalized and has_exact_version(lib):
+                new_libraries.append(strip_exact_version(lib))
+                updated.append(lib.name)
+            else:
+                new_libraries.append(lib)
+        self.libraries = new_libraries
+        return updated
 
     def delete(self, name: str):
         self.libraries = [lib for lib in self.libraries if lib.name != name]

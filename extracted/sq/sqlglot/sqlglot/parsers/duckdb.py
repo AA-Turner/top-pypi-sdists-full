@@ -66,6 +66,11 @@ def _show_parser(*args: t.Any, **kwargs: t.Any) -> t.Callable[[DuckDBParser], ex
     return _parse
 
 
+def _convert_text_type(dtype: exp.DataType) -> exp.DataType:
+    dtype.set("expressions", None)
+    return dtype
+
+
 class DuckDBParser(parser.Parser):
     MAP_KEYS_ARE_ARBITRARY_EXPRESSIONS = True
 
@@ -167,11 +172,11 @@ class DuckDBParser(parser.Parser):
             single_replace=True,
         ),
         "SHA256": lambda args: exp.SHA2(this=seq_get(args, 0), length=exp.Literal.number(256)),
-        "STRFTIME": build_formatted_time(exp.TimeToStr, "duckdb"),
+        "STRFTIME": build_formatted_time(exp.TimeToStr),
         "STRING_SPLIT": exp.Split.from_arg_list,
         "STRING_SPLIT_REGEX": exp.RegexpSplit.from_arg_list,
         "STRING_TO_ARRAY": exp.Split.from_arg_list,
-        "STRPTIME": build_formatted_time(exp.StrToTime, "duckdb"),
+        "STRPTIME": build_formatted_time(exp.StrToTime),
         "STRUCT_PACK": exp.Struct.from_arg_list,
         "STR_SPLIT": exp.Split.from_arg_list,
         "STR_SPLIT_REGEX": exp.RegexpSplit.from_arg_list,
@@ -209,7 +214,7 @@ class DuckDBParser(parser.Parser):
         # https://duckdb.org/docs/sql/data_types/numeric
         exp.DType.DECIMAL: build_default_decimal_type(precision=18, scale=3),
         # https://duckdb.org/docs/sql/data_types/text
-        exp.DType.TEXT: lambda dtype: exp.DType.TEXT.into_expr(),
+        exp.DType.TEXT: _convert_text_type,
     }
 
     STATEMENT_PARSERS = {

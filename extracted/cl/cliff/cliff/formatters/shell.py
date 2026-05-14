@@ -13,8 +13,8 @@
 """Output formatters using shell syntax."""
 
 import argparse
-import collections.abc
-import typing as ty
+from collections.abc import Sequence
+from typing import Any, TextIO
 
 from cliff import columns
 from cliff.formatters import base
@@ -44,9 +44,9 @@ class ShellFormatter(base.SingleFormatter):
 
     def emit_one(
         self,
-        column_names: collections.abc.Sequence[str],
-        data: collections.abc.Sequence[ty.Any],
-        stdout: ty.TextIO,
+        column_names: Sequence[str],
+        data: Sequence[Any],
+        stdout: TextIO,
         parsed_args: argparse.Namespace,
     ) -> None:
         variable_names = [c.lower().replace(' ', '_') for c in column_names]

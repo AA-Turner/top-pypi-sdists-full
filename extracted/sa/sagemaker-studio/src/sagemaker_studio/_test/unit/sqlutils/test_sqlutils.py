@@ -8,6 +8,7 @@ from pandas import DataFrame
 from sagemaker_studio import Connection, sqlutils
 from sagemaker_studio.project import Project
 from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
+from sagemaker_studio.utils._sql_cache import ManagedConnection
 
 
 class TestSqlutils(unittest.TestCase):
@@ -20,6 +21,7 @@ class TestSqlutils(unittest.TestCase):
         # Reset global variables
         sqlutils._project = None
         sqlutils._sql_executor = SqlExecutor()
+        sqlutils._connection_cache.clear()  # Clear cache between tests
 
         # Create mock connection data that will be used across tests
         self.connection_dict = {
@@ -74,9 +76,9 @@ class TestSqlutils(unittest.TestCase):
 
     @patch("sagemaker_studio.sqlutils.HelperFactory")
     @patch("sagemaker_studio.sqlutils._ensure_project")
-    @patch("sagemaker_studio.sqlutils._sql_executor")
+    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
     def test_sql_with_athena_connection(
-        self, mock_sql_executor, mock_ensure_project, mock_helper_factory
+        self, mock_ensure_sql_executor, mock_ensure_project, mock_helper_factory
     ):
         """Test SQL execution with Athena connection"""
         # Setup mock project to return our Connection instance
@@ -98,6 +100,8 @@ class TestSqlutils(unittest.TestCase):
         }
         mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
 
+        mock_sql_executor = Mock()
+        mock_ensure_sql_executor.return_value = mock_sql_executor
         mock_engine = Mock()
         mock_sql_executor.create_engine.return_value = mock_engine
         mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
@@ -123,13 +127,20 @@ class TestSqlutils(unittest.TestCase):
         mock_helper_factory.get_sql_helper.assert_called_once_with("ATHENA")
 
         # Verify sql helper was called
-        mock_sql_helper.to_sql_config.assert_called_once_with(self.mock_connection)
+        self.assertEqual(mock_sql_helper.to_sql_config.call_count, 1)
+        call_args = mock_sql_helper.to_sql_config.call_args
+        self.assertEqual(call_args[0][0], self.mock_connection)
 
         # Verify engine creation with correct config
         mock_sql_executor.create_engine.assert_called_once()
 
-        # Verify query execution
-        mock_sql_executor.execute.assert_called_once_with(mock_engine, query, None)
+        # Verify query execution - with persist_session=True, conn is created
+        mock_sql_executor.execute.assert_called_once()
+        call_args = mock_sql_executor.execute.call_args
+        self.assertEqual(call_args[0][0], mock_engine)  # engine (positional)
+        self.assertEqual(call_args[0][1], query)  # query (positional)
+        self.assertIsNotNone(call_args[1]["connection"])  # connection (keyword)
+        self.assertEqual(call_args[1].get("parameters"), None)  # parameters (keyword)
 
         # Verify result
         self.assertIsInstance(result, DataFrame)
@@ -137,12 +148,16 @@ class TestSqlutils(unittest.TestCase):
 
     @patch("sagemaker_studio.sqlutils.HelperFactory")
     @patch("sagemaker_studio.sqlutils._ensure_project")
-    @patch("sagemaker_studio.sqlutils._sql_executor")
+    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
     @patch(
         "sagemaker_studio.connections.connection.Connection._get_aws_client_with_connection_credentials"
     )
     def test_sql_with_redshift_connection(
-        self, mock_get_aws_client, mock_sql_executor, mock_ensure_project, mock_helper_factory
+        self,
+        mock_get_aws_client,
+        mock_ensure_sql_executor,
+        mock_ensure_project,
+        mock_helper_factory,
     ):
         """Test SQL execution with Redshift connection"""
         # Mock the glue API client since REDSHIFT is now in SUPPORTED_GLUE_CONNECTION_TYPES
@@ -192,6 +207,8 @@ class TestSqlutils(unittest.TestCase):
         }
         mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
 
+        mock_sql_executor = Mock()
+        mock_ensure_sql_executor.return_value = mock_sql_executor
         mock_engine = Mock()
         mock_sql_executor.create_engine.return_value = mock_engine
         mock_sql_executor.get_supported_connection_types.return_value = ["REDSHIFT"]
@@ -215,12 +232,20 @@ class TestSqlutils(unittest.TestCase):
         mock_helper_factory.get_sql_helper.assert_called_once_with("REDSHIFT")
 
         # Verify sql helper was called
-        mock_sql_helper.to_sql_config.assert_called_once_with(redshift_connection)
+        self.assertEqual(mock_sql_helper.to_sql_config.call_count, 1)
+        call_args = mock_sql_helper.to_sql_config.call_args
+        self.assertEqual(call_args[0][0], redshift_connection)
 
         mock_sql_executor.create_engine.assert_called_once_with(
             "REDSHIFT", mock_sql_helper.to_sql_config.return_value
         )
-        mock_sql_executor.execute.assert_called_once_with(mock_engine, query, None)
+        # Verify execute was called with connection (persist_session=True by default)
+        mock_sql_executor.execute.assert_called_once()
+        call_args = mock_sql_executor.execute.call_args
+        self.assertEqual(call_args[0][0], mock_engine)  # engine (positional)
+        self.assertEqual(call_args[0][1], query)  # query (positional)
+        self.assertIsNotNone(call_args[1]["connection"])  # connection (keyword)
+        self.assertEqual(call_args[1].get("parameters"), None)  # parameters (keyword)
 
     @patch("sagemaker_studio.sqlutils._ensure_duckdb")
     def test_sql_stream_without_connection(self, mock_ensure_duckdb):
@@ -758,3 +783,763 @@ class TestSqlutils(unittest.TestCase):
 
         self.assertNotIn("df", mock_ip.user_ns)
         mock_display.assert_not_called()
+
+    @patch("sagemaker_studio.sqlutils.HelperFactory")
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
+    def test_credential_provider_callback(
+        self, mock_ensure_sql_executor, mock_ensure_project, mock_helper_factory
+    ):
+        """Test that credential_provider callback is passed to engine creation"""
+        mock_project = Mock()
+        mock_connection = Mock()
+        mock_connection.type = "REDSHIFT"
+        mock_connection.id = "conn_123"
+
+        # Mock connection_creds for credential refresh
+        mock_creds = Mock()
+        mock_creds.access_key_id = "new_key"
+        mock_creds.secret_access_key = "new_secret"
+        mock_creds.session_token = "new_token"
+        mock_creds.expiration = None
+        mock_connection.connection_creds = mock_creds
+
+        mock_project.connection.return_value = mock_connection
+        mock_ensure_project.return_value = mock_project
+
+        mock_sql_helper = Mock()
+        mock_sql_helper.to_sql_config.return_value = {"host": "localhost"}
+        mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
+
+        mock_sql_executor = Mock()
+        mock_ensure_sql_executor.return_value = mock_sql_executor
+        mock_engine = Mock()
+        mock_sql_executor.create_engine.return_value = mock_engine
+        mock_sql_executor.get_supported_connection_types.return_value = ["REDSHIFT"]
+
+        sqlutils.get_engine(connection_name="test_conn")
+
+        # Verify credential_provider was passed in kwargs
+        call_args = mock_sql_helper.to_sql_config.call_args
+        self.assertIn("credential_provider", call_args[1])
+
+        # Test the credential_provider callback
+        credential_provider = call_args[1]["credential_provider"]
+        refreshed_creds = credential_provider()
+
+        self.assertEqual(refreshed_creds["access_key_id"], "new_key")
+        self.assertEqual(refreshed_creds["secret_access_key"], "new_secret")
+        self.assertEqual(refreshed_creds["session_token"], "new_token")
+
+
+class TestConnectionCache(unittest.TestCase):
+    """Test ConnectionCache functionality"""
+
+    def setUp(self):
+        sqlutils._connection_cache.clear()
+
+    def tearDown(self):
+        sqlutils._connection_cache.clear()
+
+    def test_cache_stores_and_retrieves_connection(self):
+        """Test cache can store and retrieve connections"""
+
+        mock_engine = Mock()
+        mock_connection = Mock()
+        mock_connection.closed = False
+
+        managed_conn = ManagedConnection(
+            engine=mock_engine, connection=mock_connection, id="test-id-1", cache_key="key1"
+        )
+        sqlutils._connection_cache.put("key1", managed_conn)
+        cached = sqlutils._connection_cache.get("key1")
+
+        self.assertIsNotNone(cached)
+        self.assertEqual(cached.engine, mock_engine)
+        self.assertEqual(cached.connection, mock_connection)
+        self.assertEqual(cached.cache_key, "key1")
+
+    def test_cache_returns_none_for_missing_key(self):
+        """Test cache returns None for non-existent key"""
+        self.assertIsNone(sqlutils._connection_cache.get("nonexistent"))
+
+    def test_cache_remove(self):
+        """Test cache can remove entries"""
+
+        mock_engine = Mock()
+        mock_connection = Mock()
+        mock_connection.closed = False
+
+        managed_conn = ManagedConnection(
+            engine=mock_engine, connection=mock_connection, id="test-id-1", cache_key="key1"
+        )
+        sqlutils._connection_cache.put("key1", managed_conn)
+        self.assertIsNotNone(sqlutils._connection_cache.get("key1"))
+
+        sqlutils._connection_cache.remove("key1")
+        self.assertIsNone(sqlutils._connection_cache.get("key1"))
+
+    def test_cache_clear(self):
+        """Test cache can clear all entries"""
+
+        mock_conn1 = Mock()
+        mock_conn1.closed = False
+        mock_conn2 = Mock()
+        mock_conn2.closed = False
+
+        sqlutils._connection_cache.put(
+            "key1", ManagedConnection(Mock(), mock_conn1, "id-1", "key1")
+        )
+        sqlutils._connection_cache.put(
+            "key2", ManagedConnection(Mock(), mock_conn2, "id-2", "key2")
+        )
+
+        self.assertEqual(len(sqlutils._connection_cache), 2)
+
+        sqlutils._connection_cache.clear()
+        self.assertEqual(len(sqlutils._connection_cache), 0)
+
+    def test_cache_list_keys(self):
+        """Test cache can list all keys"""
+
+        mock_conn1 = Mock()
+        mock_conn1.closed = False
+        mock_conn2 = Mock()
+        mock_conn2.closed = False
+
+        sqlutils._connection_cache.put(
+            "key1", ManagedConnection(Mock(), mock_conn1, "id-1", "key1")
+        )
+        sqlutils._connection_cache.put(
+            "key2", ManagedConnection(Mock(), mock_conn2, "id-2", "key2")
+        )
+
+        keys = sqlutils._connection_cache.list_keys()
+        self.assertEqual(set(keys), {"key1", "key2"})
+
+    def test_cache_contains(self):
+        """Test cache __contains__ method"""
+
+        mock_conn = Mock()
+        mock_conn.closed = False
+
+        sqlutils._connection_cache.put("key1", ManagedConnection(Mock(), mock_conn, "id-1", "key1"))
+
+        self.assertTrue("key1" in sqlutils._connection_cache)
+        self.assertFalse("key2" in sqlutils._connection_cache)
+
+
+class TestSessionPersistence(unittest.TestCase):
+    """Test session persistence functionality"""
+
+    def setUp(self):
+        sqlutils._connection_cache.clear()
+
+    def tearDown(self):
+        sqlutils._connection_cache.clear()
+
+    @patch("sagemaker_studio.sqlutils.HelperFactory")
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
+    def test_persist_session_caches_connection(
+        self, mock_ensure_sql_executor, mock_ensure_project, mock_helper_factory
+    ):
+        """Test persist_session=True caches connection"""
+        mock_project = Mock()
+        mock_connection = Mock()
+        mock_connection.type = "ATHENA"
+        mock_connection.id = "conn_123"
+        mock_project.connection.return_value = mock_connection
+        mock_ensure_project.return_value = mock_project
+
+        mock_sql_helper = Mock()
+        mock_sql_helper.to_sql_config.return_value = {"region_name": "us-east-1"}
+        mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
+
+        mock_sql_executor = Mock()
+        mock_ensure_sql_executor.return_value = mock_sql_executor
+        mock_engine = Mock()
+        mock_db_connection = Mock()
+        mock_engine.connect.return_value.__enter__ = Mock(return_value=mock_db_connection)
+        mock_engine.connect.return_value.__exit__ = Mock(return_value=None)
+        mock_sql_executor.create_engine.return_value = mock_engine
+        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        execution_result = ExecutionResult(
+            statement_index=0,
+            statement="SELECT 1",
+            statement_type="SELECT",
+            result=DataFrame({"col1": [1]}),
+            status="success",
+        )
+        mock_sql_executor.execute.return_value = iter([execution_result])
+
+        # First call with persist_session=True
+        sqlutils.sql_stream("SELECT 1", connection_name="test_conn", persist_session=True)
+        # Consume generator
+        list(sqlutils.sql_stream("SELECT 1", connection_name="test_conn", persist_session=True))
+
+        # Verify connection was cached
+        self.assertEqual(len(sqlutils._connection_cache), 1)
+        self.assertTrue("test_conn" in sqlutils._connection_cache)
+
+    @patch("sagemaker_studio.sqlutils.HelperFactory")
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
+    def test_persist_session_reuses_cached_connection(
+        self, mock_ensure_sql_executor, mock_ensure_project, mock_helper_factory
+    ):
+        """Test persist_session=True reuses cached connection"""
+
+        mock_project = Mock()
+        mock_connection = Mock()
+        mock_connection.type = "ATHENA"
+        mock_connection.id = "conn_123"
+        mock_project.connection.return_value = mock_connection
+        mock_ensure_project.return_value = mock_project
+
+        mock_sql_helper = Mock()
+        mock_sql_helper.to_sql_config.return_value = {"region_name": "us-east-1"}
+        mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
+
+        mock_sql_executor = Mock()
+        mock_ensure_sql_executor.return_value = mock_sql_executor
+        mock_engine = Mock()
+        mock_db_connection = Mock()
+        mock_db_connection.closed = False
+        mock_sql_executor.create_engine.return_value = mock_engine
+        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        execution_result = ExecutionResult(
+            statement_index=0,
+            statement="SELECT 1",
+            statement_type="SELECT",
+            result=DataFrame({"col1": [1]}),
+            status="success",
+        )
+        mock_sql_executor.execute.return_value = iter([execution_result])
+
+        # Pre-populate cache
+        managed_conn = ManagedConnection(
+            engine=mock_engine,
+            connection=mock_db_connection,
+            id="test-conn-id",
+            cache_key="test_conn",
+        )
+        sqlutils._connection_cache.put("test_conn", managed_conn)
+
+        # Call with persist_session=True
+        list(sqlutils.sql_stream("SELECT 1", connection_name="test_conn", persist_session=True))
+
+        # Verify engine was not created again
+        mock_sql_executor.create_engine.assert_not_called()
+        # Verify execute was called with cached connection
+        mock_sql_executor.execute.assert_called_once()
+        call_args = mock_sql_executor.execute.call_args
+        self.assertEqual(
+            call_args[1]["connection"], mock_db_connection
+        )  # connection is keyword arg
+
+    @patch("sagemaker_studio.sqlutils._ensure_duckdb")
+    def test_sql_stream_with_duckdb(self, mock_ensure_duckdb):
+        """Test sql_stream without connection uses DuckDB"""
+        mock_result1 = Mock()
+        mock_result1.df.return_value = DataFrame({"col1": [1]})
+        mock_result2 = Mock()
+        mock_result2.df.return_value = DataFrame({"col1": [2]})
+
+        mock_duckdb = Mock()
+        mock_duckdb.sql.side_effect = [mock_result1, mock_result2]
+        mock_ensure_duckdb.return_value = mock_duckdb
+
+        results = list(sqlutils.sql_stream("SELECT 1; SELECT 2"))
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].status, "success")
+        self.assertEqual(results[1].status, "success")
+
+    @patch("sagemaker_studio.sqlutils.HelperFactory")
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
+    def test_sql_stream_with_connection_id(
+        self, mock_ensure_sql_executor, mock_ensure_project, mock_helper_factory
+    ):
+        """Test sql_stream with connection_id instead of connection_name"""
+        mock_project = Mock()
+        mock_connection = Mock()
+        mock_connection.type = "ATHENA"
+        mock_connection.id = "conn_123"
+        mock_project.connection.return_value = mock_connection
+        mock_ensure_project.return_value = mock_project
+
+        mock_sql_helper = Mock()
+        mock_sql_helper.to_sql_config.return_value = {"region_name": "us-east-1"}
+        mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
+
+        mock_sql_executor = Mock()
+        mock_ensure_sql_executor.return_value = mock_sql_executor
+        mock_engine = Mock()
+        mock_sql_executor.create_engine.return_value = mock_engine
+        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        execution_result = ExecutionResult(
+            statement_index=0,
+            statement="SELECT 1",
+            statement_type="SELECT",
+            result=DataFrame({"col1": [1]}),
+            status="success",
+        )
+        mock_sql_executor.execute.return_value = iter([execution_result])
+
+        list(sqlutils.sql_stream("SELECT 1", connection_id="conn_123", persist_session=True))
+
+        # Verify connection was fetched by ID
+        mock_project.connection.assert_called_with(id="conn_123")
+        # Verify connection was cached
+        self.assertTrue("conn_123" in sqlutils._connection_cache)
+
+    @patch("sagemaker_studio.sqlutils.HelperFactory")
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
+    def test_mixed_persist_session_scenarios(
+        self, mock_ensure_sql_executor, mock_ensure_project, mock_helper_factory
+    ):
+        """Test persist=True caches, persist=False on second call uses cache if exists"""
+
+        mock_project = Mock()
+        mock_connection = Mock()
+        mock_connection.type = "ATHENA"
+        mock_connection.id = "conn_123"
+        mock_project.connection.return_value = mock_connection
+        mock_ensure_project.return_value = mock_project
+
+        mock_sql_helper = Mock()
+        mock_sql_helper.to_sql_config.return_value = {"region_name": "us-east-1"}
+        mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
+
+        mock_sql_executor = Mock()
+        mock_ensure_sql_executor.return_value = mock_sql_executor
+        mock_engine = Mock()
+        mock_cached_connection = Mock()
+        mock_cached_connection.closed = False
+        mock_sql_executor.create_engine.return_value = mock_engine
+        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        execution_result = ExecutionResult(
+            statement_index=0,
+            statement="SELECT 1",
+            statement_type="SELECT",
+            result=DataFrame({"col1": [1]}),
+            status="success",
+        )
+        mock_sql_executor.execute.return_value = iter([execution_result])
+
+        # First call with persist=True caches connection
+        managed_conn = ManagedConnection(
+            engine=mock_engine,
+            connection=mock_cached_connection,
+            id="test-conn-id",
+            cache_key="test_conn",
+        )
+        sqlutils._connection_cache.put("test_conn", managed_conn)
+        list(sqlutils.sql_stream("SELECT 1", connection_name="test_conn", persist_session=True))
+
+        # Verify cached connection was used
+        call_args = mock_sql_executor.execute.call_args
+        self.assertEqual(call_args[1]["connection"], mock_cached_connection)
+
+        # Reset mock
+        mock_sql_executor.execute.reset_mock()
+        mock_sql_executor.execute.return_value = iter([execution_result])
+
+        # Second call with persist=False creates new connection (conn=None)
+        list(sqlutils.sql_stream("SELECT 2", connection_name="test_conn", persist_session=False))
+
+        # Verify new connection was created (conn=None for non-persistent)
+        call_args = mock_sql_executor.execute.call_args
+        self.assertIsNone(call_args[1]["connection"])  # conn should be None for persist=False
+
+    @patch("sagemaker_studio.sqlutils.HelperFactory")
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
+    def test_persist_session_false_does_not_cache(
+        self, mock_ensure_sql_executor, mock_ensure_project, mock_helper_factory
+    ):
+        """Test persist_session=False does not cache connection"""
+        mock_project = Mock()
+        mock_connection = Mock()
+        mock_connection.type = "ATHENA"
+        mock_connection.id = "conn_123"
+        mock_project.connection.return_value = mock_connection
+        mock_ensure_project.return_value = mock_project
+
+        mock_sql_helper = Mock()
+        mock_sql_helper.to_sql_config.return_value = {"region_name": "us-east-1"}
+        mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
+
+        mock_sql_executor = Mock()
+        mock_ensure_sql_executor.return_value = mock_sql_executor
+        mock_engine = Mock()
+        mock_db_connection = Mock()
+        mock_engine.connect.return_value.__enter__ = Mock(return_value=mock_db_connection)
+        mock_engine.connect.return_value.__exit__ = Mock(return_value=None)
+        mock_sql_executor.create_engine.return_value = mock_engine
+        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        execution_result = ExecutionResult(
+            statement_index=0,
+            statement="SELECT 1",
+            statement_type="SELECT",
+            result=DataFrame({"col1": [1]}),
+            status="success",
+        )
+        mock_sql_executor.execute.return_value = iter([execution_result])
+
+        # Call with persist_session=False
+        list(sqlutils.sql_stream("SELECT 1", connection_name="test_conn", persist_session=False))
+
+        # Verify connection was not cached
+        self.assertEqual(len(sqlutils._connection_cache), 0)
+
+    def test_list_connections(self):
+        """Test list_connections returns cached connection details"""
+
+        mock_conn1 = Mock()
+        mock_conn1.closed = False
+        mock_conn2 = Mock()
+        mock_conn2.closed = False
+
+        mc1 = ManagedConnection(Mock(), mock_conn1, "id-1", "conn_1")
+        mc2 = ManagedConnection(Mock(), mock_conn2, "id-2", "conn_2")
+
+        sqlutils._connection_cache.put("conn_1", mc1)
+        sqlutils._connection_cache.put("conn_2", mc2)
+
+        connections = sqlutils.list_connections()
+        self.assertEqual(len(connections), 2)
+        self.assertIn("id", connections[0])
+        self.assertIn("cache_key", connections[0])
+        self.assertIn("created_at", connections[0])
+        self.assertIn("last_used", connections[0])
+
+    def test_close_connection(self):
+        """Test close_connection closes and removes from cache by ID"""
+
+        mock_connection = Mock()
+        mock_connection.closed = False
+
+        managed_conn = ManagedConnection(
+            engine=Mock(), connection=mock_connection, id="uuid-123", cache_key="conn_1"
+        )
+        sqlutils._connection_cache.put("conn_1", managed_conn)
+
+        sqlutils.close_connection(id="uuid-123")
+
+        mock_connection.close.assert_called_once()
+        self.assertIsNone(sqlutils._connection_cache.get("conn_1"))
+
+    def test_close_connection_nonexistent(self):
+        """Test close_connection with non-existent ID does nothing"""
+        # Should not raise error
+        result = sqlutils.close_connection(id="nonexistent-uuid")
+        self.assertFalse(result)
+
+    def test_close_all_connections(self):
+        """Test close_all_connections closes all cached connections"""
+
+        mock_conn1 = Mock()
+        mock_conn1.closed = False
+        mock_conn2 = Mock()
+        mock_conn2.closed = False
+
+        sqlutils._connection_cache.put(
+            "conn_1", ManagedConnection(Mock(), mock_conn1, "id-1", "conn_1")
+        )
+        sqlutils._connection_cache.put(
+            "conn_2", ManagedConnection(Mock(), mock_conn2, "id-2", "conn_2")
+        )
+
+        sqlutils.close_all_connections()
+
+        mock_conn1.close.assert_called_once()
+        mock_conn2.close.assert_called_once()
+        self.assertEqual(len(sqlutils._connection_cache), 0)
+
+    def test_close_connection_with_error(self):
+        """Test close_connection handles connection.close() errors gracefully"""
+
+        mock_connection = Mock()
+        mock_connection.close.side_effect = Exception("Connection already closed")
+        mock_connection.closed = False
+
+        managed_conn = ManagedConnection(
+            engine=Mock(), connection=mock_connection, id="uuid-123", cache_key="conn_1"
+        )
+        sqlutils._connection_cache.put("conn_1", managed_conn)
+
+        # Should not raise, but should still remove from cache
+        result = sqlutils.close_connection(id="uuid-123")
+
+        self.assertTrue(result)
+        self.assertIsNone(sqlutils._connection_cache.get("conn_1"))
+
+
+class TestCacheKeyGeneration(unittest.TestCase):
+    """Test cache key generation with kwargs"""
+
+    def test_make_cache_key_no_kwargs(self):
+        """Test cache key generation without kwargs"""
+        key = sqlutils._make_cache_key("conn_123", None)
+        self.assertEqual(key, "conn_123")
+
+    def test_make_cache_key_with_connection_name(self):
+        """Test cache key generation with connection_name"""
+        key = sqlutils._make_cache_key(None, "my_connection")
+        self.assertEqual(key, "my_connection")
+
+    def test_make_cache_key_connection_id_takes_precedence(self):
+        """Test connection_id takes precedence over connection_name"""
+        key = sqlutils._make_cache_key("conn_123", "my_connection")
+        self.assertEqual(key, "conn_123")
+
+    def test_make_cache_key_default_when_no_identifiers(self):
+        """Test default key when no identifiers provided"""
+        key = sqlutils._make_cache_key(None, None)
+        self.assertEqual(key, "default")
+
+    def test_make_cache_key_with_catalog_name(self):
+        """Test cache key includes catalog_name"""
+        key = sqlutils._make_cache_key("conn_123", None, catalog_name="prod")
+        self.assertEqual(key, "conn_123::catalog_name=prod")
+
+    def test_make_cache_key_with_schema_name(self):
+        """Test cache key includes schema_name"""
+        key = sqlutils._make_cache_key("conn_123", None, schema_name="public")
+        self.assertEqual(key, "conn_123::schema_name=public")
+
+    def test_make_cache_key_with_database_name(self):
+        """Test cache key includes database_name"""
+        key = sqlutils._make_cache_key("conn_123", None, database_name="mydb")
+        self.assertEqual(key, "conn_123::database_name=mydb")
+
+    def test_make_cache_key_with_multiple_kwargs(self):
+        """Test cache key with multiple kwargs are sorted"""
+        key = sqlutils._make_cache_key(
+            "conn_123", None, schema_name="public", catalog_name="prod", database_name="mydb"
+        )
+        # Should be sorted a|phabetically
+        self.assertEqual(key, "conn_123::catalog_name=prod:database_name=mydb:schema_name=public")
+
+    def test_make_cache_key_ignores_irrelevant_kwargs(self):
+        """Test cache key ignores kwargs not in relevant_keys list"""
+        key = sqlutils._make_cache_key(
+            "conn_123", None, catalog_name="prod", some_other_param="value", another_param=123
+        )
+        self.assertEqual(key, "conn_123::catalog_name=prod")
+
+    def test_make_cache_key_with_connection_name_and_kwargs(self):
+        """Test cache key with connection_name and kwargs"""
+        key = sqlutils._make_cache_key(
+            None, "my_athena_conn", catalog_name="prod", schema_name="public"
+        )
+        self.assertEqual(key, "my_athena_conn::catalog_name=prod:schema_name=public")
+
+
+class TestCacheKeyIntegration(unittest.TestCase):
+    """Test cache key integration with sql execution"""
+
+    def setUp(self):
+        sqlutils._connection_cache.clear()
+
+    def tearDown(self):
+        sqlutils._connection_cache.clear()
+
+    @patch("sagemaker_studio.sqlutils.HelperFactory")
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
+    def test_different_kwargs_create_separate_cache_entries(
+        self, mock_ensure_sql_executor, mock_ensure_project, mock_helper_factory
+    ):
+        """Test that different kwargs create separate cache entries"""
+        mock_project = Mock()
+        mock_connection = Mock()
+        mock_connection.type = "ATHENA"
+        mock_connection.id = "conn_123"
+        mock_project.connection.return_value = mock_connection
+        mock_ensure_project.return_value = mock_project
+
+        mock_sql_helper = Mock()
+        mock_sql_helper.to_sql_config.return_value = {"region_name": "us-east-1"}
+        mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
+
+        mock_sql_executor = Mock()
+        mock_ensure_sql_executor.return_value = mock_sql_executor
+        mock_engine1 = Mock()
+        mock_engine2 = Mock()
+        mock_sql_executor.create_engine.side_effect = [mock_engine1, mock_engine2]
+        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        execution_result = ExecutionResult(
+            statement_index=0,
+            statement="SELECT 1",
+            statement_type="SELECT",
+            result=DataFrame({"col1": [1]}),
+            status="success",
+        )
+        mock_sql_executor.execute.return_value = iter([execution_result])
+
+        # First call with catalog_name="prod"
+        list(
+            sqlutils.sql_stream(
+                "SELECT 1", connection_name="test_conn", persist_session=True, catalog_name="prod"
+            )
+        )
+
+        # Second call with catalog_name="dev"
+        mock_sql_executor.execute.return_value = iter([execution_result])
+        list(
+            sqlutils.sql_stream(
+                "SELECT 1", connection_name="test_conn", persist_session=True, catalog_name="dev"
+            )
+        )
+
+        # Verify two separate cache entries exist
+        self.assertEqual(len(sqlutils._connection_cache), 2)
+        self.assertTrue("test_conn::catalog_name=prod" in sqlutils._connection_cache)
+        self.assertTrue("test_conn::catalog_name=dev" in sqlutils._connection_cache)
+
+        # Verify two engines were created
+        self.assertEqual(mock_sql_executor.create_engine.call_count, 2)
+
+    @patch("sagemaker_studio.sqlutils.HelperFactory")
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
+    def test_same_kwargs_reuse_cache(
+        self, mock_ensure_sql_executor, mock_ensure_project, mock_helper_factory
+    ):
+        """Test that same connection with same kwargs reuses cached engine"""
+
+        mock_project = Mock()
+        mock_connection = Mock()
+        mock_connection.type = "ATHENA"
+        mock_connection.id = "conn_123"
+        mock_project.connection.return_value = mock_connection
+        mock_ensure_project.return_value = mock_project
+
+        mock_sql_helper = Mock()
+        mock_sql_helper.to_sql_config.return_value = {"region_name": "us-east-1"}
+        mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
+
+        mock_sql_executor = Mock()
+        mock_ensure_sql_executor.return_value = mock_sql_executor
+        mock_engine = Mock()
+        mock_db_connection = Mock()
+        mock_db_connection.closed = False
+        mock_sql_executor.create_engine.return_value = mock_engine
+        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        execution_result = ExecutionResult(
+            statement_index=0,
+            statement="SELECT 1",
+            statement_type="SELECT",
+            result=DataFrame({"col1": [1]}),
+            status="success",
+        )
+        mock_sql_executor.execute.return_value = iter([execution_result])
+
+        # Pre-populate cache with specific kwargs
+        managed_conn = ManagedConnection(
+            engine=mock_engine,
+            connection=mock_db_connection,
+            id="test-conn-id",
+            cache_key="test_conn::catalog_name=prod:schema_name=public",
+        )
+        sqlutils._connection_cache.put(
+            "test_conn::catalog_name=prod:schema_name=public", managed_conn
+        )
+
+        # Call with same kwargs
+        list(
+            sqlutils.sql_stream(
+                "SELECT 1",
+                connection_name="test_conn",
+                persist_session=True,
+                catalog_name="prod",
+                schema_name="public",
+            )
+        )
+
+        # Verify engine was not created again
+        mock_sql_executor.create_engine.assert_not_called()
+        # Verify cached connection was used
+        call_args = mock_sql_executor.execute.call_args
+        self.assertEqual(call_args[1]["connection"], mock_db_connection)
+
+    @patch("sagemaker_studio.sqlutils.HelperFactory")
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
+    def test_no_kwargs_and_with_kwargs_separate_cache(
+        self, mock_ensure_sql_executor, mock_ensure_project, mock_helper_factory
+    ):
+        """Test that connection without kwargs and with kwargs have separate cache entries"""
+        mock_project = Mock()
+        mock_connection = Mock()
+        mock_connection.type = "ATHENA"
+        mock_connection.id = "conn_123"
+        mock_project.connection.return_value = mock_connection
+        mock_ensure_project.return_value = mock_project
+
+        mock_sql_helper = Mock()
+        mock_sql_helper.to_sql_config.return_value = {"region_name": "us-east-1"}
+        mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
+
+        mock_sql_executor = Mock()
+        mock_ensure_sql_executor.return_value = mock_sql_executor
+        mock_engine1 = Mock()
+        mock_engine2 = Mock()
+        mock_sql_executor.create_engine.side_effect = [mock_engine1, mock_engine2]
+        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        execution_result = ExecutionResult(
+            statement_index=0,
+            statement="SELECT 1",
+            statement_type="SELECT",
+            result=DataFrame({"col1": [1]}),
+            status="success",
+        )
+        mock_sql_executor.execute.return_value = iter([execution_result])
+
+        # First call without kwargs
+        list(sqlutils.sql_stream("SELECT 1", connection_name="test_conn", persist_session=True))
+
+        # Second call with kwargs
+        mock_sql_executor.execute.return_value = iter([execution_result])
+        list(
+            sqlutils.sql_stream(
+                "SELECT 1", connection_name="test_conn", persist_session=True, catalog_name="prod"
+            )
+        )
+
+        # Verify two separate cache entries
+        self.assertEqual(len(sqlutils._connection_cache), 2)
+        self.assertTrue("test_conn" in sqlutils._connection_cache)
+        self.assertTrue("test_conn::catalog_name=prod" in sqlutils._connection_cache)
+
+        # Verify two engines were created
+        self.assertEqual(mock_sql_executor.create_engine.call_count, 2)

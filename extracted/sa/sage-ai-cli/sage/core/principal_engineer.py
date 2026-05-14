@@ -61,18 +61,47 @@ CURRENT_VERSIONS: dict[str, dict[str, str]] = {
         "python-multipart": "0.0.20",
     },
     "node": {
-        "react": "19.0.0",
-        "react-dom": "19.0.0",
-        "@types/react": "19.0.1",
-        "@types/react-dom": "19.0.1",
+        # NOTE: react pinned to 18.3.1 (NOT 19) because Expo SDK 52 expects
+        # react@18. If a future Expo SDK ships with react@19, bump this
+        # AND the expo/expo-router pins in dep_resolver together.
+        "react": "18.3.1",
+        "react-dom": "18.3.1",
+        "@types/react": "~18.3.12",
+        "@types/react-dom": "~18.3.5",
         "typescript": "5.7.2",
         "vite": "6.0.3",
         "@vitejs/plugin-react": "4.3.4",
         "tailwindcss": "3.4.16",
         "axios": "1.7.9",
-        "react-router-dom": "7.0.2",
+        "react-router-dom": "7.0.2",  # used only by plain react projects
         "vitest": "2.1.8",
         "@testing-library/react": "16.1.0",
+        # Expo + RN versions
+        "expo": "~52.0.20",
+        "expo-router": "~4.0.16",
+        "expo-status-bar": "~2.0.0",
+        "expo-secure-store": "~14.0.0",
+        "expo-constants": "~17.0.3",
+        "react-native": "0.76.5",
+        "react-native-web": "~0.19.13",
+        "react-native-safe-area-context": "4.12.0",
+        "react-native-screens": "~4.4.0",
+        "react-native-gesture-handler": "~2.20.2",
+        "react-native-reanimated": "~3.16.5",
+        "react-native-svg": "15.8.0",
+        "react-test-renderer": "18.3.1",  # MUST match react version above
+        "jest-expo": "~52.0.0",
+        "@testing-library/react-native": "^12.9.0",
+        "@testing-library/jest-native": "^5.4.3",
+        "@types/jest": "^29.5.14",
+        "jest": "^29.7.0",
+        "babel-preset-expo": "~12.0.4",
+        "@babel/core": "^7.25.0",
+        "@hookform/resolvers": "^3.9.1",
+        "react-hook-form": "^7.54.0",
+        "zod": "^3.24.1",
+        "zustand": "^5.0.2",
+        "date-fns": "^4.1.0",
     },
     "go": {
         "go_version": "1.23",
@@ -3211,23 +3240,77 @@ so this module stays free of provider imports and easy to unit-test.
 """
 
 
+# Reasoning-tag blocks emitted by qwen3, deepseek-r1, etc. before the
+# actual code. Stripped before fence handling so the file content is
+# never polluted with chain-of-thought. Handles closed tags and
+# (mid-stream) unclosed tags where the model ran out of tokens.
+_REASONING_TAGS: tuple[str, ...] = (
+    "thinking", "think", "reflection", "scratchpad", "reasoning", "analysis",
+)
+
+
+def _strip_reasoning_blocks(text: str) -> str:
+    """Remove <thinking>...</thinking> and similar reasoning blocks."""
+    for tag in _REASONING_TAGS:
+        # Closed blocks (greedy match, multi-line)
+        text = re.sub(
+            rf"<{tag}\b[^>]*>.*?</{tag}>",
+            "",
+            text,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+        # Unclosed opening tag (model got cut off mid-reasoning) — drop
+        # everything from the tag through the next blank line, then take
+        # what comes after as code. If no blank line follows, drop the
+        # whole opener line.
+        text = re.sub(
+            rf"<{tag}\b[^>]*>.*?(?=\n\s*\n|$)",
+            "",
+            text,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+        # Orphan closing tag (the model emitted </thinking> without an
+        # opener — strip and keep the rest of the line)
+        text = re.sub(
+            rf"</{tag}>",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
+    return text
+
+
 def strip_code_fences(text: str) -> str:
-    """Remove markdown fences anywhere they leak into model output.
+    """Remove markdown fences AND reasoning blocks from LLM output.
+
+    The reasoning-block strip is critical for qwen3 / deepseek-r1 which
+    emit <thinking>...</thinking> chain-of-thought before the actual
+    code. Without this, source files end up with prose mixed into
+    imports and syntax errors everywhere.
 
     Handles all common leakage patterns: leading fence with language tag,
     trailing fence (with or without trailing whitespace/newlines), bare
-    triple-backticks on their own line in the middle of output, and
-    leading prose ("Here's the file:") followed by a fenced block.
+    triple-backticks on their own line in the middle of output, leading
+    prose ("Here's the file:") followed by a fenced block, and any
+    chain-of-thought leakage.
     """
     text = text.strip()
     if not text:
         return "\n"
-    # If the body contains a fenced block anywhere, extract the body of the
+
+    # 1. Strip reasoning blocks FIRST so subsequent regex doesn't get
+    # confused by fences inside the reasoning.
+    text = _strip_reasoning_blocks(text).strip()
+    if not text:
+        return "\n"
+
+    # 2. If the body contains a fenced block anywhere, extract the body of the
     # first such block (the model's most common "I'll wrap it in markdown" pattern).
     fence = re.search(r"```[a-zA-Z0-9+_-]*\n(.*?)\n```", text, re.DOTALL)
     if fence:
         return fence.group(1).strip() + "\n"
-    # Otherwise just strip stray opening / closing fences that survived.
+
+    # 3. Otherwise just strip stray opening / closing fences that survived.
     if text.startswith("```"):
         nl = text.find("\n")
         text = text[nl + 1 :] if nl != -1 else text[3:]

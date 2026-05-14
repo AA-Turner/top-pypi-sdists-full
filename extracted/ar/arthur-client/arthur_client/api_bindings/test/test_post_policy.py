@@ -50,7 +50,10 @@ class TestPostPolicy(unittest.TestCase):
                         metric_name = '', 
                         interval = arthur_client.api_bindings.models.alert_rule_interval.AlertRuleInterval(
                             unit = 'seconds', 
-                            count = 56, ), )
+                            count = 56, ), 
+                        dependent_resource = arthur_client.api_bindings.models.policy_alert_guardrail_rule.PolicyAlertGuardrailRule(
+                            resource_type = 'guardrail', 
+                            resource_name = 'KeywordRule', ), )
                     ],
                 attestation_rules = [
                     arthur_client.api_bindings.models.post_policy_attestation_rule.PostPolicyAttestationRule(

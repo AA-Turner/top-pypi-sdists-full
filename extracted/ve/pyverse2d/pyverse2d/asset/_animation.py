@@ -12,20 +12,25 @@ from typing import Iterable, Iterator
 
 # ======================================== ASSET ========================================
 class Animation(Asset):
-    """
-    Descripteur d'animation
+    """Descripteur d'animation immuable
 
     Args:
-        frames(Iterable[Image]): succession des images de l'animation
-        framerate(float, optional): taux d'images par seconde
+        frames: succession des images de l'animation
+        framerate: taux d'images par seconde
     """
     __slots__ = ("_frames", "_framerate")
 
     def __init__(self, frames: Iterable[Image], framerate: Real = 24.0):
-        if not frames:
-            raise ValueError("Animation must have at least one frame")
-        self._frames: tuple[Image] = expect(tuple(frames), tuple[Image])
-        self._framerate: float = float(positive(not_null(expect(framerate, Real))))
+        # Transtypage
+        frames = tuple(frames)
+        framerate = float(framerate)
+
+        if __debug__:
+            not_null(expect(frames, tuple[Image]))
+            positive(framerate)
+
+        self._frames: tuple[Image] = frames
+        self._framerate: float = framerate
 
     # ======================================== CONVERSIONS ========================================
     def __repr__(self) -> str:
@@ -72,17 +77,16 @@ class Animation(Asset):
             scale_factor: Real = 1.0,
             framerate: Real = 24.0,
         ) -> Animation:
-        """
-        Charge un ensemble de frames depuis un dossier
+        """Charge un ensemble de frames depuis un dossier
 
         Args:
-            path(str): chemin du dossier
-            prefix(str, optional): préfixe des fichiers à charger
-            extensions(Iterable[str], optional): extensions des fichiers à charger
-            width(Real, optional): largeur cible en pixels
-            height(Real, optional): hauteur cible en pixels
-            scale_factor(Real, optional): facteur de redimensionnement
-            framerate(float, optional): taux d'images par seconde
+            path: chemin du dossier
+            prefix: préfixe des fichiers à charger
+            extensions: extensions des fichiers à charger
+            width: largeur cible en pixels
+            height: hauteur cible en pixels
+            scale_factor: facteur de redimensionnement
+            framerate: taux d'images par seconde
         """
         extensions = set(extensions or [".png", ".jpg", ".jpeg"])
 

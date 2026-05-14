@@ -448,6 +448,7 @@ class ActionConfig:
                             )
                         ),
                         batch_config=BatchConfigProperty(
+                            batch_across_topics=False,
                             max_batch_open_ms=123,
                             max_batch_size=123,
                             max_batch_size_bytes=123

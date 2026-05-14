@@ -12623,6 +12623,10 @@ CloudApiCliAiV2ConversationGetResponseMessagesItemToolTitle = str
 
 CloudApiCliAiV2ConversationGetResponseMessagesItemToolCallId = str
 
+CloudApiCliAiV2ConversationGetResponseMessagesItemToolInput = typing.Dict[
+    str, typing.Any
+]
+
 
 @dataclass
 class CloudApiCliAiV2ConversationGetResponseMessagesItem:
@@ -12634,6 +12638,9 @@ class CloudApiCliAiV2ConversationGetResponseMessagesItem:
     ] = field(default_factory=lambda: None)
     tool_call_id: typing.Optional[
         CloudApiCliAiV2ConversationGetResponseMessagesItemToolCallId
+    ] = field(default_factory=lambda: None)
+    tool_input: typing.Optional[
+        CloudApiCliAiV2ConversationGetResponseMessagesItemToolInput
     ] = field(default_factory=lambda: None)
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
@@ -12649,6 +12656,8 @@ class CloudApiCliAiV2ConversationGetResponseMessagesItem:
             data["toolTitle"] = self.tool_title
         if self.tool_call_id is not None:
             data["toolCallId"] = self.tool_call_id
+        if self.tool_input is not None:
+            data["toolInput"] = self.tool_input
         return data
 
     @classmethod
@@ -12680,6 +12689,7 @@ class CloudApiCliAiV2ConversationGetResponseMessagesItem:
             tool_call_id=None
             if data.get("toolCallId") is None
             else str(data["toolCallId"]),
+            tool_input=data.get("toolInput"),
         )
 
 

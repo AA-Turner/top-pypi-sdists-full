@@ -13,7 +13,7 @@ from pyglet.graphics import Batch, Group
 from pyglet.math import Mat4
 from pyglet.graphics.shader import ShaderProgram
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 from dataclasses import dataclass
 from contextlib import contextmanager
 from ctypes import c_int
@@ -25,11 +25,21 @@ if TYPE_CHECKING:
 # ======================================== DATA ========================================
 @dataclass(slots=True, frozen=True)
 class SceneData:
+    """Données d'une scène
+
+    fbo: ``Framebuffer`` de la scène
+    layers: données de layers de la scène
+    """
     fbo: Framebuffer
     layers: dict[Layer, LayerData]
 
 @dataclass(slots=True, frozen=True)
 class LayerData:
+    """Données d'un layer
+
+    batch: ``Batch`` du layer
+    z_groups: ensemble des ``Group`` de z-order du layer
+    """
     batch: Batch
     z_groups: dict[int, Group]
 
@@ -47,7 +57,7 @@ class Pipeline:
         "_context",
     )
 
-    _COORD: CoordinatesManager = None
+    _COORD: ClassVar[CoordinatesManager] = None
 
     @classmethod
     def get_coord(cls) -> CoordinatesManager:

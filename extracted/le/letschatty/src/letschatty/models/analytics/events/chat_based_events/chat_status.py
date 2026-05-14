@@ -23,6 +23,9 @@ class ChatStatusEventData(CustomerEventData):
     destination_agent_id: Optional[StrObjectId] = None
     area: Area
 
+    def model_dump_json(self, *args, **kwargs):
+        return json.loads(super().model_dump_json(*args, **kwargs))
+
 class ChatStatusEvent(Event):
     data: ChatStatusEventData
 

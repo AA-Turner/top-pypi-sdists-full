@@ -20475,13 +20475,21 @@ class LinuxParameters(
     @builtins.property
     @jsii.member(jsii_name="devices")
     def _devices(self) -> typing.List["Device"]:
-        '''Device mounts.'''
+        '''
+        :deprecated: - use addDevices instead
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.List["Device"], jsii.get(self, "devices"))
 
     @builtins.property
     @jsii.member(jsii_name="tmpfs")
     def _tmpfs(self) -> typing.List["Tmpfs"]:
-        '''TmpFs mounts.'''
+        '''
+        :deprecated: - use addTmpfs instead
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.List["Tmpfs"], jsii.get(self, "tmpfs"))
 
     @builtins.property

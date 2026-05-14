@@ -14,6 +14,7 @@ from typing import (
 
 from pydantic import TypeAdapter
 
+from outlines.exceptions import normalize_provider_errors
 from outlines.inputs import Chat, Image
 from outlines.models.base import AsyncModel, Model, ModelTypeAdapter
 from outlines.models.utils import set_additional_properties_false_json_schema
@@ -28,6 +29,8 @@ from outlines.types.utils import (
 
 if TYPE_CHECKING:
     from mistralai import Mistral as MistralClient
+
+PROVIDER = "mistral"
 
 __all__ = ["AsyncMistral", "Mistral", "from_mistral"]
 
@@ -323,20 +326,12 @@ class Mistral(Model):
         if "model" not in inference_kwargs and self.model_name is not None:
             inference_kwargs["model"] = self.model_name
 
-        try:
+        with normalize_provider_errors(PROVIDER):
             result = self.client.chat.complete(
                 messages=messages,
                 response_format=response_format,
                 **inference_kwargs,
             )
-        except Exception as e:
-            if "schema" in str(e).lower() or "json_schema" in str(e).lower():
-                raise TypeError(
-                    f"Mistral does not support your schema: {e}. "
-                    "Try a local model or dottxt instead."
-                )
-            else:
-                raise RuntimeError(f"Mistral API error: {e}") from e
 
         outputs = [choice.message for choice in result.choices]
 
@@ -384,28 +379,19 @@ class Mistral(Model):
         if "model" not in inference_kwargs and self.model_name is not None:
             inference_kwargs["model"] = self.model_name
 
-        try:
+        with normalize_provider_errors(PROVIDER):
             stream = self.client.chat.stream(
                 messages=messages,
                 response_format=response_format,
                 **inference_kwargs
             )
-        except Exception as e:
-            if "schema" in str(e).lower() or "json_schema" in str(e).lower():
-                raise TypeError(
-                    f"Mistral does not support your schema: {e}. "
-                    "Try a local model or dottxt instead."
-                )
-            else:
-                raise RuntimeError(f"Mistral API error: {e}") from e
-
-        for chunk in stream:
-            if (
-                hasattr(chunk, "data")
-                and chunk.data.choices
-                and chunk.data.choices[0].delta.content is not None
-            ):
-                yield chunk.data.choices[0].delta.content
+            for chunk in stream:
+                if (
+                    hasattr(chunk, "data")
+                    and chunk.data.choices
+                    and chunk.data.choices[0].delta.content is not None
+                ):
+                    yield chunk.data.choices[0].delta.content
 
 
 class AsyncMistral(AsyncModel):
@@ -461,21 +447,13 @@ class AsyncMistral(AsyncModel):
         if "model" not in inference_kwargs and self.model_name is not None:
             inference_kwargs["model"] = self.model_name
 
-        try:
+        with normalize_provider_errors(PROVIDER):
             result = await self.client.chat.complete_async(
                 messages=messages,
                 response_format=response_format,
                 stream=False,
                 **inference_kwargs,
             )
-        except Exception as e:
-            if "schema" in str(e).lower() or "json_schema" in str(e).lower():
-                raise TypeError(
-                    f"Mistral does not support your schema: {e}. "
-                    "Try a local model or dottxt instead."
-                )
-            else:
-                raise RuntimeError(f"Mistral API error: {e}") from e
 
         outputs = [choice.message for choice in result.choices]
 
@@ -523,30 +501,21 @@ class AsyncMistral(AsyncModel):
         if "model" not in inference_kwargs and self.model_name is not None:
             inference_kwargs["model"] = self.model_name
 
-        try:
+        with normalize_provider_errors(PROVIDER):
             response = await self.client.chat.stream_async(
                 messages=messages,
                 response_format=response_format,
                 **inference_kwargs
             )
-        except Exception as e:
-            if "schema" in str(e).lower() or "json_schema" in str(e).lower():
-                raise TypeError(
-                    f"Mistral does not support your schema: {e}. "
-                    "Try a local model or dottxt instead."
-                )
-            else:
-                raise RuntimeError(f"Mistral API error: {e}") from e
-
-        async for chunk in response:
-            if (
-                hasattr(chunk, "data")
-                and chunk.data.choices
-                and len(chunk.data.choices) > 0
-                and hasattr(chunk.data.choices[0], "delta")
-                and chunk.data.choices[0].delta.content is not None
-            ):
-                yield chunk.data.choices[0].delta.content
+            async for chunk in response:
+                if (
+                    hasattr(chunk, "data")
+                    and chunk.data.choices
+                    and len(chunk.data.choices) > 0
+                    and hasattr(chunk.data.choices[0], "delta")
+                    and chunk.data.choices[0].delta.content is not None
+                ):
+                    yield chunk.data.choices[0].delta.content
 
 
 def from_mistral(

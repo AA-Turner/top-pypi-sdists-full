@@ -66,9 +66,12 @@ class WebpackLoader:
 
     def get_assets(self):
         if self.config["CACHE"]:
-            if self.name not in self._assets:
-                self._assets[self.name] = self.load_assets()
-            return self._assets[self.name]
+            assets = self._assets.get(self.name)
+            if not assets or assets.get("status") == "compile":
+                assets = self.load_assets()
+                if assets.get("status") != "compile":
+                    self._assets[self.name] = assets
+            return assets
         return self.load_assets()
 
     def get_asset_by_source_filename(self, name):
@@ -79,7 +82,7 @@ class WebpackLoader:
             self, request: Optional[HttpRequest], chunk: Dict[str, str],
             integrity: str, attrs_l: str) -> str:
         'Return an added `crossorigin` attribute if necessary.'
-        def_value = f' integrity="{integrity}" '
+        def_value = f'integrity="{integrity}"'
         if not request:
             message = _CROSSORIGIN_NO_REQUEST.format(chunk_name=chunk['name'])
             warn(message=message, category=RuntimeWarning)
@@ -97,15 +100,15 @@ class WebpackLoader:
             return def_value
         cfgval: str = self.config.get('CROSSORIGIN')
         if cfgval == '':
-            return f'{def_value}crossorigin '
-        return f'{def_value}crossorigin="{cfgval}" '
+            return f'{def_value} crossorigin'
+        return f'{def_value} crossorigin="{cfgval}"'
 
     def get_integrity_attr(
             self, chunk: Dict[str, str], request: Optional[HttpRequest],
-            attrs_l: str) -> str:
+            attrs_l: str) -> Optional[str]:
         if not self.config.get('INTEGRITY'):
             # Crossorigin only necessary when integrity is used
-            return ' '
+            return None
 
         integrity = chunk.get('integrity')
         if not integrity:
@@ -122,10 +125,12 @@ class WebpackLoader:
             attrs_l=attrs_l,
         )
 
-    def get_nonce_attr(self, chunk: Dict[str, str], request: Optional[HttpRequest], attrs: str) -> str:
+    def get_nonce_attr(
+            self, chunk: Dict[str, str], request: Optional[HttpRequest],
+            attrs: str) -> Optional[str]:
         'Return an added nonce for CSP when available.'
         if not self.config.get('CSP_NONCE'):
-            return ''
+            return None
         if request is None:
             message = _NONCE_NO_REQUEST.format(chunk_name=chunk['name'])
             warn(message=message, category=RuntimeWarning)
@@ -137,7 +142,7 @@ class WebpackLoader:
             return ''
         if 'nonce=' in attrs.lower():
             return ''
-        return f'nonce="{nonce}" '
+        return f'nonce="{nonce}"'
 
     def filter_chunks(self, chunks):
         filtered_chunks = []
@@ -149,20 +154,21 @@ class WebpackLoader:
 
         return filtered_chunks
 
-    def map_chunk_files_to_url(self, chunks):
-        assets = self.get_assets()
+    def map_chunk_files_to_url(self, chunks, assets=None):
+        assets = assets or self.get_assets()
         files = assets["assets"]
 
         add_integrity = self.config.get("INTEGRITY")
 
         for chunk in chunks:
-            url = self.get_chunk_url(files[chunk])
+            asset = files[chunk]
+            url = self.get_chunk_url(asset)
 
             if add_integrity:
                 yield {
                     "name": chunk,
                     "url": url,
-                    "integrity": files[chunk].get("integrity"),
+                    "integrity": asset.get("integrity"),
                 }
             else:
                 yield {"name": chunk, "url": url}
@@ -219,7 +225,7 @@ class WebpackLoader:
                         "Cannot resolve asset {0}.".format(chunk)
                     )
 
-            return self.map_chunk_files_to_url(filtered_chunks)
+            return self.map_chunk_files_to_url(filtered_chunks, assets=assets)
 
         elif assets.get("status") == "error":
             if "file" not in assets:

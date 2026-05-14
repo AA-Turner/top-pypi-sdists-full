@@ -96,14 +96,12 @@ class UnsupportedDigestValidationError(ValidationError):
 
     error_code = "PLP0020"
 
-    def __init__(self, digest_name=None):
-        self.digest_name = digest_name
+    def __init__(self, message=None):
+        self.message = message
 
     def __str__(self):
-        if self.digest_name:
-            return f"[{self.error_code}] " + _(
-                "Checksum type '{digest}' is not supported or enabled."
-            ).format(digest=self.digest_name)
+        if self.message:
+            return f"[{self.error_code}] {self.message}"
         return f"[{self.error_code}] " + _("Unsupported checksum type.")
 
 
@@ -138,3 +136,25 @@ class DuplicateContentInRepositoryError(ValidationError):
             "Found {n} duplicate contents in repository version"
             "(see the logs (cid={cid}) for details)."
         ).format(n=self.dup_count, cid=self.cid)
+
+
+class ContentOverwriteError(ValidationError):
+    """
+    Raised when content would overwrite existing repository content and overwrite is disabled.
+    """
+
+    error_code = "PLP0023"
+
+    def __init__(self, pulp_type, conflict_map):
+        self.pulp_type = pulp_type
+        self.conflict_map = conflict_map
+
+    def __str__(self):
+        pairs = ", ".join(
+            f"{incoming}->{existing}" for incoming, existing in self.conflict_map.items()
+        )
+        return f"[{self.error_code}] " + _(
+            "Content overwrite rejected: new content of type '{pulp_type}' would overwrite "
+            "{n} existing content unit(s) in the repository with the same unique key. "
+            "Conflicting content (incoming->existing): [{pairs}]"
+        ).format(pulp_type=self.pulp_type, n=len(self.conflict_map), pairs=pairs)

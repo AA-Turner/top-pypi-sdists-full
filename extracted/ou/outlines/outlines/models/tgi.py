@@ -11,11 +11,14 @@ from typing import (
     Union,
 )
 
+from outlines.exceptions import normalize_provider_errors
 from outlines.models.base import AsyncModel,Model, ModelTypeAdapter
 from outlines.types.dsl import python_types_to_terms, to_regex, JsonSchema, CFG
 
 if TYPE_CHECKING:
     from huggingface_hub import AsyncInferenceClient, InferenceClient
+
+PROVIDER = "tgi"
 
 __all__ = ["AsyncTGI", "TGI", "from_tgi"]
 
@@ -137,7 +140,8 @@ class TGI(Model):
             **inference_kwargs,
         )
 
-        return self.client.text_generation(**client_args)
+        with normalize_provider_errors(PROVIDER):
+            return self.client.text_generation(**client_args)
 
     def generate_batch(
         self,
@@ -176,12 +180,12 @@ class TGI(Model):
             model_input, output_type, **inference_kwargs,
         )
 
-        stream = self.client.text_generation(
-            **client_args, stream=True,
-        )
-
-        for chunk in stream:  # pragma: no cover
-            yield chunk
+        with normalize_provider_errors(PROVIDER):
+            stream = self.client.text_generation(
+                **client_args, stream=True,
+            )
+            for chunk in stream:  # pragma: no cover
+                yield chunk
 
     def _build_client_args(
         self,
@@ -252,7 +256,8 @@ class AsyncTGI(AsyncModel):
             model_input, output_type, **inference_kwargs,
         )
 
-        response = await self.client.text_generation(**client_args)
+        with normalize_provider_errors(PROVIDER):
+            response = await self.client.text_generation(**client_args)
 
         return response
 
@@ -293,12 +298,12 @@ class AsyncTGI(AsyncModel):
             model_input, output_type, **inference_kwargs,
         )
 
-        stream = await self.client.text_generation(
-            **client_args, stream=True
-        )
-
-        async for chunk in stream:  # pragma: no cover
-            yield chunk
+        with normalize_provider_errors(PROVIDER):
+            stream = await self.client.text_generation(
+                **client_args, stream=True
+            )
+            async for chunk in stream:  # pragma: no cover
+                yield chunk
 
     def _build_client_args(
         self,

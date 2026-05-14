@@ -379,6 +379,7 @@ class ProductionTasksRepository(TasksRepository):
                 "where": json.dumps(where),
             },
         )
+        r.raise_for_status()
         tasks = r.json()["tasks"]
         return [TaskDTO(**task) for task in tasks]
 
@@ -396,6 +397,7 @@ class ProductionTasksRepository(TasksRepository):
                 "where": json.dumps(where),
             },
         )
+        r.raise_for_status()
         tasks = r.json()["tasks"]
         return [TaskDTO(**task) for task in tasks]
 
@@ -404,6 +406,7 @@ class ProductionTasksRepository(TasksRepository):
             endpoint="/tasks",
             params={"stageId": stage_id},
         )
+        r.raise_for_status()
         tasks = r.json()["tasks"]
         return [TaskDTO(**task) for task in tasks]
 
@@ -411,6 +414,7 @@ class ProductionTasksRepository(TasksRepository):
         r = self.client.get(
             endpoint=f"/tasks/{task_id}",
         )
+        r.raise_for_status()
         task = r.json()
         return TaskDTO(**task)
 

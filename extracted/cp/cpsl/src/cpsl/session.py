@@ -24,7 +24,7 @@ from .integration import (
     IntegrationCredentials,
     IntegrationLike,
     KNOWN_SECRET_INTEGRATIONS,
-    MODE_PIPEDREAM,
+    credentials_from_wire,
     integration_type as normalize_integration_type,
 )
 from .clients.capsule import CompleteOnboardingRequest
@@ -424,7 +424,15 @@ class RequestContext:
     ``@app.data()`` or ``@app.endpoint()`` handler.
     """
 
-    __slots__ = ("user", "integrations", "authenticated", "request")
+    __slots__ = (
+        "user",
+        "integrations",
+        "authenticated",
+        "request",
+        "_session_stub",
+        "_app_id",
+        "_env",
+    )
 
     def __init__(
         self,
@@ -432,11 +440,34 @@ class RequestContext:
         integrations: dict[str, IntegrationCredentials],
         authenticated: bool = False,
         request: Any = None,
+        session_stub: Any = None,
+        app_id: str = "",
+        env: str = "",
     ) -> None:
         self.user = user
         self.integrations = integrations
         self.authenticated = authenticated
         self.request = request
+        self._session_stub = session_stub
+        self._app_id = app_id
+        self._env = env
+
+    def pipedream(self, integration: IntegrationLike):
+        """Return a requests-like session for a Pipedream-backed integration."""
+        from .pipedream import PipedreamProxySession
+
+        if self._session_stub is None:
+            raise RuntimeError(
+                f"no gateway connection available for Pipedream integration '{normalize_integration_type(integration)}'"
+            )
+        return PipedreamProxySession(
+            stub=self._session_stub,
+            app_id=self._app_id,
+            user_email=self.user.email or "",
+            owner_id=self.user.owner_id,
+            integration=integration,
+            env=self._env,
+        )
 
 
 class SessionMedia:
@@ -1703,32 +1734,49 @@ class Session:
         if not resp.connected:
             raise IntegrationDeclined(f"user did not connect '{integration_type}'")
 
-        # Secret-based integrations pack field values as JSON in access_token.
-        secret_fields: dict[str, str] = {}
-        is_field_payload = is_secret or resp.credential.token_type in {"fields", MODE_PIPEDREAM}
-        if is_field_payload and resp.credential.access_token:
-            try:
-                secret_fields = json.loads(resp.credential.access_token)
-            except (json.JSONDecodeError, TypeError):
-                pass
-
-        cred = IntegrationCredentials(
-            access_token="" if secret_fields else resp.credential.access_token,
-            token_type=resp.credential.token_type or "Bearer",
+        cred = credentials_from_wire(
+            integration_type=integration_type,
+            access_token=resp.credential.access_token,
+            token_type=resp.credential.token_type,
             scopes=list(resp.credential.scopes),
             expires_at=resp.credential.expires_at,
-            fields=secret_fields,
         )
         self.integrations[integration_type] = cred
 
-        if is_secret and secret_fields:
-            await _activate_integration(integration_type, secret_fields)
+        if is_secret and cred.fields:
+            await _activate_integration(integration_type, cred.fields)
 
         return cred
 
     def get_integration(self, integration: IntegrationLike) -> IntegrationCredentials | None:
         """Return connected credentials for an integration type/config, if present."""
         return self.integrations.get(normalize_integration_type(integration))
+
+    def pipedream(self, integration: IntegrationLike):
+        """Return a requests-like session for a Pipedream-backed integration."""
+        from .pipedream import PipedreamProxySession
+
+        stub = self._session_stub
+        app_id = self._app_id
+        env = ""
+        if stub is None:
+            runner = _get_runner_for_session(self)
+            if runner is not None:
+                stub = runner._session_stub
+                app_id = getattr(runner, "_app_id", "") or ""
+                env = getattr(runner, "_version_type", "") or ""
+        if stub is None:
+            raise RuntimeError(
+                f"no gateway connection available for Pipedream integration '{normalize_integration_type(integration)}'"
+            )
+        return PipedreamProxySession(
+            stub=stub,
+            app_id=app_id,
+            user_email=self.user.email or "",
+            owner_id=self.user.owner_id,
+            integration=integration,
+            env=env,
+        )
 
     async def require_integration(
         self,
@@ -1937,3 +1985,11 @@ def current_session() -> Session | None:
     """
     identity = get_active_identity()
     return identity if isinstance(identity, Session) else None
+
+
+def pipedream(integration: IntegrationLike):
+    """Return a requests-like session for the active Capsule identity."""
+    identity = get_active_identity()
+    if hasattr(identity, "pipedream"):
+        return identity.pipedream(integration)
+    raise RuntimeError("no active Capsule session")

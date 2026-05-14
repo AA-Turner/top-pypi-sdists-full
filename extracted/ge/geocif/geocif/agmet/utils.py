@@ -82,6 +82,7 @@ dict_vars = {
     "fldas_totalprecip_tavg": ["Precipitation (FLDAS)", "mm/day", "FLDAS NMME Forecast", ""],
     "fldas_soilmoist_tavg": ["Soil Moisture (FLDAS)", r"m$^3$/m$^3$", "FLDAS NMME Forecast", ""],
     "agera5_snow_thickness_lwe": ["Snow thickness (LWE)", "mm", "AgERA5", ""],
+    "etref": ["Reference ET", "mm/day", "NOAA PSL RefET (NCEP)", ""],
 }
 
 

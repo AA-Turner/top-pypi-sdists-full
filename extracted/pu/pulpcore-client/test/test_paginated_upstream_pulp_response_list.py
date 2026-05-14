@@ -52,6 +52,12 @@ class TestPaginatedUpstreamPulpResponseList(unittest.TestCase):
                         ca_cert = '', 
                         client_cert = '', 
                         tls_validation = True, 
+                        download_concurrency = 1, 
+                        max_retries = 56, 
+                        total_timeout = 0.0, 
+                        connect_timeout = 0.0, 
+                        sock_connect_timeout = 0.0, 
+                        sock_read_timeout = 0.0, 
                         hidden_fields = [
                             pulpcore.client.pulpcore.models.generic_remote_response_hidden_fields_inner.GenericRemoteResponse_hidden_fields_inner(
                                 name = '', 
@@ -78,6 +84,12 @@ class TestPaginatedUpstreamPulpResponseList(unittest.TestCase):
                         ca_cert = '', 
                         client_cert = '', 
                         tls_validation = True, 
+                        download_concurrency = 1, 
+                        max_retries = 56, 
+                        total_timeout = 0.0, 
+                        connect_timeout = 0.0, 
+                        sock_connect_timeout = 0.0, 
+                        sock_read_timeout = 0.0, 
                         hidden_fields = [
                             pulpcore.client.pulpcore.models.generic_remote_response_hidden_fields_inner.GenericRemoteResponse_hidden_fields_inner(
                                 name = '', 

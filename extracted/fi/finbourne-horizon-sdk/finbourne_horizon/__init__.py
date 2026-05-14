@@ -114,6 +114,7 @@ from finbourne_horizon.models.update_versioned_configuration_draft_request impor
 from finbourne_horizon.models.vendor_field import VendorField
 from finbourne_horizon.models.vendor_product import VendorProduct
 from finbourne_horizon.models.versioned_configuration_response import VersionedConfigurationResponse
+from finbourne_horizon.models.versioned_configuration_type_response import VersionedConfigurationTypeResponse
 
 # import extensions into sdk package
 from finbourne_horizon.extensions import (
@@ -216,6 +217,7 @@ __all__ = [
     "VendorField",
     "VendorProduct",
     "VersionedConfigurationResponse",
+    "VersionedConfigurationTypeResponse",
     "ApiClient",
     "Configuration",
     "OpenApiException",

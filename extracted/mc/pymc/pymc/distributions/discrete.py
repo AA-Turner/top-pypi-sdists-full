@@ -30,7 +30,7 @@ from pytensor.tensor.random.basic import (
     uniform,
 )
 from pytensor.tensor.random.utils import normalize_size_param
-from scipy import stats
+from pytensor.utils import lazy_scipy_module
 
 import pymc as pm
 
@@ -50,6 +50,9 @@ from pymc.distributions.distribution import Discrete, SymbolicRandomVariable
 from pymc.distributions.shape_utils import implicit_size_from_params, rv_size_is_none
 from pymc.logprob.basic import logcdf, logp
 from pymc.math import sigmoid
+from pymc.pytensorf import normalize_rng_param
+
+stats = lazy_scipy_module("stats")
 
 __all__ = [
     "Bernoulli",
@@ -65,8 +68,6 @@ __all__ = [
     "OrderedProbit",
     "Poisson",
 ]
-
-from pymc.pytensorf import normalize_rng_param
 
 
 class Binomial(Discrete):
@@ -405,7 +406,7 @@ class DiscreteWeibullRV(SymbolicRandomVariable):
         if rv_size_is_none(size):
             size = implicit_size_from_params(q, beta, ndims_params=cls.ndims_params)
 
-        next_rng, p = uniform(size=size, rng=rng).owner.outputs
+        next_rng, p = uniform(size=size, rng=rng, return_next_rng=True)
         draws = pt.ceil(pt.power(pt.log(1 - p) / pt.log(q), 1.0 / beta)) - 1
         draws = draws.astype("int64")
 

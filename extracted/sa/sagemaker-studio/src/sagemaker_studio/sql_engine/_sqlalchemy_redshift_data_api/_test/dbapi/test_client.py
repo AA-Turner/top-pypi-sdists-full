@@ -825,3 +825,230 @@ class TestCreateClient:
 
 if __name__ == "__main__":
     pytest.main([__file__])
+
+
+class TestCredentialRefresh:
+    """Test cases for credential refresh functionality."""
+
+    def test_successful_initialization_with_credential_provider(self):
+        """Test successful client initialization with credential provider."""
+        call_count = {"count": 0}
+
+        def mock_credential_provider():
+            """Mock credential provider that returns fresh credentials."""
+            call_count["count"] += 1
+            return {
+                "access_key_id": f"ASIAIOSFODNN7EXAMPLE{call_count['count']}",
+                "secret_access_key": f"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY{call_count['count']}",
+                "session_token": f"token_{call_count['count']}",
+                "expiration": "2025-12-31T23:59:59Z",
+            }
+
+        connection_params = ConnectionParams(
+            cluster_identifier="test-cluster",
+            database_name="test_db",
+            db_user="test_user",
+            region="us-east-1",
+            credential_provider=mock_credential_provider,
+        )
+
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = Mock()
+            mock_client = Mock()
+            mock_session_class.return_value = mock_session
+            mock_session.client.return_value = mock_client
+            mock_client.list_databases.return_value = {"Databases": ["test_db"]}
+
+            client = RedshiftDataAPIClient(connection_params)
+
+            # Verify credential provider was called during initialization
+            assert call_count["count"] >= 1
+            assert client.client == mock_client
+
+    def test_credential_provider_refresh_mechanism(self):
+        """Test that RefreshableCredentials is properly configured."""
+        from datetime import datetime, timedelta
+
+        refresh_calls = []
+
+        def mock_credential_provider():
+            """Mock credential provider that tracks refresh calls."""
+            refresh_calls.append(datetime.now())
+            return {
+                "access_key_id": "ASIAIOSFODNN7EXAMPLE",
+                "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+                "session_token": "mock_token",
+                "expiration": (datetime.now() + timedelta(hours=1)).isoformat(),
+            }
+
+        connection_params = ConnectionParams(
+            cluster_identifier="test-cluster",
+            database_name="test_db",
+            db_user="test_user",
+            region="us-east-1",
+            credential_provider=mock_credential_provider,
+        )
+
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = Mock()
+            mock_client = Mock()
+            mock_session_class.return_value = mock_session
+            mock_session.client.return_value = mock_client
+            mock_client.list_databases.return_value = {"Databases": ["test_db"]}
+
+            RedshiftDataAPIClient(connection_params)
+
+            # Verify refresh was called at least once during initialization
+            assert len(refresh_calls) >= 1
+
+    def test_credential_provider_missing_required_keys(self):
+        """Test error handling when credential provider returns incomplete data."""
+
+        def bad_credential_provider():
+            """Provider that returns incomplete credentials."""
+            return {
+                "access_key_id": "ASIAIOSFODNN7EXAMPLE",
+                # Missing secret_access_key and expiration
+            }
+
+        connection_params = ConnectionParams(
+            cluster_identifier="test-cluster",
+            database_name="test_db",
+            db_user="test_user",
+            region="us-east-1",
+            credential_provider=bad_credential_provider,
+        )
+
+        with pytest.raises(InterfaceError) as exc_info:
+            RedshiftDataAPIClient(connection_params)
+
+        assert "credential_provider must return a dict with keys" in str(exc_info.value)
+        assert "Missing:" in str(exc_info.value)
+
+    def test_credential_provider_exception_handling(self):
+        """Test error handling when credential provider raises exception."""
+
+        def failing_credential_provider():
+            """Provider that raises an exception."""
+            raise RuntimeError("Failed to fetch credentials from external service")
+
+        connection_params = ConnectionParams(
+            cluster_identifier="test-cluster",
+            database_name="test_db",
+            db_user="test_user",
+            region="us-east-1",
+            credential_provider=failing_credential_provider,
+        )
+
+        with pytest.raises(InterfaceError) as exc_info:
+            RedshiftDataAPIClient(connection_params)
+
+        assert "Failed to create session with credential provider" in str(exc_info.value)
+
+    def test_credential_provider_with_optional_session_token(self):
+        """Test credential provider with optional session_token field."""
+
+        def mock_credential_provider():
+            """Provider that returns credentials without session_token."""
+            return {
+                "access_key_id": "ASIAIOSFODNN7EXAMPLE",
+                "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+                "expiration": "2025-12-31T23:59:59Z",
+                # session_token is optional
+            }
+
+        connection_params = ConnectionParams(
+            cluster_identifier="test-cluster",
+            database_name="test_db",
+            db_user="test_user",
+            region="us-east-1",
+            credential_provider=mock_credential_provider,
+        )
+
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = Mock()
+            mock_client = Mock()
+            mock_session_class.return_value = mock_session
+            mock_session.client.return_value = mock_client
+            mock_client.list_databases.return_value = {"Databases": ["test_db"]}
+
+            client = RedshiftDataAPIClient(connection_params)
+            assert client.client == mock_client
+
+    def test_credential_provider_returns_none_token(self):
+        """Test credential provider when session_token is explicitly None."""
+
+        def mock_credential_provider():
+            """Provider that returns None for session_token."""
+            return {
+                "access_key_id": "ASIAIOSFODNN7EXAMPLE",
+                "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+                "session_token": None,
+                "expiration": "2025-12-31T23:59:59Z",
+            }
+
+        connection_params = ConnectionParams(
+            cluster_identifier="test-cluster",
+            database_name="test_db",
+            db_user="test_user",
+            region="us-east-1",
+            credential_provider=mock_credential_provider,
+        )
+
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = Mock()
+            mock_client = Mock()
+            mock_session_class.return_value = mock_session
+            mock_session.client.return_value = mock_client
+            mock_client.list_databases.return_value = {"Databases": ["test_db"]}
+
+            client = RedshiftDataAPIClient(connection_params)
+            assert client.client == mock_client
+
+    def test_credential_provider_not_callable(self):
+        """Test error when credential_provider is not callable."""
+        with pytest.raises(InterfaceError) as exc_info:
+            ConnectionParams(
+                cluster_identifier="test-cluster",
+                database_name="test_db",
+                db_user="test_user",
+                region="us-east-1",
+                credential_provider="not_a_callable",  # Invalid
+            )
+
+        assert "credential_provider must be callable" in str(exc_info.value)
+
+    def test_credential_provider_with_serverless(self):
+        """Test credential provider with serverless workgroup."""
+
+        def mock_credential_provider():
+            """Mock credential provider for serverless."""
+            return {
+                "access_key_id": "ASIAIOSFODNN7EXAMPLE",
+                "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+                "session_token": "mock_token",
+                "expiration": "2025-12-31T23:59:59Z",
+            }
+
+        connection_params = ConnectionParams(
+            workgroup_name="test-workgroup",
+            database_name="test_db",
+            db_user="test_user",
+            region="us-west-2",
+            credential_provider=mock_credential_provider,
+        )
+
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = Mock()
+            mock_client = Mock()
+            mock_session_class.return_value = mock_session
+            mock_session.client.return_value = mock_client
+            mock_client.list_databases.return_value = {"Databases": ["test_db"]}
+
+            client = RedshiftDataAPIClient(connection_params)
+            assert client.client == mock_client
+
+            # Verify validation call uses workgroup
+            mock_client.list_databases.assert_called_once_with(
+                Database="test_db", DbUser="test_user", WorkgroupName="test-workgroup"
+            )

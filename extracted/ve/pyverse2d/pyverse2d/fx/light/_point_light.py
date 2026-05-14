@@ -1,6 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
+from ..._internal import different_from
 from ...abc import LightSource
 from ...math import Point
 from ...math.easing import EasingFunc
@@ -20,9 +21,7 @@ class PointLight(LightSource):
         falloff: fonction d'atténuation
         enable: activation initiale de la lumière
     """
-    __slots__ = (
-        "_radius",
-    )
+    __slots__ = ("_radius")
 
     def __init__(
             self,
@@ -36,11 +35,14 @@ class PointLight(LightSource):
         # Initialisation de la source de lumière
         super().__init__(position, color, intensity, falloff, enabled)
 
-        # Paramètres publiques
-        self._radius: float = abs(float(radius))
+        # Transtypage et vérifications
+        radius = abs(float(radius))
 
         if __debug__:
-            if self._radius == 0: raise ValueError("radius cannot be null")
+            different_from(radius, 0)
+
+        # Paramètres publiques
+        self._radius: float = radius
 
     # ======================================== PROPERTIES ========================================
     @property
@@ -54,5 +56,6 @@ class PointLight(LightSource):
     @radius.setter
     def radius(self, value: Real) -> None:
         value = float(value)
-        assert value != 0.0, f"radius cannot be null"
+        if __debug__:
+            different_from(value, 0)
         self._radius = value

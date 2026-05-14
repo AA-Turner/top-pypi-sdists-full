@@ -18,21 +18,29 @@ from functools import partial, reduce
 
 import numpy as np
 import pytensor
-import pytensor.sparse
 import pytensor.tensor as pt
 
 from pytensor.graph.basic import Apply
 from pytensor.graph.op import Op
 from pytensor.tensor import (
     abs,
+    all,
     and_,
+    any,
+    arange,
     arccos,
     arccosh,
     arcsin,
     arcsinh,
     arctan,
+    arctan2,
     arctanh,
+    argmax,
+    argmin,
+    argsort,
     as_tensor,
+    betainc,
+    broadcast_arrays,
     broadcast_to,
     ceil,
     clip,
@@ -42,7 +50,9 @@ from pytensor.tensor import (
     cosh,
     cumprod,
     cumsum,
+    diag,
     diff,
+    digamma,
     dot,
     eq,
     erf,
@@ -50,15 +60,30 @@ from pytensor.tensor import (
     erfcinv,
     erfinv,
     exp,
+    expand_dims,
+    expm1,
+    eye,
     flatten,
     floor,
     full,
     full_like,
+    gamma,
+    gammainc,
+    gammaincc,
+    gammaln,
     ge,
     gt,
+    i0,
+    i1,
+    iv,
+    kv,
     le,
+    linspace,
     log,
+    log1p,
     log1pexp,
+    log2,
+    log10,
     logaddexp,
     logsumexp,
     lt,
@@ -68,48 +93,86 @@ from pytensor.tensor import (
     mean,
     min,
     minimum,
+    moveaxis,
     neq,
     ones,
     ones_like,
     or_,
+    polygamma,
     prod,
+    repeat,
+    reshape,
     round,
     sgn,
     sigmoid,
     sin,
     sinh,
+    softplus,
+    sort,
     sqr,
     sqrt,
+    squeeze,
     stack,
+    std,
     sum,
+    swapaxes,
     switch,
+    take,
     tan,
     tanh,
+    tile,
+    trace,
+    transpose,
+    tril,
+    triu,
+    unique,
+    var,
     where,
     zeros,
     zeros_like,
 )
+from pytensor.tensor.linalg import (
+    block_diag,
+    cho_solve,
+    cholesky,
+    det,
+    eigh,
+    norm,
+    slogdet,
+    solve,
+    solve_triangular,
+)
 from pytensor.tensor.linalg import inv as matrix_inverse
-from pytensor.tensor.linalg import solve_triangular
 from pytensor.tensor.special import log_softmax, softmax
 
 from pymc.pytensorf import floatX
 
 __all__ = [
     "abs",
+    "all",
     "and_",
+    "any",
+    "arange",
     "arccos",
     "arccosh",
     "arcsin",
     "arcsinh",
     "arctan",
+    "arctan2",
     "arctanh",
+    "argmax",
+    "argmin",
+    "argsort",
     "as_tensor",
     "batched_diag",
-    "block_diagonal",
+    "betainc",
+    "block_diag",
+    "broadcast_arrays",
     "broadcast_to",
     "cartesian",
     "ceil",
+    "cho_solve",
+    "cholesky",
     "clip",
     "concatenate",
     "constant",
@@ -117,34 +180,54 @@ __all__ = [
     "cosh",
     "cumprod",
     "cumsum",
+    "det",
+    "diag",
     "diff",
+    "digamma",
     "dot",
+    "eigh",
     "eq",
     "erf",
     "erfc",
     "erfcinv",
     "erfinv",
     "exp",
+    "expand_dims",
     "expand_packed_triangular",
+    "expm1",
+    "eye",
     "flat_outer",
     "flatten",
     "flatten_list",
     "floor",
     "full",
     "full_like",
+    "gamma",
+    "gammainc",
+    "gammaincc",
+    "gammaln",
     "ge",
     "gt",
+    "i0",
+    "i1",
     "invlogit",
     "invprobit",
+    "iv",
+    "kron",
     "kron_diag",
     "kron_dot",
     "kron_solve_lower",
     "kron_solve_upper",
     "kronecker",
+    "kv",
     "le",
+    "linspace",
     "log",
     "log1mexp",
+    "log1p",
     "log1pexp",
+    "log2",
+    "log10",
     "log_softmax",
     "logaddexp",
     "logbern",
@@ -154,31 +237,52 @@ __all__ = [
     "logsumexp",
     "lt",
     "matmul",
+    "matrix_inverse",
     "max",
     "maximum",
     "mean",
     "min",
     "minimum",
+    "moveaxis",
     "neq",
+    "norm",
     "ones",
     "ones_like",
     "or_",
+    "polygamma",
     "probit",
     "prod",
-    "round",
+    "repeat",
+    "reshape",
     "round",
     "sgn",
     "sigmoid",
     "sin",
     "sinh",
+    "slogdet",
     "softmax",
+    "softplus",
+    "solve",
+    "solve_triangular",
+    "sort",
     "sqr",
     "sqrt",
+    "squeeze",
     "stack",
+    "std",
     "sum",
+    "swapaxes",
     "switch",
+    "take",
     "tan",
     "tanh",
+    "tile",
+    "trace",
+    "transpose",
+    "tril",
+    "triu",
+    "unique",
+    "var",
     "where",
     "zeros",
     "zeros_like",
@@ -203,6 +307,9 @@ def kronecker(*Ks):
         Block matrix Kroncker product of the argument matrices.
     """
     return reduce(pt.linalg.kron, Ks)
+
+
+kron = kronecker
 
 
 def cartesian(*arrays):
@@ -475,30 +582,3 @@ def batched_diag(C):
         return C[..., idx, idx]
     else:
         raise ValueError("Input should be 2 or 3 dimensional")
-
-
-def block_diagonal(matrices, sparse=False, format="csr"):
-    r"""See pt.linalg.block_diag or pytensor.sparse.basic.block_diag for reference.
-
-    Parameters
-    ----------
-    matrices: tensors
-    format: str (default 'csr')
-        must be one of: 'csr', 'csc'
-    sparse: bool (default False)
-        if True return sparse format
-
-    Returns
-    -------
-    matrix
-    """
-    warnings.warn(
-        "pymc.math.block_diagonal is deprecated in favor of `pytensor.tensor.linalg.block_diag` and "
-        "`pytensor.sparse.block_diag` functions. This function will be removed in a future release",
-    )
-    if len(matrices) == 1:  # graph optimization
-        return matrices[0]
-    if sparse:
-        return pytensor.sparse.basic.block_diag(*matrices, format=format)
-    else:
-        return pt.linalg.block_diag(*matrices)

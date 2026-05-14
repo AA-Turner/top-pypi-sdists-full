@@ -5420,6 +5420,24 @@ class DescribeVolumeAttributeRequestVolumeDescribeAttributeTypeDef(TypedDict):
     Attribute: VolumeAttributeNameType
     DryRun: NotRequired[bool]
 
+class VolumeModificationTypeDef(TypedDict):
+    VolumeId: NotRequired[str]
+    ModificationState: NotRequired[VolumeModificationStateType]
+    StatusMessage: NotRequired[str]
+    TargetSize: NotRequired[int]
+    TargetIops: NotRequired[int]
+    TargetVolumeType: NotRequired[VolumeTypeType]
+    TargetThroughput: NotRequired[int]
+    TargetMultiAttachEnabled: NotRequired[bool]
+    OriginalSize: NotRequired[int]
+    OriginalIops: NotRequired[int]
+    OriginalVolumeType: NotRequired[VolumeTypeType]
+    OriginalThroughput: NotRequired[int]
+    OriginalMultiAttachEnabled: NotRequired[bool]
+    Progress: NotRequired[int]
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+
 class DescribeVpcAttributeRequestTypeDef(TypedDict):
     Attribute: VpcAttributeNameType
     VpcId: str
@@ -13731,6 +13749,15 @@ class DescribeTagsResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class DescribeVolumesModificationsResultTypeDef(TypedDict):
+    VolumesModifications: list[VolumeModificationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ModifyVolumeResultTypeDef(TypedDict):
+    VolumeModification: VolumeModificationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DescribeVpcBlockPublicAccessOptionsResultTypeDef(TypedDict):
     VpcBlockPublicAccessOptions: VpcBlockPublicAccessOptionsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -13912,25 +13939,6 @@ class PlacementGroupTypeDef(TypedDict):
     GroupArn: NotRequired[str]
     SpreadLevel: NotRequired[SpreadLevelType]
     LinkedGroupId: NotRequired[str]
-    Operator: NotRequired[OperatorResponseTypeDef]
-
-class VolumeModificationTypeDef(TypedDict):
-    VolumeId: NotRequired[str]
-    ModificationState: NotRequired[VolumeModificationStateType]
-    StatusMessage: NotRequired[str]
-    TargetSize: NotRequired[int]
-    TargetIops: NotRequired[int]
-    TargetVolumeType: NotRequired[VolumeTypeType]
-    TargetThroughput: NotRequired[int]
-    TargetMultiAttachEnabled: NotRequired[bool]
-    OriginalSize: NotRequired[int]
-    OriginalIops: NotRequired[int]
-    OriginalVolumeType: NotRequired[VolumeTypeType]
-    OriginalThroughput: NotRequired[int]
-    OriginalMultiAttachEnabled: NotRequired[bool]
-    Progress: NotRequired[int]
-    StartTime: NotRequired[datetime]
-    EndTime: NotRequired[datetime]
     Operator: NotRequired[OperatorResponseTypeDef]
 
 class VolumeRecycleBinInfoTypeDef(TypedDict):
@@ -16749,15 +16757,6 @@ class CreatePlacementGroupResultTypeDef(TypedDict):
 
 class DescribePlacementGroupsResultTypeDef(TypedDict):
     PlacementGroups: list[PlacementGroupTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DescribeVolumesModificationsResultTypeDef(TypedDict):
-    VolumesModifications: list[VolumeModificationTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-class ModifyVolumeResultTypeDef(TypedDict):
-    VolumeModification: VolumeModificationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListVolumesInRecycleBinResultTypeDef(TypedDict):

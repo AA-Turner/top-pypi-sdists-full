@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyvespa"
-version = "1.2.0"
+version = "1.2.1"
 description = "Python API for vespa.ai"
 readme = "README.md"
 keywords = ["vespa", "search engine", "data science"]
@@ -106,7 +106,7 @@ notebooks = [
     "matplotlib",
 ]
 mteb = [
-    "mteb>=2.7.5; python_version>='3.10'",
+    "mteb>=2.12.30,<3; python_version>='3.10'",
     "simplejson; python_version>='3.10'",
 ]
 dev = [

@@ -256,6 +256,33 @@ ses.ConfigurationSet(self, "ConfigurationSet",
 )
 ```
 
+#### Auto Validation threshold
+
+Auto validation automatically reviews all outbound email addresses before sending and only delivers messages to recipients meeting your selected validation threshold. This protects sender reputation by preventing sends to invalid or risky addresses.
+
+You can override the account-level Auto Validation settings at the configuration set level using `autoValidationThreshold`:
+
+* `MANAGED` - Amazon SES automatically optimizes threshold based on sending patterns and reputation (recommended)
+* `HIGH` - Only addresses with high delivery likelihood (maximum reputation protection)
+* `MEDIUM` - Addresses with medium or high delivery likelihood (balances protection with reach)
+
+For more details, see [Auto Validation](https://docs.aws.amazon.com/ses/latest/dg/email-validation-auto.html).
+
+```python
+ses.ConfigurationSet(self, "ConfigurationSet",
+    auto_validation_threshold=ses.AutoValidationThreshold.HIGH
+)
+```
+
+Use `disableAutoValidation` to turn the feature on or off for this configuration set, regardless of the account-level setting:
+
+```python
+# Explicitly disable Auto Validation for this configuration set.
+ses.ConfigurationSet(self, "NoAutoValidation",
+    disable_auto_validation=True
+)
+```
+
 ### Email identity
 
 In Amazon SES, a verified identity is a domain or email address that you use to send or receive email. Before you
@@ -628,6 +655,34 @@ class AllowListReceiptFilterProps:
         return "AllowListReceiptFilterProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.AutoValidationThreshold")
+class AutoValidationThreshold(enum.Enum):
+    '''Confidence threshold used by SES Auto Validation to decide whether an outbound recipient address should be delivered to.
+
+    :see: https://docs.aws.amazon.com/ses/latest/dg/email-validation-auto.html
+    :exampleMetadata: infused
+
+    Example::
+
+        ses.ConfigurationSet(self, "ConfigurationSet",
+            auto_validation_threshold=ses.AutoValidationThreshold.HIGH
+        )
+    '''
+
+    MEDIUM = "MEDIUM"
+    '''Medium confidence threshold.
+
+    Allow addresses with medium or higher delivery likelihood.
+    '''
+    HIGH = "HIGH"
+    '''High confidence threshold.
+
+    Only allow addresses with high delivery likelihood.
+    '''
+    MANAGED = "MANAGED"
+    '''Amazon SES manages the threshold automatically based on sending patterns and reputation.'''
 
 
 @jsii.data_type(
@@ -17587,10 +17642,12 @@ class ConfigurationSetEventDestinationProps(ConfigurationSetEventDestinationOpti
     jsii_type="aws-cdk-lib.aws_ses.ConfigurationSetProps",
     jsii_struct_bases=[],
     name_mapping={
+        "auto_validation_threshold": "autoValidationThreshold",
         "configuration_set_name": "configurationSetName",
         "custom_tracking_https_policy": "customTrackingHttpsPolicy",
         "custom_tracking_redirect_domain": "customTrackingRedirectDomain",
         "dedicated_ip_pool": "dedicatedIpPool",
+        "disable_auto_validation": "disableAutoValidation",
         "disable_suppression_list": "disableSuppressionList",
         "max_delivery_duration": "maxDeliveryDuration",
         "reputation_metrics": "reputationMetrics",
@@ -17604,10 +17661,12 @@ class ConfigurationSetProps:
     def __init__(
         self,
         *,
+        auto_validation_threshold: typing.Optional["AutoValidationThreshold"] = None,
         configuration_set_name: typing.Optional[builtins.str] = None,
         custom_tracking_https_policy: typing.Optional["HttpsPolicy"] = None,
         custom_tracking_redirect_domain: typing.Optional[builtins.str] = None,
         dedicated_ip_pool: typing.Optional["_IDedicatedIpPoolRef_c0fd271c"] = None,
+        disable_auto_validation: typing.Optional[builtins.bool] = None,
         disable_suppression_list: typing.Optional[builtins.bool] = None,
         max_delivery_duration: typing.Optional["_Duration_4839e8c3"] = None,
         reputation_metrics: typing.Optional[builtins.bool] = None,
@@ -17618,10 +17677,12 @@ class ConfigurationSetProps:
     ) -> None:
         '''Properties for a configuration set.
 
+        :param auto_validation_threshold: The Auto Validation threshold for this configuration set. When set, Auto Validation is enabled for this configuration set with the specified confidence threshold. Cannot be combined with ``disableAutoValidation: true``. Default: - inherit the account-level Auto Validation settings
         :param configuration_set_name: A name for the configuration set. Default: - a CloudFormation generated name
         :param custom_tracking_https_policy: The https policy to use for tracking open and click events. Default: - HttpsPolicy.OPTIONAL if customTrackingRedirectDomain is set, otherwise undefined
         :param custom_tracking_redirect_domain: The custom subdomain that is used to redirect email recipients to the Amazon SES event tracking domain. Default: - use the default awstrack.me domain
         :param dedicated_ip_pool: The dedicated IP pool to associate with the configuration set. Default: - do not use a dedicated IP pool
+        :param disable_auto_validation: Override the account-level Auto Validation setting for this configuration set. - ``true``: explicitly disable Auto Validation for this configuration set. Cannot be combined with ``autoValidationThreshold``. - ``false``: explicitly enable Auto Validation for this configuration set even if it is disabled at the account level. The threshold falls back to the SES default unless ``autoValidationThreshold`` is also specified. - ``undefined``: inherit the account-level setting when ``autoValidationThreshold`` is also not specified. Default: - inherit the account-level Auto Validation settings when autoValidationThreshold is also unspecified
         :param disable_suppression_list: If true, account-level suppression list is disabled; email sent with this configuration set will not use any suppression settings at all Default: false
         :param max_delivery_duration: The maximum amount of time that Amazon SES API v2 will attempt delivery of email. This value must be greater than or equal to 5 minutes and less than or equal to 14 hours. Default: undefined - SES defaults to 14 hours
         :param reputation_metrics: Whether to publish reputation metrics for the configuration set, such as bounce and complaint rates, to Amazon CloudWatch. Default: true
@@ -17643,10 +17704,12 @@ class ConfigurationSetProps:
             vdm_options = VdmOptions(**vdm_options)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fb010161f6c1e40b88122d9cb7754dae093e9cbe5bbfc72b19737729a4f4523d)
+            check_type(argname="argument auto_validation_threshold", value=auto_validation_threshold, expected_type=type_hints["auto_validation_threshold"])
             check_type(argname="argument configuration_set_name", value=configuration_set_name, expected_type=type_hints["configuration_set_name"])
             check_type(argname="argument custom_tracking_https_policy", value=custom_tracking_https_policy, expected_type=type_hints["custom_tracking_https_policy"])
             check_type(argname="argument custom_tracking_redirect_domain", value=custom_tracking_redirect_domain, expected_type=type_hints["custom_tracking_redirect_domain"])
             check_type(argname="argument dedicated_ip_pool", value=dedicated_ip_pool, expected_type=type_hints["dedicated_ip_pool"])
+            check_type(argname="argument disable_auto_validation", value=disable_auto_validation, expected_type=type_hints["disable_auto_validation"])
             check_type(argname="argument disable_suppression_list", value=disable_suppression_list, expected_type=type_hints["disable_suppression_list"])
             check_type(argname="argument max_delivery_duration", value=max_delivery_duration, expected_type=type_hints["max_delivery_duration"])
             check_type(argname="argument reputation_metrics", value=reputation_metrics, expected_type=type_hints["reputation_metrics"])
@@ -17655,6 +17718,8 @@ class ConfigurationSetProps:
             check_type(argname="argument tls_policy", value=tls_policy, expected_type=type_hints["tls_policy"])
             check_type(argname="argument vdm_options", value=vdm_options, expected_type=type_hints["vdm_options"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if auto_validation_threshold is not None:
+            self._values["auto_validation_threshold"] = auto_validation_threshold
         if configuration_set_name is not None:
             self._values["configuration_set_name"] = configuration_set_name
         if custom_tracking_https_policy is not None:
@@ -17663,6 +17728,8 @@ class ConfigurationSetProps:
             self._values["custom_tracking_redirect_domain"] = custom_tracking_redirect_domain
         if dedicated_ip_pool is not None:
             self._values["dedicated_ip_pool"] = dedicated_ip_pool
+        if disable_auto_validation is not None:
+            self._values["disable_auto_validation"] = disable_auto_validation
         if disable_suppression_list is not None:
             self._values["disable_suppression_list"] = disable_suppression_list
         if max_delivery_duration is not None:
@@ -17677,6 +17744,20 @@ class ConfigurationSetProps:
             self._values["tls_policy"] = tls_policy
         if vdm_options is not None:
             self._values["vdm_options"] = vdm_options
+
+    @builtins.property
+    def auto_validation_threshold(self) -> typing.Optional["AutoValidationThreshold"]:
+        '''The Auto Validation threshold for this configuration set.
+
+        When set, Auto Validation is enabled for this configuration set with the specified
+        confidence threshold. Cannot be combined with ``disableAutoValidation: true``.
+
+        :default: - inherit the account-level Auto Validation settings
+
+        :see: https://docs.aws.amazon.com/ses/latest/dg/email-validation-auto.html
+        '''
+        result = self._values.get("auto_validation_threshold")
+        return typing.cast(typing.Optional["AutoValidationThreshold"], result)
 
     @builtins.property
     def configuration_set_name(self) -> typing.Optional[builtins.str]:
@@ -17713,6 +17794,24 @@ class ConfigurationSetProps:
         '''
         result = self._values.get("dedicated_ip_pool")
         return typing.cast(typing.Optional["_IDedicatedIpPoolRef_c0fd271c"], result)
+
+    @builtins.property
+    def disable_auto_validation(self) -> typing.Optional[builtins.bool]:
+        '''Override the account-level Auto Validation setting for this configuration set.
+
+        - ``true``: explicitly disable Auto Validation for this configuration set.
+          Cannot be combined with ``autoValidationThreshold``.
+        - ``false``: explicitly enable Auto Validation for this configuration set even if
+          it is disabled at the account level. The threshold falls back to the SES default
+          unless ``autoValidationThreshold`` is also specified.
+        - ``undefined``: inherit the account-level setting when ``autoValidationThreshold`` is also not specified.
+
+        :default: - inherit the account-level Auto Validation settings when autoValidationThreshold is also unspecified
+
+        :see: https://docs.aws.amazon.com/ses/latest/dg/email-validation-auto.html
+        '''
+        result = self._values.get("disable_auto_validation")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def disable_suppression_list(self) -> typing.Optional[builtins.bool]:
@@ -21057,10 +21156,12 @@ class ConfigurationSet(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
+        auto_validation_threshold: typing.Optional["AutoValidationThreshold"] = None,
         configuration_set_name: typing.Optional[builtins.str] = None,
         custom_tracking_https_policy: typing.Optional["HttpsPolicy"] = None,
         custom_tracking_redirect_domain: typing.Optional[builtins.str] = None,
         dedicated_ip_pool: typing.Optional["_IDedicatedIpPoolRef_c0fd271c"] = None,
+        disable_auto_validation: typing.Optional[builtins.bool] = None,
         disable_suppression_list: typing.Optional[builtins.bool] = None,
         max_delivery_duration: typing.Optional["_Duration_4839e8c3"] = None,
         reputation_metrics: typing.Optional[builtins.bool] = None,
@@ -21072,10 +21173,12 @@ class ConfigurationSet(
         '''
         :param scope: -
         :param id: -
+        :param auto_validation_threshold: The Auto Validation threshold for this configuration set. When set, Auto Validation is enabled for this configuration set with the specified confidence threshold. Cannot be combined with ``disableAutoValidation: true``. Default: - inherit the account-level Auto Validation settings
         :param configuration_set_name: A name for the configuration set. Default: - a CloudFormation generated name
         :param custom_tracking_https_policy: The https policy to use for tracking open and click events. Default: - HttpsPolicy.OPTIONAL if customTrackingRedirectDomain is set, otherwise undefined
         :param custom_tracking_redirect_domain: The custom subdomain that is used to redirect email recipients to the Amazon SES event tracking domain. Default: - use the default awstrack.me domain
         :param dedicated_ip_pool: The dedicated IP pool to associate with the configuration set. Default: - do not use a dedicated IP pool
+        :param disable_auto_validation: Override the account-level Auto Validation setting for this configuration set. - ``true``: explicitly disable Auto Validation for this configuration set. Cannot be combined with ``autoValidationThreshold``. - ``false``: explicitly enable Auto Validation for this configuration set even if it is disabled at the account level. The threshold falls back to the SES default unless ``autoValidationThreshold`` is also specified. - ``undefined``: inherit the account-level setting when ``autoValidationThreshold`` is also not specified. Default: - inherit the account-level Auto Validation settings when autoValidationThreshold is also unspecified
         :param disable_suppression_list: If true, account-level suppression list is disabled; email sent with this configuration set will not use any suppression settings at all Default: false
         :param max_delivery_duration: The maximum amount of time that Amazon SES API v2 will attempt delivery of email. This value must be greater than or equal to 5 minutes and less than or equal to 14 hours. Default: undefined - SES defaults to 14 hours
         :param reputation_metrics: Whether to publish reputation metrics for the configuration set, such as bounce and complaint rates, to Amazon CloudWatch. Default: true
@@ -21089,10 +21192,12 @@ class ConfigurationSet(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ConfigurationSetProps(
+            auto_validation_threshold=auto_validation_threshold,
             configuration_set_name=configuration_set_name,
             custom_tracking_https_policy=custom_tracking_https_policy,
             custom_tracking_redirect_domain=custom_tracking_redirect_domain,
             dedicated_ip_pool=dedicated_ip_pool,
+            disable_auto_validation=disable_auto_validation,
             disable_suppression_list=disable_suppression_list,
             max_delivery_duration=max_delivery_duration,
             reputation_metrics=reputation_metrics,
@@ -21764,6 +21869,7 @@ __all__ = [
     "AddHeaderActionConfig",
     "AllowListReceiptFilter",
     "AllowListReceiptFilterProps",
+    "AutoValidationThreshold",
     "BounceActionConfig",
     "ByoDkimOptions",
     "CfnConfigurationSet",
@@ -24261,10 +24367,12 @@ def _typecheckingstub__dd3ac4f1af1f2fe9c11fa8894b2eae0f4b13c464b826cffda8b6937f4
 
 def _typecheckingstub__fb010161f6c1e40b88122d9cb7754dae093e9cbe5bbfc72b19737729a4f4523d(
     *,
+    auto_validation_threshold: typing.Optional[AutoValidationThreshold] = None,
     configuration_set_name: typing.Optional[builtins.str] = None,
     custom_tracking_https_policy: typing.Optional[HttpsPolicy] = None,
     custom_tracking_redirect_domain: typing.Optional[builtins.str] = None,
     dedicated_ip_pool: typing.Optional[_IDedicatedIpPoolRef_c0fd271c] = None,
+    disable_auto_validation: typing.Optional[builtins.bool] = None,
     disable_suppression_list: typing.Optional[builtins.bool] = None,
     max_delivery_duration: typing.Optional[_Duration_4839e8c3] = None,
     reputation_metrics: typing.Optional[builtins.bool] = None,
@@ -24633,10 +24741,12 @@ def _typecheckingstub__52b42851a408d3eb2b07399f2b34603200cef443be5e9f913f4a1d80a
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    auto_validation_threshold: typing.Optional[AutoValidationThreshold] = None,
     configuration_set_name: typing.Optional[builtins.str] = None,
     custom_tracking_https_policy: typing.Optional[HttpsPolicy] = None,
     custom_tracking_redirect_domain: typing.Optional[builtins.str] = None,
     dedicated_ip_pool: typing.Optional[_IDedicatedIpPoolRef_c0fd271c] = None,
+    disable_auto_validation: typing.Optional[builtins.bool] = None,
     disable_suppression_list: typing.Optional[builtins.bool] = None,
     max_delivery_duration: typing.Optional[_Duration_4839e8c3] = None,
     reputation_metrics: typing.Optional[builtins.bool] = None,

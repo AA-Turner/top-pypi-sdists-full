@@ -860,6 +860,9 @@ class ConstructorInfo(System.Reflection.MethodBase, metaclass=abc.ABCMeta):
     def equals(self, obj: typing.Any) -> bool:
         ...
 
+    def get_generic_arguments(self) -> typing.List[typing.Type]:
+        ...
+
     def get_hash_code(self) -> int:
         ...
 

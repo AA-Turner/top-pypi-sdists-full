@@ -38,6 +38,9 @@ __all__ = (
     "ListAgentSpacesPaginatorName",
     "ListApplicationsPaginatorName",
     "ListArtifactsPaginatorName",
+    "ListCodeReviewJobTasksPaginatorName",
+    "ListCodeReviewJobsForCodeReviewPaginatorName",
+    "ListCodeReviewsPaginatorName",
     "ListDiscoveredEndpointsPaginatorName",
     "ListFindingsPaginatorName",
     "ListIntegratedResourcesPaginatorName",
@@ -86,6 +89,9 @@ JobStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "STOPPED", "STOPPI
 ListAgentSpacesPaginatorName = Literal["list_agent_spaces"]
 ListApplicationsPaginatorName = Literal["list_applications"]
 ListArtifactsPaginatorName = Literal["list_artifacts"]
+ListCodeReviewJobTasksPaginatorName = Literal["list_code_review_job_tasks"]
+ListCodeReviewJobsForCodeReviewPaginatorName = Literal["list_code_review_jobs_for_code_review"]
+ListCodeReviewsPaginatorName = Literal["list_code_reviews"]
 ListDiscoveredEndpointsPaginatorName = Literal["list_discovered_endpoints"]
 ListFindingsPaginatorName = Literal["list_findings"]
 ListIntegratedResourcesPaginatorName = Literal["list_integrated_resources"]
@@ -572,6 +578,9 @@ PaginatorName = Literal[
     "list_agent_spaces",
     "list_applications",
     "list_artifacts",
+    "list_code_review_job_tasks",
+    "list_code_review_jobs_for_code_review",
+    "list_code_reviews",
     "list_discovered_endpoints",
     "list_findings",
     "list_integrated_resources",

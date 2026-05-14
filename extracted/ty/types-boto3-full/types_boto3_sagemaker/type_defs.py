@@ -83,6 +83,7 @@ from .literals import (
     ClusterAutoScalingStatusType,
     ClusterCapacityTypeType,
     ClusterConfigModeType,
+    ClusterEventLevelType,
     ClusterEventResourceTypeType,
     ClusterImageVersionStatusType,
     ClusterInstanceStatusType,
@@ -123,6 +124,7 @@ from .literals import (
     EndpointStatusType,
     EvaluationTypeType,
     ExecutionRoleIdentityConfigType,
+    ExecutionRoleSessionNameModeType,
     ExecutionStatusType,
     FailureHandlingPolicyType,
     FairShareType,
@@ -1281,6 +1283,7 @@ __all__ = (
     "InstancePlacementConfigUnionTypeDef",
     "InstancePoolSummaryTypeDef",
     "InstancePoolTypeDef",
+    "InstanceRequirementsEniConfigurationTypeDef",
     "IntegerParameterRangeSpecificationTypeDef",
     "IntegerParameterRangeTypeDef",
     "JupyterLabAppImageConfigOutputTypeDef",
@@ -1582,6 +1585,7 @@ __all__ = (
     "ListWorkteamsRequestTypeDef",
     "ListWorkteamsResponseTypeDef",
     "MLflowConfigurationTypeDef",
+    "ManagedConfigurationTypeDef",
     "MemberDefinitionOutputTypeDef",
     "MemberDefinitionTypeDef",
     "MemberDefinitionUnionTypeDef",
@@ -2402,6 +2406,7 @@ class ResourceSpecTypeDef(TypedDict):
     SageMakerImageVersionAlias: NotRequired[str]
     InstanceType: NotRequired[AppInstanceTypeType]
     LifecycleConfigArn: NotRequired[str]
+    TrainingPlanArn: NotRequired[str]
 
 
 class IdleSettingsTypeDef(TypedDict):
@@ -2952,6 +2957,7 @@ class ClusterEventSummaryTypeDef(TypedDict):
     InstanceGroupName: NotRequired[str]
     InstanceId: NotRequired[str]
     Description: NotRequired[str]
+    EventLevel: NotRequired[ClusterEventLevelType]
 
 
 class ClusterFsxLustreConfigTypeDef(TypedDict):
@@ -3294,6 +3300,10 @@ class ModelCardSecurityConfigTypeDef(TypedDict):
 
 class InferenceExecutionConfigTypeDef(TypedDict):
     Mode: InferenceExecutionModeType
+
+
+class ManagedConfigurationTypeDef(TypedDict):
+    ManagedStorageType: NotRequired[Literal["Restricted"]]
 
 
 class ModelLifeCycleTypeDef(TypedDict):
@@ -5265,14 +5275,6 @@ class ModelMetadataSummaryTypeDef(TypedDict):
     FrameworkVersion: str
 
 
-class ModelPackageGroupSummaryTypeDef(TypedDict):
-    ModelPackageGroupName: str
-    ModelPackageGroupArn: str
-    CreationTime: datetime
-    ModelPackageGroupStatus: ModelPackageGroupStatusType
-    ModelPackageGroupDescription: NotRequired[str]
-
-
 class ModelSummaryTypeDef(TypedDict):
     ModelName: str
     ModelArn: str
@@ -5592,7 +5594,7 @@ class ModelExplainabilityAppSpecificationTypeDef(TypedDict):
 
 
 class RealTimeInferenceConfigTypeDef(TypedDict):
-    InstanceType: InstanceTypeType
+    InstanceType: ProductionVariantInstanceTypeType
     InstanceCount: int
 
 
@@ -7364,12 +7366,6 @@ class CreateMlflowTrackingServerRequestTypeDef(TypedDict):
     S3BucketOwnerVerification: NotRequired[bool]
 
 
-class CreateModelPackageGroupInputTypeDef(TypedDict):
-    ModelPackageGroupName: str
-    ModelPackageGroupDescription: NotRequired[str]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
-
 class CreateStudioLifecycleConfigRequestTypeDef(TypedDict):
     StudioLifecycleConfigName: str
     StudioLifecycleConfigContent: str
@@ -7403,6 +7399,11 @@ class ListTagsOutputTypeDef(TypedDict):
     Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class InstanceRequirementsEniConfigurationTypeDef(TypedDict):
+    CustomerEni: NotRequired[str]
+    AdditionalEnis: NotRequired[AdditionalEnisTypeDef]
 
 
 class AutoRollbackConfigOutputTypeDef(TypedDict):
@@ -7711,15 +7712,6 @@ class InstanceGroupMetadataTypeDef(TypedDict):
     SubnetId: NotRequired[str]
     SecurityGroupIds: NotRequired[list[str]]
     AmiOverride: NotRequired[str]
-
-
-class InstanceMetadataTypeDef(TypedDict):
-    CustomerEni: NotRequired[str]
-    AdditionalEnis: NotRequired[AdditionalEnisTypeDef]
-    CapacityReservation: NotRequired[CapacityReservationTypeDef]
-    FailureMessage: NotRequired[str]
-    LcsExecutionState: NotRequired[str]
-    NodeLogicalId: NotRequired[str]
 
 
 class RollingDeploymentPolicyTypeDef(TypedDict):
@@ -8254,6 +8246,22 @@ class CreateModelCardRequestTypeDef(TypedDict):
     ModelCardStatus: ModelCardStatusType
     SecurityConfig: NotRequired[ModelCardSecurityConfigTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class CreateModelPackageGroupInputTypeDef(TypedDict):
+    ModelPackageGroupName: str
+    ModelPackageGroupDescription: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    ManagedConfiguration: NotRequired[ManagedConfigurationTypeDef]
+
+
+class ModelPackageGroupSummaryTypeDef(TypedDict):
+    ModelPackageGroupName: str
+    ModelPackageGroupArn: str
+    CreationTime: datetime
+    ModelPackageGroupStatus: ModelPackageGroupStatusType
+    ModelPackageGroupDescription: NotRequired[str]
+    ManagedConfiguration: NotRequired[ManagedConfigurationTypeDef]
 
 
 class ModelPackageSummaryTypeDef(TypedDict):
@@ -10561,6 +10569,7 @@ class StudioWebPortalSettingsOutputTypeDef(TypedDict):
     HiddenAppTypes: NotRequired[list[AppTypeType]]
     HiddenInstanceTypes: NotRequired[list[AppInstanceTypeType]]
     HiddenSageMakerImageVersionAliases: NotRequired[list[HiddenSageMakerImageOutputTypeDef]]
+    ExecutionRoleSessionNameMode: NotRequired[ExecutionRoleSessionNameModeType]
 
 
 class StudioWebPortalSettingsTypeDef(TypedDict):
@@ -10568,6 +10577,7 @@ class StudioWebPortalSettingsTypeDef(TypedDict):
     HiddenAppTypes: NotRequired[Sequence[AppTypeType]]
     HiddenInstanceTypes: NotRequired[Sequence[AppInstanceTypeType]]
     HiddenSageMakerImageVersionAliases: NotRequired[Sequence[HiddenSageMakerImageTypeDef]]
+    ExecutionRoleSessionNameMode: NotRequired[ExecutionRoleSessionNameModeType]
 
 
 class ListHubContentVersionsResponseTypeDef(TypedDict):
@@ -10825,12 +10835,6 @@ class ListModelCardsResponseTypeDef(TypedDict):
 
 class ListModelMetadataResponseTypeDef(TypedDict):
     ModelMetadataSummaries: list[ModelMetadataSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
-class ListModelPackageGroupsOutputTypeDef(TypedDict):
-    ModelPackageGroupSummaryList: list[ModelPackageGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -11427,6 +11431,18 @@ class ListActionsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class InstanceMetadataTypeDef(TypedDict):
+    CustomerEni: NotRequired[str]
+    AdditionalEnis: NotRequired[AdditionalEnisTypeDef]
+    InstanceRequirementsEniConfigurations: NotRequired[
+        list[InstanceRequirementsEniConfigurationTypeDef]
+    ]
+    CapacityReservation: NotRequired[CapacityReservationTypeDef]
+    FailureMessage: NotRequired[str]
+    LcsExecutionState: NotRequired[str]
+    NodeLogicalId: NotRequired[str]
+
+
 HyperParameterAlgorithmSpecificationUnionTypeDef = Union[
     HyperParameterAlgorithmSpecificationTypeDef, HyperParameterAlgorithmSpecificationOutputTypeDef
 ]
@@ -11657,13 +11673,6 @@ class AutoMLCandidateTypeDef(TypedDict):
     ]
 
 
-class EventMetadataTypeDef(TypedDict):
-    Cluster: NotRequired[ClusterMetadataTypeDef]
-    InstanceGroup: NotRequired[InstanceGroupMetadataTypeDef]
-    InstanceGroupScaling: NotRequired[InstanceGroupScalingMetadataTypeDef]
-    Instance: NotRequired[InstanceMetadataTypeDef]
-
-
 class DeploymentConfigurationOutputTypeDef(TypedDict):
     RollingUpdatePolicy: NotRequired[RollingDeploymentPolicyTypeDef]
     WaitIntervalInSeconds: NotRequired[int]
@@ -11790,6 +11799,12 @@ DebugHookConfigUnionTypeDef = Union[DebugHookConfigTypeDef, DebugHookConfigOutpu
 
 class ListContextsResponseTypeDef(TypedDict):
     ContextSummaries: list[ContextSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListModelPackageGroupsOutputTypeDef(TypedDict):
+    ModelPackageGroupSummaryList: list[ModelPackageGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -12119,6 +12134,7 @@ class DescribeModelPackageGroupOutputTypeDef(TypedDict):
     CreationTime: datetime
     CreatedBy: UserContextTypeDef
     ModelPackageGroupStatus: ModelPackageGroupStatusType
+    ManagedConfiguration: ManagedConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -13001,6 +13017,13 @@ class ComputeQuotaConfigTypeDef(TypedDict):
     PreemptTeamTasks: NotRequired[PreemptTeamTasksType]
 
 
+class EventMetadataTypeDef(TypedDict):
+    Cluster: NotRequired[ClusterMetadataTypeDef]
+    InstanceGroup: NotRequired[InstanceGroupMetadataTypeDef]
+    InstanceGroupScaling: NotRequired[InstanceGroupScalingMetadataTypeDef]
+    Instance: NotRequired[InstanceMetadataTypeDef]
+
+
 DomainSettingsUnionTypeDef = Union[DomainSettingsTypeDef, DomainSettingsOutputTypeDef]
 
 
@@ -13155,10 +13178,6 @@ class ListCandidatesForAutoMLJobResponseTypeDef(TypedDict):
     Candidates: list[AutoMLCandidateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-
-
-class EventDetailsTypeDef(TypedDict):
-    EventMetadata: NotRequired[EventMetadataTypeDef]
 
 
 class ScheduledUpdateConfigOutputTypeDef(TypedDict):
@@ -14140,6 +14159,10 @@ class DescribeComputeQuotaResponseTypeDef(TypedDict):
 ComputeQuotaConfigUnionTypeDef = Union[ComputeQuotaConfigTypeDef, ComputeQuotaConfigOutputTypeDef]
 
 
+class EventDetailsTypeDef(TypedDict):
+    EventMetadata: NotRequired[EventMetadataTypeDef]
+
+
 class DescribeDomainResponseTypeDef(TypedDict):
     DomainArn: str
     DomainId: str
@@ -14237,18 +14260,6 @@ class ListPipelineExecutionStepsResponseTypeDef(TypedDict):
     PipelineExecutionSteps: list[PipelineExecutionStepTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-
-
-class ClusterEventDetailTypeDef(TypedDict):
-    EventId: str
-    ClusterArn: str
-    ClusterName: str
-    ResourceType: ClusterEventResourceTypeType
-    EventTime: datetime
-    InstanceGroupName: NotRequired[str]
-    InstanceId: NotRequired[str]
-    EventDetails: NotRequired[EventDetailsTypeDef]
-    Description: NotRequired[str]
 
 
 class ClusterInstanceGroupDetailsTypeDef(TypedDict):
@@ -14516,6 +14527,7 @@ class TrainingJobTypeDef(TypedDict):
     InputDataConfig: NotRequired[list[ChannelOutputTypeDef]]
     OutputDataConfig: NotRequired[OutputDataConfigTypeDef]
     ResourceConfig: NotRequired[ResourceConfigOutputTypeDef]
+    WarmPoolStatus: NotRequired[WarmPoolStatusTypeDef]
     VpcConfig: NotRequired[VpcConfigOutputTypeDef]
     StoppingCondition: NotRequired[StoppingConditionTypeDef]
     CreationTime: NotRequired[datetime]
@@ -14866,6 +14878,19 @@ class UpdateComputeQuotaRequestTypeDef(TypedDict):
     Description: NotRequired[str]
 
 
+class ClusterEventDetailTypeDef(TypedDict):
+    EventId: str
+    ClusterArn: str
+    ClusterName: str
+    ResourceType: ClusterEventResourceTypeType
+    EventTime: datetime
+    InstanceGroupName: NotRequired[str]
+    InstanceId: NotRequired[str]
+    EventDetails: NotRequired[EventDetailsTypeDef]
+    Description: NotRequired[str]
+    EventLevel: NotRequired[ClusterEventLevelType]
+
+
 class CreateDomainRequestTypeDef(TypedDict):
     DomainName: str
     AuthMode: AuthModeType
@@ -14921,11 +14946,6 @@ class CreateAutoMLJobV2RequestTypeDef(TypedDict):
     ModelDeployConfig: NotRequired[ModelDeployConfigTypeDef]
     DataSplitConfig: NotRequired[AutoMLDataSplitConfigTypeDef]
     AutoMLComputeConfig: NotRequired[AutoMLComputeConfigTypeDef]
-
-
-class DescribeClusterEventResponseTypeDef(TypedDict):
-    EventDetails: ClusterEventDetailTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeClusterResponseTypeDef(TypedDict):
@@ -15212,6 +15232,11 @@ class ModelPackageValidationSpecificationTypeDef(TypedDict):
     ValidationProfiles: Sequence[ModelPackageValidationProfileTypeDef]
 
 
+class DescribeClusterEventResponseTypeDef(TypedDict):
+    EventDetails: ClusterEventDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ClusterInstanceGroupSpecificationTypeDef(TypedDict):
     InstanceCount: int
     InstanceGroupName: str
@@ -15380,6 +15405,7 @@ class DescribeModelPackageOutputTypeDef(TypedDict):
     SecurityConfig: ModelPackageSecurityConfigTypeDef
     ModelCard: ModelPackageModelCardTypeDef
     ModelLifeCycle: ModelLifeCycleTypeDef
+    ManagedStorageType: Literal["Restricted"]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -15607,6 +15633,7 @@ class CreateModelPackageInputTypeDef(TypedDict):
     SecurityConfig: NotRequired[ModelPackageSecurityConfigTypeDef]
     ModelCard: NotRequired[ModelPackageModelCardTypeDef]
     ModelLifeCycle: NotRequired[ModelLifeCycleTypeDef]
+    ManagedStorageType: NotRequired[Literal["Restricted"]]
 
 
 HyperParameterTrainingJobDefinitionUnionTypeDef = Union[

@@ -8193,8 +8193,11 @@ class CfnDistribution(
     )
     class CacheTagConfigProperty:
         def __init__(self, *, header_name: builtins.str) -> None:
-            '''
-            :param header_name: 
+            '''A complex type that specifies the HTTP header name from which CloudFront extracts cache tags from origin responses.
+
+            When you add ``CacheTagConfig`` to a distribution, CloudFront reads the specified header from origin responses, parses the comma-separated tag values, and stores them with the cached object. You can then invalidate cached objects by tag using the ``CreateInvalidation`` API.
+
+            :param header_name: The name of the HTTP header that your origin includes in responses. CloudFront uses this header to extract cache tags. The header value must contain comma-separated tag values (for example, ``product:electronics, category:tv, brand:example``).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-cachetagconfig.html
             :exampleMetadata: fixture=_generated
@@ -8218,7 +8221,10 @@ class CfnDistribution(
 
         @builtins.property
         def header_name(self) -> builtins.str:
-            '''
+            '''The name of the HTTP header that your origin includes in responses.
+
+            CloudFront uses this header to extract cache tags. The header value must contain comma-separated tag values (for example, ``product:electronics, category:tv, brand:example``).
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-cachetagconfig.html#cfn-cloudfront-distribution-cachetagconfig-headername
             '''
             result = self._values.get("header_name")
@@ -9413,7 +9419,7 @@ class CfnDistribution(
             :param aliases: .. epigraph:: This field only supports standard distributions. You can't specify this field for multi-tenant distributions. For more information, see `Unsupported features for SaaS Manager for Amazon CloudFront <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-config-options.html#unsupported-saas>`_ in the *Amazon CloudFront Developer Guide* . A complex type that contains information about CNAMEs (alternate domain names), if any, for this distribution.
             :param anycast_ip_list_id: .. epigraph:: To use this field for a multi-tenant distribution, use a connection group instead. For more information, see `ConnectionGroup <https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_ConnectionGroup.html>`_ . ID of the Anycast static IP list that is associated with the distribution.
             :param cache_behaviors: A complex type that contains zero or more ``CacheBehavior`` elements.
-            :param cache_tag_config: 
+            :param cache_tag_config: A complex type that specifies the HTTP header name from which CloudFront extracts cache tags from origin responses. When you add ``CacheTagConfig`` to a distribution, CloudFront reads the specified header from origin responses, parses the comma-separated tag values, and stores them with the cached object. You can then invalidate cached objects by tag using the ``CreateInvalidation`` API.
             :param cnam_es: An alias for the CloudFront distribution's domain name. .. epigraph:: This property is legacy. We recommend that you use `Aliases <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-distributionconfig.html#cfn-cloudfront-distribution-distributionconfig-aliases>`_ instead.
             :param comment: A comment to describe the distribution. The comment cannot be longer than 128 characters. Default: - ""
             :param connection_function_association: The distribution's connection function association.
@@ -9676,7 +9682,10 @@ class CfnDistribution(
         def cache_tag_config(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDistribution.CacheTagConfigProperty"]]:
-            '''
+            '''A complex type that specifies the HTTP header name from which CloudFront extracts cache tags from origin responses.
+
+            When you add ``CacheTagConfig`` to a distribution, CloudFront reads the specified header from origin responses, parses the comma-separated tag values, and stores them with the cached object. You can then invalidate cached objects by tag using the ``CreateInvalidation`` API.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-distributionconfig.html#cfn-cloudfront-distribution-distributionconfig-cachetagconfig
             '''
             result = self._values.get("cache_tag_config")
@@ -14361,7 +14370,7 @@ class CfnFunction(
         :param name: A name to identify the function.
         :param auto_publish: A flag that determines whether to automatically publish the function to the ``LIVE`` stage when it’s created. To automatically publish to the ``LIVE`` stage, set this property to ``true`` .
         :param function_metadata: Contains metadata about a CloudFront function.
-        :param tags: 
+        :param tags: A complex type that contains zero or more ``Tag`` elements.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7fd6686720dc42916d1486e9d86a083535cb418c14fb4746839d47b9f77562f0)
@@ -14570,6 +14579,7 @@ class CfnFunction(
     @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A complex type that contains zero or more ``Tag`` elements.'''
         return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
@@ -14815,7 +14825,7 @@ class CfnFunctionProps:
         :param name: A name to identify the function.
         :param auto_publish: A flag that determines whether to automatically publish the function to the ``LIVE`` stage when it’s created. To automatically publish to the ``LIVE`` stage, set this property to ``true`` .
         :param function_metadata: Contains metadata about a CloudFront function.
-        :param tags: 
+        :param tags: A complex type that contains zero or more ``Tag`` elements.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-function.html
         :exampleMetadata: fixture=_generated
@@ -14931,7 +14941,8 @@ class CfnFunctionProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
-        '''
+        '''A complex type that contains zero or more ``Tag`` elements.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-function.html#cfn-cloudfront-function-tags
         '''
         result = self._values.get("tags")
@@ -20713,7 +20724,8 @@ class CfnTrustStore(
             tags=[CfnTag(
                 key="key",
                 value="value"
-            )]
+            )],
+            use_client_certificate_ocsp_endpoint=False
         )
     '''
 
@@ -20725,6 +20737,7 @@ class CfnTrustStore(
         name: builtins.str,
         ca_certificates_bundle_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTrustStore.CaCertificatesBundleSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        use_client_certificate_ocsp_endpoint: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
     ) -> None:
         '''Create a new ``AWS::CloudFront::TrustStore``.
 
@@ -20733,6 +20746,7 @@ class CfnTrustStore(
         :param name: The trust store's name.
         :param ca_certificates_bundle_source: A CA certificates bundle source.
         :param tags: A complex type that contains zero or more ``Tag`` elements.
+        :param use_client_certificate_ocsp_endpoint: 
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__824ae12ab63f13e1c8bb7e88dd932be69b78f01ef525902840d651274bbde9e3)
@@ -20742,6 +20756,7 @@ class CfnTrustStore(
             name=name,
             ca_certificates_bundle_source=ca_certificates_bundle_source,
             tags=tags,
+            use_client_certificate_ocsp_endpoint=use_client_certificate_ocsp_endpoint,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -20918,6 +20933,23 @@ class CfnTrustStore(
             type_hints = typing.get_type_hints(_typecheckingstub__8891d288761cbb98e0953cae118faa2d9e32c0832073d4be7c5ae3579a20ff68)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="useClientCertificateOcspEndpoint")
+    def use_client_certificate_ocsp_endpoint(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "useClientCertificateOcspEndpoint"))
+
+    @use_client_certificate_ocsp_endpoint.setter
+    def use_client_certificate_ocsp_endpoint(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e33500adacee9b6a022871eb04815bb5a9abd1653a1b1e1b925ae27cb48e6fcc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "useClientCertificateOcspEndpoint", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnTrustStore.CaCertificatesBundleS3LocationProperty",
@@ -21102,6 +21134,7 @@ class CfnTrustStore(
         "name": "name",
         "ca_certificates_bundle_source": "caCertificatesBundleSource",
         "tags": "tags",
+        "use_client_certificate_ocsp_endpoint": "useClientCertificateOcspEndpoint",
     },
 )
 class CfnTrustStoreProps:
@@ -21111,12 +21144,14 @@ class CfnTrustStoreProps:
         name: builtins.str,
         ca_certificates_bundle_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTrustStore.CaCertificatesBundleSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        use_client_certificate_ocsp_endpoint: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTrustStore``.
 
         :param name: The trust store's name.
         :param ca_certificates_bundle_source: A CA certificates bundle source.
         :param tags: A complex type that contains zero or more ``Tag`` elements.
+        :param use_client_certificate_ocsp_endpoint: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-truststore.html
         :exampleMetadata: fixture=_generated
@@ -21145,7 +21180,8 @@ class CfnTrustStoreProps:
                 tags=[CfnTag(
                     key="key",
                     value="value"
-                )]
+                )],
+                use_client_certificate_ocsp_endpoint=False
             )
         '''
         if __debug__:
@@ -21153,6 +21189,7 @@ class CfnTrustStoreProps:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument ca_certificates_bundle_source", value=ca_certificates_bundle_source, expected_type=type_hints["ca_certificates_bundle_source"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument use_client_certificate_ocsp_endpoint", value=use_client_certificate_ocsp_endpoint, expected_type=type_hints["use_client_certificate_ocsp_endpoint"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
         }
@@ -21160,6 +21197,8 @@ class CfnTrustStoreProps:
             self._values["ca_certificates_bundle_source"] = ca_certificates_bundle_source
         if tags is not None:
             self._values["tags"] = tags
+        if use_client_certificate_ocsp_endpoint is not None:
+            self._values["use_client_certificate_ocsp_endpoint"] = use_client_certificate_ocsp_endpoint
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -21190,6 +21229,16 @@ class CfnTrustStoreProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def use_client_certificate_ocsp_endpoint(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-truststore.html#cfn-cloudfront-truststore-useclientcertificateocspendpoint
+        '''
+        result = self._values.get("use_client_certificate_ocsp_endpoint")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -25349,6 +25398,104 @@ class LoggingConfiguration:
         return "LoggingConfiguration(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(IOriginAccessControl)
+class MediaPackageV2OriginAccessControl(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudfront.MediaPackageV2OriginAccessControl",
+):
+    '''An Origin Access Control for AWS Elemental MediaPackage V2 origins.
+
+    :see: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-mediapackage.html
+    :resource: AWS::CloudFront::OriginAccessControl
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudfront as cloudfront
+        
+        # signing: cloudfront.Signing
+        
+        media_package_v2_origin_access_control = cloudfront.MediaPackageV2OriginAccessControl(self, "MyMediaPackageV2OriginAccessControl",
+            description="description",
+            origin_access_control_name="originAccessControlName",
+            signing=signing
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        origin_access_control_name: typing.Optional[builtins.str] = None,
+        signing: typing.Optional["Signing"] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param description: A description of the origin access control. Default: - no description
+        :param origin_access_control_name: A name to identify the origin access control, with a maximum length of 64 characters. Default: - a generated name
+        :param signing: Specifies which requests CloudFront signs and the signing protocol. Default: SIGV4_ALWAYS
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__900fa8570fe48aef5adfd4db3e0fc0c3e280fa55fa96717b9e35dde89ef6f6d4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = MediaPackageV2OriginAccessControlProps(
+            description=description,
+            origin_access_control_name=origin_access_control_name,
+            signing=signing,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromOriginAccessControlId")
+    @builtins.classmethod
+    def from_origin_access_control_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        origin_access_control_id: builtins.str,
+    ) -> "IOriginAccessControl":
+        '''Imports a MediaPackage V2 origin access control from its id.
+
+        :param scope: -
+        :param id: -
+        :param origin_access_control_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d53a496c0ff3625ad2aa021fac7bca5e3c63f1a1052c99873abab23231937936)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument origin_access_control_id", value=origin_access_control_id, expected_type=type_hints["origin_access_control_id"])
+        return typing.cast("IOriginAccessControl", jsii.sinvoke(cls, "fromOriginAccessControlId", [scope, id, origin_access_control_id]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="originAccessControlId")
+    def origin_access_control_id(self) -> builtins.str:
+        '''The unique identifier of this Origin Access Control.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "originAccessControlId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="originAccessControlRef")
+    def origin_access_control_ref(self) -> "_OriginAccessControlReference_811487ee":
+        '''A reference to a OriginAccessControl resource.'''
+        return typing.cast("_OriginAccessControlReference_811487ee", jsii.get(self, "originAccessControlRef"))
 
 
 @jsii.data_type(
@@ -32839,6 +32986,99 @@ class FunctionUrlOriginAccessControlProps(OriginAccessControlBaseProps):
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudfront.MediaPackageV2OriginAccessControlProps",
+    jsii_struct_bases=[OriginAccessControlBaseProps],
+    name_mapping={
+        "description": "description",
+        "origin_access_control_name": "originAccessControlName",
+        "signing": "signing",
+    },
+)
+class MediaPackageV2OriginAccessControlProps(OriginAccessControlBaseProps):
+    def __init__(
+        self,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        origin_access_control_name: typing.Optional[builtins.str] = None,
+        signing: typing.Optional["Signing"] = None,
+    ) -> None:
+        '''Properties for creating a MediaPackage V2 Origin Access Control resource.
+
+        :param description: A description of the origin access control. Default: - no description
+        :param origin_access_control_name: A name to identify the origin access control, with a maximum length of 64 characters. Default: - a generated name
+        :param signing: Specifies which requests CloudFront signs and the signing protocol. Default: SIGV4_ALWAYS
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudfront as cloudfront
+            
+            # signing: cloudfront.Signing
+            
+            media_package_v2_origin_access_control_props = cloudfront.MediaPackageV2OriginAccessControlProps(
+                description="description",
+                origin_access_control_name="originAccessControlName",
+                signing=signing
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a85d23595d0b82e55890c5abd30a061938edff48e003cce807fcc4236ef7284)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument origin_access_control_name", value=origin_access_control_name, expected_type=type_hints["origin_access_control_name"])
+            check_type(argname="argument signing", value=signing, expected_type=type_hints["signing"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if description is not None:
+            self._values["description"] = description
+        if origin_access_control_name is not None:
+            self._values["origin_access_control_name"] = origin_access_control_name
+        if signing is not None:
+            self._values["signing"] = signing
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the origin access control.
+
+        :default: - no description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def origin_access_control_name(self) -> typing.Optional[builtins.str]:
+        '''A name to identify the origin access control, with a maximum length of 64 characters.
+
+        :default: - a generated name
+        '''
+        result = self._values.get("origin_access_control_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def signing(self) -> typing.Optional["Signing"]:
+        '''Specifies which requests CloudFront signs and the signing protocol.
+
+        :default: SIGV4_ALWAYS
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-originaccesscontrol-originaccesscontrolconfig.html#cfn-cloudfront-originaccesscontrol-originaccesscontrolconfig-signingbehavior
+        '''
+        result = self._values.get("signing")
+        return typing.cast(typing.Optional["Signing"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MediaPackageV2OriginAccessControlProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "AccessLevel",
     "AddBehaviorOptions",
@@ -32942,6 +33182,8 @@ __all__ = [
     "LambdaEdgeEventType",
     "LambdaFunctionAssociation",
     "LoggingConfiguration",
+    "MediaPackageV2OriginAccessControl",
+    "MediaPackageV2OriginAccessControlProps",
     "OriginAccessControlBaseProps",
     "OriginAccessControlOriginType",
     "OriginAccessIdentity",
@@ -35122,6 +35364,7 @@ def _typecheckingstub__824ae12ab63f13e1c8bb7e88dd932be69b78f01ef525902840d651274
     name: builtins.str,
     ca_certificates_bundle_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrustStore.CaCertificatesBundleSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    use_client_certificate_ocsp_endpoint: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -35168,6 +35411,12 @@ def _typecheckingstub__8891d288761cbb98e0953cae118faa2d9e32c0832073d4be7c5ae3579
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e33500adacee9b6a022871eb04815bb5a9abd1653a1b1e1b925ae27cb48e6fcc(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__355f2ec44e7b3162453457888355bdef7f6bdb7e962effccdbfec8d9d687a3e2(
     *,
     bucket: builtins.str,
@@ -35190,6 +35439,7 @@ def _typecheckingstub__c1104e79874eeaadad4125c86fbf512ecd074d8f45e15bdffef6439a5
     name: builtins.str,
     ca_certificates_bundle_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrustStore.CaCertificatesBundleSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    use_client_certificate_ocsp_endpoint: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -35572,6 +35822,25 @@ def _typecheckingstub__c1c495121d3f25343764da863019d723da4b7d05ac74ed07b91c30326
     bucket: typing.Optional[_IBucket_42e086fd] = None,
     include_cookies: typing.Optional[builtins.bool] = None,
     prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__900fa8570fe48aef5adfd4db3e0fc0c3e280fa55fa96717b9e35dde89ef6f6d4(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    origin_access_control_name: typing.Optional[builtins.str] = None,
+    signing: typing.Optional[Signing] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d53a496c0ff3625ad2aa021fac7bca5e3c63f1a1052c99873abab23231937936(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    origin_access_control_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -36378,6 +36647,15 @@ def _typecheckingstub__14d6d580a802855a4d6f3aadc8ef536814cfcbcce4bde782eaebd5a5e
     pass
 
 def _typecheckingstub__207551b5918cb2acd48d7da3c08e9254a8c19ba3c2219d13ee23918521aa2a36(
+    *,
+    description: typing.Optional[builtins.str] = None,
+    origin_access_control_name: typing.Optional[builtins.str] = None,
+    signing: typing.Optional[Signing] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a85d23595d0b82e55890c5abd30a061938edff48e003cce807fcc4236ef7284(
     *,
     description: typing.Optional[builtins.str] = None,
     origin_access_control_name: typing.Optional[builtins.str] = None,

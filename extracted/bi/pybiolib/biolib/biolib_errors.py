@@ -61,6 +61,5 @@ class FileMaxCountExceededError(BioLibError):
     def __init__(self, max_count: int):
         self.max_count = max_count
         super().__init__(
-            f'More than {max_count} files returned. '
-            f'Please set the keyword argument "max_count" to a higher number.'
+            f'More than {max_count} files returned. Please set the keyword argument "max_count" to a higher number.'
         )

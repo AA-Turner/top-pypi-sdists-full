@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar, Self
 
 if TYPE_CHECKING:
     from .._rendering import Window
@@ -10,14 +10,18 @@ if TYPE_CHECKING:
 
 # ======================================== ABSTRACT CLASS ========================================
 class Manager(ABC):
-    """Classe abstraite des managers"""
+    """Classe abstraite des managers
+
+    Args:
+        context_manager: ``Manager`` gérant le contexte d'initialisation
+    """
     __slots__ = ("_ctx", "_window")
 
-    _ID: str = "default"
-    _INSTANCE: Manager = None
+    _ID: ClassVar[str] = "default"
+    _INSTANCE: ClassVar[Manager] = None
 
     @classmethod
-    def get_instance(cls) -> Manager:
+    def get_instance(cls) -> Self:
         """Renvoie l'instance du gestionnaire"""
         if cls._INSTANCE is None:
             from pyverse2d import _context_manager

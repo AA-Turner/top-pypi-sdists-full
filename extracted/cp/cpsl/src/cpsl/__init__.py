@@ -59,6 +59,8 @@ from .integration import (
 from .msg import Attachment as Attachment
 from .msg import Event as Event
 from .msg import Message as Message
+from .pipedream import PipedreamProxyResponse as PipedreamProxyResponse
+from .pipedream import PipedreamProxySession as PipedreamProxySession
 from .secret import Secret as Secret
 from .session import (
     Block as Block,
@@ -76,6 +78,7 @@ from .session import (
     TerminalResult as TerminalResult,
     UserInfo as UserInfo,
     current_session as current_session,
+    pipedream as pipedream,
 )
 from .task_types import TaskDescriptor as TaskDescriptor
 from .task_types import TaskHandle as TaskHandle

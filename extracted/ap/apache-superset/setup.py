@@ -25,7 +25,7 @@ PACKAGE_JSON = os.path.join(BASE_DIR, "superset-frontend", "package.json")
 
 
 with open(PACKAGE_JSON) as package_file:
-    version_string = "6.0.0"
+    version_string = "6.1.0"
 
 
 def get_git_sha() -> str:
@@ -49,7 +49,7 @@ with open(VERSION_INFO_FILE, "w") as version_file:
     json.dump(version_info, version_file)
 
 # translating 'no version' from npm to pypi to prevent warning msg
-version_string = "6.0.0"
+version_string = "6.1.0"
 
 setup(
     name="apache_superset",

@@ -60,8 +60,10 @@ def select_features(
     method : str
         One of {"none", "SHAP", "stabl", "feature_engine", "mrmr", "RFECV", "lasso",
         "BorutaPy", "Leshy", "PowerShap", "BorutaShap", "Genetic", "RFE", "multi",
-        "gOMP"}.
+        "gOMP_high", "gOMP_medium", "gOMP_low"}.
         Use "none" to skip feature selection (handled in caller).
+        gOMP_high / medium / low cap the number of selected features at
+        500 / 50 / 15 respectively (max_features stopping, no early-stop).
     min_features_to_select : int
     threshold_nan : float
         Drop columns with > threshold_nan proportion of NaNs
@@ -98,7 +100,7 @@ def select_features(
         counter = Counter()
         selections = {}
 
-        models = ["BorutaPy", "mrmr", "gOMP"]
+        models = ["BorutaPy", "mrmr", "gOMP_high"]
         # run three selectors and count feature picks
         for sub_m in models:
             logger.info(f"[multi] Running {sub_m} ...")
@@ -267,26 +269,31 @@ def select_features(
         sfm = SelectFromModel(lr, prefit=True)
         selected = X_clean.columns[sfm.get_support()].tolist()
 
-    elif method == "gOMP":
+    elif method in ("gOMP_high", "gOMP_medium", "gOMP_low"):
         # Generalised Orthogonal Matching Pursuit (Tsagris et al. 2020).
-        # Permissive config: bypass BIC and just take the top-N residual-
-        # correlated features up to the cap.
+        # Three tiers, picked by max_features cap with no early-stop:
+        #   gOMP_low    -> up to 15 features
+        #   gOMP_medium -> up to 50 features
+        #   gOMP_high   -> up to 500 features (most permissive)
+        # gOMP returns the top-N residual-correlated features up to the cap.
+        gomp_caps = {"gOMP_low": 15, "gOMP_medium": 50, "gOMP_high": 500}
+        cap = gomp_caps[method]
         sel, X_out, selected = gomp_select(
             X_clean, y,
             outcome="continuous",
             stopping="max_features",
             association="auto",
-            max_features=min(500, X_clean.shape[1]),
+            max_features=min(cap, X_clean.shape[1]),
             verbose=True,
         )
         if len(selected) == 0:
-            # fallback: LRT with a generous alpha
+            # fallback: LRT with a generous alpha at the same cap
             sel, X_out, selected = gomp_select(
                 X_clean, y,
                 outcome="continuous",
                 stopping="lrt",
                 alpha=0.20,
-                max_features=min(500, X_clean.shape[1]),
+                max_features=min(cap, X_clean.shape[1]),
                 verbose=True,
             )
 

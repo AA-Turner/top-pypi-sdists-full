@@ -21,6 +21,11 @@ DEFAULT_APP_CONFIG = "config.yml"
 class CIEnvironment:
     """Base class for CI environment handlers"""
 
+    # Tag key used for the CI run-id auto-tag. Provider-specific so the tag
+    # itself names the CI system that produced the deploy. None = omit the
+    # tag (used by the local fallback when no CI is detected).
+    RUN_TAG_KEY = None
+
     @staticmethod
     def is_active():
         raise NotImplementedError
@@ -41,8 +46,25 @@ class CIEnvironment:
     def write_summary(markdown):
         pass
 
+    @staticmethod
+    def get_commits():
+        """Return {"source": <sha or None>, "merge": <sha or None>}.
+
+        `source` is the SHA of the actual code being built. `merge` is the
+        SHA of a CI-synthesized merge commit (PR/MR builds), only when
+        distinct from source. `None` for either when unavailable.
+        """
+        return {"source": None, "merge": None}
+
+    @staticmethod
+    def get_run_id():
+        """Return the CI run/build identifier as a string, or None."""
+        return None
+
 
 class GitHubEnvironment(CIEnvironment):
+    RUN_TAG_KEY = "obproject-deploy-gh-action-run"
+
     @staticmethod
     def is_active():
         return os.getenv("GITHUB_ACTIONS") == "true"
@@ -80,8 +102,26 @@ class GitHubEnvironment(CIEnvironment):
             with open(os.environ["GITHUB_STEP_SUMMARY"], "w") as f:
                 f.write(markdown)
 
+    @staticmethod
+    def get_commits():
+        sha = os.getenv("GITHUB_SHA") or None
+        is_pr = os.getenv("GITHUB_EVENT_NAME") == "pull_request"
+        # On `pull_request` events, GITHUB_SHA is the merge commit
+        # (refs/pull/N/merge). The recommended workflow checks out
+        # pull_request.head.sha, so git HEAD resolves to the source SHA.
+        if is_pr and sha:
+            source = _git_head_sha() or sha
+            merge = sha if sha != source else None
+            return {"source": source, "merge": merge}
+        return {"source": sha or _git_head_sha(), "merge": None}
+
+    @staticmethod
+    def get_run_id():
+        return os.getenv("GITHUB_RUN_ID") or None
+
 
 class AzureDevOpsEnvironment(CIEnvironment):
+    RUN_TAG_KEY = "obproject-deploy-azure-pipeline-run"
 
     @staticmethod
     def get_collection_uri():
@@ -152,9 +192,26 @@ class AzureDevOpsEnvironment(CIEnvironment):
             f.write(markdown)
         print(f"##vso[task.uploadsummary]{summary_file}")
 
+    @staticmethod
+    def get_commits():
+        # On PR builds, BUILD_SOURCEVERSION points at the merge commit
+        # (refs/pull/N/merge). SYSTEM_PULLREQUEST_SOURCECOMMITID is the
+        # SHA of the source branch HEAD.
+        source_pr = os.getenv("SYSTEM_PULLREQUEST_SOURCECOMMITID") or None
+        build_sha = os.getenv("BUILD_SOURCEVERSION") or None
+        if source_pr and build_sha and source_pr != build_sha:
+            return {"source": source_pr, "merge": build_sha}
+        return {"source": source_pr or build_sha, "merge": None}
+
+    @staticmethod
+    def get_run_id():
+        return os.getenv("BUILD_BUILDID") or None
+
 
 class CircleCIEnvironment(CIEnvironment):
     """CI environment handler for CircleCI."""
+
+    RUN_TAG_KEY = "obproject-deploy-circleci-run"
 
     @staticmethod
     def is_active():
@@ -216,9 +273,21 @@ class CircleCIEnvironment(CIEnvironment):
         print(f"Deployment summary written to {summary_file}")
         print("To view this summary, store it as a CircleCI artifact.")
 
+    @staticmethod
+    def get_commits():
+        # CircleCI doesn't synthesize merge commits — CIRCLE_SHA1 is the
+        # commit being built directly.
+        return {"source": os.getenv("CIRCLE_SHA1") or None, "merge": None}
+
+    @staticmethod
+    def get_run_id():
+        return os.getenv("CIRCLE_BUILD_NUM") or None
+
 
 class GitLabEnvironment(CIEnvironment):
     """CI environment handler for GitLab CI/CD."""
+
+    RUN_TAG_KEY = "obproject-deploy-gitlab-pipeline-run"
 
     @staticmethod
     def is_active():
@@ -279,6 +348,21 @@ class GitLabEnvironment(CIEnvironment):
         print(f"Deployment summary written to {summary_file}")
         print("To view this summary, store it as a GitLab CI artifact.")
 
+    @staticmethod
+    def get_commits():
+        # On merged-results pipelines, CI_COMMIT_SHA is the simulated merge
+        # and CI_MERGE_REQUEST_SOURCE_BRANCH_SHA is the source HEAD. On
+        # regular MR pipelines, the two are equal.
+        mr_source = os.getenv("CI_MERGE_REQUEST_SOURCE_BRANCH_SHA") or None
+        commit_sha = os.getenv("CI_COMMIT_SHA") or None
+        if mr_source and commit_sha and mr_source != commit_sha:
+            return {"source": mr_source, "merge": commit_sha}
+        return {"source": mr_source or commit_sha, "merge": None}
+
+    @staticmethod
+    def get_run_id():
+        return os.getenv("CI_PIPELINE_ID") or None
+
 
 CI_ENVIRONMENTS = {
     "github": GitHubEnvironment,
@@ -328,6 +412,56 @@ def get_ci_handler():
     if _CI_HANDLER is None:
         detect_ci_environment()
     return _CI_HANDLER
+
+
+def _git_head_sha():
+    """Return `git rev-parse HEAD` or None if it fails (e.g., not a git repo)."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip() or None
+    except Exception:
+        return None
+
+
+def compute_auto_tags():
+    """Return a list of `key:value` tag strings to attach to deployed flows.
+
+    Always emits `commit-hash:<source-sha>` when a SHA is resolvable.
+    Emits `merge-commit-hash:<sha>` only when CI produced a distinct merge
+    commit (e.g., GitHub PR, Azure DevOps PR, GitLab merged-results pipeline).
+    Emits `flow-deploy-run:<id>` only when running inside a detected CI env.
+    """
+    handler = get_ci_handler()
+    if handler:
+        commits = handler.get_commits()
+        run_id = handler.get_run_id()
+    else:
+        commits = {"source": _git_head_sha(), "merge": None}
+        run_id = None
+
+    source = commits.get("source") or _git_head_sha()
+    merge = commits.get("merge")
+    run_tag_key = handler.RUN_TAG_KEY if handler else None
+
+    tags = []
+    if source:
+        tags.append(f"commit-hash:{source}")
+    if merge:
+        tags.append(f"merge-commit-hash:{merge}")
+    if run_id and run_tag_key:
+        tags.append(f"{run_tag_key}:{run_id}")
+    return tags
+
+
+def _deploy_tags_enabled(project_conf):
+    """Read `[deploy.tags] auto` from obproject.toml. Default True."""
+    return project_conf.get("deploy", {}).get("tags", {}).get("auto", True)
 
 
 def get_ci_urls():
@@ -735,11 +869,23 @@ def deploy_flows(flows):
 
     env_resolver = get_env_resolver_from_config(project_conf)
     package_suffixes = get_package_suffixes_from_config(project_conf)
-    
+
     project_spec = os.path.abspath(PROJECT_SPEC)
 
     # Get flow-specific configs from [environments.<env>.flow_configs]
     all_flow_configs = get_flow_configs()
+
+    tag_args = []
+    if _deploy_tags_enabled(project_conf):
+        auto_tags = compute_auto_tags()
+        if auto_tags:
+            tag_args = [arg for tag in auto_tags for arg in ("--tag", tag)]
+            print(f"🏷️  Tagging deployments with: {', '.join(auto_tags)}")
+    else:
+        print(
+            "ℹ️  Deployment auto-tags disabled "
+            "(obproject.toml: [deploy.tags] auto=false)."
+        )
 
     if is_main_branch():
         project_branch = "--production"
@@ -773,6 +919,7 @@ def deploy_flows(flows):
         cmd += [
             "argo-workflows",
             "create",
+            *tag_args,
         ]
         print(f"⚙️ Deploying flow at {flow_dir}:")
 

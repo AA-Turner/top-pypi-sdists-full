@@ -1,4 +1,5 @@
 from abstra_internals.interface.sdk.tables.api import (
+    Row,
     TablesExecutionError,
     delete,
     delete_by_id,
@@ -14,6 +15,7 @@ from abstra_internals.interface.sdk.tables.api import (
     update_by_id,
 )
 from abstra_internals.interface.sdk.tables.comparators import (
+    Comparator,
     is_between,
     is_eq,
     is_gt,
@@ -32,10 +34,14 @@ from abstra_internals.interface.sdk.tables.comparators import (
 )
 
 __all__ = [
+    # Public types
+    "Row",
+    "Comparator",
+    "TablesExecutionError",
+    # CRUD
     "run",
     "run_sql",
     "query_df",
-    "TablesExecutionError",
     "select",
     "select_by_id",
     "select_df",
@@ -45,6 +51,7 @@ __all__ = [
     "delete",
     "update_by_id",
     "delete_by_id",
+    # Comparators
     "is_eq",
     "is_neq",
     "is_gt",

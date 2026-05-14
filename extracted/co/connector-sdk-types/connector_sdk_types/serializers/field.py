@@ -47,11 +47,11 @@ class Discriminator:
     one_of_expected_values: list[t.Any] | None = None
 
 
-def _extract_json_schema_extra(**kwargs) -> dict[str, t.Any]:
+def _extract_json_schema_extra(kwargs: dict[str, t.Any]) -> dict[str, t.Any]:
     json_schema_extra = (
         kwargs.pop("json_schema_extra") if "json_schema_extra" in kwargs else {}
     ) or {}
-    return dict.copy(json_schema_extra)
+    return dict(json_schema_extra)
 
 
 def SecretField(*args, **kwargs):
@@ -92,7 +92,7 @@ def AnnotatedField(
     :param unique: Whether this field should be used for fingerprinting/deduplication. Sets `x-unique`.
 
     """
-    json_schema_extra = _extract_json_schema_extra(**kwargs)
+    json_schema_extra = _extract_json_schema_extra(kwargs)
 
     if group:
         json_schema_extra["x-field_group"] = group
@@ -119,6 +119,7 @@ def AnnotatedField(
             "expected_value": discriminator.expected_value,
             "one_of_expected_values": discriminator.one_of_expected_values,
         }
+
     if unique:
         json_schema_extra["x-unique"] = True
     return pydantic.Field(*args, json_schema_extra=json_schema_extra, **kwargs)

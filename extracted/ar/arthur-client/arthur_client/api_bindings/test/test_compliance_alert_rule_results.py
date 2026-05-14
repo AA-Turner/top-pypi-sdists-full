@@ -46,7 +46,8 @@ class TestComplianceAlertRuleResults(unittest.TestCase):
                         name = '', 
                         alert = arthur_client.api_bindings.models.compliance_alert_summary.ComplianceAlertSummary(
                             description = '', 
-                            id = '', ), )
+                            id = '', ), 
+                        error_message = '', )
                     ]
             )
         else:

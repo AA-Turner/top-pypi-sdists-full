@@ -1,32 +1,45 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect
+from .._internal import over
 from ..abc import Asset
+
+from pyglet.font.base import Font as PygletFont
 
 import pyglet
 import os
 import sys
 import winreg
 import importlib.resources as resources
+from numbers import Real, Integral
+from dataclasses import dataclass
 
-from numbers import Real
-from pyglet.font.base import Font as PygletFont
-
-# ======================================== OBJET ========================================
+# ======================================== ASSET ========================================
 class Font(Asset):
-    """
-    Descripteur de police
+    """Descripteur de police immuable
 
     Args:
-        name(str): nom ou path de la police
-        size(int, optional): taille de la police
+        name: nom ou path de la police
+        size: taille de la police
     """
-    __slots__ = ("_name", "_size", "_glyph_cache", "_pyglet_font")
+    __slots__ = (
+        "_name", "_size",
+        "_glyph_cache", "_pyglet_font",
+    )
 
-    def __init__(self, name: str = None, size: int = 16):
-        # Paramètres
-        self._size: int = expect(size, int)
+    def __init__(self, name: str = None, size: Integral = 16):
+        # Transtypage et vérifications
+        name = str(name) if name is not None else None
+        size = int(size)
+
+        if __debug__:
+            over(size, 0, include=False)
+
+        # Attributs publiques
+        self._name: str = name
+        self._size: int = size
+
+        # Attributs internes
         self._glyph_cache: dict[str, Glyph] = {}
 
         # Chargement de la police
@@ -59,7 +72,7 @@ class Font(Asset):
         """Renvoie une représentation de la police"""
         return f"Font(name={self._name}, size={self._size})"
 
-    # ======================================== GETTERS ========================================
+    # ======================================== PROPERTIES ========================================
     @property
     def name(self) -> str:
         """Renvoie le nom de la police"""
@@ -87,7 +100,7 @@ class Font(Asset):
 
     @classmethod
     def get_fonts(cls) -> list[str]:
-        """Retourne la liste des polices disponibles sur le système"""
+        """Renvoie la liste des polices disponibles sur le système"""
         found = {}
         def _scan_dir(directory):
             if not os.path.isdir(directory):
@@ -134,33 +147,30 @@ class Font(Asset):
 
         return sorted(found.values())
 
-    # ======================================== PUBLIC METHODS ========================================
+    # ======================================== INTERFACE =======================================
     def text_width(self, text: str) -> int:
-        """
-        Renvoie la largeur théorique d'un texte
+        """Renvoie la largeur théorique d'un texte
 
         Args:
-            text(str): texte à vérifier
+            text: texte à vérifier
         """
         return sum(self._get_glyph(c).advance for c in text)
 
     def text_height(self, text: str) -> int:
-        """
-        Renvoie la hauteur théorique d'un texte
+        """Renvoie la hauteur théorique d'un texte
 
         Args:
-            text(str): texte à vérifier
+            text: texte à vérifier
         """
         return max(self._get_glyph(c).height for c in text)
 
     def clip_text(self, text: str, max_width: Real, suffix: str = "") -> str:
-        """
-        Retourne le texte tronqué pour rentrer dans max_width
+        """Retourne le texte tronqué pour rentrer dans max_width
 
         Args:
-            text(str): texte à tronquer
-            max_width(Real): largeur maximale du texte (en px)
-            suffix(str, optional): suffixe de tronquage
+            text: texte à tronquer
+            max_width: largeur maximale du texte
+            suffix: suffixe de tronquage
         """
         if not text: return ""
 
@@ -184,13 +194,17 @@ class Font(Asset):
 
     # ======================================== INTERNALS ========================================
     def _load_default_font(self) -> PygletFont:
-        """Charge la police par défaut (FreeSans)"""
+        """Charge la police par défaut *(FreeSans)*"""
         with resources.path("pyverse2d._assets", "freesansbold.ttf") as path:
             pyglet.font.add_file(str(path))
             return pyglet.font.load("FreeSans", self._size)
 
     def _get_glyph(self, char: str) -> Glyph:
-        """Renvoie un Glyph"""
+        """Renvoie un ``Glyph``
+        
+        Args:
+            char: charactère à transformer
+        """
         if char not in self._glyph_cache:
             pyglet_glyph = self._pyglet_font.get_glyphs(char)[0]
             self._glyph_cache[char] = Glyph(
@@ -202,10 +216,10 @@ class Font(Asset):
         return self._glyph_cache[char]
 
 # ======================================== GLYPH OBJECT ========================================
+@dataclass(slots=True, frozen=True)
 class Glyph:
     """Stocke les informations essentielles d'un glyphe"""
-    def __init__(self, advance, width, height, tex_coords=None):
-        self.advance = advance
-        self.width = width
-        self.height = height
-        self.tex_coords = tex_coords
+    advance: int
+    width: int
+    height: int
+    tex_coords: tuple[int, int]

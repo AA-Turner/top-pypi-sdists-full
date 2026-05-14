@@ -36,13 +36,13 @@ class LineEmitter(ParticleEmitter):
         rate: Real = 50.0,
         active: bool = False,
     ):
+        # Initialisation de l'émetteur
+        super().__init__(p1, particle=particle, max_particles=max_particles, rate=rate, active=active)
+        
         # Transtypage
         p1 = Point(p1)
         p2 = Point(p2)
         normal = bool(normal)
-
-        # Initialisation de l'émetteur
-        super().__init__(p1, particle=particle, max_particles=max_particles, rate=rate, active=active)
 
         # Attributs publiques
         self._p1: Point = p1

@@ -17496,6 +17496,7 @@ class CfnTopicRule(
                             )
                         ),
                         batch_config=iot.CfnTopicRule.BatchConfigProperty(
+                            batch_across_topics=False,
                             max_batch_open_ms=123,
                             max_batch_size=123,
                             max_batch_size_bytes=123
@@ -17735,6 +17736,7 @@ class CfnTopicRule(
                             )
                         ),
                         batch_config=iot.CfnTopicRule.BatchConfigProperty(
+                            batch_across_topics=False,
                             max_batch_open_ms=123,
                             max_batch_size=123,
                             max_batch_size_bytes=123
@@ -18267,6 +18269,7 @@ class CfnTopicRule(
                             )
                         ),
                         batch_config=iot.CfnTopicRule.BatchConfigProperty(
+                            batch_across_topics=False,
                             max_batch_open_ms=123,
                             max_batch_size=123,
                             max_batch_size_bytes=123
@@ -19066,6 +19069,7 @@ class CfnTopicRule(
         jsii_type="aws-cdk-lib.aws_iot.CfnTopicRule.BatchConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "batch_across_topics": "batchAcrossTopics",
             "max_batch_open_ms": "maxBatchOpenMs",
             "max_batch_size": "maxBatchSize",
             "max_batch_size_bytes": "maxBatchSizeBytes",
@@ -19075,11 +19079,13 @@ class CfnTopicRule(
         def __init__(
             self,
             *,
+            batch_across_topics: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             max_batch_open_ms: typing.Optional[jsii.Number] = None,
             max_batch_size: typing.Optional[jsii.Number] = None,
             max_batch_size_bytes: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''
+            :param batch_across_topics: 
             :param max_batch_open_ms: 
             :param max_batch_size: 
             :param max_batch_size_bytes: 
@@ -19094,6 +19100,7 @@ class CfnTopicRule(
                 from aws_cdk import aws_iot as iot
                 
                 batch_config_property = iot.CfnTopicRule.BatchConfigProperty(
+                    batch_across_topics=False,
                     max_batch_open_ms=123,
                     max_batch_size=123,
                     max_batch_size_bytes=123
@@ -19101,16 +19108,29 @@ class CfnTopicRule(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__3fbcd9d5cb432d9f1c758a930c904d2e5fe115c76d8bb51ff0e97bcda596b165)
+                check_type(argname="argument batch_across_topics", value=batch_across_topics, expected_type=type_hints["batch_across_topics"])
                 check_type(argname="argument max_batch_open_ms", value=max_batch_open_ms, expected_type=type_hints["max_batch_open_ms"])
                 check_type(argname="argument max_batch_size", value=max_batch_size, expected_type=type_hints["max_batch_size"])
                 check_type(argname="argument max_batch_size_bytes", value=max_batch_size_bytes, expected_type=type_hints["max_batch_size_bytes"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if batch_across_topics is not None:
+                self._values["batch_across_topics"] = batch_across_topics
             if max_batch_open_ms is not None:
                 self._values["max_batch_open_ms"] = max_batch_open_ms
             if max_batch_size is not None:
                 self._values["max_batch_size"] = max_batch_size
             if max_batch_size_bytes is not None:
                 self._values["max_batch_size_bytes"] = max_batch_size_bytes
+
+        @builtins.property
+        def batch_across_topics(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicrule-batchconfig.html#cfn-iot-topicrule-batchconfig-batchacrosstopics
+            '''
+            result = self._values.get("batch_across_topics")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def max_batch_open_ms(self) -> typing.Optional[jsii.Number]:
@@ -20138,6 +20158,7 @@ class CfnTopicRule(
                         )
                     ),
                     batch_config=iot.CfnTopicRule.BatchConfigProperty(
+                        batch_across_topics=False,
                         max_batch_open_ms=123,
                         max_batch_size=123,
                         max_batch_size_bytes=123
@@ -22698,6 +22719,7 @@ class CfnTopicRule(
                                 )
                             ),
                             batch_config=iot.CfnTopicRule.BatchConfigProperty(
+                                batch_across_topics=False,
                                 max_batch_open_ms=123,
                                 max_batch_size=123,
                                 max_batch_size_bytes=123
@@ -22937,6 +22959,7 @@ class CfnTopicRule(
                                 )
                             ),
                             batch_config=iot.CfnTopicRule.BatchConfigProperty(
+                                batch_across_topics=False,
                                 max_batch_open_ms=123,
                                 max_batch_size=123,
                                 max_batch_size_bytes=123
@@ -23842,6 +23865,7 @@ class CfnTopicRuleProps:
                                 )
                             ),
                             batch_config=iot.CfnTopicRule.BatchConfigProperty(
+                                batch_across_topics=False,
                                 max_batch_open_ms=123,
                                 max_batch_size=123,
                                 max_batch_size_bytes=123
@@ -24081,6 +24105,7 @@ class CfnTopicRuleProps:
                                 )
                             ),
                             batch_config=iot.CfnTopicRule.BatchConfigProperty(
+                                batch_across_topics=False,
                                 max_batch_open_ms=123,
                                 max_batch_size=123,
                                 max_batch_size_bytes=123
@@ -27585,6 +27610,7 @@ def _typecheckingstub__9cb29be426554b6004e27c4c3a95dfc3b22d16ecf1629b7e1907b1a71
 
 def _typecheckingstub__3fbcd9d5cb432d9f1c758a930c904d2e5fe115c76d8bb51ff0e97bcda596b165(
     *,
+    batch_across_topics: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     max_batch_open_ms: typing.Optional[jsii.Number] = None,
     max_batch_size: typing.Optional[jsii.Number] = None,
     max_batch_size_bytes: typing.Optional[jsii.Number] = None,

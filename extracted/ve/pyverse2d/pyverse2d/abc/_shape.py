@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Any, Self
-import math
 import numpy as np
 from numpy.typing import NDArray
 
@@ -12,12 +11,10 @@ from ..math.vertices import triangulate_ear_clipping, triangulate_triangle_fan
 # ======================================== ABSTRACT CLASS ========================================
 class Shape(ABC):
     """Classe abstraite de base pour toutes les formes géométriques"""
-    __slots__ = (
-        "_vertices", "_indexes",
-    )
+    __slots__ = ("_vertices", "_indexes")
 
     def __init__(self) -> None:
-        # Vertex
+        # Attributs internes
         self._vertices: NDArray[np.float32] | None = None
         self._indexes: NDArray[np.float32] | None = None
 

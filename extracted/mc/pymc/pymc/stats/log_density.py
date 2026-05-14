@@ -14,14 +14,14 @@
 from collections.abc import Sequence
 from typing import Any, Literal
 
-from arviz import InferenceData
-from xarray import Dataset
+from xarray import Dataset, DataTree
 
 from pymc.backends.arviz import (
     apply_function_over_dataset,
     coords_and_dims_for_inferencedata,
 )
 from pymc.model import Model, modelcontext
+from pymc.pytensorf import resolve_backend_compile_kwargs
 
 __all__ = ("compute_log_likelihood", "compute_log_prior")
 
@@ -29,13 +29,14 @@ from pymc.model.transform.conditioning import remove_value_transforms
 
 
 def compute_log_likelihood(
-    idata: InferenceData,
+    idata: DataTree,
     *,
     var_names: Sequence[str] | None = None,
     extend_inferencedata: bool = True,
     model: Model | None = None,
     sample_dims: Sequence[str] = ("chain", "draw"),
     progressbar=True,
+    backend: str | None = None,
     compile_kwargs: dict[str, Any] | None = None,
 ):
     """Compute elemwise log_likelihood of model given InferenceData with posterior group.
@@ -52,8 +53,11 @@ def compute_log_likelihood(
     model : Model, optional
     sample_dims : sequence of str, default ("chain", "draw")
     progressbar : bool, default True
+    backend : str, optional
+        Which computational backend to use. Recommended to be one of "numba", "c", and "jax".
     compile_kwargs : dict[str, Any] | None
-        Extra compilation arguments to supply to :py:func:`~pymc.stats.compute_log_density`
+        Extra compilation arguments to supply to :py:func:`~pymc.stats.compute_log_density`.
+        ``compile_kwargs["mode"]`` cannot be combined with ``backend``.
 
     Returns
     -------
@@ -68,18 +72,20 @@ def compute_log_likelihood(
         kind="likelihood",
         sample_dims=sample_dims,
         progressbar=progressbar,
+        backend=backend,
         compile_kwargs=compile_kwargs,
     )
 
 
 def compute_log_prior(
-    idata: InferenceData,
+    idata: DataTree,
     *,
     var_names: Sequence[str] | None = None,
     extend_inferencedata: bool = True,
     model: Model | None = None,
     sample_dims: Sequence[str] = ("chain", "draw"),
     progressbar=True,
+    backend: str | None = None,
     compile_kwargs=None,
 ):
     """Compute elemwise log_prior of model given InferenceData with posterior group.
@@ -96,8 +102,11 @@ def compute_log_prior(
     model : Model, optional
     sample_dims : sequence of str, default ("chain", "draw")
     progressbar : bool, default True
+    backend : str, optional
+        Which computational backend to use. Recommended to be one of "numba", "c", and "jax".
     compile_kwargs : dict[str, Any] | None
-        Extra compilation arguments to supply to :py:func:`~pymc.stats.compute_log_density`
+        Extra compilation arguments to supply to :py:func:`~pymc.stats.compute_log_density`.
+        ``compile_kwargs["mode"]`` cannot be combined with ``backend``.
 
     Returns
     -------
@@ -112,12 +121,13 @@ def compute_log_prior(
         kind="prior",
         sample_dims=sample_dims,
         progressbar=progressbar,
+        backend=backend,
         compile_kwargs=compile_kwargs,
     )
 
 
 def compute_log_density(
-    idata: InferenceData,
+    idata: DataTree,
     *,
     var_names: Sequence[str] | None = None,
     extend_inferencedata: bool = True,
@@ -125,8 +135,9 @@ def compute_log_density(
     kind: Literal["likelihood", "prior"] = "likelihood",
     sample_dims: Sequence[str] = ("chain", "draw"),
     progressbar=True,
+    backend: str | None = None,
     compile_kwargs=None,
-) -> InferenceData | Dataset:
+) -> DataTree | Dataset:
     """
     Compute elemwise log_likelihood or log_prior of model given InferenceData with posterior group.
 
@@ -146,8 +157,11 @@ def compute_log_density(
         parameter determines the group that gets added to the returned `~arviz.InferenceData` object.
     sample_dims : sequence of str, default ("chain", "draw")
     progressbar : bool, default True
+    backend : str, optional
+        Which computational backend to use. Recommended to be one of "numba", "c", and "jax".
     compile_kwargs : dict[str, Any] | None
-        Extra compilation arguments to supply to :py:func:`pymc.model.core.Model.compile_fn`
+        Extra compilation arguments to supply to :py:func:`pymc.model.core.Model.compile_fn`.
+        ``compile_kwargs["mode"]`` cannot be combined with ``backend``.
 
     Returns
     -------
@@ -158,8 +172,7 @@ def compute_log_density(
     posterior = idata["posterior"]
 
     model = modelcontext(model)
-    if compile_kwargs is None:
-        compile_kwargs = {}
+    compile_kwargs = resolve_backend_compile_kwargs(backend, compile_kwargs)
 
     if kind not in ("likelihood", "prior"):
         raise ValueError("kind must be either 'likelihood' or 'prior'")
@@ -191,9 +204,25 @@ def compute_log_density(
 
     coords, dims = coords_and_dims_for_inferencedata(umodel)
 
+    is_datatree = hasattr(posterior, "to_dataset")
+    input_dataset: Dataset = posterior.to_dataset() if is_datatree else posterior  # type: ignore[assignment]
+    free_rv_names = [rv.name for rv in model.free_RVs]
+    input_dataset = input_dataset[free_rv_names]  # type: ignore[assignment]
+    # Cast each variable to the dtype expected by the corresponding value var
+    # so that ``trust_input=True`` calls inside ``apply_function_over_dataset``
+    # do not trip the strict type checks of PyTensor v3. ``copy=False`` skips
+    # the copy when the dtype already matches.
+    input_dataset = input_dataset.astype(
+        {
+            umodel.rvs_to_values[rv].name: umodel.rvs_to_values[rv].type.dtype
+            for rv in umodel.free_RVs
+        },
+        copy=False,
+    )
+
     logdens_dataset = apply_function_over_dataset(
         elemwise_logdens_fn,
-        posterior[[rv.name for rv in umodel.free_RVs]],
+        input_dataset,
         output_var_names=var_names,
         sample_dims=sample_dims,
         dims=dims,
@@ -202,7 +231,7 @@ def compute_log_density(
     )
 
     if extend_inferencedata:
-        idata.add_groups({f"log_{kind}": logdens_dataset})
+        idata[f"log_{kind}"] = logdens_dataset
         return idata
     else:
         return logdens_dataset

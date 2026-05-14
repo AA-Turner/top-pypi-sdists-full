@@ -2,6 +2,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from abstra_internals.utils.file import (
     _is_sdk_module,
@@ -9,6 +10,7 @@ from abstra_internals.utils.file import (
     generate_conflictless_path,
     module2path,
     path2module,
+    safe_write_file,
 )
 
 
@@ -218,6 +220,77 @@ class ClearLocalModulesTest(unittest.TestCase):
             for key in list(sys.modules.keys()):
                 if key.startswith("abstra_internals.controllers.sdk"):
                     del sys.modules[key]
+
+
+class SafeWriteFileTest(unittest.TestCase):
+    """
+    Regression tests for the CRLF blank-line doubling bug.
+
+    On Windows, the Monaco editor model uses "\\r\\n" line endings by default.
+    Python's ``Path.write_text`` with the default ``newline=None`` translates
+    every "\\n" it sees into ``os.linesep`` ("\\r\\n"), so an editor save of
+    ``"foo\\r\\n"`` becomes ``"foo\\r\\r\\n"`` on disk. The next universal-
+    newline read interprets ``\\r\\r\\n`` as TWO line breaks, doubling every
+    blank line on every save/read cycle (1 -> 3 -> 7 -> ...).
+
+    ``safe_write_file`` must always disable newline translation.
+    """
+
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp()
+        self.fp = Path(self.temp_dir) / "regression.py"
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_does_not_use_write_text(self):
+        # White-box guard: on Linux CI the byte-level tests below are trivially
+        # green because os.linesep is "\\n", so we explicitly assert that the
+        # call site never uses write_text. write_text with the default
+        # newline=None translates "\\n" -> os.linesep on Windows and is the
+        # exact root cause of the doubling bug. write_bytes is the safe choice
+        # and works on every supported Python version (3.9+).
+        with (
+            mock.patch.object(Path, "write_text") as mt,
+            mock.patch.object(Path, "write_bytes", return_value=None) as mb,
+        ):
+            self.assertTrue(safe_write_file(self.fp, "anything"))
+            mt.assert_not_called()
+            mb.assert_called_once()
+
+    def test_lf_input_is_written_verbatim(self):
+        content = "a\nb\nc\n"
+        self.assertTrue(safe_write_file(self.fp, content))
+        self.assertEqual(self.fp.read_bytes(), content.encode("utf-8"))
+
+    def test_crlf_input_is_written_verbatim(self):
+        # The exact input shape produced by Monaco-on-Windows.
+        content = "a\r\nb\r\nc\r\n"
+        self.assertTrue(safe_write_file(self.fp, content))
+        on_disk = self.fp.read_bytes()
+        self.assertEqual(on_disk, content.encode("utf-8"))
+        self.assertNotIn(
+            b"\r\r\n",
+            on_disk,
+            "safe_write_file must never produce \\r\\r\\n on disk; that is the "
+            "byte sequence that gets read back as a doubled blank line.",
+        )
+
+    def test_crlf_save_read_round_trip_does_not_amplify_blank_lines(self):
+        # End-to-end property: simulate the editor save / backend read loop and
+        # confirm the number of newlines stays constant. Without the fix this
+        # grows exponentially on Windows.
+        content = "a\r\nb\r\nc\r\n"
+        for _ in range(5):
+            self.assertTrue(safe_write_file(self.fp, content))
+            # read_text uses universal newlines (matches the backend's
+            # read_file_with_pagination), normalizing whatever is on disk.
+            content = self.fp.read_text(encoding="utf-8")
+
+        self.assertEqual(content, "a\nb\nc\n")
+        self.assertNotIn("\n\n", content)
 
 
 class IsSdkModuleTest(unittest.TestCase):

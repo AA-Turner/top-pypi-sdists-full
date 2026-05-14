@@ -375,13 +375,19 @@ __all__ = (
     "GetPolicyEngineRequestWaitExtraTypeDef",
     "GetPolicyEngineRequestWaitTypeDef",
     "GetPolicyEngineResponseTypeDef",
+    "GetPolicyEngineSummaryRequestTypeDef",
+    "GetPolicyEngineSummaryResponseTypeDef",
     "GetPolicyGenerationRequestTypeDef",
     "GetPolicyGenerationRequestWaitTypeDef",
     "GetPolicyGenerationResponseTypeDef",
+    "GetPolicyGenerationSummaryRequestTypeDef",
+    "GetPolicyGenerationSummaryResponseTypeDef",
     "GetPolicyRequestTypeDef",
     "GetPolicyRequestWaitExtraTypeDef",
     "GetPolicyRequestWaitTypeDef",
     "GetPolicyResponseTypeDef",
+    "GetPolicySummaryRequestTypeDef",
+    "GetPolicySummaryResponseTypeDef",
     "GetRegistryRecordRequestTypeDef",
     "GetRegistryRecordResponseTypeDef",
     "GetRegistryRequestTypeDef",
@@ -523,15 +529,24 @@ __all__ = (
     "ListPoliciesRequestPaginateTypeDef",
     "ListPoliciesRequestTypeDef",
     "ListPoliciesResponseTypeDef",
+    "ListPolicyEngineSummariesRequestPaginateTypeDef",
+    "ListPolicyEngineSummariesRequestTypeDef",
+    "ListPolicyEngineSummariesResponseTypeDef",
     "ListPolicyEnginesRequestPaginateTypeDef",
     "ListPolicyEnginesRequestTypeDef",
     "ListPolicyEnginesResponseTypeDef",
     "ListPolicyGenerationAssetsRequestPaginateTypeDef",
     "ListPolicyGenerationAssetsRequestTypeDef",
     "ListPolicyGenerationAssetsResponseTypeDef",
+    "ListPolicyGenerationSummariesRequestPaginateTypeDef",
+    "ListPolicyGenerationSummariesRequestTypeDef",
+    "ListPolicyGenerationSummariesResponseTypeDef",
     "ListPolicyGenerationsRequestPaginateTypeDef",
     "ListPolicyGenerationsRequestTypeDef",
     "ListPolicyGenerationsResponseTypeDef",
+    "ListPolicySummariesRequestPaginateTypeDef",
+    "ListPolicySummariesRequestTypeDef",
+    "ListPolicySummariesResponseTypeDef",
     "ListRegistriesRequestPaginateTypeDef",
     "ListRegistriesRequestTypeDef",
     "ListRegistriesResponseTypeDef",
@@ -624,10 +639,13 @@ __all__ = (
     "PaymentProviderConfigurationInputTypeDef",
     "PaymentProviderConfigurationOutputTypeDef",
     "PolicyDefinitionTypeDef",
+    "PolicyEngineSummaryTypeDef",
     "PolicyEngineTypeDef",
     "PolicyGenerationAssetTypeDef",
     "PolicyGenerationDetailsTypeDef",
+    "PolicyGenerationSummaryTypeDef",
     "PolicyGenerationTypeDef",
+    "PolicySummaryTypeDef",
     "PolicyTypeDef",
     "PrivateEndpointOutputTypeDef",
     "PrivateEndpointOverrideOutputTypeDef",
@@ -959,11 +977,13 @@ class InferenceConfigurationTypeDef(TypedDict):
 class VpcConfigOutputTypeDef(TypedDict):
     securityGroups: list[str]
     subnets: list[str]
+    requireServiceS3Endpoint: NotRequired[bool]
 
 
 class VpcConfigTypeDef(TypedDict):
     securityGroups: Sequence[str]
     subnets: Sequence[str]
+    requireServiceS3Endpoint: NotRequired[bool]
 
 
 class BrowserProfileSummaryTypeDef(TypedDict):
@@ -1572,6 +1592,10 @@ class GetPolicyEngineRequestTypeDef(TypedDict):
     policyEngineId: str
 
 
+class GetPolicyEngineSummaryRequestTypeDef(TypedDict):
+    policyEngineId: str
+
+
 class GetPolicyGenerationRequestTypeDef(TypedDict):
     policyGenerationId: str
     policyEngineId: str
@@ -1581,7 +1605,17 @@ class ResourceTypeDef(TypedDict):
     arn: NotRequired[str]
 
 
+class GetPolicyGenerationSummaryRequestTypeDef(TypedDict):
+    policyGenerationId: str
+    policyEngineId: str
+
+
 class GetPolicyRequestTypeDef(TypedDict):
+    policyEngineId: str
+    policyId: str
+
+
+class GetPolicySummaryRequestTypeDef(TypedDict):
     policyEngineId: str
     policyId: str
 
@@ -1942,6 +1976,21 @@ class ListPoliciesRequestTypeDef(TypedDict):
     targetResourceScope: NotRequired[str]
 
 
+class ListPolicyEngineSummariesRequestTypeDef(TypedDict):
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
+class PolicyEngineSummaryTypeDef(TypedDict):
+    policyEngineId: str
+    name: str
+    createdAt: datetime
+    updatedAt: datetime
+    policyEngineArn: str
+    status: PolicyEngineStatusType
+    encryptionKeyArn: NotRequired[str]
+
+
 class ListPolicyEnginesRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
@@ -1955,12 +2004,18 @@ class PolicyEngineTypeDef(TypedDict):
     policyEngineArn: str
     status: PolicyEngineStatusType
     statusReasons: list[str]
-    description: NotRequired[str]
     encryptionKeyArn: NotRequired[str]
+    description: NotRequired[str]
 
 
 class ListPolicyGenerationAssetsRequestTypeDef(TypedDict):
     policyGenerationId: str
+    policyEngineId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
+class ListPolicyGenerationSummariesRequestTypeDef(TypedDict):
     policyEngineId: str
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
@@ -1972,10 +2027,28 @@ class ListPolicyGenerationsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
 
 
+class ListPolicySummariesRequestTypeDef(TypedDict):
+    policyEngineId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+    targetResourceScope: NotRequired[str]
+
+
+class PolicySummaryTypeDef(TypedDict):
+    policyId: str
+    name: str
+    policyEngineId: str
+    createdAt: datetime
+    updatedAt: datetime
+    policyArn: str
+    status: PolicyStatusType
+
+
 class ListRegistriesRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
     status: NotRequired[RegistryStatusType]
+    authorizerType: NotRequired[RegistryAuthorizerTypeType]
 
 
 class RegistrySummaryTypeDef(TypedDict):
@@ -2565,13 +2638,13 @@ class CreateEvaluatorResponseTypeDef(TypedDict):
 class CreatePolicyEngineResponseTypeDef(TypedDict):
     policyEngineId: str
     name: str
-    description: str
     createdAt: datetime
     updatedAt: datetime
     policyEngineArn: str
     status: PolicyEngineStatusType
-    statusReasons: list[str]
     encryptionKeyArn: str
+    description: str
+    statusReasons: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2691,13 +2764,13 @@ class DeletePaymentManagerResponseTypeDef(TypedDict):
 class DeletePolicyEngineResponseTypeDef(TypedDict):
     policyEngineId: str
     name: str
-    description: str
     createdAt: datetime
     updatedAt: datetime
     policyEngineArn: str
     status: PolicyEngineStatusType
-    statusReasons: list[str]
     encryptionKeyArn: str
+    description: str
+    statusReasons: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2751,13 +2824,35 @@ class GetBrowserProfileResponseTypeDef(TypedDict):
 class GetPolicyEngineResponseTypeDef(TypedDict):
     policyEngineId: str
     name: str
-    description: str
     createdAt: datetime
     updatedAt: datetime
     policyEngineArn: str
     status: PolicyEngineStatusType
-    statusReasons: list[str]
     encryptionKeyArn: str
+    description: str
+    statusReasons: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetPolicyEngineSummaryResponseTypeDef(TypedDict):
+    policyEngineId: str
+    name: str
+    createdAt: datetime
+    updatedAt: datetime
+    policyEngineArn: str
+    status: PolicyEngineStatusType
+    encryptionKeyArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetPolicySummaryResponseTypeDef(TypedDict):
+    policyId: str
+    name: str
+    policyEngineId: str
+    createdAt: datetime
+    updatedAt: datetime
+    policyArn: str
+    status: PolicyStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2891,13 +2986,13 @@ class UpdateOnlineEvaluationConfigResponseTypeDef(TypedDict):
 class UpdatePolicyEngineResponseTypeDef(TypedDict):
     policyEngineId: str
     name: str
-    description: str
     createdAt: datetime
     updatedAt: datetime
     policyEngineArn: str
     status: PolicyEngineStatusType
-    statusReasons: list[str]
     encryptionKeyArn: str
+    description: str
+    statusReasons: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3100,9 +3195,34 @@ class GetPolicyGenerationResponseTypeDef(TypedDict):
     createdAt: datetime
     updatedAt: datetime
     status: PolicyGenerationStatusType
+    findings: str
     statusReasons: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetPolicyGenerationSummaryResponseTypeDef(TypedDict):
+    policyEngineId: str
+    policyGenerationId: str
+    name: str
+    policyGenerationArn: str
+    resource: ResourceTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    status: PolicyGenerationStatusType
     findings: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PolicyGenerationSummaryTypeDef(TypedDict):
+    policyEngineId: str
+    policyGenerationId: str
+    name: str
+    policyGenerationArn: str
+    resource: ResourceTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    status: PolicyGenerationStatusType
+    findings: NotRequired[str]
 
 
 class PolicyGenerationTypeDef(TypedDict):
@@ -3135,8 +3255,8 @@ class StartPolicyGenerationResponseTypeDef(TypedDict):
     createdAt: datetime
     updatedAt: datetime
     status: PolicyGenerationStatusType
-    statusReasons: list[str]
     findings: str
+    statusReasons: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3312,6 +3432,10 @@ class ListPoliciesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListPolicyEngineSummariesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListPolicyEnginesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -3322,13 +3446,25 @@ class ListPolicyGenerationAssetsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListPolicyGenerationSummariesRequestPaginateTypeDef(TypedDict):
+    policyEngineId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListPolicyGenerationsRequestPaginateTypeDef(TypedDict):
     policyEngineId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListPolicySummariesRequestPaginateTypeDef(TypedDict):
+    policyEngineId: str
+    targetResourceScope: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListRegistriesRequestPaginateTypeDef(TypedDict):
     status: NotRequired[RegistryStatusType]
+    authorizerType: NotRequired[RegistryAuthorizerTypeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -3405,8 +3541,20 @@ class ListPaymentManagersResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListPolicyEngineSummariesResponseTypeDef(TypedDict):
+    policyEngines: list[PolicyEngineSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class ListPolicyEnginesResponseTypeDef(TypedDict):
     policyEngines: list[PolicyEngineTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListPolicySummariesResponseTypeDef(TypedDict):
+    policies: list[PolicySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -3877,6 +4025,12 @@ class RuleTypeDef(TypedDict):
     sessionConfig: NotRequired[SessionConfigTypeDef]
 
 
+class ListPolicyGenerationSummariesResponseTypeDef(TypedDict):
+    policyGenerations: list[PolicyGenerationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class ListPolicyGenerationsResponseTypeDef(TypedDict):
     policyGenerations: list[PolicyGenerationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -4025,12 +4179,12 @@ class CreatePolicyResponseTypeDef(TypedDict):
     policyId: str
     name: str
     policyEngineId: str
-    definition: PolicyDefinitionTypeDef
-    description: str
     createdAt: datetime
     updatedAt: datetime
     policyArn: str
     status: PolicyStatusType
+    definition: PolicyDefinitionTypeDef
+    description: str
     statusReasons: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -4039,12 +4193,12 @@ class DeletePolicyResponseTypeDef(TypedDict):
     policyId: str
     name: str
     policyEngineId: str
-    definition: PolicyDefinitionTypeDef
-    description: str
     createdAt: datetime
     updatedAt: datetime
     policyArn: str
     status: PolicyStatusType
+    definition: PolicyDefinitionTypeDef
+    description: str
     statusReasons: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -4053,12 +4207,12 @@ class GetPolicyResponseTypeDef(TypedDict):
     policyId: str
     name: str
     policyEngineId: str
-    definition: PolicyDefinitionTypeDef
-    description: str
     createdAt: datetime
     updatedAt: datetime
     policyArn: str
     status: PolicyStatusType
+    definition: PolicyDefinitionTypeDef
+    description: str
     statusReasons: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -4074,11 +4228,11 @@ class PolicyTypeDef(TypedDict):
     policyId: str
     name: str
     policyEngineId: str
-    definition: PolicyDefinitionTypeDef
     createdAt: datetime
     updatedAt: datetime
     policyArn: str
     status: PolicyStatusType
+    definition: PolicyDefinitionTypeDef
     statusReasons: list[str]
     description: NotRequired[str]
 
@@ -4095,12 +4249,12 @@ class UpdatePolicyResponseTypeDef(TypedDict):
     policyId: str
     name: str
     policyEngineId: str
-    definition: PolicyDefinitionTypeDef
-    description: str
     createdAt: datetime
     updatedAt: datetime
     policyArn: str
     status: PolicyStatusType
+    definition: PolicyDefinitionTypeDef
+    description: str
     statusReasons: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 

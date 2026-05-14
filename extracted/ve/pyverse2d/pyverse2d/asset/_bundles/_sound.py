@@ -1,7 +1,8 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ...abc._bundle import Bundle
+from ..._internal import positive, expect
+from ...abc import Bundle
 
 from .._sound import Sound
 
@@ -13,13 +14,32 @@ if TYPE_CHECKING:
 
 # ======================================== BUNDLE ========================================
 class SoundBundle(Bundle):
-    """Paquet d'effets sonores"""
+    """Paquet d'effets sonores
+    
+    Args:
+        paths: chemins vers les fichiers
+        volume: volume par défaut
+        cooldown: délai entre chaque lecture d'un son par défaut
+        group: ``SoundGroup`` des sons par défaut
+    """
     __slots__ = ("_volume", "_cooldown", "_group")
 
     def __init__(self, paths: dict[str, str], volume: Real = 1.0, cooldown: Real = 0.0, group: SoundGroup = None):
+        # Initialisation du paquet
         super().__init__(paths)
-        self._volume: Real = volume
-        self._cooldown: Real = cooldown
+
+        # Transtypage et vérifications
+        volume = float(volume)
+        cooldown = float(cooldown)
+        
+        if __debug__:
+            positive(volume)
+            positive(cooldown)
+            expect(group, (SoundGroup, None))
+
+        # Attributs publiques
+        self._volume: float = volume
+        self._cooldown: float = cooldown
         self._group: SoundGroup | None = group
 
     # ======================================== PROPERTIES ========================================
@@ -35,7 +55,8 @@ class SoundBundle(Bundle):
     @volume.setter
     def volume(self, value: Real) -> None:
         value = float(value)
-        assert value >= 0.0, f"volume ({value}) must be positive"
+        if __debug__:
+            positive(value)
         self._volume = value
 
     @property
@@ -50,7 +71,8 @@ class SoundBundle(Bundle):
     @cooldown.setter
     def cooldown(self, value: Real) -> None:
         value = float(value)
-        assert value >= 0.0, f"cooldown ({value}) must be positive"
+        if __debug__:
+            positive(value)
         self._cooldown = value
 
     @property
@@ -63,7 +85,8 @@ class SoundBundle(Bundle):
     
     @group.setter
     def group(self, value: SoundGroup | None) -> None:
-        assert value is None or isinstance(value, SoundGroup), f"group must be a SoundGroup or None, not {type(value).__name__}"
+        if __debug__:
+            expect(value, (SoundGroup, None))
         self._group = value
 
     # ======================================== INTERFACE ========================================

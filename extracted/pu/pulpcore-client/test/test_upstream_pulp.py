@@ -46,6 +46,12 @@ class TestUpstreamPulp(unittest.TestCase):
                 tls_validation = True,
                 username = '0',
                 password = '0',
+                download_concurrency = 1,
+                max_retries = 56,
+                total_timeout = 0.0,
+                connect_timeout = 0.0,
+                sock_connect_timeout = 0.0,
+                sock_read_timeout = 0.0,
                 q_select = '',
                 policy = 'all'
             )

@@ -6,6 +6,7 @@ from typing import (
     TYPE_CHECKING, Any, AsyncIterator, Iterator, Optional, Union
 )
 
+from outlines.exceptions import GenerationError, normalize_provider_errors
 from outlines.inputs import Chat
 from outlines.models.base import AsyncModel, Model, ModelTypeAdapter
 from outlines.models.openai import OpenAITypeAdapter
@@ -18,6 +19,8 @@ from outlines.types.dsl import (
 
 if TYPE_CHECKING:
     from openai import AsyncOpenAI, OpenAI
+
+PROVIDER = "sglang"
 
 __all__ = ["AsyncSGLang", "SGLang", "from_sglang"]
 
@@ -134,14 +137,16 @@ class SGLang(Model):
             **inference_kwargs,
         )
 
-        response = self.client.chat.completions.create(**client_args)
+        with normalize_provider_errors(PROVIDER):
+            response = self.client.chat.completions.create(**client_args)
 
         messages = [choice.message for choice in response.choices]
         for message in messages:
             if message.refusal is not None:  # pragma: no cover
-                raise ValueError(
+                raise GenerationError(
                     f"The SGLang server refused to answer the request: "
-                    f"{message.refusal}"
+                    f"{message.refusal}",
+                    provider=PROVIDER,
                 )
 
         if len(messages) == 1:
@@ -188,13 +193,13 @@ class SGLang(Model):
             model_input, output_type, **inference_kwargs,
         )
 
-        stream = self.client.chat.completions.create(
-            **client_args, stream=True,
-        )
-
-        for chunk in stream:  # pragma: no cover
-            if chunk.choices and chunk.choices[0].delta.content is not None:
-                yield chunk.choices[0].delta.content
+        with normalize_provider_errors(PROVIDER):
+            stream = self.client.chat.completions.create(
+                **client_args, stream=True,
+            )
+            for chunk in stream:  # pragma: no cover
+                if chunk.choices and chunk.choices[0].delta.content is not None:
+                    yield chunk.choices[0].delta.content
 
     def _build_client_args(
         self,
@@ -276,14 +281,16 @@ class AsyncSGLang(AsyncModel):
             model_input, output_type, **inference_kwargs,
         )
 
-        response = await self.client.chat.completions.create(**client_args)
+        with normalize_provider_errors(PROVIDER):
+            response = await self.client.chat.completions.create(**client_args)
 
         messages = [choice.message for choice in response.choices]
         for message in messages:
             if message.refusal is not None:  # pragma: no cover
-                raise ValueError(
-                    f"The sglang server refused to answer the request: "
-                    f"{message.refusal}"
+                raise GenerationError(
+                    f"The SGLang server refused to answer the request: "
+                    f"{message.refusal}",
+                    provider=PROVIDER,
                 )
 
         if len(messages) == 1:
@@ -330,14 +337,14 @@ class AsyncSGLang(AsyncModel):
             model_input, output_type, **inference_kwargs,
         )
 
-        stream = await self.client.chat.completions.create(
-            **client_args,
-            stream=True,
-        )
-
-        async for chunk in stream:  # pragma: no cover
-            if chunk.choices and chunk.choices[0].delta.content is not None:
-                yield chunk.choices[0].delta.content
+        with normalize_provider_errors(PROVIDER):
+            stream = await self.client.chat.completions.create(
+                **client_args,
+                stream=True,
+            )
+            async for chunk in stream:  # pragma: no cover
+                if chunk.choices and chunk.choices[0].delta.content is not None:
+                    yield chunk.choices[0].delta.content
 
     def _build_client_args(
         self,

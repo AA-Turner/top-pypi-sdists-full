@@ -1,13 +1,13 @@
 # TODO: Fix ignore of type
 # type: ignore
 from biolib import api, utils
-from biolib.typing_utils import Optional, List
+from biolib.typing_utils import List, Optional
 
 
 def search_apps(
-        search_query: Optional[str] = None,
-        team: Optional[str] = None,
-        count: int = 100,
+    search_query: Optional[str] = None,
+    team: Optional[str] = None,
+    count: int = 100,
 ) -> List[str]:
     query_exceeded_page_size = False
     params = {

@@ -1,6 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
+from ..._core import Positionable
 from ...abc import ParticleModifier
 from ...math import Point
 
@@ -8,13 +9,13 @@ import numpy as np
 from numbers import Real
 
 # ======================================== MODIFIER ========================================
-class Attractor(ParticleModifier):
+class Attractor(ParticleModifier, Positionable):
     """Modificateur d'attraction/répulsion: attire ou repousse les particules vers un point
 
     Args:
         position: position du point d'attraction
         strength: intensité de la force *(positif = attraction, négatif = répulsion)*
-        radius: rayon d'influence en unités monde, 0 = infini
+        radius: rayon d'influence en unités monde, *(0 = infini)*
         falloff: atténuation de la force avec la distance *(True = linéaire, False = constante)*
     """
     __slots__ = (
@@ -29,55 +30,20 @@ class Attractor(ParticleModifier):
         radius: Real = 0.0,
         falloff: bool = True,
     ):
+        # Initialisation de la position
+        Positionable.__init__(self, position)
+
         # Transtypage et vérifications
-        position = Point(position)
         strength = float(strength)
         radius = abs(float(radius))
         falloff = bool(falloff)
 
         # Attributs publiques
-        self._position = position
-        self._strength = strength
-        self._radius = radius
-        self._falloff = falloff
+        self._strength: float = strength
+        self._radius: float = radius
+        self._falloff: bool = falloff
 
     # ======================================== PROPERTIES ========================================
-    @property
-    def position(self) -> Point:
-        """Position
-
-        La position peut être un objet ``Point`` ou un tuple ``(x, y)``.
-        """
-        return self._position
-    
-    @position.setter
-    def position(self, value: Point) -> None:
-        self._position.x, self._position.y = value
-
-    @property
-    def x(self) -> float:
-        """Position horizontale
-        
-        La coordonnée doit être un ``Réel``.
-        """
-        return self._position.x
-    
-    @x.setter
-    def x(self, value: Real) -> None:
-        self._position.x = value
-    
-    @property
-    def y(self) -> float:
-        """Position verticale
-
-        La coordonnée doit être un ``Réel``.
-        """
-        return self._position.y
-    
-    @y.setter
-    def y(self, value: Real) -> None:
-        self._position.y = value
-
     @property
     def strength(self) -> float:
         """Intensité d'attraction

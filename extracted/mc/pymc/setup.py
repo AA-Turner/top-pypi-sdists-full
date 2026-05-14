@@ -30,7 +30,6 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
@@ -54,6 +53,10 @@ with open(REQUIREMENTS_FILE) as f:
 
 test_reqs = ["pytest", "pytest-cov"]
 
+extras_require = {
+    "nutpie": ["nutpie>=0.16.10,<1"],
+}
+
 if __name__ == "__main__":
     setup(
         name="pymc",
@@ -71,7 +74,8 @@ if __name__ == "__main__":
         # Also see MANIFEST.in
         # package_data={'docs': ['*']},
         classifiers=classifiers,
-        python_requires=">=3.11",
+        python_requires=">=3.12",
         install_requires=install_reqs,
+        extras_require=extras_require,
         tests_require=test_reqs,
     )

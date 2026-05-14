@@ -10,17 +10,18 @@ from collections import defaultdict
 
 try:
     import torch
-except ImportError:
-    print('please install torch first')
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
+    import torch.nn as nn
+    import torch.nn.functional as F
+    import torch.optim as optim
+    from torch.utils.data import DataLoader, TensorDataset
+except ImportError as e:
+    raise ImportError(
+        "PyTorch is required for GAAL models. Please install it with "
+        "`pip install pyod[torch]` or `pip install torch`."
+    ) from e
 
 from sklearn.utils import check_array
 from sklearn.utils.validation import check_is_fitted
-from torch.utils.data import DataLoader, TensorDataset
 
 from .base import BaseDetector
 

@@ -18,7 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from typing import Optional, Set
@@ -31,7 +31,8 @@ class RepositoryAddRemoveContent(BaseModel):
     add_content_units: Optional[List[Annotated[str, Field(min_length=1, strict=True)]]] = Field(default=None, description="A list of content units to add to a new repository version. This content is added after remove_content_units are removed.")
     remove_content_units: Optional[List[Annotated[str, Field(min_length=1, strict=True)]]] = Field(default=None, description="A list of content units to remove from the latest repository version. You may also specify '*' as an entry to remove all content. This content is removed before add_content_units are added.")
     base_version: Optional[StrictStr] = Field(default=None, description="A repository version whose content will be used as the initial set of content for the new repository version")
-    __properties: ClassVar[List[str]] = ["add_content_units", "remove_content_units", "base_version"]
+    overwrite: Optional[StrictBool] = Field(default=True, description="When set to true, existing content in the repository with the same unique key will be silently overwritten. When set to false, the task will fail if content would be overwritten. Defaults to true.")
+    __properties: ClassVar[List[str]] = ["add_content_units", "remove_content_units", "base_version", "overwrite"]
 
     model_config = ConfigDict(
         populate_by_name=True,

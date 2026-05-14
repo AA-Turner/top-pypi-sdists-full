@@ -82,9 +82,12 @@ __all__ = (
     "ListPaymentCredentialProvidersPaginatorName",
     "ListPaymentManagersPaginatorName",
     "ListPoliciesPaginatorName",
+    "ListPolicyEngineSummariesPaginatorName",
     "ListPolicyEnginesPaginatorName",
     "ListPolicyGenerationAssetsPaginatorName",
+    "ListPolicyGenerationSummariesPaginatorName",
     "ListPolicyGenerationsPaginatorName",
+    "ListPolicySummariesPaginatorName",
     "ListRegistriesPaginatorName",
     "ListRegistryRecordsPaginatorName",
     "ListWorkloadIdentitiesPaginatorName",
@@ -260,9 +263,12 @@ ListPaymentConnectorsPaginatorName = Literal["list_payment_connectors"]
 ListPaymentCredentialProvidersPaginatorName = Literal["list_payment_credential_providers"]
 ListPaymentManagersPaginatorName = Literal["list_payment_managers"]
 ListPoliciesPaginatorName = Literal["list_policies"]
+ListPolicyEngineSummariesPaginatorName = Literal["list_policy_engine_summaries"]
 ListPolicyEnginesPaginatorName = Literal["list_policy_engines"]
 ListPolicyGenerationAssetsPaginatorName = Literal["list_policy_generation_assets"]
+ListPolicyGenerationSummariesPaginatorName = Literal["list_policy_generation_summaries"]
 ListPolicyGenerationsPaginatorName = Literal["list_policy_generations"]
+ListPolicySummariesPaginatorName = Literal["list_policy_summaries"]
 ListRegistriesPaginatorName = Literal["list_registries"]
 ListRegistryRecordsPaginatorName = Literal["list_registry_records"]
 ListWorkloadIdentitiesPaginatorName = Literal["list_workload_identities"]
@@ -803,9 +809,12 @@ PaginatorName = Literal[
     "list_payment_credential_providers",
     "list_payment_managers",
     "list_policies",
+    "list_policy_engine_summaries",
     "list_policy_engines",
     "list_policy_generation_assets",
+    "list_policy_generation_summaries",
     "list_policy_generations",
+    "list_policy_summaries",
     "list_registries",
     "list_registry_records",
     "list_workload_identities",

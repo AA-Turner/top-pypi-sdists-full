@@ -13,8 +13,8 @@
 """Output formatters values only"""
 
 import argparse
-import collections.abc
-import typing as ty
+from collections.abc import Iterable, Sequence
+from typing import Any, TextIO
 
 from cliff import columns
 from cliff.formatters import base
@@ -26,9 +26,9 @@ class ValueFormatter(base.ListFormatter, base.SingleFormatter):
 
     def emit_list(
         self,
-        column_names: collections.abc.Sequence[str],
-        data: collections.abc.Iterable[collections.abc.Sequence[ty.Any]],
-        stdout: ty.TextIO,
+        column_names: Sequence[str],
+        data: Iterable[Sequence[Any]],
+        stdout: TextIO,
         parsed_args: argparse.Namespace,
     ) -> None:
         for row in data:
@@ -47,9 +47,9 @@ class ValueFormatter(base.ListFormatter, base.SingleFormatter):
 
     def emit_one(
         self,
-        column_names: collections.abc.Sequence[str],
-        data: collections.abc.Sequence[ty.Any],
-        stdout: ty.TextIO,
+        column_names: Sequence[str],
+        data: Sequence[Any],
+        stdout: TextIO,
         parsed_args: argparse.Namespace,
     ) -> None:
         for value in data:

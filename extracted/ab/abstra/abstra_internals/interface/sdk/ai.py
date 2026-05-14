@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Optional, TypeVar, Union
+from typing import Any, Dict, List, Optional, TypeVar, Union
 
 from abstra_internals.contracts_generated import (
     CloudApiCliModelsBankStatementResponse,
@@ -48,7 +48,7 @@ def prompt(
     instructions: Union[str, List[str]] = [],
     format: Optional["Format"] = None,
     temperature: float = 1.0,
-):
+) -> Any:
     """
     Send a prompt to the AI and get a response.
 

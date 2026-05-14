@@ -12,11 +12,15 @@ Usage::
 
     from mypy_boto3_rtbfabric.client import RTBFabricClient
     from mypy_boto3_rtbfabric.waiter import (
+        CertificateAssociatedWaiter,
+        CertificateDisassociatedWaiter,
         InboundExternalLinkActiveWaiter,
         InboundExternalLinkDeletedWaiter,
         LinkAcceptedWaiter,
         LinkActiveWaiter,
         LinkDeletedWaiter,
+        LinkRoutingRuleActiveWaiter,
+        LinkRoutingRuleDeletedWaiter,
         OutboundExternalLinkActiveWaiter,
         OutboundExternalLinkDeletedWaiter,
         RequesterGatewayActiveWaiter,
@@ -28,11 +32,15 @@ Usage::
     session = Session()
     client: RTBFabricClient = session.client("rtbfabric")
 
+    certificate_associated_waiter: CertificateAssociatedWaiter = client.get_waiter("certificate_associated")
+    certificate_disassociated_waiter: CertificateDisassociatedWaiter = client.get_waiter("certificate_disassociated")
     inbound_external_link_active_waiter: InboundExternalLinkActiveWaiter = client.get_waiter("inbound_external_link_active")
     inbound_external_link_deleted_waiter: InboundExternalLinkDeletedWaiter = client.get_waiter("inbound_external_link_deleted")
     link_accepted_waiter: LinkAcceptedWaiter = client.get_waiter("link_accepted")
     link_active_waiter: LinkActiveWaiter = client.get_waiter("link_active")
     link_deleted_waiter: LinkDeletedWaiter = client.get_waiter("link_deleted")
+    link_routing_rule_active_waiter: LinkRoutingRuleActiveWaiter = client.get_waiter("link_routing_rule_active")
+    link_routing_rule_deleted_waiter: LinkRoutingRuleDeletedWaiter = client.get_waiter("link_routing_rule_deleted")
     outbound_external_link_active_waiter: OutboundExternalLinkActiveWaiter = client.get_waiter("outbound_external_link_active")
     outbound_external_link_deleted_waiter: OutboundExternalLinkDeletedWaiter = client.get_waiter("outbound_external_link_deleted")
     requester_gateway_active_waiter: RequesterGatewayActiveWaiter = client.get_waiter("requester_gateway_active")
@@ -49,11 +57,15 @@ import sys
 from botocore.waiter import Waiter
 
 from .type_defs import (
+    GetCertificateAssociationRequestWaitExtraTypeDef,
+    GetCertificateAssociationRequestWaitTypeDef,
     GetInboundExternalLinkRequestWaitExtraTypeDef,
     GetInboundExternalLinkRequestWaitTypeDef,
     GetLinkRequestWaitExtraExtraTypeDef,
     GetLinkRequestWaitExtraTypeDef,
     GetLinkRequestWaitTypeDef,
+    GetLinkRoutingRuleRequestWaitExtraTypeDef,
+    GetLinkRoutingRuleRequestWaitTypeDef,
     GetOutboundExternalLinkRequestWaitExtraTypeDef,
     GetOutboundExternalLinkRequestWaitTypeDef,
     GetRequesterGatewayRequestWaitExtraTypeDef,
@@ -69,11 +81,15 @@ else:
 
 
 __all__ = (
+    "CertificateAssociatedWaiter",
+    "CertificateDisassociatedWaiter",
     "InboundExternalLinkActiveWaiter",
     "InboundExternalLinkDeletedWaiter",
     "LinkAcceptedWaiter",
     "LinkActiveWaiter",
     "LinkDeletedWaiter",
+    "LinkRoutingRuleActiveWaiter",
+    "LinkRoutingRuleDeletedWaiter",
     "OutboundExternalLinkActiveWaiter",
     "OutboundExternalLinkDeletedWaiter",
     "RequesterGatewayActiveWaiter",
@@ -81,6 +97,36 @@ __all__ = (
     "ResponderGatewayActiveWaiter",
     "ResponderGatewayDeletedWaiter",
 )
+
+
+class CertificateAssociatedWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/waiter/CertificateAssociated.html#RTBFabric.Waiter.CertificateAssociated)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/waiters/#certificateassociatedwaiter)
+    """
+
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[GetCertificateAssociationRequestWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/waiter/CertificateAssociated.html#RTBFabric.Waiter.CertificateAssociated.wait)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/waiters/#certificateassociatedwaiter)
+        """
+
+
+class CertificateDisassociatedWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/waiter/CertificateDisassociated.html#RTBFabric.Waiter.CertificateDisassociated)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/waiters/#certificatedisassociatedwaiter)
+    """
+
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[GetCertificateAssociationRequestWaitExtraTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/waiter/CertificateDisassociated.html#RTBFabric.Waiter.CertificateDisassociated.wait)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/waiters/#certificatedisassociatedwaiter)
+        """
 
 
 class InboundExternalLinkActiveWaiter(Waiter):
@@ -155,6 +201,36 @@ class LinkDeletedWaiter(Waiter):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/waiter/LinkDeleted.html#RTBFabric.Waiter.LinkDeleted.wait)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/waiters/#linkdeletedwaiter)
+        """
+
+
+class LinkRoutingRuleActiveWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/waiter/LinkRoutingRuleActive.html#RTBFabric.Waiter.LinkRoutingRuleActive)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/waiters/#linkroutingruleactivewaiter)
+    """
+
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[GetLinkRoutingRuleRequestWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/waiter/LinkRoutingRuleActive.html#RTBFabric.Waiter.LinkRoutingRuleActive.wait)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/waiters/#linkroutingruleactivewaiter)
+        """
+
+
+class LinkRoutingRuleDeletedWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/waiter/LinkRoutingRuleDeleted.html#RTBFabric.Waiter.LinkRoutingRuleDeleted)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/waiters/#linkroutingruledeletedwaiter)
+    """
+
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[GetLinkRoutingRuleRequestWaitExtraTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/waiter/LinkRoutingRuleDeleted.html#RTBFabric.Waiter.LinkRoutingRuleDeleted.wait)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/waiters/#linkroutingruledeletedwaiter)
         """
 
 

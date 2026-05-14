@@ -99,6 +99,22 @@ def api_post(
     return {}
 
 
+def _get_migrate_to_forward_error_message(result: dict[str, Any]) -> str:
+    error = result.get("error")
+    if error:
+        return str(error)
+
+    deployment = result.get("deployment") or {}
+    deployment_errors = deployment.get("errors") or []
+    error_messages = [
+        str(item.get("error")) for item in deployment_errors if isinstance(item, dict) and item.get("error")
+    ]
+    if error_messages:
+        return "; ".join(error_messages)
+
+    return "Migration to Tinybird Forward failed"
+
+
 def _is_first_deployment_with_seed_live(host: Optional[str], headers: dict) -> bool:
     """Best-effort check for first real deployment when seed deployment (id=0) is still live."""
     try:
@@ -134,8 +150,49 @@ def _get_deployment_job(client: TinyB, deployment_id: Optional[Union[str, int]])
         return None
 
 
+def migrate_to_forward_workspace(client: TinyB, output: str = "human", dry_run: bool = False) -> None:
+    headers = {"Authorization": f"Bearer {client.token}"}
+    params = {"dry_run": dry_run}
+    result = api_post(f"{client.host}/v1/migrate-to-forward", headers=headers, params=params)
+
+    if result.get("result") != "success":
+        error_message = _get_migrate_to_forward_error_message(result)
+        if output == "json":
+            echo_json(result)
+        else:
+            click.echo(FeedbackManager.error(message=error_message))
+        sys_exit("deployment_error", error_message)
+
+    if dry_run:
+        return
+
+    if output == "json":
+        echo_json(result)
+        return
+
+    click.echo(FeedbackManager.success(message="✓ Workspace migrated to Tinybird Forward"))
+
+
+def _should_show_migrate_to_forward_hint(client: TinyB, env: Optional[str]) -> bool:
+    if env != "cloud":
+        return False
+
+    try:
+        client.workspace_info(version="v1")
+        return False
+    except Exception:
+        pass
+
+    try:
+        workspace_info = client.workspace_info(version="v0")
+    except Exception:
+        logging.exception("Error reading workspace info while deciding migrate-to-forward hint")
+        return False
+
+    return not workspace_info.get("is_forward", False) and not workspace_info.get("is_branch", False)
+
+
 # TODO(eclbg): This logic should be in the server, and there should be a dedicated endpoint for promoting a deployment
-# potato
 def promote_deployment(
     host: Optional[str],
     headers: dict,
@@ -285,9 +342,12 @@ def create_deployment(
     check: Optional[bool] = None,
     allow_destructive_operations: Optional[bool] = None,
     ingest_hint: Optional[bool] = True,
+    show_migrate_to_forward_hint: bool = True,
     output: Optional[str] = "human",
     env: Optional[str] = "cloud",
-) -> None:
+    return_check_result: bool = False,
+    validate_forward_workspace: bool = True,
+) -> Optional[Dict[str, Any]]:
     # TODO: This code is duplicated in build_server.py
     # Should be refactored to be shared
     MULTIPART_BOUNDARY_DATA_PROJECT = "data_project://"
@@ -342,6 +402,8 @@ def create_deployment(
             params["auto_promote"] = "true"
         if allow_destructive_operations:
             params["allow_destructive_operations"] = "true"
+        if not validate_forward_workspace:
+            params["validate_forward_workspace"] = "false"
 
         deployment_request_sent = True
         result = api_post(
@@ -388,10 +450,27 @@ def create_deployment(
 
         status = result.get("result")
         if check:
-            if status == "success":
-                click.echo(FeedbackManager.success(message="\n✓ Deployment is valid"))
-                sys.exit(0)
-            elif status == "no_changes":
+            if status in {"success", "no_changes"}:
+                if status == "success":
+                    click.echo(FeedbackManager.success(message="\n✓ Deployment is valid"))
+
+                if (
+                    output == "human"
+                    and show_migrate_to_forward_hint
+                    and _should_show_migrate_to_forward_hint(client, env)
+                ):
+                    click.echo(
+                        FeedbackManager.info(
+                            message=(
+                                "You can now migrate this Tinybird Classic workspace to Forward "
+                                "with `tb migrate-to-forward`."
+                            )
+                        )
+                    )
+
+                if return_check_result:
+                    return {"status": status, "deployment": deployment}
+
                 sys.exit(0)
 
             click.echo(FeedbackManager.error(message="\n✗ Deployment is not valid"))
@@ -439,7 +518,10 @@ def create_deployment(
     except Exception as e:
         click.echo(FeedbackManager.error_exception(error=e))
 
-        if not deployment and not check:
+        if check:
+            sys_exit("deployment_error", "Deployment check failed")
+
+        if not deployment:
             sys_exit("deployment_error", "Deployment failed")
     except KeyboardInterrupt:
         if deployment_request_sent and not check:
@@ -468,7 +550,7 @@ def create_deployment(
             if not deployment:
                 click.echo(FeedbackManager.error(message="Error parsing deployment from response"))
                 sys_exit("deployment_error", "Error parsing deployment from response")
-                return
+                return None
 
             status = deployment.get("status")
             errors = deployment.get("errors")
@@ -562,6 +644,8 @@ def create_deployment(
     # Output JSON at the appropriate time based on the execution path
     if output == "json" and deployment:
         echo_json(deployment, 8)
+
+    return None
 
 
 def _build_data_movement_message(kind: str, source_mv_name: Optional[str]) -> str:

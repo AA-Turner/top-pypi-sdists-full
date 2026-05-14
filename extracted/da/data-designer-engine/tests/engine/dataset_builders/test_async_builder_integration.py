@@ -24,7 +24,7 @@ from data_designer.engine.column_generators.generators.base import (
 )
 from data_designer.engine.dataset_builders.async_scheduler import AsyncTaskScheduler
 from data_designer.engine.dataset_builders.dataset_builder import DatasetBuilder
-from data_designer.engine.dataset_builders.utils.completion_tracker import CompletionTracker
+from data_designer.engine.dataset_builders.utils.completion_tracker import CompletionTracker, FrontierDelta
 from data_designer.engine.dataset_builders.utils.execution_graph import ExecutionGraph
 from data_designer.engine.dataset_builders.utils.row_group_buffer import RowGroupBufferManager
 from data_designer.engine.resources.resource_provider import ResourceProvider
@@ -101,6 +101,14 @@ def test_resolve_async_compatibility(configs: list[Mock], expected: bool) -> Non
         assert len(w) == 1
         assert issubclass(w[0].category, DeprecationWarning)
         assert "allow_resize" in str(w[0].message)
+        # Regression for PR #594 review: the warning must attribute to the
+        # caller's frame (this test file), not to a ``data_designer.*`` library
+        # frame. Library-attributed ``DeprecationWarning`` entries fall under
+        # Python's default ``ignore::DeprecationWarning`` filter and are
+        # silenced. A regression to ``warnings.warn(..., stacklevel=N)`` would
+        # land somewhere inside the engine package and silently break the
+        # user-facing nudge.
+        assert w[0].filename == __file__
     else:
         assert len(w) == 0
 
@@ -296,11 +304,16 @@ async def test_dropped_rows_reduce_actual_record_count() -> None:
 
     buffer_manager = RowGroupBufferManager(storage)
 
-    def drop_all_in_rg1(rg_id: int, rg_size: int) -> None:
+    def drop_all_in_rg1(rg_id: int, rg_size: int) -> FrontierDelta:
+        deltas: list[FrontierDelta] = []
         if rg_id == 1:
             for ri in range(rg_size):
-                tracker.drop_row(rg_id, ri)
+                deltas.append(tracker.drop_row(rg_id, ri))
                 buffer_manager.drop_row(rg_id, ri)
+        return FrontierDelta(
+            added=tuple(task for delta in deltas for task in delta.added),
+            removed=tuple(task for delta in deltas for task in delta.removed),
+        )
 
     scheduler = AsyncTaskScheduler(
         generators=gen_map,

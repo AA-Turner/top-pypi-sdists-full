@@ -1351,11 +1351,11 @@ class TestDuckDB(Validator):
         self.validate_identity("a ^@ b", "STARTS_WITH(a, b)")
         self.validate_identity(
             "a !~~ b",
-            "NOT a LIKE b",
+            "a NOT LIKE b",
         )
         self.validate_identity(
             "a !~~* b",
-            "NOT a ILIKE b",
+            "a NOT ILIKE b",
         )
 
         self.validate_all(
@@ -2368,6 +2368,14 @@ class TestDuckDB(Validator):
         self.validate_identity(
             "WITH t1 AS (FROM (FROM t2 SELECT foo1, foo2)) FROM t1",
             "WITH t1 AS (SELECT * FROM (SELECT foo1, foo2 FROM t2)) SELECT * FROM t1",
+        )
+        self.validate_identity(
+            "FROM (FROM t1 LEFT JOIN t2 USING (id) SELECT *)",
+            "SELECT * FROM (SELECT * FROM t1 LEFT JOIN t2 USING (id))",
+        )
+        self.validate_identity(
+            "PIVOT (FROM tbl_1 LEFT JOIN tbl_2 USING (id) SELECT *) ON col_1 USING SUM(col_2)",
+            "PIVOT (SELECT * FROM tbl_1 LEFT JOIN tbl_2 USING (id)) ON col_1 USING SUM(col_2)",
         )
 
     def test_analyze(self):

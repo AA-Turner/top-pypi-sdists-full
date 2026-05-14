@@ -2562,6 +2562,8 @@ class CfnResolverEndpoint(
             security_group_ids=["securityGroupIds"],
         
             # the properties below are optional
+            dns64_enabled=False,
+            ipv6_internet_access_enabled=False,
             name="name",
             outpost_arn="outpostArn",
             preferred_instance_type="preferredInstanceType",
@@ -2584,6 +2586,8 @@ class CfnResolverEndpoint(
         direction: builtins.str,
         ip_addresses: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResolverEndpoint.IpAddressRequestProperty", typing.Dict[builtins.str, typing.Any]]]]],
         security_group_ids: typing.Sequence[builtins.str],
+        dns64_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ipv6_internet_access_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         name: typing.Optional[builtins.str] = None,
         outpost_arn: typing.Optional[builtins.str] = None,
         preferred_instance_type: typing.Optional[builtins.str] = None,
@@ -2600,6 +2604,8 @@ class CfnResolverEndpoint(
         :param direction: Indicates whether the Resolver endpoint allows inbound or outbound DNS queries:. - ``INBOUND`` : allows DNS queries to your VPC from your network - ``OUTBOUND`` : allows DNS queries from your VPC to your network - ``INBOUND_DELEGATION`` : Resolver delegates queries to Route 53 private hosted zones from your network.
         :param ip_addresses: The subnets and IP addresses in your VPC that DNS queries originate from (for outbound endpoints) or that you forward DNS queries to (for inbound endpoints). The subnet ID uniquely identifies a VPC. .. epigraph:: Even though the minimum is 1, Route 53 requires that you create at least two.
         :param security_group_ids: The ID of one or more security groups that control access to this VPC. The security group must include one or more inbound rules (for inbound endpoints) or outbound rules (for outbound endpoints). Inbound and outbound rules must allow TCP and UDP access. For inbound access, open port 53. For outbound access, open the port that you're using for DNS queries on your network.
+        :param dns64_enabled: Specifies whether DNS64 is enabled for the Inbound Resolver Endpoint. When set to true, if a DNS AAAA query is made for a domain that has only an A (IPv4) record, the resolver automatically synthesizes an AAAA (IPv6) response by embedding the IPv4 address into the well-known prefix 64:ff9b::/96. Default is false.
+        :param ipv6_internet_access_enabled: Specifies whether IPv6 Internet Gateway access is enabled through the Outbound Resolver Endpoint. When set to true, this property allows your Endpoint ENIs to reach public IPv6 target nameservers through an internet gateway. Default is false.
         :param name: A friendly name that lets you easily find a configuration in the Resolver dashboard in the Route 53 console.
         :param outpost_arn: The ARN (Amazon Resource Name) for the Outpost.
         :param preferred_instance_type: The Amazon EC2 instance type.
@@ -2617,6 +2623,8 @@ class CfnResolverEndpoint(
             direction=direction,
             ip_addresses=ip_addresses,
             security_group_ids=security_group_ids,
+            dns64_enabled=dns64_enabled,
+            ipv6_internet_access_enabled=ipv6_internet_access_enabled,
             name=name,
             outpost_arn=outpost_arn,
             preferred_instance_type=preferred_instance_type,
@@ -2828,6 +2836,42 @@ class CfnResolverEndpoint(
             type_hints = typing.get_type_hints(_typecheckingstub__cd40fe8701b13449c18839f0320f4f7723ee68f4abc97b40851e451655db5a80)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroupIds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dns64Enabled")
+    def dns64_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Specifies whether DNS64 is enabled for the Inbound Resolver Endpoint.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "dns64Enabled"))
+
+    @dns64_enabled.setter
+    def dns64_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b375eedb05e6c2e64bbeb40868e3e8a495cd25e721ded0a465475c73f113fa17)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dns64Enabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ipv6InternetAccessEnabled")
+    def ipv6_internet_access_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Specifies whether IPv6 Internet Gateway access is enabled through the Outbound Resolver Endpoint.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "ipv6InternetAccessEnabled"))
+
+    @ipv6_internet_access_enabled.setter
+    def ipv6_internet_access_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c48a05e762537bc0ae93ec43f882747a2a57ac7b51d2afc540b50c31bf4b72ff)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ipv6InternetAccessEnabled", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3042,6 +3086,8 @@ class CfnResolverEndpoint(
         "direction": "direction",
         "ip_addresses": "ipAddresses",
         "security_group_ids": "securityGroupIds",
+        "dns64_enabled": "dns64Enabled",
+        "ipv6_internet_access_enabled": "ipv6InternetAccessEnabled",
         "name": "name",
         "outpost_arn": "outpostArn",
         "preferred_instance_type": "preferredInstanceType",
@@ -3059,6 +3105,8 @@ class CfnResolverEndpointProps:
         direction: builtins.str,
         ip_addresses: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResolverEndpoint.IpAddressRequestProperty", typing.Dict[builtins.str, typing.Any]]]]],
         security_group_ids: typing.Sequence[builtins.str],
+        dns64_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ipv6_internet_access_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         name: typing.Optional[builtins.str] = None,
         outpost_arn: typing.Optional[builtins.str] = None,
         preferred_instance_type: typing.Optional[builtins.str] = None,
@@ -3073,6 +3121,8 @@ class CfnResolverEndpointProps:
         :param direction: Indicates whether the Resolver endpoint allows inbound or outbound DNS queries:. - ``INBOUND`` : allows DNS queries to your VPC from your network - ``OUTBOUND`` : allows DNS queries from your VPC to your network - ``INBOUND_DELEGATION`` : Resolver delegates queries to Route 53 private hosted zones from your network.
         :param ip_addresses: The subnets and IP addresses in your VPC that DNS queries originate from (for outbound endpoints) or that you forward DNS queries to (for inbound endpoints). The subnet ID uniquely identifies a VPC. .. epigraph:: Even though the minimum is 1, Route 53 requires that you create at least two.
         :param security_group_ids: The ID of one or more security groups that control access to this VPC. The security group must include one or more inbound rules (for inbound endpoints) or outbound rules (for outbound endpoints). Inbound and outbound rules must allow TCP and UDP access. For inbound access, open port 53. For outbound access, open the port that you're using for DNS queries on your network.
+        :param dns64_enabled: Specifies whether DNS64 is enabled for the Inbound Resolver Endpoint. When set to true, if a DNS AAAA query is made for a domain that has only an A (IPv4) record, the resolver automatically synthesizes an AAAA (IPv6) response by embedding the IPv4 address into the well-known prefix 64:ff9b::/96. Default is false.
+        :param ipv6_internet_access_enabled: Specifies whether IPv6 Internet Gateway access is enabled through the Outbound Resolver Endpoint. When set to true, this property allows your Endpoint ENIs to reach public IPv6 target nameservers through an internet gateway. Default is false.
         :param name: A friendly name that lets you easily find a configuration in the Resolver dashboard in the Route 53 console.
         :param outpost_arn: The ARN (Amazon Resource Name) for the Outpost.
         :param preferred_instance_type: The Amazon EC2 instance type.
@@ -3104,6 +3154,8 @@ class CfnResolverEndpointProps:
                 security_group_ids=["securityGroupIds"],
             
                 # the properties below are optional
+                dns64_enabled=False,
+                ipv6_internet_access_enabled=False,
                 name="name",
                 outpost_arn="outpostArn",
                 preferred_instance_type="preferredInstanceType",
@@ -3122,6 +3174,8 @@ class CfnResolverEndpointProps:
             check_type(argname="argument direction", value=direction, expected_type=type_hints["direction"])
             check_type(argname="argument ip_addresses", value=ip_addresses, expected_type=type_hints["ip_addresses"])
             check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+            check_type(argname="argument dns64_enabled", value=dns64_enabled, expected_type=type_hints["dns64_enabled"])
+            check_type(argname="argument ipv6_internet_access_enabled", value=ipv6_internet_access_enabled, expected_type=type_hints["ipv6_internet_access_enabled"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument outpost_arn", value=outpost_arn, expected_type=type_hints["outpost_arn"])
             check_type(argname="argument preferred_instance_type", value=preferred_instance_type, expected_type=type_hints["preferred_instance_type"])
@@ -3135,6 +3189,10 @@ class CfnResolverEndpointProps:
             "ip_addresses": ip_addresses,
             "security_group_ids": security_group_ids,
         }
+        if dns64_enabled is not None:
+            self._values["dns64_enabled"] = dns64_enabled
+        if ipv6_internet_access_enabled is not None:
+            self._values["ipv6_internet_access_enabled"] = ipv6_internet_access_enabled
         if name is not None:
             self._values["name"] = name
         if outpost_arn is not None:
@@ -3194,6 +3252,32 @@ class CfnResolverEndpointProps:
         result = self._values.get("security_group_ids")
         assert result is not None, "Required property 'security_group_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def dns64_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Specifies whether DNS64 is enabled for the Inbound Resolver Endpoint.
+
+        When set to true, if a DNS AAAA query is made for a domain that has only an A (IPv4) record, the resolver automatically synthesizes an AAAA (IPv6) response by embedding the IPv4 address into the well-known prefix 64:ff9b::/96. Default is false.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-dns64enabled
+        '''
+        result = self._values.get("dns64_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def ipv6_internet_access_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Specifies whether IPv6 Internet Gateway access is enabled through the Outbound Resolver Endpoint.
+
+        When set to true, this property allows your Endpoint ENIs to reach public IPv6 target nameservers through an internet gateway. Default is false.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-ipv6internetaccessenabled
+        '''
+        result = self._values.get("ipv6_internet_access_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -5302,6 +5386,8 @@ def _typecheckingstub__08cda89b08c8f731727f875daf3a8c19a757df0fc3eddf478f27fb091
     direction: builtins.str,
     ip_addresses: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResolverEndpoint.IpAddressRequestProperty, typing.Dict[builtins.str, typing.Any]]]]],
     security_group_ids: typing.Sequence[builtins.str],
+    dns64_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ipv6_internet_access_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     name: typing.Optional[builtins.str] = None,
     outpost_arn: typing.Optional[builtins.str] = None,
     preferred_instance_type: typing.Optional[builtins.str] = None,
@@ -5352,6 +5438,18 @@ def _typecheckingstub__ff067f29f23ed0518b0bcb12dad7868af652ab264fc7832f5763aa0ed
 
 def _typecheckingstub__cd40fe8701b13449c18839f0320f4f7723ee68f4abc97b40851e451655db5a80(
     value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b375eedb05e6c2e64bbeb40868e3e8a495cd25e721ded0a465475c73f113fa17(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c48a05e762537bc0ae93ec43f882747a2a57ac7b51d2afc540b50c31bf4b72ff(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5418,6 +5516,8 @@ def _typecheckingstub__3cc09ce842a854995739f051f3b593bc3ded813d2e97260dcb20f3910
     direction: builtins.str,
     ip_addresses: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResolverEndpoint.IpAddressRequestProperty, typing.Dict[builtins.str, typing.Any]]]]],
     security_group_ids: typing.Sequence[builtins.str],
+    dns64_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ipv6_internet_access_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     name: typing.Optional[builtins.str] = None,
     outpost_arn: typing.Optional[builtins.str] = None,
     preferred_instance_type: typing.Optional[builtins.str] = None,

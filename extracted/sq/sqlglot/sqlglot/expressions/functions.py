@@ -148,6 +148,10 @@ class Nullif(Expression, Func):
     arg_types = {"this": True, "expression": True}
 
 
+class ObjectTransform(Expression, Func):
+    arg_types = {"this": True, "keep": False, "set_": False}
+
+
 class Nvl2(Expression, Func):
     arg_types = {"this": True, "true": True, "false": False}
 
@@ -299,6 +303,10 @@ class CurrentTransaction(Expression, Func):
 
 class CurrentUser(Expression, Func):
     arg_types = {"this": False}
+
+
+class CurrentUserId(Expression, Func):
+    arg_types = {}
 
 
 class CurrentVersion(Expression, Func):

@@ -8,6 +8,7 @@ class TestSQLite(Validator):
     dialect = "sqlite"
 
     def test_sqlite(self):
+        self.validate_identity("WITH xyz(x) AS (SELECT 1) SELECT x FROM xyz")
         self.validate_identity("SELECT * FROM t AS t INDEXED BY s.i")
         self.validate_identity("SELECT * FROM t INDEXED BY s.i")
         self.validate_identity("SELECT * FROM t INDEXED BY i")
@@ -55,6 +56,7 @@ class TestSQLite(Validator):
             "ALTER TABLE t RENAME a TO b",
             "ALTER TABLE t RENAME COLUMN a TO b",
         )
+        self.validate_identity("ALTER TABLE t1 RENAME TO t2")
 
         self.validate_all("SELECT LIKE(y, x)", write={"sqlite": "SELECT x LIKE y"})
         self.validate_all("SELECT GLOB('*y*', 'xyz')", write={"sqlite": "SELECT 'xyz' GLOB '*y*'"})

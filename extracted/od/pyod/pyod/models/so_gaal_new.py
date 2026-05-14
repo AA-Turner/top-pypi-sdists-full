@@ -11,11 +11,12 @@ import math
 
 try:
     import torch
-except ImportError:
-    print('please install torch first')
-
-import torch
-import torch.nn as nn
+    import torch.nn as nn
+except ImportError as e:
+    raise ImportError(
+        "PyTorch is required for GAAL models. Please install it with "
+        "`pip install pyod[torch]` or `pip install torch`."
+    ) from e
 
 from .base_dl import BaseDeepLearningDetector
 from ..utils.torch_utility import LinearBlock, get_optimizer_by_name

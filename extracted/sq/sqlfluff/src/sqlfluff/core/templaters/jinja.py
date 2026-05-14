@@ -102,6 +102,29 @@ class JinjaTemplater(PythonTemplater):
         pass
 
     @staticmethod
+    def _is_trim_tag(raw_slice: RawFileSlice) -> bool:
+        """Return whether a raw slice is a Jinja tag with whitespace trimming."""
+        return raw_slice.slice_type.startswith("block") and (
+            raw_slice.raw.startswith("{%-") or raw_slice.raw.endswith("-%}")
+        )
+
+    @classmethod
+    def _is_unreached_whitespace_adjacent_to_trim_tag(
+        cls, raw_sliced: list[RawFileSlice], idx: int
+    ) -> bool:
+        """Return whether an unreached literal is only trim-adjacent whitespace."""
+        raw_slice = raw_sliced[idx]
+        if raw_slice.slice_type != "literal" or not raw_slice.raw.isspace():
+            return False
+
+        previous_slice = raw_sliced[idx - 1] if idx > 0 else None
+        next_slice = raw_sliced[idx + 1] if idx + 1 < len(raw_sliced) else None
+        return bool(
+            (previous_slice and cls._is_trim_tag(previous_slice))
+            or (next_slice and cls._is_trim_tag(next_slice))
+        )
+
+    @staticmethod
     def _extract_macros_from_template(
         template: str, env: Environment, ctx: dict[str, Any]
     ) -> dict[str, DbtMacroWrapper]:
@@ -233,6 +256,40 @@ class JinjaTemplater(PythonTemplater):
                 raise SQLFluffUserError(
                     f"Error loading user provided macro:\n`{value}`\n> {err}."
                 )
+        return macro_ctx
+
+    def _extract_macros(
+        self, config: FluffConfig, env: Environment, ctx: dict[str, Any]
+    ) -> dict[str, DbtMacroWrapper]:
+        """Load macros directly in a config and from load_macros_from_path.
+
+        Args:
+            config: The config to extract macros from.
+            env: The environment.
+            ctx: The context.
+
+        Returns:
+            dict: A dictionary containing the extracted macros.
+        """
+        macro_ctx: dict[str, DbtMacroWrapper] = {}
+
+        macros_path = self._get_macros_path(config, "load_macros_from_path")
+        exclude_macros_path = self._get_macros_path(config, "exclude_macros_from_path")
+        if macros_path:
+            macro_ctx.update(
+                self._extract_macros_from_path(
+                    macros_path,
+                    env=env,
+                    ctx=ctx,
+                    exclude_paths=exclude_macros_path,
+                )
+            )
+
+        # Load config macros, these will take precedence over macros from the path
+        macro_ctx.update(
+            self._extract_macros_from_config(config=config, env=env, ctx=ctx)
+        )
+
         return macro_ctx
 
     def _extract_libraries_from_config(self, config: FluffConfig) -> dict[str, Any]:
@@ -530,24 +587,28 @@ class JinjaTemplater(PythonTemplater):
 
         # Load macros from path (if applicable)
         if config:
-            macros_path = self._get_macros_path(config, "load_macros_from_path")
-            exclude_macros_path = self._get_macros_path(
-                config, "exclude_macros_from_path"
-            )
-            if macros_path:
-                live_context.update(
-                    self._extract_macros_from_path(
-                        macros_path,
-                        env=env,
-                        ctx=live_context,
-                        exclude_paths=exclude_macros_path,
-                    )
-                )
+            # References to variables are fixed when macros are compiled. In
+            # order to handle macros that refer to other macros from another
+            # file, we have to make two passes:
 
-            # Load config macros, these will take precedence over macros from the path
+            # Pass 1: get all macro names and insert late-bound functions into
+            # the context for every known macro.
+            macro_names = self._extract_macros(
+                config=config, env=env, ctx=live_context
+            ).keys()
+            late_binding_macros = {}
+            for k in macro_names:
+
+                def late_binding_macro(macro_name: str) -> Callable[..., Any]:
+                    return lambda *args, **kwargs: live_context[macro_name](
+                        *args, **kwargs
+                    )
+
+                late_binding_macros[k] = late_binding_macro(k)
+            # Pass 2: load the macros, with the late bindings in the context
             live_context.update(
-                self._extract_macros_from_config(
-                    config=config, env=env, ctx=live_context
+                self._extract_macros(
+                    config=config, env=env, ctx=live_context | late_binding_macros
                 )
             )
 
@@ -1035,6 +1096,9 @@ class JinjaTemplater(PythonTemplater):
             for idx, raw_slice in enumerate(templated_file.raw_sliced)
             if raw_slice.slice_type == "literal"
             and raw_slice.source_idx not in covered_literal_positions
+            and not self._is_unreached_whitespace_adjacent_to_trim_tag(
+                templated_file.raw_sliced, idx
+            )
         }
         templater_logger.debug(
             "Uncovered literals correspond to slices %s", uncovered_literal_idxs

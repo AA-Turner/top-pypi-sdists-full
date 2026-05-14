@@ -43,6 +43,7 @@ __all__ = (
     "InstanceOnboardingJobStatusCodeType",
     "ListCampaignsPaginatorName",
     "ListConnectInstanceIntegrationsPaginatorName",
+    "LocalTimeZoneDetectionScopeType",
     "LocalTimeZoneDetectionTypeType",
     "PaginatorName",
     "ProfileOutboundRequestFailureCodeType",
@@ -86,6 +87,7 @@ InstanceOnboardingJobFailureCodeType = Literal[
 InstanceOnboardingJobStatusCodeType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 ListCampaignsPaginatorName = Literal["list_campaigns"]
 ListConnectInstanceIntegrationsPaginatorName = Literal["list_connect_instance_integrations"]
+LocalTimeZoneDetectionScopeType = Literal["ALL_AVAILABLE", "PRIMARY_ONLY"]
 LocalTimeZoneDetectionTypeType = Literal["AREA_CODE", "ZIP_CODE"]
 ProfileOutboundRequestFailureCodeType = Literal[
     "Conflict", "InvalidInput", "RequestThrottled", "ResourceNotFound", "UnknownError"

@@ -13,9 +13,9 @@
 """Output formatters for JSON."""
 
 import argparse
-import collections.abc
+from collections.abc import Iterable, Sequence
 import json
-import typing as ty
+from typing import Any, TextIO
 
 from cliff import columns
 from cliff.formatters import base
@@ -33,9 +33,9 @@ class JSONFormatter(base.ListFormatter, base.SingleFormatter):
 
     def emit_list(
         self,
-        column_names: collections.abc.Sequence[str],
-        data: collections.abc.Iterable[collections.abc.Sequence[ty.Any]],
-        stdout: ty.TextIO,
+        column_names: Sequence[str],
+        data: Iterable[Sequence[Any]],
+        stdout: TextIO,
         parsed_args: argparse.Namespace,
     ) -> None:
         items = []
@@ -56,9 +56,9 @@ class JSONFormatter(base.ListFormatter, base.SingleFormatter):
 
     def emit_one(
         self,
-        column_names: collections.abc.Sequence[str],
-        data: collections.abc.Sequence[ty.Any],
-        stdout: ty.TextIO,
+        column_names: Sequence[str],
+        data: Sequence[Any],
+        stdout: TextIO,
         parsed_args: argparse.Namespace,
     ) -> None:
         one = {

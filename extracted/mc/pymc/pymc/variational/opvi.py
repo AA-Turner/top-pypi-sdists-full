@@ -57,12 +57,12 @@ from typing import Any, overload
 import numpy as np
 import pytensor
 import pytensor.tensor as pt
-import xarray
 
 from pytensor.graph.basic import Variable
 from pytensor.graph.replace import graph_replace
 from pytensor.scalar.basic import identity as scalar_identity
 from pytensor.tensor.elemwise import Elemwise
+from xarray import DataArray, Dataset
 
 import pymc as pm
 
@@ -76,6 +76,7 @@ from pymc.pytensorf import (
     compile,
     constant_fold,
     find_rng_nodes,
+    floatX,
     reseed_rngs,
 )
 from pymc.util import (
@@ -86,7 +87,7 @@ from pymc.util import (
     makeiter,
 )
 from pymc.variational.minibatch_rv import MinibatchRandomVariable, get_scaling
-from pymc.variational.updates import adagrad_window
+from pymc.variational.updates import adagrad_window, get_or_compute_grads
 from pymc.vartypes import discrete_types
 
 __all__ = ["Approximation", "Group", "ObjectiveFunction", "Operator", "TestFunction"]
@@ -149,38 +150,14 @@ def node_property(f):
 
         def wrapper(fn):
             ff = append_name(f)(fn)
-            f_ = pytensor.config.change_flags(compute_test_value="off")(ff)
-            return property(locally_cachedmethod(f_))
+            return property(locally_cachedmethod(ff))
 
         return wrapper
     else:
-        f_ = pytensor.config.change_flags(compute_test_value="off")(f)
-        return property(locally_cachedmethod(f_))
+        return property(locally_cachedmethod(f))
 
 
-@pytensor.config.change_flags(compute_test_value="ignore")
-def try_to_set_test_value(node_in, node_out, s):
-    _s = s
-    if s is None:
-        s = 1
-    s = pytensor.compile.view_op(pt.as_tensor(s))
-    if not isinstance(node_in, list | tuple):
-        node_in = [node_in]
-    if not isinstance(node_out, list | tuple):
-        node_out = [node_out]
-    for i, o in zip(node_in, node_out):
-        if hasattr(i.tag, "test_value"):
-            if not hasattr(s.tag, "test_value"):
-                continue
-            else:
-                tv = i.tag.test_value[None, ...]
-                tv = np.repeat(tv, s.tag.test_value, 0)
-                if _s is None:
-                    tv = tv[0]
-                o.tag.test_value = tv
-
-
-class ObjectiveUpdates(pytensor.OrderedUpdates):
+class ObjectiveUpdates(dict):
     """OrderedUpdates extension for storing loss."""
 
     loss = None
@@ -292,7 +269,7 @@ class ObjectiveFunction:
         tf_target = self(
             tf_n_mc, more_tf_params=more_tf_params, more_replacements=more_replacements
         )
-        grads = pm.updates.get_or_compute_grads(tf_target, self.obj_params + more_tf_params)
+        grads = get_or_compute_grads(tf_target, self.obj_params + more_tf_params)
         if total_grad_norm_constraint is not None:
             grads = pm.total_norm_constraint(grads, total_grad_norm_constraint)
         updates.update(test_optimizer(grads, self.test_params + more_tf_params))
@@ -313,14 +290,13 @@ class ObjectiveFunction:
         obj_target = self(
             obj_n_mc, more_obj_params=more_obj_params, more_replacements=more_replacements
         )
-        grads = pm.updates.get_or_compute_grads(obj_target, self.obj_params + more_obj_params)
+        grads = get_or_compute_grads(obj_target, self.obj_params + more_obj_params)
         if total_grad_norm_constraint is not None:
             grads = pm.total_norm_constraint(grads, total_grad_norm_constraint)
         updates.update(obj_optimizer(grads, self.obj_params + more_obj_params))
         if self.op.returns_loss:
             updates.loss = obj_target
 
-    @pytensor.config.change_flags(compute_test_value="off")
     def step_function(
         self,
         obj_n_mc=None,
@@ -408,7 +384,6 @@ class ObjectiveFunction:
             step_fn = compile([], [], updates=updates, random_seed=seed, **compile_kwargs)
         return step_fn
 
-    @pytensor.config.change_flags(compute_test_value="off")
     def score_function(
         self, sc_n_mc=None, more_replacements=None, compile_kwargs=None, fn_kwargs=None
     ):  # pragma: no cover
@@ -449,7 +424,6 @@ class ObjectiveFunction:
         seed = self.approx.rng.randint(2**30, dtype=np.int64)
         return compile([], loss, random_seed=seed, **compile_kwargs)
 
-    @pytensor.config.change_flags(compute_test_value="off")
     def __call__(self, nmc, **kwargs):
         if "more_tf_params" in kwargs:
             m = -1.0
@@ -862,7 +836,6 @@ class Group(WithMemoization):
         """
         return pt.vector(name)
 
-    @pytensor.config.change_flags(compute_test_value="off")
     def __init_group__(self, group):
         """Initialize the group."""
         if not group:
@@ -983,13 +956,23 @@ class Group(WithMemoization):
         size = pt.as_tensor(size)
         shape = self._new_initial_shape(size, dim, more_replacements)
         # apply optimizations if possible
+        rv_op = getattr(pt.random, dist_name)
         if not isinstance(deterministic, Variable):
             if deterministic:
                 return pt.ones(shape, dtype) * dist_map
             else:
-                return getattr(pt.random, dist_name)(size=shape)
+                _, sample = rv_op(
+                    size=shape,
+                    rng=pt.random.shared_rng(seed=None),
+                    return_next_rng=True,
+                )
+                return sample
         else:
-            sample = getattr(pt.random, dist_name)(size=shape)
+            _, sample = rv_op(
+                size=shape,
+                rng=pt.random.shared_rng(seed=None),
+                return_next_rng=True,
+            )
             initial = pt.switch(deterministic, pt.ones(shape, dtype) * dist_map, sample)
             return initial
 
@@ -1016,7 +999,6 @@ class Group(WithMemoization):
         self, node: list[Variable], s, d: bool, more_replacements: dict | None = None
     ) -> list[Variable]: ...
 
-    @pytensor.config.change_flags(compute_test_value="off")
     def set_size_and_deterministic(
         self, node: Variable | list[Variable], s, d: bool, more_replacements: dict | None = None
     ) -> Variable | list[Variable]:
@@ -1042,7 +1024,6 @@ class Group(WithMemoization):
         assert not (
             set(makeiter(self.input)) & set(pytensor.graph.graph_inputs(makeiter(node_out)))
         )
-        try_to_set_test_value(node, node_out, s)
         assert self.symbolic_random not in set(pytensor.graph.graph_inputs(makeiter(node_out)))
         return node_out
 
@@ -1120,7 +1101,7 @@ class Group(WithMemoization):
             )
         )
         t = self.symbolic_single_sample(t)
-        return pm.floatX(t)
+        return floatX(t)
 
     @node_property
     def symbolic_logq_not_scaled(self):
@@ -1165,7 +1146,7 @@ class Group(WithMemoization):
         """Return the mean of the latent variables as an unstructured 1-dimensional tensor variable."""
         raise NotImplementedError()
 
-    def var_to_data(self, shared: pt.TensorVariable) -> xarray.Dataset:
+    def var_to_data(self, shared: pt.TensorVariable) -> Dataset:
         """Take a flat 1-dimensional tensor variable and maps it to an xarray data set based on the information in `self.ordering`."""
         # This is somewhat similar to `DictToArrayBijection.rmap`, which doesn't work here since we don't have
         # `RaveledVars` and need to take the information from `self.ordering` instead
@@ -1178,16 +1159,16 @@ class Group(WithMemoization):
             else:
                 coords = None
             values = shared_nda[s].reshape(shape).astype(dtype)
-            result[name] = xarray.DataArray(values, coords=coords, dims=dims, name=name)
-        return xarray.Dataset(result)
+            result[name] = DataArray(values, coords=coords, dims=dims, name=name)
+        return Dataset(result)
 
     @property
-    def mean_data(self) -> xarray.Dataset:
+    def mean_data(self) -> Dataset:
         """Mean of the latent variables as an xarray Dataset."""
         return self.var_to_data(self.mean)
 
     @property
-    def std_data(self) -> xarray.Dataset:
+    def std_data(self) -> Dataset:
         """Standard deviation of the latent variables as an xarray Dataset."""
         return self.var_to_data(self.std)
 
@@ -1249,7 +1230,10 @@ class Approximation(WithMemoization):
             else:
                 rest.__init_group__(unseen_free_RVs)
                 self.groups.append(rest)
-        self.model = model
+
+    @property
+    def model(self):
+        return modelcontext(self.groups[0].model if self.groups else None)
 
     @property
     def has_logq(self):
@@ -1288,7 +1272,7 @@ class Approximation(WithMemoization):
             ]
         )
         t = pt.switch(self._scale_cost_to_minibatch, t, pt.constant(1, dtype=t.dtype))
-        return pm.floatX(t)
+        return floatX(t)
 
     @node_property
     def symbolic_logq(self):
@@ -1410,7 +1394,6 @@ class Approximation(WithMemoization):
         flat2rand.update(more_replacements)
         return flat2rand
 
-    @pytensor.config.change_flags(compute_test_value="off")
     def set_size_and_deterministic(self, node, s, d, more_replacements=None):
         """*Dev* - after node is sampled via :func:`symbolic_sample_over_posterior` or :func:`symbolic_single_sample` new random generator can be allocated and applied to node.
 
@@ -1435,7 +1418,6 @@ class Approximation(WithMemoization):
         node = graph_replace(node, optimizations, strict=False)
         node = graph_replace(node, flat2rand, strict=False)
         assert not (set(self.symbolic_randoms) & set(pytensor.graph.graph_inputs(makeiter(node))))
-        try_to_set_test_value(_node, node, s)
         return node
 
     def to_flat_input(self, node, more_replacements=None):
@@ -1487,7 +1469,6 @@ class Approximation(WithMemoization):
             repl[self.datalogp] = self.single_symbolic_datalogp
         return repl
 
-    @pytensor.config.change_flags(compute_test_value="off")
     def sample_node(self, node, size=None, deterministic=False, more_replacements=None):
         """Sample given node or nodes over shared posterior.
 
@@ -1519,7 +1500,6 @@ class Approximation(WithMemoization):
         else:
             node_out = self.symbolic_sample_over_posterior(node)
         node_out = self.set_size_and_deterministic(node_out, size, deterministic)
-        try_to_set_test_value(node_in, node_out, size)
         return node_out
 
     def rslice(self, name):
@@ -1527,14 +1507,8 @@ class Approximation(WithMemoization):
 
         This node still needs :func:`set_size_and_deterministic` to be evaluated.
         """
-
-        def vars_names(vs):
-            return {self.model.rvs_to_values[v].name for v in vs}
-
-        for vars_, random, ordering in zip(
-            self.collect("group"), self.symbolic_randoms, self.collect("ordering")
-        ):
-            if name in vars_names(vars_):
+        for random, ordering in zip(self.symbolic_randoms, self.collect("ordering")):
+            if name in ordering:
                 name_, slc, shape, dtype = ordering[name]
                 found = random[..., slc].reshape((random.shape[0], *shape)).astype(dtype)
                 found.name = name + "_vi_random_slice"
@@ -1546,7 +1520,7 @@ class Approximation(WithMemoization):
     @node_property
     def sample_dict_fn(self):
         s = pt.iscalar()
-        names = [self.model.rvs_to_values[v].name for v in self.model.free_RVs]
+        names = [name for ordering in self.collect("ordering") for name in ordering]
         sampled = [self.rslice(name) for name in names]
         sampled = self.set_size_and_deterministic(sampled, s, 0)
         sample_fn = compile([s], sampled)
@@ -1591,9 +1565,11 @@ class Approximation(WithMemoization):
             for i in range(draws)
         )
 
+        model = modelcontext(None)
+
         trace = NDArray(
-            model=self.model,
-            test_point={name: records[0] for name, records in samples.items()},
+            model=model,
+            test_point={name: np.asarray(records[0]) for name, records in samples.items()},
         )
         try:
             trace.setup(draws=draws, chain=0)
@@ -1606,7 +1582,7 @@ class Approximation(WithMemoization):
         if not return_inferencedata:
             return multi_trace
         else:
-            return pm.to_inference_data(multi_trace, model=self.model, **kwargs)
+            return pm.to_inference_data(multi_trace, model=model, **kwargs)
 
     @property
     def ndim(self):
@@ -1630,11 +1606,15 @@ class Approximation(WithMemoization):
 
     @property
     def all_histograms(self):
-        return all(isinstance(g, pm.approximations.EmpiricalGroup) for g in self.groups)
+        from pymc.variational.approximations import EmpiricalGroup
+
+        return all(isinstance(g, EmpiricalGroup) for g in self.groups)
 
     @property
     def any_histograms(self):
-        return any(isinstance(g, pm.approximations.EmpiricalGroup) for g in self.groups)
+        from pymc.variational.approximations import EmpiricalGroup
+
+        return any(isinstance(g, EmpiricalGroup) for g in self.groups)
 
     @node_property
     def joint_histogram(self):

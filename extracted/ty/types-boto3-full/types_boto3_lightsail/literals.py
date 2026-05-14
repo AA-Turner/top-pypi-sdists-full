@@ -106,6 +106,7 @@ __all__ = (
     "NetworkProtocolType",
     "OperationStatusType",
     "OperationTypeType",
+    "OriginIpAddressTypeEnumType",
     "OriginProtocolPolicyEnumType",
     "PaginatorName",
     "PortAccessTypeType",
@@ -473,6 +474,7 @@ OperationTypeType = Literal[
     "UpdateRelationalDatabase",
     "UpdateRelationalDatabaseParameters",
 ]
+OriginIpAddressTypeEnumType = Literal["dualstack", "ipv4", "ipv6"]
 OriginProtocolPolicyEnumType = Literal["http-only", "https-only"]
 PortAccessTypeType = Literal["Private", "Public"]
 PortInfoSourceTypeType = Literal["CLOSED", "DEFAULT", "INSTANCE", "NONE"]

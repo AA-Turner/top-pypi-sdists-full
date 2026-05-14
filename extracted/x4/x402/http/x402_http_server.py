@@ -23,7 +23,10 @@ from .types import (
     ProcessSettleResult,
     RoutesConfig,
 )
-from .x402_http_server_base import PaywallProvider, x402HTTPServerBase
+from .x402_http_server_base import (
+    PaywallProvider,
+    x402HTTPServerBase,
+)
 
 if TYPE_CHECKING:
     from ..server import x402ResourceServerSync

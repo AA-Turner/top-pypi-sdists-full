@@ -87,8 +87,22 @@ class AESZipDecrypter(BaseZipDecrypter):
 class BaseZipEncrypter:
 
     def update_zipinfo(self, zipinfo):
+        """Called when zip entry is opened for write and the encrypted is configured."""
         raise NotImplementedError(
             'BaseZipEncrypter implementations must implement `update_zipinfo`.'
+        )
+
+    def finalize_zipinfo(self, zipinfo):
+        """Updates the zipinfo instance when the zip entry is being closed.
+
+        It may be possible to update some fields based on information that
+        wasn't available when update_zipinfo was called. This function should
+        not change properties that would need to be written to the local file
+        header if the underlying zip is not seekable as it isn't possible to
+        return to the local file header to rewrite the new values.
+        """
+        raise NotImplementedError(
+            'BaseZipEncrypter implementations must implement `finalize_zipinfo`.'
         )
 
     def encrypt(self, data):
@@ -110,7 +124,14 @@ class AESZipEncrypter(BaseZipEncrypter):
 
     hmac_size = 10
 
-    def __init__(self, pwd, nbits=256, force_wz_aes_version=None):
+    def __init__(
+        self,
+        pwd,
+        nbits=256,
+        force_wz_aes_version=None,
+        conditionally_include_crc=None,
+        min_bytes_to_include_crc=None,
+    ):
         if not pwd:
             raise RuntimeError(
                 '%s encryption requires a password.' % WZ_AES
@@ -120,8 +141,41 @@ class AESZipEncrypter(BaseZipEncrypter):
             raise RuntimeError(
                 "`nbits` must be one of 128, 192, 256. Got '%s'" % nbits
             )
+        if conditionally_include_crc is not None:
+            if (
+                conditionally_include_crc is not True
+                and conditionally_include_crc is not False
+            ):
+                raise ValueError(
+                    "`conditionally_include_crc` must be True or False or None"
+                )
+            if conditionally_include_crc:
+                if min_bytes_to_include_crc is None:
+                    raise ValueError(
+                        "`min_bytes_to_include_crc` must be set if `conditionally_include_crc` is True"  # noqa: E501
+                    )
+                if min_bytes_to_include_crc < 20:
+                    raise ValueError(
+                        "`min_bytes_to_include_crc` must be 20 or greater"
+                    )
+        if min_bytes_to_include_crc is not None and not conditionally_include_crc:
+            raise ValueError(
+                "`conditionally_include_crc` must be True if `min_bytes_to_include_crc` is set"
+            )
+
+        if force_wz_aes_version is not None:
+            if force_wz_aes_version not in (WZ_AES_V1, WZ_AES_V2):
+                raise ValueError(
+                    "`force_wz_aes_version` must be WZ_AES_V1 (1) or WZ_AES_V2 (2)"
+                )
+            if conditionally_include_crc:
+                raise ValueError(
+                    "`force_wz_aes_version` and `conditionally_include_crc` must not be specified at the same time."  # noqa: E501
+                )
 
         self.force_wz_aes_version = force_wz_aes_version
+        self.conditionally_include_crc = conditionally_include_crc
+        self.min_bytes_to_include_crc = min_bytes_to_include_crc
         salt_lengths = {
             128: 8,
             192: 12,
@@ -157,11 +211,37 @@ class AESZipEncrypter(BaseZipEncrypter):
         encmac_key = keymaterial[key_length:2*key_length]
         self.hmac = HMAC.new(encmac_key, digestmod=SHA1Hash())
 
+    def compute_aes_version(self, zipinfo):
+        # The only difference between version 1 and 2 is the
+        # handling of the CRC values. For version 2 the CRC value
+        # is not used and must be set to 0.
+        # For small files, the CRC files can leak the contents of
+        # the encrypted data.
+        if self.force_wz_aes_version is not None:
+            return self.force_wz_aes_version
+        elif zipinfo.compress_type == ZIP_BZIP2:
+            # For bzip2, the compression already has integrity checks
+            # so CRC is not required.
+            return WZ_AES_V2
+        elif (
+            self.conditionally_include_crc
+            and zipinfo.file_size >= self.min_bytes_to_include_crc
+        ):
+            return WZ_AES_V1
+        return WZ_AES_V2
+
     def update_zipinfo(self, zipinfo):
         zipinfo.wz_aes_vendor_id = WZ_AES_VENDOR_ID
         zipinfo.wz_aes_strength = self.aes_strength
-        if self.force_wz_aes_version is not None:
-            zipinfo.wz_aes_version = self.force_wz_aes_version
+        zipinfo.wz_aes_version = self.compute_aes_version(zipinfo)
+
+    def finalize_zipinfo(self, zipinfo):
+        # If we can't seek back, we have to keep the aes version we specified
+        # when the local file header was written. If the file size is unknown,
+        # this should be ae-2
+        if not zipinfo.use_datadescripter:
+            # We can go back and change the aes version we specified earlier.
+            zipinfo.wz_aes_version = self.compute_aes_version(zipinfo)
 
     def encryption_header(self):
         return self.salt + self.encpwdverify
@@ -223,28 +303,15 @@ class AESZipInfo(ZipInfo):
         wz_aes_extra = b''
         if self.wz_aes_vendor_id is not None:
             compress_type = WZ_AES_COMPRESS_TYPE
-            aes_version = self.wz_aes_version
-            if aes_version is None:
-                if self.file_size < 20 | self.compress_type == ZIP_BZIP2:
-                    # The only difference between version 1 and 2 is the
-                    # handling of the CRC values. For version 2 the CRC value
-                    # is not used and must be set to 0.
-                    # For small files, the CRC files can leak the contents of
-                    # the encrypted data.
-                    # For bzip2, the compression already has integrity checks
-                    # so CRC is not required.
-                    aes_version = WZ_AES_V2
-                else:
-                    aes_version = WZ_AES_V1
 
-            if aes_version == WZ_AES_V2:
+            if self.wz_aes_version == WZ_AES_V2:
                 crc = 0
 
             wz_aes_extra = struct.pack(
                 "<3H2sBH",
                 EXTRA_WZ_AES,
                 7,  # extra block body length: H2sBH
-                aes_version,
+                self.wz_aes_version,
                 self.wz_aes_vendor_id,
                 self.wz_aes_strength,
                 self.compress_type,
@@ -270,6 +337,11 @@ class AESZipInfo(ZipInfo):
             compress_type=compress_type,
             extra_data=extra_data+wz_aes_extra,
             **kwargs)
+
+    def encode_datadescripter(self, zip64, crc, compress_size, file_size):
+        if self.wz_aes_version == WZ_AES_V2:
+            crc = 0
+        return super().encode_datadescripter(zip64, crc, compress_size, file_size)
 
 
 class AESZipExtFile(ZipExtFile):

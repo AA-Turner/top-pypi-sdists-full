@@ -4,7 +4,7 @@ from __future__ import annotations
 from .._internal import expect
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING, Type, ClassVar
 
 if TYPE_CHECKING:
     from .._managers import CoordinatesManager, MouseManager
@@ -18,21 +18,25 @@ class Layer(ABC):
     Args:
         camera: caméra locale
     """
-    __slots__ = ("_camera", "_active", "_visible")
+    __slots__ = (
+        "_camera",
+        "_active", "_visible",
+    )
 
-    _IS_FX: bool = False
+    _IS_FX: ClassVar[bool] = False
 
-    _CAMERA_CLASS: Camera = None
-    _COORDINATES: CoordinatesManager = None
-    _MOUSE: MouseManager = None
+    _CAMERA_CLS: Type[Camera] = None
+
+    _COORDINATES: ClassVar[CoordinatesManager] = None
+    _MOUSE: ClassVar[MouseManager] = None
 
     @classmethod
-    def _get_camera_type(cls) -> Type[Camera]:
-        """Renvoie le type ``Camera``"""
-        if cls._CAMERA_CLASS is None:
+    def _get_camera_cls(cls) -> Type[Camera]:
+        """Renvoie la classe ``Camera``"""
+        if cls._CAMERA_CLS is None:
             from .._rendering import Camera
-            cls._CAMERA_CLASS = Camera
-        return cls._CAMERA_CLASS
+            cls._CAMERA_CLS = Camera
+        return cls._CAMERA_CLS
     
     @classmethod
     def _get_coordinates(cls) -> CoordinatesManager:
@@ -51,7 +55,14 @@ class Layer(ABC):
         return cls._MOUSE
 
     def __init__(self, camera: Camera = None):
-        self._camera: Camera = expect(camera, (self._get_camera_type(), None))
+        # Vérifictions
+        if __debug__:
+            expect(camera, (self._get_camera_cls(), None))
+
+        # Attributs publiques
+        self._camera: Camera = camera
+
+        # Etat
         self._active: bool = True
         self._visible: bool = True
 
@@ -66,7 +77,8 @@ class Layer(ABC):
     
     @camera.setter
     def camera(self, value: Camera) -> None:
-        assert value is None or isinstance(value, self._get_camera_type()), f"camera ({value}) must be a Camera object"
+        if __debug__:
+            expect(value, (self._get_camera_cls(), None))
         self._camera = value
 
     # ======================================== PREDICATES ========================================
@@ -93,7 +105,7 @@ class Layer(ABC):
 
     def set_activity(self, value: bool) -> None:
         """Fixe l'activité"""
-        assert isinstance(value, bool), f"activity ({value}) must be a boolean"
+        value = bool(value)
         self._active = value
 
     # ======================================== VISIBILITY ========================================
@@ -115,7 +127,7 @@ class Layer(ABC):
 
     def set_visibility(self, value: bool) -> None:
         """Fixe la visibilité"""
-        assert isinstance(value, bool), f"visibility ({value}) must be a boolean"
+        value = bool(value)
         self._visible = value
 
     # ======================================== HOOKS ========================================
@@ -151,7 +163,7 @@ class Layer(ABC):
         """Affichage global
 
         Args:
-            pipeline: ``Pipeline`` de rendu
+            pipeline: ``Pipeline`` de rendu courant
         """
         if self._camera is not None:
             self._apply_context()

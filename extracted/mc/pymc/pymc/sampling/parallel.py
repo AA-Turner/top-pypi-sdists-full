@@ -11,6 +11,7 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+from __future__ import annotations
 
 import ctypes
 import logging
@@ -19,20 +20,27 @@ import multiprocessing.sharedctypes
 import platform
 import time
 import traceback
+import warnings
 
 from collections import namedtuple
 from collections.abc import Sequence
 from contextlib import nullcontext
-from typing import cast
+from typing import TYPE_CHECKING
 
 import cloudpickle
 import numpy as np
 
+from pytensor.compile import get_mode
+from pytensor.link.jax.linker import JAXLinker
 from rich.theme import Theme
 from threadpoolctl import threadpool_limits
 
-from pymc.backends.zarr import ZarrChain
+from pymc.backends import _ZarrChainBase
 from pymc.blocking import DictToArrayBijection
+
+if TYPE_CHECKING:
+    from pymc.backends.zarr import ZarrChain
+
 from pymc.exceptions import SamplingError
 from pymc.progress_bar import MCMCProgressBarManager, default_progress_theme
 from pymc.util import (
@@ -78,8 +86,14 @@ def rebuild_exc(exc, tb):
 
 
 def _initialize_multiprocessing_context(
-    mp_ctx: str | multiprocessing.context.BaseContext | None, quiet: bool = False
+    mp_ctx: str | multiprocessing.context.BaseContext | None,
+    *,
+    mode=None,
+    quiet: bool = False,
 ) -> multiprocessing.context.BaseContext:
+    user_specified = mp_ctx is not None
+    jax_mode = mode is not None and isinstance(get_mode(mode).linker, JAXLinker)
+
     if mp_ctx is None or isinstance(mp_ctx, str):
         # Closes issue https://github.com/pymc-devs/pymc/issues/3849
         # Related issue https://github.com/pymc-devs/pymc/issues/5339
@@ -95,6 +109,21 @@ def _initialize_multiprocessing_context(
                 mp_ctx = "forkserver"
 
         mp_ctx = multiprocessing.get_context(mp_ctx)
+
+    if jax_mode and mp_ctx.get_start_method() == "fork":
+        if user_specified:
+            warnings.warn(
+                "Using a JAX backend with multiprocessing start method 'fork' is unsafe "
+                "and may deadlock. Consider passing `mp_ctx='forkserver'` or `mp_ctx='spawn'`.",
+                UserWarning,
+                stacklevel=2,
+            )
+        else:
+            # JAX is not fork-safe: pick a non-fork default when user didn't specify.
+            new_method = (
+                "forkserver" if "forkserver" in multiprocessing.get_all_start_methods() else "spawn"
+            )
+            mp_ctx = multiprocessing.get_context(new_method)
 
     return mp_ctx
 
@@ -145,7 +174,7 @@ class _Process:
         if zarr_chains_is_pickled:
             self._zarr_chain = cloudpickle.loads(zarr_chains)[self.chain]
         elif zarr_chains is not None:
-            self._zarr_chain = cast(list[ZarrChain], zarr_chains)[self.chain]
+            self._zarr_chain = zarr_chains[self.chain]  # type: ignore[assignment]
         self._zarr_recording = self._zarr_chain is not None
 
         self._shared_point = shared_point
@@ -469,7 +498,7 @@ class ParallelSampler:
         zarr_chains_pickled = None
         self.zarr_recording = False
         if zarr_chains is not None:
-            assert all(isinstance(zarr_chain, ZarrChain) for zarr_chain in zarr_chains)
+            assert all(isinstance(zarr_chain, _ZarrChainBase) for zarr_chain in zarr_chains)
             self.zarr_recording = True
         if mp_ctx.get_start_method() != "fork":
             step_method_pickled = cloudpickle.dumps(step_method, protocol=-1)

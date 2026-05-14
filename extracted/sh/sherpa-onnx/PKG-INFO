@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: sherpa_onnx
-Version: 1.13.1
+Version: 1.13.2
 Home-page: https://github.com/k2-fsa/sherpa-onnx
 Author: The sherpa-onnx development team
 Author-email: dpovey@gmail.com
@@ -11,6 +11,12 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
+
+<div align="center">
+
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/k2-fsa/sherpa-onnx)
+
+</div>
 
  ### Supported functions
 

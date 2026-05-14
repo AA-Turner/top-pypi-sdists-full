@@ -10,13 +10,13 @@ import sys
 import time
 import warnings
 import weakref
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypedDict
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -62,6 +62,7 @@ from typing_extensions import Self, Unpack, assert_type
 
 from logfire._internal.auth import PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
+from logfire._internal.collect_system_info import collect_package_info
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor
@@ -73,12 +74,15 @@ from ..types import ExceptionCallback
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues, normalize_token
 from .constants import (
+    ATTRIBUTES_CONFIG,
+    ATTRIBUTES_PACKAGE_VERSIONS,
     LEVEL_NUMBERS,
     RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
     RESOURCE_ATTRIBUTES_CODE_WORK_DIR,
     RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME,
     RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION,
     RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL,
+    RESOURCE_ATTRIBUTES_VERSION,
     LevelName,
 )
 from .exporters.console import (
@@ -96,6 +100,7 @@ from .exporters.otlp import (
     QuietLogExporter,
     QuietSpanExporter,
     RetryFewerSpansSpanExporter,
+    cleanup_disk_retryers,
 )
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
@@ -105,6 +110,7 @@ from .integrations.executors import instrument_executors
 from .logs import ProxyLoggerProvider
 from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
+from .server_response import ServerResponseCallback, install_logfire_response_hook
 from .stack_info import warn_at_user_stacklevel
 from .tracer import OPEN_SPANS, PendingSpanProcessor, ProxyTracerProvider
 from .utils import (
@@ -175,6 +181,8 @@ class AdvancedOptions:
     base_url: str | None = None
     """Base URL for the Logfire API.
 
+    Defaults to the `LOGFIRE_BASE_URL` environment variable.
+
     If not set, Logfire will infer the base URL from the token (which contains information about the region).
     """
 
@@ -198,6 +206,41 @@ class AdvancedOptions:
     Note: When using `ProcessPoolExecutor`, this callback must be defined at the module level
     (not as a local function) to be picklable. Local functions will be excluded from the
     serialized configuration sent to child processes. See the [distributed tracing guide](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#thread-and-pool-executors) for more details.
+    """
+
+    emit_configuration_span: bool | None = None
+    """If `True`, emit a `Logfire configured` log after `logfire.configure()` containing
+    installed package versions and a curated set of non-sensitive configuration flags.
+
+    Defaults to the `LOGFIRE_EMIT_CONFIGURATION_SPAN` environment variable, or `False`.
+
+    This log and configuration is experimental and may be modified or removed.
+    """
+
+    server_response_hook: ServerResponseCallback | None = None
+    """Optional callback invoked for every HTTP response received from the Logfire API.
+
+    This is experimental and may be modified or removed.
+
+    This applies to OTLP exports, credential / project initialisation, and the remote
+    variables provider. The default surfaces the `X-Logfire-Warning` header as a
+    `LogfireServerWarning`.
+
+    Setting this replaces the default; pass `lambda response: None` to opt out entirely.
+
+    Example usage:
+
+    ```python skip-run="true" skip-reason="needs metric/logfire setup"
+    from logfire.types import ServerResponseCallbackHelper
+
+    def hook(helper: ServerResponseCallbackHelper):
+        my_metric.inc(helper.response.status_code)
+        helper.default_hook()  # call this to keep the default warning behavior
+
+    logfire.configure(advanced=AdvancedOptions(server_response_hook=hook))
+    ```
+
+    Raise from the hook to abort the calling code path.
     """
 
     def generate_base_url(self, token: str) -> str:
@@ -610,6 +653,8 @@ def configure(
     else:
         logfire_instance = DEFAULT_LOGFIRE_INSTANCE
 
+    emit_configuration_span(config, logfire_instance, local=local)
+
     # Start the variable provider now that we have the logfire instance
     # Pass None if instrumentation is disabled to avoid logging errors via logfire
     # Only start if the user explicitly configured variables — lazy-init providers
@@ -802,7 +847,11 @@ class _LogfireConfigData:
             if isinstance(id_generator, dict) and list(id_generator.keys()) == ['seed', '_ms_timestamp_generator']:  # pyright: ignore[reportUnknownArgumentType]  # pragma: no branch
                 advanced.id_generator = SeededRandomIdGenerator(**id_generator)  # pyright: ignore[reportUnknownArgumentType]
         elif advanced is None:
-            advanced = AdvancedOptions(base_url=param_manager.load_param('base_url'))
+            advanced = AdvancedOptions()
+        advanced.base_url = param_manager.load_param('base_url', advanced.base_url)
+        advanced.emit_configuration_span = param_manager.load_param(
+            'emit_configuration_span', advanced.emit_configuration_span
+        )
         self.advanced = advanced
 
         self.additional_span_processors = additional_span_processors
@@ -950,15 +999,13 @@ class LogfireConfig(_LogfireConfigData):
 
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
+                RESOURCE_ATTRIBUTES_VERSION: VERSION,
                 'service.name': self.service_name,
                 'process.pid': os.getpid(),
                 # https://opentelemetry.io/docs/specs/semconv/resource/process/#python-runtimes
                 'process.runtime.name': sys.implementation.name,
                 'process.runtime.version': get_runtime_version(),
                 'process.runtime.description': sys.version,
-                # Having this giant blob of data associated with every span/metric causes various problems so it's
-                # disabled for now, but we may want to re-enable something like it in the future
-                # RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info(), separators=(',', ':')),
             }
             if self.code_source:
                 otel_resource_attributes.update(
@@ -1077,7 +1124,7 @@ class LogfireConfig(_LogfireConfigData):
                     # If we don't have tokens or credentials from a file,
                     # try initializing a new project and writing a new creds file.
                     # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
-                    client = LogfireClient.from_url(self.advanced.base_url)
+                    client = LogfireClient.from_url(self.advanced.base_url, self.advanced.server_response_hook)
                     credentials = LogfireCredentials.initialize_project(client=client)
                     credentials.write_creds_file(self.data_dir)
 
@@ -1128,6 +1175,7 @@ class LogfireConfig(_LogfireConfigData):
                         base_url = self.advanced.generate_base_url(token)
                         headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
                         session = OTLPExporterHttpSession()
+                        install_logfire_response_hook(session, self.advanced.server_response_hook)
                         span_exporter = BodySizeCheckingOTLPSpanExporter(
                             endpoint=urljoin(base_url, '/v1/traces'),
                             session=session,
@@ -1304,6 +1352,7 @@ class LogfireConfig(_LogfireConfigData):
                     base_url=base_url,
                     token=self.api_key,
                     options=self.variables,
+                    server_response_hook=self.advanced.server_response_hook,
                 )
             multi_log_processor = SynchronousMultiLogRecordProcessor()
             for processor in log_record_processors:
@@ -1326,6 +1375,12 @@ class LogfireConfig(_LogfireConfigData):
 
             # Track this instance for cleanup on exit
             _LOGFIRE_CONFIG_INSTANCES.append(weakref.ref(self))
+
+            # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
+            # Registering this callback here after the OTEL one means that this runs first.
+            # Otherwise OTEL would log an error "Already shutdown, dropping span."
+            atexit.unregister(exit_open_spans)
+            atexit.register(exit_open_spans)
 
             self._initialized = True
 
@@ -1430,6 +1485,7 @@ class LogfireConfig(_LogfireConfigData):
                 base_url=base_url,
                 token=api_key,
                 options=options,
+                server_response_hook=self.advanced.server_response_hook,
             )
             self._variable_provider = provider
             provider.start(Logfire(config=self))
@@ -1446,7 +1502,9 @@ class LogfireConfig(_LogfireConfigData):
             )
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
-        return LogfireCredentials.from_token(token, requests.Session(), self.advanced.generate_base_url(token))
+        session = requests.Session()
+        install_logfire_response_hook(session, self.advanced.server_response_hook)
+        return LogfireCredentials.from_token(token, session, self.advanced.generate_base_url(token))
 
     def _ensure_flush_after_aws_lambda(self):
         """Ensure that `force_flush` is called after an AWS Lambda invocation.
@@ -1506,16 +1564,58 @@ class LogfireConfig(_LogfireConfigData):
         self._logger_provider.suppress_scopes(*scopes)
 
 
+@handle_internal_errors
+def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *, local: bool) -> None:
+    """Emit a span describing the active Logfire configuration and installed packages.
+
+    Only runs when `advanced.emit_configuration_span` is `True`. Sends a curated set of
+    non-sensitive configuration fields.
+    """
+    if not config.advanced.emit_configuration_span:
+        return
+
+    sampling = config.sampling
+    if isinstance(config.token, str):  # pragma: no cover
+        token_count = 1
+    elif config.token is None:
+        token_count = 0
+    else:  # pragma: no cover
+        token_count = len(config.token)
+
+    logfire_instance.info(
+        'Logfire configured',
+        **{  # type: ignore
+            ATTRIBUTES_CONFIG: {
+                'local': local,
+                'send_to_logfire': config.send_to_logfire,
+                'console_enabled': bool(config.console),
+                'scrubbing_enabled': bool(config.scrubbing),
+                'inspect_arguments': config.inspect_arguments,
+                'min_level': config.min_level,
+                'add_baggage_to_attributes': config.add_baggage_to_attributes,
+                'distributed_tracing': config.distributed_tracing,
+                'head_sample_rate': sampling.head if isinstance(sampling.head, (int, float)) else None,
+                'tail_sampling_enabled': sampling.tail is not None,
+                'code_source_set': config.code_source is not None,
+                'variables_set': config.variables is not None,
+                'token_count': token_count,
+                'api_key': bool(config.api_key),
+                'service_name': bool(config.service_name),
+                'service_version': bool(config.service_version),
+                'environment': bool(config.environment),
+                'additional_span_processors': len(config.additional_span_processors or ()),
+            },
+            ATTRIBUTES_PACKAGE_VERSIONS: collect_package_info(),
+        },
+    )
+
+
 # Global list to track all LogfireConfig instances for cleanup on exit
 _LOGFIRE_CONFIG_INSTANCES: list[weakref.ref[LogfireConfig]] = []
 
 
-@atexit.register
 def exit_open_spans():  # pragma: no cover
     # Ensure that all open spans are closed when the program exits.
-    # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
-    # Registering this callback here after the OTEL one means that this runs first.
-    # Otherwise OTEL would log an error "Already shutdown, dropping span."
     # The reason that spans may be lingering open is that they're in suspended generator frames.
     # Apart from here, they will be ended when the generator is garbage collected
     # as the interpreter shuts down, but that's too late.
@@ -1539,6 +1639,7 @@ def patched_os_exit(code: int):  # pragma: no cover
             config = config_ref()
             if config is not None:
                 config.force_flush()
+        cleanup_disk_retryers()
     except:  # noqa  # weird errors can happen during shutdown, ignore them *all* with a bare except
         pass
     return original_os_exit(code)

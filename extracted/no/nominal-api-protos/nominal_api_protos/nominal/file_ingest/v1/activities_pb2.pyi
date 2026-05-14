@@ -1,6 +1,3 @@
-import datetime
-
-from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from nominal_api_protos.nominal.direct_channel_writer.v2 import file_data_pb2 as _file_data_pb2
 from nominal_api_protos.nominal.file_ingest.v1 import ingest_request_pb2 as _ingest_request_pb2
 from nominal_api_protos.nominal.gen.v1 import alias_pb2 as _alias_pb2
@@ -77,14 +74,13 @@ class ParseFileResponse(_message.Message):
     def __init__(self, staged_batches: _Optional[_Iterable[_Union[StagedBatch, _Mapping]]] = ..., bounds: _Optional[_Union[_time_pb2.Range, _Mapping]] = ...) -> None: ...
 
 class WriteFileBatchesToKafkaRequest(_message.Message):
-    __slots__ = ("staged_batches", "ingest_job_rid", "file_rid", "org_rid", "dataset_file_id", "dataset_rid", "file_created_at", "is_primary")
+    __slots__ = ("staged_batches", "ingest_job_rid", "file_rid", "org_rid", "dataset_file_id", "dataset_rid", "is_primary")
     STAGED_BATCHES_FIELD_NUMBER: _ClassVar[int]
     INGEST_JOB_RID_FIELD_NUMBER: _ClassVar[int]
     FILE_RID_FIELD_NUMBER: _ClassVar[int]
     ORG_RID_FIELD_NUMBER: _ClassVar[int]
     DATASET_FILE_ID_FIELD_NUMBER: _ClassVar[int]
     DATASET_RID_FIELD_NUMBER: _ClassVar[int]
-    FILE_CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     IS_PRIMARY_FIELD_NUMBER: _ClassVar[int]
     staged_batches: _containers.RepeatedCompositeFieldContainer[StagedBatch]
     ingest_job_rid: str
@@ -92,9 +88,8 @@ class WriteFileBatchesToKafkaRequest(_message.Message):
     org_rid: str
     dataset_file_id: str
     dataset_rid: str
-    file_created_at: _timestamp_pb2.Timestamp
     is_primary: bool
-    def __init__(self, staged_batches: _Optional[_Iterable[_Union[StagedBatch, _Mapping]]] = ..., ingest_job_rid: _Optional[str] = ..., file_rid: _Optional[str] = ..., org_rid: _Optional[str] = ..., dataset_file_id: _Optional[str] = ..., dataset_rid: _Optional[str] = ..., file_created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., is_primary: bool = ...) -> None: ...
+    def __init__(self, staged_batches: _Optional[_Iterable[_Union[StagedBatch, _Mapping]]] = ..., ingest_job_rid: _Optional[str] = ..., file_rid: _Optional[str] = ..., org_rid: _Optional[str] = ..., dataset_file_id: _Optional[str] = ..., dataset_rid: _Optional[str] = ..., is_primary: bool = ...) -> None: ...
 
 class StagedBatch(_message.Message):
     __slots__ = ("batch_id", "handle", "format")

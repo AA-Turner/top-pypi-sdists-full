@@ -34,6 +34,7 @@ from .literals import (
     InstanceLimitsHandlingType,
     InstanceOnboardingJobFailureCodeType,
     InstanceOnboardingJobStatusCodeType,
+    LocalTimeZoneDetectionScopeType,
     LocalTimeZoneDetectionTypeType,
     ProfileOutboundRequestFailureCodeType,
 )
@@ -238,10 +239,12 @@ class CommunicationLimitTypeDef(TypedDict):
 class LocalTimeZoneConfigOutputTypeDef(TypedDict):
     defaultTimeZone: NotRequired[str]
     localTimeZoneDetection: NotRequired[list[LocalTimeZoneDetectionTypeType]]
+    localTimeZoneDetectionScope: NotRequired[LocalTimeZoneDetectionScopeType]
 
 class LocalTimeZoneConfigTypeDef(TypedDict):
     defaultTimeZone: NotRequired[str]
     localTimeZoneDetection: NotRequired[Sequence[LocalTimeZoneDetectionTypeType]]
+    localTimeZoneDetectionScope: NotRequired[LocalTimeZoneDetectionScopeType]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str

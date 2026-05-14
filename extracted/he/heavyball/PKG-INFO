@@ -1,15 +1,15 @@
 Metadata-Version: 2.4
 Name: heavyball
-Version: 3.1.1
+Version: 3.2.0
 Summary: Compile-first PyTorch optimizer library - AdamW, Muon, SOAP/Shampoo, PSGD, Schedule-Free, and 30+ more with torch.compile fusion and composable features
 Author-email: HeavyBall Authors <github.heavyball@nestler.sh>
+License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://github.com/HomebrewML/HeavyBall
 Project-URL: source, https://github.com/HomebrewML/HeavyBall
 Project-URL: tracker, https://github.com/HomebrewML/HeavyBall/issues
 Keywords: pytorch,torch,optimizer,adam,adamw,sgd,deep-learning,machine-learning,torch-compile,triton,second-order,mixed-precision,memory-efficient,soap,muon,psgd,adopt,shampoo,schedule-free,laprop,ademamix,nadam,rmsprop,sam,preconditioning,kronecker,mars,llm-training,distributed,fsdp,ddp
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
@@ -33,12 +33,18 @@ Requires-Dist: optuna; extra == "dev"
 Requires-Dist: optunahub; extra == "dev"
 Requires-Dist: gpytorch; extra == "dev"
 Requires-Dist: scikit-learn; extra == "dev"
-Requires-Dist: lightbench; extra == "dev"
+Requires-Dist: tqdm; extra == "dev"
+Provides-Extra: tuning
+Requires-Dist: optuna; extra == "tuning"
+Requires-Dist: optunahub; extra == "tuning"
+Requires-Dist: gpytorch; extra == "tuning"
+Requires-Dist: scikit-learn; extra == "tuning"
+Requires-Dist: pandas; extra == "tuning"
 Dynamic: license-file
 
 # HeavyBall
 
-[![PyPI version](https://img.shields.io/pypi/v/heavyball?color=blue)][pypi] [![Downloads](https://img.shields.io/pypi/dm/heavyball)][pypi] [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)][license]
+[![PyPI version](https://img.shields.io/pypi/v/heavyball?color=blue)][pypi] [![Downloads](https://img.shields.io/pypi/dm/heavyball)][pypi] [![License](https://img.shields.io/badge/license-BSD--2--Clause-blue.svg)][license]
 
 HeavyBall is an optimizer library for PyTorch where every optimizer is assembled from composable, compiled building
 blocks. It includes API-compatible replacements for `torch.optim.AdamW`, `SGD`, and `RMSprop`, alongside Muon, SOAP (
@@ -220,9 +226,9 @@ class GraftedAdam(C.BaseOpt):
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
                  weight_decay=0, warmup_steps=0, multi_tensor=True):
         defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay,
-                        warmup_steps=warmup_steps)
+                        warmup_steps=warmup_steps, multi_tensor=multi_tensor)
         branch = C.Parallel(branches=[[C.scale_by_adam], [C.identity]], merge_fn=graft)
-        super().__init__(params, defaults, multi_tensor, fns=(branch,))
+        super().__init__(params, defaults, fns=(branch,))
 ```
 
 Custom optimizers that inherit from `BaseOpt` get ECC, MARS, caution, clipping, warmup, and stochastic rounding
@@ -273,7 +279,7 @@ To contribute, fork the repository, install with `pip install -e .[dev]`, and ru
 
 ## License
 
-BSD-3-Clause, see [LICENSE](LICENSE).
+BSD-2-Clause, see [LICENSE](LICENSE).
 
 The name "HeavyBall" comes from [Polyak's heavy-ball method](https://doi.org/10.1016/0041-5553(64)90137-5), the momentum
 technique underlying most modern optimizers.

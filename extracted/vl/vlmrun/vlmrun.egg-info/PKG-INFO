@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vlmrun
-Version: 0.6.2
+Version: 0.6.3
 Summary: Official Python SDK for VLM Run
 Author-email: VLM Support <support@vlm.com>
 License: Apache-2.0
@@ -20,7 +20,9 @@ Classifier: Operating System :: MacOS
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cachetools

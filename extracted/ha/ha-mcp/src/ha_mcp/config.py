@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from ha_mcp._version import get_version
@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     timeout: int = Field(30, alias="HA_TIMEOUT")
     max_retries: int = Field(3, alias="HA_MAX_RETRIES")
 
+    # False = skip TLS verification (self-signed / hostname mismatch). Trusted networks only.
+    verify_ssl: bool = Field(True, alias="HA_VERIFY_SSL")
+
     # Tool configuration
     fuzzy_threshold: int = Field(60, alias="FUZZY_THRESHOLD")
     entity_search_limit: int = Field(20, alias="ENTITY_SEARCH_LIMIT")
@@ -89,17 +92,6 @@ class Settings(BaseSettings):
         True, alias="ENABLE_DASHBOARD_PARTIAL_TOOLS"
     )
 
-    # Skills configuration
-    # Serve bundled HA best-practice skills as MCP resources (skill:// URIs).
-    # Resources are not auto-injected — clients must explicitly request them.
-    enable_skills: bool = Field(True, alias="ENABLE_SKILLS")
-
-    # Expose skills and doc resources as tools (list_resources/read_resource)
-    # for clients that don't support MCP resources natively.
-    # Defaults to True so all clients can access documentation and skills.
-    # Resource-capable clients can set to False to reduce tool count.
-    enable_skills_as_tools: bool = Field(True, alias="ENABLE_SKILLS_AS_TOOLS")
-
     # Tool search transform — replaces the full tool catalog with a unified
     # BM25 search tool and categorized call proxies (read/write/delete).
     # Dramatically reduces idle context token usage for LLMs.
@@ -110,17 +102,56 @@ class Settings(BaseSettings):
     # files. Disabled by default; only for YAML-only features with no UI/API path.
     enable_yaml_config_editing: bool = Field(False, alias="ENABLE_YAML_CONFIG_EDITING")
 
-    @model_validator(mode="after")
-    def _skills_dependency(self) -> "Settings":
-        """Auto-enable skills (resources) when skills-as-tools is on.
+    # Seed values for tool visibility (comma-separated tool names).
+    # Used as initial config when no tool_config.json exists.
+    # The web settings UI (/settings) is the primary interface for managing these.
+    disabled_tools: str = Field("", alias="DISABLED_TOOLS")
+    pinned_tools: str = Field("", alias="PINNED_TOOLS")
 
-        skills_as_tools wraps ResourcesAsTools which requires skills to be
-        registered as MCP resources first. Without this, enabling
-        skills_as_tools alone would produce empty list_resources results.
-        """
-        if self.enable_skills_as_tools and not self.enable_skills:
-            self.enable_skills = True
-        return self
+    # Max results returned by ha_search_tools. Pydantic enforces the
+    # 2-10 range; the addon-dev schema also uses ``int(2,10)?`` so the
+    # supervisor UI rejects out-of-range values before they reach env vars.
+    tool_search_max_results: int = Field(5, ge=2, le=10, alias="TOOL_SEARCH_MAX_RESULTS")
+
+    # Lite docstrings — replace selected heavy tool descriptions with
+    # shorter variants that defer detailed guidance to the
+    # ``ha_get_skill_home_assistant_best_practices`` skill tool/resource.
+    # Reduces idle catalog token usage at the cost of relying on the LLM
+    # to actually consult the skill when it needs detail. Beta feature
+    # (issue #1062); a startup WARNING is emitted when enabled so
+    # env-var users see the trade-off in their logs.
+    enable_lite_docstrings: bool = Field(False, alias="ENABLE_LITE_DOCSTRINGS")
+
+    # Code Mode — sandboxed Python execution via pydantic-monty.
+    # Provides an "escape hatch" tool (ha_manage_custom_tool) that lets LLMs write
+    # custom one-off Python code when no existing tool covers the request.
+    # Disabled by default due to the inherent risk of LLM-generated code.
+    # Range bounds reject zero/negative values that would silently break the
+    # tool and clamp upper bounds at sane safety margins (5 min wall-clock,
+    # 256 MB memory, 10k recursion, 10k API/tool calls per execution).
+    enable_code_mode: bool = Field(False, alias="ENABLE_CODE_MODE")
+    code_mode_max_duration: float = Field(
+        30.0, ge=1.0, le=300.0, alias="CODE_MODE_MAX_DURATION"
+    )
+    code_mode_max_memory: int = Field(
+        10_485_760, ge=1_048_576, le=268_435_456, alias="CODE_MODE_MAX_MEMORY"
+    )  # 10 MB default; 1 MB floor, 256 MB ceiling
+    code_mode_max_recursion: int = Field(
+        100, ge=1, le=10_000, alias="CODE_MODE_MAX_RECURSION"
+    )
+    code_mode_max_invocations: int = Field(
+        100, ge=1, le=10_000, alias="CODE_MODE_MAX_INVOCATIONS"
+    )
+    # Path to a JSON file for persisting saved custom tools across restarts.
+    # Empty string disables persistence (saved tools live in process memory
+    # and are lost on restart). The addon sets this to /data/saved_tools.json
+    # by default so saved tools survive addon restarts (the /data directory
+    # is mapped per-addon by Supervisor and is preserved across addon
+    # updates).
+    code_mode_saved_tools_path: str = Field(
+        "", alias="CODE_MODE_SAVED_TOOLS_PATH"
+    )
+
 
     @property
     def env_file_name(self) -> str:
@@ -220,3 +251,13 @@ def get_global_settings() -> Settings:
     if _settings is None:
         _settings = get_settings()
     return _settings
+
+
+def _reset_global_settings() -> None:
+    """Drop the cached settings singleton.
+
+    Test-only seam so suites that mutate ``HA_*`` env vars can force a
+    re-read without reaching into module-private state.
+    """
+    global _settings
+    _settings = None

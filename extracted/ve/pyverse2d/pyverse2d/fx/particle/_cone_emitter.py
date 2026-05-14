@@ -35,16 +35,16 @@ class ConeEmitter(ParticleEmitter):
         rate: Real = 50.0,
         active: bool = False,
     ):
+        # Initialisation de l'émetteur
+        super().__init__(position, particle=particle, max_particles=max_particles, rate=rate, active=active)
+
         # Transtypage
         direction = float(direction)
         spread = float(spread)
 
-        # Initialisation de l'émetteur
-        super().__init__(position, particle=particle, max_particles=max_particles, rate=rate, active=active)
-
         # Attributs publiques
-        self._direction = direction
-        self._spread = spread
+        self._direction: float = direction
+        self._spread: float = spread
 
     # ======================================== PROPERTIES ========================================
     @property

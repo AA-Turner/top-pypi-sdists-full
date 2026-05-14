@@ -446,6 +446,9 @@ class Generator:
     # Whether named columns are allowed in table aliases
     SUPPORTS_TABLE_ALIAS_COLUMNS = True
 
+    # Whether named columns are allowed in CTE definitions
+    SUPPORTS_NAMED_CTE_COLUMNS = True
+
     # Whether UNPIVOT aliases are Identifiers (False means they're Literals)
     UNPIVOT_ALIASES_ARE_IDENTIFIERS = True
 
@@ -466,6 +469,9 @@ class Generator:
 
     # Whether ALTER TABLE ... MODIFY COLUMN column-redefinition syntax is supported
     SUPPORTS_MODIFY_COLUMN = False
+
+    # Whether ALTER TABLE ... CHANGE COLUMN column-rename-and-redefine syntax is supported
+    SUPPORTS_CHANGE_COLUMN = False
 
     # Whether the LikeProperty needs to be specified inside of the schema clause
     LIKE_PROPERTY_INSIDE_SCHEMA = False
@@ -619,6 +625,11 @@ class Generator:
     }
 
     UNSUPPORTED_TYPES: t.ClassVar[set[exp.DType]] = set()
+
+    # mapping of DType to its default parameters, bounds
+    TYPE_PARAM_SETTINGS: t.ClassVar[
+        dict[exp.DType, tuple[tuple[int, ...], tuple[int | None, ...]]]
+    ] = {}
 
     TIME_PART_SINGULARS: t.ClassVar = {
         "MICROSECONDS": "MICROSECOND",
@@ -1526,7 +1537,11 @@ class Generator:
         columns = self.expressions(expression, key="columns", flat=True)
         columns = f"({columns})" if columns else ""
 
-        if columns and not self.SUPPORTS_TABLE_ALIAS_COLUMNS:
+        if (
+            columns
+            and not self.SUPPORTS_TABLE_ALIAS_COLUMNS
+            and not (self.SUPPORTS_NAMED_CTE_COLUMNS and isinstance(expression.parent, exp.CTE))
+        ):
             columns = ""
             self.unsupported("Named columns are not supported in table alias.")
 
@@ -1629,11 +1644,59 @@ class Generator:
         specifier = f" {specifier}" if specifier and self.DATA_TYPE_SPECIFIERS_ALLOWED else ""
         return f"{this}{specifier}"
 
+    def datatype_param_bound_limiter(
+        self,
+        expression: exp.DataType,
+        type_value: exp.DType,
+        defaults: tuple[int, ...],
+        bounds: tuple[int | None, ...],
+    ) -> exp.DataType:
+        params = expression.expressions
+
+        if not params:
+            if defaults:
+                expression.set(
+                    "expressions",
+                    [exp.DataTypeParam(this=exp.Literal.number(d)) for d in defaults],
+                )
+            return expression
+
+        if not bounds:
+            return expression
+
+        for i, param in enumerate(params):
+            bound = bounds[i] if i < len(bounds) else None
+            if bound is None:
+                continue
+
+            param_value = param.this if isinstance(param, exp.DataTypeParam) else param
+            if (
+                isinstance(param_value, exp.Literal)
+                and param_value.is_number
+                and int(param_value.to_py()) > bound
+            ):
+                self.unsupported(
+                    f"{type_value.value} parameter {param_value.name} exceeds "
+                    f"{self.dialect.__class__.__name__}'s maximum of {bound}; capping"
+                )
+                params[i] = exp.DataTypeParam(this=exp.Literal.number(bound))
+
+        return expression
+
     def datatype_sql(self, expression: exp.DataType) -> str:
         nested = ""
         values = ""
 
         expr_nested = expression.args.get("nested")
+        type_value = expression.this
+
+        if (
+            not expr_nested
+            and isinstance(type_value, exp.DType)
+            and (settings := self.TYPE_PARAM_SETTINGS.get(type_value))
+        ):
+            expression = self.datatype_param_bound_limiter(expression, type_value, *settings)
+
         interior = (
             self.expressions(
                 expression, dynamic=True, new_line=True, skip_first=True, skip_last=True
@@ -1642,7 +1705,6 @@ class Generator:
             else self.expressions(expression, flat=True)
         )
 
-        type_value = expression.this
         if type_value in self.UNSUPPORTED_TYPES:
             self.unsupported(
                 f"Data type {type_value.value} is not supported when targeting {self.dialect.__class__.__name__}"
@@ -1678,6 +1740,10 @@ class Generator:
             exp.DType.TIMESTAMPTZ,
         ):
             type_sql = f"{type_sql} WITH TIME ZONE"
+
+        collate = self.sql(expression, "collate")
+        if collate:
+            type_sql = f"{type_sql} COLLATE {collate}"
 
         return type_sql
 
@@ -3944,9 +4010,15 @@ class Generator:
         return f"ALTER COLUMN {this} DROP DEFAULT"
 
     def modifycolumn_sql(self, expression: exp.ModifyColumn) -> str:
+        this = self.sql(expression, "this")
+        rename_from = self.sql(expression, "rename_from")
+        if rename_from:
+            if not self.SUPPORTS_CHANGE_COLUMN:
+                self.unsupported("CHANGE COLUMN is not supported in this dialect")
+            return f"CHANGE COLUMN {rename_from} {this}"
         if not self.SUPPORTS_MODIFY_COLUMN:
             self.unsupported("MODIFY COLUMN is not supported in this dialect")
-        return f"MODIFY COLUMN {self.sql(expression, 'this')}"
+        return f"MODIFY COLUMN {this}"
 
     def alterindex_sql(self, expression: exp.AlterIndex) -> str:
         this = self.sql(expression, "this")
@@ -4193,6 +4265,9 @@ class Generator:
             exp_class = exp.ILike
             op = "ILIKE"
 
+        if expression.args.get("negate"):
+            op = f"NOT {op}"
+
         if isinstance(rhs, (exp.All, exp.Any)) and not self.SUPPORTS_LIKE_QUANTIFIERS:
             exprs = rhs.this.unnest()
 
@@ -4204,7 +4279,9 @@ class Generator:
             connective = exp.or_ if isinstance(rhs, exp.Any) else exp.and_
 
             def _make_like(expr: exp.Expression) -> exp.Expression:
-                like: exp.Expression = exp_class(this=this, expression=expr)
+                like: exp.Expression = exp_class(
+                    this=this, expression=expr, negate=expression.args.get("negate")
+                )
                 if escape:
                     like = exp.Escape(this=like, expression=escape.expression.copy())
                 return like

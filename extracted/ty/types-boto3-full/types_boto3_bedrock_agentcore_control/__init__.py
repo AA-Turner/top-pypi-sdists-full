@@ -33,9 +33,12 @@ Usage::
         ListPaymentCredentialProvidersPaginator,
         ListPaymentManagersPaginator,
         ListPoliciesPaginator,
+        ListPolicyEngineSummariesPaginator,
         ListPolicyEnginesPaginator,
         ListPolicyGenerationAssetsPaginator,
+        ListPolicyGenerationSummariesPaginator,
         ListPolicyGenerationsPaginator,
+        ListPolicySummariesPaginator,
         ListRegistriesPaginator,
         ListRegistryRecordsPaginator,
         ListWorkloadIdentitiesPaginator,
@@ -78,9 +81,12 @@ Usage::
     list_payment_credential_providers_paginator: ListPaymentCredentialProvidersPaginator = client.get_paginator("list_payment_credential_providers")
     list_payment_managers_paginator: ListPaymentManagersPaginator = client.get_paginator("list_payment_managers")
     list_policies_paginator: ListPoliciesPaginator = client.get_paginator("list_policies")
+    list_policy_engine_summaries_paginator: ListPolicyEngineSummariesPaginator = client.get_paginator("list_policy_engine_summaries")
     list_policy_engines_paginator: ListPolicyEnginesPaginator = client.get_paginator("list_policy_engines")
     list_policy_generation_assets_paginator: ListPolicyGenerationAssetsPaginator = client.get_paginator("list_policy_generation_assets")
+    list_policy_generation_summaries_paginator: ListPolicyGenerationSummariesPaginator = client.get_paginator("list_policy_generation_summaries")
     list_policy_generations_paginator: ListPolicyGenerationsPaginator = client.get_paginator("list_policy_generations")
+    list_policy_summaries_paginator: ListPolicySummariesPaginator = client.get_paginator("list_policy_summaries")
     list_registries_paginator: ListRegistriesPaginator = client.get_paginator("list_registries")
     list_registry_records_paginator: ListRegistryRecordsPaginator = client.get_paginator("list_registry_records")
     list_workload_identities_paginator: ListWorkloadIdentitiesPaginator = client.get_paginator("list_workload_identities")
@@ -111,8 +117,11 @@ from .paginator import (
     ListPaymentManagersPaginator,
     ListPoliciesPaginator,
     ListPolicyEnginesPaginator,
+    ListPolicyEngineSummariesPaginator,
     ListPolicyGenerationAssetsPaginator,
     ListPolicyGenerationsPaginator,
+    ListPolicyGenerationSummariesPaginator,
+    ListPolicySummariesPaginator,
     ListRegistriesPaginator,
     ListRegistryRecordsPaginator,
     ListWorkloadIdentitiesPaginator,
@@ -153,9 +162,12 @@ __all__ = (
     "ListPaymentCredentialProvidersPaginator",
     "ListPaymentManagersPaginator",
     "ListPoliciesPaginator",
+    "ListPolicyEngineSummariesPaginator",
     "ListPolicyEnginesPaginator",
     "ListPolicyGenerationAssetsPaginator",
+    "ListPolicyGenerationSummariesPaginator",
     "ListPolicyGenerationsPaginator",
+    "ListPolicySummariesPaginator",
     "ListRegistriesPaginator",
     "ListRegistryRecordsPaginator",
     "ListWorkloadIdentitiesPaginator",

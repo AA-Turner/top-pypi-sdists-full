@@ -3,7 +3,7 @@ import os
 
 from setuptools import find_packages, setup
 
-VERSION = "3.56.4"
+VERSION = "3.56.5"
 
 THIS_DIR = os.path.dirname(os.path.realpath(__file__))
 

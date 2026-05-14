@@ -22,6 +22,7 @@ class TestPostgres(Validator):
         expected_sql = "ARRAY[\n  x" + (",\n  x" * 27) + "\n]"
         self.validate_identity(sql, expected_sql, pretty=True)
 
+        self.validate_identity("""CAST('a' AS TEXT COLLATE "de_DE")""")
         self.validate_identity("SELECT '%' SIMILAR TO '^%' ESCAPE '^'")
         self.validate_identity("SELECT GET_BIT(CAST(44 AS BIT(10)), 6)")
         self.validate_identity("SELECT * FROM t GROUP BY ROLLUP (a || '^' || b)")
@@ -261,12 +262,26 @@ class TestPostgres(Validator):
         )
         self.validate_identity(
             "x !~~ 'y'",
-            "NOT x LIKE 'y'",
+            "x NOT LIKE 'y'",
         )
         self.validate_identity(
             "x !~~* 'y'",
-            "NOT x ILIKE 'y'",
+            "x NOT ILIKE 'y'",
         )
+        self.validate_identity("SELECT 'testa 1' NOT LIKE ALL (ARRAY['testa%', 'testb%'])")
+        self.validate_identity("SELECT 'testa 1' NOT LIKE ANY(ARRAY['testa%', 'testb%'])")
+        self.validate_identity("SELECT 'testa 1' NOT ILIKE ALL (ARRAY['testa%', 'testb%'])")
+        self.validate_identity("SELECT 'testa 1' NOT ILIKE ANY(ARRAY['testa%', 'testb%'])")
+        self.validate_identity("SELECT NOT 'testa 1' LIKE ALL (ARRAY['testa%', 'testb%'])")
+        self.validate_identity("SELECT NOT ('testa 1' LIKE ALL (ARRAY['testa%', 'testb%']))")
+        infix_not_like = self.parse_one("SELECT a NOT LIKE ALL (b)").expressions[0]
+        prefix_not_like = self.parse_one("SELECT NOT a LIKE ALL (b)").expressions[0]
+        self.assertIsInstance(infix_not_like, exp.Like)
+        self.assertTrue(infix_not_like.args.get("negate"))
+        self.assertIsInstance(prefix_not_like, exp.Not)
+        self.assertIsInstance(prefix_not_like.this, exp.Like)
+        self.assertFalse(prefix_not_like.this.args.get("negate"))
+        self.assertNotEqual(infix_not_like, prefix_not_like)
         self.validate_identity(
             "'45 days'::interval day",
             "CAST('45 days' AS INTERVAL DAY)",
@@ -1074,6 +1089,28 @@ FROM json_data, field_ids""",
         # Checks that user-defined types are parsed into DataType instead of Identifier
         self.parse_one("CREATE TABLE t (a udt)").this.expressions[0].args["kind"].assert_is(
             exp.DataType
+        )
+
+        create_type = self.validate_identity(
+            "CREATE TYPE mood AS ENUM ('sad', 'ok', 'happy')"
+        ).assert_is(exp.Create)
+        self.assertTrue(create_type.expression.assert_is(exp.DataType).is_type(exp.DType.ENUM))
+
+        self.validate_identity("CREATE TYPE mood AS ENUM ()").assert_is(exp.Create)
+
+        create_type = self.validate_identity(
+            "CREATE TYPE inventory_item AS (name TEXT, supplier_id INT, price DECIMAL)"
+        ).assert_is(exp.Create)
+        create_type.expression.assert_is(exp.Schema)
+
+        self.validate_identity("CREATE TYPE public.mood AS ENUM ('sad', 'ok')").assert_is(
+            exp.Create
+        )
+
+        self.validate_identity("CREATE TYPE widget", check_command_warning=True)
+        self.validate_identity(
+            "CREATE TYPE float8range AS RANGE (subtype = float8, subtype_diff = float8mi)",
+            check_command_warning=True,
         )
 
         # Checks that OID is parsed into a DataType (ObjectIdentifier)

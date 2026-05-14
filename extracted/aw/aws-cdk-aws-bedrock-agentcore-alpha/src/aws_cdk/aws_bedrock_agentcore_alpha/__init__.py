@@ -110,6 +110,9 @@ This construct library facilitates the deployment of Bedrock AgentCore primitive
     * [Tools schema For Lambda target](#tools-schema-for-lambda-target)
     * [Api schema For OpenAPI and Smithy target](#api-schema-for-openapi-and-smithy-target)
     * [Outbound auth](#outbound-auth)
+
+      * [Token Vault credential providers](#token-vault-credential-providers)
+      * [Workload identities](#workload-identities)
     * [Basic Gateway Target Creation](#basic-gateway-target-creation)
 
       * [Using addTarget methods (Recommended)](#using-addtarget-methods-recommended)
@@ -1493,7 +1496,7 @@ credential provider attached enabling you to securely access targets whether the
 | `description` | `string` | No | Optional description for the gateway target. Maximum 200 characters |
 | `gateway` | `IGateway` | Yes | The gateway this target belongs to |
 | `targetConfiguration` | `ITargetConfiguration` | Yes | The target configuration (Lambda, OpenAPI, Smithy, or API Gateway). **Note:** Users typically don't create this directly. When using convenience methods like `GatewayTarget.forLambda()`, `GatewayTarget.forOpenApi()`, `GatewayTarget.forSmithy()`, `GatewayTarget.forApiGateway()`, `GatewayTarget.forMcpServer()` or the gateway's `addLambdaTarget()`, `addOpenApiTarget()`, `addSmithyTarget()`, `addApiGatewayTarget()`, `addMcpServerTarget()` methods, this configuration is created internally for you. Only needed when using the GatewayTarget constructor directly for [advanced scenarios](#advanced-usage-direct-configuration-for-gateway-target). |
-| `credentialProviderConfigurations` | `IGatewayCredentialProvider[]` | No | Credential providers for authentication. Defaults to `[GatewayCredentialProvider.fromIamRole()]`. Use `GatewayCredentialProvider.fromApiKeyIdentityArn()`, `GatewayCredentialProvider.fromOauthIdentityArn()`, or `GatewayCredentialProvider.fromIamRole()` |
+| `credentialProviderConfigurations` | `IGatewayCredentialProvider[]` | No | Credential providers for authentication. Defaults to `[GatewayCredentialProvider.fromIamRole()]`. With Token Vault L2 constructs, prefer `GatewayCredentialProvider.fromApiKeyIdentity()` / `fromOauthIdentity()`; otherwise use `fromApiKeyIdentityArn()` / `fromOauthIdentityArn()`, or `fromIamRole()` |
 | `validateOpenApiSchema` | `boolean` | No | (OpenAPI targets only) Whether to validate the OpenAPI schema at synthesis time. Defaults to `true`. Only applies to inline and local asset schemas. For more information refer here [https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-schema-openapi.html](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-schema-openapi.html) |
 
 This approach gives you full control over the configuration but is typically not necessary for most use cases.
@@ -1695,6 +1698,93 @@ The gateway authenticates on its own behalf, not on behalf of a user.
 
 **Note > You need to set up the outbound identity before you can create a gateway target.
 
+#### Token Vault credential providers
+
+AgentCore stores outbound **API key** and **OAuth2** client credentials in Token Vault. This module includes L2 constructs that create those resources and connect them to gateway targets.
+
+**Shared OAuth2 fields** — Every `OAuth2CredentialProvider` factory accepts the same **`clientId`** and **`clientSecret`**, plus optional **`oAuth2CredentialProviderName`** and **`tags`**. Extra properties appear only when an IdP needs them (for example **`tenantId`** for Microsoft, or **`issuer`** / endpoint overrides for Okta and other *included* configurations).
+
+**Vendor factories** — Prefer `OAuth2CredentialProvider.usingSlack`, `.usingGithub`, `.usingGoogle`, `.usingMicrosoft`, `.usingOkta`, `.usingAuth0`, `.usingCognito`, and the other `using*` helpers for known providers. Each maps to the matching CloudFormation *included* provider configuration.
+
+**Custom OAuth2 (`usingCustom`)** — Supply **exactly one** of:
+
+* **`discoveryUrl`** — OIDC/OAuth2 discovery document URL (for example `https://idp.example.com/.well-known/openid-configuration`), or
+* **`authorizationServerMetadata`** — Manual authorization server metadata (`issuer`, `authorizationEndpoint`, `tokenEndpoint`, and other fields supported by the `AWS::BedrockAgentCore::OAuth2CredentialProvider` resource).
+
+Do not pass both. The construct validates this at synthesis time when values are known; if you use CDK tokens, ensure the resolved template still satisfies the service rules.
+
+**Wiring to gateway targets** — After you create a provider in CDK, pass the construct to **`GatewayCredentialProvider.fromOauthIdentity()`** or **`fromApiKeyIdentity()`** (optional API key header/query settings go in the second argument for API keys). Alternatively, call **`bindForGatewayOAuthTarget`** / **`bindForGatewayApiKeyTarget`** on the provider and pass that object to **`fromOauthIdentityArn`** / **`fromApiKeyIdentityArn`**. You can still pass raw ARNs from the console or API when the provider already exists.
+
+**Example: GitHub OAuth2 and an MCP target**
+
+```python
+gateway = agentcore.Gateway(self, "MyGateway",
+    gateway_name="my-gateway"
+)
+
+oauth = agentcore.OAuth2CredentialProvider.using_github(self, "GhOAuth",
+    o_auth2_credential_provider_name="github-oauth",
+    client_id="your-client-id",
+    client_secret=cdk.SecretValue.unsafe_plain_text("your-client-secret")
+)
+
+gateway.add_mcp_server_target("Mcp",
+    gateway_target_name="mcp-server",
+    description="MCP with GitHub OAuth",
+    endpoint="https://my-mcp-server.example.com",
+    credential_provider_configurations=[
+        agentcore.GatewayCredentialProvider.from_oauth_identity(oauth,
+            scopes=["read:user"]
+        )
+    ]
+)
+```
+
+**Example: custom IdP with a discovery URL**
+
+```python
+agentcore.OAuth2CredentialProvider.using_custom(self, "CustomOAuth",
+    o_auth2_credential_provider_name="custom-idp",
+    client_id="your-client-id",
+    client_secret=cdk.SecretValue.unsafe_plain_text("your-client-secret"),
+    discovery_url="https://idp.example.com/.well-known/openid-configuration"
+)
+```
+
+**Example: custom IdP with explicit authorization server metadata**
+
+```python
+agentcore.OAuth2CredentialProvider.using_custom(self, "CustomOAuthMeta",
+    client_id="your-client-id",
+    client_secret=cdk.SecretValue.unsafe_plain_text("your-client-secret"),
+    authorization_server_metadata=agentcore.OAuth2AuthorizationServerMetadata(
+        issuer="https://idp.example.com",
+        authorization_endpoint="https://idp.example.com/oauth2/authorize",
+        token_endpoint="https://idp.example.com/oauth2/token"
+    )
+)
+```
+
+#### Workload identities
+
+A **workload identity** is the stable identity of an agent in your AWS account within the AgentCore Identity model. It ties together IAM roles, OAuth2 flows, API keys, and workload access tokens so agents can authenticate consistently across environments. For conceptual background, see [Understanding workload identities](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/understanding-agent-identities.html).
+
+**Agent identity directory** — Each account has a single logical directory that holds every workload identity, whether it was created by AgentCore Runtime, AgentCore Gateway, or manually (for example through CloudFormation or the control-plane API). The directory is created automatically when the first workload identity exists. Resource ARNs follow the pattern described in [Understanding the agent identity directory](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agent-identity-directory.html) (`workload-identity-directory/default` and child `workload-identity/<name>` entries).
+
+**When to create one in CDK** — Runtime and Gateway can create workload identities for you during deployment. Use the **`WorkloadIdentity`** L2 when you need a **manually defined** identity (custom name, allowed OAuth2 return URLs, tags) or when integrating workloads that are not driven by those services.
+
+**Construct** — `WorkloadIdentity` maps to **`AWS::BedrockAgentCore::WorkloadIdentity`**. It exposes `workloadIdentityArn`, `workloadIdentityName`, and `workloadIdentityRef` for wiring into IAM or other AgentCore resources. Import an existing identity with **`WorkloadIdentity.fromWorkloadIdentityAttributes`**. Grant helpers (`grantRead`, `grantAdmin`, `grantFullAccess`) align with [directory-level IAM patterns](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agent-identity-directory.html#directory-access-control-and-permissions) such as listing identities on the directory resource and scoping mutations to specific identity ARNs.
+
+**Example**
+
+```python
+agentcore.WorkloadIdentity(self, "MyWorkloadIdentity",
+    workload_identity_name="customer-support-agent-prod",
+    allowed_resource_oauth2_return_urls=["https://app.example.com/oauth/callback"],
+    tags={"team": "agents", "env": "prod"}
+)
+```
+
 ### Basic Gateway Target Creation
 
 You can create targets in two ways: using the static factory methods on `GatewayTarget` or using the convenient `addTarget` methods on the gateway instance.
@@ -1746,21 +1836,54 @@ lambda_target = gateway.add_lambda_target("MyLambdaTarget",
 )
 ```
 
-* OpenAPI Target
+* OpenAPI Target (using Token Vault L2 construct — preferred)
 
 ```python
 gateway = agentcore.Gateway(self, "MyGateway",
     gateway_name="my-gateway"
 )
 
-# These ARNs are returned when creating the API key credential provider via Console or API
+# Create an API key credential provider in Token Vault
+api_key_provider = agentcore.ApiKeyCredentialProvider(self, "MyApiKeyProvider",
+    api_key_credential_provider_name="my-apikey"
+)
+
+bucket = s3.Bucket.from_bucket_name(self, "ExistingBucket", "my-schema-bucket")
+s3my_schema = agentcore.ApiSchema.from_s3_file(bucket, "schemas/myschema.yaml")
+
+# Add an OpenAPI target using the L2 construct directly
+target = gateway.add_open_api_target("MyTarget",
+    gateway_target_name="my-api-target",
+    description="Target for external API integration",
+    api_schema=s3my_schema,
+    credential_provider_configurations=[
+        agentcore.GatewayCredentialProvider.from_api_key_identity(api_key_provider,
+            credential_location=agentcore.ApiKeyCredentialLocation.header(
+                credential_parameter_name="X-API-Key"
+            )
+        )
+    ]
+)
+
+# This makes sure your s3 bucket is available before target
+target.node.add_dependency(bucket)
+```
+
+* OpenAPI Target (using ARNs — for providers created outside of CDK)
+
+```python
+gateway = agentcore.Gateway(self, "MyGateway",
+    gateway_name="my-gateway"
+)
+
+# ARNs from the console/API, or from ApiKeyCredentialProvider + bindForGatewayApiKeyTarget
 api_key_provider_arn = "arn:aws:bedrock-agentcore:us-east-1:123456789012:token-vault/abc123/apikeycredentialprovider/my-apikey"
 api_key_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:my-apikey-secret-abc123"
 
 bucket = s3.Bucket.from_bucket_name(self, "ExistingBucket", "my-schema-bucket")
 s3my_schema = agentcore.ApiSchema.from_s3_file(bucket, "schemas/myschema.yaml")
 
-# Add an OpenAPI target directly to the gateway
+# Add an OpenAPI target using ARNs directly
 target = gateway.add_open_api_target("MyTarget",
     gateway_target_name="my-api-target",
     description="Target for external API integration",
@@ -1776,7 +1899,7 @@ target = gateway.add_open_api_target("MyTarget",
     ]
 )
 
-# This make sure your s3 bucket is available before target
+# This makes sure your s3 bucket is available before target
 target.node.add_dependency(bucket)
 ```
 
@@ -1805,8 +1928,7 @@ gateway = agentcore.Gateway(self, "MyGateway",
     gateway_name="my-gateway"
 )
 
-# OAuth2 authentication (recommended)
-# Note: Create the OAuth provider using AWS console or Identity L2 construct when available
+# OAuth2 (recommended): use OAuth2CredentialProvider + bindForGatewayOAuthTarget, or ARNs from console/API
 oauth_provider_arn = "arn:aws:bedrock-agentcore:us-east-1:123456789012:token-vault/abc123/oauth2credentialprovider/my-oauth"
 oauth_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:my-oauth-secret-abc123"
 
@@ -1912,7 +2034,7 @@ gateway = agentcore.Gateway(self, "MyGateway",
     gateway_name="my-gateway"
 )
 
-# outbound auth (Use AWS console to create it, Once Identity L2 construct is available you can use it to create identity)
+# Outbound auth: ApiKeyCredentialProvider + bindForGatewayApiKeyTarget, or ARNs from console/API
 api_key_identity_arn = "arn:aws:bedrock-agentcore:us-east-1:123456789012:token-vault/abc123/apikeycredentialprovider/my-apikey"
 api_key_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:my-apikey-secret-abc123"
 
@@ -1961,8 +2083,7 @@ gateway = agentcore.Gateway(self, "MyGateway",
     gateway_name="my-gateway"
 )
 
-# OAuth2 authentication (recommended)
-# Note: Create the OAuth provider using AWS console or Identity L2 construct when available
+# OAuth2 (recommended): use OAuth2CredentialProvider + bindForGatewayOAuthTarget, or ARNs from console/API
 oauth_provider_arn = "arn:aws:bedrock-agentcore:us-east-1:123456789012:token-vault/abc123/oauth2credentialprovider/my-oauth"
 oauth_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:my-oauth-secret-abc123"
 
@@ -2866,6 +2987,15 @@ policy_engine.grant_evaluate(lambda_role)
 
 The Online Evaluation construct enables continuous monitoring and assessment of your agent's performance using live traffic. It automatically samples agent traces from CloudWatch Logs or Agent Endpoints and applies built-in evaluators to assess quality metrics like helpfulness, correctness, and safety.
 
+### Prerequisites
+
+Before creating an `OnlineEvaluationConfig`, ensure the following are configured in your account:
+
+* **CloudWatch Transaction Search** enabled — this creates the `aws/spans` log group required by the evaluation service. See [Enable Transaction Search](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability-configure.html).
+* **AWS Distro for OpenTelemetry (ADOT) SDK** instrumenting your agent to emit traces.
+
+For full details, see [AgentCore Evaluations Prerequisites](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/evaluations-prerequisites.html).
+
 ### Online Evaluation Properties
 
 | Name | Type | Required | Description |
@@ -2960,6 +3090,7 @@ Custom evaluators let you define evaluation logic tailored to your specific use 
 | `evaluatorConfig` | `EvaluatorConfig` | Yes | Configuration defining how the evaluator assesses performance |
 | `level` | `EvaluationLevel` | Yes | The level at which the evaluator operates: `TOOL_CALL`, `TRACE`, or `SESSION` |
 | `description` | `string` | No | Description of the evaluator. Maximum 200 characters |
+| `tags` | `{ [key: string]: string }` | No | Tags for the evaluator. A list of key:value pairs to apply to this Evaluator resource |
 
 #### LLM-as-a-Judge Evaluator
 
@@ -3698,43 +3829,22 @@ class AddMcpServerTargetOptions:
                 gateway_name="my-gateway"
             )
             
-            # OAuth2 authentication (recommended)
-            # Note: Create the OAuth provider using AWS console or Identity L2 construct when available
-            oauth_provider_arn = "arn:aws:bedrock-agentcore:us-east-1:123456789012:token-vault/abc123/oauth2credentialprovider/my-oauth"
-            oauth_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:my-oauth-secret-abc123"
+            oauth = agentcore.OAuth2CredentialProvider.using_github(self, "GhOAuth",
+                o_auth2_credential_provider_name="github-oauth",
+                client_id="your-client-id",
+                client_secret=cdk.SecretValue.unsafe_plain_text("your-client-secret")
+            )
             
-            # Add an MCP server target directly to the gateway
-            mcp_target = gateway.add_mcp_server_target("MyMcpServer",
-                gateway_target_name="my-mcp-server",
-                description="External MCP server integration",
+            gateway.add_mcp_server_target("Mcp",
+                gateway_target_name="mcp-server",
+                description="MCP with GitHub OAuth",
                 endpoint="https://my-mcp-server.example.com",
                 credential_provider_configurations=[
-                    agentcore.GatewayCredentialProvider.from_oauth_identity_arn(
-                        provider_arn=oauth_provider_arn,
-                        secret_arn=oauth_secret_arn,
-                        scopes=["mcp-runtime-server/invoke"]
+                    agentcore.GatewayCredentialProvider.from_oauth_identity(oauth,
+                        scopes=["read:user"]
                     )
                 ]
             )
-            
-            # Grant sync permission to a Lambda function that will trigger synchronization
-            sync_function = lambda_.Function(self, "SyncFunction",
-                runtime=lambda_.Runtime.PYTHON_3_12,
-                handler="index.handler",
-                code=lambda_.Code.from_inline("""
-                    import boto3
-            
-                    def handler(event, context):
-                        client = boto3.client('bedrock-agentcore')
-                        response = client.synchronize_gateway_targets(
-                            gatewayIdentifier=event['gatewayId'],
-                            targetIds=[event['targetId']]
-                        )
-                        return response
-                      """)
-            )
-            
-            mcp_target.grant_sync(sync_function)
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7cd8d2a62f38a411b6450b8df9aba3a2eda7a8b55fa844a15a006c6955301975)
@@ -3840,7 +3950,7 @@ class AddOpenApiTargetOptions:
         '''(experimental) Options for adding an OpenAPI target to a gateway.
 
         :param api_schema: (experimental) The OpenAPI schema defining the API.
-        :param credential_provider_configurations: (experimental) Credential providers for authentication. Default: - [GatewayCredentialProvider.iamRole()]
+        :param credential_provider_configurations: (experimental) Credential providers for outbound authentication (OpenAPI targets use API Key or OAuth, not IAM). Default: - none (no credential configuration on the target; supply providers for secured backends)
         :param description: (experimental) Optional description for the gateway target. Default: - No description
         :param gateway_target_name: (experimental) The name of the gateway target Valid characters are a-z, A-Z, 0-9, _ (underscore) and - (hyphen). Default: - auto generate
         :param validate_open_api_schema: (experimental) Whether to validate the OpenAPI schema or not Note: Validation is only performed for inline and asset-based schema and during CDK synthesis. S3 schemas cannot be validated at synthesis time. Default: true
@@ -3854,22 +3964,21 @@ class AddOpenApiTargetOptions:
                 gateway_name="my-gateway"
             )
             
-            # These ARNs are returned when creating the API key credential provider via Console or API
-            api_key_provider_arn = "arn:aws:bedrock-agentcore:us-east-1:123456789012:token-vault/abc123/apikeycredentialprovider/my-apikey"
-            api_key_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:my-apikey-secret-abc123"
+            # Create an API key credential provider in Token Vault
+            api_key_provider = agentcore.ApiKeyCredentialProvider(self, "MyApiKeyProvider",
+                api_key_credential_provider_name="my-apikey"
+            )
             
             bucket = s3.Bucket.from_bucket_name(self, "ExistingBucket", "my-schema-bucket")
             s3my_schema = agentcore.ApiSchema.from_s3_file(bucket, "schemas/myschema.yaml")
             
-            # Add an OpenAPI target directly to the gateway
+            # Add an OpenAPI target using the L2 construct directly
             target = gateway.add_open_api_target("MyTarget",
                 gateway_target_name="my-api-target",
                 description="Target for external API integration",
                 api_schema=s3my_schema,
                 credential_provider_configurations=[
-                    agentcore.GatewayCredentialProvider.from_api_key_identity_arn(
-                        provider_arn=api_key_provider_arn,
-                        secret_arn=api_key_secret_arn,
+                    agentcore.GatewayCredentialProvider.from_api_key_identity(api_key_provider,
                         credential_location=agentcore.ApiKeyCredentialLocation.header(
                             credential_parameter_name="X-API-Key"
                         )
@@ -3877,7 +3986,7 @@ class AddOpenApiTargetOptions:
                 ]
             )
             
-            # This make sure your s3 bucket is available before target
+            # This makes sure your s3 bucket is available before target
             target.node.add_dependency(bucket)
         '''
         if __debug__:
@@ -3913,9 +4022,9 @@ class AddOpenApiTargetOptions:
     def credential_provider_configurations(
         self,
     ) -> typing.Optional[typing.List["ICredentialProviderConfig"]]:
-        '''(experimental) Credential providers for authentication.
+        '''(experimental) Credential providers for outbound authentication (OpenAPI targets use API Key or OAuth, not IAM).
 
-        :default: - [GatewayCredentialProvider.iamRole()]
+        :default: - none (no credential configuration on the target; supply providers for secured backends)
 
         :stability: experimental
         '''
@@ -4232,7 +4341,7 @@ class AddSmithyTargetOptions:
 
 @jsii.enum(jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.AgentCoreRuntime")
 class AgentCoreRuntime(enum.Enum):
-    '''(experimental) Bedrock AgentCore runtime environment for code execution Allowed values: PYTHON_3_10 | PYTHON_3_11 | PYTHON_3_12 | PYTHON_3_13.
+    '''(experimental) Bedrock AgentCore runtime environment for code execution Allowed values: PYTHON_3_10 | PYTHON_3_11 | PYTHON_3_12 | PYTHON_3_13 | PYTHON_3_14 | NODE_22.
 
     :stability: experimental
     :exampleMetadata: fixture=default infused
@@ -4275,6 +4384,16 @@ class AgentCoreRuntime(enum.Enum):
     '''
     PYTHON_3_13 = "PYTHON_3_13"
     '''(experimental) Python 3.13 runtime.
+
+    :stability: experimental
+    '''
+    PYTHON_3_14 = "PYTHON_3_14"
+    '''(experimental) Python 3.14 runtime.
+
+    :stability: experimental
+    '''
+    NODE_22 = "NODE_22"
+    '''(experimental) Node.js 22 runtime.
 
     :stability: experimental
     '''
@@ -4501,7 +4620,7 @@ class AgentRuntimeArtifact(
         '''(experimental) Reference an agent runtime artifact that's constructed directly from an S3 object.
 
         :param s3_location: The source code location and configuration details.
-        :param runtime: The runtime environment for executing the code. Allowed values: PYTHON_3_10 | PYTHON_3_11 | PYTHON_3_12 | PYTHON_3_13
+        :param runtime: The runtime environment for executing the code. Allowed values: PYTHON_3_10 | PYTHON_3_11 | PYTHON_3_12 | PYTHON_3_13 | PYTHON_3_14 | NODE_22
         :param entrypoint: The entry point for the code execution, specifying the function or method that should be invoked when the code runs.
 
         :stability: experimental
@@ -5286,22 +5405,21 @@ class ApiKeyAdditionalConfiguration:
                 gateway_name="my-gateway"
             )
             
-            # These ARNs are returned when creating the API key credential provider via Console or API
-            api_key_provider_arn = "arn:aws:bedrock-agentcore:us-east-1:123456789012:token-vault/abc123/apikeycredentialprovider/my-apikey"
-            api_key_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:my-apikey-secret-abc123"
+            # Create an API key credential provider in Token Vault
+            api_key_provider = agentcore.ApiKeyCredentialProvider(self, "MyApiKeyProvider",
+                api_key_credential_provider_name="my-apikey"
+            )
             
             bucket = s3.Bucket.from_bucket_name(self, "ExistingBucket", "my-schema-bucket")
             s3my_schema = agentcore.ApiSchema.from_s3_file(bucket, "schemas/myschema.yaml")
             
-            # Add an OpenAPI target directly to the gateway
+            # Add an OpenAPI target using the L2 construct directly
             target = gateway.add_open_api_target("MyTarget",
                 gateway_target_name="my-api-target",
                 description="Target for external API integration",
                 api_schema=s3my_schema,
                 credential_provider_configurations=[
-                    agentcore.GatewayCredentialProvider.from_api_key_identity_arn(
-                        provider_arn=api_key_provider_arn,
-                        secret_arn=api_key_secret_arn,
+                    agentcore.GatewayCredentialProvider.from_api_key_identity(api_key_provider,
                         credential_location=agentcore.ApiKeyCredentialLocation.header(
                             credential_parameter_name="X-API-Key"
                         )
@@ -5309,7 +5427,7 @@ class ApiKeyAdditionalConfiguration:
                 ]
             )
             
-            # This make sure your s3 bucket is available before target
+            # This makes sure your s3 bucket is available before target
             target.node.add_dependency(bucket)
         '''
         if __debug__:
@@ -5379,22 +5497,21 @@ class ApiKeyCredentialLocation(
             gateway_name="my-gateway"
         )
         
-        # These ARNs are returned when creating the API key credential provider via Console or API
-        api_key_provider_arn = "arn:aws:bedrock-agentcore:us-east-1:123456789012:token-vault/abc123/apikeycredentialprovider/my-apikey"
-        api_key_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:my-apikey-secret-abc123"
+        # Create an API key credential provider in Token Vault
+        api_key_provider = agentcore.ApiKeyCredentialProvider(self, "MyApiKeyProvider",
+            api_key_credential_provider_name="my-apikey"
+        )
         
         bucket = s3.Bucket.from_bucket_name(self, "ExistingBucket", "my-schema-bucket")
         s3my_schema = agentcore.ApiSchema.from_s3_file(bucket, "schemas/myschema.yaml")
         
-        # Add an OpenAPI target directly to the gateway
+        # Add an OpenAPI target using the L2 construct directly
         target = gateway.add_open_api_target("MyTarget",
             gateway_target_name="my-api-target",
             description="Target for external API integration",
             api_schema=s3my_schema,
             credential_provider_configurations=[
-                agentcore.GatewayCredentialProvider.from_api_key_identity_arn(
-                    provider_arn=api_key_provider_arn,
-                    secret_arn=api_key_secret_arn,
+                agentcore.GatewayCredentialProvider.from_api_key_identity(api_key_provider,
                     credential_location=agentcore.ApiKeyCredentialLocation.header(
                         credential_parameter_name="X-API-Key"
                     )
@@ -5402,7 +5519,7 @@ class ApiKeyCredentialLocation(
             ]
         )
         
-        # This make sure your s3 bucket is available before target
+        # This makes sure your s3 bucket is available before target
         target.node.add_dependency(bucket)
     '''
 
@@ -5483,6 +5600,177 @@ class ApiKeyCredentialLocation(
 
 
 @jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.ApiKeyCredentialProviderAttributes",
+    jsii_struct_bases=[],
+    name_mapping={
+        "credential_provider_arn": "credentialProviderArn",
+        "api_key_secret_arn": "apiKeySecretArn",
+        "created_time": "createdTime",
+        "last_updated_time": "lastUpdatedTime",
+    },
+)
+class ApiKeyCredentialProviderAttributes:
+    def __init__(
+        self,
+        *,
+        credential_provider_arn: builtins.str,
+        api_key_secret_arn: typing.Optional[builtins.str] = None,
+        created_time: typing.Optional[builtins.str] = None,
+        last_updated_time: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Attributes for importing an existing API key credential provider.
+
+        :param credential_provider_arn: (experimental) ARN of the credential provider.
+        :param api_key_secret_arn: (experimental) ARN of the Secrets Manager secret for the API key, if known. Default: - not set; required for {@link ApiKeyCredentialProvider.bindForGatewayApiKeyTarget } on imported providers
+        :param created_time: (experimental) Resource creation time. Default: - not set
+        :param last_updated_time: (experimental) Resource last-updated time. Default: - not set
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            
+            api_key_credential_provider_attributes = bedrock_agentcore_alpha.ApiKeyCredentialProviderAttributes(
+                credential_provider_arn="credentialProviderArn",
+            
+                # the properties below are optional
+                api_key_secret_arn="apiKeySecretArn",
+                created_time="createdTime",
+                last_updated_time="lastUpdatedTime"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a2182cf8ec2c9894763ab60b7031a72542fdf034e79838893fcfe5cb8bc354e)
+            check_type(argname="argument credential_provider_arn", value=credential_provider_arn, expected_type=type_hints["credential_provider_arn"])
+            check_type(argname="argument api_key_secret_arn", value=api_key_secret_arn, expected_type=type_hints["api_key_secret_arn"])
+            check_type(argname="argument created_time", value=created_time, expected_type=type_hints["created_time"])
+            check_type(argname="argument last_updated_time", value=last_updated_time, expected_type=type_hints["last_updated_time"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "credential_provider_arn": credential_provider_arn,
+        }
+        if api_key_secret_arn is not None:
+            self._values["api_key_secret_arn"] = api_key_secret_arn
+        if created_time is not None:
+            self._values["created_time"] = created_time
+        if last_updated_time is not None:
+            self._values["last_updated_time"] = last_updated_time
+
+    @builtins.property
+    def credential_provider_arn(self) -> builtins.str:
+        '''(experimental) ARN of the credential provider.
+
+        :stability: experimental
+        '''
+        result = self._values.get("credential_provider_arn")
+        assert result is not None, "Required property 'credential_provider_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def api_key_secret_arn(self) -> typing.Optional[builtins.str]:
+        '''(experimental) ARN of the Secrets Manager secret for the API key, if known.
+
+        :default: - not set; required for {@link ApiKeyCredentialProvider.bindForGatewayApiKeyTarget } on imported providers
+
+        :stability: experimental
+        '''
+        result = self._values.get("api_key_secret_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def created_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Resource creation time.
+
+        :default: - not set
+
+        :stability: experimental
+        '''
+        result = self._values.get("created_time")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def last_updated_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Resource last-updated time.
+
+        :default: - not set
+
+        :stability: experimental
+        '''
+        result = self._values.get("last_updated_time")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApiKeyCredentialProviderAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ApiKeyCredentialProviderIdentityPerms(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.ApiKeyCredentialProviderIdentityPerms",
+):
+    '''(experimental) IAM actions for AgentCore API key credential providers (Token Vault).
+
+    :see: https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonbedrockagentcore.html
+    :stability: experimental
+    '''
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ADMIN_PERMS")
+    def ADMIN_PERMS(cls) -> typing.List[builtins.str]:
+        '''(experimental) Control plane permissions to create, read, update, and delete this provider.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.sget(cls, "ADMIN_PERMS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="FULL_ACCESS_PERMS")
+    def FULL_ACCESS_PERMS(cls) -> typing.List[builtins.str]:
+        '''(experimental) All API key credential provider actions used by the L2 grant helpers.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.sget(cls, "FULL_ACCESS_PERMS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="LIST_PERMS")
+    def LIST_PERMS(cls) -> typing.List[builtins.str]:
+        '''(experimental) List API key credential providers (resource-scoped per IAM service authorization reference).
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.sget(cls, "LIST_PERMS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="READ_PERMS")
+    def READ_PERMS(cls) -> typing.List[builtins.str]:
+        '''(experimental) Read a single API key credential provider definition.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.sget(cls, "READ_PERMS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="USE_PERMS")
+    def USE_PERMS(cls) -> typing.List[builtins.str]:
+        '''(experimental) Data plane permissions to retrieve the API key material for outbound calls.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.sget(cls, "USE_PERMS"))
+
+
+@jsii.data_type(
     jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.ApiKeyCredentialProviderProps",
     jsii_struct_bases=[],
     name_mapping={
@@ -5499,7 +5787,9 @@ class ApiKeyCredentialProviderProps:
         secret_arn: builtins.str,
         credential_location: typing.Optional["ApiKeyCredentialLocation"] = None,
     ) -> None:
-        '''(experimental) API Key configuration.
+        '''(experimental) API key credential provider ARNs for gateway outbound auth (Token Vault identity).
+
+        Pass this to {@link GatewayCredentialProvider.fromApiKeyIdentityArn } or to {@link ApiKeyCredentialProviderConfiguration}.
 
         :param provider_arn: (experimental) The API key credential provider ARN. This is returned when creating the API key credential provider via Console or API. Format: arn:aws:bedrock-agentcore:region:account:token-vault/id/apikeycredentialprovider/name
         :param secret_arn: (experimental) The ARN of the Secrets Manager secret containing the API key. This is returned when creating the API key credential provider via Console or API. Format: arn:aws:secretsmanager:region:account:secret:name
@@ -5514,14 +5804,14 @@ class ApiKeyCredentialProviderProps:
                 gateway_name="my-gateway"
             )
             
-            # These ARNs are returned when creating the API key credential provider via Console or API
+            # ARNs from the console/API, or from ApiKeyCredentialProvider + bindForGatewayApiKeyTarget
             api_key_provider_arn = "arn:aws:bedrock-agentcore:us-east-1:123456789012:token-vault/abc123/apikeycredentialprovider/my-apikey"
             api_key_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:my-apikey-secret-abc123"
             
             bucket = s3.Bucket.from_bucket_name(self, "ExistingBucket", "my-schema-bucket")
             s3my_schema = agentcore.ApiSchema.from_s3_file(bucket, "schemas/myschema.yaml")
             
-            # Add an OpenAPI target directly to the gateway
+            # Add an OpenAPI target using ARNs directly
             target = gateway.add_open_api_target("MyTarget",
                 gateway_target_name="my-api-target",
                 description="Target for external API integration",
@@ -5537,7 +5827,7 @@ class ApiKeyCredentialProviderProps:
                 ]
             )
             
-            # This make sure your s3 bucket is available before target
+            # This makes sure your s3 bucket is available before target
             target.node.add_dependency(bucket)
         '''
         if __debug__:
@@ -5599,6 +5889,129 @@ class ApiKeyCredentialProviderProps:
 
     def __repr__(self) -> str:
         return "ApiKeyCredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.ApiKeyCredentialProviderResourceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "api_key": "apiKey",
+        "api_key_credential_provider_name": "apiKeyCredentialProviderName",
+        "tags": "tags",
+    },
+)
+class ApiKeyCredentialProviderResourceProps:
+    def __init__(
+        self,
+        *,
+        api_key: typing.Optional["_aws_cdk_ceddda9d.SecretValue"] = None,
+        api_key_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Properties for a new {@link ApiKeyCredentialProvider} (Token Vault resource).
+
+        :param api_key: (experimental) The API key value. **NOTE:** The API key will be included in the CloudFormation template as part of synthesis. The service stores the key in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value. If omitted, you can supply the key through another mechanism supported by the service. Default: - no key in template (provider may still be created depending on service behavior)
+        :param api_key_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+
+        :stability: experimental
+        :exampleMetadata: infused
+
+        Example::
+
+            gateway = agentcore.Gateway(self, "MyGateway",
+                gateway_name="my-gateway"
+            )
+            
+            # Create an API key credential provider in Token Vault
+            api_key_provider = agentcore.ApiKeyCredentialProvider(self, "MyApiKeyProvider",
+                api_key_credential_provider_name="my-apikey"
+            )
+            
+            bucket = s3.Bucket.from_bucket_name(self, "ExistingBucket", "my-schema-bucket")
+            s3my_schema = agentcore.ApiSchema.from_s3_file(bucket, "schemas/myschema.yaml")
+            
+            # Add an OpenAPI target using the L2 construct directly
+            target = gateway.add_open_api_target("MyTarget",
+                gateway_target_name="my-api-target",
+                description="Target for external API integration",
+                api_schema=s3my_schema,
+                credential_provider_configurations=[
+                    agentcore.GatewayCredentialProvider.from_api_key_identity(api_key_provider,
+                        credential_location=agentcore.ApiKeyCredentialLocation.header(
+                            credential_parameter_name="X-API-Key"
+                        )
+                    )
+                ]
+            )
+            
+            # This makes sure your s3 bucket is available before target
+            target.node.add_dependency(bucket)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__082f5278142aedd4394e2fad2578a1541a1f7ec7ead91827453afc72d032eeb7)
+            check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
+            check_type(argname="argument api_key_credential_provider_name", value=api_key_credential_provider_name, expected_type=type_hints["api_key_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if api_key is not None:
+            self._values["api_key"] = api_key
+        if api_key_credential_provider_name is not None:
+            self._values["api_key_credential_provider_name"] = api_key_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def api_key(self) -> typing.Optional["_aws_cdk_ceddda9d.SecretValue"]:
+        '''(experimental) The API key value.
+
+        **NOTE:** The API key will be included in the CloudFormation template as part of synthesis.
+        The service stores the key in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        If omitted, you can supply the key through another mechanism supported by the service.
+
+        :default: - no key in template (provider may still be created depending on service behavior)
+
+        :stability: experimental
+        '''
+        result = self._values.get("api_key")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.SecretValue"], result)
+
+    @builtins.property
+    def api_key_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("api_key_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApiKeyCredentialProviderResourceProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -8884,6 +9297,7 @@ class EvaluatorInferenceConfig:
         "evaluator_name": "evaluatorName",
         "level": "level",
         "description": "description",
+        "tags": "tags",
     },
 )
 class EvaluatorProps:
@@ -8894,6 +9308,7 @@ class EvaluatorProps:
         evaluator_name: builtins.str,
         level: "EvaluationLevel",
         description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''(experimental) Properties for creating an Evaluator.
 
@@ -8901,6 +9316,7 @@ class EvaluatorProps:
         :param evaluator_name: (experimental) The name of the evaluator. Must be unique within your account. Valid characters are a-z, A-Z, 0-9, _ (underscore). Must start with a letter and can be up to 48 characters long.
         :param level: (experimental) The level at which the evaluator assesses agent performance. Determines what granularity of data the evaluator operates on: tool call, trace (single request-response), or session (full conversation).
         :param description: (experimental) The description of the evaluator. Default: - No description
+        :param tags: (experimental) Tags for the evaluator. A list of key:value pairs of tags to apply to this Evaluator resource. Default: - No tags
 
         :stability: experimental
         :exampleMetadata: infused
@@ -8938,6 +9354,7 @@ class EvaluatorProps:
             check_type(argname="argument evaluator_name", value=evaluator_name, expected_type=type_hints["evaluator_name"])
             check_type(argname="argument level", value=level, expected_type=type_hints["level"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "evaluator_config": evaluator_config,
             "evaluator_name": evaluator_name,
@@ -8945,6 +9362,8 @@ class EvaluatorProps:
         }
         if description is not None:
             self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def evaluator_config(self) -> "EvaluatorConfig":
@@ -8997,6 +9416,19 @@ class EvaluatorProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for the evaluator.
+
+        A list of key:value pairs of tags to apply to this Evaluator resource.
+
+        :default: - No tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9591,6 +10023,240 @@ class FilterValue(
 
 
 @jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.FromApiKeyIdentityOptions",
+    jsii_struct_bases=[],
+    name_mapping={"credential_location": "credentialLocation"},
+)
+class FromApiKeyIdentityOptions:
+    def __init__(
+        self,
+        *,
+        credential_location: typing.Optional["ApiKeyCredentialLocation"] = None,
+    ) -> None:
+        '''(experimental) Optional gateway settings when binding an {@link IApiKeyCredentialProvider} to a target.
+
+        :param credential_location: (experimental) Where to place the API key on outbound requests. Default: header ``Authorization`` with ``Bearer `` prefix
+
+        :stability: experimental
+        :exampleMetadata: infused
+
+        Example::
+
+            gateway = agentcore.Gateway(self, "MyGateway",
+                gateway_name="my-gateway"
+            )
+            
+            # Create an API key credential provider in Token Vault
+            api_key_provider = agentcore.ApiKeyCredentialProvider(self, "MyApiKeyProvider",
+                api_key_credential_provider_name="my-apikey"
+            )
+            
+            bucket = s3.Bucket.from_bucket_name(self, "ExistingBucket", "my-schema-bucket")
+            s3my_schema = agentcore.ApiSchema.from_s3_file(bucket, "schemas/myschema.yaml")
+            
+            # Add an OpenAPI target using the L2 construct directly
+            target = gateway.add_open_api_target("MyTarget",
+                gateway_target_name="my-api-target",
+                description="Target for external API integration",
+                api_schema=s3my_schema,
+                credential_provider_configurations=[
+                    agentcore.GatewayCredentialProvider.from_api_key_identity(api_key_provider,
+                        credential_location=agentcore.ApiKeyCredentialLocation.header(
+                            credential_parameter_name="X-API-Key"
+                        )
+                    )
+                ]
+            )
+            
+            # This makes sure your s3 bucket is available before target
+            target.node.add_dependency(bucket)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__539f3a498cc13eb9db7f829d2bb80f99ebc177a8d5a679bc61cf3cb61cf7e7c4)
+            check_type(argname="argument credential_location", value=credential_location, expected_type=type_hints["credential_location"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if credential_location is not None:
+            self._values["credential_location"] = credential_location
+
+    @builtins.property
+    def credential_location(self) -> typing.Optional["ApiKeyCredentialLocation"]:
+        '''(experimental) Where to place the API key on outbound requests.
+
+        :default: header ``Authorization`` with ``Bearer `` prefix
+
+        :stability: experimental
+        '''
+        result = self._values.get("credential_location")
+        return typing.cast(typing.Optional["ApiKeyCredentialLocation"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FromApiKeyIdentityOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.FromOauthIdentityOptions",
+    jsii_struct_bases=[],
+    name_mapping={"scopes": "scopes", "custom_parameters": "customParameters"},
+)
+class FromOauthIdentityOptions:
+    def __init__(
+        self,
+        *,
+        scopes: typing.Sequence[builtins.str],
+        custom_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''(experimental) OAuth scopes (and optional custom parameters) when binding an {@link IOAuth2CredentialProvider} to a gateway target.
+
+        :param scopes: (experimental) OAuth scopes the gateway should request for this target.
+        :param custom_parameters: (experimental) Additional OAuth parameters for the provider. Default: - none
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            gateway = agentcore.Gateway(self, "MyGateway",
+                gateway_name="my-gateway"
+            )
+            
+            oauth = agentcore.OAuth2CredentialProvider.using_github(self, "GhOAuth",
+                o_auth2_credential_provider_name="github-oauth",
+                client_id="your-client-id",
+                client_secret=cdk.SecretValue.unsafe_plain_text("your-client-secret")
+            )
+            
+            gateway.add_mcp_server_target("Mcp",
+                gateway_target_name="mcp-server",
+                description="MCP with GitHub OAuth",
+                endpoint="https://my-mcp-server.example.com",
+                credential_provider_configurations=[
+                    agentcore.GatewayCredentialProvider.from_oauth_identity(oauth,
+                        scopes=["read:user"]
+                    )
+                ]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7aa981fb0279d2abbf0463ca469306d5f21b30f06d07e0bd6f0511dcaf953d31)
+            check_type(argname="argument scopes", value=scopes, expected_type=type_hints["scopes"])
+            check_type(argname="argument custom_parameters", value=custom_parameters, expected_type=type_hints["custom_parameters"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "scopes": scopes,
+        }
+        if custom_parameters is not None:
+            self._values["custom_parameters"] = custom_parameters
+
+    @builtins.property
+    def scopes(self) -> typing.List[builtins.str]:
+        '''(experimental) OAuth scopes the gateway should request for this target.
+
+        :stability: experimental
+        '''
+        result = self._values.get("scopes")
+        assert result is not None, "Required property 'scopes' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def custom_parameters(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Additional OAuth parameters for the provider.
+
+        :default: - none
+
+        :stability: experimental
+        '''
+        result = self._values.get("custom_parameters")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FromOauthIdentityOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.GatewayApiKeyIdentityBinding",
+    jsii_struct_bases=[],
+    name_mapping={"provider_arn": "providerArn", "secret_arn": "secretArn"},
+)
+class GatewayApiKeyIdentityBinding:
+    def __init__(self, *, provider_arn: builtins.str, secret_arn: builtins.str) -> None:
+        '''(experimental) Provider and secret ARNs for wiring a Token Vault API key identity into a gateway target.
+
+        :param provider_arn: (experimental) API key credential provider ARN.
+        :param secret_arn: (experimental) Secrets Manager secret ARN for the API key material.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            
+            gateway_api_key_identity_binding = bedrock_agentcore_alpha.GatewayApiKeyIdentityBinding(
+                provider_arn="providerArn",
+                secret_arn="secretArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__70d3a917907782412742b4b3c757f5fb0bb7e02d738f88cb02f175c8c5aec767)
+            check_type(argname="argument provider_arn", value=provider_arn, expected_type=type_hints["provider_arn"])
+            check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "provider_arn": provider_arn,
+            "secret_arn": secret_arn,
+        }
+
+    @builtins.property
+    def provider_arn(self) -> builtins.str:
+        '''(experimental) API key credential provider ARN.
+
+        :stability: experimental
+        '''
+        result = self._values.get("provider_arn")
+        assert result is not None, "Required property 'provider_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def secret_arn(self) -> builtins.str:
+        '''(experimental) Secrets Manager secret ARN for the API key material.
+
+        :stability: experimental
+        '''
+        result = self._values.get("secret_arn")
+        assert result is not None, "Required property 'secret_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GatewayApiKeyIdentityBinding(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.GatewayAttributes",
     jsii_struct_bases=[],
     name_mapping={
@@ -9874,8 +10540,7 @@ class GatewayCredentialProvider(
             gateway_name="my-gateway"
         )
         
-        # OAuth2 authentication (recommended)
-        # Note: Create the OAuth provider using AWS console or Identity L2 construct when available
+        # OAuth2 (recommended): use OAuth2CredentialProvider + bindForGatewayOAuthTarget, or ARNs from console/API
         oauth_provider_arn = "arn:aws:bedrock-agentcore:us-east-1:123456789012:token-vault/abc123/oauth2credentialprovider/my-oauth"
         oauth_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:my-oauth-secret-abc123"
         
@@ -9919,6 +10584,30 @@ class GatewayCredentialProvider(
         '''
         jsii.create(self.__class__, self, [])
 
+    @jsii.member(jsii_name="fromApiKeyIdentity")
+    @builtins.classmethod
+    def from_api_key_identity(
+        cls,
+        provider: "IApiKeyCredentialProvider",
+        *,
+        credential_location: typing.Optional["ApiKeyCredentialLocation"] = None,
+    ) -> "ICredentialProviderConfig":
+        '''(experimental) Create an API key outbound auth configuration from a Token Vault {@link IApiKeyCredentialProvider} construct.
+
+        Prefer this over {@link GatewayCredentialProvider.fromApiKeyIdentityArn} when the provider is defined in CDK.
+
+        :param provider: -
+        :param credential_location: (experimental) Where to place the API key on outbound requests. Default: header ``Authorization`` with ``Bearer `` prefix
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__69382c3afcdc26b67fb5ef85edf0c6c5b3456964ce6f55748f141df5a31388f9)
+            check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
+        options = FromApiKeyIdentityOptions(credential_location=credential_location)
+
+        return typing.cast("ICredentialProviderConfig", jsii.sinvoke(cls, "fromApiKeyIdentity", [provider, options]))
+
     @jsii.member(jsii_name="fromApiKeyIdentityArn")
     @builtins.classmethod
     def from_api_key_identity_arn(
@@ -9956,6 +10645,34 @@ class GatewayCredentialProvider(
         :stability: experimental
         '''
         return typing.cast("ICredentialProviderConfig", jsii.sinvoke(cls, "fromIamRole", []))
+
+    @jsii.member(jsii_name="fromOauthIdentity")
+    @builtins.classmethod
+    def from_oauth_identity(
+        cls,
+        provider: "IOAuth2CredentialProvider",
+        *,
+        scopes: typing.Sequence[builtins.str],
+        custom_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> "ICredentialProviderConfig":
+        '''(experimental) Create an OAuth outbound auth configuration from a Token Vault {@link IOAuth2CredentialProvider} construct.
+
+        Prefer this over {@link GatewayCredentialProvider.fromOauthIdentityArn} when the provider is defined in CDK.
+
+        :param provider: -
+        :param scopes: (experimental) OAuth scopes the gateway should request for this target.
+        :param custom_parameters: (experimental) Additional OAuth parameters for the provider. Default: - none
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__421fa50c7b8cf7ee1a7c69e472dda9aa59529b58aaac52039d2d5e986d2051da)
+            check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
+        options = FromOauthIdentityOptions(
+            scopes=scopes, custom_parameters=custom_parameters
+        )
+
+        return typing.cast("ICredentialProviderConfig", jsii.sinvoke(cls, "fromOauthIdentity", [provider, options]))
 
     @jsii.member(jsii_name="fromOauthIdentityArn")
     @builtins.classmethod
@@ -10124,6 +10841,121 @@ class GatewayExceptionLevel(enum.Enum):
 
     :stability: experimental
     '''
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.GatewayOAuth2IdentityBinding",
+    jsii_struct_bases=[],
+    name_mapping={
+        "provider_arn": "providerArn",
+        "scopes": "scopes",
+        "secret_arn": "secretArn",
+        "custom_parameters": "customParameters",
+    },
+)
+class GatewayOAuth2IdentityBinding:
+    def __init__(
+        self,
+        *,
+        provider_arn: builtins.str,
+        scopes: typing.Sequence[builtins.str],
+        secret_arn: builtins.str,
+        custom_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Provider ARN, secret ARN, and OAuth scopes for wiring a Token Vault OAuth2 identity into a gateway target.
+
+        :param provider_arn: (experimental) OAuth2 credential provider ARN.
+        :param scopes: (experimental) OAuth scopes to request when invoking through the gateway.
+        :param secret_arn: (experimental) Secrets Manager secret ARN for OAuth2 client credentials.
+        :param custom_parameters: (experimental) Optional custom parameters for the OAuth flow. Default: - no custom parameters
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            
+            gateway_oAuth2_identity_binding = bedrock_agentcore_alpha.GatewayOAuth2IdentityBinding(
+                provider_arn="providerArn",
+                scopes=["scopes"],
+                secret_arn="secretArn",
+            
+                # the properties below are optional
+                custom_parameters={
+                    "custom_parameters_key": "customParameters"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a32723a64a83544bf5b2afc35f1e3752cb8306fffe7c7f4b92a87ca3d68535cd)
+            check_type(argname="argument provider_arn", value=provider_arn, expected_type=type_hints["provider_arn"])
+            check_type(argname="argument scopes", value=scopes, expected_type=type_hints["scopes"])
+            check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            check_type(argname="argument custom_parameters", value=custom_parameters, expected_type=type_hints["custom_parameters"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "provider_arn": provider_arn,
+            "scopes": scopes,
+            "secret_arn": secret_arn,
+        }
+        if custom_parameters is not None:
+            self._values["custom_parameters"] = custom_parameters
+
+    @builtins.property
+    def provider_arn(self) -> builtins.str:
+        '''(experimental) OAuth2 credential provider ARN.
+
+        :stability: experimental
+        '''
+        result = self._values.get("provider_arn")
+        assert result is not None, "Required property 'provider_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def scopes(self) -> typing.List[builtins.str]:
+        '''(experimental) OAuth scopes to request when invoking through the gateway.
+
+        :stability: experimental
+        '''
+        result = self._values.get("scopes")
+        assert result is not None, "Required property 'scopes' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def secret_arn(self) -> builtins.str:
+        '''(experimental) Secrets Manager secret ARN for OAuth2 client credentials.
+
+        :stability: experimental
+        '''
+        result = self._values.get("secret_arn")
+        assert result is not None, "Required property 'secret_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def custom_parameters(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Optional custom parameters for the OAuth flow.
+
+        :default: - no custom parameters
+
+        :stability: experimental
+        '''
+        result = self._values.get("custom_parameters")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GatewayOAuth2IdentityBinding(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -10976,8 +11808,7 @@ class GatewayTargetMcpServerProps(GatewayTargetCommonProps):
                 gateway_name="my-gateway"
             )
             
-            # OAuth2 authentication (recommended)
-            # Note: Create the OAuth provider using AWS console or Identity L2 construct when available
+            # OAuth2 (recommended): use OAuth2CredentialProvider + bindForGatewayOAuthTarget, or ARNs from console/API
             oauth_provider_arn = "arn:aws:bedrock-agentcore:us-east-1:123456789012:token-vault/abc123/oauth2credentialprovider/my-oauth"
             oauth_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:my-oauth-secret-abc123"
             
@@ -11126,7 +11957,7 @@ class GatewayTargetOpenApiProps(GatewayTargetCommonProps):
                 gateway_name="my-gateway"
             )
             
-            # outbound auth (Use AWS console to create it, Once Identity L2 construct is available you can use it to create identity)
+            # Outbound auth: ApiKeyCredentialProvider + bindForGatewayApiKeyTarget, or ARNs from console/API
             api_key_identity_arn = "arn:aws:bedrock-agentcore:us-east-1:123456789012:token-vault/abc123/apikeycredentialprovider/my-apikey"
             api_key_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:my-apikey-secret-abc123"
             
@@ -11548,6 +12379,287 @@ class GatewayTargetSmithyProps(GatewayTargetCommonProps):
         return "GatewayTargetSmithyProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.interface(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.IApiKeyCredentialProvider"
+)
+class IApiKeyCredentialProvider(
+    _aws_cdk_ceddda9d.IResource,
+    _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    _aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.IApiKeyCredentialProviderRef,
+    typing_extensions.Protocol,
+):
+    '''(experimental) An API key credential provider registered in AgentCore Token Vault.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="credentialProviderArn")
+    def credential_provider_arn(self) -> builtins.str:
+        '''(experimental) The ARN of this credential provider.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="apiKeySecretArn")
+    def api_key_secret_arn(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The ARN of the Secrets Manager secret that stores the API key after the resource is created.
+
+        May be undefined for resources imported without this attribute.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="createdTime")
+    def created_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Timestamp when the credential provider was created.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdatedTime")
+    def last_updated_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Timestamp when the credential provider was last updated.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @jsii.member(jsii_name="bindForGatewayApiKeyTarget")
+    def bind_for_gateway_api_key_target(self) -> "GatewayApiKeyIdentityBinding":
+        '''(experimental) ARNs for use with gateway targets (``GatewayCredentialProvider.fromApiKeyIdentity`` or ``fromApiKeyIdentityArn``).
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants IAM actions to the IAM principal.
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantAdmin")
+    def grant_admin(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant control plane permissions to manage this provider.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantFullAccess")
+    def grant_full_access(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant read, admin, and credential retrieval permissions.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant ``GetApiKeyCredentialProvider`` and ``ListApiKeyCredentialProviders``, scoped to this provider and parent resources required by the Bedrock AgentCore authorization model.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantUse")
+    def grant_use(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant permission to retrieve API key material for outbound calls (``GetResourceApiKey``).
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApiKeyCredentialProviderProxy(
+    jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_aws_iam_ceddda9d.IGrantable), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.IApiKeyCredentialProviderRef), # type: ignore[misc]
+):
+    '''(experimental) An API key credential provider registered in AgentCore Token Vault.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-bedrock-agentcore-alpha.IApiKeyCredentialProvider"
+
+    @builtins.property
+    @jsii.member(jsii_name="credentialProviderArn")
+    def credential_provider_arn(self) -> builtins.str:
+        '''(experimental) The ARN of this credential provider.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "credentialProviderArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apiKeySecretArn")
+    def api_key_secret_arn(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The ARN of the Secrets Manager secret that stores the API key after the resource is created.
+
+        May be undefined for resources imported without this attribute.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "apiKeySecretArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="createdTime")
+    def created_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Timestamp when the credential provider was created.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "createdTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdatedTime")
+    def last_updated_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Timestamp when the credential provider was last updated.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "lastUpdatedTime"))
+
+    @jsii.member(jsii_name="bindForGatewayApiKeyTarget")
+    def bind_for_gateway_api_key_target(self) -> "GatewayApiKeyIdentityBinding":
+        '''(experimental) ARNs for use with gateway targets (``GatewayCredentialProvider.fromApiKeyIdentity`` or ``fromApiKeyIdentityArn``).
+
+        :stability: experimental
+        '''
+        return typing.cast("GatewayApiKeyIdentityBinding", jsii.invoke(self, "bindForGatewayApiKeyTarget", []))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants IAM actions to the IAM principal.
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb71b0468a4dd1e089bf9b02781860e3acb5b93cec775789b1e4cbd590336d3e)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantAdmin")
+    def grant_admin(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant control plane permissions to manage this provider.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a0e21516b2bf275effe700cd262f598ef780e3fbf3004f2e94f79ae62071cf53)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantAdmin", [grantee]))
+
+    @jsii.member(jsii_name="grantFullAccess")
+    def grant_full_access(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant read, admin, and credential retrieval permissions.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b2263f8bd341a95eff6af9c82a3a4968263ea993087070a5c7955083752e40ad)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantFullAccess", [grantee]))
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant ``GetApiKeyCredentialProvider`` and ``ListApiKeyCredentialProviders``, scoped to this provider and parent resources required by the Bedrock AgentCore authorization model.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__31268dbfd5090a0e6839f5ebf9eb08118596a0e5778f14728c0362a207cb3bcd)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
+
+    @jsii.member(jsii_name="grantUse")
+    def grant_use(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant permission to retrieve API key material for outbound calls (``GetResourceApiKey``).
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__75fb291d3d7e8ce43be1820639183f0258b7ca338abdc70aecd4c3eb7a368eb0)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantUse", [grantee]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApiKeyCredentialProvider).__jsii_proxy_class__ = lambda : _IApiKeyCredentialProviderProxy
 
 
 @jsii.interface(jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.IBedrockAgentRuntime")
@@ -15271,11 +16383,11 @@ class ICredentialProviderConfig(typing_extensions.Protocol):
     @jsii.member(jsii_name="grantNeededPermissionsToRole")
     def grant_needed_permissions_to_role(
         self,
-        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        gateway: "IGateway",
     ) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.Grant"]:
-        '''(experimental) Grant the role the permissions.
+        '''(experimental) Grant the gateway's execution role the permissions needed for outbound authentication.
 
-        :param role: -
+        :param gateway: The gateway whose role needs outbound auth permissions [disable-awslint:prefer-ref-interface].
 
         :stability: experimental
         '''
@@ -15302,18 +16414,18 @@ class _ICredentialProviderConfigProxy:
     @jsii.member(jsii_name="grantNeededPermissionsToRole")
     def grant_needed_permissions_to_role(
         self,
-        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        gateway: "IGateway",
     ) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.Grant"]:
-        '''(experimental) Grant the role the permissions.
+        '''(experimental) Grant the gateway's execution role the permissions needed for outbound authentication.
 
-        :param role: -
+        :param gateway: The gateway whose role needs outbound auth permissions [disable-awslint:prefer-ref-interface].
 
         :stability: experimental
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__01c13eef12b0c56a9c64f5606f19dffc282f6dc3b2394e327eeac510163dbf75)
-            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
-        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.Grant"], jsii.invoke(self, "grantNeededPermissionsToRole", [role]))
+            check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.Grant"], jsii.invoke(self, "grantNeededPermissionsToRole", [gateway]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ICredentialProviderConfig).__jsii_proxy_class__ = lambda : _ICredentialProviderConfigProxy
@@ -18498,6 +19610,343 @@ typing.cast(typing.Any, IMemoryStrategy).__jsii_proxy_class__ = lambda : _IMemor
 
 
 @jsii.interface(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.IOAuth2CredentialProvider"
+)
+class IOAuth2CredentialProvider(
+    _aws_cdk_ceddda9d.IResource,
+    _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    _aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.IOAuth2CredentialProviderRef,
+    typing_extensions.Protocol,
+):
+    '''(experimental) An OAuth2 credential provider registered in AgentCore Token Vault.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="credentialProviderArn")
+    def credential_provider_arn(self) -> builtins.str:
+        '''(experimental) The ARN of this credential provider.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="credentialProviderVendor")
+    def credential_provider_vendor(self) -> builtins.str:
+        '''(experimental) OAuth2 vendor string passed to CloudFormation.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="callbackUrl")
+    def callback_url(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Callback URL for the OAuth2 authorization flow.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="clientSecretArn")
+    def client_secret_arn(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The ARN of the Secrets Manager secret for the OAuth2 client credentials.
+
+        May be undefined for resources imported without this attribute.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="createdTime")
+    def created_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Timestamp when the credential provider was created.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdatedTime")
+    def last_updated_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Timestamp when the credential provider was last updated.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @jsii.member(jsii_name="bindForGatewayOAuthTarget")
+    def bind_for_gateway_o_auth_target(
+        self,
+        scopes: typing.Sequence[builtins.str],
+        custom_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> "GatewayOAuth2IdentityBinding":
+        '''(experimental) ARNs and OAuth scopes for gateway targets (``GatewayCredentialProvider.fromOauthIdentity`` or ``fromOauthIdentityArn``).
+
+        :param scopes: -
+        :param custom_parameters: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants IAM actions to the IAM principal.
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantAdmin")
+    def grant_admin(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant control plane permissions to manage this provider.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantFullAccess")
+    def grant_full_access(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant read, admin, and token retrieval permissions.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant ``GetOauth2CredentialProvider`` and ``ListOauth2CredentialProviders``, scoped to this provider and parent resources required by the Bedrock AgentCore authorization model.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantUse")
+    def grant_use(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant permission to retrieve OAuth tokens (``GetResourceOauth2Token``, ``CompleteResourceTokenAuth``).
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IOAuth2CredentialProviderProxy(
+    jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_aws_iam_ceddda9d.IGrantable), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.IOAuth2CredentialProviderRef), # type: ignore[misc]
+):
+    '''(experimental) An OAuth2 credential provider registered in AgentCore Token Vault.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-bedrock-agentcore-alpha.IOAuth2CredentialProvider"
+
+    @builtins.property
+    @jsii.member(jsii_name="credentialProviderArn")
+    def credential_provider_arn(self) -> builtins.str:
+        '''(experimental) The ARN of this credential provider.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "credentialProviderArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="credentialProviderVendor")
+    def credential_provider_vendor(self) -> builtins.str:
+        '''(experimental) OAuth2 vendor string passed to CloudFormation.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "credentialProviderVendor"))
+
+    @builtins.property
+    @jsii.member(jsii_name="callbackUrl")
+    def callback_url(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Callback URL for the OAuth2 authorization flow.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "callbackUrl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clientSecretArn")
+    def client_secret_arn(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The ARN of the Secrets Manager secret for the OAuth2 client credentials.
+
+        May be undefined for resources imported without this attribute.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "clientSecretArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="createdTime")
+    def created_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Timestamp when the credential provider was created.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "createdTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdatedTime")
+    def last_updated_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Timestamp when the credential provider was last updated.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "lastUpdatedTime"))
+
+    @jsii.member(jsii_name="bindForGatewayOAuthTarget")
+    def bind_for_gateway_o_auth_target(
+        self,
+        scopes: typing.Sequence[builtins.str],
+        custom_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> "GatewayOAuth2IdentityBinding":
+        '''(experimental) ARNs and OAuth scopes for gateway targets (``GatewayCredentialProvider.fromOauthIdentity`` or ``fromOauthIdentityArn``).
+
+        :param scopes: -
+        :param custom_parameters: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__49927417b714137c2c94c3282ff357b77d67170cd9702e0337e2fd6dfbf05f3c)
+            check_type(argname="argument scopes", value=scopes, expected_type=type_hints["scopes"])
+            check_type(argname="argument custom_parameters", value=custom_parameters, expected_type=type_hints["custom_parameters"])
+        return typing.cast("GatewayOAuth2IdentityBinding", jsii.invoke(self, "bindForGatewayOAuthTarget", [scopes, custom_parameters]))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants IAM actions to the IAM principal.
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__025e6a8dbb38fbdec171ec947dbaf0dc74237902e3f36198dae3e8d44e51bb41)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantAdmin")
+    def grant_admin(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant control plane permissions to manage this provider.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d8962a23840ff430e444f9ab678d43f416bc36b4351439aa2cfe741344deb61a)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantAdmin", [grantee]))
+
+    @jsii.member(jsii_name="grantFullAccess")
+    def grant_full_access(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant read, admin, and token retrieval permissions.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__48d475d93094d6a381e8bc3afe0c37a938781cca1f54860c99514d60057cf1e0)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantFullAccess", [grantee]))
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant ``GetOauth2CredentialProvider`` and ``ListOauth2CredentialProviders``, scoped to this provider and parent resources required by the Bedrock AgentCore authorization model.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__35f5adbab59a959f93d44b158ddcad846f5d4e4936451492bac638ee6755c237)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
+
+    @jsii.member(jsii_name="grantUse")
+    def grant_use(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant permission to retrieve OAuth tokens (``GetResourceOauth2Token``, ``CompleteResourceTokenAuth``).
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0ec9f8cfc25b566cb6039837b0f8ea5dcfa7b9b776e3bdac2dec279f1867c797)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantUse", [grantee]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IOAuth2CredentialProvider).__jsii_proxy_class__ = lambda : _IOAuth2CredentialProviderProxy
+
+
+@jsii.interface(
     jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.IOnlineEvaluationConfig"
 )
 class IOnlineEvaluationConfig(
@@ -20129,6 +21578,275 @@ class _ITargetConfigurationProxy:
 typing.cast(typing.Any, ITargetConfiguration).__jsii_proxy_class__ = lambda : _ITargetConfigurationProxy
 
 
+@jsii.interface(jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.IWorkloadIdentity")
+class IWorkloadIdentity(
+    _aws_cdk_ceddda9d.IResource,
+    _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    _aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.IWorkloadIdentityRef,
+    typing_extensions.Protocol,
+):
+    '''(experimental) A workload identity for Amazon Bedrock AgentCore.
+
+    Represents the stable identity of an agent within an account's agent identity directory.
+    It ties together IAM roles, OAuth2 flows, API keys, and workload access tokens
+    for consistent authentication across environments.
+
+    :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/understanding-agent-identities.html
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="workloadIdentityArn")
+    def workload_identity_arn(self) -> builtins.str:
+        '''(experimental) The ARN of this workload identity.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="workloadIdentityName")
+    def workload_identity_name(self) -> builtins.str:
+        '''(experimental) The name of this workload identity.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="createdTime")
+    def created_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Timestamp when the workload identity was created.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdatedTime")
+    def last_updated_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Timestamp when the workload identity was last updated.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants IAM actions on this workload identity, scoped to its ARN and the parent resources required by the Bedrock AgentCore authorization model.
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantAdmin")
+    def grant_admin(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant control plane permissions to manage this workload identity.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantFullAccess")
+    def grant_full_access(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant read, list, admin, and use permissions.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant ``GetWorkloadIdentity`` and ``ListWorkloadIdentities``, scoped to this identity and parent resources required by the Bedrock AgentCore authorization model.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantUse")
+    def grant_use(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant data plane permissions to mint workload access tokens (``GetWorkloadAccessToken``, ``GetWorkloadAccessTokenForJWT``, ``GetWorkloadAccessTokenForUserId``).
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWorkloadIdentityProxy(
+    jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_aws_iam_ceddda9d.IGrantable), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.IWorkloadIdentityRef), # type: ignore[misc]
+):
+    '''(experimental) A workload identity for Amazon Bedrock AgentCore.
+
+    Represents the stable identity of an agent within an account's agent identity directory.
+    It ties together IAM roles, OAuth2 flows, API keys, and workload access tokens
+    for consistent authentication across environments.
+
+    :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/understanding-agent-identities.html
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-bedrock-agentcore-alpha.IWorkloadIdentity"
+
+    @builtins.property
+    @jsii.member(jsii_name="workloadIdentityArn")
+    def workload_identity_arn(self) -> builtins.str:
+        '''(experimental) The ARN of this workload identity.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "workloadIdentityArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workloadIdentityName")
+    def workload_identity_name(self) -> builtins.str:
+        '''(experimental) The name of this workload identity.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "workloadIdentityName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="createdTime")
+    def created_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Timestamp when the workload identity was created.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "createdTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdatedTime")
+    def last_updated_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Timestamp when the workload identity was last updated.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "lastUpdatedTime"))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants IAM actions on this workload identity, scoped to its ARN and the parent resources required by the Bedrock AgentCore authorization model.
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a7d1997e665eb610a591ccc8a73e17f82fb0727b5db5de7f85c03bc2517bdc05)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantAdmin")
+    def grant_admin(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant control plane permissions to manage this workload identity.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__80211079e32d76ecb8c02ca1d184276639927a7e05c6c8345dbcd1d21c3b9547)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantAdmin", [grantee]))
+
+    @jsii.member(jsii_name="grantFullAccess")
+    def grant_full_access(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant read, list, admin, and use permissions.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__12c32ab15b0749c93e4f9a6f99c90c7c8ee64d7b75827875ab7e42a2e6537911)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantFullAccess", [grantee]))
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant ``GetWorkloadIdentity`` and ``ListWorkloadIdentities``, scoped to this identity and parent resources required by the Bedrock AgentCore authorization model.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fa14807c7bdb8f7be3f5a8cf2138011a635a40114966cf9e6d5935aa055feb98)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
+
+    @jsii.member(jsii_name="grantUse")
+    def grant_use(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant data plane permissions to mint workload access tokens (``GetWorkloadAccessToken``, ``GetWorkloadAccessTokenForJWT``, ``GetWorkloadAccessTokenForUserId``).
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__621213d286580a29d4fcf5f08a7c257c341537a4c33e693e9c3e802a091d9596)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantUse", [grantee]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWorkloadIdentity).__jsii_proxy_class__ = lambda : _IWorkloadIdentityProxy
+
+
 @jsii.implements(IGatewayAuthorizerConfig)
 class IamAuthorizer(
     metaclass=jsii.JSIIMeta,
@@ -20162,6 +21880,102 @@ class IamAuthorizer(
         :stability: experimental
         '''
         return typing.cast("GatewayAuthorizerType", jsii.get(self, "authorizerType"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.IncludedOauth2TenantEndpoints",
+    jsii_struct_bases=[],
+    name_mapping={
+        "authorization_endpoint": "authorizationEndpoint",
+        "issuer": "issuer",
+        "token_endpoint": "tokenEndpoint",
+    },
+)
+class IncludedOauth2TenantEndpoints:
+    def __init__(
+        self,
+        *,
+        authorization_endpoint: typing.Optional[builtins.str] = None,
+        issuer: typing.Optional[builtins.str] = None,
+        token_endpoint: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Optional tenant OAuth endpoints for IdPs that use CloudFormation ``IncludedOauth2ProviderConfig`` with issuer and/or endpoints per the IdP’s outbound documentation.
+
+        :param authorization_endpoint: (experimental) OAuth2 authorization endpoint for your tenant. Default: - not specified; use when your IdP requires an explicit endpoint
+        :param issuer: (experimental) Token issuer URL for your tenant (often the IdP base or issuer URI). Default: - not specified; use when your IdP requires an explicit issuer
+        :param token_endpoint: (experimental) OAuth2 token endpoint for your tenant. Default: - not specified; use when your IdP requires an explicit endpoint
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            
+            included_oauth2_tenant_endpoints = bedrock_agentcore_alpha.IncludedOauth2TenantEndpoints(
+                authorization_endpoint="authorizationEndpoint",
+                issuer="issuer",
+                token_endpoint="tokenEndpoint"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a6f91c43f8aae80a63a6f19437a584a748aa47b47d77fc476a4697f74e641886)
+            check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
+            check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
+            check_type(argname="argument token_endpoint", value=token_endpoint, expected_type=type_hints["token_endpoint"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if authorization_endpoint is not None:
+            self._values["authorization_endpoint"] = authorization_endpoint
+        if issuer is not None:
+            self._values["issuer"] = issuer
+        if token_endpoint is not None:
+            self._values["token_endpoint"] = token_endpoint
+
+    @builtins.property
+    def authorization_endpoint(self) -> typing.Optional[builtins.str]:
+        '''(experimental) OAuth2 authorization endpoint for your tenant.
+
+        :default: - not specified; use when your IdP requires an explicit endpoint
+
+        :stability: experimental
+        '''
+        result = self._values.get("authorization_endpoint")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def issuer(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Token issuer URL for your tenant (often the IdP base or issuer URI).
+
+        :default: - not specified; use when your IdP requires an explicit issuer
+
+        :stability: experimental
+        '''
+        result = self._values.get("issuer")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def token_endpoint(self) -> typing.Optional[builtins.str]:
+        '''(experimental) OAuth2 token endpoint for your tenant.
+
+        :default: - not specified; use when your IdP requires an explicit endpoint
+
+        :stability: experimental
+        '''
+        result = self._values.get("token_endpoint")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IncludedOauth2TenantEndpoints(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 class InlineApiSchema(
@@ -23783,6 +25597,2240 @@ class NumericalRatingOption:
 
 
 @jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.OAuth2AuthorizationServerMetadata",
+    jsii_struct_bases=[],
+    name_mapping={
+        "authorization_endpoint": "authorizationEndpoint",
+        "issuer": "issuer",
+        "token_endpoint": "tokenEndpoint",
+        "response_types": "responseTypes",
+    },
+)
+class OAuth2AuthorizationServerMetadata:
+    def __init__(
+        self,
+        *,
+        authorization_endpoint: builtins.str,
+        issuer: builtins.str,
+        token_endpoint: builtins.str,
+        response_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Static OAuth2 authorization server metadata for custom credential providers.
+
+        :param authorization_endpoint: (experimental) The authorization endpoint URL.
+        :param issuer: (experimental) The issuer URL for the OAuth2 authorization server.
+        :param token_endpoint: (experimental) The token endpoint URL.
+        :param response_types: (experimental) The supported response types. Default: - not specified
+
+        :see: https://www.rfc-editor.org/rfc/rfc8414
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            agentcore.OAuth2CredentialProvider.using_custom(self, "CustomOAuthMeta",
+                client_id="your-client-id",
+                client_secret=cdk.SecretValue.unsafe_plain_text("your-client-secret"),
+                authorization_server_metadata=agentcore.OAuth2AuthorizationServerMetadata(
+                    issuer="https://idp.example.com",
+                    authorization_endpoint="https://idp.example.com/oauth2/authorize",
+                    token_endpoint="https://idp.example.com/oauth2/token"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__49686e277ad6776661148f376f0851f08d51d8cff7a529d7194af00dc2b804bb)
+            check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
+            check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
+            check_type(argname="argument token_endpoint", value=token_endpoint, expected_type=type_hints["token_endpoint"])
+            check_type(argname="argument response_types", value=response_types, expected_type=type_hints["response_types"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "authorization_endpoint": authorization_endpoint,
+            "issuer": issuer,
+            "token_endpoint": token_endpoint,
+        }
+        if response_types is not None:
+            self._values["response_types"] = response_types
+
+    @builtins.property
+    def authorization_endpoint(self) -> builtins.str:
+        '''(experimental) The authorization endpoint URL.
+
+        :stability: experimental
+        '''
+        result = self._values.get("authorization_endpoint")
+        assert result is not None, "Required property 'authorization_endpoint' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def issuer(self) -> builtins.str:
+        '''(experimental) The issuer URL for the OAuth2 authorization server.
+
+        :stability: experimental
+        '''
+        result = self._values.get("issuer")
+        assert result is not None, "Required property 'issuer' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def token_endpoint(self) -> builtins.str:
+        '''(experimental) The token endpoint URL.
+
+        :stability: experimental
+        '''
+        result = self._values.get("token_endpoint")
+        assert result is not None, "Required property 'token_endpoint' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def response_types(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) The supported response types.
+
+        :default: - not specified
+
+        :stability: experimental
+        '''
+        result = self._values.get("response_types")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OAuth2AuthorizationServerMetadata(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.OAuth2ClientCredentials",
+    jsii_struct_bases=[],
+    name_mapping={"client_id": "clientId", "client_secret": "clientSecret"},
+)
+class OAuth2ClientCredentials:
+    def __init__(
+        self,
+        *,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> None:
+        '''(experimental) OAuth2 client identifier and secret registered with the identity provider (all vendors).
+
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            o_auth2_client_credentials = bedrock_agentcore_alpha.OAuth2ClientCredentials(
+                client_id="clientId",
+                client_secret=secret_value
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cba1ea3930561dcb15203f2cc343740720f5a8a62b7ccf19bb99eb12a8b13e67)
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OAuth2ClientCredentials(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IOAuth2CredentialProvider)
+class OAuth2CredentialProvider(
+    _aws_cdk_ceddda9d.Resource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.OAuth2CredentialProvider",
+):
+    '''(experimental) L2 construct for ``AWS::BedrockAgentCore::OAuth2CredentialProvider``.
+
+    Prefer the static factories (for example {@link OAuth2CredentialProvider.usingSlack}) so you only pass
+    the OAuth2 settings that apply to that vendor. To attach the identity to a gateway target, use
+    {@link GatewayCredentialProvider.fromOauthIdentity } with this construct, or
+    {@link OAuth2CredentialProvider.bindForGatewayOAuthTarget} with {@link GatewayCredentialProvider.fromOauthIdentityArn }.
+
+    :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-oauth2credentialprovider.html
+    :stability: experimental
+    :resource: AWS::BedrockAgentCore::OAuth2CredentialProvider
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        agentcore.OAuth2CredentialProvider.using_custom(self, "CustomOAuthMeta",
+            client_id="your-client-id",
+            client_secret=cdk.SecretValue.unsafe_plain_text("your-client-secret"),
+            authorization_server_metadata=agentcore.OAuth2AuthorizationServerMetadata(
+                issuer="https://idp.example.com",
+                authorization_endpoint="https://idp.example.com/oauth2/authorize",
+                token_endpoint="https://idp.example.com/oauth2/token"
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        credential_provider_vendor: builtins.str,
+        oauth2_provider_config_input: typing.Union["_aws_cdk_aws_bedrockagentcore_ceddda9d.CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty", typing.Dict[builtins.str, typing.Any]],
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param credential_provider_vendor: (experimental) OAuth2 vendor string for CloudFormation ``CredentialProviderVendor``.
+        :param oauth2_provider_config_input: (experimental) OAuth2 provider configuration passed through to ``Oauth2ProviderConfigInput``.
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__024beff91c60f5f8e0d996bbb5d050d0381cbc4998c1108f3c275db0acbb232a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = OAuth2CredentialProviderProps(
+            credential_provider_vendor=credential_provider_vendor,
+            oauth2_provider_config_input=oauth2_provider_config_input,
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromOAuth2CredentialProviderAttributes")
+    @builtins.classmethod
+    def from_o_auth2_credential_provider_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        credential_provider_arn: builtins.str,
+        credential_provider_vendor: builtins.str,
+        callback_url: typing.Optional[builtins.str] = None,
+        client_secret_arn: typing.Optional[builtins.str] = None,
+        created_time: typing.Optional[builtins.str] = None,
+        last_updated_time: typing.Optional[builtins.str] = None,
+    ) -> "IOAuth2CredentialProvider":
+        '''(experimental) Import an existing OAuth2 credential provider.
+
+        :param scope: -
+        :param id: -
+        :param credential_provider_arn: (experimental) ARN of the credential provider.
+        :param credential_provider_vendor: (experimental) Vendor string for this provider.
+        :param callback_url: (experimental) Callback URL from the deployed provider, if known. Default: - not set
+        :param client_secret_arn: (experimental) ARN of the Secrets Manager secret for OAuth2 client credentials, if known. Default: - not set; required for {@link OAuth2CredentialProvider.bindForGatewayOAuthTarget } on imported providers
+        :param created_time: (experimental) Resource creation time. Default: - not set
+        :param last_updated_time: (experimental) Resource last-updated time. Default: - not set
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a82f2de92ea22897c61952ec301e28840bb7f40a39627cf8c7452e88291efd44)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = OAuth2CredentialProviderAttributes(
+            credential_provider_arn=credential_provider_arn,
+            credential_provider_vendor=credential_provider_vendor,
+            callback_url=callback_url,
+            client_secret_arn=client_secret_arn,
+            created_time=created_time,
+            last_updated_time=last_updated_time,
+        )
+
+        return typing.cast("IOAuth2CredentialProvider", jsii.sinvoke(cls, "fromOAuth2CredentialProviderAttributes", [scope, id, attrs]))
+
+    @jsii.member(jsii_name="usingAtlassian")
+    @builtins.classmethod
+    def using_atlassian(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for Atlassian OAuth2.
+
+        :param scope: -
+        :param id: -
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ef6c058768e2781c826a237e65780d83c6ab7ce544884f95ac126eead9cda362)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = AtlassianOAuth2CredentialProviderProps(
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingAtlassian", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingAuth0")
+    @builtins.classmethod
+    def using_auth0(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        authorization_endpoint: typing.Optional[builtins.str] = None,
+        issuer: typing.Optional[builtins.str] = None,
+        token_endpoint: typing.Optional[builtins.str] = None,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for Auth0 OAuth2 (``IncludedOauth2ProviderConfig``).
+
+        :param scope: -
+        :param id: -
+        :param authorization_endpoint: (experimental) OAuth2 authorization endpoint for your tenant. Default: - not specified; use when your IdP requires an explicit endpoint
+        :param issuer: (experimental) Token issuer URL for your tenant (often the IdP base or issuer URI). Default: - not specified; use when your IdP requires an explicit issuer
+        :param token_endpoint: (experimental) OAuth2 token endpoint for your tenant. Default: - not specified; use when your IdP requires an explicit endpoint
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-auth0.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5c1536e2e6d4c0f1dda69051f9f8f939efd0ffb5b9e4a1963d03ed5b452f58f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = IncludedOauth2TenantCredentialProviderProps(
+            authorization_endpoint=authorization_endpoint,
+            issuer=issuer,
+            token_endpoint=token_endpoint,
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingAuth0", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingCognito")
+    @builtins.classmethod
+    def using_cognito(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        authorization_endpoint: typing.Optional[builtins.str] = None,
+        issuer: typing.Optional[builtins.str] = None,
+        token_endpoint: typing.Optional[builtins.str] = None,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for Amazon Cognito OAuth2 (``IncludedOauth2ProviderConfig``).
+
+        :param scope: -
+        :param id: -
+        :param authorization_endpoint: (experimental) OAuth2 authorization endpoint for your tenant. Default: - not specified; use when your IdP requires an explicit endpoint
+        :param issuer: (experimental) Token issuer URL for your tenant (often the IdP base or issuer URI). Default: - not specified; use when your IdP requires an explicit issuer
+        :param token_endpoint: (experimental) OAuth2 token endpoint for your tenant. Default: - not specified; use when your IdP requires an explicit endpoint
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-cognito.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f729c0759c6bc53f292a1f167e5a26050a5911aa54ecca72b9a7ed5421bca8fe)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = IncludedOauth2TenantCredentialProviderProps(
+            authorization_endpoint=authorization_endpoint,
+            issuer=issuer,
+            token_endpoint=token_endpoint,
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingCognito", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingCustom")
+    @builtins.classmethod
+    def using_custom(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        authorization_server_metadata: typing.Optional[typing.Union["OAuth2AuthorizationServerMetadata", typing.Dict[builtins.str, typing.Any]]] = None,
+        discovery_url: typing.Optional[builtins.str] = None,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for a custom OAuth2 authorization server (discovery document or metadata).
+
+        :param scope: -
+        :param id: -
+        :param authorization_server_metadata: (experimental) Authorization server metadata (issuer, authorization and token endpoints) when not using a discovery URL. Default: - not used when {@link discoveryUrl } is set
+        :param discovery_url: (experimental) OIDC/OAuth2 discovery document URL for dynamic integration with the identity provider. Default: - not used when {@link authorizationServerMetadata } is set
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d10e4d3cfb35ec0aa9906afda77a8cb6432d348fa14750ff9c79480137aeb29c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CustomOAuth2CredentialProviderProps(
+            authorization_server_metadata=authorization_server_metadata,
+            discovery_url=discovery_url,
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingCustom", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingCyberArk")
+    @builtins.classmethod
+    def using_cyber_ark(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        authorization_endpoint: typing.Optional[builtins.str] = None,
+        issuer: typing.Optional[builtins.str] = None,
+        token_endpoint: typing.Optional[builtins.str] = None,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for CyberArk OAuth2 (``IncludedOauth2ProviderConfig``).
+
+        :param scope: -
+        :param id: -
+        :param authorization_endpoint: (experimental) OAuth2 authorization endpoint for your tenant. Default: - not specified; use when your IdP requires an explicit endpoint
+        :param issuer: (experimental) Token issuer URL for your tenant (often the IdP base or issuer URI). Default: - not specified; use when your IdP requires an explicit issuer
+        :param token_endpoint: (experimental) OAuth2 token endpoint for your tenant. Default: - not specified; use when your IdP requires an explicit endpoint
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-cyberark.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e1a7c62f7fb66b7a5a66f94cd79fd98d74ec3885508c474c634957f6e47e0324)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = IncludedOauth2TenantCredentialProviderProps(
+            authorization_endpoint=authorization_endpoint,
+            issuer=issuer,
+            token_endpoint=token_endpoint,
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingCyberArk", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingDropbox")
+    @builtins.classmethod
+    def using_dropbox(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for Dropbox OAuth2 (``IncludedOauth2ProviderConfig``).
+
+        :param scope: -
+        :param id: -
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-dropbox.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__027f34347767113b63af75909dbed925f8f0bf0cea27c7647624eefff71d40ae)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = DropboxOAuth2CredentialProviderProps(
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingDropbox", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingFacebook")
+    @builtins.classmethod
+    def using_facebook(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for Facebook OAuth2 (``IncludedOauth2ProviderConfig``).
+
+        :param scope: -
+        :param id: -
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-facebook.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__54a32dd07f0f2759bc8f038cdc6234362696a176abd8eecd003638052316bcff)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = FacebookOAuth2CredentialProviderProps(
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingFacebook", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingFusionAuth")
+    @builtins.classmethod
+    def using_fusion_auth(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        authorization_endpoint: typing.Optional[builtins.str] = None,
+        issuer: typing.Optional[builtins.str] = None,
+        token_endpoint: typing.Optional[builtins.str] = None,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for FusionAuth OAuth2 (``IncludedOauth2ProviderConfig``).
+
+        :param scope: -
+        :param id: -
+        :param authorization_endpoint: (experimental) OAuth2 authorization endpoint for your tenant. Default: - not specified; use when your IdP requires an explicit endpoint
+        :param issuer: (experimental) Token issuer URL for your tenant (often the IdP base or issuer URI). Default: - not specified; use when your IdP requires an explicit issuer
+        :param token_endpoint: (experimental) OAuth2 token endpoint for your tenant. Default: - not specified; use when your IdP requires an explicit endpoint
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-fusionauth.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2661b6d4a7d176e1218f5375d83d994ed41514ef8bfb5d181e443050123157a3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = IncludedOauth2TenantCredentialProviderProps(
+            authorization_endpoint=authorization_endpoint,
+            issuer=issuer,
+            token_endpoint=token_endpoint,
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingFusionAuth", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingGithub")
+    @builtins.classmethod
+    def using_github(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for GitHub OAuth2.
+
+        :param scope: -
+        :param id: -
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__baac2b885b4cc2ecb358bc2a63ad24808a08266cb688ae3b980a6c32493b188b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = GithubOAuth2CredentialProviderProps(
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingGithub", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingGoogle")
+    @builtins.classmethod
+    def using_google(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for Google OAuth2.
+
+        :param scope: -
+        :param id: -
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d14f42981d7d1c45a45d078740323ba7af55d54bc3fd0312a57a8c5c12b1f96)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = GoogleOAuth2CredentialProviderProps(
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingGoogle", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingHubspot")
+    @builtins.classmethod
+    def using_hubspot(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for HubSpot OAuth2 (``IncludedOauth2ProviderConfig``).
+
+        :param scope: -
+        :param id: -
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-hubspot.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b4b05f30eac32a7a713804b3118f1c9b9c36c9ecd4a069097fde01f95c6cb17b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = HubspotOAuth2CredentialProviderProps(
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingHubspot", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingLinkedin")
+    @builtins.classmethod
+    def using_linkedin(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for LinkedIn OAuth2.
+
+        :param scope: -
+        :param id: -
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__74992cf31f4dbbf4098b7e8fc464e4c399c0666c045336029a7067937d472a8d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = LinkedinOAuth2CredentialProviderProps(
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingLinkedin", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingMicrosoft")
+    @builtins.classmethod
+    def using_microsoft(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        tenant_id: typing.Optional[builtins.str] = None,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for Microsoft (Entra ID) OAuth2.
+
+        :param scope: -
+        :param id: -
+        :param tenant_id: (experimental) Microsoft Entra ID tenant ID. Default: - service default tenant resolution
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__313d8717178b0df0eed0484c18e33c4db9719c71ddf93724b343df334c92d4b9)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = MicrosoftOAuth2CredentialProviderProps(
+            tenant_id=tenant_id,
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingMicrosoft", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingNotion")
+    @builtins.classmethod
+    def using_notion(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for Notion OAuth2 (``IncludedOauth2ProviderConfig``).
+
+        :param scope: -
+        :param id: -
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-notion.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9247cb9b14396fa19c0c7a2c79ae338dc0170b9da376274063845cc807e8011a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = NotionOAuth2CredentialProviderProps(
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingNotion", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingOkta")
+    @builtins.classmethod
+    def using_okta(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        authorization_endpoint: typing.Optional[builtins.str] = None,
+        issuer: typing.Optional[builtins.str] = None,
+        token_endpoint: typing.Optional[builtins.str] = None,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for Okta OAuth2 (``IncludedOauth2ProviderConfig``).
+
+        :param scope: -
+        :param id: -
+        :param authorization_endpoint: (experimental) OAuth2 authorization endpoint for your tenant. Default: - not specified; use when your IdP requires an explicit endpoint
+        :param issuer: (experimental) Token issuer URL for your tenant (often the IdP base or issuer URI). Default: - not specified; use when your IdP requires an explicit issuer
+        :param token_endpoint: (experimental) OAuth2 token endpoint for your tenant. Default: - not specified; use when your IdP requires an explicit endpoint
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-okta.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e84a818ca200adb107923c7a3fa1cc54ed0547dd4ce0288b1d092b244b80754b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = IncludedOauth2TenantCredentialProviderProps(
+            authorization_endpoint=authorization_endpoint,
+            issuer=issuer,
+            token_endpoint=token_endpoint,
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingOkta", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingOneLogin")
+    @builtins.classmethod
+    def using_one_login(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        authorization_endpoint: typing.Optional[builtins.str] = None,
+        issuer: typing.Optional[builtins.str] = None,
+        token_endpoint: typing.Optional[builtins.str] = None,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for OneLogin OAuth2 (``IncludedOauth2ProviderConfig``).
+
+        :param scope: -
+        :param id: -
+        :param authorization_endpoint: (experimental) OAuth2 authorization endpoint for your tenant. Default: - not specified; use when your IdP requires an explicit endpoint
+        :param issuer: (experimental) Token issuer URL for your tenant (often the IdP base or issuer URI). Default: - not specified; use when your IdP requires an explicit issuer
+        :param token_endpoint: (experimental) OAuth2 token endpoint for your tenant. Default: - not specified; use when your IdP requires an explicit endpoint
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-onelogin.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0b3da22a0325de625b3f615dfd1af25078d6bd96f86a6af6469a11b9a94ed90d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = IncludedOauth2TenantCredentialProviderProps(
+            authorization_endpoint=authorization_endpoint,
+            issuer=issuer,
+            token_endpoint=token_endpoint,
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingOneLogin", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingPingOne")
+    @builtins.classmethod
+    def using_ping_one(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        authorization_endpoint: typing.Optional[builtins.str] = None,
+        issuer: typing.Optional[builtins.str] = None,
+        token_endpoint: typing.Optional[builtins.str] = None,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for PingOne OAuth2 (``IncludedOauth2ProviderConfig``).
+
+        :param scope: -
+        :param id: -
+        :param authorization_endpoint: (experimental) OAuth2 authorization endpoint for your tenant. Default: - not specified; use when your IdP requires an explicit endpoint
+        :param issuer: (experimental) Token issuer URL for your tenant (often the IdP base or issuer URI). Default: - not specified; use when your IdP requires an explicit issuer
+        :param token_endpoint: (experimental) OAuth2 token endpoint for your tenant. Default: - not specified; use when your IdP requires an explicit endpoint
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-pingidentity.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__57be03918f3736d1b71d4d7d6d9a361de935744f6d19ec1efa296d8f3a5b647a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = IncludedOauth2TenantCredentialProviderProps(
+            authorization_endpoint=authorization_endpoint,
+            issuer=issuer,
+            token_endpoint=token_endpoint,
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingPingOne", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingReddit")
+    @builtins.classmethod
+    def using_reddit(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for Reddit OAuth2 (``IncludedOauth2ProviderConfig``).
+
+        :param scope: -
+        :param id: -
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-reddit.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__891bbfb18f28ad0e126fb601487c3f8d832335dc82815034e4010c1079178181)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = RedditOAuth2CredentialProviderProps(
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingReddit", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingSalesforce")
+    @builtins.classmethod
+    def using_salesforce(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for Salesforce OAuth2.
+
+        :param scope: -
+        :param id: -
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3b73f6d51e0a5afd2f55825297c1e190345cc02bb055b71bdb1e09a4a6fe3609)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = SalesforceOAuth2CredentialProviderProps(
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingSalesforce", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingSlack")
+    @builtins.classmethod
+    def using_slack(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for Slack OAuth2.
+
+        :param scope: -
+        :param id: -
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7947e10fbc44c03682ac4401855902e2b0fea9763ed175fd98390ff513c735f9)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = SlackOAuth2CredentialProviderProps(
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingSlack", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingSpotify")
+    @builtins.classmethod
+    def using_spotify(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for Spotify OAuth2 (``IncludedOauth2ProviderConfig``).
+
+        :param scope: -
+        :param id: -
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-spotify.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3bd7b725c496311229d00c69605b0d3a1a33c2e33c47fcd8bda9ad01cd375a1b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = SpotifyOAuth2CredentialProviderProps(
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingSpotify", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingTwitch")
+    @builtins.classmethod
+    def using_twitch(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for Twitch OAuth2 (``IncludedOauth2ProviderConfig``).
+
+        :param scope: -
+        :param id: -
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-twitch.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c01fea3ef8bde4d5c599803b2bdcdc8c2c4b8e74653dfddfaa7cb674c9c5488e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = TwitchOAuth2CredentialProviderProps(
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingTwitch", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingX")
+    @builtins.classmethod
+    def using_x(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for X (Twitter) OAuth2 (``IncludedOauth2ProviderConfig``).
+
+        :param scope: -
+        :param id: -
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-x.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__54666f101a64a9ed1a63985e2dd766d24d0cb3f24f75552a22cbfb72db0a3f0d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = XOAuth2CredentialProviderProps(
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingX", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingYandex")
+    @builtins.classmethod
+    def using_yandex(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for Yandex OAuth2 (``IncludedOauth2ProviderConfig``).
+
+        :param scope: -
+        :param id: -
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-yandex.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8dc58e37a9e8c0931bbd0cb8285a8e86ae4d74696738b94b54f3230e384bce8f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = YandexOAuth2CredentialProviderProps(
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingYandex", [scope, id, props]))
+
+    @jsii.member(jsii_name="usingZoom")
+    @builtins.classmethod
+    def using_zoom(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> "OAuth2CredentialProvider":
+        '''(experimental) Create a credential provider for Zoom OAuth2 (``IncludedOauth2ProviderConfig``).
+
+        :param scope: -
+        :param id: -
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-zoom.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4bfb389d71619d74af7770f803d7106b498c89660d132940665e70acdf53badd)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = ZoomOAuth2CredentialProviderProps(
+            o_auth2_credential_provider_name=o_auth2_credential_provider_name,
+            tags=tags,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+
+        return typing.cast("OAuth2CredentialProvider", jsii.sinvoke(cls, "usingZoom", [scope, id, props]))
+
+    @jsii.member(jsii_name="bindForGatewayOAuthTarget")
+    def bind_for_gateway_o_auth_target(
+        self,
+        scopes: typing.Sequence[builtins.str],
+        custom_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> "GatewayOAuth2IdentityBinding":
+        '''(experimental) ARNs and OAuth scopes for {@link GatewayCredentialProvider.fromOauthIdentity } / {@link GatewayCredentialProvider.fromOauthIdentityArn }.
+
+        :param scopes: OAuth scopes the gateway target should request (see vendor documentation).
+        :param custom_parameters: Optional custom parameters for the OAuth flow.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e032e4464402cb18a9d3f03ebdf3f9554187957807f57f6272273bbbe0d2586b)
+            check_type(argname="argument scopes", value=scopes, expected_type=type_hints["scopes"])
+            check_type(argname="argument custom_parameters", value=custom_parameters, expected_type=type_hints["custom_parameters"])
+        return typing.cast("GatewayOAuth2IdentityBinding", jsii.invoke(self, "bindForGatewayOAuthTarget", [scopes, custom_parameters]))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d59b5102bff017db495e9bf429534b44bae47a2e2188a08a2874bc03679d7ee)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantAdmin")
+    def grant_admin(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__77c7e4d0f8db833219a8340cfe25eb7bb26a913510f382ae8e2c61468493c77f)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantAdmin", [grantee]))
+
+    @jsii.member(jsii_name="grantFullAccess")
+    def grant_full_access(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d0329b4b46e3a2b4c70265c25408aaa602f0a779588c6ba7eef0722a1007ab3)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantFullAccess", [grantee]))
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad2a6cb0f02440fb06555ee4e547aff6c3a14a8a9bde2b73c22e1b642e264cd9)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
+
+    @jsii.member(jsii_name="grantUse")
+    def grant_use(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e16e25ba85c289f200eed5ce6e4f6254a58f4159117c86a64fe13d0dbc79680)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantUse", [grantee]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''(experimental) Uniquely identifies this class.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="credentialProviderArn")
+    def credential_provider_arn(self) -> builtins.str:
+        '''(experimental) The ARN of this credential provider.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "credentialProviderArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="credentialProviderVendor")
+    def credential_provider_vendor(self) -> builtins.str:
+        '''(experimental) OAuth2 vendor string passed to CloudFormation.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "credentialProviderVendor"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
+        '''(experimental) The principal to grant permissions to.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="oAuth2CredentialProviderName")
+    def o_auth2_credential_provider_name(self) -> builtins.str:
+        '''(experimental) The name of this OAuth2 credential provider.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "oAuth2CredentialProviderName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="oAuth2CredentialProviderRef")
+    def o_auth2_credential_provider_ref(
+        self,
+    ) -> "_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.OAuth2CredentialProviderReference":
+        '''(experimental) A reference to a OAuth2CredentialProvider resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.OAuth2CredentialProviderReference", jsii.get(self, "oAuth2CredentialProviderRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="callbackUrl")
+    def callback_url(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Callback URL for the OAuth2 authorization flow.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "callbackUrl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clientSecretArn")
+    def client_secret_arn(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The ARN of the Secrets Manager secret for the OAuth2 client credentials.
+
+        May be undefined for resources imported without this attribute.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "clientSecretArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="createdTime")
+    def created_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Timestamp when the credential provider was created.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "createdTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdatedTime")
+    def last_updated_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Timestamp when the credential provider was last updated.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "lastUpdatedTime"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.OAuth2CredentialProviderAttributes",
+    jsii_struct_bases=[],
+    name_mapping={
+        "credential_provider_arn": "credentialProviderArn",
+        "credential_provider_vendor": "credentialProviderVendor",
+        "callback_url": "callbackUrl",
+        "client_secret_arn": "clientSecretArn",
+        "created_time": "createdTime",
+        "last_updated_time": "lastUpdatedTime",
+    },
+)
+class OAuth2CredentialProviderAttributes:
+    def __init__(
+        self,
+        *,
+        credential_provider_arn: builtins.str,
+        credential_provider_vendor: builtins.str,
+        callback_url: typing.Optional[builtins.str] = None,
+        client_secret_arn: typing.Optional[builtins.str] = None,
+        created_time: typing.Optional[builtins.str] = None,
+        last_updated_time: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Attributes for importing an existing OAuth2 credential provider.
+
+        :param credential_provider_arn: (experimental) ARN of the credential provider.
+        :param credential_provider_vendor: (experimental) Vendor string for this provider.
+        :param callback_url: (experimental) Callback URL from the deployed provider, if known. Default: - not set
+        :param client_secret_arn: (experimental) ARN of the Secrets Manager secret for OAuth2 client credentials, if known. Default: - not set; required for {@link OAuth2CredentialProvider.bindForGatewayOAuthTarget } on imported providers
+        :param created_time: (experimental) Resource creation time. Default: - not set
+        :param last_updated_time: (experimental) Resource last-updated time. Default: - not set
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            
+            o_auth2_credential_provider_attributes = bedrock_agentcore_alpha.OAuth2CredentialProviderAttributes(
+                credential_provider_arn="credentialProviderArn",
+                credential_provider_vendor="credentialProviderVendor",
+            
+                # the properties below are optional
+                callback_url="callbackUrl",
+                client_secret_arn="clientSecretArn",
+                created_time="createdTime",
+                last_updated_time="lastUpdatedTime"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6b92bb09416d724eaed2eafa8846eae6f227ab3ed0cdba31a2a0074397f3b479)
+            check_type(argname="argument credential_provider_arn", value=credential_provider_arn, expected_type=type_hints["credential_provider_arn"])
+            check_type(argname="argument credential_provider_vendor", value=credential_provider_vendor, expected_type=type_hints["credential_provider_vendor"])
+            check_type(argname="argument callback_url", value=callback_url, expected_type=type_hints["callback_url"])
+            check_type(argname="argument client_secret_arn", value=client_secret_arn, expected_type=type_hints["client_secret_arn"])
+            check_type(argname="argument created_time", value=created_time, expected_type=type_hints["created_time"])
+            check_type(argname="argument last_updated_time", value=last_updated_time, expected_type=type_hints["last_updated_time"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "credential_provider_arn": credential_provider_arn,
+            "credential_provider_vendor": credential_provider_vendor,
+        }
+        if callback_url is not None:
+            self._values["callback_url"] = callback_url
+        if client_secret_arn is not None:
+            self._values["client_secret_arn"] = client_secret_arn
+        if created_time is not None:
+            self._values["created_time"] = created_time
+        if last_updated_time is not None:
+            self._values["last_updated_time"] = last_updated_time
+
+    @builtins.property
+    def credential_provider_arn(self) -> builtins.str:
+        '''(experimental) ARN of the credential provider.
+
+        :stability: experimental
+        '''
+        result = self._values.get("credential_provider_arn")
+        assert result is not None, "Required property 'credential_provider_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def credential_provider_vendor(self) -> builtins.str:
+        '''(experimental) Vendor string for this provider.
+
+        :stability: experimental
+        '''
+        result = self._values.get("credential_provider_vendor")
+        assert result is not None, "Required property 'credential_provider_vendor' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def callback_url(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Callback URL from the deployed provider, if known.
+
+        :default: - not set
+
+        :stability: experimental
+        '''
+        result = self._values.get("callback_url")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def client_secret_arn(self) -> typing.Optional[builtins.str]:
+        '''(experimental) ARN of the Secrets Manager secret for OAuth2 client credentials, if known.
+
+        :default: - not set; required for {@link OAuth2CredentialProvider.bindForGatewayOAuthTarget } on imported providers
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def created_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Resource creation time.
+
+        :default: - not set
+
+        :stability: experimental
+        '''
+        result = self._values.get("created_time")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def last_updated_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Resource last-updated time.
+
+        :default: - not set
+
+        :stability: experimental
+        '''
+        result = self._values.get("last_updated_time")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OAuth2CredentialProviderAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.OAuth2CredentialProviderBaseProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+    },
+)
+class OAuth2CredentialProviderBaseProps:
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Shared properties for OAuth2 credential providers created via {@link OAuth2CredentialProvider} factory methods.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            
+            o_auth2_credential_provider_base_props = bedrock_agentcore_alpha.OAuth2CredentialProviderBaseProps(
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__41ec372d7f18c7e5f2a0c115f27aac555018aa7f9351186823f5de32a6590be5)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OAuth2CredentialProviderBaseProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.OAuth2CredentialProviderFactoryBaseProps",
+    jsii_struct_bases=[OAuth2CredentialProviderBaseProps, OAuth2ClientCredentials],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+    },
+)
+class OAuth2CredentialProviderFactoryBaseProps(
+    OAuth2CredentialProviderBaseProps,
+    OAuth2ClientCredentials,
+):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> None:
+        '''(experimental) Naming, tags, and client credentials shared by every {@link OAuth2CredentialProvider} factory.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            o_auth2_credential_provider_factory_base_props = bedrock_agentcore_alpha.OAuth2CredentialProviderFactoryBaseProps(
+                client_id="clientId",
+                client_secret=secret_value,
+            
+                # the properties below are optional
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__65aaddb30823d617d6a90c5d50440a4bde7f94a8eca4e84754358dbf99b955bc)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OAuth2CredentialProviderFactoryBaseProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class OAuth2CredentialProviderIdentityPerms(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.OAuth2CredentialProviderIdentityPerms",
+):
+    '''(experimental) IAM actions for AgentCore OAuth2 credential providers (Token Vault).
+
+    :see: https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonbedrockagentcore.html
+    :stability: experimental
+    '''
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ADMIN_PERMS")
+    def ADMIN_PERMS(cls) -> typing.List[builtins.str]:
+        '''(experimental) Control plane permissions to create, read, update, and delete this provider.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.sget(cls, "ADMIN_PERMS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="FULL_ACCESS_PERMS")
+    def FULL_ACCESS_PERMS(cls) -> typing.List[builtins.str]:
+        '''(experimental) All OAuth2 credential provider actions used by the L2 grant helpers.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.sget(cls, "FULL_ACCESS_PERMS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="LIST_PERMS")
+    def LIST_PERMS(cls) -> typing.List[builtins.str]:
+        '''(experimental) List OAuth2 credential providers (resource-scoped per IAM service authorization reference).
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.sget(cls, "LIST_PERMS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="READ_PERMS")
+    def READ_PERMS(cls) -> typing.List[builtins.str]:
+        '''(experimental) Read a single OAuth2 credential provider definition.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.sget(cls, "READ_PERMS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="USE_PERMS")
+    def USE_PERMS(cls) -> typing.List[builtins.str]:
+        '''(experimental) Data plane permissions to complete OAuth flows and retrieve tokens for outbound calls.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.sget(cls, "USE_PERMS"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.OAuth2CredentialProviderProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "credential_provider_vendor": "credentialProviderVendor",
+        "oauth2_provider_config_input": "oauth2ProviderConfigInput",
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+    },
+)
+class OAuth2CredentialProviderProps:
+    def __init__(
+        self,
+        *,
+        credential_provider_vendor: builtins.str,
+        oauth2_provider_config_input: typing.Union["_aws_cdk_aws_bedrockagentcore_ceddda9d.CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty", typing.Dict[builtins.str, typing.Any]],
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Low-level properties when you need full control (prefer {@link OAuth2CredentialProvider.usingSlack} and other factories).
+
+        :param credential_provider_vendor: (experimental) OAuth2 vendor string for CloudFormation ``CredentialProviderVendor``.
+        :param oauth2_provider_config_input: (experimental) OAuth2 provider configuration passed through to ``Oauth2ProviderConfigInput``.
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk.aws_bedrockagentcore.Oauth2ProviderConfigInputProperty import Oauth2ProviderConfigInputProperty
+            from aws_cdk.aws_bedrockagentcore.AtlassianOauth2ProviderConfigInputProperty import AtlassianOauth2ProviderConfigInputProperty
+            from aws_cdk.aws_bedrockagentcore.CustomOauth2ProviderConfigInputProperty import CustomOauth2ProviderConfigInputProperty
+            from aws_cdk.aws_bedrockagentcore.Oauth2DiscoveryProperty import Oauth2DiscoveryProperty
+            from aws_cdk.aws_bedrockagentcore.Oauth2AuthorizationServerMetadataProperty import Oauth2AuthorizationServerMetadataProperty
+            from aws_cdk.aws_bedrockagentcore.OnBehalfOfTokenExchangeConfigProperty import OnBehalfOfTokenExchangeConfigProperty
+            from aws_cdk.aws_bedrockagentcore.TokenExchangeGrantTypeConfigProperty import TokenExchangeGrantTypeConfigProperty
+            from aws_cdk.aws_bedrockagentcore.GithubOauth2ProviderConfigInputProperty import GithubOauth2ProviderConfigInputProperty
+            from aws_cdk.aws_bedrockagentcore.GoogleOauth2ProviderConfigInputProperty import GoogleOauth2ProviderConfigInputProperty
+            from aws_cdk.aws_bedrockagentcore.IncludedOauth2ProviderConfigInputProperty import IncludedOauth2ProviderConfigInputProperty
+            from aws_cdk.aws_bedrockagentcore.LinkedinOauth2ProviderConfigInputProperty import LinkedinOauth2ProviderConfigInputProperty
+            from aws_cdk.aws_bedrockagentcore.MicrosoftOauth2ProviderConfigInputProperty import MicrosoftOauth2ProviderConfigInputProperty
+            from aws_cdk.aws_bedrockagentcore.SalesforceOauth2ProviderConfigInputProperty import SalesforceOauth2ProviderConfigInputProperty
+            from aws_cdk.aws_bedrockagentcore.SlackOauth2ProviderConfigInputProperty import SlackOauth2ProviderConfigInputProperty
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            
+            o_auth2_credential_provider_props = bedrock_agentcore_alpha.OAuth2CredentialProviderProps(
+                credential_provider_vendor="credentialProviderVendor",
+                oauth2_provider_config_input=Oauth2ProviderConfigInputProperty(
+                    atlassian_oauth2_provider_config=AtlassianOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret"
+                    ),
+                    custom_oauth2_provider_config=CustomOauth2ProviderConfigInputProperty(
+                        oauth_discovery=Oauth2DiscoveryProperty(
+                            authorization_server_metadata=Oauth2AuthorizationServerMetadataProperty(
+                                authorization_endpoint="authorizationEndpoint",
+                                issuer="issuer",
+                                token_endpoint="tokenEndpoint",
+            
+                                # the properties below are optional
+                                response_types=["responseTypes"]
+                            ),
+                            discovery_url="discoveryUrl"
+                        ),
+            
+                        # the properties below are optional
+                        client_id="clientId",
+                        client_secret="clientSecret",
+                        on_behalf_of_token_exchange_config=OnBehalfOfTokenExchangeConfigProperty(
+                            grant_type="grantType",
+            
+                            # the properties below are optional
+                            token_exchange_grant_type_config=TokenExchangeGrantTypeConfigProperty(
+                                actor_token_content="actorTokenContent",
+            
+                                # the properties below are optional
+                                actor_token_scopes=["actorTokenScopes"]
+                            )
+                        )
+                    ),
+                    github_oauth2_provider_config=GithubOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret"
+                    ),
+                    google_oauth2_provider_config=GoogleOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret"
+                    ),
+                    included_oauth2_provider_config=IncludedOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret",
+            
+                        # the properties below are optional
+                        authorization_endpoint="authorizationEndpoint",
+                        issuer="issuer",
+                        token_endpoint="tokenEndpoint"
+                    ),
+                    linkedin_oauth2_provider_config=LinkedinOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret"
+                    ),
+                    microsoft_oauth2_provider_config=MicrosoftOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret",
+            
+                        # the properties below are optional
+                        tenant_id="tenantId"
+                    ),
+                    salesforce_oauth2_provider_config=SalesforceOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret"
+                    ),
+                    slack_oauth2_provider_config=SlackOauth2ProviderConfigInputProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret"
+                    )
+                ),
+            
+                # the properties below are optional
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if isinstance(oauth2_provider_config_input, dict):
+            oauth2_provider_config_input = _aws_cdk_aws_bedrockagentcore_ceddda9d.CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty(**oauth2_provider_config_input)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__76d0f9cb6797bdc8a2cdcc6618ea1b6254eff9a273d2846fd016ec0a7b6f957c)
+            check_type(argname="argument credential_provider_vendor", value=credential_provider_vendor, expected_type=type_hints["credential_provider_vendor"])
+            check_type(argname="argument oauth2_provider_config_input", value=oauth2_provider_config_input, expected_type=type_hints["oauth2_provider_config_input"])
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "credential_provider_vendor": credential_provider_vendor,
+            "oauth2_provider_config_input": oauth2_provider_config_input,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def credential_provider_vendor(self) -> builtins.str:
+        '''(experimental) OAuth2 vendor string for CloudFormation ``CredentialProviderVendor``.
+
+        :stability: experimental
+        '''
+        result = self._values.get("credential_provider_vendor")
+        assert result is not None, "Required property 'credential_provider_vendor' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def oauth2_provider_config_input(
+        self,
+    ) -> "_aws_cdk_aws_bedrockagentcore_ceddda9d.CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty":
+        '''(experimental) OAuth2 provider configuration passed through to ``Oauth2ProviderConfigInput``.
+
+        :stability: experimental
+        '''
+        result = self._values.get("oauth2_provider_config_input")
+        assert result is not None, "Required property 'oauth2_provider_config_input' is missing"
+        return typing.cast("_aws_cdk_aws_bedrockagentcore_ceddda9d.CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty", result)
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OAuth2CredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.OAuth2CredentialProviderVendor"
+)
+class OAuth2CredentialProviderVendor(enum.Enum):
+    '''(experimental) Built-in OAuth2 vendors supported by ``AWS::BedrockAgentCore::OAuth2CredentialProvider``.
+
+    :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-oauth2credentialprovider.html
+    :stability: experimental
+    '''
+
+    GOOGLE = "GOOGLE"
+    '''(experimental) Google OAuth2.
+
+    :stability: experimental
+    '''
+    GITHUB = "GITHUB"
+    '''(experimental) GitHub OAuth2.
+
+    :stability: experimental
+    '''
+    SLACK = "SLACK"
+    '''(experimental) Slack OAuth2.
+
+    :stability: experimental
+    '''
+    SALESFORCE = "SALESFORCE"
+    '''(experimental) Salesforce OAuth2.
+
+    :stability: experimental
+    '''
+    MICROSOFT = "MICROSOFT"
+    '''(experimental) Microsoft OAuth2.
+
+    :stability: experimental
+    '''
+    CUSTOM = "CUSTOM"
+    '''(experimental) Custom OAuth2.
+
+    :stability: experimental
+    '''
+    ATLASSIAN = "ATLASSIAN"
+    '''(experimental) Atlassian OAuth2.
+
+    :stability: experimental
+    '''
+    LINKEDIN = "LINKEDIN"
+    '''(experimental) LinkedIn OAuth2.
+
+    :stability: experimental
+    '''
+    X = "X"
+    '''(experimental) X (Twitter) OAuth2.
+
+    :stability: experimental
+    '''
+    OKTA = "OKTA"
+    '''(experimental) Okta OAuth2.
+
+    :stability: experimental
+    '''
+    ONE_LOGIN = "ONE_LOGIN"
+    '''(experimental) OneLogin OAuth2.
+
+    :stability: experimental
+    '''
+    PING_ONE = "PING_ONE"
+    '''(experimental) PingOne OAuth2.
+
+    :stability: experimental
+    '''
+    FACEBOOK = "FACEBOOK"
+    '''(experimental) Facebook OAuth2.
+
+    :stability: experimental
+    '''
+    YANDEX = "YANDEX"
+    '''(experimental) Yandex OAuth2.
+
+    :stability: experimental
+    '''
+    REDDIT = "REDDIT"
+    '''(experimental) Reddit OAuth2.
+
+    :stability: experimental
+    '''
+    ZOOM = "ZOOM"
+    '''(experimental) Zoom OAuth2.
+
+    :stability: experimental
+    '''
+    TWITCH = "TWITCH"
+    '''(experimental) Twitch OAuth2.
+
+    :stability: experimental
+    '''
+    SPOTIFY = "SPOTIFY"
+    '''(experimental) Spotify OAuth2.
+
+    :stability: experimental
+    '''
+    DROPBOX = "DROPBOX"
+    '''(experimental) Dropbox OAuth2.
+
+    :stability: experimental
+    '''
+    NOTION = "NOTION"
+    '''(experimental) Notion OAuth2.
+
+    :stability: experimental
+    '''
+    HUBSPOT = "HUBSPOT"
+    '''(experimental) HubSpot OAuth2.
+
+    :stability: experimental
+    '''
+    CYBER_ARK = "CYBER_ARK"
+    '''(experimental) CyberArk OAuth2.
+
+    :stability: experimental
+    '''
+    FUSION_AUTH = "FUSION_AUTH"
+    '''(experimental) FusionAuth OAuth2.
+
+    :stability: experimental
+    '''
+    AUTH0 = "AUTH0"
+    '''(experimental) Auth0 OAuth2.
+
+    :stability: experimental
+    '''
+    COGNITO = "COGNITO"
+    '''(experimental) Amazon Cognito OAuth2.
+
+    :stability: experimental
+    '''
+
+
+@jsii.data_type(
     jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.OAuthConfiguration",
     jsii_struct_bases=[],
     name_mapping={
@@ -23817,8 +27865,7 @@ class OAuthConfiguration:
                 gateway_name="my-gateway"
             )
             
-            # OAuth2 authentication (recommended)
-            # Note: Create the OAuth provider using AWS console or Identity L2 construct when available
+            # OAuth2 (recommended): use OAuth2CredentialProvider + bindForGatewayOAuthTarget, or ARNs from console/API
             oauth_provider_arn = "arn:aws:bedrock-agentcore:us-east-1:123456789012:token-vault/abc123/oauth2credentialprovider/my-oauth"
             oauth_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:my-oauth-secret-abc123"
             
@@ -24432,6 +28479,7 @@ class OnlineEvaluationConfig(
         *,
         data_source: "DataSourceConfig",
         evaluators: typing.Sequence["EvaluatorReference"],
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         online_evaluation_config_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         execution_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
@@ -24445,6 +28493,7 @@ class OnlineEvaluationConfig(
         :param id: -
         :param data_source: (experimental) The data source configuration that specifies where to read agent traces from.
         :param evaluators: (experimental) The list of evaluators to apply during online evaluation. Can include both built-in evaluators and custom evaluators.
+        :param tags: (experimental) Tags for the online evaluation configuration. A list of key:value pairs of tags to apply to this OnlineEvaluationConfig resource. Default: - No tags
         :param online_evaluation_config_name: (experimental) The name of the online evaluation configuration. Must be unique within your account. Valid characters are a-z, A-Z, 0-9, _ (underscore). Must start with a letter and can be up to 48 characters long.
         :param description: (experimental) The description of the online evaluation configuration. Default: - No description
         :param execution_role: (experimental) The IAM role that provides permissions for the evaluation to access AWS services. If not provided, a role will be created automatically with the required permissions including cross-region Bedrock model invocation (to support cross-region inference profiles). For strict cost controls or data residency compliance, provide a custom role with region-scoped permissions. Default: - A new role will be created
@@ -24462,6 +28511,7 @@ class OnlineEvaluationConfig(
         props = OnlineEvaluationConfigProps(
             data_source=data_source,
             evaluators=evaluators,
+            tags=tags,
             online_evaluation_config_name=online_evaluation_config_name,
             description=description,
             execution_role=execution_role,
@@ -24782,6 +28832,7 @@ class OnlineEvaluationConfigAttributes:
         "session_timeout": "sessionTimeout",
         "data_source": "dataSource",
         "evaluators": "evaluators",
+        "tags": "tags",
     },
 )
 class OnlineEvaluationConfigProps(OnlineEvaluationBaseProps):
@@ -24797,6 +28848,7 @@ class OnlineEvaluationConfigProps(OnlineEvaluationBaseProps):
         session_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         data_source: "DataSourceConfig",
         evaluators: typing.Sequence["EvaluatorReference"],
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''(experimental) Properties for creating an OnlineEvaluationConfig.
 
@@ -24809,6 +28861,7 @@ class OnlineEvaluationConfigProps(OnlineEvaluationBaseProps):
         :param session_timeout: (experimental) The duration of inactivity after which an agent session is considered complete and ready for evaluation. Must be between 1 minute and 1440 minutes (24 hours). Default: Duration.minutes(15)
         :param data_source: (experimental) The data source configuration that specifies where to read agent traces from.
         :param evaluators: (experimental) The list of evaluators to apply during online evaluation. Can include both built-in evaluators and custom evaluators.
+        :param tags: (experimental) Tags for the online evaluation configuration. A list of key:value pairs of tags to apply to this OnlineEvaluationConfig resource. Default: - No tags
 
         :stability: experimental
         :exampleMetadata: fixture=default infused
@@ -24844,6 +28897,7 @@ class OnlineEvaluationConfigProps(OnlineEvaluationBaseProps):
             check_type(argname="argument session_timeout", value=session_timeout, expected_type=type_hints["session_timeout"])
             check_type(argname="argument data_source", value=data_source, expected_type=type_hints["data_source"])
             check_type(argname="argument evaluators", value=evaluators, expected_type=type_hints["evaluators"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "online_evaluation_config_name": online_evaluation_config_name,
             "data_source": data_source,
@@ -24861,6 +28915,8 @@ class OnlineEvaluationConfigProps(OnlineEvaluationBaseProps):
             self._values["sampling_percentage"] = sampling_percentage
         if session_timeout is not None:
             self._values["session_timeout"] = session_timeout
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def online_evaluation_config_name(self) -> builtins.str:
@@ -24978,6 +29034,19 @@ class OnlineEvaluationConfigProps(OnlineEvaluationBaseProps):
         result = self._values.get("evaluators")
         assert result is not None, "Required property 'evaluators' is missing"
         return typing.cast(typing.List["EvaluatorReference"], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for the online evaluation configuration.
+
+        A list of key:value pairs of tags to apply to this OnlineEvaluationConfig resource.
+
+        :default: - No tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -27093,6 +31162,7 @@ class PolicyValidationMode(
 class ProtocolType(enum.Enum):
     '''(experimental) Protocol configuration for Agent Runtime.
 
+    :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-bedrockagentcore-runtime.html#cfn-bedrockagentcore-runtime-protocolconfiguration
     :stability: experimental
     '''
 
@@ -27108,6 +31178,11 @@ class ProtocolType(enum.Enum):
     '''
     A2A = "A2A"
     '''(experimental) A2A protocol.
+
+    :stability: experimental
+    '''
+    AGUI = "AGUI"
+    '''(experimental) Agent User Interaction (AGUI) protocol.
 
     :stability: experimental
     '''
@@ -27197,6 +31272,131 @@ class RecordingConfig:
 
     def __repr__(self) -> str:
         return "RecordingConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.RedditOAuth2CredentialProviderProps",
+    jsii_struct_bases=[OAuth2CredentialProviderFactoryBaseProps],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+    },
+)
+class RedditOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> None:
+        '''(experimental) Props for {@link OAuth2CredentialProvider.usingReddit}.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-reddit.html
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            reddit_oAuth2_credential_provider_props = bedrock_agentcore_alpha.RedditOAuth2CredentialProviderProps(
+                client_id="clientId",
+                client_secret=secret_value,
+            
+                # the properties below are optional
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__37cdcb3e2e6a1cdf98a43e7eac183481e9916bfe4043ca4d7f7caa4f4911a990)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RedditOAuth2CredentialProviderProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -29368,12 +33568,38 @@ class S3ApiSchema(
     '''(experimental) Class to define an API Schema from an S3 object.
 
     :stability: experimental
-    :exampleMetadata: fixture=default infused
+    :exampleMetadata: infused
 
     Example::
 
+        gateway = agentcore.Gateway(self, "MyGateway",
+            gateway_name="my-gateway"
+        )
+        
+        # Create an API key credential provider in Token Vault
+        api_key_provider = agentcore.ApiKeyCredentialProvider(self, "MyApiKeyProvider",
+            api_key_credential_provider_name="my-apikey"
+        )
+        
         bucket = s3.Bucket.from_bucket_name(self, "ExistingBucket", "my-schema-bucket")
-        s3_schema = agentcore.ApiSchema.from_s3_file(bucket, "schemas/action-group.yaml")
+        s3my_schema = agentcore.ApiSchema.from_s3_file(bucket, "schemas/myschema.yaml")
+        
+        # Add an OpenAPI target using the L2 construct directly
+        target = gateway.add_open_api_target("MyTarget",
+            gateway_target_name="my-api-target",
+            description="Target for external API integration",
+            api_schema=s3my_schema,
+            credential_provider_configurations=[
+                agentcore.GatewayCredentialProvider.from_api_key_identity(api_key_provider,
+                    credential_location=agentcore.ApiKeyCredentialLocation.header(
+                        credential_parameter_name="X-API-Key"
+                    )
+                )
+            ]
+        )
+        
+        # This makes sure your s3 bucket is available before target
+        target.node.add_dependency(bucket)
     '''
 
     def __init__(
@@ -29430,6 +33656,130 @@ class S3ApiSchema(
         :stability: experimental
         '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bucketOwnerAccountId"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.SalesforceOAuth2CredentialProviderProps",
+    jsii_struct_bases=[OAuth2CredentialProviderFactoryBaseProps],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+    },
+)
+class SalesforceOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> None:
+        '''(experimental) Props for {@link OAuth2CredentialProvider.usingSalesforce}.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            salesforce_oAuth2_credential_provider_props = bedrock_agentcore_alpha.SalesforceOAuth2CredentialProviderProps(
+                client_id="clientId",
+                client_secret=secret_value,
+            
+                # the properties below are optional
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f561657c3f559914a4fae5d8177f1cc9c1e667b404ecf277a18da36930726d04)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SalesforceOAuth2CredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -30011,6 +34361,130 @@ class SelfManagedStrategyProps(MemoryStrategyCommonProps):
         )
 
 
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.SlackOAuth2CredentialProviderProps",
+    jsii_struct_bases=[OAuth2CredentialProviderFactoryBaseProps],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+    },
+)
+class SlackOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> None:
+        '''(experimental) Props for {@link OAuth2CredentialProvider.usingSlack}.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            slack_oAuth2_credential_provider_props = bedrock_agentcore_alpha.SlackOAuth2CredentialProviderProps(
+                client_id="clientId",
+                client_secret=secret_value,
+            
+                # the properties below are optional
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__800c9b5c6e06c467259e8ea202d262c086a1340a228c5974519cdd33005117eb)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SlackOAuth2CredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class SmithyTargetConfiguration(
     McpTargetConfiguration,
     metaclass=jsii.JSIIMeta,
@@ -30106,6 +34580,131 @@ class SmithyTargetConfiguration(
         :stability: experimental
         '''
         return typing.cast("McpTargetType", jsii.get(self, "targetType"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.SpotifyOAuth2CredentialProviderProps",
+    jsii_struct_bases=[OAuth2CredentialProviderFactoryBaseProps],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+    },
+)
+class SpotifyOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> None:
+        '''(experimental) Props for {@link OAuth2CredentialProvider.usingSpotify}.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-spotify.html
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            spotify_oAuth2_credential_provider_props = bedrock_agentcore_alpha.SpotifyOAuth2CredentialProviderProps(
+                client_id="clientId",
+                client_secret=secret_value,
+            
+                # the properties below are optional
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__244433bb5f373968b3afad13e68470e940299c0fe183d84fb63d3232f8b6e223)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SpotifyOAuth2CredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -30634,6 +35233,131 @@ class TriggerConditions:
 
 
 @jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.TwitchOAuth2CredentialProviderProps",
+    jsii_struct_bases=[OAuth2CredentialProviderFactoryBaseProps],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+    },
+)
+class TwitchOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> None:
+        '''(experimental) Props for {@link OAuth2CredentialProvider.usingTwitch}.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-twitch.html
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            twitch_oAuth2_credential_provider_props = bedrock_agentcore_alpha.TwitchOAuth2CredentialProviderProps(
+                client_id="clientId",
+                client_secret=secret_value,
+            
+                # the properties below are optional
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8bb2388a4032bbe27c20a7ba51d566aa647aa0187aa5d0f50a109852141d08ef)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TwitchOAuth2CredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.VpcConfigProps",
     jsii_struct_bases=[],
     name_mapping={
@@ -30766,6 +35490,889 @@ class VpcConfigProps:
 
     def __repr__(self) -> str:
         return "VpcConfigProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IWorkloadIdentity)
+class WorkloadIdentity(
+    _aws_cdk_ceddda9d.Resource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.WorkloadIdentity",
+):
+    '''(experimental) L2 construct for ``AWS::BedrockAgentCore::WorkloadIdentity``.
+
+    A workload identity is the stable identity of an agent in an AWS account. It ties together
+    IAM roles, OAuth2 flows, API keys, and workload access tokens for consistent authentication
+    across environments.
+
+    :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-workloadidentity.html
+    :stability: experimental
+    :resource: AWS::BedrockAgentCore::WorkloadIdentity
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        agentcore.WorkloadIdentity(self, "MyWorkloadIdentity",
+            workload_identity_name="customer-support-agent-prod",
+            allowed_resource_oauth2_return_urls=["https://app.example.com/oauth/callback"],
+            tags={"team": "agents", "env": "prod"}
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        allowed_resource_oauth2_return_urls: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        workload_identity_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param allowed_resource_oauth2_return_urls: (experimental) Allowed OAuth2 return URLs for resources associated with this workload identity. Default: - no return URLs
+        :param tags: (experimental) Tags for this workload identity. Default: - no tags
+        :param workload_identity_name: (experimental) Name of the workload identity. Default: - a name generated by CDK
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__97d10d0545496c8c9c667b9c81eb9e6f25aaff4583da3b03c2b669108acb28b0)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = WorkloadIdentityProps(
+            allowed_resource_oauth2_return_urls=allowed_resource_oauth2_return_urls,
+            tags=tags,
+            workload_identity_name=workload_identity_name,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromWorkloadIdentityAttributes")
+    @builtins.classmethod
+    def from_workload_identity_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        workload_identity_arn: builtins.str,
+        workload_identity_name: builtins.str,
+        created_time: typing.Optional[builtins.str] = None,
+        last_updated_time: typing.Optional[builtins.str] = None,
+    ) -> "IWorkloadIdentity":
+        '''(experimental) Import an existing workload identity.
+
+        :param scope: -
+        :param id: -
+        :param workload_identity_arn: (experimental) ARN of the workload identity.
+        :param workload_identity_name: (experimental) Name of the workload identity.
+        :param created_time: (experimental) Resource creation time. Default: - not set
+        :param last_updated_time: (experimental) Resource last-updated time. Default: - not set
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6c5527e44ebb753f7ba2d874a18b302072a97a67d23938245fb4fd04ad686eaa)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = WorkloadIdentityAttributes(
+            workload_identity_arn=workload_identity_arn,
+            workload_identity_name=workload_identity_name,
+            created_time=created_time,
+            last_updated_time=last_updated_time,
+        )
+
+        return typing.cast("IWorkloadIdentity", jsii.sinvoke(cls, "fromWorkloadIdentityAttributes", [scope, id, attrs]))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43bdbdc7da4d68f12dbc579b18c1acc23b625a27cd8dd765656a85727a801c20)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantAdmin")
+    def grant_admin(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ddd95a53889380a06f6d4fde4967fe82da9eb99bdcefb4b8e50abe574ccc25ad)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantAdmin", [grantee]))
+
+    @jsii.member(jsii_name="grantFullAccess")
+    def grant_full_access(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3e9651cfbf7de054f0574db1607ef9048aecadb059998182950568baed3d0778)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantFullAccess", [grantee]))
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__62334996c840b1fd326709cdaf2f98a0b2bd39099ea17b8576c6047642e3503f)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
+
+    @jsii.member(jsii_name="grantUse")
+    def grant_use(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__26cb5659c65226d52bcbd2aeb3cd8f98952487db7178ca2f7df8400512b9e2d8)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantUse", [grantee]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''(experimental) Uniquely identifies this class.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
+        '''(experimental) The principal to grant permissions to.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workloadIdentityArn")
+    def workload_identity_arn(self) -> builtins.str:
+        '''(experimental) The ARN of this workload identity.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "workloadIdentityArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workloadIdentityName")
+    def workload_identity_name(self) -> builtins.str:
+        '''(experimental) The name of this workload identity.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "workloadIdentityName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workloadIdentityRef")
+    def workload_identity_ref(
+        self,
+    ) -> "_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.WorkloadIdentityReference":
+        '''(experimental) A reference to a WorkloadIdentity resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.WorkloadIdentityReference", jsii.get(self, "workloadIdentityRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="createdTime")
+    def created_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Timestamp when the workload identity was created.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "createdTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdatedTime")
+    def last_updated_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Timestamp when the workload identity was last updated.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "lastUpdatedTime"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.WorkloadIdentityAttributes",
+    jsii_struct_bases=[],
+    name_mapping={
+        "workload_identity_arn": "workloadIdentityArn",
+        "workload_identity_name": "workloadIdentityName",
+        "created_time": "createdTime",
+        "last_updated_time": "lastUpdatedTime",
+    },
+)
+class WorkloadIdentityAttributes:
+    def __init__(
+        self,
+        *,
+        workload_identity_arn: builtins.str,
+        workload_identity_name: builtins.str,
+        created_time: typing.Optional[builtins.str] = None,
+        last_updated_time: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Attributes for importing an existing workload identity.
+
+        :param workload_identity_arn: (experimental) ARN of the workload identity.
+        :param workload_identity_name: (experimental) Name of the workload identity.
+        :param created_time: (experimental) Resource creation time. Default: - not set
+        :param last_updated_time: (experimental) Resource last-updated time. Default: - not set
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            
+            workload_identity_attributes = bedrock_agentcore_alpha.WorkloadIdentityAttributes(
+                workload_identity_arn="workloadIdentityArn",
+                workload_identity_name="workloadIdentityName",
+            
+                # the properties below are optional
+                created_time="createdTime",
+                last_updated_time="lastUpdatedTime"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38f72550bcd468e0131706bf76712997d8665b894571e9040e34b671747932f0)
+            check_type(argname="argument workload_identity_arn", value=workload_identity_arn, expected_type=type_hints["workload_identity_arn"])
+            check_type(argname="argument workload_identity_name", value=workload_identity_name, expected_type=type_hints["workload_identity_name"])
+            check_type(argname="argument created_time", value=created_time, expected_type=type_hints["created_time"])
+            check_type(argname="argument last_updated_time", value=last_updated_time, expected_type=type_hints["last_updated_time"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "workload_identity_arn": workload_identity_arn,
+            "workload_identity_name": workload_identity_name,
+        }
+        if created_time is not None:
+            self._values["created_time"] = created_time
+        if last_updated_time is not None:
+            self._values["last_updated_time"] = last_updated_time
+
+    @builtins.property
+    def workload_identity_arn(self) -> builtins.str:
+        '''(experimental) ARN of the workload identity.
+
+        :stability: experimental
+        '''
+        result = self._values.get("workload_identity_arn")
+        assert result is not None, "Required property 'workload_identity_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workload_identity_name(self) -> builtins.str:
+        '''(experimental) Name of the workload identity.
+
+        :stability: experimental
+        '''
+        result = self._values.get("workload_identity_name")
+        assert result is not None, "Required property 'workload_identity_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def created_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Resource creation time.
+
+        :default: - not set
+
+        :stability: experimental
+        '''
+        result = self._values.get("created_time")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def last_updated_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Resource last-updated time.
+
+        :default: - not set
+
+        :stability: experimental
+        '''
+        result = self._values.get("last_updated_time")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkloadIdentityAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class WorkloadIdentityPerms(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.WorkloadIdentityPerms",
+):
+    '''(experimental) IAM actions for AgentCore workload identities.
+
+    :see: https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonbedrockagentcore.html
+    :stability: experimental
+    '''
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ADMIN_PERMS")
+    def ADMIN_PERMS(cls) -> typing.List[builtins.str]:
+        '''(experimental) Control plane permissions to create, read, update, and delete this workload identity.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.sget(cls, "ADMIN_PERMS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="FULL_ACCESS_PERMS")
+    def FULL_ACCESS_PERMS(cls) -> typing.List[builtins.str]:
+        '''(experimental) All workload identity actions used by the L2 grant helpers.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.sget(cls, "FULL_ACCESS_PERMS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="LIST_PERMS")
+    def LIST_PERMS(cls) -> typing.List[builtins.str]:
+        '''(experimental) List workload identities (resource-scoped per IAM service authorization reference).
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.sget(cls, "LIST_PERMS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="READ_PERMS")
+    def READ_PERMS(cls) -> typing.List[builtins.str]:
+        '''(experimental) Read a single workload identity.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.sget(cls, "READ_PERMS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="USE_PERMS")
+    def USE_PERMS(cls) -> typing.List[builtins.str]:
+        '''(experimental) Data plane permissions to mint workload access tokens.
+
+        These actions require both the workload identity ARN and the
+        workload-identity-directory ARN as resource scope.
+
+        :see: https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonbedrockagentcore.html
+        :stability: experimental
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.sget(cls, "USE_PERMS"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.WorkloadIdentityProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "allowed_resource_oauth2_return_urls": "allowedResourceOauth2ReturnUrls",
+        "tags": "tags",
+        "workload_identity_name": "workloadIdentityName",
+    },
+)
+class WorkloadIdentityProps:
+    def __init__(
+        self,
+        *,
+        allowed_resource_oauth2_return_urls: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        workload_identity_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Properties for a new {@link WorkloadIdentity}.
+
+        :param allowed_resource_oauth2_return_urls: (experimental) Allowed OAuth2 return URLs for resources associated with this workload identity. Default: - no return URLs
+        :param tags: (experimental) Tags for this workload identity. Default: - no tags
+        :param workload_identity_name: (experimental) Name of the workload identity. Default: - a name generated by CDK
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            agentcore.WorkloadIdentity(self, "MyWorkloadIdentity",
+                workload_identity_name="customer-support-agent-prod",
+                allowed_resource_oauth2_return_urls=["https://app.example.com/oauth/callback"],
+                tags={"team": "agents", "env": "prod"}
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4cbfee16270dcfda2115917d238574cfc6c4f48117d51e8892e1376aeb89c4f9)
+            check_type(argname="argument allowed_resource_oauth2_return_urls", value=allowed_resource_oauth2_return_urls, expected_type=type_hints["allowed_resource_oauth2_return_urls"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument workload_identity_name", value=workload_identity_name, expected_type=type_hints["workload_identity_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if allowed_resource_oauth2_return_urls is not None:
+            self._values["allowed_resource_oauth2_return_urls"] = allowed_resource_oauth2_return_urls
+        if tags is not None:
+            self._values["tags"] = tags
+        if workload_identity_name is not None:
+            self._values["workload_identity_name"] = workload_identity_name
+
+    @builtins.property
+    def allowed_resource_oauth2_return_urls(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Allowed OAuth2 return URLs for resources associated with this workload identity.
+
+        :default: - no return URLs
+
+        :stability: experimental
+        '''
+        result = self._values.get("allowed_resource_oauth2_return_urls")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this workload identity.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def workload_identity_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the workload identity.
+
+        :default: - a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("workload_identity_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkloadIdentityProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.XOAuth2CredentialProviderProps",
+    jsii_struct_bases=[OAuth2CredentialProviderFactoryBaseProps],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+    },
+)
+class XOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> None:
+        '''(experimental) Props for {@link OAuth2CredentialProvider.usingX}.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-x.html
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            x_oAuth2_credential_provider_props = bedrock_agentcore_alpha.XOAuth2CredentialProviderProps(
+                client_id="clientId",
+                client_secret=secret_value,
+            
+                # the properties below are optional
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a2cca2927dc90aa6221511b13cb6b7f45b0e3eaee25422f5eeb7ad2a4adff41)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "XOAuth2CredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.YandexOAuth2CredentialProviderProps",
+    jsii_struct_bases=[OAuth2CredentialProviderFactoryBaseProps],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+    },
+)
+class YandexOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> None:
+        '''(experimental) Props for {@link OAuth2CredentialProvider.usingYandex}.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-yandex.html
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            yandex_oAuth2_credential_provider_props = bedrock_agentcore_alpha.YandexOAuth2CredentialProviderProps(
+                client_id="clientId",
+                client_secret=secret_value,
+            
+                # the properties below are optional
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a1950cefe79cb4f6b897b8eae2ebd4352ec7e41d2db07b4f871b2ba6f7fc3f0)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "YandexOAuth2CredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.ZoomOAuth2CredentialProviderProps",
+    jsii_struct_bases=[OAuth2CredentialProviderFactoryBaseProps],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+    },
+)
+class ZoomOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> None:
+        '''(experimental) Props for {@link OAuth2CredentialProvider.usingZoom}.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-zoom.html
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            zoom_oAuth2_credential_provider_props = bedrock_agentcore_alpha.ZoomOAuth2CredentialProviderProps(
+                client_id="clientId",
+                client_secret=secret_value,
+            
+                # the properties below are optional
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc436b400edca2e594dd6f8a6314abedf2490d48ef40597b9aaa80003c743ccc)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ZoomOAuth2CredentialProviderProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -30958,6 +36565,290 @@ class ApiGatewayTargetConfiguration(
         return typing.cast(typing.Optional["MetadataConfiguration"], jsii.get(self, "metadataConfiguration"))
 
 
+@jsii.implements(IApiKeyCredentialProvider)
+class ApiKeyCredentialProvider(
+    _aws_cdk_ceddda9d.Resource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.ApiKeyCredentialProvider",
+):
+    '''(experimental) L2 construct for ``AWS::BedrockAgentCore::ApiKeyCredentialProvider``.
+
+    Use this to register an API key identity in AgentCore Token Vault. To attach the identity to a
+    gateway target, use {@link GatewayCredentialProvider.fromApiKeyIdentity } with this construct, or
+    {@link ApiKeyCredentialProvider.bindForGatewayApiKeyTarget} with {@link GatewayCredentialProvider.fromApiKeyIdentityArn }.
+
+    :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-apikeycredentialprovider.html
+    :stability: experimental
+    :resource: AWS::BedrockAgentCore::ApiKeyCredentialProvider
+    :exampleMetadata: infused
+
+    Example::
+
+        gateway = agentcore.Gateway(self, "MyGateway",
+            gateway_name="my-gateway"
+        )
+        
+        # Create an API key credential provider in Token Vault
+        api_key_provider = agentcore.ApiKeyCredentialProvider(self, "MyApiKeyProvider",
+            api_key_credential_provider_name="my-apikey"
+        )
+        
+        bucket = s3.Bucket.from_bucket_name(self, "ExistingBucket", "my-schema-bucket")
+        s3my_schema = agentcore.ApiSchema.from_s3_file(bucket, "schemas/myschema.yaml")
+        
+        # Add an OpenAPI target using the L2 construct directly
+        target = gateway.add_open_api_target("MyTarget",
+            gateway_target_name="my-api-target",
+            description="Target for external API integration",
+            api_schema=s3my_schema,
+            credential_provider_configurations=[
+                agentcore.GatewayCredentialProvider.from_api_key_identity(api_key_provider,
+                    credential_location=agentcore.ApiKeyCredentialLocation.header(
+                        credential_parameter_name="X-API-Key"
+                    )
+                )
+            ]
+        )
+        
+        # This makes sure your s3 bucket is available before target
+        target.node.add_dependency(bucket)
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        api_key: typing.Optional["_aws_cdk_ceddda9d.SecretValue"] = None,
+        api_key_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param api_key: (experimental) The API key value. **NOTE:** The API key will be included in the CloudFormation template as part of synthesis. The service stores the key in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value. If omitted, you can supply the key through another mechanism supported by the service. Default: - no key in template (provider may still be created depending on service behavior)
+        :param api_key_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8f6986dce2fbbb12cabb2c1c5fba24757781df13e551d4c784a01e2ec34c428a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = ApiKeyCredentialProviderResourceProps(
+            api_key=api_key,
+            api_key_credential_provider_name=api_key_credential_provider_name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromApiKeyCredentialProviderAttributes")
+    @builtins.classmethod
+    def from_api_key_credential_provider_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        credential_provider_arn: builtins.str,
+        api_key_secret_arn: typing.Optional[builtins.str] = None,
+        created_time: typing.Optional[builtins.str] = None,
+        last_updated_time: typing.Optional[builtins.str] = None,
+    ) -> "IApiKeyCredentialProvider":
+        '''(experimental) Import an existing API key credential provider.
+
+        :param scope: -
+        :param id: -
+        :param credential_provider_arn: (experimental) ARN of the credential provider.
+        :param api_key_secret_arn: (experimental) ARN of the Secrets Manager secret for the API key, if known. Default: - not set; required for {@link ApiKeyCredentialProvider.bindForGatewayApiKeyTarget } on imported providers
+        :param created_time: (experimental) Resource creation time. Default: - not set
+        :param last_updated_time: (experimental) Resource last-updated time. Default: - not set
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__30c6ce6080e85dab1afebfdc0b5f99b87c45be025364b795a4f6278a23e86d91)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = ApiKeyCredentialProviderAttributes(
+            credential_provider_arn=credential_provider_arn,
+            api_key_secret_arn=api_key_secret_arn,
+            created_time=created_time,
+            last_updated_time=last_updated_time,
+        )
+
+        return typing.cast("IApiKeyCredentialProvider", jsii.sinvoke(cls, "fromApiKeyCredentialProviderAttributes", [scope, id, attrs]))
+
+    @jsii.member(jsii_name="bindForGatewayApiKeyTarget")
+    def bind_for_gateway_api_key_target(self) -> "GatewayApiKeyIdentityBinding":
+        '''(experimental) ARNs for {@link GatewayCredentialProvider.fromApiKeyIdentity } / {@link GatewayCredentialProvider.fromApiKeyIdentityArn }.
+
+        :stability: experimental
+        '''
+        return typing.cast("GatewayApiKeyIdentityBinding", jsii.invoke(self, "bindForGatewayApiKeyTarget", []))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__77b751ecc45c4fc597e67b7ee9f81e867acc415ae00580b17cb9f91c9c8b86f9)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantAdmin")
+    def grant_admin(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8178fda67e0ff1a44e0790ff191d0aa2e9c69b844e3858ee2a13d55eb097e53b)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantAdmin", [grantee]))
+
+    @jsii.member(jsii_name="grantFullAccess")
+    def grant_full_access(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__08a33d981c16148913df41ffb1543cf6bc44bf156f5536c6f7d8d89f3bc44c2b)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantFullAccess", [grantee]))
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e7f4784bd2beb4149ce13c91361c3aad1028c63ac33adf084ccd84b617f1b6a5)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
+
+    @jsii.member(jsii_name="grantUse")
+    def grant_use(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e8ceb67a6c391cac26c838a3031a722faefa266b4fe9cb054f1b922fe86528f9)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantUse", [grantee]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''(experimental) Uniquely identifies this class.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apiKeyCredentialProviderName")
+    def api_key_credential_provider_name(self) -> builtins.str:
+        '''(experimental) The name of this API key credential provider.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "apiKeyCredentialProviderName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apiKeyCredentialProviderRef")
+    def api_key_credential_provider_ref(
+        self,
+    ) -> "_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.ApiKeyCredentialProviderReference":
+        '''(experimental) A reference to a ApiKeyCredentialProvider resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.ApiKeyCredentialProviderReference", jsii.get(self, "apiKeyCredentialProviderRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="credentialProviderArn")
+    def credential_provider_arn(self) -> builtins.str:
+        '''(experimental) The ARN of this credential provider.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "credentialProviderArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
+        '''(experimental) The principal to grant permissions to.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apiKeySecretArn")
+    def api_key_secret_arn(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The ARN of the Secrets Manager secret that stores the API key after the resource is created.
+
+        May be undefined for resources imported without this attribute.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "apiKeySecretArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="createdTime")
+    def created_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Timestamp when the credential provider was created.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "createdTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdatedTime")
+    def last_updated_time(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Timestamp when the credential provider was last updated.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "lastUpdatedTime"))
+
+
 class AssetToolSchema(
     ToolSchema,
     metaclass=jsii.JSIIMeta,
@@ -31103,6 +36994,130 @@ class AssetToolSchema(
             type_hints = typing.get_type_hints(_typecheckingstub__4df0ef7d2f8a2d0222b05b12743d8b5e668a25bffbb90ffbce5c0842d32d0de8)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         return typing.cast(None, jsii.invoke(self, "grantPermissionsToRole", [role]))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.AtlassianOAuth2CredentialProviderProps",
+    jsii_struct_bases=[OAuth2CredentialProviderFactoryBaseProps],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+    },
+)
+class AtlassianOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> None:
+        '''(experimental) Props for {@link OAuth2CredentialProvider.usingAtlassian}.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            atlassian_oAuth2_credential_provider_props = bedrock_agentcore_alpha.AtlassianOAuth2CredentialProviderProps(
+                client_id="clientId",
+                client_secret=secret_value,
+            
+                # the properties below are optional
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__67a088974ff4b896c9184a70c8b7a31bc891ff3fb0f3e7da119eda6a03683683)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AtlassianOAuth2CredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.implements(IBrowserCustom)
@@ -33326,6 +39341,285 @@ class CustomJwtAuthorizer(
         return typing.cast("GatewayAuthorizerType", jsii.get(self, "authorizerType"))
 
 
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.CustomOAuth2CredentialProviderProps",
+    jsii_struct_bases=[OAuth2CredentialProviderFactoryBaseProps],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+        "authorization_server_metadata": "authorizationServerMetadata",
+        "discovery_url": "discoveryUrl",
+    },
+)
+class CustomOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+        authorization_server_metadata: typing.Optional[typing.Union["OAuth2AuthorizationServerMetadata", typing.Dict[builtins.str, typing.Any]]] = None,
+        discovery_url: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Props for {@link OAuth2CredentialProvider.usingCustom}.
+
+        Set exactly one of {@link discoveryUrl} (OIDC discovery document) or {@link authorizationServerMetadata}
+        (static OAuth2 server metadata). Do not pass both.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+        :param authorization_server_metadata: (experimental) Authorization server metadata (issuer, authorization and token endpoints) when not using a discovery URL. Default: - not used when {@link discoveryUrl } is set
+        :param discovery_url: (experimental) OIDC/OAuth2 discovery document URL for dynamic integration with the identity provider. Default: - not used when {@link authorizationServerMetadata } is set
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            agentcore.OAuth2CredentialProvider.using_custom(self, "CustomOAuth",
+                o_auth2_credential_provider_name="custom-idp",
+                client_id="your-client-id",
+                client_secret=cdk.SecretValue.unsafe_plain_text("your-client-secret"),
+                discovery_url="https://idp.example.com/.well-known/openid-configuration"
+            )
+        '''
+        if isinstance(authorization_server_metadata, dict):
+            authorization_server_metadata = OAuth2AuthorizationServerMetadata(**authorization_server_metadata)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__27f33d5d2d62588397c3ff9442d9641b789124b4015b37adaa37712254aa4495)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+            check_type(argname="argument authorization_server_metadata", value=authorization_server_metadata, expected_type=type_hints["authorization_server_metadata"])
+            check_type(argname="argument discovery_url", value=discovery_url, expected_type=type_hints["discovery_url"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+        if authorization_server_metadata is not None:
+            self._values["authorization_server_metadata"] = authorization_server_metadata
+        if discovery_url is not None:
+            self._values["discovery_url"] = discovery_url
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    @builtins.property
+    def authorization_server_metadata(
+        self,
+    ) -> typing.Optional["OAuth2AuthorizationServerMetadata"]:
+        '''(experimental) Authorization server metadata (issuer, authorization and token endpoints) when not using a discovery URL.
+
+        :default: - not used when {@link discoveryUrl } is set
+
+        :stability: experimental
+        '''
+        result = self._values.get("authorization_server_metadata")
+        return typing.cast(typing.Optional["OAuth2AuthorizationServerMetadata"], result)
+
+    @builtins.property
+    def discovery_url(self) -> typing.Optional[builtins.str]:
+        '''(experimental) OIDC/OAuth2 discovery document URL for dynamic integration with the identity provider.
+
+        :default: - not used when {@link authorizationServerMetadata } is set
+
+        :stability: experimental
+        '''
+        result = self._values.get("discovery_url")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CustomOAuth2CredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.DropboxOAuth2CredentialProviderProps",
+    jsii_struct_bases=[OAuth2CredentialProviderFactoryBaseProps],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+    },
+)
+class DropboxOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> None:
+        '''(experimental) Props for {@link OAuth2CredentialProvider.usingDropbox}.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-dropbox.html
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            dropbox_oAuth2_credential_provider_props = bedrock_agentcore_alpha.DropboxOAuth2CredentialProviderProps(
+                client_id="clientId",
+                client_secret=secret_value,
+            
+                # the properties below are optional
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e4f6daf231619fee0410949477582c8afca392a969d1f764a605f1935ef6b3fd)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DropboxOAuth2CredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(IEvaluator)
 class EvaluatorBase(
     _aws_cdk_ceddda9d.Resource,
@@ -33527,6 +39821,131 @@ class _EvaluatorBaseProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, EvaluatorBase).__jsii_proxy_class__ = lambda : _EvaluatorBaseProxy
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.FacebookOAuth2CredentialProviderProps",
+    jsii_struct_bases=[OAuth2CredentialProviderFactoryBaseProps],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+    },
+)
+class FacebookOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> None:
+        '''(experimental) Props for {@link OAuth2CredentialProvider.usingFacebook}.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-facebook.html
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            facebook_oAuth2_credential_provider_props = bedrock_agentcore_alpha.FacebookOAuth2CredentialProviderProps(
+                client_id="clientId",
+                client_secret=secret_value,
+            
+                # the properties below are optional
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8ca9ca41514dd466670d066684d7a1be94703c501dbfc5d4db6e1a25570bce44)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FacebookOAuth2CredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.implements(IGateway)
@@ -34952,6 +41371,565 @@ class _GatewayTargetBaseProxy(
 typing.cast(typing.Any, GatewayTargetBase).__jsii_proxy_class__ = lambda : _GatewayTargetBaseProxy
 
 
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.GithubOAuth2CredentialProviderProps",
+    jsii_struct_bases=[OAuth2CredentialProviderFactoryBaseProps],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+    },
+)
+class GithubOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> None:
+        '''(experimental) Props for {@link OAuth2CredentialProvider.usingGithub}.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            gateway = agentcore.Gateway(self, "MyGateway",
+                gateway_name="my-gateway"
+            )
+            
+            oauth = agentcore.OAuth2CredentialProvider.using_github(self, "GhOAuth",
+                o_auth2_credential_provider_name="github-oauth",
+                client_id="your-client-id",
+                client_secret=cdk.SecretValue.unsafe_plain_text("your-client-secret")
+            )
+            
+            gateway.add_mcp_server_target("Mcp",
+                gateway_target_name="mcp-server",
+                description="MCP with GitHub OAuth",
+                endpoint="https://my-mcp-server.example.com",
+                credential_provider_configurations=[
+                    agentcore.GatewayCredentialProvider.from_oauth_identity(oauth,
+                        scopes=["read:user"]
+                    )
+                ]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__17272e93e59e5c1bcf094351b982e44e03054dda0bfd73d1f51561663b2d5ffb)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GithubOAuth2CredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.GoogleOAuth2CredentialProviderProps",
+    jsii_struct_bases=[OAuth2CredentialProviderFactoryBaseProps],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+    },
+)
+class GoogleOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> None:
+        '''(experimental) Props for {@link OAuth2CredentialProvider.usingGoogle}.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            google_oAuth2_credential_provider_props = bedrock_agentcore_alpha.GoogleOAuth2CredentialProviderProps(
+                client_id="clientId",
+                client_secret=secret_value,
+            
+                # the properties below are optional
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a31a4aaf9a6c6ddc3f888dc56f8d014a4bb34a62dc54d8a0cf5bbeac8cdab6af)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GoogleOAuth2CredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.HubspotOAuth2CredentialProviderProps",
+    jsii_struct_bases=[OAuth2CredentialProviderFactoryBaseProps],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+    },
+)
+class HubspotOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> None:
+        '''(experimental) Props for {@link OAuth2CredentialProvider.usingHubspot}.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-hubspot.html
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            hubspot_oAuth2_credential_provider_props = bedrock_agentcore_alpha.HubspotOAuth2CredentialProviderProps(
+                client_id="clientId",
+                client_secret=secret_value,
+            
+                # the properties below are optional
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7d6bd87e0b2d638e9c88af0f39c97fd965b5ede2375cea6e8d6582fc3cd90aa1)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HubspotOAuth2CredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.IncludedOauth2TenantCredentialProviderProps",
+    jsii_struct_bases=[
+        OAuth2CredentialProviderFactoryBaseProps, IncludedOauth2TenantEndpoints
+    ],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+        "authorization_endpoint": "authorizationEndpoint",
+        "issuer": "issuer",
+        "token_endpoint": "tokenEndpoint",
+    },
+)
+class IncludedOauth2TenantCredentialProviderProps(
+    OAuth2CredentialProviderFactoryBaseProps,
+    IncludedOauth2TenantEndpoints,
+):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+        authorization_endpoint: typing.Optional[builtins.str] = None,
+        issuer: typing.Optional[builtins.str] = None,
+        token_endpoint: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Props for ``IncludedOauth2ProviderConfig`` IdPs whose `outbound documentation <https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idps.html>`_ requires ``issuer``, ``authorizationEndpoint``, and/or ``tokenEndpoint`` (for example Okta, Auth0, Amazon Cognito, OneLogin, PingOne, CyberArk, FusionAuth).
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+        :param authorization_endpoint: (experimental) OAuth2 authorization endpoint for your tenant. Default: - not specified; use when your IdP requires an explicit endpoint
+        :param issuer: (experimental) Token issuer URL for your tenant (often the IdP base or issuer URI). Default: - not specified; use when your IdP requires an explicit issuer
+        :param token_endpoint: (experimental) OAuth2 token endpoint for your tenant. Default: - not specified; use when your IdP requires an explicit endpoint
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            included_oauth2_tenant_credential_provider_props = bedrock_agentcore_alpha.IncludedOauth2TenantCredentialProviderProps(
+                client_id="clientId",
+                client_secret=secret_value,
+            
+                # the properties below are optional
+                authorization_endpoint="authorizationEndpoint",
+                issuer="issuer",
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                },
+                token_endpoint="tokenEndpoint"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7dfd5d4dcb87c6bb091909f536959ae4b8ad6bf706afb14a1fedb708f60c98dd)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+            check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
+            check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
+            check_type(argname="argument token_endpoint", value=token_endpoint, expected_type=type_hints["token_endpoint"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+        if authorization_endpoint is not None:
+            self._values["authorization_endpoint"] = authorization_endpoint
+        if issuer is not None:
+            self._values["issuer"] = issuer
+        if token_endpoint is not None:
+            self._values["token_endpoint"] = token_endpoint
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    @builtins.property
+    def authorization_endpoint(self) -> typing.Optional[builtins.str]:
+        '''(experimental) OAuth2 authorization endpoint for your tenant.
+
+        :default: - not specified; use when your IdP requires an explicit endpoint
+
+        :stability: experimental
+        '''
+        result = self._values.get("authorization_endpoint")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def issuer(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Token issuer URL for your tenant (often the IdP base or issuer URI).
+
+        :default: - not specified; use when your IdP requires an explicit issuer
+
+        :stability: experimental
+        '''
+        result = self._values.get("issuer")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def token_endpoint(self) -> typing.Optional[builtins.str]:
+        '''(experimental) OAuth2 token endpoint for your tenant.
+
+        :default: - not specified; use when your IdP requires an explicit endpoint
+
+        :stability: experimental
+        '''
+        result = self._values.get("token_endpoint")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IncludedOauth2TenantCredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class InlineToolSchema(
     ToolSchema,
     metaclass=jsii.JSIIMeta,
@@ -35168,6 +42146,130 @@ class LambdaTargetConfiguration(
         :stability: experimental
         '''
         return typing.cast("ToolSchema", jsii.get(self, "toolSchema"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.LinkedinOAuth2CredentialProviderProps",
+    jsii_struct_bases=[OAuth2CredentialProviderFactoryBaseProps],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+    },
+)
+class LinkedinOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> None:
+        '''(experimental) Props for {@link OAuth2CredentialProvider.usingLinkedin}.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            linkedin_oAuth2_credential_provider_props = bedrock_agentcore_alpha.LinkedinOAuth2CredentialProviderProps(
+                client_id="clientId",
+                client_secret=secret_value,
+            
+                # the properties below are optional
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aec907f3bbee4c79969ea4214cb7515d80496e1bab97980f1ac8f86bb0e0f527)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LinkedinOAuth2CredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -35728,6 +42830,273 @@ class Memory(
         :stability: experimental
         '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "updatedAt"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.MicrosoftOAuth2CredentialProviderProps",
+    jsii_struct_bases=[OAuth2CredentialProviderFactoryBaseProps],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+        "tenant_id": "tenantId",
+    },
+)
+class MicrosoftOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+        tenant_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Props for {@link OAuth2CredentialProvider.usingMicrosoft}.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+        :param tenant_id: (experimental) Microsoft Entra ID tenant ID. Default: - service default tenant resolution
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            microsoft_oAuth2_credential_provider_props = bedrock_agentcore_alpha.MicrosoftOAuth2CredentialProviderProps(
+                client_id="clientId",
+                client_secret=secret_value,
+            
+                # the properties below are optional
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                },
+                tenant_id="tenantId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8f4b385980eb4168a162c27dcfe27fb3d67e3aab97bb1cdf733e08cb9cf50996)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+            check_type(argname="argument tenant_id", value=tenant_id, expected_type=type_hints["tenant_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+        if tenant_id is not None:
+            self._values["tenant_id"] = tenant_id
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    @builtins.property
+    def tenant_id(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Microsoft Entra ID tenant ID.
+
+        :default: - service default tenant resolution
+
+        :stability: experimental
+        '''
+        result = self._values.get("tenant_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MicrosoftOAuth2CredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.NotionOAuth2CredentialProviderProps",
+    jsii_struct_bases=[OAuth2CredentialProviderFactoryBaseProps],
+    name_mapping={
+        "o_auth2_credential_provider_name": "oAuth2CredentialProviderName",
+        "tags": "tags",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+    },
+)
+class NotionOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
+    def __init__(
+        self,
+        *,
+        o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        client_id: builtins.str,
+        client_secret: "_aws_cdk_ceddda9d.SecretValue",
+    ) -> None:
+        '''(experimental) Props for {@link OAuth2CredentialProvider.usingNotion}.
+
+        :param o_auth2_credential_provider_name: (experimental) Name of the credential provider. Default: a name generated by CDK
+        :param tags: (experimental) Tags for this credential provider. Default: - no tags
+        :param client_id: (experimental) OAuth2 client identifier.
+        :param client_secret: (experimental) OAuth2 client secret. **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis. The service stores the secret in Secrets Manager after creation, but the value is visible in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly acknowledge plaintext, or pass a reference from another construct to avoid embedding the literal value.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idp-notion.html
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            
+            # secret_value: cdk.SecretValue
+            
+            notion_oAuth2_credential_provider_props = bedrock_agentcore_alpha.NotionOAuth2CredentialProviderProps(
+                client_id="clientId",
+                client_secret=secret_value,
+            
+                # the properties below are optional
+                o_auth2_credential_provider_name="oAuth2CredentialProviderName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0ec702adfb4e82b3e171ceeb5d58c8f6557dc84f960124eeee30ec5dbfb2bb3f)
+            check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if o_auth2_credential_provider_name is not None:
+            self._values["o_auth2_credential_provider_name"] = o_auth2_credential_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def o_auth2_credential_provider_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the credential provider.
+
+        :default: a name generated by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("o_auth2_credential_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for this credential provider.
+
+        :default: - no tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''(experimental) OAuth2 client identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> "_aws_cdk_ceddda9d.SecretValue":
+        '''(experimental) OAuth2 client secret.
+
+        **NOTE:** The client secret will be included in the CloudFormation template as part of synthesis.
+        The service stores the secret in Secrets Manager after creation, but the value is visible
+        in the template and deployment history. Use ``SecretValue.unsafePlainText()`` to explicitly
+        acknowledge plaintext, or pass a reference from another construct to avoid embedding the
+        literal value.
+
+        :stability: experimental
+        '''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NotionOAuth2CredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 class Policy(
@@ -37344,6 +44713,7 @@ class Evaluator(
         evaluator_name: builtins.str,
         level: "EvaluationLevel",
         description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -37352,6 +44722,7 @@ class Evaluator(
         :param evaluator_name: (experimental) The name of the evaluator. Must be unique within your account. Valid characters are a-z, A-Z, 0-9, _ (underscore). Must start with a letter and can be up to 48 characters long.
         :param level: (experimental) The level at which the evaluator assesses agent performance. Determines what granularity of data the evaluator operates on: tool call, trace (single request-response), or session (full conversation).
         :param description: (experimental) The description of the evaluator. Default: - No description
+        :param tags: (experimental) Tags for the evaluator. A list of key:value pairs of tags to apply to this Evaluator resource. Default: - No tags
 
         :stability: experimental
         '''
@@ -37364,6 +44735,7 @@ class Evaluator(
             evaluator_name=evaluator_name,
             level=level,
             description=description,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -37797,7 +45169,7 @@ class Gateway(
 
         :param id: The construct id for the target.
         :param api_schema: (experimental) The OpenAPI schema defining the API.
-        :param credential_provider_configurations: (experimental) Credential providers for authentication. Default: - [GatewayCredentialProvider.iamRole()]
+        :param credential_provider_configurations: (experimental) Credential providers for outbound authentication (OpenAPI targets use API Key or OAuth, not IAM). Default: - none (no credential configuration on the target; supply providers for secured backends)
         :param description: (experimental) Optional description for the gateway target. Default: - No description
         :param gateway_target_name: (experimental) The name of the gateway target Valid characters are a-z, A-Z, 0-9, _ (underscore) and - (hyphen). Default: - auto generate
         :param validate_open_api_schema: (experimental) Whether to validate the OpenAPI schema or not Note: Validation is only performed for inline and asset-based schema and during CDK synthesis. S3 schemas cannot be validated at synthesis time. Default: true
@@ -38641,10 +46013,15 @@ __all__ = [
     "ApiGatewayToolOverride",
     "ApiKeyAdditionalConfiguration",
     "ApiKeyCredentialLocation",
+    "ApiKeyCredentialProvider",
+    "ApiKeyCredentialProviderAttributes",
+    "ApiKeyCredentialProviderIdentityPerms",
     "ApiKeyCredentialProviderProps",
+    "ApiKeyCredentialProviderResourceProps",
     "ApiSchema",
     "AssetApiSchema",
     "AssetToolSchema",
+    "AtlassianOAuth2CredentialProviderProps",
     "AttributeAccessor",
     "BrowserCustom",
     "BrowserCustomAttributes",
@@ -38670,8 +46047,10 @@ __all__ = [
     "CustomClaimOperator",
     "CustomJwtAuthorizer",
     "CustomJwtConfiguration",
+    "CustomOAuth2CredentialProviderProps",
     "DataSourceConfig",
     "DataSourceConfigBindResult",
+    "DropboxOAuth2CredentialProviderProps",
     "EpisodicReflectionConfiguration",
     "EvaluationLevel",
     "Evaluator",
@@ -38684,10 +46063,14 @@ __all__ = [
     "EvaluatorReference",
     "EvaluatorReferenceBindResult",
     "ExecutionStatus",
+    "FacebookOAuth2CredentialProviderProps",
     "FilterConfig",
     "FilterOperator",
     "FilterValue",
+    "FromApiKeyIdentityOptions",
+    "FromOauthIdentityOptions",
     "Gateway",
+    "GatewayApiKeyIdentityBinding",
     "GatewayAttributes",
     "GatewayAuthorizer",
     "GatewayAuthorizerType",
@@ -38695,6 +46078,7 @@ __all__ = [
     "GatewayCredentialProvider",
     "GatewayCustomClaim",
     "GatewayExceptionLevel",
+    "GatewayOAuth2IdentityBinding",
     "GatewayPolicyEngineConfig",
     "GatewayProps",
     "GatewayProtocol",
@@ -38709,6 +46093,10 @@ __all__ = [
     "GatewayTargetProps",
     "GatewayTargetProtocolType",
     "GatewayTargetSmithyProps",
+    "GithubOAuth2CredentialProviderProps",
+    "GoogleOAuth2CredentialProviderProps",
+    "HubspotOAuth2CredentialProviderProps",
+    "IApiKeyCredentialProvider",
     "IBedrockAgentRuntime",
     "IBrowserCustom",
     "ICodeInterpreterCustom",
@@ -38722,12 +46110,16 @@ __all__ = [
     "IMcpGatewayTarget",
     "IMemory",
     "IMemoryStrategy",
+    "IOAuth2CredentialProvider",
     "IOnlineEvaluationConfig",
     "IPolicy",
     "IPolicyEngine",
     "IRuntimeEndpoint",
     "ITargetConfiguration",
+    "IWorkloadIdentity",
     "IamAuthorizer",
+    "IncludedOauth2TenantCredentialProviderProps",
+    "IncludedOauth2TenantEndpoints",
     "InlineApiSchema",
     "InlineToolSchema",
     "InterceptionPoint",
@@ -38737,6 +46129,7 @@ __all__ = [
     "LambdaInterceptor",
     "LambdaTargetConfiguration",
     "LifecycleConfiguration",
+    "LinkedinOAuth2CredentialProviderProps",
     "LlmAsAJudgeOptions",
     "LogType",
     "LoggingConfig",
@@ -38758,9 +46151,20 @@ __all__ = [
     "MemoryStrategyCommonProps",
     "MemoryStrategyType",
     "MetadataConfiguration",
+    "MicrosoftOAuth2CredentialProviderProps",
     "NetworkConfiguration",
     "NoAuthAuthorizer",
+    "NotionOAuth2CredentialProviderProps",
     "NumericalRatingOption",
+    "OAuth2AuthorizationServerMetadata",
+    "OAuth2ClientCredentials",
+    "OAuth2CredentialProvider",
+    "OAuth2CredentialProviderAttributes",
+    "OAuth2CredentialProviderBaseProps",
+    "OAuth2CredentialProviderFactoryBaseProps",
+    "OAuth2CredentialProviderIdentityPerms",
+    "OAuth2CredentialProviderProps",
+    "OAuth2CredentialProviderVendor",
     "OAuthConfiguration",
     "OnlineEvaluationBase",
     "OnlineEvaluationBaseProps",
@@ -38782,6 +46186,7 @@ __all__ = [
     "PolicyValidationMode",
     "ProtocolType",
     "RecordingConfig",
+    "RedditOAuth2CredentialProviderProps",
     "RequestHeaderConfiguration",
     "Runtime",
     "RuntimeAuthorizerConfiguration",
@@ -38795,16 +46200,27 @@ __all__ = [
     "RuntimeProps",
     "S3ApiSchema",
     "S3ToolSchema",
+    "SalesforceOAuth2CredentialProviderProps",
     "SchemaDefinition",
     "SchemaDefinitionType",
     "SelfManagedMemoryStrategy",
     "SelfManagedStrategyProps",
+    "SlackOAuth2CredentialProviderProps",
     "SmithyTargetConfiguration",
+    "SpotifyOAuth2CredentialProviderProps",
     "TargetConfigurationConfig",
     "ToolDefinition",
     "ToolSchema",
     "TriggerConditions",
+    "TwitchOAuth2CredentialProviderProps",
     "VpcConfigProps",
+    "WorkloadIdentity",
+    "WorkloadIdentityAttributes",
+    "WorkloadIdentityPerms",
+    "WorkloadIdentityProps",
+    "XOAuth2CredentialProviderProps",
+    "YandexOAuth2CredentialProviderProps",
+    "ZoomOAuth2CredentialProviderProps",
 ]
 
 publication.publish()
@@ -38997,11 +46413,30 @@ def _typecheckingstub__3886e57de68499b515c2958f57c1ebeaae53d27479a785d50549d52ab
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2a2182cf8ec2c9894763ab60b7031a72542fdf034e79838893fcfe5cb8bc354e(
+    *,
+    credential_provider_arn: builtins.str,
+    api_key_secret_arn: typing.Optional[builtins.str] = None,
+    created_time: typing.Optional[builtins.str] = None,
+    last_updated_time: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__614e2bb2c4820c942132fa85d45d8a41ab578b8f96d35693db4d0d06456d5860(
     *,
     provider_arn: builtins.str,
     secret_arn: builtins.str,
     credential_location: typing.Optional[ApiKeyCredentialLocation] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__082f5278142aedd4394e2fad2578a1541a1f7ec7ead91827453afc72d032eeb7(
+    *,
+    api_key: typing.Optional[_aws_cdk_ceddda9d.SecretValue] = None,
+    api_key_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -39418,6 +46853,7 @@ def _typecheckingstub__d74bbcd5ee4f575d954406fc5352fc68f924eaea2fae76a38213b6bb2
     evaluator_name: builtins.str,
     level: EvaluationLevel,
     description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -39492,12 +46928,52 @@ def _typecheckingstub__859cea693e3314575661e3a2a74444ad64e6cdca5fedb1e75b9add02e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__539f3a498cc13eb9db7f829d2bb80f99ebc177a8d5a679bc61cf3cb61cf7e7c4(
+    *,
+    credential_location: typing.Optional[ApiKeyCredentialLocation] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7aa981fb0279d2abbf0463ca469306d5f21b30f06d07e0bd6f0511dcaf953d31(
+    *,
+    scopes: typing.Sequence[builtins.str],
+    custom_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70d3a917907782412742b4b3c757f5fb0bb7e02d738f88cb02f175c8c5aec767(
+    *,
+    provider_arn: builtins.str,
+    secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ef66534f7494f00e52f0c25b93a3e7a334b1cc15e8a8332c47206d846e170caf(
     *,
     gateway_arn: builtins.str,
     gateway_id: builtins.str,
     gateway_name: builtins.str,
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69382c3afcdc26b67fb5ef85edf0c6c5b3456964ce6f55748f141df5a31388f9(
+    provider: IApiKeyCredentialProvider,
+    *,
+    credential_location: typing.Optional[ApiKeyCredentialLocation] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__421fa50c7b8cf7ee1a7c69e472dda9aa59529b58aaac52039d2d5e986d2051da(
+    provider: IOAuth2CredentialProvider,
+    *,
+    scopes: typing.Sequence[builtins.str],
+    custom_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -39513,6 +46989,16 @@ def _typecheckingstub__cadba215e10b66f73f4fb2543646d3921a81baa825932f5d4a9c59a5d
 def _typecheckingstub__97ec8a345ac29ddf979f31966a7251449d3e536194411e1f95b7903ea35c29b7(
     name: builtins.str,
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a32723a64a83544bf5b2afc35f1e3752cb8306fffe7c7f4b92a87ca3d68535cd(
+    *,
+    provider_arn: builtins.str,
+    scopes: typing.Sequence[builtins.str],
+    secret_arn: builtins.str,
+    custom_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -39615,6 +47101,37 @@ def _typecheckingstub__ad9850a6e369854708ff6c699bc071680d68cd09a6f27b3dcb08e9a8f
     gateway: IGateway,
     smithy_model: ApiSchema,
     credential_provider_configurations: typing.Optional[typing.Sequence[ICredentialProviderConfig]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb71b0468a4dd1e089bf9b02781860e3acb5b93cec775789b1e4cbd590336d3e(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0e21516b2bf275effe700cd262f598ef780e3fbf3004f2e94f79ae62071cf53(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b2263f8bd341a95eff6af9c82a3a4968263ea993087070a5c7955083752e40ad(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__31268dbfd5090a0e6839f5ebf9eb08118596a0e5778f14728c0362a207cb3bcd(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75fb291d3d7e8ce43be1820639183f0258b7ca338abdc70aecd4c3eb7a368eb0(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -40017,7 +47534,7 @@ def _typecheckingstub__4e9e3e47628eaf2b6a4ffa31b2d7904f6d5438386a823eeca9d34b97f
     pass
 
 def _typecheckingstub__01c13eef12b0c56a9c64f5606f19dffc282f6dc3b2394e327eeac510163dbf75(
-    role: _aws_cdk_aws_iam_ceddda9d.IRole,
+    gateway: IGateway,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -40283,6 +47800,44 @@ def _typecheckingstub__934b8b491b04ba3c7c4ab4f5bc06c324dbefd303c41cbc2cfa9779067
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__49927417b714137c2c94c3282ff357b77d67170cd9702e0337e2fd6dfbf05f3c(
+    scopes: typing.Sequence[builtins.str],
+    custom_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__025e6a8dbb38fbdec171ec947dbaf0dc74237902e3f36198dae3e8d44e51bb41(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d8962a23840ff430e444f9ab678d43f416bc36b4351439aa2cfe741344deb61a(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__48d475d93094d6a381e8bc3afe0c37a938781cca1f54860c99514d60057cf1e0(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__35f5adbab59a959f93d44b158ddcad846f5d4e4936451492bac638ee6755c237(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ec9f8cfc25b566cb6039837b0f8ea5dcfa7b9b776e3bdac2dec279f1867c797(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__567ead95796d9490b56bd9cd9aab08dc0523b8decb60724ea8dc07474b2ed972(
     grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
     *actions: builtins.str,
@@ -40372,6 +47927,46 @@ def _typecheckingstub__c33cbd179cc843f026ea3816459fe334400806b7154f2ee404b2c3d65
 def _typecheckingstub__1717bbf253ab46d20bef66b2b02083fcd9ff690cbfcb83e8c649f81b006ea810(
     scope: _constructs_77d1e7e8.Construct,
     gateway: IGateway,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a7d1997e665eb610a591ccc8a73e17f82fb0727b5db5de7f85c03bc2517bdc05(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80211079e32d76ecb8c02ca1d184276639927a7e05c6c8345dbcd1d21c3b9547(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__12c32ab15b0749c93e4f9a6f99c90c7c8ee64d7b75827875ab7e42a2e6537911(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fa14807c7bdb8f7be3f5a8cf2138011a635a40114966cf9e6d5935aa055feb98(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__621213d286580a29d4fcf5f08a7c257c341537a4c33e693e9c3e802a091d9596(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a6f91c43f8aae80a63a6f19437a584a748aa47b47d77fc476a4697f74e641886(
+    *,
+    authorization_endpoint: typing.Optional[builtins.str] = None,
+    issuer: typing.Optional[builtins.str] = None,
+    token_endpoint: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -40758,6 +48353,452 @@ def _typecheckingstub__3c1f4343791430a43aee87ae88eebb3d30ca9e5945a1c3f235d263ce8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__49686e277ad6776661148f376f0851f08d51d8cff7a529d7194af00dc2b804bb(
+    *,
+    authorization_endpoint: builtins.str,
+    issuer: builtins.str,
+    token_endpoint: builtins.str,
+    response_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cba1ea3930561dcb15203f2cc343740720f5a8a62b7ccf19bb99eb12a8b13e67(
+    *,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__024beff91c60f5f8e0d996bbb5d050d0381cbc4998c1108f3c275db0acbb232a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    credential_provider_vendor: builtins.str,
+    oauth2_provider_config_input: typing.Union[_aws_cdk_aws_bedrockagentcore_ceddda9d.CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty, typing.Dict[builtins.str, typing.Any]],
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a82f2de92ea22897c61952ec301e28840bb7f40a39627cf8c7452e88291efd44(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    credential_provider_arn: builtins.str,
+    credential_provider_vendor: builtins.str,
+    callback_url: typing.Optional[builtins.str] = None,
+    client_secret_arn: typing.Optional[builtins.str] = None,
+    created_time: typing.Optional[builtins.str] = None,
+    last_updated_time: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef6c058768e2781c826a237e65780d83c6ab7ce544884f95ac126eead9cda362(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5c1536e2e6d4c0f1dda69051f9f8f939efd0ffb5b9e4a1963d03ed5b452f58f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    authorization_endpoint: typing.Optional[builtins.str] = None,
+    issuer: typing.Optional[builtins.str] = None,
+    token_endpoint: typing.Optional[builtins.str] = None,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f729c0759c6bc53f292a1f167e5a26050a5911aa54ecca72b9a7ed5421bca8fe(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    authorization_endpoint: typing.Optional[builtins.str] = None,
+    issuer: typing.Optional[builtins.str] = None,
+    token_endpoint: typing.Optional[builtins.str] = None,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d10e4d3cfb35ec0aa9906afda77a8cb6432d348fa14750ff9c79480137aeb29c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    authorization_server_metadata: typing.Optional[typing.Union[OAuth2AuthorizationServerMetadata, typing.Dict[builtins.str, typing.Any]]] = None,
+    discovery_url: typing.Optional[builtins.str] = None,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e1a7c62f7fb66b7a5a66f94cd79fd98d74ec3885508c474c634957f6e47e0324(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    authorization_endpoint: typing.Optional[builtins.str] = None,
+    issuer: typing.Optional[builtins.str] = None,
+    token_endpoint: typing.Optional[builtins.str] = None,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__027f34347767113b63af75909dbed925f8f0bf0cea27c7647624eefff71d40ae(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__54a32dd07f0f2759bc8f038cdc6234362696a176abd8eecd003638052316bcff(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2661b6d4a7d176e1218f5375d83d994ed41514ef8bfb5d181e443050123157a3(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    authorization_endpoint: typing.Optional[builtins.str] = None,
+    issuer: typing.Optional[builtins.str] = None,
+    token_endpoint: typing.Optional[builtins.str] = None,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__baac2b885b4cc2ecb358bc2a63ad24808a08266cb688ae3b980a6c32493b188b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d14f42981d7d1c45a45d078740323ba7af55d54bc3fd0312a57a8c5c12b1f96(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4b05f30eac32a7a713804b3118f1c9b9c36c9ecd4a069097fde01f95c6cb17b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__74992cf31f4dbbf4098b7e8fc464e4c399c0666c045336029a7067937d472a8d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__313d8717178b0df0eed0484c18e33c4db9719c71ddf93724b343df334c92d4b9(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    tenant_id: typing.Optional[builtins.str] = None,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9247cb9b14396fa19c0c7a2c79ae338dc0170b9da376274063845cc807e8011a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e84a818ca200adb107923c7a3fa1cc54ed0547dd4ce0288b1d092b244b80754b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    authorization_endpoint: typing.Optional[builtins.str] = None,
+    issuer: typing.Optional[builtins.str] = None,
+    token_endpoint: typing.Optional[builtins.str] = None,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b3da22a0325de625b3f615dfd1af25078d6bd96f86a6af6469a11b9a94ed90d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    authorization_endpoint: typing.Optional[builtins.str] = None,
+    issuer: typing.Optional[builtins.str] = None,
+    token_endpoint: typing.Optional[builtins.str] = None,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57be03918f3736d1b71d4d7d6d9a361de935744f6d19ec1efa296d8f3a5b647a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    authorization_endpoint: typing.Optional[builtins.str] = None,
+    issuer: typing.Optional[builtins.str] = None,
+    token_endpoint: typing.Optional[builtins.str] = None,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__891bbfb18f28ad0e126fb601487c3f8d832335dc82815034e4010c1079178181(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b73f6d51e0a5afd2f55825297c1e190345cc02bb055b71bdb1e09a4a6fe3609(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7947e10fbc44c03682ac4401855902e2b0fea9763ed175fd98390ff513c735f9(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3bd7b725c496311229d00c69605b0d3a1a33c2e33c47fcd8bda9ad01cd375a1b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c01fea3ef8bde4d5c599803b2bdcdc8c2c4b8e74653dfddfaa7cb674c9c5488e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__54666f101a64a9ed1a63985e2dd766d24d0cb3f24f75552a22cbfb72db0a3f0d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8dc58e37a9e8c0931bbd0cb8285a8e86ae4d74696738b94b54f3230e384bce8f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4bfb389d71619d74af7770f803d7106b498c89660d132940665e70acdf53badd(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e032e4464402cb18a9d3f03ebdf3f9554187957807f57f6272273bbbe0d2586b(
+    scopes: typing.Sequence[builtins.str],
+    custom_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d59b5102bff017db495e9bf429534b44bae47a2e2188a08a2874bc03679d7ee(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__77c7e4d0f8db833219a8340cfe25eb7bb26a913510f382ae8e2c61468493c77f(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d0329b4b46e3a2b4c70265c25408aaa602f0a779588c6ba7eef0722a1007ab3(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad2a6cb0f02440fb06555ee4e547aff6c3a14a8a9bde2b73c22e1b642e264cd9(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e16e25ba85c289f200eed5ce6e4f6254a58f4159117c86a64fe13d0dbc79680(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b92bb09416d724eaed2eafa8846eae6f227ab3ed0cdba31a2a0074397f3b479(
+    *,
+    credential_provider_arn: builtins.str,
+    credential_provider_vendor: builtins.str,
+    callback_url: typing.Optional[builtins.str] = None,
+    client_secret_arn: typing.Optional[builtins.str] = None,
+    created_time: typing.Optional[builtins.str] = None,
+    last_updated_time: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__41ec372d7f18c7e5f2a0c115f27aac555018aa7f9351186823f5de32a6590be5(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65aaddb30823d617d6a90c5d50440a4bde7f94a8eca4e84754358dbf99b955bc(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76d0f9cb6797bdc8a2cdcc6618ea1b6254eff9a273d2846fd016ec0a7b6f957c(
+    *,
+    credential_provider_vendor: builtins.str,
+    oauth2_provider_config_input: typing.Union[_aws_cdk_aws_bedrockagentcore_ceddda9d.CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty, typing.Dict[builtins.str, typing.Any]],
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0137f5a762bb8c7a6492963f354c75cc86adeb6d1bf737ed28f0e801c65264e7(
     *,
     provider_arn: builtins.str,
@@ -40806,6 +48847,7 @@ def _typecheckingstub__1001024a6ebb29b0c624ada92131a16222ac1ee29a1d16766472f0fd9
     *,
     data_source: DataSourceConfig,
     evaluators: typing.Sequence[EvaluatorReference],
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     online_evaluation_config_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     execution_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
@@ -40866,6 +48908,7 @@ def _typecheckingstub__27dc1427f4bb35e3053a69ca483a3ec825bc727691876fdf50ffeda9f
     session_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     data_source: DataSourceConfig,
     evaluators: typing.Sequence[EvaluatorReference],
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -41111,6 +49154,16 @@ def _typecheckingstub__847016f3fc41e4cdc9b08f4aeed6b6521f23c2c1ef8b55de56db5d14f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__37cdcb3e2e6a1cdf98a43e7eac183481e9916bfe4043ca4d7f7caa4f4911a990(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__580049ddd6c3ba1c5e7bfe52880d960f0b7040637b9f17bfa50974adb8500a69(
     *,
     allowlisted_headers: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -41326,6 +49379,16 @@ def _typecheckingstub__af45300a7285ae4d341d7fdb6a3209c188e6422aa23d931b66320d403
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f561657c3f559914a4fae5d8177f1cc9c1e667b404ecf277a18da36930726d04(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bdb97586fb0bb9932fd6f71a09b2eee6eb606632f26e23585aa4d54c6a464298(
     *,
     type: SchemaDefinitionType,
@@ -41366,6 +49429,16 @@ def _typecheckingstub__bbcf3bdd0c9f8eaadddbc029d9f0a9dece8550883bffe0164f389e25d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__800c9b5c6e06c467259e8ea202d262c086a1340a228c5974519cdd33005117eb(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__920dd4eda9daa9ec955e6b528f8743f99465b49b642e1a2c4aa507eb02e10cb1(
     smithy_model: ApiSchema,
 ) -> None:
@@ -41381,6 +49454,16 @@ def _typecheckingstub__f83d6cae9030d6f192462c14af1d60c6c7f32a326d2d24bf74c768b95
 def _typecheckingstub__cd61ba8fbb228693cde2889178f9e75de4d15155e88212e1d39686b3a3282fea(
     scope: _constructs_77d1e7e8.Construct,
     gateway: IGateway,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__244433bb5f373968b3afad13e68470e940299c0fe183d84fb63d3232f8b6e223(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -41451,6 +49534,16 @@ def _typecheckingstub__effa7c1822f5dd9bca17e2aca728718fe021317ef7ef3e7d41d4ea4fa
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8bb2388a4032bbe27c20a7ba51d566aa647aa0187aa5d0f50a109852141d08ef(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2116ad0a264d69770800f27d273a661a955fcb5c6c066f36456e9178f63d742d(
     *,
     vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
@@ -41461,9 +49554,166 @@ def _typecheckingstub__2116ad0a264d69770800f27d273a661a955fcb5c6c066f36456e9178f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__97d10d0545496c8c9c667b9c81eb9e6f25aaff4583da3b03c2b669108acb28b0(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    allowed_resource_oauth2_return_urls: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    workload_identity_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6c5527e44ebb753f7ba2d874a18b302072a97a67d23938245fb4fd04ad686eaa(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    workload_identity_arn: builtins.str,
+    workload_identity_name: builtins.str,
+    created_time: typing.Optional[builtins.str] = None,
+    last_updated_time: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43bdbdc7da4d68f12dbc579b18c1acc23b625a27cd8dd765656a85727a801c20(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ddd95a53889380a06f6d4fde4967fe82da9eb99bdcefb4b8e50abe574ccc25ad(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e9651cfbf7de054f0574db1607ef9048aecadb059998182950568baed3d0778(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__62334996c840b1fd326709cdaf2f98a0b2bd39099ea17b8576c6047642e3503f(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26cb5659c65226d52bcbd2aeb3cd8f98952487db7178ca2f7df8400512b9e2d8(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38f72550bcd468e0131706bf76712997d8665b894571e9040e34b671747932f0(
+    *,
+    workload_identity_arn: builtins.str,
+    workload_identity_name: builtins.str,
+    created_time: typing.Optional[builtins.str] = None,
+    last_updated_time: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4cbfee16270dcfda2115917d238574cfc6c4f48117d51e8892e1376aeb89c4f9(
+    *,
+    allowed_resource_oauth2_return_urls: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    workload_identity_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a2cca2927dc90aa6221511b13cb6b7f45b0e3eaee25422f5eeb7ad2a4adff41(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a1950cefe79cb4f6b897b8eae2ebd4352ec7e41d2db07b4f871b2ba6f7fc3f0(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc436b400edca2e594dd6f8a6314abedf2490d48ef40597b9aaa80003c743ccc(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d9282342bb9c34884dc49f8060426e332c76768c4bc7adff01066a0811f3a8ad(
     _scope: _constructs_77d1e7e8.Construct,
     gateway: IGateway,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8f6986dce2fbbb12cabb2c1c5fba24757781df13e551d4c784a01e2ec34c428a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    api_key: typing.Optional[_aws_cdk_ceddda9d.SecretValue] = None,
+    api_key_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30c6ce6080e85dab1afebfdc0b5f99b87c45be025364b795a4f6278a23e86d91(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    credential_provider_arn: builtins.str,
+    api_key_secret_arn: typing.Optional[builtins.str] = None,
+    created_time: typing.Optional[builtins.str] = None,
+    last_updated_time: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__77b751ecc45c4fc597e67b7ee9f81e867acc415ae00580b17cb9f91c9c8b86f9(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8178fda67e0ff1a44e0790ff191d0aa2e9c69b844e3858ee2a13d55eb097e53b(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08a33d981c16148913df41ffb1543cf6bc44bf156f5536c6f7d8d89f3bc44c2b(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e7f4784bd2beb4149ce13c91361c3aad1028c63ac33adf084ccd84b617f1b6a5(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e8ceb67a6c391cac26c838a3031a722faefa266b4fe9cb054f1b922fe86528f9(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -41493,6 +49743,16 @@ def _typecheckingstub__d350f48013e153f72942d7c2e931708371866816ce17e87ac698fa6c9
 
 def _typecheckingstub__4df0ef7d2f8a2d0222b05b12743d8b5e668a25bffbb90ffbce5c0842d32d0de8(
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__67a088974ff4b896c9184a70c8b7a31bc891ff3fb0f3e7da119eda6a03683683(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -41919,6 +50179,28 @@ def _typecheckingstub__38e59bc603de9e405a37067fca444858724ba4a5692828408586100c7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__27f33d5d2d62588397c3ff9442d9641b789124b4015b37adaa37712254aa4495(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+    authorization_server_metadata: typing.Optional[typing.Union[OAuth2AuthorizationServerMetadata, typing.Dict[builtins.str, typing.Any]]] = None,
+    discovery_url: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4f6daf231619fee0410949477582c8afca392a969d1f764a605f1935ef6b3fd(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f1956858c6aa7281476440c9d7c0efc70e0a92db1420d086117a574bcb43fc81(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -41934,6 +50216,16 @@ def _typecheckingstub__f1956858c6aa7281476440c9d7c0efc70e0a92db1420d086117a574bc
 def _typecheckingstub__d80e071a3f139e5511023edf2876393d9e67b9aca4c6a8a38dfcc5d38be7a8d4(
     grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
     *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8ca9ca41514dd466670d066684d7a1be94703c501dbfc5d4db6e1a25570bce44(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -42059,6 +50351,49 @@ def _typecheckingstub__0d9a5c63ef870e87772620b6849f0738be9b22407a38e8031d0767e9c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__17272e93e59e5c1bcf094351b982e44e03054dda0bfd73d1f51561663b2d5ffb(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a31a4aaf9a6c6ddc3f888dc56f8d014a4bb34a62dc54d8a0cf5bbeac8cdab6af(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d6bd87e0b2d638e9c88af0f39c97fd965b5ede2375cea6e8d6582fc3cd90aa1(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7dfd5d4dcb87c6bb091909f536959ae4b8ad6bf706afb14a1fedb708f60c98dd(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+    authorization_endpoint: typing.Optional[builtins.str] = None,
+    issuer: typing.Optional[builtins.str] = None,
+    token_endpoint: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__19bd0f600eb2a4b83b12fe5c31ff74c99dff52a462baee952a1913fb9e49bb3c(
     schema: typing.Sequence[typing.Union[ToolDefinition, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
@@ -42094,6 +50429,16 @@ def _typecheckingstub__9175931151b9669b7726344ddaa7b1b0a24e0d7e6b34a3149aa76532d
 def _typecheckingstub__80871f781a9f42407e78e2c5159f625f222be16a0e327b80a0c56586010c28d2(
     scope: _constructs_77d1e7e8.Construct,
     gateway: IGateway,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aec907f3bbee4c79969ea4214cb7515d80496e1bab97980f1ac8f86bb0e0f527(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -42160,6 +50505,27 @@ def _typecheckingstub__8d1ef3ab147d318f2cfae70c86258d2aaae60999cbf091f81112ab74f
 
 def _typecheckingstub__d88d525f5db5bcf500ab4eef917307847de4249de07b49c2ddf92dd64065092b(
     memory_strategy: IMemoryStrategy,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8f4b385980eb4168a162c27dcfe27fb3d67e3aab97bb1cdf733e08cb9cf50996(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
+    tenant_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ec702adfb4e82b3e171ceeb5d58c8f6557dc84f960124eeee30ec5dbfb2bb3f(
+    *,
+    o_auth2_credential_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    client_id: builtins.str,
+    client_secret: _aws_cdk_ceddda9d.SecretValue,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -42384,6 +50750,7 @@ def _typecheckingstub__2a213c787d5e06fd0085acab9adc0d092a8fc4ff841f2977557f89fad
     evaluator_name: builtins.str,
     level: EvaluationLevel,
     description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -42639,5 +51006,5 @@ def _typecheckingstub__d19feef196b77e5e83bf68d3b43488ef8ac66df0eb65c4f1ece12f93d
     """Type checking stubs"""
     pass
 
-for cls in [IBedrockAgentRuntime, IBrowserCustom, ICodeInterpreterCustom, ICredentialProviderConfig, IEvaluator, IGateway, IGatewayAuthorizerConfig, IGatewayProtocolConfig, IGatewayTarget, IInterceptor, IMcpGatewayTarget, IMemory, IMemoryStrategy, IOnlineEvaluationConfig, IPolicy, IPolicyEngine, IRuntimeEndpoint, ITargetConfiguration]:
+for cls in [IApiKeyCredentialProvider, IBedrockAgentRuntime, IBrowserCustom, ICodeInterpreterCustom, ICredentialProviderConfig, IEvaluator, IGateway, IGatewayAuthorizerConfig, IGatewayProtocolConfig, IGatewayTarget, IInterceptor, IMcpGatewayTarget, IMemory, IMemoryStrategy, IOAuth2CredentialProvider, IOnlineEvaluationConfig, IPolicy, IPolicyEngine, IRuntimeEndpoint, ITargetConfiguration, IWorkloadIdentity]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

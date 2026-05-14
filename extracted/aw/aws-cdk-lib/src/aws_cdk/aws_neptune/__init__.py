@@ -3184,6 +3184,41 @@ class CfnEventSubscription(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForEventSubscription")
+    @builtins.classmethod
+    def arn_for_event_subscription(
+        cls,
+        resource: "_IEventSubscriptionRef_21b725e3",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4ced737b83dd031094f4cbeb51ba9b8c285ab20351ceb0c54e638575ca9d3dc8)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEventSubscription", [resource]))
+
+    @jsii.member(jsii_name="fromSubscriptionName")
+    @builtins.classmethod
+    def from_subscription_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        subscription_name: builtins.str,
+    ) -> "_IEventSubscriptionRef_21b725e3":
+        '''Creates a new IEventSubscriptionRef from a subscriptionName.
+
+        :param scope: -
+        :param id: -
+        :param subscription_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__27280155afd819687d76f3c14ab5808cb674b1597b1575974a69d6f3820f2ab1)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument subscription_name", value=subscription_name, expected_type=type_hints["subscription_name"])
+        return typing.cast("_IEventSubscriptionRef_21b725e3", jsii.sinvoke(cls, "fromSubscriptionName", [scope, id, subscription_name]))
+
     @jsii.member(jsii_name="isCfnEventSubscription")
     @builtins.classmethod
     def is_cfn_event_subscription(cls, x: typing.Any) -> builtins.bool:
@@ -4145,6 +4180,20 @@ def _typecheckingstub__4853d81bb6e17fc63404c1d9d1bd303b3e043850ca95ab4456a810f0c
     source_type: typing.Optional[builtins.str] = None,
     subscription_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4ced737b83dd031094f4cbeb51ba9b8c285ab20351ceb0c54e638575ca9d3dc8(
+    resource: _IEventSubscriptionRef_21b725e3,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27280155afd819687d76f3c14ab5808cb674b1597b1575974a69d6f3820f2ab1(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    subscription_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

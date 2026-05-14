@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import datetime
 import hashlib
 import logging
 import math
@@ -20,13 +19,17 @@ import pathlib
 import textwrap
 import traceback
 import typing
+from datetime import datetime
 from typing import Dict, Generator, Optional
 
+import fsspec  # type: ignore[import-untyped]
+import gcsfs  # type: ignore[import-untyped]
 import google.api_core.exceptions
 import google.cloud.bigquery as bigquery
 import google.cloud.bigquery_connection_v1 as bigquery_connection_v1
 import google.cloud.exceptions
 import google.cloud.functions_v2 as functions_v2
+import google.cloud.bigquery_storage_v1
 import google.cloud.resourcemanager_v3 as resourcemanager_v3
 import google.cloud.storage as storage  # type: ignore
 import numpy as np
@@ -70,6 +73,15 @@ def _hash_digest_file(hasher, filepath):
             hasher.update(chunk)
 
 
+@pytest.fixture(scope="session", autouse=True)
+def configure_gcsfs():
+    # gcsfs by default uses a cache that can be stale, causing file loads to
+    # fail if the file was uploaded indirectly (eg via bq export job) during the
+    # course of the tests. disable the cache to avoid this.
+    fsspec.config.conf["gcs"] = {"use_listings_cache": False}
+    gcsfs.GCSFileSystem.clear_instance_cache()
+
+
 @pytest.fixture(scope="session")
 def tokyo_location() -> str:
     return TOKYO_LOCATION
@@ -101,6 +113,13 @@ def gcs_folder(gcs_client: storage.Client):
 @pytest.fixture(scope="session")
 def bigquery_client(session: bigframes.Session) -> bigquery.Client:
     return session.bqclient
+
+
+@pytest.fixture(scope="session")
+def bigquery_storage_read_client(
+    session: bigframes.Session,
+) -> google.cloud.bigquery_storage_v1.BigQueryReadClient:
+    return session.bqstoragereadclient
 
 
 @pytest.fixture(scope="session")

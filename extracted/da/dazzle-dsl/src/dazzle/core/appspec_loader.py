@@ -7,6 +7,7 @@ All code that needs to load a project's AppSpec should import from here.
 import logging
 from pathlib import Path
 
+from dazzle.back.runtime.renderers.init import default_renderer_names
 from dazzle.core.fileset import discover_dsl_files
 from dazzle.core.ir.appspec import AppSpec
 from dazzle.core.linker import build_appspec
@@ -30,4 +31,4 @@ def load_project_appspec(project_root: Path) -> AppSpec:
     manifest = load_manifest(project_root / "dazzle.toml")
     dsl_files = discover_dsl_files(project_root, manifest)
     modules = parse_modules(dsl_files)
-    return build_appspec(modules, manifest.project_root)
+    return build_appspec(modules, manifest.project_root, known_renderers=default_renderer_names())

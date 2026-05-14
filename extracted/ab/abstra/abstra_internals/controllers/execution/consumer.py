@@ -252,6 +252,17 @@ class ConsumerController:
         rabbitmq_params = None
         message_handled = False
 
+        AbstraLogger.lifecycle(
+            f"[RUN {execution_id}] PreExecution received",
+            {
+                "executionId": execution_id,
+                "jobId": msg.preexecution.stage_id,
+                "sendQueue": msg.preexecution.send_queue,
+                "recvQueue": msg.preexecution.recv_queue,
+                "stage": "runtime.preexecution.received",
+            },
+        )
+
         try:
             stage = self.main_controller.get_stage(msg.preexecution.stage_id)
 

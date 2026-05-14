@@ -1,3 +1,5 @@
+from typing import Any, Dict
+
 from abstra_internals.controllers.sdk.sdk_context import SDKContextStore
 from abstra_internals.repositories.connectors import AccessTokenDTO
 
@@ -31,14 +33,16 @@ def get_gsheets_credentials(connection_name: str = "google-sheets"):
     return create_abstra_google_credentials(connection_name)
 
 
-def run_connection_action(connection_name: str, action: str, payload: dict = {}):
+def run_connection_action(
+    connection_name: str, action: str, payload: Dict[str, Any] = {}
+) -> Any:
     """
     Run a connection action with the specified payload.
 
     Args:
         connection_name (str): The name of the connection.
         action (str): The action to perform on the connection.
-        payload (dict): Additional data to pass to the action. Defaults to an empty dictionary.
+        payload (Dict[str, Any]): Additional data to pass to the action. Defaults to an empty dictionary.
 
     Returns:
         Any: The result of the action performed on the connection.

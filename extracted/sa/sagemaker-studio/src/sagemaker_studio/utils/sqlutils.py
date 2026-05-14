@@ -1,10 +1,13 @@
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, TypedDict, Union
+from uuid import uuid4
 
 import sagemaker_studio.utils.sql_handler as sql_handler
 from sagemaker_studio.connections.helper_factory import HelperFactory
 from sagemaker_studio.project import Project
 from sagemaker_studio.sql_engine.sql_executor import ErrorStrategy
+from sagemaker_studio.utils._sql_cache import ConnectionCache, ManagedConnection
 
 
 class ConnectionConfig(TypedDict, total=False):
@@ -17,12 +20,76 @@ class ConnectionConfig(TypedDict, total=False):
     type: str
 
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 logger.info("Importing sqlutils")
 
 _project = None
 _duckdb = None
 _sql_executor = None
+
+
+# Module-level singleton instance (persists in kernel namespace)
+_connection_cache = ConnectionCache()
+
+
+def _make_cache_key(connection_id: Optional[str], connection_name: Optional[str], **kwargs) -> str:
+    """Create cache key from connection identifier and relevant kwargs.
+
+    Args:
+        connection_id: Connection ID
+        connection_name: Connection name
+        **kwargs: Additional configuration parameters
+
+    Returns:
+        str: Composite cache key incorporating connection identifier and relevant config
+    """
+    base_key = connection_id or connection_name or "default"
+
+    # Only include kwargs that affect engine configuration
+    relevant_keys = ["catalog_name", "schema_name", "database_name"]
+    config_parts = [f"{k}={kwargs[k]}" for k in relevant_keys if k in kwargs]
+
+    if config_parts:
+        return f"{base_key}::{':'.join(sorted(config_parts))}"
+    return base_key
+
+
+def _get_or_create_connection(
+    connection_id: Optional[str], connection_name: Optional[str], persist_session: bool, **kwargs
+) -> Optional[ManagedConnection]:
+    """
+    Get cached connection or create new one.
+
+    Returns:
+        Optional[ManagedConnection]: Connection object with engine and optional connection.
+            - connection will be None if persist_session=False (non-persisted mode)
+            - Returns None if engine creation fails
+    """
+    cache_key = _make_cache_key(connection_id, connection_name, **kwargs)
+
+    # Try cache first
+    if persist_session and cache_key:
+        cached = _connection_cache.get(cache_key)
+        if cached:
+            return cached
+
+    # Create new engine
+    engine = get_engine(connection_id, connection_name, **kwargs)
+
+    if not engine:
+        return None
+
+    # For persisted sessions, create and cache connection
+    if persist_session and cache_key:
+        conn = engine.connect()
+        managed_conn = ManagedConnection(
+            engine=engine, connection=conn, id=str(uuid4()), cache_key=cache_key
+        )
+        _connection_cache.put(cache_key, managed_conn)
+        return managed_conn
+
+    # For non-persisted sessions, return ephemeral ManagedConnection
+    return ManagedConnection(engine=engine, connection=None, id=str(uuid4()), cache_key=cache_key)
 
 
 def sql(
@@ -31,10 +98,14 @@ def sql(
     connection_id: Optional[str] = None,
     connection_name: Optional[str] = None,
     connection: Optional[ConnectionConfig] = None,
+    persist_session: bool = True,
     **kwargs,
 ):
     """
-    Executes a SQL query on the specified connection and returns the result.
+    Execute a SQL query and return the result as a DataFrame.
+
+    Supports session persistence (default enabled) for connection reuse across calls,
+    enabling temporary tables, transaction state, and automatic credential refresh.
 
     Args:
         query (str): The SQL query to execute.
@@ -42,9 +113,13 @@ def sql(
         connection_id (Optional[str]): The ID of the DataZone connection to use for the query.
         connection_name (Optional[str]): The name of the DataZone connection to use for the query.
         connection (Optional[ConnectionConfig]): Connection details including type (e.g., {"type": "spark"}).
+        persist_session: Cache and reuse connection (default True).
 
     Returns:
         DataFrame: Result of the SQL query execution.
+
+    Note:
+        Use close_connection() or close_all_connections() to close cached connections.
 
     Raises:
         RuntimeError: If Project is not initialized when using connection_name or if there's an error executing the SQL query.
@@ -58,9 +133,18 @@ def sql(
 
     # adding args anyway as we will filter out necessary args to pass down based on engine type
     _apply_athena_context(query, kwargs)
-    engine = get_engine(connection_id, connection_name, **kwargs)
-    if engine:
-        result = next(_ensure_sql_executor().execute(engine, query, parameters))
+
+    cached = _get_or_create_connection(connection_id, connection_name, persist_session, **kwargs)
+
+    if cached:
+        result = next(
+            _ensure_sql_executor().execute(
+                cached.engine,
+                query,
+                connection=cached.connection,  # May be None for non-persisted
+                parameters=parameters,
+            )
+        )
         return result.result
     else:
         # Execute query locally using DuckDB if no connection specified
@@ -74,10 +158,14 @@ def sql_stream(
     connection_name: Optional[str] = None,
     connection: Optional[ConnectionConfig] = None,
     error_strategy: str = ErrorStrategy.STOP_ON_ERROR,
+    persist_session: bool = True,
     **kwargs,
 ):
     """
     Execute SQL statements and stream results progressively.
+
+    Supports session persistence (default enabled) for connection reuse across calls,
+    enabling temporary tables, transaction state, and automatic credential refresh.
 
     Args:
         query (str): The SQL query to execute (can contain multiple statements).
@@ -86,9 +174,13 @@ def sql_stream(
         connection_name (Optional[str]): The name of the DataZone connection to use for the query.
         connection (Optional[ConnectionConfig]): Connection details including type (e.g., {"type": "spark"}).
         error_strategy (str): Error handling strategy - STOP_ON_ERROR (default) or CONTINUE_ON_ERROR.
+        persist_session: Cache and reuse connection (default True).
 
     Returns:
         Generator[ExecutionResult]: Generator yielding ExecutionResult for each statement.
+
+    Note:
+        Use close_connection() or close_all_connections() to close cached connections.
 
     Raises:
         RuntimeError: If Project is not initialized when using connection_name or if there's an error executing the SQL query.
@@ -111,9 +203,16 @@ def sql_stream(
     # adding args anyway as we will filter out necessary args to pass down based on engine type
     _apply_athena_context(query, kwargs)
 
-    engine = get_engine(connection_id, connection_name, **kwargs)
-    if engine:
-        return _ensure_sql_executor().execute(engine, query, parameters, error_strategy)
+    cached = _get_or_create_connection(connection_id, connection_name, persist_session, **kwargs)
+
+    if cached:
+        return _ensure_sql_executor().execute(
+            cached.engine,
+            query,
+            connection=cached.connection,  # May be None for non-persisted
+            parameters=parameters,
+            error_strategy=error_strategy,
+        )
     else:
         from sagemaker_studio.sql_engine.duckdb_transformer import DuckDBTransformer
         from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
@@ -198,11 +297,15 @@ def get_engine(
     if not project:
         raise RuntimeError("Project is not initialized.")
 
-    # Need to handle connection_id case
-    if connection_name:
-        connection = project.connection(connection_name)
-    elif connection_id:
-        connection = project.connection(id=connection_id)
+    # Helper to get connection by id or name
+    def get_connection():
+        if connection_name:
+            return project.connection(connection_name)
+        else:
+            return project.connection(id=connection_id)
+
+    # Get initial connection for config
+    connection = get_connection()
 
     sql_executor = _ensure_sql_executor()
 
@@ -212,6 +315,26 @@ def get_engine(
         )
 
     sql_helper = HelperFactory.get_sql_helper(connection.type)
+
+    # Pass credential provider that fetches fresh connection
+    def credential_provider():
+        """Fetch fresh credentials by re-fetching connection"""
+        creds = get_connection().connection_creds
+        expiry = creds.expiration
+
+        if not expiry:
+            # Default to 15 min from now if no expiry provided
+            expiry = datetime.now(timezone.utc) + timedelta(minutes=15)
+
+        return {
+            "access_key_id": creds.access_key_id,
+            "secret_access_key": creds.secret_access_key,
+            "session_token": creds.session_token,
+            "expiration": expiry.isoformat(),
+        }
+
+    kwargs["credential_provider"] = credential_provider
+
     connection_config = sql_helper.to_sql_config(connection, **kwargs)
 
     return sql_executor.create_engine(connection.type, connection_config)
@@ -232,6 +355,68 @@ def _apply_athena_context(query: str, kwargs: dict) -> None:
     if catalog and database:
         kwargs["catalog_name"] = catalog
         kwargs["schema_name"] = database
+
+
+def list_connections() -> List[Dict[str, Any]]:
+    """
+    List all active persistent database connections.
+
+    Returns:
+        List[Dict[str, Any]]: List of connection details including:
+            - id: Unique identifier for this cache entry (use with close_connection)
+            - cache_key: Full cache key including configuration
+            - created_at: When the connection was created
+            - last_used: When the connection was last used
+
+    Example:
+        >>> connections = list_connections()
+        >>> for conn in connections:
+        ...     print(f"ID: {conn['id']}, Key: {conn['cache_key']}")
+        >>> # Close a specific connection
+        >>> close_connection(id=connections[0]['id'])
+    """
+    return [
+        {
+            "id": mc.id,
+            "cache_key": mc.cache_key,
+            "created_at": mc.created_at,
+            "last_used": mc.last_used,
+        }
+        for mc in _connection_cache._cache.values()
+    ]
+
+
+def close_connection(id: str) -> bool:
+    """
+    Close a specific persistent database connection by its unique ID.
+
+    Args:
+        id (str): The unique identifier of the connection to close.
+                  Obtain this from list_connections().
+
+    Returns:
+        bool: True if connection was found and closed, False if not found.
+
+    Example:
+        >>> connections = list_connections()
+        >>> close_connection(id=connections[0]['id'])
+        True
+    """
+    return _connection_cache.remove_by_id(id)
+
+
+def close_all_connections() -> int:
+    """
+    Close all persistent database connections.
+
+    Returns:
+        int: Number of connections closed.
+
+    Example:
+        >>> count = close_all_connections()
+        >>> print(f"Closed {count} connections")
+    """
+    return _connection_cache.clear()
 
 
 def _ensure_project():

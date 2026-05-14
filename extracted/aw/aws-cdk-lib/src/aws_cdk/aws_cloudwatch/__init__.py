@@ -512,6 +512,87 @@ When creating an anomaly detection alarm, you must use one of the following comp
 
 For more information on anomaly detection in CloudWatch, see the [AWS documentation](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Anomaly_Detection.html).
 
+## PromQL Alarms
+
+PromQL alarms evaluate a [PromQL](https://prometheus.io/docs/prometheus/latest/querying/basics/) instant query against metrics ingested through the CloudWatch OTLP endpoint on a recurring schedule. All matching time series returned by the query are considered breaching, and each is tracked independently as a *contributor*.
+
+### How PromQL Alarms Differ from Standard CloudWatch Alarms
+
+The existing `Alarm` construct is designed around the standard CloudWatch alarm model: a metric, a comparison operator, a threshold, and evaluation periods. PromQL alarms have a fundamentally different configuration model:
+
+* Instead of using alarm condition (threshold + comparison), all matching time series returned by the PromQL alarm query are considered to be breaching.
+* Instead of `evaluationPeriods` and `period`, PromQL alarms use `evaluationInterval`, `pendingPeriod`, and `recoveryPeriod`.
+* PromQL alarms do not use `MetricName`, `Namespace`, `Statistic`, `Dimensions`, or `Threshold` properties.
+* PromQL alarms only work with metrics ingested through the CloudWatch OTLP endpoint. Standard CloudWatch namespace metrics (e.g., `AWS/EC2`, `AWS/Lambda`) are not queryable via PromQL.
+
+### Creating a PromQL Alarm
+
+```python
+cloudwatch.PromQLAlarm(self, "HighCpuAlarm",
+    alarm_name="HighCpuAlarm",
+    alarm_description="Alarm when average CPU exceeds 80%",
+    query="avg(cpu_utilization_percent) > 80",
+    evaluation_interval=Duration.seconds(60)
+)
+```
+
+### Pending and Recovery Periods
+
+Use `pendingPeriod` to require a contributor to breach continuously for a duration before entering ALARM state (equivalent to Prometheus `for` duration). Use `recoveryPeriod` to require a contributor to stop breaching for a duration before returning to OK state (equivalent to Prometheus `keep_firing_for` duration).
+
+```python
+cloudwatch.PromQLAlarm(self, "HighLatencyAlarm",
+    alarm_description="P99 latency exceeds 500ms for 5 minutes",
+    query="histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) > 0.5",
+    evaluation_interval=Duration.seconds(60),
+    pending_period=Duration.seconds(300),
+    recovery_period=Duration.seconds(600)
+)
+```
+
+### Adding Actions
+
+`PromQLAlarm` extends `AlarmBase`, so you can add alarm, OK, and insufficient-data actions the same way as standard alarms:
+
+```python
+import aws_cdk.aws_cloudwatch_actions as cloudwatch_actions
+
+# topic: sns.Topic
+
+
+alarm = cloudwatch.PromQLAlarm(self, "ServiceDownAlarm",
+    query="up == 0",
+    evaluation_interval=Duration.seconds(60),
+    pending_period=Duration.seconds(300),
+    recovery_period=Duration.seconds(300)
+)
+
+alarm.add_alarm_action(cloudwatch_actions.SnsAction(topic))
+alarm.add_ok_action(cloudwatch_actions.SnsAction(topic))
+```
+
+### Importing an Existing PromQL Alarm
+
+```python
+imported_by_arn = cloudwatch.PromQLAlarm.from_prom_qLAlarm_arn(self, "ImportedAlarm", "arn:aws:cloudwatch:us-east-1:123456789012:alarm:MyPromQLAlarm")
+
+imported_by_name = cloudwatch.PromQLAlarm.from_prom_qLAlarm_name(self, "ImportedByName", "MyPromQLAlarm")
+```
+
+### Using in Composite Alarms
+
+Since `PromQLAlarm` implements `IAlarm`, it can be used in composite alarm rules alongside standard alarms:
+
+```python
+# promql_alarm: cloudwatch.PromQLAlarm
+# standard_alarm: cloudwatch.Alarm
+
+
+cloudwatch.CompositeAlarm(self, "CompositeAlarm",
+    alarm_rule=cloudwatch.AlarmRule.all_of(promql_alarm, standard_alarm)
+)
+```
+
 ## Dashboards
 
 Dashboards are set of Widgets stored server-side which can be accessed quickly
@@ -1250,20 +1331,19 @@ class AlarmRule(
 
         # alarm1: cloudwatch.Alarm
         # alarm2: cloudwatch.Alarm
-        # alarm3: cloudwatch.Alarm
-        # alarm4: cloudwatch.Alarm
+        # on_alarm_action: cloudwatch.IAlarmAction
+        # on_ok_action: cloudwatch.IAlarmAction
+        # actions_suppressor: cloudwatch.Alarm
         
         
-        alarm_rule = cloudwatch.AlarmRule.any_of(
-            cloudwatch.AlarmRule.all_of(
-                cloudwatch.AlarmRule.any_of(alarm1,
-                    cloudwatch.AlarmRule.from_alarm(alarm2, cloudwatch.AlarmState.OK), alarm3),
-                cloudwatch.AlarmRule.not(cloudwatch.AlarmRule.from_alarm(alarm4, cloudwatch.AlarmState.INSUFFICIENT_DATA))),
-            cloudwatch.AlarmRule.from_boolean(False))
+        alarm_rule = cloudwatch.AlarmRule.any_of(alarm1, alarm2)
         
-        cloudwatch.CompositeAlarm(self, "MyAwesomeCompositeAlarm",
-            alarm_rule=alarm_rule
+        my_composite_alarm = cloudwatch.CompositeAlarm(self, "MyAwesomeCompositeAlarm",
+            alarm_rule=alarm_rule,
+            actions_suppressor=actions_suppressor
         )
+        my_composite_alarm.add_alarm_action(on_alarm_action)
+        my_composite_alarm.add_ok_action(on_ok_action)
     '''
 
     def __init__(self) -> None:
@@ -5948,6 +6028,48 @@ class CfnCompositeAlarm(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCompositeAlarm", [resource]))
 
+    @jsii.member(jsii_name="fromAlarmName")
+    @builtins.classmethod
+    def from_alarm_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        alarm_name: builtins.str,
+    ) -> "_ICompositeAlarmRef_fa51824d":
+        '''Creates a new ICompositeAlarmRef from a alarmName.
+
+        :param scope: -
+        :param id: -
+        :param alarm_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__71d13a1576f09da6fbb3e974f93e831467e810d2390b1a14257ef6524b78a3c4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument alarm_name", value=alarm_name, expected_type=type_hints["alarm_name"])
+        return typing.cast("_ICompositeAlarmRef_fa51824d", jsii.sinvoke(cls, "fromAlarmName", [scope, id, alarm_name]))
+
+    @jsii.member(jsii_name="fromCompositeAlarmArn")
+    @builtins.classmethod
+    def from_composite_alarm_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_ICompositeAlarmRef_fa51824d":
+        '''Creates a new ICompositeAlarmRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__30c61a346bf38a874d919545efefd48d8e8c34c27d901c7450c4ada5b868d8b3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_ICompositeAlarmRef_fa51824d", jsii.sinvoke(cls, "fromCompositeAlarmArn", [scope, id, arn]))
+
     @jsii.member(jsii_name="isCfnCompositeAlarm")
     @builtins.classmethod
     def is_cfn_composite_alarm(cls, x: typing.Any) -> builtins.bool:
@@ -8576,20 +8698,19 @@ class CompositeAlarmProps:
 
             # alarm1: cloudwatch.Alarm
             # alarm2: cloudwatch.Alarm
-            # alarm3: cloudwatch.Alarm
-            # alarm4: cloudwatch.Alarm
+            # on_alarm_action: cloudwatch.IAlarmAction
+            # on_ok_action: cloudwatch.IAlarmAction
+            # actions_suppressor: cloudwatch.Alarm
             
             
-            alarm_rule = cloudwatch.AlarmRule.any_of(
-                cloudwatch.AlarmRule.all_of(
-                    cloudwatch.AlarmRule.any_of(alarm1,
-                        cloudwatch.AlarmRule.from_alarm(alarm2, cloudwatch.AlarmState.OK), alarm3),
-                    cloudwatch.AlarmRule.not(cloudwatch.AlarmRule.from_alarm(alarm4, cloudwatch.AlarmState.INSUFFICIENT_DATA))),
-                cloudwatch.AlarmRule.from_boolean(False))
+            alarm_rule = cloudwatch.AlarmRule.any_of(alarm1, alarm2)
             
-            cloudwatch.CompositeAlarm(self, "MyAwesomeCompositeAlarm",
-                alarm_rule=alarm_rule
+            my_composite_alarm = cloudwatch.CompositeAlarm(self, "MyAwesomeCompositeAlarm",
+                alarm_rule=alarm_rule,
+                actions_suppressor=actions_suppressor
             )
+            my_composite_alarm.add_alarm_action(on_alarm_action)
+            my_composite_alarm.add_ok_action(on_ok_action)
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ac3983e61925a8b50987e3b6213e939907d0c4bb41a5682e1321634d8b68675b)
@@ -12521,6 +12642,151 @@ class PeriodOverride(enum.Enum):
     '''Period of all graphs on the dashboard automatically adapt to the time range of the dashboard.'''
     INHERIT = "INHERIT"
     '''Period set for each graph will be used.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.PromQLAlarmProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "evaluation_interval": "evaluationInterval",
+        "query": "query",
+        "actions_enabled": "actionsEnabled",
+        "alarm_description": "alarmDescription",
+        "alarm_name": "alarmName",
+        "pending_period": "pendingPeriod",
+        "recovery_period": "recoveryPeriod",
+    },
+)
+class PromQLAlarmProps:
+    def __init__(
+        self,
+        *,
+        evaluation_interval: "_Duration_4839e8c3",
+        query: builtins.str,
+        actions_enabled: typing.Optional[builtins.bool] = None,
+        alarm_description: typing.Optional[builtins.str] = None,
+        alarm_name: typing.Optional[builtins.str] = None,
+        pending_period: typing.Optional["_Duration_4839e8c3"] = None,
+        recovery_period: typing.Optional["_Duration_4839e8c3"] = None,
+    ) -> None:
+        '''Properties for creating a PromQL Alarm.
+
+        :param evaluation_interval: The frequency at which the alarm is evaluated. Must be between 10 seconds and 3600 seconds.
+        :param query: The PromQL query that the alarm evaluates.
+        :param actions_enabled: Whether the actions for this alarm are enabled. Default: true
+        :param alarm_description: Description for the alarm. Default: - No description
+        :param alarm_name: Name of the alarm. Default: - Automatically generated name
+        :param pending_period: The duration that a contributor must continuously breach before the contributor transitions to ALARM state. Default: - No pending period
+        :param recovery_period: The duration that a contributor must continuously not be breaching before it transitions back to the OK state. Default: - No recovery period
+
+        :exampleMetadata: infused
+
+        Example::
+
+            cloudwatch.PromQLAlarm(self, "HighLatencyAlarm",
+                alarm_description="P99 latency exceeds 500ms for 5 minutes",
+                query="histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) > 0.5",
+                evaluation_interval=Duration.seconds(60),
+                pending_period=Duration.seconds(300),
+                recovery_period=Duration.seconds(600)
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6017bc8e2e0481a685bab5777420329aba67cead4ff49ecad7b1c5d8b8111cda)
+            check_type(argname="argument evaluation_interval", value=evaluation_interval, expected_type=type_hints["evaluation_interval"])
+            check_type(argname="argument query", value=query, expected_type=type_hints["query"])
+            check_type(argname="argument actions_enabled", value=actions_enabled, expected_type=type_hints["actions_enabled"])
+            check_type(argname="argument alarm_description", value=alarm_description, expected_type=type_hints["alarm_description"])
+            check_type(argname="argument alarm_name", value=alarm_name, expected_type=type_hints["alarm_name"])
+            check_type(argname="argument pending_period", value=pending_period, expected_type=type_hints["pending_period"])
+            check_type(argname="argument recovery_period", value=recovery_period, expected_type=type_hints["recovery_period"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "evaluation_interval": evaluation_interval,
+            "query": query,
+        }
+        if actions_enabled is not None:
+            self._values["actions_enabled"] = actions_enabled
+        if alarm_description is not None:
+            self._values["alarm_description"] = alarm_description
+        if alarm_name is not None:
+            self._values["alarm_name"] = alarm_name
+        if pending_period is not None:
+            self._values["pending_period"] = pending_period
+        if recovery_period is not None:
+            self._values["recovery_period"] = recovery_period
+
+    @builtins.property
+    def evaluation_interval(self) -> "_Duration_4839e8c3":
+        '''The frequency at which the alarm is evaluated.
+
+        Must be between 10 seconds and 3600 seconds.
+        '''
+        result = self._values.get("evaluation_interval")
+        assert result is not None, "Required property 'evaluation_interval' is missing"
+        return typing.cast("_Duration_4839e8c3", result)
+
+    @builtins.property
+    def query(self) -> builtins.str:
+        '''The PromQL query that the alarm evaluates.'''
+        result = self._values.get("query")
+        assert result is not None, "Required property 'query' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def actions_enabled(self) -> typing.Optional[builtins.bool]:
+        '''Whether the actions for this alarm are enabled.
+
+        :default: true
+        '''
+        result = self._values.get("actions_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def alarm_description(self) -> typing.Optional[builtins.str]:
+        '''Description for the alarm.
+
+        :default: - No description
+        '''
+        result = self._values.get("alarm_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def alarm_name(self) -> typing.Optional[builtins.str]:
+        '''Name of the alarm.
+
+        :default: - Automatically generated name
+        '''
+        result = self._values.get("alarm_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pending_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+        '''The duration that a contributor must continuously breach before the contributor transitions to ALARM state.
+
+        :default: - No pending period
+        '''
+        result = self._values.get("pending_period")
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+
+    @builtins.property
+    def recovery_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+        '''The duration that a contributor must continuously not be breaching before it transitions back to the OK state.
+
+        :default: - No recovery period
+        '''
+        result = self._values.get("recovery_period")
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PromQLAlarmProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.implements(IWidget)
@@ -17806,20 +18072,19 @@ class CompositeAlarm(
 
         # alarm1: cloudwatch.Alarm
         # alarm2: cloudwatch.Alarm
-        # alarm3: cloudwatch.Alarm
-        # alarm4: cloudwatch.Alarm
+        # on_alarm_action: cloudwatch.IAlarmAction
+        # on_ok_action: cloudwatch.IAlarmAction
+        # actions_suppressor: cloudwatch.Alarm
         
         
-        alarm_rule = cloudwatch.AlarmRule.any_of(
-            cloudwatch.AlarmRule.all_of(
-                cloudwatch.AlarmRule.any_of(alarm1,
-                    cloudwatch.AlarmRule.from_alarm(alarm2, cloudwatch.AlarmState.OK), alarm3),
-                cloudwatch.AlarmRule.not(cloudwatch.AlarmRule.from_alarm(alarm4, cloudwatch.AlarmState.INSUFFICIENT_DATA))),
-            cloudwatch.AlarmRule.from_boolean(False))
+        alarm_rule = cloudwatch.AlarmRule.any_of(alarm1, alarm2)
         
-        cloudwatch.CompositeAlarm(self, "MyAwesomeCompositeAlarm",
-            alarm_rule=alarm_rule
+        my_composite_alarm = cloudwatch.CompositeAlarm(self, "MyAwesomeCompositeAlarm",
+            alarm_rule=alarm_rule,
+            actions_suppressor=actions_suppressor
         )
+        my_composite_alarm.add_alarm_action(on_alarm_action)
+        my_composite_alarm.add_ok_action(on_ok_action)
     '''
 
     def __init__(
@@ -17903,6 +18168,135 @@ class CompositeAlarm(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument composite_alarm_name", value=composite_alarm_name, expected_type=type_hints["composite_alarm_name"])
         return typing.cast("IAlarm", jsii.sinvoke(cls, "fromCompositeAlarmName", [scope, id, composite_alarm_name]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmArn")
+    def alarm_arn(self) -> builtins.str:
+        '''ARN of this alarm.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "alarmArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmName")
+    def alarm_name(self) -> builtins.str:
+        '''Name of this alarm.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "alarmName"))
+
+
+class PromQLAlarm(
+    AlarmBase,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.PromQLAlarm",
+):
+    '''A CloudWatch Alarm based on a PromQL query expression.
+
+    :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarm-promql.html
+    :resource: AWS::CloudWatch::Alarm
+    :exampleMetadata: infused
+
+    Example::
+
+        cloudwatch.PromQLAlarm(self, "HighLatencyAlarm",
+            alarm_description="P99 latency exceeds 500ms for 5 minutes",
+            query="histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) > 0.5",
+            evaluation_interval=Duration.seconds(60),
+            pending_period=Duration.seconds(300),
+            recovery_period=Duration.seconds(600)
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        evaluation_interval: "_Duration_4839e8c3",
+        query: builtins.str,
+        actions_enabled: typing.Optional[builtins.bool] = None,
+        alarm_description: typing.Optional[builtins.str] = None,
+        alarm_name: typing.Optional[builtins.str] = None,
+        pending_period: typing.Optional["_Duration_4839e8c3"] = None,
+        recovery_period: typing.Optional["_Duration_4839e8c3"] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param evaluation_interval: The frequency at which the alarm is evaluated. Must be between 10 seconds and 3600 seconds.
+        :param query: The PromQL query that the alarm evaluates.
+        :param actions_enabled: Whether the actions for this alarm are enabled. Default: true
+        :param alarm_description: Description for the alarm. Default: - No description
+        :param alarm_name: Name of the alarm. Default: - Automatically generated name
+        :param pending_period: The duration that a contributor must continuously breach before the contributor transitions to ALARM state. Default: - No pending period
+        :param recovery_period: The duration that a contributor must continuously not be breaching before it transitions back to the OK state. Default: - No recovery period
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96ebf9f77ab391162864e870beb27491e0a49c8e2892205b04af9aca18ca64c5)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = PromQLAlarmProps(
+            evaluation_interval=evaluation_interval,
+            query=query,
+            actions_enabled=actions_enabled,
+            alarm_description=alarm_description,
+            alarm_name=alarm_name,
+            pending_period=pending_period,
+            recovery_period=recovery_period,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromPromQLAlarmArn")
+    @builtins.classmethod
+    def from_prom_ql_alarm_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        alarm_arn: builtins.str,
+    ) -> "IAlarm":
+        '''Import an existing CloudWatch alarm provided an ARN.
+
+        :param scope: -
+        :param id: -
+        :param alarm_arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3958a06abde596488e1b37d6c64546a53699c6f965f2027d59a3473ae97f23d8)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument alarm_arn", value=alarm_arn, expected_type=type_hints["alarm_arn"])
+        return typing.cast("IAlarm", jsii.sinvoke(cls, "fromPromQLAlarmArn", [scope, id, alarm_arn]))
+
+    @jsii.member(jsii_name="fromPromQLAlarmName")
+    @builtins.classmethod
+    def from_prom_ql_alarm_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        alarm_name: builtins.str,
+    ) -> "IAlarm":
+        '''Import an existing CloudWatch alarm provided a Name.
+
+        :param scope: -
+        :param id: -
+        :param alarm_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__171a36e666c2db7f0490d2e4bd3709f7e0558ffc48fe85e8efe845911441bf21)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument alarm_name", value=alarm_name, expected_type=type_hints["alarm_name"])
+        return typing.cast("IAlarm", jsii.sinvoke(cls, "fromPromQLAlarmName", [scope, id, alarm_name]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -18305,6 +18699,8 @@ __all__ = [
     "MetricStatConfig",
     "MetricWidgetProps",
     "PeriodOverride",
+    "PromQLAlarm",
+    "PromQLAlarmProps",
     "Row",
     "SearchComponents",
     "SearchExpression",
@@ -19030,6 +19426,22 @@ def _typecheckingstub__5c24d10326e3cd470724ecbde5d50ff23fdf44dc88f809d9a181a5cd8
 
 def _typecheckingstub__7af23cb9aa06ec62b0666b06bece3839d45b0343dea2057ceb06d53b6b3f6b7a(
     resource: _ICompositeAlarmRef_fa51824d,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__71d13a1576f09da6fbb3e974f93e831467e810d2390b1a14257ef6524b78a3c4(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    alarm_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30c61a346bf38a874d919545efefd48d8e8c34c27d901c7450c4ada5b868d8b3(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19775,6 +20187,19 @@ def _typecheckingstub__028d2c6eccbbf06b74566403b038cac0cdc1c8588c939f4352cc86188
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6017bc8e2e0481a685bab5777420329aba67cead4ff49ecad7b1c5d8b8111cda(
+    *,
+    evaluation_interval: _Duration_4839e8c3,
+    query: builtins.str,
+    actions_enabled: typing.Optional[builtins.bool] = None,
+    alarm_description: typing.Optional[builtins.str] = None,
+    alarm_name: typing.Optional[builtins.str] = None,
+    pending_period: typing.Optional[_Duration_4839e8c3] = None,
+    recovery_period: typing.Optional[_Duration_4839e8c3] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__40733d2619229fa61f0179677abbedccf016612d902783aeea0675549c61429e(
     *widgets: IWidget,
 ) -> None:
@@ -20303,6 +20728,37 @@ def _typecheckingstub__c7b77df6004a58e1183aacd1214d4fe5762c7287cc2361f2ff0337e84
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     composite_alarm_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96ebf9f77ab391162864e870beb27491e0a49c8e2892205b04af9aca18ca64c5(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    evaluation_interval: _Duration_4839e8c3,
+    query: builtins.str,
+    actions_enabled: typing.Optional[builtins.bool] = None,
+    alarm_description: typing.Optional[builtins.str] = None,
+    alarm_name: typing.Optional[builtins.str] = None,
+    pending_period: typing.Optional[_Duration_4839e8c3] = None,
+    recovery_period: typing.Optional[_Duration_4839e8c3] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3958a06abde596488e1b37d6c64546a53699c6f965f2027d59a3473ae97f23d8(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    alarm_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__171a36e666c2db7f0490d2e4bd3709f7e0558ffc48fe85e8efe845911441bf21(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    alarm_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

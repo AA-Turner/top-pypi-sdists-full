@@ -135,6 +135,15 @@ impl SystemWorld {
         &self.root
     }
 
+    /// Update the root path for the world.
+    pub fn set_root(&mut self, root: PathBuf) -> StrResult<()> {
+        self.root = root
+            .canonicalize()
+            .map_err(|err| format!("Failed to canonicalize root: {}", err))?;
+        self.reset();
+        Ok(())
+    }
+
     /// The current working directory.
     pub fn workdir(&self) -> &Path {
         self.workdir.as_deref().unwrap_or(Path::new("."))
@@ -157,7 +166,7 @@ impl SystemWorld {
     }
 }
 
-fn determine_main_filename<'a>(files: &'a HashMap<String, FileData>) -> StrResult<&'a str> {
+fn determine_main_filename(files: &HashMap<String, FileData>) -> StrResult<&str> {
     if files.is_empty() {
         return Err("Files input cannot be empty".into());
     }
@@ -191,7 +200,7 @@ fn process_files_into_slots(
             }
         };
 
-        let vpath = VirtualPath::new(&format!("/{}", filename));
+        let vpath = VirtualPath::new(format!("/{}", filename));
         let file_id = FileId::new(None, vpath);
 
         let slot = FileSlot::from_inline_bytes(file_id, bytes)

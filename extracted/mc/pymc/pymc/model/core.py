@@ -28,9 +28,7 @@ from typing import (
 
 import numpy as np
 import pytensor
-import pytensor.sparse as sparse
 import pytensor.tensor as pt
-import scipy.sparse as sps
 
 from pytensor.compile import DeepCopyOp, Function, ProfileStats, get_mode, view_op
 from pytensor.compile.sharedvalue import SharedVariable
@@ -41,6 +39,7 @@ from pytensor.tensor.math import variadic_add
 from pytensor.tensor.random.op import RandomVariable
 from pytensor.tensor.random.type import RandomType
 from pytensor.tensor.variable import TensorConstant, TensorVariable
+from pytensor.utils import lazy_scipy_module
 
 from pymc.blocking import DictToArrayBijection, RaveledVars
 from pymc.data import MinibatchOp, is_valid_observed
@@ -63,6 +62,7 @@ from pymc.pytensorf import (
     gradient,
     hessian,
     join_nonshared_inputs,
+    resolve_backend_compile_kwargs,
     rewrite_pregrad,
 )
 from pymc.util import (
@@ -76,6 +76,8 @@ from pymc.util import (
     treelist,
 )
 from pymc.vartypes import continuous_types, discrete_types, typefilter
+
+sparse = lazy_scipy_module("sparse")
 
 __all__ = [
     "Deterministic",
@@ -442,7 +444,20 @@ class Model(WithMemoization, metaclass=ContextMeta):
 
         from pymc.model_graph import model_to_mermaid
 
-        return mo.mermaid(model_to_mermaid(self))
+        diagram = model_to_mermaid(self)
+        try:
+            return mo.mermaid(
+                diagram,
+                theme_variables={
+                    "primaryColor": "#12698A",
+                    "primaryTextColor": "#FFFFFF",
+                    "primaryBorderColor": "#0E5A7A",
+                    "lineColor": "#504A4E",
+                    "tertiaryColor": "#F0F5F8",
+                },
+            )
+        except TypeError:
+            return mo.mermaid(diagram)
 
     @staticmethod
     def _validate_name(name):
@@ -962,6 +977,10 @@ class Model(WithMemoization, metaclass=ContextMeta):
                 "Dimensions can not be named `draw`, `chain` or `__sample__`, "
                 "as those are reserved for use in `InferenceData`."
             )
+        if self.named_vars.tree_contains(name):
+            raise ValueError(
+                f"Dimension name '{name}' conflicts with an existing model variable name."
+            )
         if values is None and length is None:
             raise ValueError(
                 f"Either `values` or `length` must be specified for the '{name}' dimension."
@@ -1350,8 +1369,10 @@ class Model(WithMemoization, metaclass=ContextMeta):
             rv_var = Deterministic(name, joined_rv, self, dims)
 
         else:
-            if sps.issparse(data):
-                data = sparse.basic.as_sparse(data, name=name)
+            if sparse.issparse(data):
+                import pytensor.sparse as pt_sparse
+
+                data = pt_sparse.basic.as_sparse(data, name=name)
             elif not isinstance(data, Variable):
                 data = pt.as_tensor_variable(data, name=name)
 
@@ -1431,17 +1452,11 @@ class Model(WithMemoization, metaclass=ContextMeta):
                 # Create value variable with the same type as the RV
                 value_var = rv_var.type()
                 value_var.name = rv_var.name
-                if pytensor.config.compute_test_value != "off":
-                    value_var.tag.test_value = rv_var.tag.test_value
             else:
                 # Create value variable with the same type as the transformed RV
                 value_var = transform.forward(rv_var, *rv_var.owner.inputs).type()
                 value_var.name = f"{rv_var.name}_{transform.name}__"
                 value_var.tag.transform = transform
-                if pytensor.config.compute_test_value != "off":
-                    value_var.tag.test_value = transform.forward(
-                        rv_var, *rv_var.owner.inputs
-                    ).tag.test_value
 
         self.rvs_to_transforms[rv_var] = transform
         self.rvs_to_values[rv_var] = value_var
@@ -1471,6 +1486,10 @@ class Model(WithMemoization, metaclass=ContextMeta):
             raise ValueError("Variable is unnamed.")
         if self.named_vars.tree_contains(var.name):
             raise ValueError(f"Variable name {var.name} already exists.")
+        if var.name in self.coords:
+            raise ValueError(
+                f"Variable name '{var.name}' conflicts with an existing dimension name."
+            )
 
         if dims is not None:
             if isinstance(dims, str):
@@ -1478,8 +1497,6 @@ class Model(WithMemoization, metaclass=ContextMeta):
             for dim in dims:
                 if dim not in self.coords and dim is not None:
                     raise ValueError(f"Dimension {dim} is not specified in `coords`.")
-            if any(var.name == dim for dim in dims if dim is not None):
-                raise ValueError(f"Variable `{var.name}` has the same name as its dimension label.")
             # This check implicitly states that only vars with .ndim attribute can have dims
             if var.ndim != len(dims):
                 raise ValueError(
@@ -1640,7 +1657,7 @@ class Model(WithMemoization, metaclass=ContextMeta):
             Whether to wrap the compiled function in a PointFunc, which takes a Point
             dictionary with model variable names and values as input.
         Other keyword arguments :
-            Any other keyword argument is sent to :py:func:`pymc.pytensorf.compile_pymc`.
+            Any other keyword argument is sent to :py:func:`pymc.pytensorf.compile`.
 
         Returns
         -------
@@ -1674,6 +1691,7 @@ class Model(WithMemoization, metaclass=ContextMeta):
         n=1000,
         point=None,
         profile=True,
+        backend=None,
         **compile_fn_kwargs,
     ) -> ProfileStats:
         """Compile and profile a PyTensor function which returns ``outs`` and takes values of model vars as a dict as an argument.
@@ -1686,6 +1704,8 @@ class Model(WithMemoization, metaclass=ContextMeta):
         point : Point
             Point to pass to the function
         profile : True or ProfileStats
+        backend : str, optional
+            Which computational backend to use. Recommended to be one of "numba", "c", and "jax".
         compile_fn_kwargs
             Compilation kwargs for :func:`pymc.model.core.Model.compile_fn`
 
@@ -1695,6 +1715,7 @@ class Model(WithMemoization, metaclass=ContextMeta):
             Use .summary() to print stats.
         """
         compile_fn_kwargs.setdefault("on_unused_input", "ignore")
+        compile_fn_kwargs = resolve_backend_compile_kwargs(backend, compile_fn_kwargs)
         f = self.compile_fn(
             outs,
             inputs=self.value_vars,
@@ -1828,9 +1849,10 @@ class Model(WithMemoization, metaclass=ContextMeta):
 
         The method will evaluate the `fn` for each variable at a time.
         When an evaluation fails or produces a non-finite value we print:
-         1. The graph of the parameters
-         2. The value of the parameters (if those can be evaluated)
-         3. The output of `fn` (if it can be evaluated)
+
+        1. The graph of the parameters
+        2. The value of the parameters (if those can be evaluated)
+        3. The output of `fn` (if it can be evaluated)
 
         This function should help to quickly narrow down invalid parametrizations.
 
@@ -2040,6 +2062,26 @@ class Model(WithMemoization, metaclass=ContextMeta):
             save=save,
             figsize=figsize,
             dpi=dpi,
+        )
+
+    def table(
+        self,
+        *,
+        split_groups: bool = True,
+        truncate_deterministic: int | None = None,
+        parameter_count: bool = True,
+    ):
+        """Create a rich table summarizing the model's variables and their expressions.
+
+        See :func:`pymc.model_table` for details.
+        """
+        from pymc.printing import model_table
+
+        return model_table(
+            self,
+            split_groups=split_groups,
+            truncate_deterministic=truncate_deterministic,
+            parameter_count=parameter_count,
         )
 
 

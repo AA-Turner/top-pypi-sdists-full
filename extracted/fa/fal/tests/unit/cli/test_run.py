@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Optional, Tuple
 from unittest.mock import MagicMock, patch
 
@@ -102,6 +103,7 @@ def mock_parse_pyproject_toml():
             },
             "entrypoint-app": {
                 "python_entry_point": "simple.app:SimpleApp",
+                "python_version": "3.12",
                 "requirements": ["fal"],
             },
         }
@@ -168,10 +170,15 @@ def test_run_forwards_python_entry_point_to_loader(
 
     _run(args)
 
-    mock_create_host.assert_called_once_with(local_file_path="", environment_name=None)
+    mock_create_host.assert_called_once_with(
+        local_file_path="",
+        local_project_root=str(Path("pyproject.toml").parent),
+        environment_name=None,
+    )
     mock_load_function_from.assert_called_once()
     _, call_kwargs = mock_load_function_from.call_args
     assert call_kwargs["python_entry_point"] == "simple.app:SimpleApp"
+    assert call_kwargs["options"].environment["python_version"] == "3.12"
     assert call_kwargs["options"].environment["requirements"] == ["fal"]
 
 

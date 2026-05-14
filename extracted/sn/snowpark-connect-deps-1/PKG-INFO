@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowpark-connect-deps-1
-Version: 3.56.4
+Version: 3.56.5
 Summary: Spark JAR dependencies for Snowpark Connect (Part 1)
 Author: Snowflake, Inc
 License: Apache License, Version 2.0

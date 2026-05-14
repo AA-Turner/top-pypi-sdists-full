@@ -1,10 +1,11 @@
 Metadata-Version: 2.4
 Name: typst
-Version: 0.14.8
+Version: 0.14.9
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 License-File: LICENSE
+Summary: Python binding to Typst, a new markup-based typesetting system that is powerful and easy to learn.
 License-Expression: Apache-2.0
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM

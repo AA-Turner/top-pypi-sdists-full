@@ -47,6 +47,13 @@ class TestPoliciesV1Api(unittest.TestCase):
         """
         pass
 
+    def test_check_workspace_policies_compliance(self) -> None:
+        """Test case for check_workspace_policies_compliance
+
+        Check Workspace Policies Compliance
+        """
+        pass
+
     def test_create_attestation(self) -> None:
         """Test case for create_attestation
 

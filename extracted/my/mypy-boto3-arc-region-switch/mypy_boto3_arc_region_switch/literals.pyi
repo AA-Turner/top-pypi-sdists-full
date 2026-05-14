@@ -32,6 +32,7 @@ __all__ = (
     "EcsCapacityMonitoringApproachType",
     "EksCapacityMonitoringApproachType",
     "EvaluationStatusType",
+    "EventSourceMappingActionType",
     "ExecutionActionType",
     "ExecutionBlockTypeType",
     "ExecutionEventTypeType",
@@ -42,6 +43,7 @@ __all__ = (
     "GetPlanExecutionPaginatorName",
     "GlobalAuroraDefaultBehaviorType",
     "GlobalAuroraUngracefulBehaviorType",
+    "LambdaEventSourceMappingUngracefulBehaviorType",
     "LambdaUngracefulBehaviorType",
     "ListPlanExecutionEventsPaginatorName",
     "ListPlanExecutionsPaginatorName",
@@ -79,6 +81,7 @@ EcsCapacityMonitoringApproachType = Literal[
 ]
 EksCapacityMonitoringApproachType = Literal["sampledMaxInLast24Hours"]
 EvaluationStatusType = Literal["actionRequired", "passed", "pendingEvaluation", "unknown"]
+EventSourceMappingActionType = Literal["disable", "enable"]
 ExecutionActionType = Literal["activate", "deactivate", "postRecovery"]
 ExecutionBlockTypeType = Literal[
     "ARCRegionSwitchPlan",
@@ -89,6 +92,7 @@ ExecutionBlockTypeType = Literal[
     "EC2AutoScaling",
     "ECSServiceScaling",
     "EKSResourceScaling",
+    "LambdaEventSourceMapping",
     "ManualApproval",
     "Parallel",
     "RdsCreateCrossRegionReplica",
@@ -144,6 +148,7 @@ GetPlanEvaluationStatusPaginatorName = Literal["get_plan_evaluation_status"]
 GetPlanExecutionPaginatorName = Literal["get_plan_execution"]
 GlobalAuroraDefaultBehaviorType = Literal["failover", "switchoverOnly"]
 GlobalAuroraUngracefulBehaviorType = Literal["failover"]
+LambdaEventSourceMappingUngracefulBehaviorType = Literal["skip"]
 LambdaUngracefulBehaviorType = Literal["skip"]
 ListPlanExecutionEventsPaginatorName = Literal["list_plan_execution_events"]
 ListPlanExecutionsPaginatorName = Literal["list_plan_executions"]

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from ..._internal import expect, positive, profile_section
 from ...math import Point
+from ..._core import Positionable
 
 from ._particle_modifier import ParticleModifier
 
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
     from ...fx import Particle
 
 # ======================================== ABSTRACT CLASS ========================================
-class ParticleEmitter(ABC):
+class ParticleEmitter(ABC, Positionable):
     """Classe abstraite des émetteur de particules
 
     Args:
@@ -26,7 +27,6 @@ class ParticleEmitter(ABC):
         active: état initial
     """
     __slots__ = (
-        "_position",
         "_particle", "_max", "_rate",
         "_active", "_accumulator",
         "_positions", "_velocities",
@@ -37,8 +37,8 @@ class ParticleEmitter(ABC):
         "_modifiers",
     )
 
-    _PARTICLE_CLS: ClassVar[Type[Particle]] = None
-    _DEFAULT_PARTICLE: Particle = None
+    _PARTICLE_CLS: Type[Particle] = None
+    _DEFAULT_PARTICLE: ClassVar[Particle] = None
 
     @classmethod
     def _get_particle_cls(cls) -> Type[Particle]:
@@ -64,8 +64,10 @@ class ParticleEmitter(ABC):
         rate: Real = 50.0,
         active: bool = False,
     ):
+        # Initialisation de la position
+        Positionable.__init__(self, position)
+
         # Transtypage et vérifications
-        position = Point(position)
         max_particles = int(max_particles)
         rate = float(rate)
         active = bool (active)
@@ -75,7 +77,6 @@ class ParticleEmitter(ABC):
             positive(rate)
 
         # Attributs publiques
-        self._position: Point = position
         self._particle: Particle = particle or self.get_default_particle()
         self._max: int = max_particles
         self._rate: float = rate
@@ -99,42 +100,6 @@ class ParticleEmitter(ABC):
         self._modifiers: list[ParticleModifier] = []
 
     # ======================================== PROPERTIES ========================================
-    @property
-    def position(self) -> Point:
-        """Position
-        
-        La position peut être un objet ``Point`` ou n'importe quel tuple ``(x, y)``
-        """
-        return self._position
-    
-    @position.setter
-    def position(self, value: Point) -> None:
-        self._position.x, self._position.y = value
-
-    @property
-    def x(self) -> float:
-        """Position horizontale
-
-        La coordonnée doit être un ``Réel``.
-        """
-        return self._position.x
-    
-    @x.setter
-    def x(self, value: Real) -> None:
-        self._position.x = value
-
-    @property
-    def y(self) -> float:
-        """Position verticale
-
-        La coordonnée doit être un ``Réel``.
-        """
-        return self._position.y
-    
-    @y.setter
-    def y(self, value: Real) -> None:
-        self._position.y = value
-
     @property
     def particle(self) -> Particle:
         """Configuration des particules"""
@@ -293,6 +258,11 @@ class ParticleEmitter(ABC):
 
     # ======================================== INTERNALS ========================================
     def _spawn(self, count: int) -> None:
+        """Génère des particules instantannément
+        
+        Args:
+            count: nombre de particules à générer
+        """
         dead = np.where(self._lifetimes <= 0.0)[0]
         if not len(dead):
             return

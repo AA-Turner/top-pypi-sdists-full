@@ -33,9 +33,12 @@ Usage::
         ListPaymentCredentialProvidersPaginator,
         ListPaymentManagersPaginator,
         ListPoliciesPaginator,
+        ListPolicyEngineSummariesPaginator,
         ListPolicyEnginesPaginator,
         ListPolicyGenerationAssetsPaginator,
+        ListPolicyGenerationSummariesPaginator,
         ListPolicyGenerationsPaginator,
+        ListPolicySummariesPaginator,
         ListRegistriesPaginator,
         ListRegistryRecordsPaginator,
         ListWorkloadIdentitiesPaginator,
@@ -65,9 +68,12 @@ Usage::
     list_payment_credential_providers_paginator: ListPaymentCredentialProvidersPaginator = client.get_paginator("list_payment_credential_providers")
     list_payment_managers_paginator: ListPaymentManagersPaginator = client.get_paginator("list_payment_managers")
     list_policies_paginator: ListPoliciesPaginator = client.get_paginator("list_policies")
+    list_policy_engine_summaries_paginator: ListPolicyEngineSummariesPaginator = client.get_paginator("list_policy_engine_summaries")
     list_policy_engines_paginator: ListPolicyEnginesPaginator = client.get_paginator("list_policy_engines")
     list_policy_generation_assets_paginator: ListPolicyGenerationAssetsPaginator = client.get_paginator("list_policy_generation_assets")
+    list_policy_generation_summaries_paginator: ListPolicyGenerationSummariesPaginator = client.get_paginator("list_policy_generation_summaries")
     list_policy_generations_paginator: ListPolicyGenerationsPaginator = client.get_paginator("list_policy_generations")
+    list_policy_summaries_paginator: ListPolicySummariesPaginator = client.get_paginator("list_policy_summaries")
     list_registries_paginator: ListRegistriesPaginator = client.get_paginator("list_registries")
     list_registry_records_paginator: ListRegistryRecordsPaginator = client.get_paginator("list_registry_records")
     list_workload_identities_paginator: ListWorkloadIdentitiesPaginator = client.get_paginator("list_workload_identities")
@@ -126,10 +132,16 @@ from .type_defs import (
     ListPoliciesResponseTypeDef,
     ListPolicyEnginesRequestPaginateTypeDef,
     ListPolicyEnginesResponseTypeDef,
+    ListPolicyEngineSummariesRequestPaginateTypeDef,
+    ListPolicyEngineSummariesResponseTypeDef,
     ListPolicyGenerationAssetsRequestPaginateTypeDef,
     ListPolicyGenerationAssetsResponseTypeDef,
     ListPolicyGenerationsRequestPaginateTypeDef,
     ListPolicyGenerationsResponseTypeDef,
+    ListPolicyGenerationSummariesRequestPaginateTypeDef,
+    ListPolicyGenerationSummariesResponseTypeDef,
+    ListPolicySummariesRequestPaginateTypeDef,
+    ListPolicySummariesResponseTypeDef,
     ListRegistriesRequestPaginateTypeDef,
     ListRegistriesResponseTypeDef,
     ListRegistryRecordsRequestPaginateTypeDef,
@@ -165,9 +177,12 @@ __all__ = (
     "ListPaymentCredentialProvidersPaginator",
     "ListPaymentManagersPaginator",
     "ListPoliciesPaginator",
+    "ListPolicyEngineSummariesPaginator",
     "ListPolicyEnginesPaginator",
     "ListPolicyGenerationAssetsPaginator",
+    "ListPolicyGenerationSummariesPaginator",
     "ListPolicyGenerationsPaginator",
+    "ListPolicySummariesPaginator",
     "ListRegistriesPaginator",
     "ListRegistryRecordsPaginator",
     "ListWorkloadIdentitiesPaginator",
@@ -562,6 +577,24 @@ class ListPoliciesPaginator(_ListPoliciesPaginatorBase):
         """
 
 if TYPE_CHECKING:
+    _ListPolicyEngineSummariesPaginatorBase = Paginator[ListPolicyEngineSummariesResponseTypeDef]
+else:
+    _ListPolicyEngineSummariesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListPolicyEngineSummariesPaginator(_ListPolicyEngineSummariesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPolicyEngineSummaries.html#BedrockAgentCoreControl.Paginator.ListPolicyEngineSummaries)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listpolicyenginesummariespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPolicyEngineSummariesRequestPaginateTypeDef]
+    ) -> PageIterator[ListPolicyEngineSummariesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPolicyEngineSummaries.html#BedrockAgentCoreControl.Paginator.ListPolicyEngineSummaries.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listpolicyenginesummariespaginator)
+        """
+
+if TYPE_CHECKING:
     _ListPolicyEnginesPaginatorBase = Paginator[ListPolicyEnginesResponseTypeDef]
 else:
     _ListPolicyEnginesPaginatorBase = Paginator  # type: ignore[assignment]
@@ -598,6 +631,26 @@ class ListPolicyGenerationAssetsPaginator(_ListPolicyGenerationAssetsPaginatorBa
         """
 
 if TYPE_CHECKING:
+    _ListPolicyGenerationSummariesPaginatorBase = Paginator[
+        ListPolicyGenerationSummariesResponseTypeDef
+    ]
+else:
+    _ListPolicyGenerationSummariesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListPolicyGenerationSummariesPaginator(_ListPolicyGenerationSummariesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPolicyGenerationSummaries.html#BedrockAgentCoreControl.Paginator.ListPolicyGenerationSummaries)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listpolicygenerationsummariespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPolicyGenerationSummariesRequestPaginateTypeDef]
+    ) -> PageIterator[ListPolicyGenerationSummariesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPolicyGenerationSummaries.html#BedrockAgentCoreControl.Paginator.ListPolicyGenerationSummaries.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listpolicygenerationsummariespaginator)
+        """
+
+if TYPE_CHECKING:
     _ListPolicyGenerationsPaginatorBase = Paginator[ListPolicyGenerationsResponseTypeDef]
 else:
     _ListPolicyGenerationsPaginatorBase = Paginator  # type: ignore[assignment]
@@ -613,6 +666,24 @@ class ListPolicyGenerationsPaginator(_ListPolicyGenerationsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPolicyGenerations.html#BedrockAgentCoreControl.Paginator.ListPolicyGenerations.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listpolicygenerationspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListPolicySummariesPaginatorBase = Paginator[ListPolicySummariesResponseTypeDef]
+else:
+    _ListPolicySummariesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListPolicySummariesPaginator(_ListPolicySummariesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPolicySummaries.html#BedrockAgentCoreControl.Paginator.ListPolicySummaries)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listpolicysummariespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPolicySummariesRequestPaginateTypeDef]
+    ) -> PageIterator[ListPolicySummariesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPolicySummaries.html#BedrockAgentCoreControl.Paginator.ListPolicySummaries.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listpolicysummariespaginator)
         """
 
 if TYPE_CHECKING:

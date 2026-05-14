@@ -7,6 +7,9 @@ class TestDatabricks(Validator):
     dialect = "databricks"
 
     def test_databricks(self):
+        self.validate_identity("CREATE TABLE foo (my_arr ARRAY<STRING COLLATE UTF8_BINARY>)")
+        self.validate_identity("CREATE TABLE foo (m MAP<STRING, STRING COLLATE UTF8_BINARY>)")
+        self.validate_identity("SELECT CAST('a' AS STRING COLLATE UTF8_BINARY)")
         self.validate_identity("SELECT COSH(1.5)")
         null_type = exp.DataType.build("VOID", dialect="databricks")
         self.assertEqual(null_type.sql(), "NULL")
@@ -386,7 +389,7 @@ class TestDatabricks(Validator):
             "SELECT DATEADD(year, 1, '2020-01-01')",
             write={
                 "tsql": "SELECT DATEADD(YEAR, 1, '2020-01-01')",
-                "databricks": "SELECT DATEADD(YEAR, 1, '2020-01-01')",
+                "databricks": "SELECT DATE_ADD(YEAR, 1, '2020-01-01')",
             },
         )
         self.validate_all(
@@ -396,9 +399,14 @@ class TestDatabricks(Validator):
         self.validate_all(
             "SELECT DATE_ADD('2020-01-01', 1)",
             write={
-                "tsql": "SELECT DATEADD(DAY, 1, '2020-01-01')",
-                "databricks": "SELECT DATEADD(DAY, 1, '2020-01-01')",
+                "tsql": "SELECT DATEADD(DAY, 1, CAST(CAST('2020-01-01' AS DATETIME2) AS DATE))",
+                "databricks": "SELECT DATE_ADD('2020-01-01', 1)",
             },
+        )
+        self.validate_identity("SELECT DATE_ADD(MONTH, 1, '2020-01-01')")
+        self.validate_identity(
+            "SELECT DATEADD(e, 24) FROM t",
+            "SELECT DATE_ADD(e, 24) FROM t",
         )
 
     def test_without_as(self):

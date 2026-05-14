@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: preliz
-Version: 0.24.0
+Version: 0.25.0
 Summary: Exploring and eliciting probability distributions.
 Author-email: ArviZ team <arviz.devs@gmail.com>
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Science/Research
@@ -12,11 +12,11 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
-Requires-Dist: arviz_stats>=0.6.0
+Requires-Dist: arviz_stats>=1.0.0
 Requires-Dist: matplotlib>=3.9
 Requires-Dist: numba>=0.62
 Requires-Dist: numpy>=2.0

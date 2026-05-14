@@ -19,14 +19,10 @@ from functools import partial, reduce
 import numpy as np
 import pytensor
 import pytensor.tensor as pt
-import scipy
 
 from pytensor.graph import node_rewriter
-from pytensor.graph.basic import Apply, Variable
-from pytensor.graph.op import Op
+from pytensor.graph.basic import Variable
 from pytensor.raise_op import Assert
-from pytensor.sparse.basic import DenseFromSparse
-from pytensor.sparse.math import sp_sum
 from pytensor.tensor import (
     TensorConstant,
     TensorVariable,
@@ -36,7 +32,7 @@ from pytensor.tensor import (
 )
 from pytensor.tensor.elemwise import DimShuffle
 from pytensor.tensor.exceptions import NotScalarConstantError
-from pytensor.tensor.linalg import det, eigh, solve_triangular, trace
+from pytensor.tensor.linalg import eigh, solve_triangular
 from pytensor.tensor.linalg import inv as matrix_inverse
 from pytensor.tensor.random import chisquare
 from pytensor.tensor.random.basic import MvNormalRV, dirichlet, multinomial, multivariate_normal
@@ -44,13 +40,12 @@ from pytensor.tensor.random.op import RandomVariable
 from pytensor.tensor.random.utils import (
     normalize_size_param,
 )
-from pytensor.tensor.type import TensorType
-from scipy import stats
+from pytensor.utils import lazy_scipy_module
 
 import pymc as pm
 
 from pymc.distributions import transforms
-from pymc.distributions.continuous import BoundedContinuous, ChiSquared, Normal
+from pymc.distributions.continuous import BoundedContinuous
 from pymc.distributions.dist_math import (
     betaln,
     check_parameters,
@@ -74,7 +69,12 @@ from pymc.distributions.shape_utils import (
     rv_size_is_none,
     to_tuple,
 )
-from pymc.distributions.transforms import Interval, ZeroSumTransform, _default_transform
+from pymc.distributions.transforms import (
+    CholeskyCorrTransform,
+    CholeskyCovTransform,
+    ZeroSumTransform,
+    _default_transform,
+)
 from pymc.logprob.abstract import _logprob
 from pymc.logprob.rewriting import (
     specialization_ir_rewrites_db,
@@ -82,6 +82,9 @@ from pymc.logprob.rewriting import (
 from pymc.math import kron_diag, kron_dot
 from pymc.pytensorf import normalize_rng_param
 from pymc.util import check_dist_not_registered
+
+sparse = lazy_scipy_module("sparse")
+linalg = lazy_scipy_module("linalg")
 
 __all__ = [
     "CAR",
@@ -320,8 +323,8 @@ class PrecisionMvNormalRV(SymbolicMVNormalUsedInternally):
         size = normalize_size_param(size)
         cov = pt.linalg.inv(tau)
         next_rng, draws = multivariate_normal(
-            mean, cov, size=size, rng=rng, method=method
-        ).owner.outputs
+            mean, cov, size=size, rng=rng, method=method, return_next_rng=True
+        )
         return cls(
             inputs=[rng, size, mean, tau],
             outputs=[next_rng, draws],
@@ -394,9 +397,14 @@ class MvStudentTRV(SymbolicMVNormalUsedInternally):
             size = implicit_size_from_params(nu, mean, scale, ndims_params=cls.ndims_params)
 
         next_rng, mv_draws = multivariate_normal(
-            mean.zeros_like(), scale, size=size, rng=rng, method=method
-        ).owner.outputs
-        next_rng, chi2_draws = chisquare(nu, size=size, rng=next_rng).owner.outputs
+            mean.zeros_like(),
+            scale,
+            size=size,
+            rng=rng,
+            method=method,
+            return_next_rng=True,
+        )
+        next_rng, chi2_draws = chisquare(nu, size=size, rng=next_rng, return_next_rng=True)
         draws = mean + (mv_draws / pt.sqrt(chi2_draws / nu)[..., None])
 
         return cls(
@@ -696,8 +704,8 @@ class DirichletMultinomialRV(SymbolicRandomVariable):
         if rv_size_is_none(size):
             size = implicit_size_from_params(n, a, ndims_params=cls.ndims_params)
 
-        next_rng, p = dirichlet(a, size=size, rng=rng).owner.outputs
-        final_rng, rv = multinomial(n, p, size=size, rng=next_rng).owner.outputs
+        next_rng, p = dirichlet(a, size=size, rng=rng, return_next_rng=True)
+        final_rng, rv = multinomial(n, p, size=size, rng=next_rng, return_next_rng=True)
 
         return cls(
             inputs=[rng, size, n, a],
@@ -897,274 +905,263 @@ class OrderedMultinomial:
         return _OrderedMultinomial.dist(*args, **kwargs)
 
 
-def posdef(AA):
-    try:
-        scipy.linalg.cholesky(AA)
-        return True
-    except scipy.linalg.LinAlgError:
-        return False
+def matrix_pos_def(X, tol=1e-8):
+    L = pt.linalg.cholesky(X)
+    diag = pt.diagonal(L, axis1=-2, axis2=-1)
+    return pt.all(~pt.isnan(diag)) & pt.all(diag > tol)
 
 
-class PosDefMatrix(Op):
-    """Check if input is positive definite. Input should be a square matrix."""
-
-    # Properties attribute
-    __props__ = ()
-
-    # Compulsory if itypes and otypes are not defined
-
-    def make_node(self, x):
-        x = pt.as_tensor_variable(x)
-        assert x.ndim == 2
-        o = TensorType(dtype="bool", shape=[])()
-        return Apply(self, [x], [o])
-
-    # Python implementation:
-    def perform(self, node, inputs, outputs):
-        (x,) = inputs
-        (z,) = outputs
-        try:
-            z[0] = np.array(posdef(x), dtype="bool")
-        except Exception:
-            pm._log.exception("Failed to check if %s positive definite", x)
-            raise
-
-    def infer_shape(self, fgraph, node, shapes):
-        return [[]]
-
-    def grad(self, inp, grads):
-        (x,) = inp
-        return [x.zeros_like(pytensor.config.floatX)]
-
-    def __str__(self):
-        return "MatrixIsPositiveDefinite"
-
-
-matrix_pos_def = PosDefMatrix()
-
-
-class WishartRV(RandomVariable):
+class WishartRV(SymbolicRandomVariable):
     name = "wishart"
-    signature = "(),(p,p)->(p,p)"
-    dtype = "floatX"
+    extended_signature = "[rng],[size],(),(p,p)->[rng],(p,p)"
     _print_name = ("Wishart", "\\operatorname{Wishart}")
 
+    def update(self, node):
+        return {node.inputs[0]: node.outputs[0]}
+
     @classmethod
-    def rng_fn(cls, rng, nu, V, size):
-        scipy_size = size if size else 1  # Default size for Scipy's wishart.rvs is 1
-        # Scipy doesn't accept batch nu or V
-        nu = _squeeze_to_ndim(nu, 0)
-        V = _squeeze_to_ndim(V, 2)
-        result = stats.wishart.rvs(int(nu), V, size=scipy_size, random_state=rng)
-        if size == (1,):
-            return result[np.newaxis, ...]
+    def rv_op(cls, nu, scale_chol, *, size=None, rng=None):
+        nu = pt.as_tensor_variable(nu, dtype="int64")
+        scale_chol = pt.as_tensor_variable(scale_chol)
+        if scale_chol.type.ndim < 2:
+            raise ValueError("Wishart `scale_chol` must have at least 2 dimensions")
+
+        rng = normalize_rng_param(rng)
+        size = normalize_size_param(size)
+
+        p = scale_chol.shape[-1]
+
+        # Effective batch shape for the inner chi-squared / normal samples.
+        # ``scale_chol`` keeps its original shape; the matmul ``scale_chol @ A``
+        # broadcasts naturally. When the user does not pass an explicit ``size``,
+        # the batch shape is inferred from broadcasting ``nu`` (ndim_supp 0) and
+        # ``scale_chol`` (ndim_supp 2).
+        if rv_size_is_none(size):
+            batch_shape = tuple(implicit_size_from_params(nu, scale_chol, ndims_params=[0, 2]))
         else:
-            return result
+            batch_shape = tuple(size)
 
+        # Bartlett decomposition: A is a (..., p, p) lower-triangular matrix
+        # with ``sqrt(chi^2_{nu - k})`` on the k-th diagonal entry and standard
+        # normals strictly below. Then ``L_X = scale_chol @ A`` is the Cholesky
+        # factor of a ``Wishart(nu, scale_chol scale_chol^T)`` draw, and the
+        # SPD draw is ``L_X L_X^T``. ``nu`` may itself be batched, so we expand
+        # a trailing axis for the per-diagonal subtraction.
+        chi_dofs = nu[..., None] - pt.arange(p, dtype="int64")  # (..., p)
+        next_rng, chi_sq = pt.random.chisquare(
+            df=chi_dofs,
+            size=(*batch_shape, p),
+            rng=rng,
+            return_next_rng=True,
+        )
+        chi_diag = pt.sqrt(chi_sq)  # (..., p)
 
-wishart = WishartRV()
+        n_offdiag = (p * (p - 1)) // 2
+        next_rng, offdiag = pt.random.normal(
+            loc=0.0,
+            scale=1.0,
+            size=(*batch_shape, n_offdiag),
+            rng=next_rng,
+            return_next_rng=True,
+        )
+
+        A = pt.zeros((*batch_shape, p, p), dtype=scale_chol.dtype)
+        diag_idx = pt.arange(p)
+        A = A[..., diag_idx, diag_idx].set(chi_diag)
+        tril_idx = pt.tril_indices(p, k=-1)
+        A = A[..., tril_idx[0], tril_idx[1]].set(offdiag)
+
+        L_X = scale_chol @ A
+        X = L_X @ L_X.mT
+
+        return cls(
+            inputs=[rng, size, nu, scale_chol],
+            outputs=[next_rng, X],
+        )(rng, size, nu, scale_chol)
 
 
 class Wishart(Continuous):
     r"""
     Wishart distribution.
 
-    The Wishart distribution is the probability distribution of the
-    maximum-likelihood estimator (MLE) of the precision matrix of a
-    multivariate normal distribution.  If V=1, the distribution is
-    identical to the chi-square distribution with nu degrees of
-    freedom.
+    The Wishart distribution is the probability distribution over symmetric
+    positive-definite (SPD) matrices that arises as the distribution of the sum
+    of outer products of i.i.d. multivariate normal vectors. If
+    :math:`x_i \sim \mathcal{N}(0, V)` are i.i.d. for :math:`i = 1, \dots, \nu`,
+    then :math:`X = \sum_i x_i x_i^\top \sim \mathrm{Wishart}_p(\nu, V)`.
 
     .. math::
 
-       f(X \mid nu, T) =
-           \frac{{\mid T \mid}^{nu/2}{\mid X \mid}^{(nu-k-1)/2}}{2^{nu k/2}
-           \Gamma_p(nu/2)} \exp\left\{ -\frac{1}{2} Tr(TX) \right\}
+       f(X \mid \nu, V) =
+           \frac{|X|^{(\nu-p-1)/2}}{2^{\nu p / 2} |V|^{\nu / 2} \Gamma_p(\nu / 2)}
+           \exp\left\{ -\frac{1}{2} \operatorname{tr}(V^{-1} X) \right\}
 
-    where :math:`k` is the rank of :math:`X`.
+    where :math:`p` is the rank of :math:`X`.
 
     ========  =========================================
-    Support   :math:`X(p x p)` positive definite matrix
-    Mean      :math:`nu V`
-    Variance  :math:`nu (v_{ij}^2 + v_{ii} v_{jj})`
+    Support   :math:`X\,(p \times p)` positive definite matrix
+    Mean      :math:`\nu V`
+    Variance  :math:`\nu (V_{ij}^2 + V_{ii} V_{jj})`
     ========  =========================================
 
     Parameters
     ----------
     nu : tensor_like of int
-        Degrees of freedom, > 0.
-    V : tensor_like of float
-        p x p positive definite matrix.
+        Degrees of freedom, must satisfy ``nu > p - 1``.
+    V : tensor_like of float, optional
+        ``(p, p)`` SPD scale matrix. Mutually exclusive with ``scale_chol``.
+    scale_chol : tensor_like of float, optional
+        ``(p, p)`` lower-triangular Cholesky factor of the scale matrix
+        (``V = scale_chol @ scale_chol.T``). Provide this when you already have the
+        decomposition to avoid a redundant Cholesky inside ``logp``. Mutually
+        exclusive with ``V``.
 
     Notes
     -----
-    This distribution is unusable in a PyMC model. You should instead
-    use LKJCholeskyCov or LKJCorr.
+    The default unconstraining transform is :class:`CholeskyCovTransform`, which
+    parameterizes ``X = L @ L.T`` from a free real vector with ``log L_kk`` on the
+    diagonal.
     """
 
-    rv_op = wishart
+    rv_type = WishartRV
+    rv_op = WishartRV.rv_op
 
     @classmethod
-    def dist(cls, nu, V, *args, **kwargs):
+    def _resolve_scale(cls, V, scale_chol):
+        if (V is None) == (scale_chol is None):
+            raise ValueError("Wishart requires exactly one of `V` or `scale_chol`.")
+        if scale_chol is not None:
+            return pt.as_tensor_variable(scale_chol)
+        return pt.linalg.cholesky(pt.as_tensor_variable(V))
+
+    @classmethod
+    def dist(cls, nu, V=None, *args, scale_chol=None, **kwargs):
         nu = pt.as_tensor_variable(nu, dtype=int)
-        V = pt.as_tensor_variable(V)
+        scale_chol = cls._resolve_scale(V, scale_chol)
+        return super().dist([nu, scale_chol], *args, **kwargs)
 
-        warnings.warn(
-            "The Wishart distribution can currently not be used "
-            "for MCMC sampling. The probability of sampling a "
-            "symmetric matrix is basically zero. Instead, please "
-            "use LKJCholeskyCov or LKJCorr. For more information "
-            "on the issues surrounding the Wishart see here: "
-            "https://github.com/pymc-devs/pymc/issues/538.",
-            UserWarning,
-        )
+    def support_point(rv, size, nu, scale_chol):
+        # Mean of Wishart(nu, V) is nu * V = nu * (L_V @ L_V.T). Always in the
+        # SPD support for valid nu > p - 1, so it's a safe initial point.
+        V = scale_chol @ scale_chol.mT
+        support_point = nu.astype(V.dtype) * V
+        if not rv_size_is_none(size):
+            p = scale_chol.shape[-1]
+            support_point = pt.full(pt.concatenate([size, [p, p]]), support_point)
+        return support_point
 
-        # mean = nu * V
-        # p = V.shape[0]
-        # mode = pt.switch(pt.ge(nu, p + 1), (nu - p - 1) * V, np.nan)
-        return super().dist([nu, V], *args, **kwargs)
-
-    def logp(X, nu, V):
+    def logp(X, nu, scale_chol):
         """
-        Calculate logp of Wishart distribution at specified value.
+        Log-density of the Wishart distribution at the SPD value ``X``.
 
-        Parameters
-        ----------
-        X: numeric
-            Value for which log-probability is calculated.
-
-        Returns
-        -------
-        TensorVariable
+        Implemented in Cholesky form: when the value comes from the unconstraining
+        ``CholeskyCovTransform``, ``cholesky(L @ L.T)`` rewrites to ``L`` and no
+        decomposition runs at runtime.
         """
-        p = V.shape[0]
+        p = X.shape[-1]
 
-        IVI = det(V)
-        IXI = det(X)
+        L_X = pt.linalg.cholesky(X)
+        log_det_X = 2 * pt.sum(pt.log(pt.diagonal(L_X, axis1=-2, axis2=-1)), axis=-1)
+        log_det_V = 2 * pt.sum(pt.log(pt.diagonal(scale_chol, axis1=-2, axis2=-1)), axis=-1)
+        # tr(V^{-1} X) = ||L_V^{-1} L_X||_F^2  via a triangular solve.
+        M = solve_triangular(scale_chol, L_X, lower=True)
+        tr_term = pt.sum(M**2, axis=(-2, -1))
 
         return check_parameters(
             (
-                (nu - p - 1) * pt.log(IXI)
-                - trace(matrix_inverse(V).dot(X))
+                (nu - p - 1) * log_det_X
+                - tr_term
                 - nu * p * pt.log(2)
-                - nu * pt.log(IVI)
+                - nu * log_det_V
                 - 2 * multigammaln(nu / 2.0, p)
             )
             / 2,
-            matrix_pos_def(X),
-            pt.eq(X, X.T),
             nu > (p - 1),
+            msg="nu > p - 1",
         )
+
+
+@_default_transform.register(WishartRV)
+def wishart_default_transform(op, rv):
+    _, _, _, scale_chol = rv.owner.inputs
+    n = scale_chol.shape[-1]
+    return CholeskyCovTransform(n=n)
 
 
 def WishartBartlett(name, S, nu, is_cholesky=False, return_cholesky=False, initval=None):
     r"""
-    Bartlett decomposition of the Wishart distribution.
+    Bartlett-decomposed Wishart prior. **Deprecated**: use :class:`Wishart` directly.
 
-    As the Wishart distribution requires the matrix to be symmetric positive
-    semi-definite, it is impossible for MCMC to ever propose acceptable matrices.
-
-    Instead, we can use the Barlett decomposition which samples a lower
-    diagonal matrix. Specifically:
-
-    .. math::
-        \text{If} L \sim \begin{pmatrix}
-        \sqrt{c_1} & 0 & 0 \\
-        z_{21} & \sqrt{c_2} & 0 \\
-        z_{31} & z_{32} & \sqrt{c_3}
-        \end{pmatrix}
-
-        \text{with} c_i \sim \chi^2(n-i+1) \text{ and } n_{ij} \sim \mathcal{N}(0, 1), \text{then} \\
-        L \times A \times A.T \times L.T \sim \text{Wishart}(L \times L.T, \nu)
-
-    See http://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
-    for more information.
+    This used to be the only MCMC-usable Wishart in PyMC, since the legacy
+    :class:`Wishart` had no unconstraining transform. The new :class:`Wishart`
+    is parameterized through its Cholesky factor with a default
+    :class:`CholeskyCovTransform`, so this helper is no longer needed and is
+    a thin shim around it for backward compatibility.
 
     Parameters
     ----------
     S : ndarray
-        p x p positive definite matrix
-        Or:
-        p x p lower-triangular matrix that is the Cholesky factor
-        of the covariance matrix.
+        ``(p, p)`` positive-definite scale matrix, or its lower-triangular
+        Cholesky factor when ``is_cholesky=True``.
     nu : tensor_like of int
-        Degrees of freedom, > dim(S).
-    is_cholesky : bool, default=False
-        Input matrix S is already Cholesky decomposed as S.T * S
-    return_cholesky : bool, default=False
-        Only return the Cholesky decomposed matrix.
-    initval : ndarray
-        p x p positive definite matrix used to initialize
-
-    Notes
-    -----
-    This is not a standard Distribution class but follows a similar
-    interface. Besides the Wishart distribution, it will add RVs
-    name_c and name_z to your model which make up the matrix.
-
-    This distribution is usually a bad idea to use as a prior for multivariate
-    normal. You should instead use LKJCholeskyCov or LKJCorr.
+        Degrees of freedom, > ``dim(S) - 1``.
+    is_cholesky : bool, default False
+        If True, ``S`` is interpreted as the Cholesky factor of the scale matrix
+        (mapped to :class:`Wishart`'s ``scale_chol`` argument).
+    return_cholesky : bool, default False
+        If True, return the Cholesky factor of the Wishart draw rather than the
+        SPD matrix itself.
     """
-    L = S if is_cholesky else scipy.linalg.cholesky(S)
-    diag_idx = np.diag_indices_from(S)
-    tril_idx = np.tril_indices_from(S, k=-1)
-    n_diag = len(diag_idx[0])
-    n_tril = len(tril_idx[0])
-
-    if initval is not None:
-        # Inverse transform
-        initval = np.dot(np.dot(np.linalg.inv(L), initval), np.linalg.inv(L.T))
-        initval = scipy.linalg.cholesky(initval, lower=True)
-        diag_testval = initval[diag_idx] ** 2
-        tril_testval = initval[tril_idx]
-    else:
-        diag_testval = None
-        tril_testval = None
-
-    c = pt.sqrt(
-        ChiSquared(f"{name}_c", nu - np.arange(2, 2 + n_diag), shape=n_diag, initval=diag_testval)
+    warnings.warn(
+        "WishartBartlett is deprecated and will be removed in a future release. "
+        "Use pm.Wishart directly. For `is_cholesky=True`, pass `scale_chol=S`. "
+        "For `return_cholesky=True`, wrap pm.Wishart in pt.linalg.cholesky as a "
+        "Deterministic.",
+        FutureWarning,
+        stacklevel=2,
     )
-    pm._log.info(f"Added new variable {name}_c to model diagonal of Wishart.")
-    z = Normal(f"{name}_z", 0.0, 1.0, shape=n_tril, initval=tril_testval)
-    pm._log.info(f"Added new variable {name}_z to model off-diagonals of Wishart.")
-    # Construct A matrix
-    A = pt.zeros(S.shape, dtype=np.float32)
-    A = pt.set_subtensor(A[diag_idx], c)
-    A = pt.set_subtensor(A[tril_idx], z)
-
-    # L * A * A.T * L.T ~ Wishart(L*L.T, nu)
+    if initval is not None:
+        # The legacy implementation seeded two internal RVs (diagonal `_c` and
+        # off-diagonal `_z` Bartlett components), so the old `initval` has no
+        # faithful translation to the new SPD-valued Wishart. Forcing the user
+        # to pass an initval on `pm.Wishart` directly is safer than silently
+        # re-interpreting the value.
+        raise NotImplementedError(
+            "`initval` is no longer supported in the WishartBartlett shim. "
+            "Pass `initval` (as an SPD matrix) to `pm.Wishart` directly."
+        )
+    scale_kwargs = {"scale_chol": S} if is_cholesky else {"V": S}
     if return_cholesky:
-        return pm.Deterministic(name, pt.dot(L, A))
-    else:
-        return pm.Deterministic(name, pt.dot(pt.dot(pt.dot(L, A), A.T), L.T))
+        wishart_rv = Wishart(f"_{name}_wishart", nu=nu, **scale_kwargs)
+        return pm.Deterministic(name, pt.linalg.cholesky(wishart_rv))
+    return Wishart(name, nu=nu, **scale_kwargs)
 
 
 def _lkj_normalizing_constant(eta, n):
-    # TODO: This is mixing python branching with the potentially symbolic n and eta variables
-    if not isinstance(eta, int | float):
-        raise NotImplementedError("eta must be an int or float")
-    if not isinstance(n, int):
-        raise NotImplementedError("n must be an integer")
-    if eta == 1:
-        result = gammaln(2.0 * pt.arange(1, int((n - 1) / 2) + 1)).sum()
-        if n % 2 == 1:
-            result += (
+    result_1 = gammaln(2.0 * pt.arange(1, ((n - 1) / 2) + 1)).sum()
+    result_2 = -(n - 1) * gammaln(eta + 0.5 * (n - 1))
+    k = pt.arange(1, n)
+
+    return pt.switch(
+        pt.eq(eta, 1.0),
+        pt.switch(
+            pt.eq(n % 2, 1.0),
+            result_1
+            + (
                 0.25 * (n**2 - 1) * pt.log(np.pi)
                 - 0.25 * (n - 1) ** 2 * pt.log(2.0)
-                - (n - 1) * gammaln(int((n + 1) / 2))
-            )
-        else:
-            result += (
+                - (n - 1) * gammaln((n + 1) / 2)
+            ),
+            result_1
+            + (
                 0.25 * n * (n - 2) * pt.log(np.pi)
                 + 0.25 * (3 * n**2 - 4 * n) * pt.log(2.0)
                 + n * gammaln(n / 2)
                 - (n - 1) * gammaln(n)
-            )
-    else:
-        result = -(n - 1) * gammaln(eta + 0.5 * (n - 1))
-        k = pt.arange(1, n)
-        result += (0.5 * k * pt.log(np.pi) + gammaln(eta + 0.5 * (n - 1 - k))).sum()
-    return result
+            ),
+        ),
+        result_2 + (0.5 * k * pt.log(np.pi) + gammaln(eta + 0.5 * (n - 1 - k))).sum(),
+    )
 
 
 # _LKJCholeskyCovBaseRV requires a properly shaped `D`, which means the variable can't
@@ -1174,11 +1171,11 @@ class _LKJCholeskyCovRV(SymbolicRandomVariable):
     _print_name = ("_lkjcholeskycov", "\\operatorname{_lkjcholeskycov}")
 
     @classmethod
-    def rv_op(cls, n, eta, sd_dist, *, size=None):
+    def rv_op(cls, n, eta, sd_dist, *, size=None, rng=None):
         # We don't allow passing `rng` because we don't fully control the rng of the components!
         n = pt.as_tensor(n, dtype="int64", ndim=0)
         eta = pt.as_tensor_variable(eta, ndim=0)
-        rng = pytensor.shared(np.random.default_rng())
+        rng = normalize_rng_param(rng)
         size = normalize_size_param(size)
 
         # We resize the sd_dist automatically so that it has (size x n) independent
@@ -1202,15 +1199,11 @@ class _LKJCholeskyCovRV(SymbolicRandomVariable):
         D = sd_dist.type(name="D")  # Make sd_dist opaque to OpFromGraph
         size = D.shape[:-1]
 
-        # We flatten the size to make operations easier, and then rebuild it
-        flat_size = pt.prod(size, dtype="int64")
-
-        next_rng, C = LKJCorrRV._random_corr_matrix(rng=rng, n=n, eta=eta, flat_size=flat_size)
-        D_matrix = D.reshape((flat_size, n))
-        C *= D_matrix[..., :, None] * D_matrix[..., None, :]
+        final_rng, C = LKJCorrRV._random_corr_matrix(n=n, eta=eta, size=size, rng=rng)
+        C = D[..., :, None] * C
 
         tril_idx = pt.tril_indices(n, k=0)
-        samples = pt.linalg.cholesky(C)[..., tril_idx[0], tril_idx[1]]
+        samples = C[..., tril_idx[0], tril_idx[1]]
 
         if rv_size_is_none(size):
             samples = samples[0]
@@ -1220,7 +1213,7 @@ class _LKJCholeskyCovRV(SymbolicRandomVariable):
 
         return _LKJCholeskyCovRV(
             inputs=[rng, n, eta, D],
-            outputs=[next_rng, samples],
+            outputs=[final_rng, samples],
         )(rng, n, eta, sd_dist)
 
     def update(self, node):
@@ -1252,7 +1245,7 @@ class _LKJCholeskyCov(Distribution):
 
 @_change_dist_size.register(_LKJCholeskyCovRV)
 def change_LKJCholeksyCovRV_size(op, dist, new_size, expand=False):
-    n, eta, sd_dist = dist.owner.inputs[1:]
+    _, n, eta, sd_dist = dist.owner.inputs
 
     if expand:
         old_size = sd_dist.shape[:-1]
@@ -1377,7 +1370,7 @@ class LKJCholeskyCov:
 
     The unpacked Cholesky covariance matrix is automatically computed and returned when
     you specify `compute_corr=True` in `pm.LKJCholeskyCov` (see example below).
-    Otherwise, you can use `pm.expand_packed_triangular(packed_cov, lower=True)`
+    Otherwise, you can use `pm.math.expand_packed_triangular(packed_cov, lower=True)`
     to convert the packed Cholesky matrix to a regular two-dimensional array.
 
     Examples
@@ -1396,7 +1389,7 @@ class LKJCholeskyCov:
             # packed_chol = pm.LKJCholeskyCov(
                 'chol_cov', eta=4, n=10, sd_dist=sd_dist, compute_corr=False
             )
-            # chol = pm.expand_packed_triangular(10, packed_chol, lower=True)
+            # chol = pm.math.expand_packed_triangular(10, packed_chol, lower=True)
 
             # Define a new MvNormal with the given covariance
             vals = pm.MvNormal('vals', mu=np.zeros(10), chol=chol, shape=10)
@@ -1481,7 +1474,7 @@ class LKJCholeskyCov:
 
     @classmethod
     def helper_deterministics(cls, n, packed_chol):
-        chol = pm.expand_packed_triangular(n, packed_chol, lower=True)
+        chol = pm.math.expand_packed_triangular(n, packed_chol, lower=True)
         # compute covariance matrix
         cov = pt.dot(chol, chol.T)
         # extract standard deviations and rho
@@ -1493,7 +1486,7 @@ class LKJCholeskyCov:
 
 class LKJCorrRV(SymbolicRandomVariable):
     name = "lkjcorr"
-    extended_signature = "[rng],[size],(),()->[rng],(n)"
+    extended_signature = "[rng],[size],(),()->[rng],(n,n)"
     _print_name = ("LKJCorrRV", "\\operatorname{LKJCorrRV}")
 
     def make_node(self, rng, size, n, eta):
@@ -1507,142 +1500,82 @@ class LKJCorrRV(SymbolicRandomVariable):
 
         return super().make_node(rng, size, n, eta)
 
+    def update(self, node):
+        return {node.inputs[0]: node.outputs[0]}
+
     @classmethod
-    def rv_op(cls, n: int, eta, *, rng=None, size=None):
-        # We flatten the size to make operations easier, and then rebuild it
+    def rv_op(cls, n: int, eta, *, size=None, rng=None):
         n = pt.as_tensor(n, ndim=0, dtype=int)
         eta = pt.as_tensor(eta, ndim=0)
         rng = normalize_rng_param(rng)
+
         size = normalize_size_param(size)
+        final_rng, C = cls._random_corr_matrix(rng=rng, n=n, eta=eta, size=size)
 
-        if rv_size_is_none(size):
-            flat_size = 1
-        else:
-            flat_size = pt.prod(size, dtype="int64")
-
-        next_rng, C = cls._random_corr_matrix(rng=rng, n=n, eta=eta, flat_size=flat_size)
-
-        triu_idx = pt.triu_indices(n, k=1)
-        samples = C[..., triu_idx[0], triu_idx[1]]
-
-        if rv_size_is_none(size):
-            samples = samples[0]
-        else:
-            dist_shape = (n * (n - 1)) // 2
-            samples = pt.reshape(samples, (*size, dist_shape))
-
-        return cls(
-            inputs=[rng, size, n, eta],
-            outputs=[next_rng, samples],
-        )(rng, size, n, eta)
-
-        return samples
+        return cls(inputs=[rng, size, n, eta], outputs=[final_rng, C])(rng, size, n, eta)
 
     @classmethod
     def _random_corr_matrix(
-        cls, rng: Variable, n: int, eta: TensorVariable, flat_size: TensorVariable
+        cls, n: int, eta: TensorVariable, size: TensorVariable, rng
     ) -> tuple[Variable, TensorVariable]:
-        # original implementation in R see:
-        # https://github.com/rmcelreath/rethinking/blob/master/R/distributions.r
+        size = () if rv_size_is_none(size) else size
 
-        beta = eta - 1.0 + n / 2.0
-        next_rng, beta_rvs = pt.random.beta(
-            alpha=beta, beta=beta, size=flat_size, rng=rng
-        ).owner.outputs
-        r12 = 2.0 * beta_rvs - 1.0
-        P = pt.full((flat_size, n, n), pt.eye(n))
-        P = P[..., 0, 1].set(r12)
-        P = P[..., 1, 1].set(pt.sqrt(1.0 - r12**2))
-        n = get_underlying_scalar_constant_value(n)
-        for mp1 in range(2, n):
-            beta -= 0.5
-            next_rng, y = pt.random.beta(
-                alpha=mp1 / 2.0, beta=beta, size=flat_size, rng=next_rng
-            ).owner.outputs
-            next_rng, z = pt.random.normal(
-                loc=0, scale=1, size=(flat_size, mp1), rng=next_rng
-            ).owner.outputs
-            z = z / pt.sqrt(pt.einsum("ij,ij->i", z, z.copy()))[..., np.newaxis]
-            P = P[..., 0:mp1, mp1].set(pt.sqrt(y[..., np.newaxis]) * z)
-            P = P[..., mp1, mp1].set(pt.sqrt(1.0 - y))
-        C = pt.einsum("...ji,...jk->...ik", P, P.copy())
-        return next_rng, C
+        beta0 = eta - 1.0 + n / 2.0
 
-
-class MultivariateIntervalTransform(Interval):
-    name = "interval"
-
-    def log_jac_det(self, *args):
-        return super().log_jac_det(*args).sum(-1)
-
-
-# Returns list of upper triangular values
-class _LKJCorr(BoundedContinuous):
-    rv_type = LKJCorrRV
-    rv_op = LKJCorrRV.rv_op
-
-    @classmethod
-    def dist(cls, n, eta, **kwargs):
-        n = pt.as_tensor_variable(n).astype(int)
-        eta = pt.as_tensor_variable(eta)
-        return super().dist([n, eta], **kwargs)
-
-    def support_point(rv, *args):
-        return pt.zeros_like(rv)
-
-    def logp(value, n, eta):
-        """
-        Calculate logp of LKJ distribution at specified value.
-
-        Parameters
-        ----------
-        value: numeric
-            Value for which log-probability is calculated.
-
-        Returns
-        -------
-        TensorVariable
-        """
-        if value.ndim > 1:
-            raise NotImplementedError("LKJCorr logp is only implemented for vector values (ndim=1)")
-
-        # TODO: PyTensor does not have a `triu_indices`, so we can only work with constant
-        #  n (or else find a different expression)
-        try:
-            n = int(get_underlying_scalar_constant_value(n))
-        except NotScalarConstantError:
-            raise NotImplementedError("logp only implemented for constant `n`")
-
-        shape = n * (n - 1) // 2
-        tri_index = np.zeros((n, n), dtype="int32")
-        tri_index[np.triu_indices(n, k=1)] = np.arange(shape)
-        tri_index[np.triu_indices(n, k=1)[::-1]] = np.arange(shape)
-
-        value = pt.take(value, tri_index)
-        value = pt.fill_diagonal(value, 1)
-
-        # TODO: _lkj_normalizing_constant currently requires `eta` and `n` to be constants
-        try:
-            eta = float(get_underlying_scalar_constant_value(eta))
-        except NotScalarConstantError:
-            raise NotImplementedError("logp only implemented for constant `eta`")
-        result = _lkj_normalizing_constant(eta, n)
-        result += (eta - 1.0) * pt.log(det(value))
-        return check_parameters(
-            result,
-            value >= -1,
-            value <= 1,
-            matrix_pos_def(value),
-            eta > 0,
+        next_rng, y0 = pt.random.beta(
+            alpha=beta0, beta=beta0, size=size, rng=rng, return_next_rng=True
         )
 
+        r12 = 2.0 * y0 - 1.0
 
-@_default_transform.register(_LKJCorr)
-def lkjcorr_default_transform(op, rv):
-    return MultivariateIntervalTransform(-1.0, 1.0)
+        P0 = pt.full((*size, n, n), pt.eye(n))
+        P0 = P0[..., 0, 1].set(r12)
+        P0 = P0[..., 1, 1].set(pt.sqrt(1.0 - r12**2))
+
+        def step(mp1, beta, P, prev_rng):
+            beta_next = beta - 0.5
+
+            middle_rng, y = pt.random.beta(
+                alpha=mp1 / 2.0,
+                beta=beta,
+                size=size,
+                rng=prev_rng,
+                return_next_rng=True,
+            )
+
+            final_rng, z = pt.random.normal(
+                loc=0,
+                scale=1,
+                size=(*size, mp1),
+                rng=middle_rng,
+                return_next_rng=True,
+            )
+
+            ein_sig_z = "i, i->" if z.ndim == 1 else "...ij, ...ij->...i"
+
+            z = z / pt.sqrt(pt.einsum(ein_sig_z, z, z.copy()))[..., None]
+            P = P[..., 0:mp1, mp1].set(pt.sqrt(y[..., None]) * z)
+            P = P[..., mp1, mp1].set(pt.sqrt(1.0 - y))
+
+            return beta_next, P, final_rng
+
+        _, P_seq, final_rng = pytensor.scan(
+            fn=step,
+            sequences=[pt.arange(2, n)],
+            outputs_info=[beta0, P0, next_rng],
+            strict=True,
+            return_updates=False,
+        )
+
+        # This is the concatenation of P_seq and the initial P0 (scan slices it away by default to be "helpful")
+        # Select the final element along the scan axis (this is the result)
+        P = P_seq.owner.inputs[0][-1]
+        # C = pt.einsum("...ji,...jk->...ik", P, P.copy())
+
+        return final_rng, P.mT
 
 
-class LKJCorr:
+class LKJCorr(BoundedContinuous):
     r"""
     The LKJ (Lewandowski, Kurowicka and Joe) distribution.
 
@@ -1662,10 +1595,6 @@ class LKJCorr:
         The shape parameter (eta > 0) of the LKJ distribution. eta = 1
         implies a uniform distribution of the correlation matrices;
         larger values put more weight on matrices with few correlations.
-    return_matrix : bool, default=False
-        If True, returns the full correlation matrix.
-        False only returns the values of the upper triangular matrix excluding
-        diagonal in a single vector of length n(n-1)/2 for memory efficiency
 
     Notes
     -----
@@ -1680,7 +1609,7 @@ class LKJCorr:
             # Define the vector of fixed standard deviations
             sds = 3 * np.ones(10)
 
-            corr = pm.LKJCorr("corr", eta=4, n=10, return_matrix=True)
+            corr = pm.LKJCorr("corr", eta=4, n=10)
 
             # Define a new MvNormal with the given correlation matrix
             vals = sds * pm.MvNormal("vals", mu=np.zeros(10), cov=corr, shape=10)
@@ -1689,10 +1618,6 @@ class LKJCorr:
             vals_raw = pm.Normal("vals_raw", shape=10)
             chol = pt.linalg.cholesky(corr)
             vals = sds * pt.dot(chol, vals_raw)
-
-            # The matrix is internally still sampled as a upper triangular vector
-            # If you want access to it in matrix form in the trace, add
-            pm.Deterministic("corr_mat", corr)
 
 
     References
@@ -1703,26 +1628,57 @@ class LKJCorr:
         100(9), pp.1989-2001.
     """
 
-    def __new__(cls, name, n, eta, *, return_matrix=False, **kwargs):
-        c_vec = _LKJCorr(name, eta=eta, n=n, **kwargs)
-        if not return_matrix:
-            return c_vec
-        else:
-            return cls.vec_to_corr_mat(c_vec, n)
+    rv_type = LKJCorrRV
+    rv_op = LKJCorrRV.rv_op
 
     @classmethod
-    def dist(cls, n, eta, *, return_matrix=False, **kwargs):
-        c_vec = _LKJCorr.dist(eta=eta, n=n, **kwargs)
-        if not return_matrix:
-            return c_vec
-        else:
-            return cls.vec_to_corr_mat(c_vec, n)
+    def dist(cls, n, eta, **kwargs):
+        n = pt.as_tensor_variable(n).astype(int)
+        eta = pt.as_tensor_variable(eta)
+        return super().dist([n, eta], **kwargs)
 
-    @classmethod
-    def vec_to_corr_mat(cls, vec, n):
-        tri = pt.zeros(pt.concatenate([vec.shape[:-1], (n, n)]))
-        tri = pt.subtensor.set_subtensor(tri[(..., *np.triu_indices(n, 1))], vec)
-        return tri + pt.moveaxis(tri, -2, -1) + pt.diag(pt.ones(n))
+    @staticmethod
+    def support_point(rv: TensorVariable, *args):
+        return pt.broadcast_to(pt.eye(rv.shape[-1]), rv.shape)
+
+    @staticmethod
+    def logp(value: TensorVariable, n, eta):
+        """
+        Calculate the logp of a correlation matrix under an LKJ distribution.
+
+        Parameters
+        ----------
+        value: numeric
+            Value for which log-probability is calculated.
+
+        Returns
+        -------
+        TensorVariable
+        """
+        # n has to be a constant, otherwise the shape of the RV would not be fixed between draws.
+        try:
+            n = int(get_underlying_scalar_constant_value(n))
+        except NotScalarConstantError:
+            raise NotImplementedError("logp only implemented for constant `n`")
+
+        result = _lkj_normalizing_constant(eta, n) + (eta - 1.0) * 2 * pt.diagonal(
+            value, axis1=-2, axis2=-1
+        ).log().sum(axis=-1)
+
+        row_norms = pt.sum(value**2, axis=-1)
+
+        return check_parameters(
+            result,
+            eta > 0,
+            pt.isclose(row_norms, 1.0),
+            msg="Invalid values passed to LKJCorr logp: value is not a valid correlationm matrix or eta <= 0.",
+        )
+
+
+@_default_transform.register(LKJCorr)
+def lkjcorr_default_transform(op, rv):
+    rng, shape, n, eta, *_ = rv.owner.inputs
+    return CholeskyCorrTransform(n=n, upper=False)
 
 
 class MatrixNormalRV(RandomVariable):
@@ -1946,8 +1902,8 @@ class KroneckerNormalRV(SymbolicMVNormalUsedInternally):
         cov = reduce(pt.linalg.kron, covs)
         cov = cov + sigma**2 * pt.eye(cov.shape[-2])
         next_rng, draws = multivariate_normal(
-            mean=mu, cov=cov, size=size, rng=rng, method=method
-        ).owner.outputs
+            mean=mu, cov=cov, size=size, rng=rng, method=method, return_next_rng=True
+        )
 
         covs_sig = ",".join(f"(a{i},b{i})" for i in range(len(covs)))
         extended_signature = f"[rng],[size],(m),(),{covs_sig}->[rng],(m)"
@@ -2164,17 +2120,17 @@ class CARRV(RandomVariable):
         #  we will have some expensive dense_from_sparse and sparse_from_dense
         #  operations that we should avoid. See https://github.com/pymc-devs/pytensor/issues/839
         W = _squeeze_to_ndim(W, 2)
-        if not scipy.sparse.issparse(W):
-            W = scipy.sparse.csr_matrix(W)
-        tau = scipy.sparse.csr_matrix(_squeeze_to_ndim(tau, 0))
-        alpha = scipy.sparse.csr_matrix(_squeeze_to_ndim(alpha, 0))
+        if not sparse.issparse(W):
+            W = sparse.csr_matrix(W)
+        tau = sparse.csr_matrix(_squeeze_to_ndim(tau, 0))
+        alpha = sparse.csr_matrix(_squeeze_to_ndim(alpha, 0))
 
         s = np.asarray(W.sum(axis=0))[0]
-        D = scipy.sparse.diags(s)
+        D = sparse.diags(s)
 
         Q = tau.multiply(D - alpha.multiply(W))
 
-        perm_array = scipy.sparse.csgraph.reverse_cuthill_mckee(Q, symmetric_mode=True)
+        perm_array = sparse.csgraph.reverse_cuthill_mckee(Q, symmetric_mode=True)
         inv_perm = np.argsort(perm_array)
 
         Q = Q[perm_array, :][:, perm_array]
@@ -2185,7 +2141,7 @@ class CARRV(RandomVariable):
             Qb = np.vstack((np.pad(Q.diagonal(u), (u, 0), constant_values=(0, 0)), Qb))
             u += 1
 
-        L = scipy.linalg.cholesky_banded(Qb, lower=False)
+        L = linalg.cholesky_banded(Qb, lower=False)
 
         size = tuple(size or ())
         if size:
@@ -2193,7 +2149,7 @@ class CARRV(RandomVariable):
         z = rng.normal(size=mu.shape)
         samples = np.empty(z.shape)
         for idx in np.ndindex(mu.shape[:-1]):
-            samples[idx] = scipy.linalg.cho_solve_banded((L, False), z[idx]) + mu[idx][perm_array]
+            samples[idx] = linalg.cho_solve_banded((L, False), z[idx]) + mu[idx][perm_array]
         samples = samples[..., inv_perm]
         return samples
 
@@ -2295,6 +2251,9 @@ class CAR(Continuous):
                 W = W.owner.inputs[0]
             else:
                 W = pt.squeeze(W, axis=tuple(range(extra_dims)))
+
+        from pytensor.sparse.basic import DenseFromSparse
+        from pytensor.sparse.math import sp_sum
 
         if W.owner and isinstance(W.owner.op, DenseFromSparse):
             W = W.owner.inputs[0]
@@ -2672,7 +2631,9 @@ class ZeroSumNormalRV(SymbolicRandomVariable):
             size = sigma.shape[:-n_zerosum_axes]
 
         shape = tuple(size) + tuple(support_shape)
-        next_rng, normal_dist = pm.Normal.dist(sigma=sigma, shape=shape, rng=rng).owner.outputs
+        next_rng, normal_dist = pm.Normal.dist(
+            sigma=sigma, shape=shape, rng=rng, return_next_rng=True
+        )
 
         # Zerosum-normaling is achieved by subtracting the mean along the given n_zerosum_axes
         zerosum_rv = normal_dist

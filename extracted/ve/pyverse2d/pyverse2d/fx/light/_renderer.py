@@ -10,10 +10,12 @@ from ._bloom import Bloom
 from ._tint import Tint
 from ._vignette import Vignette
 
-import ctypes
-import math
 import pyglet.gl as gl
 from pyglet.graphics.shader import Shader, ShaderProgram
+import ctypes
+
+import math
+from typing import ClassVar
 
 # ======================================== CONSTANTS ========================================
 _BUCKETS = (8, 16, 32, 64, 128)
@@ -147,19 +149,11 @@ vec3 tonemap(vec3 ambient, vec3 light_accum, float exposure) {
 }
 """
 
-
 def _build_frag_points(max_lights: int) -> str:
-    """Génère le fragment shader GLSL pour un rendu de lumières ponctuelles uniquement.
-
-    Accumulation additive des contributions. u_exposure ne scale que les lumières
-    dynamiques — l'ambient reste indépendant. Tonemapping Reinhard sur la luminance
-    perceptuelle pour préserver la teinte. Correction gamma en sortie.
+    """Génère le fragment shader GLSL pour un rendu de lumières ponctuelles uniquement
 
     Args:
-        max_lights: Taille du tableau GLSL (doit correspondre au bucket actif).
-
-    Returns:
-        Le source GLSL du fragment shader sous forme de chaîne.
+        max_lights: Taille du tableau GLSL
     """
     return f"""
 #version 330 core
@@ -201,17 +195,10 @@ void main() {{
 
 
 def _build_frag_cones(max_lights: int) -> str:
-    """Génère le fragment shader GLSL pour un rendu de lumières coniques uniquement.
-
-    Combine falloff radial (via LUT atlas) et falloff angulaire (smoothstep entre
-    inner/outer angle). Accumulation additive, tonemapping Reinhard sur luminance,
-    correction gamma en sortie.
+    """Génère le fragment shader GLSL pour un rendu de lumières coniques uniquement
 
     Args:
-        max_lights: Taille du tableau GLSL (doit correspondre au bucket actif).
-
-    Returns:
-        Le source GLSL du fragment shader sous forme de chaîne.
+        max_lights: Taille du tableau GLSL (doit correspondre au bucket actif)
     """
     return f"""
 #version 330 core
@@ -270,21 +257,12 @@ void main() {{
 }}
 """
 
-
 def _build_frag_points_cones(max_points: int, max_cones: int) -> str:
     """Génère le fragment shader GLSL pour un rendu mixte points + cônes.
 
-    Chaque type de lumière dispose de son propre LUT atlas (u_point_lut sur TEXTURE1,
-    u_cone_lut sur TEXTURE2). Les deux contributions sont accumulées additivement dans
-    un accumulateur commun avant le tonemapping Reinhard sur la luminance et la
-    correction gamma.
-
     Args:
-        max_points: Taille du tableau GLSL pour les point lights (bucket actif).
-        max_cones:  Taille du tableau GLSL pour les cone lights (bucket actif).
-
-    Returns:
-        Le source GLSL du fragment shader sous forme de chaîne.
+        max_points: Taille du tableau GLSL pour les point lights
+        max_cones: Taille du tableau GLSL pour les cone lights
     """
     return f"""
 #version 330 core
@@ -364,24 +342,25 @@ class LightRenderer:
 
     __slots__ = ("_active_points", "_active_cones")
 
-    _ambient_only_program: ShaderProgram = None
-    _bloom_extract_program: ShaderProgram = None
-    _bloom_blur_program: ShaderProgram = None
-    _bloom_blend_program: ShaderProgram = None
-    _bloom_fbo: Framebuffer = None
-    _tint_program: ShaderProgram = None
-    _vignette_program: ShaderProgram = None
-    _point_programs: dict[int, ShaderProgram] = {}
-    _cone_programs: dict[int, ShaderProgram] = {}
-    _point_cone_programs: dict[tuple[int, int], ShaderProgram] = {}
+    _ambient_only_program: ClassVar[ShaderProgram] = None
+    _bloom_extract_program: ClassVar[ShaderProgram] = None
+    _bloom_blur_program: ClassVar[ShaderProgram] = None
+    _bloom_blend_program: ClassVar[ShaderProgram] = None
+    _bloom_fbo: ClassVar[Framebuffer] = None
+    _tint_program: ClassVar[ShaderProgram] = None
+    _vignette_program: ClassVar[ShaderProgram] = None
+    _point_programs: ClassVar[dict[int, ShaderProgram]] = {}
+    _cone_programs: ClassVar[dict[int, ShaderProgram]] = {}
+    _point_cone_programs: ClassVar[dict[tuple[int, int], ShaderProgram]] = {}
 
-    _lut_cache: dict[tuple, gl.GLuint] = {}
+    _lut_cache: ClassVar[dict[tuple, gl.GLuint]] = {}
 
-    _vec2_pool:  dict[tuple[int, int], list] = {}
-    _vec3_pool:  dict[tuple[int, int], list] = {}
-    _float_pool: dict[tuple[int, int], list] = {}
+    _vec2_pool:  ClassVar[dict[tuple[int, int], list]] = {}
+    _vec3_pool:  ClassVar[dict[tuple[int, int], list]] = {}
+    _float_pool: ClassVar[dict[tuple[int, int], list]] = {}
 
     def __init__(self):
+        # Contexte courant
         self._active_points: list[PointLight] = []
         self._active_cones: list[ConeLight] = []
 
@@ -395,24 +374,28 @@ class LightRenderer:
     
     @classmethod
     def _get_bloom_extract_program(cls) -> ShaderProgram:
+        """Retourne (en le créant si nécessaire) le shader de saturation"""
         if cls._bloom_extract_program is None:
             cls._bloom_extract_program = ShaderProgram(Shader(_VERT, 'vertex'), Shader(_FRAG_BLOOM_EXTRACT, 'fragment'))
         return cls._bloom_extract_program
 
     @classmethod
     def _get_bloom_blur_program(cls) -> ShaderProgram:
+        """Retourne (en le créant si nécessaire) le shader de flou"""
         if cls._bloom_blur_program is None:
             cls._bloom_blur_program = ShaderProgram(Shader(_VERT, 'vertex'), Shader(_FRAG_BLOOM_BLUR, 'fragment'))
         return cls._bloom_blur_program
 
     @classmethod
     def _get_bloom_blend_program(cls) -> ShaderProgram:
+        """Retourne (en le créant si nécessaire) le shader de mixage lumineux"""
         if cls._bloom_blend_program is None:
             cls._bloom_blend_program = ShaderProgram(Shader(_VERT, 'vertex'), Shader(_FRAG_BLOOM_BLEND, 'fragment'))
         return cls._bloom_blend_program
 
     @classmethod
     def _get_bloom_fbo(cls, width: int, height: int) -> Framebuffer:
+        """Retourne (en le créant si nécessaire) le Framebuffer de saturation"""
         if cls._bloom_fbo is None:
             cls._bloom_fbo = Framebuffer(width, height)
         elif cls._bloom_fbo.width != width or cls._bloom_fbo.height != height:

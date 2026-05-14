@@ -14,8 +14,8 @@
 
 import abc
 import argparse
-import collections.abc
-import typing as ty
+from collections.abc import Iterable, Sequence
+from typing import Any
 
 from cliff import display
 from cliff.formatters import base as base_formatters
@@ -38,9 +38,7 @@ class ShowOne(
     @abc.abstractmethod
     def take_action(
         self, parsed_args: argparse.Namespace
-    ) -> tuple[
-        collections.abc.Sequence[str], collections.abc.Iterable[ty.Any]
-    ]:
+    ) -> tuple[Sequence[str], Iterable[Any]]:
         """Run command.
 
         Return a tuple containing the column names and an iterable containing
@@ -50,8 +48,8 @@ class ShowOne(
     def produce_output(
         self,
         parsed_args: argparse.Namespace,
-        column_names: collections.abc.Sequence[str],
-        data: collections.abc.Sequence[ty.Any],
+        column_names: Sequence[str],
+        data: Sequence[Any],
     ) -> int:
         columns_to_include, selector = self._generate_columns_and_selector(
             parsed_args, column_names
@@ -64,8 +62,8 @@ class ShowOne(
         return 0
 
     def dict2columns(
-        self, data: dict[str, ty.Any]
-    ) -> tuple[tuple[str, ...], tuple[ty.Any, ...]]:
+        self, data: dict[str, Any]
+    ) -> tuple[tuple[str, ...], tuple[Any, ...]]:
         """Implement the common task of converting a dict-based object
         to the two-column output that ShowOne expects.
         """

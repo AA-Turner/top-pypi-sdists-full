@@ -17,7 +17,7 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
-from pydantic import Field, StrictBytes, StrictFloat, StrictInt, StrictStr, field_validator
+from pydantic import Field, StrictBool, StrictBytes, StrictFloat, StrictInt, StrictStr, field_validator
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 from pulpcore.client.pulpcore.models.async_operation_response import AsyncOperationResponse
@@ -51,6 +51,7 @@ class ContentOpenpgpPublickeyApi:
         self,
         x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         repository: Annotated[Optional[StrictStr], Field(description="A URI of a repository the new content unit should be associated with.")] = None,
+        overwrite: Annotated[Optional[StrictBool], Field(description="When set to true, existing content in the repository with the same unique key will be silently overwritten. When set to false, the task will fail if content would be overwritten. Only used when 'repository' is specified. Defaults to true.")] = None,
         pulp_labels: Annotated[Optional[Dict[str, Optional[StrictStr]]], Field(description="A dictionary of arbitrary key/value pairs used to describe a specific Content instance.")] = None,
         file: Annotated[Optional[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]]], Field(description="An uploaded file that may be turned into the content unit.")] = None,
         upload: Annotated[Optional[StrictStr], Field(description="An uncommitted upload that may be turned into the content unit.")] = None,
@@ -77,6 +78,8 @@ class ContentOpenpgpPublickeyApi:
         :type x_task_diagnostics: List[str]
         :param repository: A URI of a repository the new content unit should be associated with.
         :type repository: str
+        :param overwrite: When set to true, existing content in the repository with the same unique key will be silently overwritten. When set to false, the task will fail if content would be overwritten. Only used when 'repository' is specified. Defaults to true.
+        :type overwrite: bool
         :param pulp_labels: A dictionary of arbitrary key/value pairs used to describe a specific Content instance.
         :type pulp_labels: Dict[str, Optional[str]]
         :param file: An uploaded file that may be turned into the content unit.
@@ -112,6 +115,7 @@ class ContentOpenpgpPublickeyApi:
         _param = self._create_serialize(
             x_task_diagnostics=x_task_diagnostics,
             repository=repository,
+            overwrite=overwrite,
             pulp_labels=pulp_labels,
             file=file,
             upload=upload,
@@ -142,6 +146,7 @@ class ContentOpenpgpPublickeyApi:
         self,
         x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         repository: Annotated[Optional[StrictStr], Field(description="A URI of a repository the new content unit should be associated with.")] = None,
+        overwrite: Annotated[Optional[StrictBool], Field(description="When set to true, existing content in the repository with the same unique key will be silently overwritten. When set to false, the task will fail if content would be overwritten. Only used when 'repository' is specified. Defaults to true.")] = None,
         pulp_labels: Annotated[Optional[Dict[str, Optional[StrictStr]]], Field(description="A dictionary of arbitrary key/value pairs used to describe a specific Content instance.")] = None,
         file: Annotated[Optional[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]]], Field(description="An uploaded file that may be turned into the content unit.")] = None,
         upload: Annotated[Optional[StrictStr], Field(description="An uncommitted upload that may be turned into the content unit.")] = None,
@@ -168,6 +173,8 @@ class ContentOpenpgpPublickeyApi:
         :type x_task_diagnostics: List[str]
         :param repository: A URI of a repository the new content unit should be associated with.
         :type repository: str
+        :param overwrite: When set to true, existing content in the repository with the same unique key will be silently overwritten. When set to false, the task will fail if content would be overwritten. Only used when 'repository' is specified. Defaults to true.
+        :type overwrite: bool
         :param pulp_labels: A dictionary of arbitrary key/value pairs used to describe a specific Content instance.
         :type pulp_labels: Dict[str, Optional[str]]
         :param file: An uploaded file that may be turned into the content unit.
@@ -203,6 +210,7 @@ class ContentOpenpgpPublickeyApi:
         _param = self._create_serialize(
             x_task_diagnostics=x_task_diagnostics,
             repository=repository,
+            overwrite=overwrite,
             pulp_labels=pulp_labels,
             file=file,
             upload=upload,
@@ -233,6 +241,7 @@ class ContentOpenpgpPublickeyApi:
         self,
         x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         repository: Annotated[Optional[StrictStr], Field(description="A URI of a repository the new content unit should be associated with.")] = None,
+        overwrite: Annotated[Optional[StrictBool], Field(description="When set to true, existing content in the repository with the same unique key will be silently overwritten. When set to false, the task will fail if content would be overwritten. Only used when 'repository' is specified. Defaults to true.")] = None,
         pulp_labels: Annotated[Optional[Dict[str, Optional[StrictStr]]], Field(description="A dictionary of arbitrary key/value pairs used to describe a specific Content instance.")] = None,
         file: Annotated[Optional[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]]], Field(description="An uploaded file that may be turned into the content unit.")] = None,
         upload: Annotated[Optional[StrictStr], Field(description="An uncommitted upload that may be turned into the content unit.")] = None,
@@ -259,6 +268,8 @@ class ContentOpenpgpPublickeyApi:
         :type x_task_diagnostics: List[str]
         :param repository: A URI of a repository the new content unit should be associated with.
         :type repository: str
+        :param overwrite: When set to true, existing content in the repository with the same unique key will be silently overwritten. When set to false, the task will fail if content would be overwritten. Only used when 'repository' is specified. Defaults to true.
+        :type overwrite: bool
         :param pulp_labels: A dictionary of arbitrary key/value pairs used to describe a specific Content instance.
         :type pulp_labels: Dict[str, Optional[str]]
         :param file: An uploaded file that may be turned into the content unit.
@@ -294,6 +305,7 @@ class ContentOpenpgpPublickeyApi:
         _param = self._create_serialize(
             x_task_diagnostics=x_task_diagnostics,
             repository=repository,
+            overwrite=overwrite,
             pulp_labels=pulp_labels,
             file=file,
             upload=upload,
@@ -319,6 +331,7 @@ class ContentOpenpgpPublickeyApi:
         self,
         x_task_diagnostics,
         repository,
+        overwrite,
         pulp_labels,
         file,
         upload,
@@ -353,6 +366,8 @@ class ContentOpenpgpPublickeyApi:
         # process the form parameters
         if repository is not None:
             _form_params.append(('repository', repository))
+        if overwrite is not None:
+            _form_params.append(('overwrite', overwrite))
         if pulp_labels is not None:
             _form_params.append(('pulp_labels', pulp_labels))
         if file is not None:

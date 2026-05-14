@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic_ai_backends import LocalBackend
 
 from apps.cli.prompts import build_cli_instructions
+from apps.cli.reminder import _build_reminder_config
 from pydantic_deep.agent import DEFAULT_INSTRUCTIONS, create_deep_agent
 from pydantic_deep.capabilities.hooks import Hook, HookEvent, HookInput, HookResult
+from pydantic_deep.capabilities.message_queue import MessageQueue
 from pydantic_deep.deps import DeepAgentDeps
 
 
@@ -57,11 +60,14 @@ def create_cli_agent(  # noqa: C901
     on_before_compress: Any | None = None,
     on_after_compress: Any | None = None,
     on_eviction: Any | None = None,
+    on_reminder: Callable[[int, str], None] | None = None,
     summarization_model: str | None = None,
     extra_middleware: list[Any] | None = None,
     backend: Any | None = None,
     sandbox: str | None = None,
     sandbox_image: str | None = None,
+    sandbox_env_vars: dict[str, str] | None = None,
+    sandbox_env_file: str | None = None,
     workspace: str | None = None,
     *,
     include_skills: bool | None = None,
@@ -86,6 +92,9 @@ def create_cli_agent(  # noqa: C901
     include_browser: bool | None = None,
     browser_headless: bool | None = None,
     include_liteparse: bool | None = None,
+    periodic_reminder: bool | None = None,
+    reminder_mode: Literal["off", "first", "context", "llm"] | None = None,
+    reminder_model: str | None = None,
 ) -> tuple[Any, DeepAgentDeps]:
     """Create a CLI-configured agent with all pydantic-deep capabilities.
 
@@ -105,6 +114,15 @@ def create_cli_agent(  # noqa: C901
             ``/workspace``. Falls back to ``config.sandbox``.
         sandbox_image: Docker image for the sandbox container. Falls back to
             ``config.sandbox_image`` (default: ``python:3.12-slim``).
+        sandbox_env_vars: Environment variables to inject into the Docker sandbox
+            container. Falls back to ``config.sandbox_env_vars``. Only applied when
+            ``sandbox="docker"``. Values are passed at container start-time via
+            ``RuntimeConfig`` with ``cache_image=False`` so they are not baked
+            permanently into a cached Docker image.
+        sandbox_env_file: Path to a ``.env`` file whose variables are injected into
+            the Docker sandbox container. Falls back to ``config.sandbox_env_file``.
+            Merged with ``sandbox_env_vars``; explicit ``sandbox_env_vars`` take
+            priority over file values.
         workspace: Named Docker workspace shared across threads. When set, the
             container persists between sessions so installed packages and any
             files outside the mounted volume survive restarts. Multiple threads
@@ -123,6 +141,13 @@ def create_cli_agent(  # noqa: C901
         extra_instructions: Additional instructions appended to the system prompt.
         skills_dir: Override skills directory path. When None, auto-discovers
             from ``{working_dir}/.pydantic-deep/skills/``.
+        periodic_reminder: Enable periodic task reminders. ``None`` uses
+            the config default (``True`` / ``"llm"``). ``True``/``False`` overrides.
+        reminder_mode: Generator for the reminder text. ``"llm"`` (default) uses
+            ``LLMReminderGenerator``. ``"first"`` re-states first user message
+            (zero-cost). ``"context"`` uses a compact transcript (zero-cost).
+        reminder_model: Model used by the ``"llm"`` reminder generator.
+            Defaults to ``config.reminder_model``, then falls back to the main model.
 
     Returns:
         Tuple of (agent, deps) ready for agent.run().
@@ -141,13 +166,39 @@ def create_cli_agent(  # noqa: C901
     # Resolve sandbox: explicit param > config
     effective_sandbox = sandbox or config.sandbox
     if effective_sandbox == "docker" and backend is None:
-        from pydantic_ai_backends import DockerSandbox
+        from pydantic_ai_backends import DockerSandbox, RuntimeConfig
+
+        file_env_vars: dict[str, str] = {}
+        effective_env_file = (
+            sandbox_env_file if sandbox_env_file is not None else config.sandbox_env_file
+        )
+        if effective_env_file:
+            from dotenv import dotenv_values
+
+            file_env_vars = {
+                k: v for k, v in dotenv_values(effective_env_file).items() if v is not None
+            }
+
+        effective_env_vars = {
+            **config.sandbox_env_vars,
+            **file_env_vars,
+            **(sandbox_env_vars or {}),
+        }
 
         docker_kwargs: dict[str, Any] = {
             "volumes": {str(root.resolve()): "/workspace"},
             "work_dir": "/workspace",
-            "image": sandbox_image or config.sandbox_image,
         }
+
+        if effective_env_vars:
+            docker_kwargs["runtime"] = RuntimeConfig(
+                name="cli-sandbox",
+                base_image=sandbox_image or config.sandbox_image,
+                env_vars=effective_env_vars,
+                cache_image=False,
+            )
+        else:
+            docker_kwargs["image"] = sandbox_image or config.sandbox_image
 
         # Named workspace → reusable container (packages + state persist between threads)
         # No workspace → ephemeral container (clean slate every time)
@@ -306,6 +357,8 @@ def create_cli_agent(  # noqa: C901
                 stacklevel=2,
             )
 
+    queue = MessageQueue()
+
     agent = create_deep_agent(
         model=effective_model,
         instructions=instructions,
@@ -372,6 +425,12 @@ def create_cli_agent(  # noqa: C901
         middleware=middleware or None,
         toolsets=[local_context] if local_context else None,
         capabilities=extra_capabilities or None,
+        # Message queue for mid-run steering and follow-up delivery
+        message_queue=queue,
+        # Periodic reminder
+        periodic_reminder=_build_reminder_config(
+            periodic_reminder, reminder_mode, config, on_reminder, reminder_model
+        ),
     )
 
     # Extract context middleware for CLI commands (/compact, /context)
@@ -381,6 +440,7 @@ def create_cli_agent(  # noqa: C901
     deps = DeepAgentDeps(
         backend=effective_backend,
         context_middleware=context_mw,
+        message_queue=queue,
     )
     deps._task_manager = task_mgr  # type: ignore[attr-defined]
     return agent, deps

@@ -1,12 +1,26 @@
 # flake8: noqa
 # Can't use __all__ yet because of the wildcard imports and code generation
 
-# Buttons
+from abstra_internals.entities.forms.form_state import State
+
+from abstra_internals.entities.forms.steps import (
+    ComputationStep,
+    GeneratorStep,
+    PageStep,
+    Step,
+)
+
+# Buttons & template aliases
 from abstra_internals.entities.forms.template import (
     BackButton,
     Button,
     ExitButton,
     NextButton,
+    Template,
+    TemplateFunction,
+    TemplateGenerator,
+    TemplateGeneratorFunction,
+    TemplateWithButtons,
 )
 from abstra_internals.entities.forms.widgets.library import (
     AppointmentInput,
@@ -54,13 +68,31 @@ from abstra_internals.entities.forms.widgets.library import (
     VideoInput,
 )
 
+# Widget option / response value types (returned to user code)
+from abstra_internals.entities.forms.widgets.library.CardsInput import CardOption
+
 # Utils
-from abstra_internals.entities.forms.widgets.widget_base import Widget
+from abstra_internals.entities.forms.widgets.widget_base import (
+    InputWidget,
+    LabelValueDict,
+    OutputWidget,
+    Widget,
+)
+from abstra_internals.interface.sdk.forms.deprecated.widgets.response_types import (
+    AppointmentSlot,
+    FileResponse,
+    PhoneResponse,
+)
+from abstra_internals.interface.sdk.forms.deprecated.widgets.widget_base import (
+    AbstraOption,
+    LabelValueOption,
+)
 from abstra_internals.interface.sdk.forms.decorators import end_page_step
 from abstra_internals.interface.sdk.forms.deprecated.page import Page
 from abstra_internals.interface.sdk.forms.deprecated.reactive_func import reactive
 from abstra_internals.interface.sdk.forms.deprecated.step import run_steps
-from abstra_internals.interface.sdk.forms.form import Form, run
+from abstra_internals.interface.sdk.forms.form import Form, Runnable, run
+from abstra_internals.services.jwt import UserClaims
 
 # Legacy
 from abstra_internals.interface.sdk.forms.generated.inputs import (
@@ -134,9 +166,30 @@ __all__ = [
     "NextButton",
     "BackButton",
     "ExitButton",
-    # Widgets
+    # Widget hierarchy (use as type annotations)
     "Widget",
+    "InputWidget",
+    "OutputWidget",
     "ListItemSchema",
+    # Widget value / response types (returned by user input)
+    "State",
+    "FileResponse",
+    "PhoneResponse",
+    "AppointmentSlot",
+    "CardOption",
+    "AbstraOption",
+    "LabelValueOption",
+    "LabelValueDict",
+    # Step / template aliases (for users defining page functions)
+    "Step",
+    "PageStep",
+    "ComputationStep",
+    "GeneratorStep",
+    "Template",
+    "TemplateWithButtons",
+    "TemplateFunction",
+    "TemplateGenerator",
+    "TemplateGeneratorFunction",
     "AppointmentInput",
     "CameraInput",
     "CardsInput",
@@ -183,6 +236,8 @@ __all__ = [
     # Form
     "run",
     "end_page_step",
+    "Runnable",
+    "UserClaims",
     # Input Functions
     "read_appointment",
     "read_camera",

@@ -18,7 +18,8 @@ class SyntaxMarkerProvider(CodeMarkerProvider):
         return "syntax"
 
     def get_markers(self, code: str) -> List[CodeMarker]:
-        diagnostics = analyze_python_syntax(code)
+        result = analyze_python_syntax(code)
+        diagnostics = result["diagnostics"]
         return [
             CodeMarker(
                 line=d["range"]["start"]["line"] + 1,

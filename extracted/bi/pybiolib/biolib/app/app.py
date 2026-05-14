@@ -9,7 +9,9 @@ from pathlib import Path
 
 from biolib import utils
 from biolib._app.app_version_sdk import AppVersionSdk
+from biolib._experiment.experiment import Experiment
 from biolib._internal.file_utils import path_to_renamed_path
+from biolib._result.result import Result
 from biolib._runtime.runtime import Runtime
 from biolib._shared.utils import parse_resource_uri
 from biolib.api.client import ApiClient
@@ -18,8 +20,6 @@ from biolib.biolib_api_client.biolib_app_api import BiolibAppApi
 from biolib.biolib_binary_format import ModuleInput
 from biolib.biolib_errors import BioLibError, JobResultNonZeroExitCodeError
 from biolib.biolib_logging import logger
-from biolib.experiments.experiment import Experiment
-from biolib._result.result import Result
 from biolib.typing_utils import Dict, Optional
 
 
@@ -45,14 +45,16 @@ class BioLibApp:
         self._app_uri = app_response['app_uri']
         self._app_version: AppVersion = app_response['app_version']
 
-        if not suppress_version_warning:
-            if self._parsed_input_uri['version'] is None:
-                if Runtime.check_is_environment_biolib_app():
-                    logger.warning(
-                        f"No version specified in URI '{uri}'. This will use the default version, "
-                        f'which may change behaviour over time. Consider locking down the exact version, '
-                        f"e.g. '{uri}:1.2.3'"
-                    )
+        if (
+            not suppress_version_warning
+            and self._parsed_input_uri['version'] is None
+            and Runtime.check_is_environment_biolib_app()
+        ):
+            logger.warning(
+                f"No version specified in URI '{uri}'. This will use the default version, "
+                f'which may change behaviour over time. Consider locking down the exact version, '
+                f"e.g. '{uri}:1.2.3'"
+            )
 
         if self._parsed_input_uri['tag']:
             semantic_version = f"{self._app_version['major']}.{self._app_version['minor']}.{self._app_version['patch']}"
@@ -167,10 +169,7 @@ Example: "app.cli('--help')"
 
     @staticmethod
     def _get_serialized_module_input(args=None, stdin=None, files=None) -> bytes:
-        if args is None:
-            args = []
-        else:
-            args = copy.copy(args)
+        args = [] if args is None else copy.copy(args)
 
         if stdin is None:
             stdin = b''

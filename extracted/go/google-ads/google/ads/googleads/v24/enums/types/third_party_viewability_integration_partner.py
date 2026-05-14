@@ -48,12 +48,15 @@ class ThirdPartyViewabilityIntegrationPartnerEnum(proto.Message):
                 DoubleVerify.
             INTEGRAL_AD_SCIENCE (3):
                 Integral Ad Science.
+            ZEFR (4):
+                Zefr.
         """
 
         UNSPECIFIED = 0
         UNKNOWN = 1
         DOUBLE_VERIFY = 2
         INTEGRAL_AD_SCIENCE = 3
+        ZEFR = 4
 
 
 __all__ = tuple(sorted(__protobuf__.manifest))

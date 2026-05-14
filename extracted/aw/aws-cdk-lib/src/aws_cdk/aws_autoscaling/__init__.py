@@ -2915,7 +2915,7 @@ class CfnAutoScalingGroup(
         :param min_size: The minimum size of the group.
         :param auto_scaling_group_name: The name of the Auto Scaling group. This name must be unique per Region per account. The name can contain any ASCII character 33 to 126 including most punctuation characters, digits, and upper and lowercased letters. .. epigraph:: You cannot use a colon (:) in the name.
         :param availability_zone_distribution: The EC2 instance capacity distribution across Availability Zones for the Auto Scaling group.
-        :param availability_zone_ids: 
+        :param availability_zone_ids: The Availability Zone IDs where the Auto Scaling group can launch instances.
         :param availability_zone_impairment_policy: The Availability Zone impairment policy for the Auto Scaling group.
         :param availability_zones: A list of Availability Zones where instances in the Auto Scaling group can be created. Used for launching into the default VPC subnet in each Availability Zone when not using the ``VPCZoneIdentifier`` property, or for attaching a network interface when an existing network interface ID is specified in a launch template.
         :param capacity_rebalance: Indicates whether Capacity Rebalancing is enabled. Otherwise, Capacity Rebalancing is disabled. When you turn on Capacity Rebalancing, Amazon EC2 Auto Scaling attempts to launch a Spot Instance whenever Amazon EC2 notifies that a Spot Instance is at an elevated risk of interruption. After launching a new instance, it then terminates an old instance. For more information, see `Use Capacity Rebalancing to handle Amazon EC2 Spot Interruptions <https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-capacity-rebalancing.html>`_ in the in the *Amazon EC2 Auto Scaling User Guide* .
@@ -3147,6 +3147,7 @@ class CfnAutoScalingGroup(
     @builtins.property
     @jsii.member(jsii_name="availabilityZoneIds")
     def availability_zone_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The Availability Zone IDs where the Auto Scaling group can launch instances.'''
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "availabilityZoneIds"))
 
     @availability_zone_ids.setter
@@ -7154,7 +7155,7 @@ class CfnAutoScalingGroupProps:
         :param min_size: The minimum size of the group.
         :param auto_scaling_group_name: The name of the Auto Scaling group. This name must be unique per Region per account. The name can contain any ASCII character 33 to 126 including most punctuation characters, digits, and upper and lowercased letters. .. epigraph:: You cannot use a colon (:) in the name.
         :param availability_zone_distribution: The EC2 instance capacity distribution across Availability Zones for the Auto Scaling group.
-        :param availability_zone_ids: 
+        :param availability_zone_ids: The Availability Zone IDs where the Auto Scaling group can launch instances.
         :param availability_zone_impairment_policy: The Availability Zone impairment policy for the Auto Scaling group.
         :param availability_zones: A list of Availability Zones where instances in the Auto Scaling group can be created. Used for launching into the default VPC subnet in each Availability Zone when not using the ``VPCZoneIdentifier`` property, or for attaching a network interface when an existing network interface ID is specified in a launch template.
         :param capacity_rebalance: Indicates whether Capacity Rebalancing is enabled. Otherwise, Capacity Rebalancing is disabled. When you turn on Capacity Rebalancing, Amazon EC2 Auto Scaling attempts to launch a Spot Instance whenever Amazon EC2 notifies that a Spot Instance is at an elevated risk of interruption. After launching a new instance, it then terminates an old instance. For more information, see `Use Capacity Rebalancing to handle Amazon EC2 Spot Interruptions <https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-capacity-rebalancing.html>`_ in the in the *Amazon EC2 Auto Scaling User Guide* .
@@ -7563,7 +7564,8 @@ class CfnAutoScalingGroupProps:
 
     @builtins.property
     def availability_zone_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''
+        '''The Availability Zone IDs where the Auto Scaling group can launch instances.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-availabilityzoneids
         '''
         result = self._values.get("availability_zone_ids")

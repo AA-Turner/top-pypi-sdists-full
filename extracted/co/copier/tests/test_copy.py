@@ -17,7 +17,7 @@ from unittest import mock
 
 import pytest
 import yaml
-from plumbum import local
+from plumbum import CommandNotFound, local
 
 import copier
 from copier import run_copy
@@ -42,6 +42,35 @@ def test_project_not_found(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError):
         copier.run_copy(__file__, tmp_path)
+
+
+def test_copy_without_git(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Generating a minimal project must work even if `git` is not installed."""
+    src, dst = map(tmp_path_factory.mktemp, ("src", "dst"))
+    build_file_tree(
+        {
+            src / "hello" / "world.txt.jinja": "Hello, {{ name }}!",
+            src / "copier.yml": "name: world",
+        }
+    )
+
+    original_which = local.which
+
+    def fake_which(progname: Any) -> Any:
+        if Path(progname).name in {"git", "git.exe"}:
+            raise CommandNotFound(progname, [])
+        return original_which(progname)
+
+    monkeypatch.setattr(local, "which", fake_which)
+
+    # Sanity-check: the patch makes plumbum behave as if `git` is missing.
+    with pytest.raises(CommandNotFound):
+        local["git"]
+
+    copier.run_copy(str(src), dst, defaults=True)
+    assert (dst / "hello" / "world.txt").read_text() == "Hello, world!"
 
 
 def test_copy_with_non_version_tags(tmp_path_factory: pytest.TempPathFactory) -> None:
@@ -549,7 +578,7 @@ def test_value_with_forward_slash(tmp_path_factory: pytest.TempPathFactory) -> N
                 "choices": [1, ["2", {"value": None, "validator": "disabled"}], 3],
             },
             "2",
-            pytest.raises(ValueError, match="Invalid choice: disabled"),
+            pytest.raises(ValueError, match="Invalid choice for 'q': disabled"),
         ),
         (
             {"type": "int", "choices": {"one": 1, "two": 2, "three": 3}},
@@ -557,9 +586,11 @@ def test_value_with_forward_slash(tmp_path_factory: pytest.TempPathFactory) -> N
             does_not_raise(),
         ),
         (
-            {"type": "int", "choices": {"one": 1, "two": 2, "three": 3}},
-            "4",
-            pytest.raises(ValueError),
+            {"type": "int", "choices": {"one": 1, "two": 2}},
+            "3",
+            pytest.raises(
+                ValueError, match="Invalid choice for 'q': 3 is not in \[1, 2\]"
+            ),
         ),
         (
             {"type": "int", "choices": {"one": 1, "two": {"value": 2}, "three": 3}},
@@ -588,7 +619,7 @@ def test_value_with_forward_slash(tmp_path_factory: pytest.TempPathFactory) -> N
                 },
             },
             "2",
-            pytest.raises(ValueError, match="Invalid choice: disabled"),
+            pytest.raises(ValueError, match="Invalid choice for 'q': disabled"),
         ),
         (
             {"type": "str", "choices": {"one": None, "two": None, "three": None}},
@@ -739,7 +770,7 @@ def test_value_with_forward_slash(tmp_path_factory: pytest.TempPathFactory) -> N
                 },
             },
             "key: value",
-            pytest.raises(ValueError, match="Invalid choice: disabled"),
+            pytest.raises(ValueError, match="Invalid choice for 'q': disabled"),
         ),
         (
             {"type": "yaml", "choices": {"complex": {"key": "value"}}},
@@ -782,7 +813,7 @@ def test_value_with_forward_slash(tmp_path_factory: pytest.TempPathFactory) -> N
                 ],
             },
             "key: value",
-            pytest.raises(ValueError, match="Invalid choice: disabled"),
+            pytest.raises(ValueError, match="Invalid choice for 'q': disabled"),
         ),
         (
             {"type": "yaml", "choices": [["complex", {"key": "value"}]]},
@@ -803,6 +834,26 @@ def test_value_with_forward_slash(tmp_path_factory: pytest.TempPathFactory) -> N
             },
             [],
             pytest.raises(ValueError, match="At least one choice required"),
+        ),
+        (
+            {"type": "str", "choices": ["one", "two"]},
+            "three",
+            pytest.raises(
+                ValueError,
+                match=r"Invalid choice for 'q': 'three' is not in \['one', 'two'\]",
+            ),
+        ),
+        (
+            {
+                "type": "str",
+                "choices": [
+                    ["one", {"value": "one", "validator": "no longer available"}]
+                ],
+            },
+            "one",
+            pytest.raises(
+                ValueError, match="Invalid choice for 'q': no longer available"
+            ),
         ),
     ],
 )

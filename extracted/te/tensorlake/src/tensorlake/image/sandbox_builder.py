@@ -25,7 +25,7 @@ import httpx
 from tensorlake._tracing import USER_AGENT, inject_traceparent
 from tensorlake.cli._common import Context
 from tensorlake.sandbox import Sandbox, SandboxClient
-from tensorlake.sandbox.models import ProcessStatus, SnapshotType
+from tensorlake.sandbox.models import ProcessStatus, SnapshotType, SnapshotWaitCondition
 
 from ._dockerfile import image_to_dockerfile, render_op_line
 from .image import Image
@@ -467,16 +467,14 @@ def _run_streaming(
 def _copy_to_sandbox(sandbox: Sandbox, local_path: str, remote_path: str):
     """Copy a local file or directory into the sandbox."""
     if os.path.isfile(local_path):
-        with open(local_path, "rb") as f:
-            sandbox.write_file(remote_path, f.read())
+        sandbox.upload_file(local_path, remote_path)
     elif os.path.isdir(local_path):
         for root, _dirs, files in os.walk(local_path):
             for filename in files:
                 full = os.path.join(root, filename)
                 rel = os.path.relpath(full, local_path)
                 dest = posixpath.join(remote_path, rel)
-                with open(full, "rb") as f:
-                    sandbox.write_file(dest, f.read())
+                sandbox.upload_file(full, dest)
     else:
         raise FileNotFoundError(f"Local path not found: {local_path}")
 
@@ -692,23 +690,37 @@ def _register_image(
     snapshot_size_bytes: int,
     rootfs_disk_bytes: int,
     is_public: bool = False,
+    snapshot_format_version: str | None = None,
 ) -> dict:
     """POST to Platform API through the ingress to register the image."""
-    org_id = ctx.organization_id
-    proj_id = ctx.project_id
-    if not org_id or not proj_id:
-        raise RuntimeError(
-            "Organization ID and Project ID are required. Run 'tl login' and 'tl init'."
-        )
-
-    url = f"{ctx.api_url}/platform/v1/organizations/{org_id}/projects/{proj_id}/sandbox-templates"
+    # API key auth: the platform-api resolves the org/project from the key
+    # itself, so we hit the scope-less route and skip the env var requirement.
+    # PAT auth isn't project-scoped — keep the explicit IDs and forwarded
+    # headers for that path.
     bearer_token = ctx.api_key or ctx.personal_access_token
+    if not bearer_token:
+        raise RuntimeError("Missing TENSORLAKE_API_KEY or TENSORLAKE_PAT credentials.")
+
     headers = {
         "Authorization": f"Bearer {bearer_token}",
         "Content-Type": "application/json",
         "User-Agent": USER_AGENT,
     }
-    if ctx.personal_access_token and not ctx.api_key:
+
+    if ctx.api_key:
+        url = f"{ctx.api_url}/platform/v1/sandbox-templates"
+    else:
+        org_id = ctx.organization_id
+        proj_id = ctx.project_id
+        if not org_id or not proj_id:
+            raise RuntimeError(
+                "Personal Access Token authentication requires "
+                "TENSORLAKE_ORGANIZATION_ID and TENSORLAKE_PROJECT_ID to be set "
+                "(e.g. via 'tl login && tl init'). To skip this requirement, "
+                "authenticate with TENSORLAKE_API_KEY instead — API keys are "
+                "bound to a single project at creation."
+            )
+        url = f"{ctx.api_url}/platform/v1/organizations/{org_id}/projects/{proj_id}/sandbox-templates"
         headers["X-Forwarded-Organization-Id"] = org_id
         headers["X-Forwarded-Project-Id"] = proj_id
 
@@ -722,6 +734,8 @@ def _register_image(
         "rootfsDiskBytes": rootfs_disk_bytes,
         "public": is_public,
     }
+    if snapshot_format_version:
+        body["snapshotFormatVersion"] = snapshot_format_version
     resp = httpx.post(url, json=body, headers=inject_traceparent(headers), timeout=30.0)
     resp.raise_for_status()
     return resp.json()
@@ -775,6 +789,7 @@ def _run_plan(
         snapshot = sandbox_client.snapshot_and_wait(
             sandbox.sandbox_id,
             snapshot_type=SnapshotType.FILESYSTEM,
+            wait_until=SnapshotWaitCondition.COMPLETED,
         )
         emit(
             {
@@ -806,6 +821,7 @@ def _run_plan(
             snapshot.size_bytes,
             snapshot.rootfs_disk_bytes,
             is_public,
+            getattr(snapshot, "snapshot_format_version", None),
         )
         emit(
             {

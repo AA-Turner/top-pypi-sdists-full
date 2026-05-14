@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hyper-connections
-Version: 0.4.10
+Version: 0.4.11
 Summary: Hyper-Connections
 Project-URL: Homepage, https://pypi.org/project/hyper-connections/
 Project-URL: Repository, https://github.com/lucidrains/hyper-connections
@@ -202,5 +202,17 @@ get_init_and_expand_reduce_stream_functions(1, num_fracs = 4) # also allows you 
     archivePrefix = {arXiv},
     primaryClass = {cs.CV},
     url     = {https://arxiv.org/abs/2505.11881},
+}
+```
+
+```bibtex
+@misc{lu2026meanmodescreamingmeanvariance,
+    title   = {Mean Mode Screaming: Mean--Variance Split Residuals for 1000-Layer Diffusion Transformers},
+    author  = {Pengqi Lu},
+    year    = {2026},
+    eprint  = {2605.06169},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.LG},
+    url     = {https://arxiv.org/abs/2605.06169},
 }
 ```

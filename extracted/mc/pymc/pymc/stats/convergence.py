@@ -18,7 +18,7 @@ import logging
 from collections.abc import Sequence
 from typing import Any
 
-import arviz
+from xarray import DataTree
 
 from pymc.util import get_untransformed_name, is_transformed_name
 
@@ -61,7 +61,7 @@ class SamplerWarning:
     divergence_info: Any | None = None
 
 
-def run_convergence_checks(idata: arviz.InferenceData, model) -> list[SamplerWarning]:
+def run_convergence_checks(idata: DataTree, model) -> list[SamplerWarning]:
     warnings: list[SamplerWarning] = []
 
     if not hasattr(idata, "posterior"):
@@ -103,8 +103,10 @@ def run_convergence_checks(idata: arviz.InferenceData, model) -> list[SamplerWar
         if rv_name in idata["posterior"]:
             varnames.append(rv_name)
 
-    ess = arviz.ess(idata, var_names=varnames)
-    rhat = arviz.rhat(idata, var_names=varnames)
+    import arviz_stats
+
+    ess = arviz_stats.ess(idata, var_names=varnames)
+    rhat = arviz_stats.rhat(idata, var_names=varnames)
 
     rhat_max = max(val.max() for val in rhat.values())
     if rhat_max > 1.01:
@@ -130,7 +132,7 @@ def run_convergence_checks(idata: arviz.InferenceData, model) -> list[SamplerWar
     return warnings
 
 
-def warn_divergences(idata: arviz.InferenceData) -> list[SamplerWarning]:
+def warn_divergences(idata: DataTree) -> list[SamplerWarning]:
     """Check sampler stats and creates a list of warnings about divergences."""
     sampler_stats = idata.get("sample_stats", None)
     if sampler_stats is None:
@@ -158,7 +160,7 @@ def warn_divergences(idata: arviz.InferenceData) -> list[SamplerWarning]:
     return [warning]
 
 
-def warn_treedepth(idata: arviz.InferenceData) -> list[SamplerWarning]:
+def warn_treedepth(idata: DataTree) -> list[SamplerWarning]:
     """Check sampler stats and creates a list of warnings about tree depth."""
     sampler_stats = idata.get("sample_stats", None)
     if sampler_stats is None:

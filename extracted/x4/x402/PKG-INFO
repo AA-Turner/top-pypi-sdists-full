@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: x402
-Version: 2.9.0
+Version: 2.10.0
 Summary: x402 Payment Protocol SDK for Python
 Project-URL: Homepage, https://github.com/x402-foundation/x402
 Project-URL: Documentation, https://x402.org
@@ -29,8 +29,12 @@ Requires-Dist: eth-utils>=4.0.0; extra == 'all'
 Requires-Dist: fastapi[standard]>=0.115.0; extra == 'all'
 Requires-Dist: flask>=3.0.0; extra == 'all'
 Requires-Dist: httpx>=0.28.1; extra == 'all'
+Requires-Dist: idna>=3.4; extra == 'all'
 Requires-Dist: jsonschema>=4.0.0; extra == 'all'
 Requires-Dist: mcp>=1.0.0; extra == 'all'
+Requires-Dist: pynacl>=1.5.0; extra == 'all'
+Requires-Dist: pytoniq-core>=0.1.36; extra == 'all'
+Requires-Dist: pytoniq>=0.1.39; extra == 'all'
 Requires-Dist: requests>=2.31.0; extra == 'all'
 Requires-Dist: solana>=0.36.0; extra == 'all'
 Requires-Dist: solders>=0.27.0; extra == 'all'
@@ -46,6 +50,7 @@ Requires-Dist: eth-keys>=0.5.0; extra == 'evm'
 Requires-Dist: eth-utils>=4.0.0; extra == 'evm'
 Requires-Dist: web3>=7.0.0; extra == 'evm'
 Provides-Extra: extensions
+Requires-Dist: idna>=3.4; extra == 'extensions'
 Requires-Dist: jsonschema>=4.0.0; extra == 'extensions'
 Provides-Extra: fastapi
 Requires-Dist: fastapi[standard]>=0.115.0; extra == 'fastapi'
@@ -61,6 +66,10 @@ Requires-Dist: eth-abi>=5.0.0; extra == 'mechanisms'
 Requires-Dist: eth-account>=0.13.0; extra == 'mechanisms'
 Requires-Dist: eth-keys>=0.5.0; extra == 'mechanisms'
 Requires-Dist: eth-utils>=4.0.0; extra == 'mechanisms'
+Requires-Dist: httpx>=0.28.1; extra == 'mechanisms'
+Requires-Dist: pynacl>=1.5.0; extra == 'mechanisms'
+Requires-Dist: pytoniq-core>=0.1.36; extra == 'mechanisms'
+Requires-Dist: pytoniq>=0.1.39; extra == 'mechanisms'
 Requires-Dist: solana>=0.36.0; extra == 'mechanisms'
 Requires-Dist: solders>=0.27.0; extra == 'mechanisms'
 Requires-Dist: web3>=7.0.0; extra == 'mechanisms'
@@ -73,6 +82,11 @@ Requires-Dist: starlette>=0.27.0; extra == 'servers'
 Provides-Extra: svm
 Requires-Dist: solana>=0.36.0; extra == 'svm'
 Requires-Dist: solders>=0.27.0; extra == 'svm'
+Provides-Extra: tvm
+Requires-Dist: httpx>=0.28.1; extra == 'tvm'
+Requires-Dist: pynacl>=1.5.0; extra == 'tvm'
+Requires-Dist: pytoniq-core>=0.1.36; extra == 'tvm'
+Requires-Dist: pytoniq>=0.1.39; extra == 'tvm'
 Description-Content-Type: text/markdown
 
 # x402 Python SDK
@@ -92,9 +106,10 @@ uv add x402[requests]   # requests client
 uv add x402[fastapi]    # FastAPI middleware
 uv add x402[flask]      # Flask middleware
 
-# Blockchain mechanisms (pick one or both)
+# Blockchain mechanisms (pick one or more)
 uv add x402[evm]        # EVM/Ethereum
 uv add x402[svm]        # Solana
+uv add x402[tvm]        # TON/TVM
 
 # Multiple extras
 uv add x402[fastapi,httpx,evm]
@@ -128,6 +143,34 @@ client = x402ClientSync()
 client.register("eip155:*", ExactEvmScheme(signer=my_signer))
 
 payload = client.create_payment_payload(payment_required)
+```
+
+### TVM Client (Async)
+
+```python
+import os
+
+from x402 import x402Client
+from x402.mechanisms.tvm import (
+    TVM_PROVIDER_TONAPI,
+    TVM_TESTNET,
+    WalletV5R1Config,
+    WalletV5R1MnemonicSigner,
+)
+from x402.mechanisms.tvm.exact import ExactTvmScheme
+
+tvm_config = WalletV5R1Config.from_private_key(
+    TVM_TESTNET,
+    os.environ["TVM_PRIVATE_KEY"],
+)
+tvm_config.api_key = os.environ.get("TONCENTER_API_KEY")
+# Optional: use TonAPI instead of Toncenter.
+# tvm_config.provider = TVM_PROVIDER_TONAPI
+# tvm_config.api_key = os.environ.get("TONAPI_API_KEY")
+# tvm_config.provider_base_url = os.environ.get("TONAPI_BASE_URL")
+
+client = x402Client()
+client.register(TVM_TESTNET, ExactTvmScheme(WalletV5R1MnemonicSigner(tvm_config)))
 ```
 
 ### Server (Async)
@@ -230,11 +273,16 @@ Use `from_config()` for declarative setup:
 
 ```python
 from x402 import x402Client, x402ClientConfig, SchemeRegistration
+from x402 import prefer_network
+from x402.mechanisms.evm.exact import ExactEvmScheme
+from x402.mechanisms.svm.exact import ExactSvmScheme
+from x402.mechanisms.tvm.exact import ExactTvmScheme
 
 config = x402ClientConfig(
     schemes=[
         SchemeRegistration(network="eip155:*", client=ExactEvmScheme(signer)),
         SchemeRegistration(network="solana:*", client=ExactSvmScheme(signer)),
+        SchemeRegistration(network="tvm:*", client=ExactTvmScheme(tvm_signer)),
     ],
     policies=[prefer_network("eip155:8453")],
 )
@@ -333,6 +381,7 @@ client.register("eip155:8453", CustomScheme())
 - `x402.http` - HTTP clients, middleware, and facilitator client
 - `x402.mechanisms.evm` - EVM/Ethereum implementation
 - `x402.mechanisms.svm` - Solana implementation
+- `x402.mechanisms.tvm` - TON/TVM implementation
 - `x402.extensions` - Protocol extensions (Bazaar discovery)
 
 ## Examples

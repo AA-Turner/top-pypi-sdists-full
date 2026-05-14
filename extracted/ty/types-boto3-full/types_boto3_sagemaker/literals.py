@@ -91,6 +91,7 @@ __all__ = (
     "ClusterAutoScalingStatusType",
     "ClusterCapacityTypeType",
     "ClusterConfigModeType",
+    "ClusterEventLevelType",
     "ClusterEventResourceTypeType",
     "ClusterImageVersionStatusType",
     "ClusterInstanceStatusType",
@@ -138,6 +139,7 @@ __all__ = (
     "EvaluationTypeType",
     "EventSortByType",
     "ExecutionRoleIdentityConfigType",
+    "ExecutionRoleSessionNameModeType",
     "ExecutionStatusType",
     "FailureHandlingPolicyType",
     "FairShareType",
@@ -297,6 +299,7 @@ __all__ = (
     "MaintenanceStatusType",
     "ManagedInstanceScalingScaleInStrategyType",
     "ManagedInstanceScalingStatusType",
+    "ManagedStorageTypeType",
     "MetricSetSourceType",
     "MlToolsType",
     "MlflowAppStatusType",
@@ -934,6 +937,7 @@ ClusterAutoScalingModeType = Literal["Disable", "Enable"]
 ClusterAutoScalingStatusType = Literal["Creating", "Deleting", "Failed", "InService"]
 ClusterCapacityTypeType = Literal["OnDemand", "Spot"]
 ClusterConfigModeType = Literal["Disable", "Enable"]
+ClusterEventLevelType = Literal["Error", "Info", "Warn"]
 ClusterEventResourceTypeType = Literal["Cluster", "Instance", "InstanceGroup"]
 ClusterImageVersionStatusType = Literal["UpToDate", "UpdateAvailable"]
 ClusterInstanceStatusType = Literal[
@@ -1135,6 +1139,7 @@ EndpointStatusType = Literal[
 EvaluationTypeType = Literal["BenchmarkEvaluation", "CustomScorerEvaluation", "LLMAJEvaluation"]
 EventSortByType = Literal["EventTime"]
 ExecutionRoleIdentityConfigType = Literal["DISABLED", "USER_PROFILE_NAME"]
+ExecutionRoleSessionNameModeType = Literal["STATIC", "USER_IDENTITY"]
 ExecutionStatusType = Literal[
     "Completed", "CompletedWithViolations", "Failed", "InProgress", "Pending", "Stopped", "Stopping"
 ]
@@ -1544,6 +1549,7 @@ MIGProfileTypeType = Literal[
 MaintenanceStatusType = Literal["MaintenanceComplete", "MaintenanceFailed", "MaintenanceInProgress"]
 ManagedInstanceScalingScaleInStrategyType = Literal["CONSOLIDATION", "IDLE_RELEASE"]
 ManagedInstanceScalingStatusType = Literal["DISABLED", "ENABLED"]
+ManagedStorageTypeType = Literal["Restricted"]
 MetricSetSourceType = Literal["Test", "Train", "Validation"]
 MlToolsType = Literal[
     "AutoMl",
@@ -2220,7 +2226,7 @@ S3DataDistributionType = Literal["FullyReplicated", "ShardedByS3Key"]
 S3DataTypeType = Literal["AugmentedManifestFile", "Converse", "ManifestFile", "S3Prefix"]
 S3ModelDataTypeType = Literal["S3Object", "S3Prefix"]
 SageMakerImageNameType = Literal["sagemaker_distribution"]
-SageMakerResourceNameType = Literal["endpoint", "hyperpod-cluster", "training-job"]
+SageMakerResourceNameType = Literal["endpoint", "hyperpod-cluster", "studio-apps", "training-job"]
 SagemakerServicecatalogStatusType = Literal["Disabled", "Enabled"]
 ScheduleStatusType = Literal["Failed", "Pending", "Scheduled", "Stopped"]
 SchedulerConfigComponentType = Literal["FairShare", "IdleResourceSharing", "PriorityClasses"]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snappi
-Version: 1.53.0
+Version: 1.53.1
 Summary: The Snappi Open Traffic Generator Python Package
 Author-email: Keysight Technologies <andy.balogh@keysight.com>
 License-Expression: MIT
@@ -10,19 +10,19 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Testing :: Traffic Generation
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: <4,>=3.8
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: <4,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: grpcio-tools~=1.70.0
-Requires-Dist: grpcio~=1.70.0
+Requires-Dist: grpcio-tools~=1.80.0
+Requires-Dist: grpcio~=1.80.0
 Requires-Dist: requests
+Requires-Dist: protobuf~=6.33.6
 Requires-Dist: PyYAML
-Requires-Dist: protobuf~=5.29.5
 Requires-Dist: urllib3
 Requires-Dist: semantic_version
 Provides-Extra: ixnetwork
@@ -33,12 +33,12 @@ Provides-Extra: testing
 Requires-Dist: pytest; extra == "testing"
 Requires-Dist: flask; extra == "testing"
 Provides-Extra: telemetry
-Requires-Dist: opentelemetry-api==1.17.0; python_version >= "3.7" and extra == "telemetry"
-Requires-Dist: opentelemetry-sdk; python_version >= "3.7" and extra == "telemetry"
-Requires-Dist: opentelemetry-exporter-otlp-proto-http; python_version >= "3.7" and extra == "telemetry"
-Requires-Dist: opentelemetry-exporter-otlp-proto-grpc; python_version >= "3.7" and extra == "telemetry"
-Requires-Dist: opentelemetry-instrumentation-grpc; python_version >= "3.7" and extra == "telemetry"
-Requires-Dist: opentelemetry-instrumentation-requests; python_version >= "3.7" and extra == "telemetry"
+Requires-Dist: opentelemetry-api==1.17.0; python_version >= "3.9" and extra == "telemetry"
+Requires-Dist: opentelemetry-sdk; python_version >= "3.9" and extra == "telemetry"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http; python_version >= "3.9" and extra == "telemetry"
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc; python_version >= "3.9" and extra == "telemetry"
+Requires-Dist: opentelemetry-instrumentation-grpc; python_version >= "3.9" and extra == "telemetry"
+Requires-Dist: opentelemetry-instrumentation-requests; python_version >= "3.9" and extra == "telemetry"
 Dynamic: license-file
 
 # ![snappi](snappi-logo.png)

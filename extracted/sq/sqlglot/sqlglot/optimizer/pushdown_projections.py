@@ -99,7 +99,7 @@ def pushdown_projections(
             if remove_unused_selections:
                 _remove_unused_selections(scope, parent_selections, schema, alias_count)
 
-            if scope.expression.is_star:
+            if scope.scans_all_subscope_columns:
                 continue
 
             # Group columns by source name

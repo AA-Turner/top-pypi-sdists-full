@@ -7,7 +7,7 @@ into deepeval ``BaseSpan``s.
 
 Mirrors the Pydantic AI POC pattern (and AgentCore's port of it): pushes
 ``BaseSpan`` placeholders for ``update_current_span(...)``, an implicit
-``Trace(is_otel_implicit=True)`` for bare callers, consumes
+``Trace`` placeholder (``_is_otel_implicit=True``) for bare callers, consumes
 ``next_*_span(...)`` payloads at on_start, resolves trace attrs FRESH at
 on_end so live ``update_current_trace(...)`` mutations win, and stashes
 ``BaseMetric`` instances when an evaluation is running.
@@ -46,6 +46,11 @@ from deepeval.tracing.types import (
     Trace,
     TraceSpanStatus,
     ToolCall,
+)
+from deepeval.tracing.integrations import Integration
+from deepeval.tracing.utils import (
+    infer_provider_from_model,
+    normalize_span_provider_for_platform,
 )
 
 logger = logging.getLogger(__name__)
@@ -382,6 +387,7 @@ class OpenInferenceInstrumentationSettings:
         test_case_id: Optional[str] = None,
         turn_id: Optional[str] = None,
         environment: Optional[str] = None,
+        integration: Optional[str] = None,
         **removed_kwargs: Any,
     ):
         is_dependency_installed()
@@ -420,10 +426,10 @@ class OpenInferenceInstrumentationSettings:
         self.test_case_id = test_case_id
         self.turn_id = turn_id
 
-
-# Span interceptor. Pushes BaseSpan placeholders for ``update_current_span``,
-# implicit Trace for bare callers, parent-uuid bridge for OTel roots inside
-# ``@observe``, ``next_*_span`` consumption, and framework-attr extraction.
+        # Span interceptor. Pushes BaseSpan placeholders for ``update_current_span``,
+        # implicit Trace for bare callers, parent-uuid bridge for OTel roots inside
+        # ``@observe``, ``next_*_span`` consumption, and framework-attr extraction.
+        self.integration = integration or Integration.OPEN_INFERENCE.value
 
 
 class OpenInferenceSpanInterceptor(SpanProcessor):
@@ -447,6 +453,9 @@ class OpenInferenceSpanInterceptor(SpanProcessor):
         if span_type:
             try:
                 span.set_attribute("confident.span.type", span_type)
+                span.set_attribute(
+                    "confident.span.integration", self.settings.integration
+                )
             except Exception:
                 pass
 
@@ -581,8 +590,10 @@ class OpenInferenceSpanInterceptor(SpanProcessor):
     def _maybe_push_implicit_trace_context(self, span) -> None:
         """Push an implicit ``Trace`` for OTel roots without enclosing context.
 
-        Tagged ``is_otel_implicit=True`` so ``ContextAwareSpanProcessor``
-        still routes to OTLP.
+        Tagged ``_is_otel_implicit=True`` so ``ContextAwareSpanProcessor``
+        still routes to OTLP. ``_is_otel_implicit`` is a Pydantic
+        ``PrivateAttr``, so it must be set after construction (it's not a
+        constructor kwarg).
         """
         if current_trace_context.get() is not None:
             return
@@ -601,8 +612,8 @@ class OpenInferenceSpanInterceptor(SpanProcessor):
                 root_spans=[],
                 status=TraceSpanStatus.IN_PROGRESS,
                 start_time=start_time,
-                is_otel_implicit=True,
             )
+            implicit._is_otel_implicit = True
             token = current_trace_context.set(implicit)
             self._trace_tokens[sid] = token
             self._trace_placeholders[sid] = implicit
@@ -822,6 +833,15 @@ class OpenInferenceSpanInterceptor(SpanProcessor):
         span_type = attrs.get("confident.span.type") or _get_span_kind(span)
         if span_type and "confident.span.type" not in attrs:
             self._set_attr_post_end(span, "confident.span.type", span_type)
+        if (
+            self.settings.integration
+            and "confident.span.integration" not in attrs
+        ):
+            self._set_attr_post_end(
+                span,
+                "confident.span.integration",
+                self.settings.integration,
+            )
 
         input_text, output_text = _extract_messages(span)
 
@@ -854,6 +874,15 @@ class OpenInferenceSpanInterceptor(SpanProcessor):
         model = attrs.get("llm.model_name")
         if model:
             self._set_attr_post_end(span, "confident.llm.model", str(model))
+        if span_type == "llm" and not attrs.get("confident.span.provider"):
+            provider = attrs.get("llm.provider")
+            if not provider and model:
+                provider = infer_provider_from_model(str(model))
+            if provider:
+                provider = normalize_span_provider_for_platform(provider)
+                self._set_attr_post_end(
+                    span, "confident.span.provider", str(provider)
+                )
 
         tools_called: List[ToolCall] = []
 

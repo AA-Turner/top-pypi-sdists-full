@@ -4,7 +4,7 @@ Translates AWS Bedrock AgentCore / Strands / Traceloop spans into
 ``confident.*`` OTel attrs that ``ConfidentSpanExporter`` rebuilds into
 deepeval ``BaseSpan``s. Mirrors the Pydantic AI POC pattern: pushes
 ``BaseSpan`` placeholders for ``update_current_span(...)``, an implicit
-``Trace(is_otel_implicit=True)`` for bare callers, consumes
+``Trace`` placeholder (``_is_otel_implicit=True``) for bare callers, consumes
 ``next_*_span(...)`` payloads at on_start, resolves trace attrs FRESH
 at on_end, and stashes ``BaseMetric`` instances when evaluating.
 
@@ -35,6 +35,11 @@ from deepeval.tracing.otel.utils import (
 )
 from deepeval.tracing.perf_epoch_bridge import init_clock_bridge
 from deepeval.tracing.tracing import trace_manager
+from deepeval.tracing.integrations import Integration
+from deepeval.tracing.utils import (
+    infer_provider_from_model,
+    normalize_span_provider_for_platform,
+)
 from deepeval.tracing.types import (
     AgentSpan,
     BaseSpan,
@@ -611,8 +616,10 @@ class AgentCoreSpanInterceptor(SpanProcessor):
     def _maybe_push_implicit_trace_context(self, span) -> None:
         """Push an implicit ``Trace`` for OTel roots without enclosing context.
 
-        Tagged ``is_otel_implicit=True`` so ``ContextAwareSpanProcessor``
-        still routes to OTLP.
+        Tagged ``_is_otel_implicit=True`` so ``ContextAwareSpanProcessor``
+        still routes to OTLP. ``_is_otel_implicit`` is a Pydantic
+        ``PrivateAttr``, so it must be set after construction (it's not a
+        constructor kwarg).
         """
         if current_trace_context.get() is not None:
             return
@@ -631,8 +638,8 @@ class AgentCoreSpanInterceptor(SpanProcessor):
                 root_spans=[],
                 status=TraceSpanStatus.IN_PROGRESS,
                 start_time=start_time,
-                is_otel_implicit=True,
             )
+            implicit._is_otel_implicit = True
             token = current_trace_context.set(implicit)
             self._trace_tokens[sid] = token
             self._trace_placeholders[sid] = implicit
@@ -852,6 +859,10 @@ class AgentCoreSpanInterceptor(SpanProcessor):
         span_type = attrs.get("confident.span.type") or _classify_span(span)
         if span_type and "confident.span.type" not in attrs:
             self._set_attr_post_end(span, "confident.span.type", span_type)
+        if not attrs.get("confident.span.integration"):
+            self._set_attr_post_end(
+                span, "confident.span.integration", Integration.AGENTCORE.value
+            )
 
         input_text, output_text = _extract_messages(span)
 
@@ -891,6 +902,13 @@ class AgentCoreSpanInterceptor(SpanProcessor):
         )
         if model:
             self._set_attr_post_end(span, "confident.llm.model", model)
+            if span_type == "llm" and not attrs.get("confident.span.provider"):
+                provider = infer_provider_from_model(model)
+                if provider:
+                    provider = normalize_span_provider_for_platform(provider)
+                    self._set_attr_post_end(
+                        span, "confident.span.provider", provider
+                    )
 
         tools_called: List[ToolCall] = []
 

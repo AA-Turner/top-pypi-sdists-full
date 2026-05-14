@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tabpfn
-Version: 8.0.1
+Version: 8.0.2
 Summary: TabPFN: Foundation model for tabular data
 Author-email: Prior Labs <opensource@priorlabs.ai>
 License: 
@@ -239,6 +239,7 @@ Requires-Dist: tqdm>=4.66.0
 Requires-Dist: tabpfn-common-utils[telemetry-interactive]>=0.2.13
 Requires-Dist: filelock>=3.11.0
 Requires-Dist: lightgbm>=3.0
+Requires-Dist: mlx>=0.29.3; sys_platform == "darwin" and platform_machine == "arm64"
 Provides-Extra: wandb
 Requires-Dist: wandb>=0.25.1; extra == "wandb"
 Dynamic: license-file
@@ -267,6 +268,11 @@ Dynamic: license-file
 ```bash
 pip install tabpfn
 ```
+
+Note: For best performance on Apple Silicon/MPS, consider installing a pytorch version after
+the nightly "2.13.0.dev20260510". This enables flash attention without relying on MLX
+(the latter requires a GPU-CPU-GPU roundtrip).
+
 
 ### Basic Usage
 

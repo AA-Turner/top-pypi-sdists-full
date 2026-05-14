@@ -44,8 +44,9 @@ class ComplianceRow(BaseModel):
     next_due: Optional[datetime] = None
     frequency_days: Optional[StrictInt] = None
     alert: Optional[ComplianceAlertSummary] = None
+    error_message: Optional[StrictStr] = None
     created_at: Optional[datetime] = None
-    __properties: ClassVar[List[str]] = ["assignment_id", "rule_type", "rule", "model", "policy", "compliance_status", "approved_by", "next_due", "frequency_days", "alert", "created_at"]
+    __properties: ClassVar[List[str]] = ["assignment_id", "rule_type", "rule", "model", "policy", "compliance_status", "approved_by", "next_due", "frequency_days", "alert", "error_message", "created_at"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -121,6 +122,11 @@ class ComplianceRow(BaseModel):
         if self.alert is None and "alert" in self.model_fields_set:
             _dict['alert'] = None
 
+        # set to None if error_message (nullable) is None
+        # and model_fields_set contains the field
+        if self.error_message is None and "error_message" in self.model_fields_set:
+            _dict['error_message'] = None
+
         # set to None if created_at (nullable) is None
         # and model_fields_set contains the field
         if self.created_at is None and "created_at" in self.model_fields_set:
@@ -148,6 +154,7 @@ class ComplianceRow(BaseModel):
             "next_due": obj.get("next_due"),
             "frequency_days": obj.get("frequency_days"),
             "alert": ComplianceAlertSummary.from_dict(obj["alert"]) if obj.get("alert") is not None else None,
+            "error_message": obj.get("error_message"),
             "created_at": obj.get("created_at")
         })
         return _obj

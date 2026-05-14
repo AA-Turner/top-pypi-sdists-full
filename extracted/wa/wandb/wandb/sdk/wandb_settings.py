@@ -12,11 +12,6 @@ import sys
 import traceback
 from collections.abc import Sequence
 from datetime import datetime
-
-# Optional and Union are used for type hinting instead of | because
-# the latter is not supported in pydantic<2.6 and Python<3.10.
-# Dict, List, and Tuple are used for backwards compatibility
-# with pydantic v1 and Python<3.9.
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from urllib.parse import quote, unquote
 
@@ -27,7 +22,6 @@ from typing_extensions import Callable, Self
 import wandb
 from wandb import env, util
 from wandb._pydantic import (
-    IS_PYDANTIC_V2,
     AliasChoices,
     ValidationError,
     computed_field,
@@ -41,9 +35,6 @@ from wandb.sdk.lib import deprecation, settings_file, urls
 from .lib import credentials, filesystem, ipython
 from .lib.run_moment import RunMoment
 
-if not IS_PYDANTIC_V2:
-    from pydantic import root_validator
-
 
 def _path_convert(*args: str) -> str:
     """Join path and apply os.path.expanduser to it."""
@@ -53,7 +44,9 @@ def _path_convert(*args: str) -> str:
 CLIENT_ONLY_SETTINGS = (
     "anonymous",
     "app_url_override",
+    "capture_loggers",
     "files_dir",
+    "finish_timeout_raises",
     "max_end_of_run_history_metrics",
     "max_end_of_run_summary_metrics",
     "reinit",
@@ -197,6 +190,36 @@ class Settings(BaseModel, validate_assignment=True):
     limit.
     """
 
+    capture_loggers: Optional[dict[str, str]] = None
+    """Names of Python loggers to capture into the run's Logs tab.
+
+    A mapping of logger name to minimum log level. When set, wandb installs a
+    logging.Handler on each named logger and removes it when the run finishes.
+    Log records emitted by those loggers are published as console output to the
+    run, similar to stdout/stderr capture.
+
+    Log records are formatted the same as `logging.basicConfig()`, like
+    `INFO:my_module:Some message.` This is not currently customizable.
+
+    To capture all logs, pass the name of the root logger, which is 'root'.
+
+    This is independent of the `console` setting: both can be active
+    simultaneously.
+
+    Example:
+    ```python
+    wandb.init(
+        settings=wandb.Settings(
+            console="off",
+            capture_loggers={
+                "my_app": "INFO",
+                "my_app.training": "ERROR",
+            },
+        ),
+    )
+    ```
+    """
+
     credentials_file: str = Field(
         default_factory=lambda: str(credentials.DEFAULT_WANDB_CREDENTIALS_FILE)
     )
@@ -280,6 +303,43 @@ class Settings(BaseModel, validate_assignment=True):
 
     init_timeout: float = 90.0
     """Time in seconds to wait for the `wandb.init` call to complete before timing out."""
+
+    finish_timeout: float = 0.0
+    """Time in seconds to wait for data to upload at the end of a run.
+
+    Setting this can limit costs caused by slow uploads to W&B at the end of a
+    run, with the trade-off that the run will be marked crashed and may be
+    missing some data. The default is for `run.finish()` to block until all
+    data finishes uploading.
+
+    If this is set to a number greater than zero, W&B gives up on uploading a
+    run's data after this many seconds at the end of a run, unblocking your
+    script. After some time, the run becomes Crashed or Failed in the UI. Any
+    unuploaded data is still stored on disk and can be uploaded with `wandb
+    sync`.
+
+    Use the `finish_timeout_raises` setting to raise an error in addition to
+    printing a warning message.
+
+    Runs shut down by `wandb.teardown()` (which automatically runs at the end
+    of a script in an atexit hook) will also respect this setting.
+    """
+
+    finish_timeout_raises: bool = False
+    """Whether to raise a TimeoutError if finish_timeout expires.
+
+    Using this together with the `finish_timeout` setting causes `run.finish()`
+    to raise a TimeoutError after a timeout in addition to printing a message.
+
+    Note that `run.finish()` is called implicitly when using a Run as a context
+    manager:
+
+        with wandb.init() as run:
+            ...  # run.finish() executes at the end of the `with` block
+
+    This does not cause `wandb.teardown()` to raise an error (since it runs
+    at the end of a script anyway).
+    """
 
     insecure_disable_ssl: bool = False
     """Whether to insecurely disable SSL verification."""
@@ -477,6 +537,19 @@ class Settings(BaseModel, validate_assignment=True):
 
     This is deprecated and will be removed in a future release.
     <!-- lazydoc-ignore-class-attributes -->
+    """
+
+    stop_on_fatal_error: bool = False
+    """Whether to stop the run after a fatal error.
+
+    After W&B hits an unrecoverable error while uploading data, it prints
+    a message and stops uploading, but still allows logging more data.
+    This is usually desirable: your training metrics get stored on disk
+    and can be recovered using `wandb sync`, even if they aren't uploaded.
+
+    This is not useful if your files get deleted after training.
+    In that case, setting this to True will stop the run after a fatal error,
+    as if the stop button was pressed in the web UI.
     """
 
     strict: Optional[bool] = None
@@ -908,6 +981,9 @@ class Settings(BaseModel, validate_assignment=True):
     This can have a performance overhead and is disabled by default.
     """
 
+    x_stats_no_cgroup: bool = False
+    """Disable cgroup v2 CPU and memory limits for system metric percentages."""
+
     x_sync: bool = False
     """Flag to indicate whether we are syncing a run from the transaction log.
 
@@ -947,60 +1023,31 @@ class Settings(BaseModel, validate_assignment=True):
                 new_values[key] = values[key]
         return new_values
 
-    if IS_PYDANTIC_V2:
+    @model_validator(mode="after")
+    def validate_mutual_exclusion_of_branching_args(self) -> Self:
+        """Check if `fork_from`, `resume`, and `resume_from` are mutually exclusive.
 
-        @model_validator(mode="after")
-        def validate_mutual_exclusion_of_branching_args(self) -> Self:
-            """Check if `fork_from`, `resume`, and `resume_from` are mutually exclusive.
+        <!-- lazydoc-ignore: internal -->
+        """
+        if (
+            sum(o is not None for o in [self.fork_from, self.resume, self.resume_from])
+            > 1
+        ):
+            raise ValueError(
+                "`fork_from`, `resume`, or `resume_from` are mutually exclusive. "
+                "Please specify only one of them."
+            )
+        return self
 
-            <!-- lazydoc-ignore: internal -->
-            """
-            if (
-                sum(
-                    o is not None
-                    for o in [self.fork_from, self.resume, self.resume_from]
-                )
-                > 1
-            ):
-                raise ValueError(
-                    "`fork_from`, `resume`, or `resume_from` are mutually exclusive. "
-                    "Please specify only one of them."
-                )
-            return self
+    @model_validator(mode="after")
+    def validate_skip_transaction_log(self):
+        """Validate x_skip_transaction_log.
 
-        @model_validator(mode="after")
-        def validate_skip_transaction_log(self):
-            """Validate x_skip_transaction_log.
-
-            <!-- lazydoc-ignore: internal -->
-            """
-            if self._offline and self.x_skip_transaction_log:
-                raise ValueError("Cannot skip transaction log in offline mode")
-            return self
-    else:
-
-        @root_validator(pre=False)  # type: ignore [call-overload]
-        @classmethod
-        def validate_mutual_exclusion_of_branching_args(cls, values):
-            if (
-                sum(
-                    values.get(o) is not None
-                    for o in ["fork_from", "resume", "resume_from"]
-                )
-                > 1
-            ):
-                raise ValueError(
-                    "`fork_from`, `resume`, or `resume_from` are mutually exclusive. "
-                    "Please specify only one of them."
-                )
-            return values
-
-        @root_validator(pre=False)  # type: ignore [call-overload]
-        @classmethod
-        def validate_skip_transaction_log(cls, values):
-            if values.get("_offline") and values.get("x_skip_transaction_log"):
-                raise ValueError("Cannot skip transaction log in offline mode")
-            return values
+        <!-- lazydoc-ignore: internal -->
+        """
+        if self._offline and self.x_skip_transaction_log:
+            raise ValueError("Cannot skip transaction log in offline mode")
+        return self
 
     # Field validators.
     @field_validator("anonymous", mode="after")
@@ -1143,12 +1190,7 @@ class Settings(BaseModel, validate_assignment=True):
         """
         run_moment = cls._runmoment_preprocessor(value)
 
-        if hasattr(values, "data"):
-            # pydantic v2
-            values = values.data
-        else:
-            # pydantic v1
-            values = values
+        values = values.data
 
         if (
             run_moment
@@ -1274,12 +1316,7 @@ class Settings(BaseModel, validate_assignment=True):
         """
         run_moment = cls._runmoment_preprocessor(value)
 
-        if hasattr(values, "data"):
-            # pydantic v2
-            values = values.data
-        else:
-            # pydantic v1
-            values = values
+        values = values.data
 
         if (
             run_moment
@@ -1853,7 +1890,7 @@ class Settings(BaseModel, validate_assignment=True):
             )
 
         # Print at the start so that users can diagnose uncaught exceptions.
-        if not self.quiet:
+        if not self.quiet and not self.silent and not env.is_silent():
             printed_sources = True
             wandb.termlog(f"Loading settings from {source_string}")
         else:
@@ -2163,74 +2200,6 @@ class Settings(BaseModel, validate_assignment=True):
             return val
         elif isinstance(val, str):
             return RunMoment.from_uri(val)
-
-    if not IS_PYDANTIC_V2:
-
-        def model_copy(self, *args, **kwargs):
-            return self.copy(*args, **kwargs)
-
-        def model_dump(self, **kwargs):
-            """Compatibility method for Pydantic v1 to mimic v2's model_dump.
-
-            In v1, this is equivalent to dict() but also includes computed properties.
-
-            Args:
-                **kwargs: Options passed to the dict method
-                    - exclude_none: Whether to exclude fields with None values
-
-            Returns:
-                A dictionary of the model's fields and computed properties
-            """
-            # Handle exclude_none separately since it's named differently in v1
-            exclude_none = kwargs.pop("exclude_none", False)
-
-            # Start with regular fields from dict()
-            result = self.dict(**kwargs)
-
-            # Get all computed properties
-            for name in dir(self.__class__):
-                attr = getattr(self.__class__, name, None)
-                if isinstance(attr, property):
-                    try:
-                        # Only include properties that don't raise errors
-                        value = getattr(self, name)
-                        result[name] = value
-                    except (AttributeError, NotImplementedError, TypeError, ValueError):
-                        # Skip properties that can't be accessed or raise errors
-                        pass
-                elif isinstance(attr, RunMoment):
-                    value = getattr(self, name)
-                    result[name] = value
-
-            # Special Pydantic attributes that should always be excluded
-            exclude_fields = {
-                "model_config",
-                "model_fields",
-                "model_fields_set",
-                "__fields__",
-                "__model_fields_set",
-                "__pydantic_self__",
-                "__pydantic_initialised__",
-            }
-
-            # Remove special Pydantic attributes
-            for field in exclude_fields:
-                if field in result:
-                    del result[field]
-
-            if exclude_none:
-                # Remove None values from the result
-                return {k: v for k, v in result.items() if v is not None}
-
-            return result
-
-        @property
-        def model_fields_set(self) -> set:
-            """Return a set of fields that have been explicitly set.
-
-            This is a compatibility property for Pydantic v1 to mimic v2's model_fields_set.
-            """
-            return getattr(self, "__fields_set__", set())
 
     def _setup_code_paths(self, program: str):
         """Sets the program_abspath and program_relpath settings."""

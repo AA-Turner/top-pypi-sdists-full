@@ -99,6 +99,11 @@ from dazzle.cli.coverage import coverage_command  # noqa: E402
 
 app.command(name="coverage")(coverage_command)
 
+# Fragment-audit command — Fragment-rendering coverage for a single project
+from dazzle.cli.fragment_audit import fragment_audit_command  # noqa: E402
+
+app.command(name="fragment-audit")(fragment_audit_command)
+
 # Sweep command group — unified health check across every example app.
 # `dazzle sweep examples` runs validate + lint + framework coverage snapshot
 # and emits a single report suitable for weekly scheduled runs.
@@ -217,6 +222,7 @@ def search_command(
 from dazzle.cli.runtime_impl import (  # noqa: E402
     build_api_command,
     build_command,
+    build_css_command,
     build_ui_command,
     check_command,
     info_command,
@@ -233,7 +239,13 @@ app.command(name="serve")(serve_command)
 app.command(name="build")(build_command)
 app.command(name="build-ui")(build_ui_command)
 app.command(name="build-api")(build_api_command)
-# `dazzle build-css` removed in v0.62 (Phase 4 teardown of build_css.py).
+# v0.67.21 (#1038): `dazzle build-css` re-introduced as a no-op CLI
+# command so downstream deploy hooks (e.g. cyfuture's bin/post_compile)
+# stop failing silently with typer's "No such command". Prints a one-
+# shot migration note + exits 0. The implementation was removed in
+# v0.62 (Phase 4 teardown); this entry is purely for invocation
+# ergonomics, not backward-compat of the build behaviour itself.
+app.command(name="build-css")(build_css_command)
 app.command(name="info")(info_command)
 app.command(name="stop")(stop_command)
 app.command(name="rebuild")(rebuild_command)
@@ -276,7 +288,6 @@ from dazzle.cli.mcp import mcp_app  # noqa: E402
 from dazzle.cli.migrate import migrate_app  # noqa: E402
 from dazzle.cli.mock import mock_app  # noqa: E402
 from dazzle.cli.nightly import nightly_app  # noqa: E402
-from dazzle.cli.overrides import overrides_app  # noqa: E402
 from dazzle.cli.param import param_app  # noqa: E402
 from dazzle.cli.pipeline import pipeline_app  # noqa: E402
 from dazzle.cli.pitch import pitch_app  # noqa: E402
@@ -343,7 +354,6 @@ app.add_typer(qa_app, name="qa")
 app.add_typer(sentinel_app, name="sentinel")
 app.add_typer(ux_app, name="ux")
 app.add_typer(test_design_app, name="test-design")
-app.add_typer(overrides_app, name="overrides")
 app.add_typer(param_app, name="param")
 
 from dazzle.cli.i18n import i18n_app  # noqa: E402

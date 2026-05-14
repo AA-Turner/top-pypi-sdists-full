@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chonkie
-Version: 1.6.5
+Version: 1.6.6
 Summary: 🦛 CHONK your texts with Chonkie ✨ - The no-nonsense chunking library
 Author-email: Bhavnick Minhas <bhavnick@chonkie.ai>, Shreyash Nigam <shreyash@chonkie.ai>
 Maintainer-email: Bhavnick Minhas <bhavnick@chonkie.ai>, Shreyash Nigam <shreyash@chonkie.ai>, Hafedh Hichri <lain@chonkie.ai>
@@ -76,9 +76,7 @@ Requires-Dist: tokenizers>=0.16.0; extra == "tokenizers"
 Provides-Extra: tiktoken
 Requires-Dist: tiktoken>=0.5.0; extra == "tiktoken"
 Provides-Extra: code
-Requires-Dist: tree-sitter>=0.20.0; extra == "code"
-Requires-Dist: tree-sitter-language-pack>=0.7.0; extra == "code"
-Requires-Dist: magika<1.1.0,>=0.6.0; extra == "code"
+Requires-Dist: tree-sitter-language-pack>=1.8.0; extra == "code"
 Provides-Extra: neural
 Requires-Dist: transformers>=4.0.0; extra == "neural"
 Requires-Dist: torch<3.0,>=2.0.0; extra == "neural"
@@ -132,7 +130,7 @@ Requires-Dist: chromadb>=1.0.0; extra == "chroma"
 Provides-Extra: qdrant
 Requires-Dist: qdrant-client>=1.0.0; extra == "qdrant"
 Provides-Extra: tpuf
-Requires-Dist: turbopuffer~=1.0; extra == "tpuf"
+Requires-Dist: turbopuffer<3,>=1; extra == "tpuf"
 Provides-Extra: pgvector
 Requires-Dist: vecs>=0.4.0; extra == "pgvector"
 Provides-Extra: weaviate

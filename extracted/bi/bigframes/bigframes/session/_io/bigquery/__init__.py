@@ -22,7 +22,7 @@ import re
 import textwrap
 import types
 import typing
-from typing import Dict, Iterable, Literal, Mapping, Optional, overload, Tuple, Union
+from typing import Dict, Iterable, Literal, Mapping, Optional, Tuple, Union, overload
 
 import bigframes_vendored.google_cloud_bigquery.retry as third_party_gcb_retry
 import bigframes_vendored.pandas.io.gbq as third_party_pandas_gbq
@@ -32,11 +32,11 @@ import google.cloud.bigquery as bigquery
 import google.cloud.bigquery._job_helpers
 import google.cloud.bigquery.table
 
-from bigframes.core.compile.sqlglot import sql as sg_sql
 import bigframes.core.events
-from bigframes.core.logging import log_adapter
 import bigframes.core.sql
 import bigframes.session.metrics
+from bigframes.core.compile.sqlglot import sql as sg_sql
+from bigframes.core.logging import log_adapter
 
 CHECK_DRIVE_PERMISSIONS = "\nCheck https://cloud.google.com/bigquery/docs/query-drive-data#Google_Drive_permissions."
 
@@ -262,77 +262,7 @@ def create_bq_event_callback(publisher):
     return publish_bq_event
 
 
-@overload
-def start_query_with_client(
-    bq_client: bigquery.Client,
-    sql: str,
-    *,
-    job_config: bigquery.QueryJobConfig,
-    location: Optional[str],
-    project: Optional[str],
-    timeout: Optional[float],
-    metrics: Optional[bigframes.session.metrics.ExecutionMetrics],
-    query_with_job: Literal[True],
-    publisher: bigframes.core.events.Publisher,
-    session=None,
-) -> Tuple[google.cloud.bigquery.table.RowIterator, bigquery.QueryJob]:
-    ...
-
-
-@overload
-def start_query_with_client(
-    bq_client: bigquery.Client,
-    sql: str,
-    *,
-    job_config: bigquery.QueryJobConfig,
-    location: Optional[str],
-    project: Optional[str],
-    timeout: Optional[float],
-    metrics: Optional[bigframes.session.metrics.ExecutionMetrics],
-    query_with_job: Literal[False],
-    publisher: bigframes.core.events.Publisher,
-    session=None,
-) -> Tuple[google.cloud.bigquery.table.RowIterator, Optional[bigquery.QueryJob]]:
-    ...
-
-
-@overload
-def start_query_with_client(
-    bq_client: bigquery.Client,
-    sql: str,
-    *,
-    job_config: bigquery.QueryJobConfig,
-    location: Optional[str],
-    project: Optional[str],
-    timeout: Optional[float],
-    metrics: Optional[bigframes.session.metrics.ExecutionMetrics],
-    query_with_job: Literal[True],
-    job_retry: google.api_core.retry.Retry,
-    publisher: bigframes.core.events.Publisher,
-    session=None,
-) -> Tuple[google.cloud.bigquery.table.RowIterator, bigquery.QueryJob]:
-    ...
-
-
-@overload
-def start_query_with_client(
-    bq_client: bigquery.Client,
-    sql: str,
-    *,
-    job_config: bigquery.QueryJobConfig,
-    location: Optional[str],
-    project: Optional[str],
-    timeout: Optional[float],
-    metrics: Optional[bigframes.session.metrics.ExecutionMetrics],
-    query_with_job: Literal[False],
-    job_retry: google.api_core.retry.Retry,
-    publisher: bigframes.core.events.Publisher,
-    session=None,
-) -> Tuple[google.cloud.bigquery.table.RowIterator, Optional[bigquery.QueryJob]]:
-    ...
-
-
-def start_query_with_client(
+def start_query_with_job(
     bq_client: bigquery.Client,
     sql: str,
     *,
@@ -341,7 +271,6 @@ def start_query_with_client(
     project: Optional[str] = None,
     timeout: Optional[float] = None,
     metrics: Optional[bigframes.session.metrics.ExecutionMetrics] = None,
-    query_with_job: bool = True,
     # TODO(tswast): We can stop providing our own default once we use a
     # google-cloud-bigquery version with
     # https://github.com/googleapis/python-bigquery/pull/2256 merged, likely
@@ -349,7 +278,7 @@ def start_query_with_client(
     job_retry: google.api_core.retry.Retry = third_party_gcb_retry.DEFAULT_JOB_RETRY,
     publisher: bigframes.core.events.Publisher,
     session=None,
-) -> Tuple[google.cloud.bigquery.table.RowIterator, Optional[bigquery.QueryJob]]:
+) -> Tuple[google.cloud.bigquery.table.RowIterator, bigquery.QueryJob]:
     """
     Starts query job and waits for results.
     """
@@ -359,20 +288,6 @@ def start_query_with_client(
     add_and_trim_labels(job_config, session=session)
 
     try:
-        if not query_with_job:
-            results_iterator = bq_client._query_and_wait_bigframes(
-                sql,
-                job_config=job_config,
-                location=location,
-                project=project,
-                api_timeout=timeout,
-                job_retry=job_retry,
-                callback=create_bq_event_callback(publisher),
-            )
-            if metrics is not None:
-                metrics.count_job_stats(row_iterator=results_iterator)
-            return results_iterator, None
-
         query_job = bq_client.query(
             sql,
             job_config=job_config,
@@ -386,6 +301,66 @@ def start_query_with_client(
             ex.message += CHECK_DRIVE_PERMISSIONS
         raise
 
+    results_iterator = query_job.result()
+    _publish_events(
+        query_job=query_job,
+        total_rows=results_iterator.total_rows,
+        sql=sql,
+        publisher=publisher,
+        metrics=metrics,
+    )
+    return results_iterator, query_job
+
+
+def start_query_job_optional(
+    bq_client: bigquery.Client,
+    sql: str,
+    *,
+    job_config: bigquery.QueryJobConfig,
+    location: Optional[str] = None,
+    project: Optional[str] = None,
+    timeout: Optional[float] = None,
+    metrics: Optional[bigframes.session.metrics.ExecutionMetrics] = None,
+    # TODO(tswast): We can stop providing our own default once we use a
+    # google-cloud-bigquery version with
+    # https://github.com/googleapis/python-bigquery/pull/2256 merged, likely
+    # version 3.36.0 or later.
+    job_retry: google.api_core.retry.Retry = third_party_gcb_retry.DEFAULT_JOB_RETRY,
+    publisher: bigframes.core.events.Publisher,
+    session=None,
+) -> google.cloud.bigquery.table.RowIterator:
+    """
+    Run a bigquery query, with job optional.
+
+    See: https://docs.cloud.google.com/bigquery/docs/running-queries#optional-job-creation
+    """
+    add_and_trim_labels(job_config, session=session)
+    try:
+        results_iterator = bq_client._query_and_wait_bigframes(
+            sql,
+            job_config=job_config,
+            location=location,
+            project=project,
+            api_timeout=timeout,
+            job_retry=job_retry,
+            callback=create_bq_event_callback(publisher),
+        )
+        if metrics is not None:
+            metrics.count_job_stats(row_iterator=results_iterator)
+        return results_iterator
+    except google.api_core.exceptions.Forbidden as ex:
+        if "Drive credentials" in ex.message:
+            ex.message += CHECK_DRIVE_PERMISSIONS
+        raise
+
+
+def _publish_events(
+    query_job: bigquery.QueryJob,
+    sql: str,
+    total_rows: Optional[int],
+    publisher: bigframes.core.events.Publisher,
+    metrics: Optional[bigframes.session.metrics.ExecutionMetrics] = None,
+):
     if not query_job.configuration.dry_run:
         publisher.publish(
             bigframes.core.events.BigQuerySentEvent(
@@ -396,7 +371,6 @@ def start_query_with_client(
                 request_id=None,
             )
         )
-    results_iterator = query_job.result()
     if not query_job.configuration.dry_run:
         publisher.publish(
             bigframes.core.events.BigQueryFinishedEvent(
@@ -404,7 +378,7 @@ def start_query_with_client(
                 location=query_job.location,
                 job_id=query_job.job_id,
                 destination=query_job.destination,
-                total_rows=results_iterator.total_rows,
+                total_rows=total_rows,
                 total_bytes_processed=query_job.total_bytes_processed,
                 slot_millis=query_job.slot_millis,
                 created=query_job.created,
@@ -415,7 +389,6 @@ def start_query_with_client(
 
     if metrics is not None:
         metrics.count_job_stats(query_job=query_job)
-    return results_iterator, query_job
 
 
 def delete_tables_matching_session_id(
@@ -477,7 +450,7 @@ def create_bq_dataset_reference(
     """
     job_config = google.cloud.bigquery.QueryJobConfig()
 
-    _, query_job = start_query_with_client(
+    _, query_job = start_query_with_job(
         bq_client,
         "SELECT 1",
         location=location,
@@ -485,7 +458,6 @@ def create_bq_dataset_reference(
         project=project,
         timeout=None,
         metrics=None,
-        query_with_job=True,
         publisher=publisher,
     )
 
@@ -519,16 +491,22 @@ def to_query(
     time_travel_timestamp: Optional[datetime.datetime] = None,
 ) -> str:
     """Compile query_or_table with conditions(filters, wildcards) to query."""
-    sub_query = (
-        f"({query_or_table})" if is_query(query_or_table) else f"`{query_or_table}`"
-    )
+    if is_query(query_or_table):
+        from_item = f"({query_or_table})"
+    else:
+        # Table ID can have 1, 2, 3, or 4 parts. Quoting all parts to be safe.
+        # See: https://cloud.google.com/bigquery/docs/reference/standard-sql/lexical#identifiers
+        parts = query_or_table.split(".")
+        from_item = ".".join(f"`{part}`" for part in parts)
 
     # TODO(b/338111344): Generate an index based on DefaultIndexKind if we
     # don't have index columns specified.
     if columns:
         # We only reduce the selection if columns is set, but we always
         # want to make sure index_cols is also included.
-        select_clause = "SELECT " + ", ".join(f"`{column}`" for column in columns)
+        select_clause = "SELECT " + ", ".join(
+            f"`_bf_source`.`{column}`" for column in columns
+        )
     else:
         select_clause = "SELECT *"
 
@@ -545,7 +523,7 @@ def to_query(
 
     return (
         f"{select_clause} "
-        f"FROM {sub_query}"
+        f"FROM {from_item} AS _bf_source"
         f"{time_travel_clause}{where_clause}{limit_clause}"
     )
 

@@ -30,6 +30,9 @@ from .paginator import (
     ListAgentSpacesPaginator,
     ListApplicationsPaginator,
     ListArtifactsPaginator,
+    ListCodeReviewJobsForCodeReviewPaginator,
+    ListCodeReviewJobTasksPaginator,
+    ListCodeReviewsPaginator,
     ListDiscoveredEndpointsPaginator,
     ListFindingsPaginator,
     ListIntegratedResourcesPaginator,
@@ -43,12 +46,20 @@ from .paginator import (
 from .type_defs import (
     AddArtifactInputTypeDef,
     AddArtifactOutputTypeDef,
+    BatchDeleteCodeReviewsInputTypeDef,
+    BatchDeleteCodeReviewsOutputTypeDef,
     BatchDeletePentestsInputTypeDef,
     BatchDeletePentestsOutputTypeDef,
     BatchGetAgentSpacesInputTypeDef,
     BatchGetAgentSpacesOutputTypeDef,
     BatchGetArtifactMetadataInputTypeDef,
     BatchGetArtifactMetadataOutputTypeDef,
+    BatchGetCodeReviewJobsInputTypeDef,
+    BatchGetCodeReviewJobsOutputTypeDef,
+    BatchGetCodeReviewJobTasksInputTypeDef,
+    BatchGetCodeReviewJobTasksOutputTypeDef,
+    BatchGetCodeReviewsInputTypeDef,
+    BatchGetCodeReviewsOutputTypeDef,
     BatchGetFindingsInputTypeDef,
     BatchGetFindingsOutputTypeDef,
     BatchGetPentestJobsInputTypeDef,
@@ -63,6 +74,8 @@ from .type_defs import (
     CreateAgentSpaceOutputTypeDef,
     CreateApplicationRequestTypeDef,
     CreateApplicationResponseTypeDef,
+    CreateCodeReviewInputTypeDef,
+    CreateCodeReviewOutputTypeDef,
     CreateIntegrationInputTypeDef,
     CreateIntegrationOutputTypeDef,
     CreateMembershipRequestTypeDef,
@@ -93,6 +106,12 @@ from .type_defs import (
     ListApplicationsResponseTypeDef,
     ListArtifactsInputTypeDef,
     ListArtifactsOutputTypeDef,
+    ListCodeReviewJobsForCodeReviewInputTypeDef,
+    ListCodeReviewJobsForCodeReviewOutputTypeDef,
+    ListCodeReviewJobTasksInputTypeDef,
+    ListCodeReviewJobTasksOutputTypeDef,
+    ListCodeReviewsInputTypeDef,
+    ListCodeReviewsOutputTypeDef,
     ListDiscoveredEndpointsInputTypeDef,
     ListDiscoveredEndpointsOutputTypeDef,
     ListFindingsInputTypeDef,
@@ -114,8 +133,11 @@ from .type_defs import (
     ListTargetDomainsInputTypeDef,
     ListTargetDomainsOutputTypeDef,
     StartCodeRemediationInputTypeDef,
+    StartCodeReviewJobInputTypeDef,
+    StartCodeReviewJobOutputTypeDef,
     StartPentestJobInputTypeDef,
     StartPentestJobOutputTypeDef,
+    StopCodeReviewJobInputTypeDef,
     StopPentestJobInputTypeDef,
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
@@ -123,6 +145,8 @@ from .type_defs import (
     UpdateAgentSpaceOutputTypeDef,
     UpdateApplicationRequestTypeDef,
     UpdateApplicationResponseTypeDef,
+    UpdateCodeReviewInputTypeDef,
+    UpdateCodeReviewOutputTypeDef,
     UpdateFindingInputTypeDef,
     UpdateIntegratedResourcesInputTypeDef,
     UpdatePentestInputTypeDef,
@@ -192,6 +216,16 @@ class SecurityAgentClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#add_artifact)
         """
 
+    def batch_delete_code_reviews(
+        self, **kwargs: Unpack[BatchDeleteCodeReviewsInputTypeDef]
+    ) -> BatchDeleteCodeReviewsOutputTypeDef:
+        """
+        Deletes one or more code reviews from an agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_delete_code_reviews.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_delete_code_reviews)
+        """
+
     def batch_delete_pentests(
         self, **kwargs: Unpack[BatchDeletePentestsInputTypeDef]
     ) -> BatchDeletePentestsOutputTypeDef:
@@ -220,6 +254,36 @@ class SecurityAgentClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_artifact_metadata.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_get_artifact_metadata)
+        """
+
+    def batch_get_code_review_job_tasks(
+        self, **kwargs: Unpack[BatchGetCodeReviewJobTasksInputTypeDef]
+    ) -> BatchGetCodeReviewJobTasksOutputTypeDef:
+        """
+        Retrieves information about one or more tasks within a code review job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_code_review_job_tasks.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_get_code_review_job_tasks)
+        """
+
+    def batch_get_code_review_jobs(
+        self, **kwargs: Unpack[BatchGetCodeReviewJobsInputTypeDef]
+    ) -> BatchGetCodeReviewJobsOutputTypeDef:
+        """
+        Retrieves information about one or more code review jobs in an agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_code_review_jobs.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_get_code_review_jobs)
+        """
+
+    def batch_get_code_reviews(
+        self, **kwargs: Unpack[BatchGetCodeReviewsInputTypeDef]
+    ) -> BatchGetCodeReviewsOutputTypeDef:
+        """
+        Retrieves information about one or more code reviews in an agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_code_reviews.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_get_code_reviews)
         """
 
     def batch_get_findings(
@@ -290,6 +354,16 @@ class SecurityAgentClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_application.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#create_application)
+        """
+
+    def create_code_review(
+        self, **kwargs: Unpack[CreateCodeReviewInputTypeDef]
+    ) -> CreateCodeReviewOutputTypeDef:
+        """
+        Creates a new code review configuration in an agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_code_review.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#create_code_review)
         """
 
     def create_integration(
@@ -456,6 +530,38 @@ class SecurityAgentClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_artifacts)
         """
 
+    def list_code_review_job_tasks(
+        self, **kwargs: Unpack[ListCodeReviewJobTasksInputTypeDef]
+    ) -> ListCodeReviewJobTasksOutputTypeDef:
+        """
+        Returns a paginated list of task summaries for the specified code review job,
+        optionally filtered by step name or category.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_code_review_job_tasks.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_code_review_job_tasks)
+        """
+
+    def list_code_review_jobs_for_code_review(
+        self, **kwargs: Unpack[ListCodeReviewJobsForCodeReviewInputTypeDef]
+    ) -> ListCodeReviewJobsForCodeReviewOutputTypeDef:
+        """
+        Returns a paginated list of code review job summaries for the specified code
+        review configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_code_review_jobs_for_code_review.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_code_review_jobs_for_code_review)
+        """
+
+    def list_code_reviews(
+        self, **kwargs: Unpack[ListCodeReviewsInputTypeDef]
+    ) -> ListCodeReviewsOutputTypeDef:
+        """
+        Returns a paginated list of code review summaries for the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_code_reviews.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_code_reviews)
+        """
+
     def list_discovered_endpoints(
         self, **kwargs: Unpack[ListDiscoveredEndpointsInputTypeDef]
     ) -> ListDiscoveredEndpointsOutputTypeDef:
@@ -571,6 +677,16 @@ class SecurityAgentClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#start_code_remediation)
         """
 
+    def start_code_review_job(
+        self, **kwargs: Unpack[StartCodeReviewJobInputTypeDef]
+    ) -> StartCodeReviewJobOutputTypeDef:
+        """
+        Starts a new code review job for a code review configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/start_code_review_job.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#start_code_review_job)
+        """
+
     def start_pentest_job(
         self, **kwargs: Unpack[StartPentestJobInputTypeDef]
     ) -> StartPentestJobOutputTypeDef:
@@ -579,6 +695,16 @@ class SecurityAgentClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/start_pentest_job.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#start_pentest_job)
+        """
+
+    def stop_code_review_job(
+        self, **kwargs: Unpack[StopCodeReviewJobInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Stops a running code review job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/stop_code_review_job.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#stop_code_review_job)
         """
 
     def stop_pentest_job(self, **kwargs: Unpack[StopPentestJobInputTypeDef]) -> dict[str, Any]:
@@ -625,6 +751,16 @@ class SecurityAgentClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_application.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#update_application)
+        """
+
+    def update_code_review(
+        self, **kwargs: Unpack[UpdateCodeReviewInputTypeDef]
+    ) -> UpdateCodeReviewOutputTypeDef:
+        """
+        Updates an existing code review configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_code_review.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#update_code_review)
         """
 
     def update_finding(self, **kwargs: Unpack[UpdateFindingInputTypeDef]) -> dict[str, Any]:
@@ -702,6 +838,39 @@ class SecurityAgentClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_artifacts"]
     ) -> ListArtifactsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_code_review_job_tasks"]
+    ) -> ListCodeReviewJobTasksPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_code_review_jobs_for_code_review"]
+    ) -> ListCodeReviewJobsForCodeReviewPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_code_reviews"]
+    ) -> ListCodeReviewsPaginator:
         """
         Create a paginator for an operation.
 

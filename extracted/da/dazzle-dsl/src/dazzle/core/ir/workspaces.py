@@ -84,6 +84,14 @@ class DisplayMode(StrEnum):
         "confirm_action_panel"  # v0.61.72 (#6): irreversible-action consent panel
     )
     SEARCH_BOX = "search_box"  # #954 cycle 4: htmx search input + ranked results
+    # AegisMark Day-One demo region primitives (#1015–#1018).
+    # Currently driven by `cohort_strip_config` / `task_inbox_config` /
+    # `day_timeline_config` / `entity_card_config` typed config blocks
+    # on WorkspaceRegion — discriminated by the `display` value here.
+    COHORT_STRIP = "cohort_strip"  # #1018: cohort-skim with lens toggle
+    DAY_TIMELINE = "day_timeline"  # #1016: chronological MIS landing
+    TASK_INBOX = "task_inbox"  # #1015: workflow-led landing surface
+    ENTITY_CARD = "entity_card"  # #1017: 360° single-entity drill-down composite
 
 
 class BucketRef(BaseModel):
@@ -387,6 +395,260 @@ class NoticeSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
+class CohortStripLens(BaseModel):
+    """One lens in a `cohort_strip` region's lens toggle (#1018).
+
+    The viewer picks a lens; the strip re-renders keeping the member
+    row stable but rotating the visual primary. Each lens names the
+    field on the source-FK target (typically a profile entity
+    carrying name + avatar + secondary metadata) that supplies the
+    primary value.
+
+    Attributes:
+        id: Stable identifier used in the lens-swap URL parameter
+            (`?lens=<id>`) and in the active-lens highlight contract.
+        label: Human-readable text on the lens-toggle button.
+        primary: Field on the resolved member record that supplies
+            the value rendered as the visual primary.
+        threshold: Optional RAG threshold. When set, the renderer tints
+            the primary value relative to it. Polarity (above-good vs
+            below-good) is encoded in the adapter's tone-mapping helper.
+    """
+
+    id: str
+    label: str
+    primary: str
+    threshold: float | None = None
+
+    model_config = ConfigDict(frozen=True)
+
+
+class CohortStripConfig(BaseModel):
+    """Per-region config for `display: cohort_strip` (#1018).
+
+    Discriminated config block — only populated when
+    `WorkspaceRegion.display == DisplayMode.COHORT_STRIP`. Domain-
+    agnostic: school class (pupils + grades), sales team (reps +
+    quota), engineering team (engineers + commits), customer cohort
+    (customers + MRR), field crew (technicians + SLA) all reuse the
+    same shape. Establishes the typed-config pattern for the rest of
+    the #1015–#1017 region-primitive quartet.
+
+    Attributes:
+        member_via: Field on the source entity whose FK resolves to
+            the member's profile entity (any record carrying name +
+            avatar + a secondary identifier). The halo renders from
+            that record.
+        lenses: Ordered list of available lenses; first is the default
+            unless `default_lens` overrides.
+        default_lens: Lens id to render when no `?lens=` query param is
+            present. Must match one of `lenses[*].id`.
+    """
+
+    member_via: str
+    lenses: list[CohortStripLens]
+    default_lens: str = ""
+
+    model_config = ConfigDict(frozen=True)
+
+
+class EntityCardSectionMode(StrEnum):
+    """Density-tuned section renderer modes for `entity_card` (#1017).
+
+    An `entity_card` section's `mode` selects which compact renderer
+    the runtime adapter will use, instead of the default list /
+    detail layout (which fights for dominance and produces low-
+    density wallpaper when stacked). The mode names are deliberately
+    domain-agnostic — `entity_card` works for pupil-360 in MIS,
+    customer-360 in CRM, asset-360 in field-ops, etc.
+    """
+
+    HALO = "halo"
+    FLAGS = "flags"
+    MINI_BARS = "mini_bars"
+    STAMPS = "stamps"
+    THREAD_SUMMARY = "thread_summary"
+    QUICK_ACTIONS = "quick_actions"
+
+
+class EntityCardSection(BaseModel):
+    """One section in an `entity_card` composite (#1017).
+
+    Each section is independently sourced + scoped + empty-state-
+    aware. The IR carries the unresolved filter; the runtime adapter
+    queries the source, applies the mode-specific compact renderer,
+    and decides whether to emit the section at all (sections that
+    resolve to zero rows AND are flagged optional are omitted
+    entirely; required sections render their empty placeholder).
+
+    Attributes:
+        name: Section identifier — stable id used for CSS targeting
+            and the `quick_actions` reference list (when mode is
+            QUICK_ACTIONS this is a virtual section with no source).
+        mode: Density-tuned renderer (halo / flags / mini_bars /
+            stamps / thread_summary / quick_actions).
+        source: Entity name. None for the `quick_actions` section.
+        filter: Optional scope/predicate. None = match all rows
+            within RBAC scope.
+        limit: Optional row cap (e.g. ``recent_marks`` limit 5).
+        fields: For halo / flags modes, the ordered list of field
+            names to surface. Other modes ignore this and resolve
+            their own field set per the mode contract.
+        actions: For QUICK_ACTIONS mode, the ordered list of action
+            ids referencing surface entries (each opens a modal
+            flow). Empty for non-actions modes.
+    """
+
+    name: str
+    mode: EntityCardSectionMode
+    source: str | None = None
+    filter: ConditionExpr | None = None
+    limit: int | None = Field(None, ge=1, le=100)
+    fields: list[str] = Field(default_factory=list)
+    actions: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(frozen=True)
+
+
+class EntityCardConfig(BaseModel):
+    """Per-region config for `display: entity_card` (#1017).
+
+    Discriminated config block — only populated when
+    `WorkspaceRegion.display == DisplayMode.ENTITY_CARD`. Models a
+    composite 360° single-entity view at calibrated density: any
+    combination of halo / flags / mini_bars / stamps / thread_summary
+    / quick_actions sections, sourced from arbitrary related entities.
+    Use cases include pupil-360 in MIS, customer-360 in CRM,
+    asset-360 in field-ops, patient-360 in healthcare, etc.
+
+    Attributes:
+        scope_param: Name of the surface route parameter that scopes
+            the card to a single entity instance (e.g. ``"id"``,
+            ``"pupil_id"``, ``"customer_id"``). The adapter resolves
+            the value at request time and applies it as a filter on
+            the primary source.
+        sections: Ordered list of sections; the renderer composes
+            them into a two-column responsive layout (main +
+            sidebar) per the spec.
+    """
+
+    scope_param: str = "id"
+    sections: list[EntityCardSection]
+
+    model_config = ConfigDict(frozen=True)
+
+
+class TaskSourceTemplate(BaseModel):
+    """Per-source `as_task` template (#1015).
+
+    Defines how one row from a `TaskSource` renders as a typed task
+    item. Title and meta are template strings with `{field}`
+    placeholders resolved against the source row at runtime by the
+    adapter (this IR carries the unresolved templates).
+
+    Attributes:
+        icon: Named icon token (`register`, `pupil`, `message`,
+            etc.) — adapter maps to the framework's icon vocabulary.
+        title: Template string for the task's primary line.
+            Placeholders reference fields on the source row or
+            FK-resolved targets.
+        meta: Template string for the secondary copy (period,
+            deadline, age). Optional.
+    """
+
+    icon: str
+    title: str
+    meta: str = ""
+
+    model_config = ConfigDict(frozen=True)
+
+
+class TaskSource(BaseModel):
+    """One source feeding a `task_inbox` region (#1015).
+
+    Each source resolves to 0..N rows on the source entity scoped by
+    `filter`. Either `as_task` (per-row task item) or `count_as`
+    (collapsed summary chip) must be set — they are mutually
+    exclusive: an `as_task` source emits one task per row, a
+    `count_as` source emits one summary chip with the row count
+    regardless of cardinality.
+
+    Attributes:
+        source: Entity name (the source's row type).
+        filter: Optional scope/predicate evaluated against the
+            source rows. None = match all (within RBAC scope).
+        as_task: Per-row task template. Mutually exclusive with
+            `count_as`.
+        count_as: Singular noun phrase for the collapsed-summary
+            chip (e.g. ``"manuscripts ready to review"``). Mutually
+            exclusive with `as_task`.
+    """
+
+    source: str
+    filter: ConditionExpr | None = None
+    as_task: TaskSourceTemplate | None = None
+    count_as: str = ""
+
+    model_config = ConfigDict(frozen=True)
+
+
+class TaskInboxConfig(BaseModel):
+    """Per-region config for `display: task_inbox` (#1015).
+
+    Discriminated config block — only populated when
+    `WorkspaceRegion.display == DisplayMode.TASK_INBOX`. Models the
+    workflow-led "due actions" landing pattern: heterogeneous entity
+    states gathered into one prioritised inbox, framed as
+    tasks-of-actions rather than entity-of-records.
+
+    Attributes:
+        sources: Ordered list of contributing sources. Each is
+            either an `as_task` row template or a `count_as`
+            summary chip; the runtime adapter resolves both.
+        order: Ordered list of sort keys evaluated left-to-right
+            against the merged task list. ``urgency`` is the
+            built-in priority bucket; other keys reference
+            temporal fields on the source rows.
+        empty_state: Message rendered when zero tasks AND zero
+            summary chips resolve.
+    """
+
+    sources: list[TaskSource]
+    order: list[str] = Field(default_factory=lambda: ["urgency", "deadline"])
+    empty_state: str = "All caught up."
+
+    model_config = ConfigDict(frozen=True)
+
+
+class DayTimelineConfig(BaseModel):
+    """Per-region config for `display: day_timeline` (#1016).
+
+    Discriminated config block — only populated when
+    `WorkspaceRegion.display == DisplayMode.DAY_TIMELINE`. Models a
+    chronological scroll of slots (typically `TimetableSlot`) where
+    one slot is "active now" (rendered highlighted), prior slots
+    collapse, and following slots preview at lower contrast.
+
+    Attributes:
+        starts_at: Field on the source entity holding the slot's
+            start timestamp. The runtime adapter compares ``now``
+            against the [starts_at, ends_at] window to determine the
+            active slot.
+        ends_at: Field on the source entity holding the slot's end
+            timestamp.
+        card: Name of the composite card template that renders each
+            slot's body. Resolved by the renderer at adapt time. When
+            empty, slots render with a minimal default body
+            (start/end label only).
+    """
+
+    starts_at: str
+    ends_at: str
+    card: str = ""
+
+    model_config = ConfigDict(frozen=True)
+
+
 class WorkspaceRegion(BaseModel):
     """
     Named region within a workspace.
@@ -419,6 +681,11 @@ class WorkspaceRegion(BaseModel):
     sort: list[SortSpec] = Field(default_factory=list)
     limit: int | None = Field(None, ge=1, le=1000)
     display: DisplayMode = DisplayMode.LIST
+    # Plan 2: renderer name override at region level. Optional;
+    # `None` means the framework default applies. Validated at link
+    # time against the RendererRegistry. Resolution order
+    # (region → surface → framework default) is deferred to Plan 3.
+    render: str | None = None
     action: str | None = None  # Surface reference
     empty_message: str | None = None
     group_by: str | BucketRef | None = None  # Field or bucket() ref (single dim)
@@ -499,6 +766,15 @@ class WorkspaceRegion(BaseModel):
     # presentation; no impact on data or semantics. See
     # `dev_docs/2026-04-27-aegismark-ux-patterns.md` item #1.
     eyebrow: str | None = None
+    # AegisMark Day-One demo region primitives — discriminated typed
+    # config blocks (#1015–#1018). Only one config is populated per
+    # region, matched against `display`. Establishes the pattern for
+    # subsequent primitives' configs to land alongside without
+    # bloating the flat field set with mutually-exclusive options.
+    cohort_strip_config: CohortStripConfig | None = None  # #1018 (v0.67.2)
+    day_timeline_config: DayTimelineConfig | None = None  # #1016 (v0.67.3)
+    task_inbox_config: TaskInboxConfig | None = None  # #1015 (v0.67.4)
+    entity_card_config: EntityCardConfig | None = None  # #1017 (v0.67.5)
     # v0.61.63 (#903): explicit region title override. When set, replaces
     # the auto-derived title from the region key (e.g. `hero_marked` →
     # "Hero Marked"). Empty string is treated as None — the runtime

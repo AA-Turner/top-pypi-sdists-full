@@ -7,7 +7,7 @@ from ..abc import Asset
 from ._music import Music
 
 from numbers import Real
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 import random
 
 if TYPE_CHECKING:
@@ -34,7 +34,7 @@ class Playlist(Asset):
         "_order",
     )
 
-    _AUDIO_MANAGER: AudioManager = None
+    _AUDIO_MANAGER: ClassVar[AudioManager] = None
 
     @classmethod
     def _get_audio_manager(cls) -> AudioManager:
@@ -54,24 +54,31 @@ class Playlist(Asset):
             delay: Real = 0.0,
             cross_fade: Real = 0.0,
         ):
+        # Transtypage et vérifications
+        musics = list(musics)
+        shuffle = bool(shuffle)
+        loop = bool(loop)
+        fade_in = float(fade_in)
+        fade_out = float(fade_out)
+        delay = float(delay)
+        cross_fade = float(cross_fade)
+
+        if __debug__:
+            expect(musics, list[Music])
+            positive(fade_in)
+            positive(fade_out)
+            positive(delay)
+            positive(cross_fade)
+
         # Attributs publiques
         self._musics: list[Music] = musics
         self._shuffle: bool = shuffle
         self._loop: bool = loop
-        self._fade_in: float = float(fade_in)
-        self._fade_out: float= float(fade_out)
-        self._delay: float = float(delay)
-        self._cross_fade: float = float(cross_fade)
-
-        if __debug__:
-            expect(self._musics, list[Music])
-            expect(self._shuffle, bool)
-            expect(self._loop, bool)
-            positive(self._fade_in)
-            positive(self._fade_out)
-            positive(self._delay)
-            positive(self._cross_fade)
-
+        self._fade_in: float = fade_in
+        self._fade_out: float= fade_out
+        self._delay: float = delay
+        self._cross_fade: float = cross_fade
+    
         # Attributs internes
         self._order: list[int] = None
         self._refresh_order()
@@ -94,7 +101,7 @@ class Playlist(Asset):
     
     @shuffle.setter
     def shuffle(self, value: bool) -> None:
-        assert isinstance(value, bool), f"shuffle ({value}) must be a boolean"
+        value = bool(value)
         if value == self._shuffle:
             return
         self._shuffle = value
@@ -108,7 +115,7 @@ class Playlist(Asset):
     
     @loop.setter
     def loop(self, value: bool) -> None:
-        assert isinstance(value, bool), f"loop ({value}) must be a boolean"
+        value = bool(value)
         self._loop = value
 
     @property
@@ -122,7 +129,8 @@ class Playlist(Asset):
     @fade_in.setter
     def fade_in(self, value: Real) -> None:
         value = float(value)
-        assert value >= 0.0, f"fade_in ({value}) must be positive"
+        if __debug__:
+            positive(value)
         self._fade_in = value
 
     @property
@@ -136,7 +144,8 @@ class Playlist(Asset):
     @fade_out.setter
     def fade_out(self, value: Real) -> None:
         value = float(value)
-        assert value >= 0.0, f"fade_out ({value}) must be positive"
+        if __debug__:
+            positive(value)
         self._fade_out = value
 
     @property
@@ -151,7 +160,8 @@ class Playlist(Asset):
     @delay.setter
     def delay(self, value: Real) -> None:
         value = float(value)
-        assert value >= 0.0, f"delay ({value}) must be positive"
+        if __debug__:
+            positive(value)
         self._delay = value
 
     @property
@@ -160,14 +170,13 @@ class Playlist(Asset):
 
         Cette propriété fixe la durée *en secondes* de fondu entre chaque musique.
         """
-        value = float(value)
-        assert value >= 0.0, f"cross_fade ({value}) must be positive"
-        self._cross_fade = value
+        return self._cross_fade
 
     @cross_fade.setter
     def cross_fade(self, value: Real) -> None:
         value = float(value)
-        assert value >= 0.0, f"cross_fade ({value}) must be positive"
+        if __debug__:
+            positive(value)
         self._cross_fade = value
 
     # ======================================== MUSICS ========================================

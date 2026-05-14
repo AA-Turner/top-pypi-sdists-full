@@ -17,6 +17,10 @@ from pulpcore.tasking.tasks import dispatch
 _logger = logging.getLogger(__name__)
 
 
+def distros_lock_uri(domain_id):
+    return f"pdrn:{domain_id}:distributions"
+
+
 class ReplicaContext(PulpContext):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -50,18 +54,19 @@ class Replicator:
     sync_task = None
     required_version = None  # A PEP-440 compatible version range required in the Upstream.
 
-    def __init__(self, pulp_ctx, task_group, tls_settings, server):
+    def __init__(self, pulp_ctx, task_group, remote_settings, server):
         """
         :param pulp_ctx: PulpReplicaContext
         :param task_group: TaskGroup
-        :param ca_cert: str
+        :param remote_settings: dict of fields to set on remotes created during replication
         """
         self.pulp_ctx = pulp_ctx
         self.task_group = task_group
-        self.tls_settings = tls_settings
+        self.remote_settings = remote_settings
+        self.tls_settings = remote_settings  # Deprecated alias
         self.server = server
         self.domain = get_domain()
-        self.distros_uris = [f"pdrn:{self.domain.pulp_id}:distributions"]
+        self.distros_uris = [distros_lock_uri(self.domain.pulp_id)]
 
     @staticmethod
     def needs_update(fields_dict, model_instance):
@@ -116,7 +121,7 @@ class Replicator:
         if url.startswith("/"):
             url = urljoin(self.server.base_url, url)
         remote_fields_dict = {"url": url, "pulp_labels": self.labels(upstream_distribution)}
-        remote_fields_dict.update(self.tls_settings)
+        remote_fields_dict.update(self.remote_settings)
         remote_fields_dict.update(self.remote_extra_fields(upstream_distribution))
 
         # Check if there is a remote pointing to this distribution

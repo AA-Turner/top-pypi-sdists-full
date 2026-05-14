@@ -90,6 +90,9 @@ class SingleColumnConfig(ConfigBase, ABC):
         name: Unique name of the column to be generated.
         drop: If True, the column will be generated but removed from the final dataset.
             Useful for intermediate columns that are dependencies for other columns.
+        allow_resize: If True, the generator may emit a different number of rows than
+            it received (1:N or N:1). Explicit ``skip`` gates are invalid on resize
+            columns, and upstream skip propagation is not applied to them.
         column_type: Discriminator field that identifies the specific column type.
             Subclasses must override this field to specify the column type with a `Literal` value.
         skip: Optional expression gate for conditional generation.
@@ -161,6 +164,30 @@ class SingleColumnConfig(ConfigBase, ABC):
             indicates no side effect columns. Override in subclasses to specify side effects.
         """
 
+    def get_model_aliases(self) -> list[str]:
+        """Return every model alias this column depends on.
+
+        The startup model health check uses this to decide which model endpoints to ping.
+        The default implementation returns the column's primary ``model_alias`` (if the
+        attribute is present), which covers the built-in LLM, embedding, and image columns.
+
+        Override this method on configs that depend on more than one model — for example,
+        a plugin config with both a ``model_alias`` and a ``judge_model_alias`` should return
+        both so a typo or unreachable endpoint on the secondary alias surfaces at startup
+        rather than at first generation.
+
+        An empty-string ``model_alias`` is forwarded to the health check so that the
+        registry's "no model config with alias '' found" error is raised eagerly at startup
+        instead of at first generation; only a truly missing attribute is treated as "no
+        model endpoints".
+
+        Returns:
+            List of model aliases this column depends on. Empty list indicates the column
+            does not call any model endpoints.
+        """
+        alias: str | None = getattr(self, "model_alias", None)
+        return [alias] if alias is not None else []
+
 
 class ProcessorConfig(ConfigBase, ABC):
     """Abstract base class for all processor configuration types.
@@ -171,6 +198,8 @@ class ProcessorConfig(ConfigBase, ABC):
     Attributes:
         name: Unique name of the processor, used to identify the processor in results
             and to name output artifacts on disk.
+        processor_type: Discriminator field that identifies the specific processor type.
+            Subclasses must override this field with a ``Literal`` value.
     """
 
     name: str = Field(

@@ -10,7 +10,7 @@ from biolib.app import BioLibApp as _BioLibApp
 from biolib.app.search_apps import search_apps  # type: ignore
 from biolib.biolib_errors import BioLibError, WaitTimeoutError
 from biolib.biolib_logging import logger as _logger, logger_no_user_data as _logger_no_user_data
-from biolib.experiments.experiment import Experiment
+from biolib._experiment.experiment import Experiment
 from biolib.biolib_api_client import BiolibApiClient as _BioLibApiClient, App
 from biolib._result.result import Result as _Result
 from biolib import user as _user

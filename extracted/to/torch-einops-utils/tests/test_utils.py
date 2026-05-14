@@ -191,6 +191,14 @@ def test_masked_mean():
     assert torch.allclose(res[0], t[0].mean())
     assert torch.allclose(res[1], tensor(0.0), atol = 1e-4)
 
+    res_keepdim = masked_mean(t, mask = mask, dim = (1, 2), keepdim = True)
+    assert res_keepdim.shape == (2, 1, 1)
+    assert torch.allclose(res_keepdim.squeeze(), res)
+
+    res_no_mask_keepdim = masked_mean(t, dim = (1, 2), keepdim = True)
+    assert res_no_mask_keepdim.shape == (2, 1, 1)
+    assert torch.allclose(res_no_mask_keepdim.squeeze(), t.mean(dim = (1, 2)))
+
 def test_exclusive_cumsum():
     t = tensor([1., 2., 3., 4.])
     assert torch.allclose(exclusive_cumsum(t), tensor([0., 1., 3., 6.]))

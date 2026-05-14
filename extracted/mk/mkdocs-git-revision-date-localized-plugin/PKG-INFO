@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-git-revision-date-localized-plugin
-Version: 1.5.1
+Version: 1.5.2
 Summary: Mkdocs plugin that enables displaying the localized date of the last git modification of a markdown file.
 Author-email: Tim Vink <vinktim@gmail.com>
 License: MIT

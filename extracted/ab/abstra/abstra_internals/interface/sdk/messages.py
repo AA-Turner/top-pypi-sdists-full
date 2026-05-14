@@ -20,7 +20,7 @@ def send_email(
     title: str = "",
     attachments: List[Union[str, io.IOBase]] = [],
     is_html: bool = False,
-):
+) -> None:
     """Send an email to one or more recipients.
 
     Args:

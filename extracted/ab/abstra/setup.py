@@ -41,6 +41,7 @@ setup(
         ],
     },
     package_data={
+        "abstra": ["py.typed"],
         "abstra_statics": ["dist/**/*", "dist/*"],
         "abstra_internals": ["templates/*", "templates/**/*"],
     },

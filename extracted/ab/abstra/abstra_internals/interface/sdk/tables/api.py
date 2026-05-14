@@ -1,5 +1,5 @@
 from dataclasses import is_dataclass
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from abstra_internals.controllers.sdk.sdk_context import SDKContextStore
 from abstra_internals.interface.sdk.tables import comparators as cmp
@@ -10,6 +10,12 @@ from abstra_internals.interface.sdk.tables.utils import (
     serialize,
 )
 from abstra_internals.utils.deprecated import deprecated
+
+if TYPE_CHECKING:
+    from pandas import DataFrame
+
+# Public alias: a row returned from a Tables query is always a JSON-shaped dict.
+Row = Dict[str, Any]
 
 
 def _execute(query: str, params: List):  # private api
@@ -24,7 +30,7 @@ def _execute(query: str, params: List):  # private api
     return response["returns"]
 
 
-def _run(query: str, params: List) -> List[dict]:  # private api
+def _run(query: str, params: List) -> List[Row]:  # private api
     return _execute(query, params)["result"]
 
 
@@ -188,7 +194,7 @@ def _make_row_dict(data: Any) -> Dict[str, Any]:
 
 
 # public
-def run_sql(query: str, params: List = []):  # public api
+def run_sql(query: str, params: List = []) -> List[Row]:  # public api
     """Execute a raw SQL query with parameters.
 
     Args:
@@ -196,13 +202,13 @@ def run_sql(query: str, params: List = []):  # public api
         params (List): List of parameters for the query. Defaults to [].
 
     Returns:
-        List[dict]: List of rows returned by the query.
+        List[Dict[str, Any]]: List of rows returned by the query.
     """
     return _run(query, params)
 
 
 @deprecated(new_function="run_sql")
-def run(query: str, params: List = []):  # public api
+def run(query: str, params: List = []) -> List[Row]:  # public api
     """Execute a raw SQL query with parameters (deprecated, use run_sql instead).
 
     Args:
@@ -210,7 +216,7 @@ def run(query: str, params: List = []):  # public api
         params (List): List of parameters for the query. Defaults to [].
 
     Returns:
-        List[dict]: List of rows returned by the query.
+        List[Dict[str, Any]]: List of rows returned by the query.
     """
     return _run(query, params)
 
@@ -223,7 +229,7 @@ def select(
     order_desc: bool = False,
     limit: Optional[int] = None,
     offset: Optional[int] = None,
-):
+) -> List[Row]:
     """Select rows from a table with filtering and ordering options.
 
     Args:
@@ -256,7 +262,7 @@ def select_df(
     order_desc: bool = False,
     limit: Optional[int] = None,
     offset: Optional[int] = None,
-):
+) -> "DataFrame":
     """Select rows from a table and return a pandas DataFrame.
 
     Args:
@@ -281,7 +287,7 @@ def select_df(
     return query_df(query, params)
 
 
-def select_one(table: str, *, where: Optional[dict] = None):
+def select_one(table: str, *, where: Optional[dict] = None) -> Optional[Row]:
     """Select a single row from a table.
 
     Args:
@@ -289,7 +295,7 @@ def select_one(table: str, *, where: Optional[dict] = None):
         where (Optional[dict]): Dictionary of conditions for the WHERE clause.
 
     Returns:
-        Optional[dict]: The first matching row, or None if no rows match.
+        Optional[Dict[str, Any]]: The first matching row, or None if no rows match.
     """
     query, params = _make_select_query(
         table=table,
@@ -302,7 +308,7 @@ def select_one(table: str, *, where: Optional[dict] = None):
     return rows[0]
 
 
-def select_by_id(table: str, id: str):
+def select_by_id(table: str, id: str) -> Optional[Row]:
     """Select a single row from a table by its ID.
 
     Args:
@@ -310,12 +316,12 @@ def select_by_id(table: str, id: str):
         id (str): ID of the row to select.
 
     Returns:
-        Optional[dict]: The matching row, or None if no row matches.
+        Optional[Dict[str, Any]]: The matching row, or None if no row matches.
     """
     return select_one(table, where={"id": id})
 
 
-def insert(table: str, values: Any):
+def insert(table: str, values: Any) -> Union[Row, List[Row]]:
     """Insert one or more rows into a table.
 
     Args:
@@ -336,7 +342,7 @@ def insert(table: str, values: Any):
     return _run(query, params)[0]
 
 
-def update(table: str, set: Any, where: Any):
+def update(table: str, set: Any, where: Any) -> List[Row]:
     """Update rows in a table.
 
     Args:
@@ -345,7 +351,7 @@ def update(table: str, set: Any, where: Any):
         where (Any): Dictionary (or dataclass) of column-value pairs for the WHERE clause.
 
     Returns:
-        List[dict]: List of updated rows.
+        List[Dict[str, Any]]: List of updated rows.
     """
     query, params = _make_update_query(
         table, _make_row_dict(set), _make_row_dict(where)
@@ -353,7 +359,7 @@ def update(table: str, set: Any, where: Any):
     return _run(query, params)
 
 
-def update_by_id(table: str, id: str, values: Any):
+def update_by_id(table: str, id: str, values: Any) -> Optional[Row]:
     """Update a row in a table by its ID.
 
     Args:
@@ -362,7 +368,7 @@ def update_by_id(table: str, id: str, values: Any):
         values (Any): Dictionary (or dataclass) of column-value pairs to set.
 
     Returns:
-        Optional[dict]: The updated row, or None if no row matches.
+        Optional[Dict[str, Any]]: The updated row, or None if no row matches.
     """
     rows = update(table, _make_row_dict(values), {"id": id})
     if len(rows) == 0:
@@ -370,7 +376,7 @@ def update_by_id(table: str, id: str, values: Any):
     return rows[0]
 
 
-def delete_by_id(table: str, id: str):
+def delete_by_id(table: str, id: str) -> Optional[Row]:
     """Delete a row from a table by its ID.
 
     Args:
@@ -378,7 +384,7 @@ def delete_by_id(table: str, id: str):
         id (str): ID of the row to delete.
 
     Returns:
-        Optional[dict]: The deleted row, or None if no row matches.
+        Optional[Dict[str, Any]]: The deleted row, or None if no row matches.
     """
     rows = delete(table, {"id": id})
     if len(rows) == 0:
@@ -386,7 +392,7 @@ def delete_by_id(table: str, id: str):
     return rows[0]
 
 
-def delete(table: str, values: Any):
+def delete(table: str, values: Any) -> List[Row]:
     """Delete rows from a table based on conditions.
 
     Args:
@@ -394,13 +400,13 @@ def delete(table: str, values: Any):
         values (Any): Dictionary (or dataclass) of column-value pairs for the WHERE clause.
 
     Returns:
-        List[dict]: List of deleted rows.
+        List[Dict[str, Any]]: List of deleted rows.
     """
     query, params = _make_delete_query(table, _make_row_dict(values))
     return _run(query, params)
 
 
-def query_df(query: str, params: List = []):  # public api
+def query_df(query: str, params: List = []) -> "DataFrame":  # public api
     """Execute a raw SQL query and return the results as a pandas DataFrame.
 
     Args:

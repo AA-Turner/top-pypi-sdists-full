@@ -765,6 +765,7 @@ def format_issuer_upstreams(ctx, info):
     columns = [
         column("name"),
         column("issuer"),
+        column("upstream_tenant_id"),
         column("upstream_type"),
         column("icon"),
         column("auto_create_status"),

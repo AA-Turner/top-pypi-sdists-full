@@ -146,6 +146,12 @@ class CfnConnection(
                 aws_region="awsRegion",
                 iam_connection_id="iamConnectionId"
             ),
+            configurations=[datazone.CfnConnection.ConnectionConfigurationProperty(
+                classification="classification",
+                properties={
+                    "properties_key": "properties"
+                }
+            )],
             description="description",
             enable_trusted_identity_propagation=False,
             environment_identifier="environmentIdentifier",
@@ -226,6 +232,9 @@ class CfnConnection(
                 iam_properties=datazone.CfnConnection.IamPropertiesInputProperty(
                     glue_lineage_sync_enabled=False
                 ),
+                lakehouse_properties=datazone.CfnConnection.LakehousePropertiesInputProperty(
+                    glue_lineage_sync_enabled=False
+                ),
                 mlflow_properties=datazone.CfnConnection.MlflowPropertiesInputProperty(
                     tracking_server_arn="trackingServerArn"
                 ),
@@ -255,6 +264,7 @@ class CfnConnection(
                     s3_uri="s3Uri",
         
                     # the properties below are optional
+                    register_s3_access_grant_location=False,
                     s3_access_grant_location_id="s3AccessGrantLocationId"
                 ),
                 spark_emr_properties=datazone.CfnConnection.SparkEmrPropertiesInputProperty(
@@ -296,6 +306,7 @@ class CfnConnection(
         domain_identifier: builtins.str,
         name: builtins.str,
         aws_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.AwsLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.ConnectionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_trusted_identity_propagation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         environment_identifier: typing.Optional[builtins.str] = None,
@@ -310,6 +321,7 @@ class CfnConnection(
         :param domain_identifier: The ID of the domain where the connection is created.
         :param name: The name of the connection.
         :param aws_location: The location where the connection is created.
+        :param configurations: The configurations of the connection.
         :param description: Connection description.
         :param enable_trusted_identity_propagation: Specifies whether the trusted identity propagation is enabled.
         :param environment_identifier: The ID of the environment where the connection is created.
@@ -325,6 +337,7 @@ class CfnConnection(
             domain_identifier=domain_identifier,
             name=name,
             aws_location=aws_location,
+            configurations=configurations,
             description=description,
             enable_trusted_identity_propagation=enable_trusted_identity_propagation,
             environment_identifier=environment_identifier,
@@ -499,6 +512,24 @@ class CfnConnection(
             type_hints = typing.get_type_hints(_typecheckingstub__2e0849d8ebdd0fce1643c3904bce5fd806bb233f7ff27eddb627fac859586e5c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "awsLocation", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="configurations")
+    def configurations(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnection.ConnectionConfigurationProperty"]]]]:
+        '''The configurations of the connection.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnection.ConnectionConfigurationProperty"]]]], jsii.get(self, "configurations"))
+
+    @configurations.setter
+    def configurations(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnection.ConnectionConfigurationProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1748f6bb7c426c5766af04352eb0a757e1e319d0d003ce2f487078b15550d73c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "configurations", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1147,6 +1178,80 @@ class CfnConnection(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnConnection.ConnectionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"classification": "classification", "properties": "properties"},
+    )
+    class ConnectionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            classification: typing.Optional[builtins.str] = None,
+            properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''A configuration of the connection.
+
+            :param classification: The classification of the connection configuration.
+            :param properties: Property Map.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-connectionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                connection_configuration_property = datazone.CfnConnection.ConnectionConfigurationProperty(
+                    classification="classification",
+                    properties={
+                        "properties_key": "properties"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__57f781a50aad4f0321eb97aa8bb1e35b3125927b7c9fbbd0b58c1804f660a26a)
+                check_type(argname="argument classification", value=classification, expected_type=type_hints["classification"])
+                check_type(argname="argument properties", value=properties, expected_type=type_hints["properties"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if classification is not None:
+                self._values["classification"] = classification
+            if properties is not None:
+                self._values["properties"] = properties
+
+        @builtins.property
+        def classification(self) -> typing.Optional[builtins.str]:
+            '''The classification of the connection configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-connectionconfiguration.html#cfn-datazone-connection-connectionconfiguration-classification
+            '''
+            result = self._values.get("classification")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def properties(
+            self,
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+            '''Property Map.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-connectionconfiguration.html#cfn-datazone-connection-connectionconfiguration-properties
+            '''
+            result = self._values.get("properties")
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_datazone.CfnConnection.ConnectionPropertiesInputProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -1155,6 +1260,7 @@ class CfnConnection(
             "glue_properties": "glueProperties",
             "hyper_pod_properties": "hyperPodProperties",
             "iam_properties": "iamProperties",
+            "lakehouse_properties": "lakehouseProperties",
             "mlflow_properties": "mlflowProperties",
             "redshift_properties": "redshiftProperties",
             "s3_properties": "s3Properties",
@@ -1173,6 +1279,7 @@ class CfnConnection(
             glue_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.GluePropertiesInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             hyper_pod_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.HyperPodPropertiesInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             iam_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.IamPropertiesInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lakehouse_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.LakehousePropertiesInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mlflow_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.MlflowPropertiesInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             redshift_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.RedshiftPropertiesInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             s3_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.S3PropertiesInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1188,6 +1295,7 @@ class CfnConnection(
             :param glue_properties: The AWS Glue properties of a connection.
             :param hyper_pod_properties: The hyper pod properties of a connection.
             :param iam_properties: The IAM properties of a connection.
+            :param lakehouse_properties: Lakehouse Properties Input.
             :param mlflow_properties: MLflow Properties Input.
             :param redshift_properties: The Amazon Redshift properties of a connection.
             :param s3_properties: S3 Properties Input.
@@ -1283,6 +1391,9 @@ class CfnConnection(
                     iam_properties=datazone.CfnConnection.IamPropertiesInputProperty(
                         glue_lineage_sync_enabled=False
                     ),
+                    lakehouse_properties=datazone.CfnConnection.LakehousePropertiesInputProperty(
+                        glue_lineage_sync_enabled=False
+                    ),
                     mlflow_properties=datazone.CfnConnection.MlflowPropertiesInputProperty(
                         tracking_server_arn="trackingServerArn"
                     ),
@@ -1312,6 +1423,7 @@ class CfnConnection(
                         s3_uri="s3Uri",
                 
                         # the properties below are optional
+                        register_s3_access_grant_location=False,
                         s3_access_grant_location_id="s3AccessGrantLocationId"
                     ),
                     spark_emr_properties=datazone.CfnConnection.SparkEmrPropertiesInputProperty(
@@ -1349,6 +1461,7 @@ class CfnConnection(
                 check_type(argname="argument glue_properties", value=glue_properties, expected_type=type_hints["glue_properties"])
                 check_type(argname="argument hyper_pod_properties", value=hyper_pod_properties, expected_type=type_hints["hyper_pod_properties"])
                 check_type(argname="argument iam_properties", value=iam_properties, expected_type=type_hints["iam_properties"])
+                check_type(argname="argument lakehouse_properties", value=lakehouse_properties, expected_type=type_hints["lakehouse_properties"])
                 check_type(argname="argument mlflow_properties", value=mlflow_properties, expected_type=type_hints["mlflow_properties"])
                 check_type(argname="argument redshift_properties", value=redshift_properties, expected_type=type_hints["redshift_properties"])
                 check_type(argname="argument s3_properties", value=s3_properties, expected_type=type_hints["s3_properties"])
@@ -1367,6 +1480,8 @@ class CfnConnection(
                 self._values["hyper_pod_properties"] = hyper_pod_properties
             if iam_properties is not None:
                 self._values["iam_properties"] = iam_properties
+            if lakehouse_properties is not None:
+                self._values["lakehouse_properties"] = lakehouse_properties
             if mlflow_properties is not None:
                 self._values["mlflow_properties"] = mlflow_properties
             if redshift_properties is not None:
@@ -1436,6 +1551,17 @@ class CfnConnection(
             '''
             result = self._values.get("iam_properties")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.IamPropertiesInputProperty"]], result)
+
+        @builtins.property
+        def lakehouse_properties(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.LakehousePropertiesInputProperty"]]:
+            '''Lakehouse Properties Input.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-connectionpropertiesinput.html#cfn-datazone-connection-connectionpropertiesinput-lakehouseproperties
+            '''
+            result = self._values.get("lakehouse_properties")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.LakehousePropertiesInputProperty"]], result)
 
         @builtins.property
         def mlflow_properties(
@@ -2145,6 +2271,63 @@ class CfnConnection(
 
         def __repr__(self) -> str:
             return "IamPropertiesInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnConnection.LakehousePropertiesInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={"glue_lineage_sync_enabled": "glueLineageSyncEnabled"},
+    )
+    class LakehousePropertiesInputProperty:
+        def __init__(
+            self,
+            *,
+            glue_lineage_sync_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''Lakehouse Properties Input.
+
+            :param glue_lineage_sync_enabled: Specifies whether Glue lineage sync is enabled for the lakehouse connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-lakehousepropertiesinput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                lakehouse_properties_input_property = datazone.CfnConnection.LakehousePropertiesInputProperty(
+                    glue_lineage_sync_enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d960d28130e4448786a545a8139a0fa8065dd077be772c72f5263a6f609b760e)
+                check_type(argname="argument glue_lineage_sync_enabled", value=glue_lineage_sync_enabled, expected_type=type_hints["glue_lineage_sync_enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if glue_lineage_sync_enabled is not None:
+                self._values["glue_lineage_sync_enabled"] = glue_lineage_sync_enabled
+
+        @builtins.property
+        def glue_lineage_sync_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Specifies whether Glue lineage sync is enabled for the lakehouse connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-lakehousepropertiesinput.html#cfn-datazone-connection-lakehousepropertiesinput-gluelineagesyncenabled
+            '''
+            result = self._values.get("glue_lineage_sync_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LakehousePropertiesInputProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2983,6 +3166,7 @@ class CfnConnection(
         jsii_struct_bases=[],
         name_mapping={
             "s3_uri": "s3Uri",
+            "register_s3_access_grant_location": "registerS3AccessGrantLocation",
             "s3_access_grant_location_id": "s3AccessGrantLocationId",
         },
     )
@@ -2991,11 +3175,13 @@ class CfnConnection(
             self,
             *,
             s3_uri: builtins.str,
+            register_s3_access_grant_location: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             s3_access_grant_location_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''S3 Properties Input.
 
             :param s3_uri: The Amazon S3 URI that's part of the Amazon S3 properties of a connection.
+            :param register_s3_access_grant_location: Specifies whether to register the S3 Access Grant location.
             :param s3_access_grant_location_id: The Amazon S3 Access Grant location ID that's part of the Amazon S3 properties of a connection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-s3propertiesinput.html
@@ -3011,16 +3197,20 @@ class CfnConnection(
                     s3_uri="s3Uri",
                 
                     # the properties below are optional
+                    register_s3_access_grant_location=False,
                     s3_access_grant_location_id="s3AccessGrantLocationId"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__9aeda32f359f0dd9d9edb5beb4b094057854f8692ab3130e54edb4eb707f2288)
                 check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
+                check_type(argname="argument register_s3_access_grant_location", value=register_s3_access_grant_location, expected_type=type_hints["register_s3_access_grant_location"])
                 check_type(argname="argument s3_access_grant_location_id", value=s3_access_grant_location_id, expected_type=type_hints["s3_access_grant_location_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "s3_uri": s3_uri,
             }
+            if register_s3_access_grant_location is not None:
+                self._values["register_s3_access_grant_location"] = register_s3_access_grant_location
             if s3_access_grant_location_id is not None:
                 self._values["s3_access_grant_location_id"] = s3_access_grant_location_id
 
@@ -3033,6 +3223,17 @@ class CfnConnection(
             result = self._values.get("s3_uri")
             assert result is not None, "Required property 's3_uri' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def register_s3_access_grant_location(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Specifies whether to register the S3 Access Grant location.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-s3propertiesinput.html#cfn-datazone-connection-s3propertiesinput-registers3accessgrantlocation
+            '''
+            result = self._values.get("register_s3_access_grant_location")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def s3_access_grant_location_id(self) -> typing.Optional[builtins.str]:
@@ -3575,6 +3776,7 @@ class CfnConnection(
         "domain_identifier": "domainIdentifier",
         "name": "name",
         "aws_location": "awsLocation",
+        "configurations": "configurations",
         "description": "description",
         "enable_trusted_identity_propagation": "enableTrustedIdentityPropagation",
         "environment_identifier": "environmentIdentifier",
@@ -3590,6 +3792,7 @@ class CfnConnectionProps:
         domain_identifier: builtins.str,
         name: builtins.str,
         aws_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.AwsLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.ConnectionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         enable_trusted_identity_propagation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         environment_identifier: typing.Optional[builtins.str] = None,
@@ -3602,6 +3805,7 @@ class CfnConnectionProps:
         :param domain_identifier: The ID of the domain where the connection is created.
         :param name: The name of the connection.
         :param aws_location: The location where the connection is created.
+        :param configurations: The configurations of the connection.
         :param description: Connection description.
         :param enable_trusted_identity_propagation: Specifies whether the trusted identity propagation is enabled.
         :param environment_identifier: The ID of the environment where the connection is created.
@@ -3631,6 +3835,12 @@ class CfnConnectionProps:
                     aws_region="awsRegion",
                     iam_connection_id="iamConnectionId"
                 ),
+                configurations=[datazone.CfnConnection.ConnectionConfigurationProperty(
+                    classification="classification",
+                    properties={
+                        "properties_key": "properties"
+                    }
+                )],
                 description="description",
                 enable_trusted_identity_propagation=False,
                 environment_identifier="environmentIdentifier",
@@ -3711,6 +3921,9 @@ class CfnConnectionProps:
                     iam_properties=datazone.CfnConnection.IamPropertiesInputProperty(
                         glue_lineage_sync_enabled=False
                     ),
+                    lakehouse_properties=datazone.CfnConnection.LakehousePropertiesInputProperty(
+                        glue_lineage_sync_enabled=False
+                    ),
                     mlflow_properties=datazone.CfnConnection.MlflowPropertiesInputProperty(
                         tracking_server_arn="trackingServerArn"
                     ),
@@ -3740,6 +3953,7 @@ class CfnConnectionProps:
                         s3_uri="s3Uri",
             
                         # the properties below are optional
+                        register_s3_access_grant_location=False,
                         s3_access_grant_location_id="s3AccessGrantLocationId"
                     ),
                     spark_emr_properties=datazone.CfnConnection.SparkEmrPropertiesInputProperty(
@@ -3777,6 +3991,7 @@ class CfnConnectionProps:
             check_type(argname="argument domain_identifier", value=domain_identifier, expected_type=type_hints["domain_identifier"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument aws_location", value=aws_location, expected_type=type_hints["aws_location"])
+            check_type(argname="argument configurations", value=configurations, expected_type=type_hints["configurations"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument enable_trusted_identity_propagation", value=enable_trusted_identity_propagation, expected_type=type_hints["enable_trusted_identity_propagation"])
             check_type(argname="argument environment_identifier", value=environment_identifier, expected_type=type_hints["environment_identifier"])
@@ -3789,6 +4004,8 @@ class CfnConnectionProps:
         }
         if aws_location is not None:
             self._values["aws_location"] = aws_location
+        if configurations is not None:
+            self._values["configurations"] = configurations
         if description is not None:
             self._values["description"] = description
         if enable_trusted_identity_propagation is not None:
@@ -3832,6 +4049,17 @@ class CfnConnectionProps:
         '''
         result = self._values.get("aws_location")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.AwsLocationProperty"]], result)
+
+    @builtins.property
+    def configurations(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnection.ConnectionConfigurationProperty"]]]]:
+        '''The configurations of the connection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-connection.html#cfn-datazone-connection-configurations
+        '''
+        result = self._values.get("configurations")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnection.ConnectionConfigurationProperty"]]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -5863,11 +6091,11 @@ class CfnDomain(
         from aws_cdk import aws_datazone as datazone
         
         cfn_domain = datazone.CfnDomain(self, "MyCfnDomain",
-            domain_execution_role="domainExecutionRole",
             name="name",
         
             # the properties below are optional
             description="description",
+            domain_execution_role="domainExecutionRole",
             domain_version="domainVersion",
             kms_key_identifier="kmsKeyIdentifier",
             service_role="serviceRole",
@@ -5888,9 +6116,9 @@ class CfnDomain(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        domain_execution_role: builtins.str,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        domain_execution_role: typing.Optional[builtins.str] = None,
         domain_version: typing.Optional[builtins.str] = None,
         kms_key_identifier: typing.Optional[builtins.str] = None,
         service_role: typing.Optional[builtins.str] = None,
@@ -5901,9 +6129,9 @@ class CfnDomain(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param domain_execution_role: The domain execution role that is created when an Amazon DataZone domain is created. The domain execution role is created in the AWS account that houses the Amazon DataZone domain.
         :param name: The name of the Amazon DataZone domain.
         :param description: The description of the Amazon DataZone domain.
+        :param domain_execution_role: The domain execution role that is created when an Amazon DataZone domain is created. The domain execution role is created in the AWS account that houses the Amazon DataZone domain.
         :param domain_version: The domain version.
         :param kms_key_identifier: The identifier of the AWS Key Management Service (KMS) key that is used to encrypt the Amazon DataZone domain, metadata, and reporting data.
         :param service_role: The service role of the domain.
@@ -5915,9 +6143,9 @@ class CfnDomain(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDomainProps(
-            domain_execution_role=domain_execution_role,
             name=name,
             description=description,
+            domain_execution_role=domain_execution_role,
             domain_version=domain_version,
             kms_key_identifier=kms_key_identifier,
             service_role=service_role,
@@ -6117,19 +6345,6 @@ class CfnDomain(
         return typing.cast("_DomainReference_a7eba789", jsii.get(self, "domainRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="domainExecutionRole")
-    def domain_execution_role(self) -> builtins.str:
-        '''The domain execution role that is created when an Amazon DataZone domain is created.'''
-        return typing.cast(builtins.str, jsii.get(self, "domainExecutionRole"))
-
-    @domain_execution_role.setter
-    def domain_execution_role(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f0f91db144dcd37dc91c4f005e5e179143c7d40165baf625ef7e284af70358e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainExecutionRole", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
         '''The name of the Amazon DataZone domain.'''
@@ -6154,6 +6369,19 @@ class CfnDomain(
             type_hints = typing.get_type_hints(_typecheckingstub__cfb0d62a189dbc4d1b327c1e7f651b95f580a2f6196abce203f4709bcca75c7c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="domainExecutionRole")
+    def domain_execution_role(self) -> typing.Optional[builtins.str]:
+        '''The domain execution role that is created when an Amazon DataZone domain is created.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "domainExecutionRole"))
+
+    @domain_execution_role.setter
+    def domain_execution_role(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f0f91db144dcd37dc91c4f005e5e179143c7d40165baf625ef7e284af70358e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainExecutionRole", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="domainVersion")
@@ -6319,9 +6547,9 @@ class CfnDomain(
     jsii_type="aws-cdk-lib.aws_datazone.CfnDomainProps",
     jsii_struct_bases=[],
     name_mapping={
-        "domain_execution_role": "domainExecutionRole",
         "name": "name",
         "description": "description",
+        "domain_execution_role": "domainExecutionRole",
         "domain_version": "domainVersion",
         "kms_key_identifier": "kmsKeyIdentifier",
         "service_role": "serviceRole",
@@ -6333,9 +6561,9 @@ class CfnDomainProps:
     def __init__(
         self,
         *,
-        domain_execution_role: builtins.str,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        domain_execution_role: typing.Optional[builtins.str] = None,
         domain_version: typing.Optional[builtins.str] = None,
         kms_key_identifier: typing.Optional[builtins.str] = None,
         service_role: typing.Optional[builtins.str] = None,
@@ -6344,9 +6572,9 @@ class CfnDomainProps:
     ) -> None:
         '''Properties for defining a ``CfnDomain``.
 
-        :param domain_execution_role: The domain execution role that is created when an Amazon DataZone domain is created. The domain execution role is created in the AWS account that houses the Amazon DataZone domain.
         :param name: The name of the Amazon DataZone domain.
         :param description: The description of the Amazon DataZone domain.
+        :param domain_execution_role: The domain execution role that is created when an Amazon DataZone domain is created. The domain execution role is created in the AWS account that houses the Amazon DataZone domain.
         :param domain_version: The domain version.
         :param kms_key_identifier: The identifier of the AWS Key Management Service (KMS) key that is used to encrypt the Amazon DataZone domain, metadata, and reporting data.
         :param service_role: The service role of the domain.
@@ -6364,11 +6592,11 @@ class CfnDomainProps:
             from aws_cdk import aws_datazone as datazone
             
             cfn_domain_props = datazone.CfnDomainProps(
-                domain_execution_role="domainExecutionRole",
                 name="name",
             
                 # the properties below are optional
                 description="description",
+                domain_execution_role="domainExecutionRole",
                 domain_version="domainVersion",
                 kms_key_identifier="kmsKeyIdentifier",
                 service_role="serviceRole",
@@ -6385,20 +6613,21 @@ class CfnDomainProps:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6d98e07f58a8aeb53fe8b36894639594f83be43ac8d182e1c384572cf0038d27)
-            check_type(argname="argument domain_execution_role", value=domain_execution_role, expected_type=type_hints["domain_execution_role"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument domain_execution_role", value=domain_execution_role, expected_type=type_hints["domain_execution_role"])
             check_type(argname="argument domain_version", value=domain_version, expected_type=type_hints["domain_version"])
             check_type(argname="argument kms_key_identifier", value=kms_key_identifier, expected_type=type_hints["kms_key_identifier"])
             check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
             check_type(argname="argument single_sign_on", value=single_sign_on, expected_type=type_hints["single_sign_on"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "domain_execution_role": domain_execution_role,
             "name": name,
         }
         if description is not None:
             self._values["description"] = description
+        if domain_execution_role is not None:
+            self._values["domain_execution_role"] = domain_execution_role
         if domain_version is not None:
             self._values["domain_version"] = domain_version
         if kms_key_identifier is not None:
@@ -6409,18 +6638,6 @@ class CfnDomainProps:
             self._values["single_sign_on"] = single_sign_on
         if tags is not None:
             self._values["tags"] = tags
-
-    @builtins.property
-    def domain_execution_role(self) -> builtins.str:
-        '''The domain execution role that is created when an Amazon DataZone domain is created.
-
-        The domain execution role is created in the AWS account that houses the Amazon DataZone domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-domain.html#cfn-datazone-domain-domainexecutionrole
-        '''
-        result = self._values.get("domain_execution_role")
-        assert result is not None, "Required property 'domain_execution_role' is missing"
-        return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -6439,6 +6656,17 @@ class CfnDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-domain.html#cfn-datazone-domain-description
         '''
         result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def domain_execution_role(self) -> typing.Optional[builtins.str]:
+        '''The domain execution role that is created when an Amazon DataZone domain is created.
+
+        The domain execution role is created in the AWS account that houses the Amazon DataZone domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-domain.html#cfn-datazone-domain-domainexecutionrole
+        '''
+        result = self._values.get("domain_execution_role")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -9846,9 +10074,11 @@ class CfnGroupProfile(
         
         cfn_group_profile = datazone.CfnGroupProfile(self, "MyCfnGroupProfile",
             domain_identifier="domainIdentifier",
-            group_identifier="groupIdentifier",
         
             # the properties below are optional
+            group_identifier="groupIdentifier",
+            group_type="groupType",
+            role_principal_arn="rolePrincipalArn",
             status="status"
         )
     '''
@@ -9859,7 +10089,9 @@ class CfnGroupProfile(
         id: builtins.str,
         *,
         domain_identifier: builtins.str,
-        group_identifier: builtins.str,
+        group_identifier: typing.Optional[builtins.str] = None,
+        group_type: typing.Optional[builtins.str] = None,
+        role_principal_arn: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::DataZone::GroupProfile``.
@@ -9868,6 +10100,8 @@ class CfnGroupProfile(
         :param id: Construct identifier for this resource (unique in its scope).
         :param domain_identifier: The identifier of the Amazon DataZone domain in which a group profile exists.
         :param group_identifier: The ID of the group of a project member.
+        :param group_type: The type of the group.
+        :param role_principal_arn: The ARN of the role principal for the group profile.
         :param status: The status of a group profile.
         '''
         if __debug__:
@@ -9877,6 +10111,8 @@ class CfnGroupProfile(
         props = CfnGroupProfileProps(
             domain_identifier=domain_identifier,
             group_identifier=group_identifier,
+            group_type=group_type,
+            role_principal_arn=role_principal_arn,
             status=status,
         )
 
@@ -9952,6 +10188,15 @@ class CfnGroupProfile(
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrRolePrincipalId")
+    def attr_role_principal_id(self) -> builtins.str:
+        '''The ID of the role principal for the group profile.
+
+        :cloudformationAttribute: RolePrincipalId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRolePrincipalId"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -9982,16 +10227,42 @@ class CfnGroupProfile(
 
     @builtins.property
     @jsii.member(jsii_name="groupIdentifier")
-    def group_identifier(self) -> builtins.str:
+    def group_identifier(self) -> typing.Optional[builtins.str]:
         '''The ID of the group of a project member.'''
-        return typing.cast(builtins.str, jsii.get(self, "groupIdentifier"))
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "groupIdentifier"))
 
     @group_identifier.setter
-    def group_identifier(self, value: builtins.str) -> None:
+    def group_identifier(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c4cfe59401594c99ca6ed491e080ab3526afa6a5fbfa200d918455779f2c060f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "groupIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="groupType")
+    def group_type(self) -> typing.Optional[builtins.str]:
+        '''The type of the group.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "groupType"))
+
+    @group_type.setter
+    def group_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c6bb66a143bd2e85dcd0b59519e27e0e3c4be54c27d54a98942ee9c75624e6fb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "groupType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="rolePrincipalArn")
+    def role_principal_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the role principal for the group profile.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "rolePrincipalArn"))
+
+    @role_principal_arn.setter
+    def role_principal_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1f55f56e15de59cfa16a1b863f090d2b96b773020a1853487c1c6ce30c3dd2b4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rolePrincipalArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="status")
@@ -10013,6 +10284,8 @@ class CfnGroupProfile(
     name_mapping={
         "domain_identifier": "domainIdentifier",
         "group_identifier": "groupIdentifier",
+        "group_type": "groupType",
+        "role_principal_arn": "rolePrincipalArn",
         "status": "status",
     },
 )
@@ -10021,13 +10294,17 @@ class CfnGroupProfileProps:
         self,
         *,
         domain_identifier: builtins.str,
-        group_identifier: builtins.str,
+        group_identifier: typing.Optional[builtins.str] = None,
+        group_type: typing.Optional[builtins.str] = None,
+        role_principal_arn: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnGroupProfile``.
 
         :param domain_identifier: The identifier of the Amazon DataZone domain in which a group profile exists.
         :param group_identifier: The ID of the group of a project member.
+        :param group_type: The type of the group.
+        :param role_principal_arn: The ARN of the role principal for the group profile.
         :param status: The status of a group profile.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-groupprofile.html
@@ -10041,9 +10318,11 @@ class CfnGroupProfileProps:
             
             cfn_group_profile_props = datazone.CfnGroupProfileProps(
                 domain_identifier="domainIdentifier",
-                group_identifier="groupIdentifier",
             
                 # the properties below are optional
+                group_identifier="groupIdentifier",
+                group_type="groupType",
+                role_principal_arn="rolePrincipalArn",
                 status="status"
             )
         '''
@@ -10051,11 +10330,18 @@ class CfnGroupProfileProps:
             type_hints = typing.get_type_hints(_typecheckingstub__4f4f2d05f4850cb07cd88e6e5af875d2c16fa3ae4bcbc384b9a51f7f0d0ca2e4)
             check_type(argname="argument domain_identifier", value=domain_identifier, expected_type=type_hints["domain_identifier"])
             check_type(argname="argument group_identifier", value=group_identifier, expected_type=type_hints["group_identifier"])
+            check_type(argname="argument group_type", value=group_type, expected_type=type_hints["group_type"])
+            check_type(argname="argument role_principal_arn", value=role_principal_arn, expected_type=type_hints["role_principal_arn"])
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "domain_identifier": domain_identifier,
-            "group_identifier": group_identifier,
         }
+        if group_identifier is not None:
+            self._values["group_identifier"] = group_identifier
+        if group_type is not None:
+            self._values["group_type"] = group_type
+        if role_principal_arn is not None:
+            self._values["role_principal_arn"] = role_principal_arn
         if status is not None:
             self._values["status"] = status
 
@@ -10070,14 +10356,31 @@ class CfnGroupProfileProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def group_identifier(self) -> builtins.str:
+    def group_identifier(self) -> typing.Optional[builtins.str]:
         '''The ID of the group of a project member.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-groupprofile.html#cfn-datazone-groupprofile-groupidentifier
         '''
         result = self._values.get("group_identifier")
-        assert result is not None, "Required property 'group_identifier' is missing"
-        return typing.cast(builtins.str, result)
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def group_type(self) -> typing.Optional[builtins.str]:
+        '''The type of the group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-groupprofile.html#cfn-datazone-groupprofile-grouptype
+        '''
+        result = self._values.get("group_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def role_principal_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the role principal for the group profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-groupprofile.html#cfn-datazone-groupprofile-roleprincipalarn
+        '''
+        result = self._values.get("role_principal_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
@@ -12691,6 +12994,15 @@ class CfnProject(
             description="description",
             domain_unit_id="domainUnitId",
             glossary_terms=["glossaryTerms"],
+            membership_assignments=[datazone.CfnProject.ProjectMembershipAssignmentProperty(
+                designation="designation",
+                member=datazone.CfnProject.MemberProperty(
+                    group_identifier="groupIdentifier",
+                    user_identifier="userIdentifier"
+                )
+            )],
+            project_category="projectCategory",
+            project_execution_role="projectExecutionRole",
             project_profile_id="projectProfileId",
             project_profile_version="projectProfileVersion",
             resource_tags=[datazone.CfnProject.ResourceTagProperty(
@@ -12718,6 +13030,9 @@ class CfnProject(
         description: typing.Optional[builtins.str] = None,
         domain_unit_id: typing.Optional[builtins.str] = None,
         glossary_terms: typing.Optional[typing.Sequence[builtins.str]] = None,
+        membership_assignments: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProject.ProjectMembershipAssignmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        project_category: typing.Optional[builtins.str] = None,
+        project_execution_role: typing.Optional[builtins.str] = None,
         project_profile_id: typing.Optional[builtins.str] = None,
         project_profile_version: typing.Optional[builtins.str] = None,
         resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProject.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -12732,6 +13047,9 @@ class CfnProject(
         :param description: The description of a project.
         :param domain_unit_id: The ID of the domain unit. This parameter is not required and if it is not specified, then the project is created at the root domain unit level.
         :param glossary_terms: The glossary terms that can be used in this Amazon DataZone project.
+        :param membership_assignments: The project membership assignments.
+        :param project_category: The project category.
+        :param project_execution_role: The project execution role ARN.
         :param project_profile_id: The ID of the project profile.
         :param project_profile_version: The project profile version to which the project should be updated. You can only specify the following string for this parameter: ``latest`` .
         :param resource_tags: The resource tags of the project.
@@ -12747,6 +13065,9 @@ class CfnProject(
             description=description,
             domain_unit_id=domain_unit_id,
             glossary_terms=glossary_terms,
+            membership_assignments=membership_assignments,
+            project_category=project_category,
+            project_execution_role=project_execution_role,
             project_profile_id=project_profile_id,
             project_profile_version=project_profile_version,
             resource_tags=resource_tags,
@@ -12931,6 +13252,50 @@ class CfnProject(
             type_hints = typing.get_type_hints(_typecheckingstub__ed99a8f1a094dd4883e961330ac91acc714a4a5fd200b2d53a52d4113d5a34f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "glossaryTerms", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="membershipAssignments")
+    def membership_assignments(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProject.ProjectMembershipAssignmentProperty"]]]]:
+        '''The project membership assignments.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProject.ProjectMembershipAssignmentProperty"]]]], jsii.get(self, "membershipAssignments"))
+
+    @membership_assignments.setter
+    def membership_assignments(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProject.ProjectMembershipAssignmentProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2bb8f5197315d1158088c8bf3916a172cbedfa6d50b1c076eb34adadfbb1a44b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "membershipAssignments", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="projectCategory")
+    def project_category(self) -> typing.Optional[builtins.str]:
+        '''The project category.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "projectCategory"))
+
+    @project_category.setter
+    def project_category(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5b309e5e7c155ed6d85f98b253b1743981eb127f9b0dadd726954a8b24447bfa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "projectCategory", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="projectExecutionRole")
+    def project_execution_role(self) -> typing.Optional[builtins.str]:
+        '''The project execution role ARN.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "projectExecutionRole"))
+
+    @project_execution_role.setter
+    def project_execution_role(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cba2bc8b5c126daa4a04d7a993c017fd3d6d382e6d185ea6933f6d3386d94009)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "projectExecutionRole", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="projectProfileId")
@@ -13155,6 +13520,152 @@ class CfnProject(
 
         def __repr__(self) -> str:
             return "EnvironmentParameterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnProject.MemberProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "group_identifier": "groupIdentifier",
+            "user_identifier": "userIdentifier",
+        },
+    )
+    class MemberProperty:
+        def __init__(
+            self,
+            *,
+            group_identifier: typing.Optional[builtins.str] = None,
+            user_identifier: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The member of the project.
+
+            :param group_identifier: 
+            :param user_identifier: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-project-member.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                member_property = datazone.CfnProject.MemberProperty(
+                    group_identifier="groupIdentifier",
+                    user_identifier="userIdentifier"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f97780759859463df8fe931c5029a5bd4613c006938c2b69fa11f1bc43040477)
+                check_type(argname="argument group_identifier", value=group_identifier, expected_type=type_hints["group_identifier"])
+                check_type(argname="argument user_identifier", value=user_identifier, expected_type=type_hints["user_identifier"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if group_identifier is not None:
+                self._values["group_identifier"] = group_identifier
+            if user_identifier is not None:
+                self._values["user_identifier"] = user_identifier
+
+        @builtins.property
+        def group_identifier(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-project-member.html#cfn-datazone-project-member-groupidentifier
+            '''
+            result = self._values.get("group_identifier")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def user_identifier(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-project-member.html#cfn-datazone-project-member-useridentifier
+            '''
+            result = self._values.get("user_identifier")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MemberProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnProject.ProjectMembershipAssignmentProperty",
+        jsii_struct_bases=[],
+        name_mapping={"designation": "designation", "member": "member"},
+    )
+    class ProjectMembershipAssignmentProperty:
+        def __init__(
+            self,
+            *,
+            designation: builtins.str,
+            member: typing.Union["_IResolvable_da3f097b", typing.Union["CfnProject.MemberProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The project membership assignment.
+
+            :param designation: 
+            :param member: The member of the project.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-project-projectmembershipassignment.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                project_membership_assignment_property = datazone.CfnProject.ProjectMembershipAssignmentProperty(
+                    designation="designation",
+                    member=datazone.CfnProject.MemberProperty(
+                        group_identifier="groupIdentifier",
+                        user_identifier="userIdentifier"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e028f34e7e1eee59d57559b3b1f1ce92ecf45137ddf232f3f051d9641518f467)
+                check_type(argname="argument designation", value=designation, expected_type=type_hints["designation"])
+                check_type(argname="argument member", value=member, expected_type=type_hints["member"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "designation": designation,
+                "member": member,
+            }
+
+        @builtins.property
+        def designation(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-project-projectmembershipassignment.html#cfn-datazone-project-projectmembershipassignment-designation
+            '''
+            result = self._values.get("designation")
+            assert result is not None, "Required property 'designation' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def member(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnProject.MemberProperty"]:
+            '''The member of the project.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-project-projectmembershipassignment.html#cfn-datazone-project-projectmembershipassignment-member
+            '''
+            result = self._values.get("member")
+            assert result is not None, "Required property 'member' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnProject.MemberProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProjectMembershipAssignmentProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -14830,6 +15341,9 @@ class CfnProjectProfileProps:
         "description": "description",
         "domain_unit_id": "domainUnitId",
         "glossary_terms": "glossaryTerms",
+        "membership_assignments": "membershipAssignments",
+        "project_category": "projectCategory",
+        "project_execution_role": "projectExecutionRole",
         "project_profile_id": "projectProfileId",
         "project_profile_version": "projectProfileVersion",
         "resource_tags": "resourceTags",
@@ -14845,6 +15359,9 @@ class CfnProjectProps:
         description: typing.Optional[builtins.str] = None,
         domain_unit_id: typing.Optional[builtins.str] = None,
         glossary_terms: typing.Optional[typing.Sequence[builtins.str]] = None,
+        membership_assignments: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProject.ProjectMembershipAssignmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        project_category: typing.Optional[builtins.str] = None,
+        project_execution_role: typing.Optional[builtins.str] = None,
         project_profile_id: typing.Optional[builtins.str] = None,
         project_profile_version: typing.Optional[builtins.str] = None,
         resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProject.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -14857,6 +15374,9 @@ class CfnProjectProps:
         :param description: The description of a project.
         :param domain_unit_id: The ID of the domain unit. This parameter is not required and if it is not specified, then the project is created at the root domain unit level.
         :param glossary_terms: The glossary terms that can be used in this Amazon DataZone project.
+        :param membership_assignments: The project membership assignments.
+        :param project_category: The project category.
+        :param project_execution_role: The project execution role ARN.
         :param project_profile_id: The ID of the project profile.
         :param project_profile_version: The project profile version to which the project should be updated. You can only specify the following string for this parameter: ``latest`` .
         :param resource_tags: The resource tags of the project.
@@ -14879,6 +15399,15 @@ class CfnProjectProps:
                 description="description",
                 domain_unit_id="domainUnitId",
                 glossary_terms=["glossaryTerms"],
+                membership_assignments=[datazone.CfnProject.ProjectMembershipAssignmentProperty(
+                    designation="designation",
+                    member=datazone.CfnProject.MemberProperty(
+                        group_identifier="groupIdentifier",
+                        user_identifier="userIdentifier"
+                    )
+                )],
+                project_category="projectCategory",
+                project_execution_role="projectExecutionRole",
                 project_profile_id="projectProfileId",
                 project_profile_version="projectProfileVersion",
                 resource_tags=[datazone.CfnProject.ResourceTagProperty(
@@ -14902,6 +15431,9 @@ class CfnProjectProps:
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument domain_unit_id", value=domain_unit_id, expected_type=type_hints["domain_unit_id"])
             check_type(argname="argument glossary_terms", value=glossary_terms, expected_type=type_hints["glossary_terms"])
+            check_type(argname="argument membership_assignments", value=membership_assignments, expected_type=type_hints["membership_assignments"])
+            check_type(argname="argument project_category", value=project_category, expected_type=type_hints["project_category"])
+            check_type(argname="argument project_execution_role", value=project_execution_role, expected_type=type_hints["project_execution_role"])
             check_type(argname="argument project_profile_id", value=project_profile_id, expected_type=type_hints["project_profile_id"])
             check_type(argname="argument project_profile_version", value=project_profile_version, expected_type=type_hints["project_profile_version"])
             check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
@@ -14916,6 +15448,12 @@ class CfnProjectProps:
             self._values["domain_unit_id"] = domain_unit_id
         if glossary_terms is not None:
             self._values["glossary_terms"] = glossary_terms
+        if membership_assignments is not None:
+            self._values["membership_assignments"] = membership_assignments
+        if project_category is not None:
+            self._values["project_category"] = project_category
+        if project_execution_role is not None:
+            self._values["project_execution_role"] = project_execution_role
         if project_profile_id is not None:
             self._values["project_profile_id"] = project_profile_id
         if project_profile_version is not None:
@@ -14973,6 +15511,35 @@ class CfnProjectProps:
         '''
         result = self._values.get("glossary_terms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def membership_assignments(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProject.ProjectMembershipAssignmentProperty"]]]]:
+        '''The project membership assignments.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-project.html#cfn-datazone-project-membershipassignments
+        '''
+        result = self._values.get("membership_assignments")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProject.ProjectMembershipAssignmentProperty"]]]], result)
+
+    @builtins.property
+    def project_category(self) -> typing.Optional[builtins.str]:
+        '''The project category.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-project.html#cfn-datazone-project-projectcategory
+        '''
+        result = self._values.get("project_category")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def project_execution_role(self) -> typing.Optional[builtins.str]:
+        '''The project execution role ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-project.html#cfn-datazone-project-projectexecutionrole
+        '''
+        result = self._values.get("project_execution_role")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project_profile_id(self) -> typing.Optional[builtins.str]:
@@ -15649,6 +16216,7 @@ class CfnUserProfile(
             user_identifier="userIdentifier",
         
             # the properties below are optional
+            session_name="sessionName",
             status="status",
             user_type="userType"
         )
@@ -15661,6 +16229,7 @@ class CfnUserProfile(
         *,
         domain_identifier: builtins.str,
         user_identifier: builtins.str,
+        session_name: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
         user_type: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -15670,6 +16239,7 @@ class CfnUserProfile(
         :param id: Construct identifier for this resource (unique in its scope).
         :param domain_identifier: The identifier of a Amazon DataZone domain in which a user profile exists.
         :param user_identifier: The identifier of the user for which the user profile is created.
+        :param session_name: The session name of the user profile.
         :param status: The status of the user profile.
         :param user_type: The user type of the user for which the user profile is created.
         '''
@@ -15680,6 +16250,7 @@ class CfnUserProfile(
         props = CfnUserProfileProps(
             domain_identifier=domain_identifier,
             user_identifier=user_identifier,
+            session_name=session_name,
             status=status,
             user_type=user_type,
         )
@@ -15806,6 +16377,19 @@ class CfnUserProfile(
         jsii.set(self, "userIdentifier", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="sessionName")
+    def session_name(self) -> typing.Optional[builtins.str]:
+        '''The session name of the user profile.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sessionName"))
+
+    @session_name.setter
+    def session_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b1fdf36b65b0136cb909e09124e9b22809630111f03863b02a9da6f66f20af6f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sessionName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="status")
     def status(self) -> typing.Optional[builtins.str]:
         '''The status of the user profile.'''
@@ -15834,13 +16418,25 @@ class CfnUserProfile(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_datazone.CfnUserProfile.IamUserProfileDetailsProperty",
         jsii_struct_bases=[],
-        name_mapping={"arn": "arn"},
+        name_mapping={
+            "arn": "arn",
+            "group_profile_id": "groupProfileId",
+            "session_name": "sessionName",
+        },
     )
     class IamUserProfileDetailsProperty:
-        def __init__(self, *, arn: typing.Optional[builtins.str] = None) -> None:
+        def __init__(
+            self,
+            *,
+            arn: typing.Optional[builtins.str] = None,
+            group_profile_id: typing.Optional[builtins.str] = None,
+            session_name: typing.Optional[builtins.str] = None,
+        ) -> None:
             '''The details of the IAM User Profile.
 
             :param arn: The ARN of the IAM User Profile.
+            :param group_profile_id: The group profile ID of the IAM User Profile.
+            :param session_name: The session name of the IAM User Profile.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-userprofile-iamuserprofiledetails.html
             :exampleMetadata: fixture=_generated
@@ -15852,15 +16448,23 @@ class CfnUserProfile(
                 from aws_cdk import aws_datazone as datazone
                 
                 iam_user_profile_details_property = datazone.CfnUserProfile.IamUserProfileDetailsProperty(
-                    arn="arn"
+                    arn="arn",
+                    group_profile_id="groupProfileId",
+                    session_name="sessionName"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__3fd3b9b642370fd3593445a459418ba3df5f97586bee6446bed499fa533a4022)
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+                check_type(argname="argument group_profile_id", value=group_profile_id, expected_type=type_hints["group_profile_id"])
+                check_type(argname="argument session_name", value=session_name, expected_type=type_hints["session_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if arn is not None:
                 self._values["arn"] = arn
+            if group_profile_id is not None:
+                self._values["group_profile_id"] = group_profile_id
+            if session_name is not None:
+                self._values["session_name"] = session_name
 
         @builtins.property
         def arn(self) -> typing.Optional[builtins.str]:
@@ -15869,6 +16473,24 @@ class CfnUserProfile(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-userprofile-iamuserprofiledetails.html#cfn-datazone-userprofile-iamuserprofiledetails-arn
             '''
             result = self._values.get("arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def group_profile_id(self) -> typing.Optional[builtins.str]:
+            '''The group profile ID of the IAM User Profile.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-userprofile-iamuserprofiledetails.html#cfn-datazone-userprofile-iamuserprofiledetails-groupprofileid
+            '''
+            result = self._values.get("group_profile_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def session_name(self) -> typing.Optional[builtins.str]:
+            '''The session name of the IAM User Profile.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-userprofile-iamuserprofiledetails.html#cfn-datazone-userprofile-iamuserprofiledetails-sessionname
+            '''
+            result = self._values.get("session_name")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -15998,7 +16620,9 @@ class CfnUserProfile(
                 
                 user_profile_details_property = datazone.CfnUserProfile.UserProfileDetailsProperty(
                     iam=datazone.CfnUserProfile.IamUserProfileDetailsProperty(
-                        arn="arn"
+                        arn="arn",
+                        group_profile_id="groupProfileId",
+                        session_name="sessionName"
                     ),
                     sso=datazone.CfnUserProfile.SsoUserProfileDetailsProperty(
                         first_name="firstName",
@@ -16057,6 +16681,7 @@ class CfnUserProfile(
     name_mapping={
         "domain_identifier": "domainIdentifier",
         "user_identifier": "userIdentifier",
+        "session_name": "sessionName",
         "status": "status",
         "user_type": "userType",
     },
@@ -16067,6 +16692,7 @@ class CfnUserProfileProps:
         *,
         domain_identifier: builtins.str,
         user_identifier: builtins.str,
+        session_name: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
         user_type: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -16074,6 +16700,7 @@ class CfnUserProfileProps:
 
         :param domain_identifier: The identifier of a Amazon DataZone domain in which a user profile exists.
         :param user_identifier: The identifier of the user for which the user profile is created.
+        :param session_name: The session name of the user profile.
         :param status: The status of the user profile.
         :param user_type: The user type of the user for which the user profile is created.
 
@@ -16091,6 +16718,7 @@ class CfnUserProfileProps:
                 user_identifier="userIdentifier",
             
                 # the properties below are optional
+                session_name="sessionName",
                 status="status",
                 user_type="userType"
             )
@@ -16099,12 +16727,15 @@ class CfnUserProfileProps:
             type_hints = typing.get_type_hints(_typecheckingstub__431134ef647ba94f8eb72ef3985b514bb86c42b53ca933a9fd51ea529bd0fec8)
             check_type(argname="argument domain_identifier", value=domain_identifier, expected_type=type_hints["domain_identifier"])
             check_type(argname="argument user_identifier", value=user_identifier, expected_type=type_hints["user_identifier"])
+            check_type(argname="argument session_name", value=session_name, expected_type=type_hints["session_name"])
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             check_type(argname="argument user_type", value=user_type, expected_type=type_hints["user_type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "domain_identifier": domain_identifier,
             "user_identifier": user_identifier,
         }
+        if session_name is not None:
+            self._values["session_name"] = session_name
         if status is not None:
             self._values["status"] = status
         if user_type is not None:
@@ -16129,6 +16760,15 @@ class CfnUserProfileProps:
         result = self._values.get("user_identifier")
         assert result is not None, "Required property 'user_identifier' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def session_name(self) -> typing.Optional[builtins.str]:
+        '''The session name of the user profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-userprofile.html#cfn-datazone-userprofile-sessionname
+        '''
+        result = self._values.get("session_name")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
@@ -16206,6 +16846,7 @@ def _typecheckingstub__68db6ef5de752113ca6cf32190e1173ded9b82274379374d5e16834f4
     domain_identifier: builtins.str,
     name: builtins.str,
     aws_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.AwsLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.ConnectionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
     enable_trusted_identity_propagation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     environment_identifier: typing.Optional[builtins.str] = None,
@@ -16248,6 +16889,12 @@ def _typecheckingstub__0d602657575f2a77c389ea4e89f4d92dbe2bb3c30e0ccfc811aff15e1
 
 def _typecheckingstub__2e0849d8ebdd0fce1643c3904bce5fd806bb233f7ff27eddb627fac859586e5c(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnection.AwsLocationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1748f6bb7c426c5766af04352eb0a757e1e319d0d003ce2f487078b15550d73c(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnConnection.ConnectionConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16342,6 +16989,14 @@ def _typecheckingstub__7ee4cc1ea0ba5d5144e8b2c837d252087208460444755cfb7f5128e74
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__57f781a50aad4f0321eb97aa8bb1e35b3125927b7c9fbbd0b58c1804f660a26a(
+    *,
+    classification: typing.Optional[builtins.str] = None,
+    properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__afac89e500a9d5f348ce1c21e174ddef9825d543c744b00c3ff73a0c8dba8f38(
     *,
     amazon_q_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.AmazonQPropertiesInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -16349,6 +17004,7 @@ def _typecheckingstub__afac89e500a9d5f348ce1c21e174ddef9825d543c744b00c3ff73a0c8
     glue_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.GluePropertiesInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     hyper_pod_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.HyperPodPropertiesInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     iam_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.IamPropertiesInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lakehouse_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.LakehousePropertiesInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mlflow_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.MlflowPropertiesInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     redshift_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.RedshiftPropertiesInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     s3_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.S3PropertiesInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -16403,6 +17059,13 @@ def _typecheckingstub__b2574ba013a10f07b6e0a61c5559f70c13b2de025bb4b8d00be0efcd1
     pass
 
 def _typecheckingstub__5fcef45bd8fc26fdf37a0281f7789bd6e0fc1105a24dd2b5148ec9b0e0c27b75(
+    *,
+    glue_lineage_sync_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d960d28130e4448786a545a8139a0fa8065dd077be772c72f5263a6f609b760e(
     *,
     glue_lineage_sync_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
@@ -16492,6 +17155,7 @@ def _typecheckingstub__b195696e44f8816ec97423896e5a52b6ee46aa7c4c9e0e33aa0ac4a92
 def _typecheckingstub__9aeda32f359f0dd9d9edb5beb4b094057854f8692ab3130e54edb4eb707f2288(
     *,
     s3_uri: builtins.str,
+    register_s3_access_grant_location: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     s3_access_grant_location_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -16552,6 +17216,7 @@ def _typecheckingstub__8797ba459ed68920849c7b460987b708539d45c9d479ab52091ec466a
     domain_identifier: builtins.str,
     name: builtins.str,
     aws_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.AwsLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.ConnectionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
     enable_trusted_identity_propagation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     environment_identifier: typing.Optional[builtins.str] = None,
@@ -16815,9 +17480,9 @@ def _typecheckingstub__047efef40bc572d080b2e64b8f32c1db40e40ba16fc7d29d887073e9c
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    domain_execution_role: builtins.str,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    domain_execution_role: typing.Optional[builtins.str] = None,
     domain_version: typing.Optional[builtins.str] = None,
     kms_key_identifier: typing.Optional[builtins.str] = None,
     service_role: typing.Optional[builtins.str] = None,
@@ -16867,12 +17532,6 @@ def _typecheckingstub__595689c850e768a74bf0e3147031e1acd033e20ab08856209edf9954a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__2f0f91db144dcd37dc91c4f005e5e179143c7d40165baf625ef7e284af70358e(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__eb44fad9b00c8b94e0193e65a7d6e38fbf79595a0c367032211eb3ddcec54145(
     value: builtins.str,
 ) -> None:
@@ -16880,6 +17539,12 @@ def _typecheckingstub__eb44fad9b00c8b94e0193e65a7d6e38fbf79595a0c367032211eb3ddc
     pass
 
 def _typecheckingstub__cfb0d62a189dbc4d1b327c1e7f651b95f580a2f6196abce203f4709bcca75c7c(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f0f91db144dcd37dc91c4f005e5e179143c7d40165baf625ef7e284af70358e(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -16926,9 +17591,9 @@ def _typecheckingstub__f7f4cd03b79bceb07fb9f1366c739ee9cc49b8cbf6b9077a564689e81
 
 def _typecheckingstub__6d98e07f58a8aeb53fe8b36894639594f83be43ac8d182e1c384572cf0038d27(
     *,
-    domain_execution_role: builtins.str,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    domain_execution_role: typing.Optional[builtins.str] = None,
     domain_version: typing.Optional[builtins.str] = None,
     kms_key_identifier: typing.Optional[builtins.str] = None,
     service_role: typing.Optional[builtins.str] = None,
@@ -17562,7 +18227,9 @@ def _typecheckingstub__6bccafb3ac5ccb0c73cc0aaea6cf365a78e841d8d731ffbfa84165d7f
     id: builtins.str,
     *,
     domain_identifier: builtins.str,
-    group_identifier: builtins.str,
+    group_identifier: typing.Optional[builtins.str] = None,
+    group_type: typing.Optional[builtins.str] = None,
+    role_principal_arn: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17593,7 +18260,19 @@ def _typecheckingstub__3bfce5f937e19aa12105a026759b48056e8cb9facac990d4a84ae9ebf
     pass
 
 def _typecheckingstub__c4cfe59401594c99ca6ed491e080ab3526afa6a5fbfa200d918455779f2c060f(
-    value: builtins.str,
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6bb66a143bd2e85dcd0b59519e27e0e3c4be54c27d54a98942ee9c75624e6fb(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1f55f56e15de59cfa16a1b863f090d2b96b773020a1853487c1c6ce30c3dd2b4(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17607,7 +18286,9 @@ def _typecheckingstub__489105c9239ff5a560f37a1c161dc9de12874e97ca98bb0ac4df8139e
 def _typecheckingstub__4f4f2d05f4850cb07cd88e6e5af875d2c16fa3ae4bcbc384b9a51f7f0d0ca2e4(
     *,
     domain_identifier: builtins.str,
-    group_identifier: builtins.str,
+    group_identifier: typing.Optional[builtins.str] = None,
+    group_type: typing.Optional[builtins.str] = None,
+    role_principal_arn: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17943,6 +18624,9 @@ def _typecheckingstub__2dd190e348e5421f499a11e44b2fb0c69295587e5e7717b13a56786a8
     description: typing.Optional[builtins.str] = None,
     domain_unit_id: typing.Optional[builtins.str] = None,
     glossary_terms: typing.Optional[typing.Sequence[builtins.str]] = None,
+    membership_assignments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.ProjectMembershipAssignmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    project_category: typing.Optional[builtins.str] = None,
+    project_execution_role: typing.Optional[builtins.str] = None,
     project_profile_id: typing.Optional[builtins.str] = None,
     project_profile_version: typing.Optional[builtins.str] = None,
     resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -17999,6 +18683,24 @@ def _typecheckingstub__ed99a8f1a094dd4883e961330ac91acc714a4a5fd200b2d53a52d4113
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2bb8f5197315d1158088c8bf3916a172cbedfa6d50b1c076eb34adadfbb1a44b(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnProject.ProjectMembershipAssignmentProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5b309e5e7c155ed6d85f98b253b1743981eb127f9b0dadd726954a8b24447bfa(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cba2bc8b5c126daa4a04d7a993c017fd3d6d382e6d185ea6933f6d3386d94009(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cd4329ffc5180ec3c489a9b9628b37fda4e7e56daeff4465877926e7905d64d8(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -18036,6 +18738,22 @@ def _typecheckingstub__4bfbfca939a617b6012dc8847e17b3567d673ec789228318c5d1c3971
     *,
     name: typing.Optional[builtins.str] = None,
     value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f97780759859463df8fe931c5029a5bd4613c006938c2b69fa11f1bc43040477(
+    *,
+    group_identifier: typing.Optional[builtins.str] = None,
+    user_identifier: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e028f34e7e1eee59d57559b3b1f1ce92ecf45137ddf232f3f051d9641518f467(
+    *,
+    designation: builtins.str,
+    member: typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.MemberProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18295,6 +19013,9 @@ def _typecheckingstub__d519699f8d5d172880216006cab9e8c1595fc99339cf485d2be1f6c37
     description: typing.Optional[builtins.str] = None,
     domain_unit_id: typing.Optional[builtins.str] = None,
     glossary_terms: typing.Optional[typing.Sequence[builtins.str]] = None,
+    membership_assignments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.ProjectMembershipAssignmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    project_category: typing.Optional[builtins.str] = None,
+    project_execution_role: typing.Optional[builtins.str] = None,
     project_profile_id: typing.Optional[builtins.str] = None,
     project_profile_version: typing.Optional[builtins.str] = None,
     resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -18421,6 +19142,7 @@ def _typecheckingstub__43948fd61004932aa31394de53e9c49e34aa425f3682404de5d5f6a24
     *,
     domain_identifier: builtins.str,
     user_identifier: builtins.str,
+    session_name: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
     user_type: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -18457,6 +19179,12 @@ def _typecheckingstub__5bc695cbd1d290ebde7514044903060b533b99cd4f724f387512ffb61
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b1fdf36b65b0136cb909e09124e9b22809630111f03863b02a9da6f66f20af6f(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f391a63fdbc6b7a8aefbb3664fddfe91481bce941965f274ecad0166152935ce(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -18472,6 +19200,8 @@ def _typecheckingstub__9b560448b79c8df59777bf516743c73a776fe419d2c08183dd62546f1
 def _typecheckingstub__3fd3b9b642370fd3593445a459418ba3df5f97586bee6446bed499fa533a4022(
     *,
     arn: typing.Optional[builtins.str] = None,
+    group_profile_id: typing.Optional[builtins.str] = None,
+    session_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18497,6 +19227,7 @@ def _typecheckingstub__431134ef647ba94f8eb72ef3985b514bb86c42b53ca933a9fd51ea529
     *,
     domain_identifier: builtins.str,
     user_identifier: builtins.str,
+    session_name: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
     user_type: typing.Optional[builtins.str] = None,
 ) -> None:

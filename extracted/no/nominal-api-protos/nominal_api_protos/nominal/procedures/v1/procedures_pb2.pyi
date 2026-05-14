@@ -298,8 +298,16 @@ class ChannelLocator(_message.Message):
     run: RunReference
     def __init__(self, data_source_ref: _Optional[str] = ..., channel_name: _Optional[str] = ..., tags: _Optional[_Mapping[str, str]] = ..., asset: _Optional[_Union[AssetReference, _Mapping]] = ..., run: _Optional[_Union[RunReference, _Mapping]] = ...) -> None: ...
 
+class ChannelCaptureConfig(_message.Message):
+    __slots__ = ("output_field_id", "capture_moments")
+    OUTPUT_FIELD_ID_FIELD_NUMBER: _ClassVar[int]
+    CAPTURE_MOMENTS_FIELD_NUMBER: _ClassVar[int]
+    output_field_id: str
+    capture_moments: _containers.RepeatedScalarFieldContainer[CaptureMoment]
+    def __init__(self, output_field_id: _Optional[str] = ..., capture_moments: _Optional[_Iterable[_Union[CaptureMoment, str]]] = ...) -> None: ...
+
 class ChannelValidationSuccessCondition(_message.Message):
-    __slots__ = ("channel", "comparator", "threshold", "timeout_millis", "point_persistence", "time_persistence")
+    __slots__ = ("channel", "comparator", "threshold", "timeout_millis", "point_persistence", "time_persistence", "channel_captures")
     class COMPARATOR(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         COMPARATOR_UNSPECIFIED: _ClassVar[ChannelValidationSuccessCondition.COMPARATOR]
@@ -309,6 +317,7 @@ class ChannelValidationSuccessCondition(_message.Message):
         COMPARATOR_LESS_THAN_OR_EQUAL: _ClassVar[ChannelValidationSuccessCondition.COMPARATOR]
         COMPARATOR_EQUAL: _ClassVar[ChannelValidationSuccessCondition.COMPARATOR]
         COMPARATOR_NOT_EQUAL: _ClassVar[ChannelValidationSuccessCondition.COMPARATOR]
+        COMPARATOR_EXISTS: _ClassVar[ChannelValidationSuccessCondition.COMPARATOR]
     COMPARATOR_UNSPECIFIED: ChannelValidationSuccessCondition.COMPARATOR
     COMPARATOR_GREATER_THAN: ChannelValidationSuccessCondition.COMPARATOR
     COMPARATOR_GREATER_THAN_OR_EQUAL: ChannelValidationSuccessCondition.COMPARATOR
@@ -316,19 +325,22 @@ class ChannelValidationSuccessCondition(_message.Message):
     COMPARATOR_LESS_THAN_OR_EQUAL: ChannelValidationSuccessCondition.COMPARATOR
     COMPARATOR_EQUAL: ChannelValidationSuccessCondition.COMPARATOR
     COMPARATOR_NOT_EQUAL: ChannelValidationSuccessCondition.COMPARATOR
+    COMPARATOR_EXISTS: ChannelValidationSuccessCondition.COMPARATOR
     CHANNEL_FIELD_NUMBER: _ClassVar[int]
     COMPARATOR_FIELD_NUMBER: _ClassVar[int]
     THRESHOLD_FIELD_NUMBER: _ClassVar[int]
     TIMEOUT_MILLIS_FIELD_NUMBER: _ClassVar[int]
     POINT_PERSISTENCE_FIELD_NUMBER: _ClassVar[int]
     TIME_PERSISTENCE_FIELD_NUMBER: _ClassVar[int]
+    CHANNEL_CAPTURES_FIELD_NUMBER: _ClassVar[int]
     channel: ChannelLocator
     comparator: ChannelValidationSuccessCondition.COMPARATOR
     threshold: float
     timeout_millis: int
     point_persistence: int
     time_persistence: int
-    def __init__(self, channel: _Optional[_Union[ChannelLocator, _Mapping]] = ..., comparator: _Optional[_Union[ChannelValidationSuccessCondition.COMPARATOR, str]] = ..., threshold: _Optional[float] = ..., timeout_millis: _Optional[int] = ..., point_persistence: _Optional[int] = ..., time_persistence: _Optional[int] = ...) -> None: ...
+    channel_captures: _containers.RepeatedCompositeFieldContainer[ChannelCaptureConfig]
+    def __init__(self, channel: _Optional[_Union[ChannelLocator, _Mapping]] = ..., comparator: _Optional[_Union[ChannelValidationSuccessCondition.COMPARATOR, str]] = ..., threshold: _Optional[float] = ..., timeout_millis: _Optional[int] = ..., point_persistence: _Optional[int] = ..., time_persistence: _Optional[int] = ..., channel_captures: _Optional[_Iterable[_Union[ChannelCaptureConfig, _Mapping]]] = ...) -> None: ...
 
 class WebhookSuccessCondition(_message.Message):
     __slots__ = ("integration_rid", "delivery_config", "event_type", "payload_template")
@@ -372,18 +384,8 @@ class CompletionActionConfig(_message.Message):
     update_run: UpdateRunConfig
     def __init__(self, create_event: _Optional[_Union[CreateEventConfig, _Mapping]] = ..., send_notification: _Optional[_Union[SendNotificationConfig, _Mapping]] = ..., create_run: _Optional[_Union[CreateRunConfig, _Mapping]] = ..., apply_workbook_templates: _Optional[_Union[ApplyWorkbookTemplatesConfig, _Mapping]] = ..., apply_checklists: _Optional[_Union[ApplyChecklistsConfig, _Mapping]] = ..., update_run: _Optional[_Union[UpdateRunConfig, _Mapping]] = ...) -> None: ...
 
-class ChannelSnapshotConfig(_message.Message):
-    __slots__ = ("output_field_id", "channel", "capture_moments")
-    OUTPUT_FIELD_ID_FIELD_NUMBER: _ClassVar[int]
-    CHANNEL_FIELD_NUMBER: _ClassVar[int]
-    CAPTURE_MOMENTS_FIELD_NUMBER: _ClassVar[int]
-    output_field_id: str
-    channel: ChannelLocator
-    capture_moments: _containers.RepeatedScalarFieldContainer[CaptureMoment]
-    def __init__(self, output_field_id: _Optional[str] = ..., channel: _Optional[_Union[ChannelLocator, _Mapping]] = ..., capture_moments: _Optional[_Iterable[_Union[CaptureMoment, str]]] = ...) -> None: ...
-
 class CreateEventConfig(_message.Message):
-    __slots__ = ("name", "description", "labels", "properties", "asset_field_ids", "asset_references", "property_refs", "channel_snapshots")
+    __slots__ = ("name", "description", "labels", "properties", "asset_field_ids", "asset_references", "property_refs")
     class PropertiesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -398,7 +400,6 @@ class CreateEventConfig(_message.Message):
     ASSET_FIELD_IDS_FIELD_NUMBER: _ClassVar[int]
     ASSET_REFERENCES_FIELD_NUMBER: _ClassVar[int]
     PROPERTY_REFS_FIELD_NUMBER: _ClassVar[int]
-    CHANNEL_SNAPSHOTS_FIELD_NUMBER: _ClassVar[int]
     name: str
     description: str
     labels: _containers.RepeatedScalarFieldContainer[str]
@@ -406,8 +407,7 @@ class CreateEventConfig(_message.Message):
     asset_field_ids: _containers.RepeatedScalarFieldContainer[str]
     asset_references: _containers.RepeatedCompositeFieldContainer[AssetReference]
     property_refs: _containers.RepeatedCompositeFieldContainer[PropertyReference]
-    channel_snapshots: _containers.RepeatedCompositeFieldContainer[ChannelSnapshotConfig]
-    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., labels: _Optional[_Iterable[str]] = ..., properties: _Optional[_Mapping[str, str]] = ..., asset_field_ids: _Optional[_Iterable[str]] = ..., asset_references: _Optional[_Iterable[_Union[AssetReference, _Mapping]]] = ..., property_refs: _Optional[_Iterable[_Union[PropertyReference, _Mapping]]] = ..., channel_snapshots: _Optional[_Iterable[_Union[ChannelSnapshotConfig, _Mapping]]] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., labels: _Optional[_Iterable[str]] = ..., properties: _Optional[_Mapping[str, str]] = ..., asset_field_ids: _Optional[_Iterable[str]] = ..., asset_references: _Optional[_Iterable[_Union[AssetReference, _Mapping]]] = ..., property_refs: _Optional[_Iterable[_Union[PropertyReference, _Mapping]]] = ...) -> None: ...
 
 class SendNotificationConfig(_message.Message):
     __slots__ = ("integrations", "title", "message")
@@ -513,12 +513,16 @@ class StartIngestStep(_message.Message):
     class IngestTypeConfig(_message.Message):
         __slots__ = ("containerized_extractor", "dataflash", "csv", "parquet")
         class ContainerizedExtractorIngestConfig(_message.Message):
-            __slots__ = ("rid", "file_input_bindings")
+            __slots__ = ("rid", "file_input_bindings", "environment_input_bindings", "additional_file_tag_bindings")
             RID_FIELD_NUMBER: _ClassVar[int]
             FILE_INPUT_BINDINGS_FIELD_NUMBER: _ClassVar[int]
+            ENVIRONMENT_INPUT_BINDINGS_FIELD_NUMBER: _ClassVar[int]
+            ADDITIONAL_FILE_TAG_BINDINGS_FIELD_NUMBER: _ClassVar[int]
             rid: str
             file_input_bindings: _containers.RepeatedCompositeFieldContainer[FileInputBinding]
-            def __init__(self, rid: _Optional[str] = ..., file_input_bindings: _Optional[_Iterable[_Union[FileInputBinding, _Mapping]]] = ...) -> None: ...
+            environment_input_bindings: _containers.RepeatedCompositeFieldContainer[EnvironmentInputBinding]
+            additional_file_tag_bindings: _containers.RepeatedCompositeFieldContainer[AdditionalFileTagBinding]
+            def __init__(self, rid: _Optional[str] = ..., file_input_bindings: _Optional[_Iterable[_Union[FileInputBinding, _Mapping]]] = ..., environment_input_bindings: _Optional[_Iterable[_Union[EnvironmentInputBinding, _Mapping]]] = ..., additional_file_tag_bindings: _Optional[_Iterable[_Union[AdditionalFileTagBinding, _Mapping]]] = ...) -> None: ...
         class DataflashIngestConfig(_message.Message):
             __slots__ = ("file_input",)
             FILE_INPUT_FIELD_NUMBER: _ClassVar[int]
@@ -574,6 +578,24 @@ class FileReference(_message.Message):
     FIELD_ID_FIELD_NUMBER: _ClassVar[int]
     field_id: str
     def __init__(self, field_id: _Optional[str] = ...) -> None: ...
+
+class EnvironmentInputBinding(_message.Message):
+    __slots__ = ("environment_variable", "value")
+    ENVIRONMENT_VARIABLE_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    environment_variable: str
+    value: StringReference
+    def __init__(self, environment_variable: _Optional[str] = ..., value: _Optional[_Union[StringReference, _Mapping]] = ...) -> None: ...
+
+class AdditionalFileTagBinding(_message.Message):
+    __slots__ = ("tag_name", "string_value", "asset_rid")
+    TAG_NAME_FIELD_NUMBER: _ClassVar[int]
+    STRING_VALUE_FIELD_NUMBER: _ClassVar[int]
+    ASSET_RID_FIELD_NUMBER: _ClassVar[int]
+    tag_name: str
+    string_value: StringReference
+    asset_rid: AssetReference
+    def __init__(self, tag_name: _Optional[str] = ..., string_value: _Optional[_Union[StringReference, _Mapping]] = ..., asset_rid: _Optional[_Union[AssetReference, _Mapping]] = ...) -> None: ...
 
 class TimestampTypeParameter(_message.Message):
     __slots__ = ("constant", "user_input")

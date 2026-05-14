@@ -7245,6 +7245,9 @@ def _route_to_principal_pipeline(
     tokens: int,
     model_locked: bool,
     system_prompt: str | None,
+    *,
+    legacy_plans: bool = False,
+    no_review: bool = False,
 ) -> dict | None:
     """Route a build-style prompt through the principal pipeline.
 
@@ -7253,9 +7256,15 @@ def _route_to_principal_pipeline(
     (e.g. "Build a FastAPI app... Build a Go service... Build an Android
     app..."), generates EACH sub-task into its own labelled subfolder.
 
+    Default path uses the new dynamic spec-driven builder. Pass
+    `legacy_plans=True` to fall back to the hardcoded `plan_*()` plans
+    in `principal_engineer` (rollback safety net).
+
     Returns a combined report dict, or None if the prompt isn't a build
     request at all.
     """
+    from sage.core.dynamic_builder import build_project_dynamic
+    from sage.core.principal_builder import build_project_principal
     from sage.core.principal_engineer import (
         build_project,
         decompose_multi_build_request,
@@ -7307,18 +7316,62 @@ def _route_to_principal_pipeline(
     sub_tasks = decompose_multi_build_request(user_input)
     base_out_dir = base_out_dir.resolve()
 
+    def _run_build(task: str, out_dir: Path) -> dict:
+        """Dispatch to the principal-grade builder or legacy fallback."""
+        if legacy_plans:
+            return build_project(task, out_dir, _generate, progress=renderer.info)
+        # Default: principal builder (bootstrap + architecture + multi-file
+        # features + review pass + verify loop). Replaces the older
+        # build_project_dynamic which is retained for its test surface.
+        report = build_project_principal(
+            task, out_dir, _generate, progress=renderer.info,
+            enable_review=not no_review,
+        )
+        return {
+            "stack": (
+                f"{report.stack.get('frontend') or 'none'} + "
+                f"{report.stack.get('backend') or 'none'}"
+            ),
+            "out_dir": report.out_dir,
+            "files": [{"path": p, "score": None} for p in [report.title]],
+            "file_count": report.file_count,
+            "template_count": 0,
+            "llm_count": report.file_count,
+            "integrity_fixes": 0,
+            "lint_fixes": 0,
+            "review_failures": sum(
+                1 for s in report.review_scores.values() if s < 7.0
+            ),
+            "install_ok": report.install_ok,
+            "tests_ok": report.tests_ok,
+            "stuck_features": report.stuck_features,
+            "feature_count": report.feature_count,
+            "bootstrap_results": report.bootstrap_results,
+            "review_scores": report.review_scores,
+        }
+
     if len(sub_tasks) == 1:
-        renderer.info(f"[bold]Build mode[/bold] → {base_out_dir}")
-        report = build_project(
-            sub_tasks[0][1], base_out_dir, _generate, progress=renderer.info
-        )
         renderer.info(
-            f"[green]Generated {len(report['files'])} files "
-            f"({report['template_count']} from templates, "
-            f"{report['llm_count']} from LLM, "
-            f"{report.get('integrity_fixes', 0)} integrity fixes, "
-            f"{report.get('lint_fixes', 0)} lint fixes)[/green]"
+            f"[bold]Build mode[/bold] → {base_out_dir} "
+            f"({'legacy plans' if legacy_plans else 'dynamic'})"
         )
+        report = _run_build(sub_tasks[0][1], base_out_dir)
+        if legacy_plans:
+            renderer.info(
+                f"[green]Generated {len(report['files'])} files "
+                f"({report['template_count']} from templates, "
+                f"{report['llm_count']} from LLM, "
+                f"{report.get('integrity_fixes', 0)} integrity fixes, "
+                f"{report.get('lint_fixes', 0)} lint fixes)[/green]"
+            )
+        else:
+            renderer.info(
+                f"[green]Generated {report['file_count']} files across "
+                f"{report['feature_count']} features. "
+                f"install_ok={report['install_ok']} tests_ok={report['tests_ok']}"
+                f"{' STUCK=' + ','.join(report['stuck_features']) if report['stuck_features'] else ''}"
+                "[/green]"
+            )
         renderer.info(f"Project at: [cyan]{report['out_dir']}[/cyan]")
         return report
 
@@ -7341,27 +7394,29 @@ def _route_to_principal_pipeline(
         sub_dir = base_out_dir / f"{idx:02d}-{label}"
         renderer.info(f"\n[bold cyan]── Project {idx}/{len(sub_tasks)}: {label}[/bold cyan]")
         try:
-            report = build_project(sub_task, sub_dir, _generate, progress=renderer.info)
+            report = _run_build(sub_task, sub_dir)
         except Exception as exc:
             renderer.warning(f"Project {idx} ({label}) failed: {exc}")
             combined["sub_projects"].append(
                 {"label": label, "out_dir": str(sub_dir), "error": str(exc)}
             )
             continue
+        file_count = report.get("file_count", len(report.get("files", [])))
         combined["sub_projects"].append(
             {
                 "label": label,
                 "stack": report["stack"],
                 "out_dir": report["out_dir"],
-                "file_count": len(report["files"]),
+                "file_count": file_count,
             }
         )
-        combined["files"].extend(report["files"])
+        if isinstance(report.get("files"), list):
+            combined["files"].extend(report["files"])
         for key in ("template_count", "llm_count", "integrity_fixes",
                     "lint_fixes", "review_failures"):
             combined[key] += report.get(key, 0)
         renderer.info(
-            f"[green]  ✓ {label}: {len(report['files'])} files at {report['out_dir']}[/green]"
+            f"[green]  ✓ {label}: {file_count} files at {report['out_dir']}[/green]"
         )
 
     renderer.info(
@@ -13216,10 +13271,20 @@ def run(
                         + ", ".join(p.get("label", "?") for p in report["sub_projects"])
                     )
                 else:
+                    file_count = report.get("file_count", len(report.get("files", [])))
                     summary = (
                         f"Generated a {report['stack']} project at {report['out_dir']} "
-                        f"with {len(report['files'])} files."
+                        f"with {file_count} files."
                     )
+                    if report.get("install_ok") is not None:
+                        summary += (
+                            f" install_ok={report['install_ok']} "
+                            f"tests_ok={report['tests_ok']}"
+                        )
+                    if report.get("stuck_features"):
+                        summary += (
+                            " STUCK features: " + ", ".join(report["stuck_features"])
+                        )
                 engine.add_assistant(summary)
                 continue
         except Exception as build_exc:
@@ -13425,10 +13490,20 @@ def chat(
                         f"{report['out_dir']}"
                     )
                 else:
+                    file_count = report.get("file_count", len(report.get("files", [])))
                     summary = (
                         f"Generated a {report['stack']} project at {report['out_dir']} "
-                        f"with {len(report['files'])} files."
+                        f"with {file_count} files."
                     )
+                    if report.get("install_ok") is not None:
+                        summary += (
+                            f" install_ok={report['install_ok']} "
+                            f"tests_ok={report['tests_ok']}"
+                        )
+                    if report.get("stuck_features"):
+                        summary += (
+                            " STUCK features: " + ", ".join(report["stuck_features"])
+                        )
                 engine.add_assistant(summary)
                 continue
         except Exception:
@@ -13488,6 +13563,21 @@ def ask(
             "If omitted on a build prompt, sage picks ./build.",
         ),
     ] = None,
+    legacy_plans: Annotated[
+        bool, typer.Option(
+            "--legacy-plans",
+            help="Fall back to the hardcoded plan_*() templates (rollback "
+            "safety net). Default is the new dynamic spec-driven builder.",
+        ),
+    ] = False,
+    no_review: Annotated[
+        bool, typer.Option(
+            "--no-review",
+            help="Skip the per-file principal-engineer review pass. Halves "
+            "the LLM-call count at the cost of lower per-file quality. The "
+            "install/verify loop still iterates-until-green on test failures.",
+        ),
+    ] = False,
 ) -> None:
     """One-shot prompt — ask a question and get an answer."""
     cfg = load_config()
@@ -13543,18 +13633,23 @@ def ask(
         tokens=tokens,
         model_locked=model_locked,
         system_prompt=system,
+        legacy_plans=legacy_plans,
+        no_review=no_review,
     )
     if report is not None or out is not None:
         # If --out was given but the prompt didn't look like a build, still
         # try the pipeline for the user's benefit.
         if report is None and out is not None:
-            from sage.core.principal_engineer import build_project
+            if legacy_plans:
+                from sage.core.principal_engineer import build_project as _builder
+            else:
+                from sage.core.dynamic_builder import build_project_dynamic as _builder
 
             def _gen(p: str) -> str:
                 messages = _build_simple_qa_messages(p, system_prompt=system)
                 return router.generate(messages, model_id, temp, tokens, lock_provider=model_locked)
 
-            build_project(raw_prompt, target_dir, _gen, progress=renderer.info)
+            _builder(raw_prompt, target_dir, _gen, progress=renderer.info)
         return
 
     # Check if this is just a quick simple QA prompt

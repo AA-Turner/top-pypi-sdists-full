@@ -2,16 +2,11 @@
 import os
 import sys
 
-# Workaround for PyOpenGL 3.1.6+ on Wayland: GLFW uses X11/XWayland, but PyOpenGL
-# assumes Wayland EGL and fails to find the GL context. Force X11 backend.
-# Must be set before any `import OpenGL` happens.
-# See https://github.com/pthom/imgui_bundle/issues/321
-if os.getenv("XDG_SESSION_TYPE") == "wayland" and not os.getenv("PYOPENGL_PLATFORM"):
-    os.environ["PYOPENGL_PLATFORM"] = "x11"
 from imgui_bundle._imgui_bundle import __bundle_submodules_available__, __bundle_submodules_disabled__, __bundle_pyodide__ # type: ignore
 from imgui_bundle._imgui_bundle import __version__, __build_number__, compilation_time
 from types import ModuleType
 from typing import Union, Tuple, List, overload
+
 
 def has_submodule(submodule_name: str) -> bool:
     return submodule_name in __bundle_submodules_available__
@@ -85,10 +80,18 @@ __all__ = [
 if has_submodule("imgui"):
     from imgui_bundle._imgui_bundle import imgui as imgui
     _publish("imgui", imgui)
+    # Let Python resolve `imgui_bundle.imgui.<submodule>` against the source
+    # dir (e.g. test_engine_checks.py), since the C++ submodule shadows it.
+    imgui.__path__ = [os.path.join(os.path.dirname(__file__), "imgui")]
     _publish("imgui.internal", imgui.internal)
     _publish("imgui.backends", imgui.backends)
     if has_submodule("imgui.test_engine"):
         _publish("imgui.test_engine", imgui.test_engine)
+        # Catch Python exceptions in test_func/gui_func/teardown_func so they
+        # become logged test failures instead of nanobind::python_error ->
+        # std::terminate (which would crash the whole process).
+        from imgui_bundle import _imgui_test_engine_python_safety  # noqa: F401
+        _imgui_test_engine_python_safety.install(imgui.test_engine)
     from imgui_bundle._imgui_bundle.imgui import ImVec2, ImVec4, ImColor, FLT_MIN, FLT_MAX  # noqa: F401
     from imgui_bundle.im_col32 import IM_COL32  # noqa: F401, E402
     from imgui_bundle import imgui_ctx as imgui_ctx  # noqa: E402
@@ -254,6 +257,10 @@ if has_submodule("imgui_microtex"):
     from imgui_bundle._imgui_bundle import imgui_microtex as imgui_microtex
     _publish("imgui_microtex", imgui_microtex)
     __all__.extend(["imgui_microtex"])
+if has_submodule("webgl"):
+    from imgui_bundle._imgui_bundle import webgl as webgl
+    _publish("webgl", webgl)
+    __all__.extend(["webgl"])
 
 if has_submodule("immapp_cpp"):  # immapp is a Python wrapper around immapp_cpp
     from imgui_bundle import immapp as immapp

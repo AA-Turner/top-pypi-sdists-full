@@ -10,11 +10,13 @@ from contextlib import contextmanager
 from functools import partial
 from gettext import gettext as _
 
+import aiohttp
 from asgiref.sync import async_to_sync, sync_to_async
 from django.conf import settings
 from django.db import connection
 from django.db.models import Model
 from django_guid import get_guid
+from rest_framework.exceptions import APIException
 
 from pulpcore.app.apps import MODULE_PLUGIN_VERSIONS
 from pulpcore.app.contexts import awith_task_context, with_task_context, x_task_diagnostics_var
@@ -32,7 +34,12 @@ from pulpcore.constants import (
     TASK_WAKEUP_HANDLE,
     TASK_WAKEUP_UNBLOCK,
 )
-from pulpcore.exceptions import InternalErrorException, PulpException
+from pulpcore.exceptions import (
+    InternalErrorException,
+    PulpException,
+    TaskConfigurationError,
+    TaskTimeoutException,
+)
 from pulpcore.tasking.kafka import send_task_notification
 
 _logger = logging.getLogger(__name__)
@@ -75,14 +82,14 @@ def _execute_task(task):
         except Exception as e:
             exc_type, exc, tb = sys.exc_info()
             task_exc = exc
-            if not isinstance(e, PulpException):
+            if not isinstance(e, (PulpException, APIException, aiohttp.ClientError)):
                 if settings.REDACT_UNSAFE_EXCEPTIONS:
                     # Replace exception with generic error
                     task_exc = InternalErrorException()
                     tb = None
                 else:
                     deprecation_logger.warning(
-                        "Exception ({exc_type}: {exc}) will be sanitized in pulpcore 3.115".format(
+                        "Exception ({exc_type}: {exc}) will be sanitized in pulpcore 3.130".format(
                             exc_type=exc_type.__name__, exc=exc
                         )
                     )
@@ -112,14 +119,14 @@ async def _aexecute_task(task):
         except Exception as e:
             exc_type, exc, tb = sys.exc_info()
             task_exc = exc
-            if not isinstance(e, PulpException):
+            if not isinstance(e, (PulpException, APIException, aiohttp.ClientError)):
                 if settings.REDACT_UNSAFE_EXCEPTIONS:
                     # Replace exception with generic error
                     task_exc = InternalErrorException()
                     tb = None
                 else:
                     deprecation_logger.warning(
-                        "Exception ({exc_type}: {exc}) will be sanitized in pulpcore 3.115".format(
+                        "Exception ({exc_type}: {exc}) will be sanitized in pulpcore 3.130".format(
                             exc_type=exc_type.__name__, exc=exc
                         )
                     )
@@ -187,11 +194,11 @@ async def aget_task_function(task):
     func, is_coroutine_fn = _load_function(task)
 
     if task.immediate and not is_coroutine_fn:
-        raise ValueError("Immediate tasks must be async functions.")
+        raise TaskConfigurationError(task.name, "Immediate tasks must be async functions.")
     elif not task.immediate:
-        raise ValueError("Non-immediate tasks can't run in async context.")
+        raise TaskConfigurationError(task.name, "Non-immediate tasks can't run in async context.")
 
-    return _add_timeout_to(func, task.pk)
+    return _add_timeout_to(func, task.name, task.pk)
 
 
 def get_task_function(task):
@@ -205,7 +212,7 @@ def get_task_function(task):
     func, is_coroutine_fn = _load_function(task)
 
     if task.immediate and not is_coroutine_fn:
-        raise ValueError("Immediate tasks must be async functions.")
+        raise TaskConfigurationError(task.name, "Immediate tasks must be async functions.")
 
     # no sync wrapper required
     if not is_coroutine_fn:
@@ -213,7 +220,7 @@ def get_task_function(task):
 
     # async function in sync context requires wrapper
     if task.immediate:
-        coro_fn_with_timeout = _add_timeout_to(func, task.pk)
+        coro_fn_with_timeout = _add_timeout_to(func, task.name, task.pk)
         return async_to_sync(coro_fn_with_timeout)
     return async_to_sync(func)
 
@@ -230,16 +237,13 @@ def _load_function(task):
     return func_with_args, is_coroutine_fn
 
 
-def _add_timeout_to(coro_fn, task_pk):
+def _add_timeout_to(coro_fn, task_name, task_pk):
 
     async def _wrapper():
         try:
             return await asyncio.wait_for(coro_fn(), timeout=IMMEDIATE_TIMEOUT)
         except asyncio.TimeoutError:
-            msg_template = "Immediate task %s timed out after %s seconds."
-            error_msg = msg_template % (task_pk, IMMEDIATE_TIMEOUT)
-            _logger.info(error_msg)
-            raise RuntimeError(error_msg)
+            raise TaskTimeoutException(task_name, task_pk, IMMEDIATE_TIMEOUT)
 
     return _wrapper
 

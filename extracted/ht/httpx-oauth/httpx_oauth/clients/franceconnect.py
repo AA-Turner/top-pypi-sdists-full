@@ -1,5 +1,5 @@
 import secrets
-from typing import Any, Literal, Optional, TypedDict
+from typing import Any, Literal, TypedDict
 
 from httpx_oauth.exceptions import GetIdEmailError, GetProfileError
 from httpx_oauth.oauth2 import BaseOAuth2
@@ -37,9 +37,9 @@ class FranceConnectOAuth2(BaseOAuth2[FranceConnectOAuth2AuthorizeParams]):
         client_id: str,
         client_secret: str,
         integration: bool = False,
-        scopes: Optional[list[str]] = BASE_SCOPES,
-        name="franceconnect",
-    ):
+        scopes: list[str] | None = BASE_SCOPES,
+        name: str = "franceconnect",
+    ) -> None:
         endpoints = ENDPOINTS["integration"] if integration else ENDPOINTS["production"]
         super().__init__(
             client_id,
@@ -56,13 +56,13 @@ class FranceConnectOAuth2(BaseOAuth2[FranceConnectOAuth2AuthorizeParams]):
     async def get_authorization_url(
         self,
         redirect_uri: str,
-        state: Optional[str] = None,
-        scope: Optional[list[str]] = None,
-        code_challenge: Optional[str] = None,
-        code_challenge_method: Optional[Literal["plain", "S256"]] = None,
-        extras_params: Optional[FranceConnectOAuth2AuthorizeParams] = None,
+        state: str | None = None,
+        scope: list[str] | None = None,
+        code_challenge: str | None = None,
+        code_challenge_method: Literal["plain", "S256"] | None = None,
+        extras_params: FranceConnectOAuth2AuthorizeParams | None = None,
     ) -> str:
-        _extras_params = extras_params or {}
+        _extras_params: FranceConnectOAuth2AuthorizeParams = extras_params or {}
 
         # nonce is required for FranceConnect
         if _extras_params.get("nonce") is None:
@@ -84,7 +84,7 @@ class FranceConnectOAuth2(BaseOAuth2[FranceConnectOAuth2AuthorizeParams]):
 
             return response.json()
 
-    async def get_id_email(self, token: str) -> tuple[str, Optional[str]]:
+    async def get_id_email(self, token: str) -> tuple[str, str | None]:
         try:
             profile = await self.get_profile(token)
         except GetProfileError as e:

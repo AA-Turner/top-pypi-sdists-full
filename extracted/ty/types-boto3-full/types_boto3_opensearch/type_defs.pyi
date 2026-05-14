@@ -68,6 +68,7 @@ from .literals import (
     PackageScopeOperationEnumType,
     PackageStatusType,
     PackageTypeType,
+    PauseStateType,
     PrincipalTypeType,
     PropertyValueTypeType,
     RequirementLevelType,
@@ -133,6 +134,9 @@ __all__ = (
     "AutoTuneOptionsUnionTypeDef",
     "AutoTuneStatusTypeDef",
     "AutoTuneTypeDef",
+    "AutomatedSnapshotPauseOptionsStatusTypeDef",
+    "AutomatedSnapshotPauseOptionsTypeDef",
+    "AutomatedSnapshotPauseRequestOptionsTypeDef",
     "AvailabilityZoneInfoTypeDef",
     "CancelDomainConfigChangeRequestTypeDef",
     "CancelDomainConfigChangeResponseTypeDef",
@@ -543,6 +547,12 @@ class AutoTuneStatusTypeDef(TypedDict):
     UpdateVersion: NotRequired[int]
     ErrorMessage: NotRequired[str]
     PendingDeletion: NotRequired[bool]
+
+class AutomatedSnapshotPauseOptionsTypeDef(TypedDict):
+    Enabled: bool
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    State: NotRequired[PauseStateType]
 
 class AvailabilityZoneInfoTypeDef(TypedDict):
     AvailabilityZoneName: NotRequired[str]
@@ -1319,6 +1329,15 @@ class AutoTuneMaintenanceScheduleTypeDef(TypedDict):
     StartAt: NotRequired[TimestampTypeDef]
     Duration: NotRequired[DurationTypeDef]
     CronExpressionForRecurrence: NotRequired[str]
+
+class AutomatedSnapshotPauseRequestOptionsTypeDef(TypedDict):
+    Enabled: bool
+    StartTime: NotRequired[TimestampTypeDef]
+    EndTime: NotRequired[TimestampTypeDef]
+
+class AutomatedSnapshotPauseOptionsStatusTypeDef(TypedDict):
+    Options: AutomatedSnapshotPauseOptionsTypeDef
+    Status: OptionStatusTypeDef
 
 class EnvironmentInfoTypeDef(TypedDict):
     AvailabilityZoneInformation: NotRequired[list[AvailabilityZoneInfoTypeDef]]
@@ -2142,6 +2161,7 @@ class DomainStatusTypeDef(TypedDict):
     ModifyingProperties: NotRequired[list[ModifyingPropertiesTypeDef]]
     AIMLOptions: NotRequired[AIMLOptionsOutputTypeDef]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
+    AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseOptionsTypeDef]
 
 class DescribeInstanceTypeLimitsResponseTypeDef(TypedDict):
     LimitsByRole: dict[str, LimitsTypeDef]
@@ -2170,6 +2190,7 @@ class CreateDomainRequestTypeDef(TypedDict):
     SoftwareUpdateOptions: NotRequired[SoftwareUpdateOptionsTypeDef]
     AIMLOptions: NotRequired[AIMLOptionsInputTypeDef]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
+    AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseRequestOptionsTypeDef]
 
 class UpdateDomainConfigRequestTypeDef(TypedDict):
     DomainName: str
@@ -2194,6 +2215,7 @@ class UpdateDomainConfigRequestTypeDef(TypedDict):
     SoftwareUpdateOptions: NotRequired[SoftwareUpdateOptionsTypeDef]
     AIMLOptions: NotRequired[AIMLOptionsInputTypeDef]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
+    AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseRequestOptionsTypeDef]
 
 class DomainConfigTypeDef(TypedDict):
     EngineVersion: NotRequired[VersionStatusTypeDef]
@@ -2218,6 +2240,7 @@ class DomainConfigTypeDef(TypedDict):
     ModifyingProperties: NotRequired[list[ModifyingPropertiesTypeDef]]
     AIMLOptions: NotRequired[AIMLOptionsStatusTypeDef]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsStatusTypeDef]
+    AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseOptionsStatusTypeDef]
 
 class CreateDomainResponseTypeDef(TypedDict):
     DomainStatus: DomainStatusTypeDef

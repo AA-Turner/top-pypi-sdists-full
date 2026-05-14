@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import atexit
+import http.cookiejar
 import json
 import logging
 import os
@@ -120,20 +121,20 @@ class Browser(Connection):
         self._keep_user_data_dir = None
         self._is_updating = asyncio.Event()
         self.connection: Connection = None
-        super().__init__("", auto_attach=True)
+        super().__init__("", auto_attach=False)
         logger.debug("Session object initialized: %s" % vars(self))
 
     @property
     def main_tab(self) -> tab.Tab:
         """returns the target which was launched with the browser"""
-        return sorted(self.targets, key=lambda x: x.type_ == "page", reverse=True)[0]
+        return next(filter(lambda x: x.target.type_ == "page", self.targets))
 
     @property
     def targets(self) -> List[Connection]:
         return self._targets
 
     @property
-    def tabs(self):
+    def tabs(self) -> List[tab.Connection]:
         return [x for x in self._targets if x.target.type_ == "page"]
 
     # @property
@@ -199,24 +200,25 @@ class Browser(Connection):
                     url, new_window=new_window, enable_begin_frame_control=True
                 )
             )
-            connection = tab.Tab(target=target_id, parent=self, auto_attach=False)
+
+            # connection = tab.Tab(target=target_id, parent=self, auto_attach=False)
+            # await connection.attach()
+            # self._targets.append(connection)
             await self.update_targets()
-            await connection.attach(connection.target)
+            connection = next(
+                filter(lambda x: x.target.target_id == target_id, self.targets)
+            )
+            await connection.attach()
+
         else:
             # first tab from browser.tabs
             connection: tab.Tab = next(
                 filter(lambda item: item.target.type_ == "page", self.targets)
             )
-            # use the tab to navigate to new url
-            # if not connection.attached:
-            #     await connection.attach(connection.target)
-            frame_id, loader_id, *_ = await connection.send(cdp.page.navigate(url))
-            await self.update_targets()
-            await connection.attach()
-            # update the frame_id on the tab
-            # connection.frame_id = frame_id
-            # connection.parent = self
 
+            frame_id, loader_id, *_ = await connection.send(cdp.page.navigate(url))
+            await connection.attach()
+            await self.update_targets()
         # await self
         return connection
 
@@ -391,46 +393,8 @@ class Browser(Connection):
 
         self.websocket_url = self.info.webSocketDebuggerUrl
         await self.attach()
-        # await self.send(cdp.target.attach_to_browser_target())
-
-        # self.connection = Connection(browser=self, auto_attach=True)
-        # self.connection._session_id = await self.connection.send(cdp.target.attach_to_browser_target())
-        # self.connection.attached = True
-        # self.connection.target = "BROWSER"
-
-        # self.connection.handlers[cdp.target.AttachedToTarget] = [self._handle_attached]
-        # self.connection.handlers[cdp.target.DetachedFromTarget] = [self._handle_detached]
-
-        # if self.config.autodiscover_targets:
-        #     logger.info("enabling autodiscover targets")
-        #
-        #     self.connection.handlers[cdp.target.TargetInfoChanged] = [
-        #         self._handle_target_update
-        #     ]
-        #     self.connection.handlers[cdp.target.TargetCreated] = [
-        #         self._handle_target_update
-        #     ]
-        #     self.connection.handlers[cdp.target.TargetDestroyed] = [
-        #         self._handle_target_update
-        #     ]
-        #     self.connection.handlers[cdp.target.TargetCrashed] = [
-        #         self._handle_target_update
-        #     ]
-        #     await self.connection.send(cdp.target.set_discover_targets(discover=True))
-
         await self.update_targets()
         # await self
-
-    # async def _handle_attached(self, event: cdp.target.AttachedToTarget):
-    #     t: tab.Tab  = await tab.Tab.from_tab_target(event.target_info, browser=self)
-    #     t._is_attached = True
-    #     t._session_id = event.session_id
-    #     self.tabs.append(t)
-    #
-    # async def _handle_detached(self, event: cdp.target.DetachedFromTarget):
-    #     t = next(filter( lambda x : x.target_id == event.target_id, self.targets))
-    #
-    #     self.tabs.remove(t)
 
     async def grant_all_permissions(self):
         """
@@ -543,10 +507,8 @@ class Browser(Connection):
                     ctab.target = t
                     break
             else:
-                if t.type_ == "page":
-                    self._targets.append(
-                        tab.Tab(target=t, parent=self, auto_attach=False)
-                    )
+                _t = tab.Tab(target=t, parent=self, auto_attach=False)
+                self._targets.append(_t)
 
         for ctab in self._targets.copy():
             if ctab.target not in targets:
@@ -560,7 +522,7 @@ class Browser(Connection):
 
     def __getitem__(
         self, item: Union[str, int, slice]
-    ) -> Union[tab.Tab, List[tab.Tab]]:
+    ) -> Union[tab.Tab, List[tab.Tab], None]:
         """
         allows to get py:obj:`tab.Tab` instances by using browser[0], browser[1], etc.
         a string is also allowed. it will then return the first tab where the py:obj:`cdp.target.TargetInfo` object
@@ -608,7 +570,7 @@ class Browser(Connection):
     def __reversed__(self):
         return reversed(list(self.tabs))
 
-    def __next__(self):
+    def __next__(self) -> tab.Tab | tab.Connection | None:
         try:
             return self.tabs[self._i]
         except IndexError:
@@ -704,13 +666,13 @@ class CookieJar:
 
         """
         connection = None
-        for tab in self._browser.tabs:
-            if tab.closed:
-                continue
-            connection = tab
-            break
+        for tab in self._browser:
+            if tab.target:
+                connection = tab
+                break
+
         else:
-            connection = self._browser.connection
+            connection = self._browser
         cookies = await connection.send(cdp.storage.get_cookies())
         if requests_cookie_format:
             import requests.cookies
@@ -738,14 +700,14 @@ class CookieJar:
         :rtype:
         """
         connection = None
-        for tab in self._browser.tabs:
-            if tab.closed:
-                continue
-            connection = tab
-            break
+        for tab in self._browser:
+            if tab.target:
+                connection = tab
+                break
+
         else:
-            connection = self._browser.connection
-        cookies = await connection.send(cdp.storage.get_cookies())
+            connection = self._browser
+
         await connection.send(cdp.storage.set_cookies(cookies))
 
     async def save(self, file: PathLike = ".session.dat", pattern: str = ".*"):
@@ -756,7 +718,7 @@ class CookieJar:
         :type file:
         :param pattern: regex style pattern string.
                any cookie that has a  domain, key or value field which matches the pattern will be included.
-               default = ".*"  (all)
+               default (param not specified) = ".*"  (all)
 
                eg: the pattern "(cf|.com|nowsecure)" will include those cookies which:
                     - have a string "cf" (cloudflare)
@@ -771,13 +733,12 @@ class CookieJar:
         pattern = re.compile(pattern)
         save_path = pathlib.Path(file).resolve()
         connection = None
-        for tab in self._browser.tabs:
-            if tab.closed:
-                continue
-            connection = tab
-            break
+        for tab in self._browser:
+            if tab.target:
+                connection = tab
+                break
         else:
-            connection = self._browser.connection
+            connection = self._browser
 
         cookies = await self.get_all(requests_cookie_format=False)
         included_cookies = []
@@ -801,7 +762,7 @@ class CookieJar:
         :type file:
         :param pattern: regex style pattern string.
                any cookie that has a  domain, key or value field which matches the pattern will be included.
-               default = ".*"  (all)
+               default (param not specified)  = ".*"  (all)
 
                eg: the pattern "(cf|.com|nowsecure)" will include those cookies which:
                     - have a string "cf" (cloudflare)
@@ -818,13 +779,13 @@ class CookieJar:
         cookies = pickle.load(save_path.open("r+b"))
         included_cookies = []
         connection = None
-        for tab in self._browser.tabs:
-            if tab.closed:
-                continue
-            connection = tab
-            break
+        for tab in self._browser:
+            if tab.target:
+                connection = tab
+                break
+
         else:
-            connection = self._browser.connection
+            connection = self._browser
         for cookie in cookies:
             for match in pattern.finditer(str(cookie.__dict__)):
                 included_cookies.append(cookie)
@@ -847,13 +808,14 @@ class CookieJar:
         :rtype:
         """
         connection = None
-        for tab in self._browser.tabs:
-            if tab.closed:
-                continue
-            connection = tab
-            break
+        for tab in self._browser:
+            if tab.target:
+                #     continue
+                connection = tab
+                break
+
         else:
-            connection = self._browser.connection
+            connection = self._browser
 
         await connection.send(cdp.storage.clear_cookies())
 

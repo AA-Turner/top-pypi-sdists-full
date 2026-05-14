@@ -70,6 +70,41 @@ def _sanitize_mcp_name(raw: str) -> str:
     return cleaned or "db"
 
 
+def _db_mcp_name(db: dict) -> str:
+    """Build an MCP name from `{db_database}_{db_schema}` (schema defaults to `base`)."""
+    database = _sanitize_mcp_name(db.get("db_database") or "db")
+    schema = _sanitize_mcp_name(db.get("db_schema") or "base")
+    return f"{database}_{schema}"
+
+
+def _build_unique_db_mcp_names(db_configs: list[dict]) -> list[str]:
+    """Return one MCP name per db_config, raising if any two collide.
+
+    Two configs collide when they share both `db_database` and `db_schema`
+    (including the case where neither sets a schema — both default to `base`).
+    """
+    names = [_db_mcp_name(db) for db in db_configs]
+    first_seen: dict[str, int] = {}
+    collisions: list[str] = []
+    for i, (db, name) in enumerate(zip(db_configs, names)):
+        if name in first_seen:
+            other = db_configs[first_seen[name]]
+            collisions.append(
+                f"{name} (db_database={db.get('db_database')!r}, "
+                f"db_schema={db.get('db_schema')!r}; also produced by entry "
+                f"with db_database={other.get('db_database')!r}, "
+                f"db_schema={other.get('db_schema')!r})"
+            )
+        else:
+            first_seen[name] = i
+    if collisions:
+        raise ValueError(
+            "Duplicate db MCP names — every db_config must have a unique "
+            f"(db_database, db_schema) tuple. Collisions: {'; '.join(collisions)}"
+        )
+    return names
+
+
 def _get_claude_credentials() -> tuple[str, str]:
     """Get Claude credentials, preferring OAuth from Keychain, falling back to API key.
 
@@ -1218,8 +1253,8 @@ async def _launch_datagen_world(
 
         # Build MCPs — each instance has an explicit `name` (unique per env).
         mcps = []
-        for idx, db in enumerate(db_configs):
-            db_name = _sanitize_mcp_name(db.get("db_database") or f"db{idx}")
+        db_names = _build_unique_db_mcp_names(db_configs)
+        for db_name, db in zip(db_names, db_configs):
             mcps.append(
                 {
                     "type": "db",
@@ -1229,6 +1264,7 @@ async def _launch_datagen_world(
                     "db_user": db.get("db_user"),
                     "db_password": db.get("db_password"),
                     "db_database": db.get("db_database"),
+                    "db_schema": db.get("db_schema"),
                     "service": simulator_name,
                 }
             )
@@ -1328,8 +1364,8 @@ async def _launch_datagen_unified_world(
                     db_configs = [db_configs]
 
                 mcps: list[dict] = []
-                for db_idx, db in enumerate(db_configs):
-                    db_name = _sanitize_mcp_name(db.get("db_database") or f"db{db_idx}")
+                db_names = _build_unique_db_mcp_names(db_configs)
+                for db_name, db in zip(db_names, db_configs):
                     mcps.append(
                         {
                             "type": "db",
@@ -1339,6 +1375,7 @@ async def _launch_datagen_unified_world(
                             "db_user": db.get("db_user"),
                             "db_password": db.get("db_password"),
                             "db_database": db.get("db_database"),
+                            "db_schema": db.get("db_schema"),
                             "service": sim_name,
                         }
                     )
@@ -1427,8 +1464,8 @@ async def _launch_sim_checker_world(
                 db_configs = [db_configs]
 
         mcps: list[dict] = []
-        for idx, db in enumerate(db_configs):
-            db_name = _sanitize_mcp_name(db.get("db_database") or f"db{idx}")
+        db_names = _build_unique_db_mcp_names(db_configs)
+        for db_name, db in zip(db_names, db_configs):
             mcps.append(
                 {
                     "type": "db",
@@ -1438,6 +1475,7 @@ async def _launch_sim_checker_world(
                     "db_user": db.get("db_user"),
                     "db_password": db.get("db_password"),
                     "db_database": db.get("db_database"),
+                    "db_schema": db.get("db_schema"),
                     "service": simulator_name,
                 }
             )
@@ -1519,8 +1557,8 @@ async def _build_mcps_for_sim(
             db_configs = resp.json() if resp.status_code == 200 else []
             if not isinstance(db_configs, list):
                 db_configs = [db_configs]
-            for idx, db in enumerate(db_configs):
-                db_name = _sanitize_mcp_name(db.get("db_database") or f"db{idx}")
+            db_names = _build_unique_db_mcp_names(db_configs)
+            for db_name, db in zip(db_names, db_configs):
                 mcps.append(
                     {
                         "type": "db",
@@ -1530,6 +1568,7 @@ async def _build_mcps_for_sim(
                         "db_user": db.get("db_user"),
                         "db_password": db.get("db_password"),
                         "db_database": db.get("db_database"),
+                        "db_schema": db.get("db_schema"),
                         "service": simulator_name,
                     }
                 )

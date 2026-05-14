@@ -230,7 +230,7 @@ class WorkflowController:
         source_stage_id: str,
         target_stage_id: str,
         task_type: str | None = None,
-    ):
+    ) -> dict:
         """
         Add a new transition between two stages in the workflow.
         This method creates a new transition from the source stage to the target stage,
@@ -260,6 +260,13 @@ class WorkflowController:
             task_type (Optional[str]): Optional filter for task routing. If None or empty,
                 matches ALL tasks. If set, only matches tasks with this exact type string.
 
+        Returns:
+            Dict: Operation result containing:
+                - status (str): "success" when the transition is created.
+                - message (str): Human-readable confirmation message.
+                - transition (Dict): The created transition with id, sourceStageId,
+                  targetStageId, type and props (taskType).
+
         Raises:
             ValueError: If the source or target stage does not exist in the workflow.
             UnknownNodeTypeError: If the source or target stage type is invalid.
@@ -285,7 +292,26 @@ class WorkflowController:
         stage.workflow_transitions.append(transition)
         self.repos.project.save(project)
 
-    def delete_transition(self, transition_id: str):
+        message = (
+            f"Transition added from stage '{source_stage_id}' "
+            f"to stage '{target_stage_id}'"
+        )
+        if task_type:
+            message += f" with task_type '{task_type}'"
+
+        return {
+            "status": "success",
+            "message": message,
+            "transition": {
+                "id": transition.id,
+                "sourceStageId": source_stage_id,
+                "targetStageId": target_stage_id,
+                "type": transition.type,
+                "props": {"taskType": task_type},
+            },
+        }
+
+    def delete_transition(self, transition_id: str) -> dict:
         """
         Delete a transition from the workflow by its ID.
         This method removes the specified transition from the workflow,
@@ -293,6 +319,14 @@ class WorkflowController:
 
         Args:
             transition_id (str): ID of the transition to delete.
+
+        Returns:
+            Dict: Operation result containing:
+                - status (str): "success" when the transition is deleted.
+                - message (str): Human-readable confirmation message.
+                - transition_id (str): The id of the deleted transition.
+                - sourceStageId (str): The id of the stage the transition started from.
+                - targetStageId (str): The id of the stage the transition pointed to.
 
         Raises:
             ValueError: If the transition with the given ID does not exist.
@@ -302,21 +336,30 @@ class WorkflowController:
             Deleting a transition from the workflow...
         """
         project = self.repos.project.load()
-        transition_found = False
+        deleted_transition: WorkflowTransition | None = None
+        source_stage_id: str | None = None
 
         for stage in project.workflow_stages:
             for i, transition in enumerate(stage.workflow_transitions):
                 if transition.id == transition_id:
-                    stage.workflow_transitions.pop(i)
-                    transition_found = True
+                    deleted_transition = stage.workflow_transitions.pop(i)
+                    source_stage_id = stage.id
                     break
-            if transition_found:
+            if deleted_transition is not None:
                 break
 
-        if not transition_found:
+        if deleted_transition is None or source_stage_id is None:
             raise ValueError(f"Transition {transition_id} does not exist.")
 
         self.repos.project.save(project)
+
+        return {
+            "status": "success",
+            "message": f"Transition '{transition_id}' deleted successfully",
+            "transition_id": transition_id,
+            "sourceStageId": source_stage_id,
+            "targetStageId": deleted_transition.target_id,
+        }
 
     def update_workflow(self, workflow_state_dto: dict, module: str | None = None):
         """

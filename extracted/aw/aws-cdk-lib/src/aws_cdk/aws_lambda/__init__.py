@@ -25887,8 +25887,8 @@ class ProvisionedPollerConfig:
     ) -> None:
         '''(Amazon MSK and self-managed Apache Kafka only) The provisioned mode configuration for the event source.
 
-        :param maximum_pollers: The maximum number of pollers that can be provisioned. Default: - 200
-        :param minimum_pollers: The minimum number of pollers that should be provisioned. Default: - 1
+        :param maximum_pollers: The maximum number of pollers that can be provisioned. Valid Range: - For Amazon SQS: Minimum value of 2. Maximum value of 2000. Default: 200. - For Amazon MSK, self-managed Apache Kafka, and Amazon MQ: Minimum value of 1. Maximum value of 2000. Default: 200. Default: 200
+        :param minimum_pollers: The minimum number of pollers that should be provisioned. Valid Range: - For Amazon SQS: Minimum value of 2. Maximum value of 200. Default: 2. - For Amazon MSK, self-managed Apache Kafka, and Amazon MQ: Minimum value of 1. Maximum value of 200. Default: 1. Default: - 2 for SQS, 1 for MSK/Kafka/MQ
         :param poller_group_name: An optional identifier that groups multiple ESMs to share EPU capacity and reduce costs. ESMs with the same PollerGroupName share compute resources. Default: - not set, dedicated compute resource per event source.
 
         :exampleMetadata: fixture=_generated
@@ -25922,7 +25922,12 @@ class ProvisionedPollerConfig:
     def maximum_pollers(self) -> typing.Optional[jsii.Number]:
         '''The maximum number of pollers that can be provisioned.
 
-        :default: - 200
+        Valid Range:
+
+        - For Amazon SQS: Minimum value of 2. Maximum value of 2000. Default: 200.
+        - For Amazon MSK, self-managed Apache Kafka, and Amazon MQ: Minimum value of 1. Maximum value of 2000. Default: 200.
+
+        :default: 200
         '''
         result = self._values.get("maximum_pollers")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -25931,7 +25936,12 @@ class ProvisionedPollerConfig:
     def minimum_pollers(self) -> typing.Optional[jsii.Number]:
         '''The minimum number of pollers that should be provisioned.
 
-        :default: - 1
+        Valid Range:
+
+        - For Amazon SQS: Minimum value of 2. Maximum value of 200. Default: 2.
+        - For Amazon MSK, self-managed Apache Kafka, and Amazon MQ: Minimum value of 1. Maximum value of 200. Default: 1.
+
+        :default: - 2 for SQS, 1 for MSK/Kafka/MQ
         '''
         result = self._values.get("minimum_pollers")
         return typing.cast(typing.Optional[jsii.Number], result)

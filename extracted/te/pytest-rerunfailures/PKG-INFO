@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-rerunfailures
-Version: 16.1
+Version: 16.2
 Summary: pytest plugin to re-run tests to eliminate flaky failures
 Author-email: Leah Klearman <lklrmn@gmail.com>
 License: MPL-2.0
@@ -27,7 +27,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: packaging>=17.1
-Requires-Dist: pytest!=8.2.2,>=7.4
+Requires-Dist: pytest!=8.2.2,>=8.1
 Dynamic: license-file
 
 .. contents::
@@ -63,7 +63,7 @@ Requirements
 You will need the following prerequisites in order to use pytest-rerunfailures:
 
 - Python 3.10+ or PyPy3
-- pytest 8.0 or newer
+- pytest 8.1 or newer
 
 This plugin can recover from a hard crash with the following optional
 prerequisites:
@@ -207,6 +207,14 @@ Or a list of strings:
    def test_example():
        raise AssertionError()
 
+Exception classes are also accepted and match any subclass:
+
+.. code-block:: python
+
+   @pytest.mark.flaky(only_rerun=[AssertionError, ValueError])
+   def test_example():
+       raise AssertionError()
+
 
 You can use ``@pytest.mark.flaky(condition)`` similarly as ``@pytest.mark.skipif(condition)``, see `pytest-mark-skipif <https://docs.pytest.org/en/6.2.x/reference.html#pytest-mark-skipif>`_
 
@@ -315,6 +323,36 @@ Development
 
 Changelog
 =========
+
+16.2 (2026-05-13)
+-----------------
+
+Breaking changes
+++++++++++++++++
+
+- Drop support for pytest 8.0. Minimum pytest version is now 8.1.
+
+Features
+++++++++
+
+- Add support for pytest 9.0.
+
+Bug fixes
++++++++++
+
+- Fix missing teardown for session and module scoped fixtures when fixture teardown fails.
+  Fixes `#314 <https://github.com/pytest-dev/pytest-rerunfailures/issues/314>`_.
+
+- Clear fixture finalizers when removing cached results from failed fixtures
+  to fix compatibility with pytest >= 9, which asserts that ``_finalizers`` is
+  empty before executing a fixture.
+  Fixes `#323 <https://github.com/pytest-dev/pytest-rerunfailures/issues/323>`_.
+
+- Accept exception classes (not only regex strings) in the ``only_rerun`` and
+  ``rerun_except`` marker keyword arguments instead of crashing with an
+  internal error.
+  Fixes `#275 <https://github.com/pytest-dev/pytest-rerunfailures/issues/275>`_.
+
 
 16.1 (2025-10-10)
 -----------------

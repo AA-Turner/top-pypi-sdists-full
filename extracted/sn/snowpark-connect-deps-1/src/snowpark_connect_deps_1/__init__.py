@@ -6,7 +6,7 @@ This package contains Apache Spark 3.5.6 framework JARs.
 from pathlib import Path
 from typing import List
 
-__version__ = "3.56.2"
+__version__ = "3.56.5"
 
 
 def get_jars_dir() -> Path:

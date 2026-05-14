@@ -32,7 +32,7 @@ class PointEmitter(ParticleEmitter):
         active: bool = False,
     ):
         # Initialisation de l'émetteur
-        super().__init__(position, particle=particle, max_particles=max_particles, rate=rate)
+        super().__init__(position, particle=particle, max_particles=max_particles, rate=rate, active=active)
 
     # ======================================== INTERNALS ========================================
     def _emit(self, count: int) -> tuple[np.ndarray, np.ndarray]:

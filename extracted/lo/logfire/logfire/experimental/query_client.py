@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import platform
 from datetime import datetime
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar
 
 from typing_extensions import Self
 
+from logfire import VERSION
 from logfire._internal.config import get_base_url_from_token
 
 try:
@@ -15,7 +17,7 @@ except ImportError as e:  # pragma: no cover
     raise ImportError('httpx is required to use the Logfire query clients') from e
 
 if TYPE_CHECKING:
-    from pyarrow import Table  # pyright: ignore[reportUnknownVariableType]
+    from pyarrow import Table
 
 DEFAULT_TIMEOUT = Timeout(30.0)  # queries might typically be slower than the 5s default from AsyncClient
 
@@ -85,6 +87,7 @@ T = TypeVar('T', bound=BaseClient)
 
 
 _ACCEPT = Literal['application/json', 'application/vnd.apache.arrow.stream', 'text/csv']
+_USER_AGENT = f'logfire-sdk-python/{VERSION} (Python {platform.python_version()}, os {platform.platform()}, arch {platform.machine()})'
 
 
 class _BaseLogfireQueryClient(Generic[T]):
@@ -94,6 +97,7 @@ class _BaseLogfireQueryClient(Generic[T]):
         self.timeout = timeout
         headers = client_kwargs.pop('headers', {})
         headers['authorization'] = read_token
+        headers.setdefault('user-agent', _USER_AGENT)
         self.client: T = client(timeout=timeout, base_url=base_url, headers=headers, **client_kwargs)
 
     def _build_query_params(
@@ -222,8 +226,8 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             max_timestamp=max_timestamp,
             limit=limit,
         )
-        with pyarrow.ipc.open_stream(response.content) as reader:  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-            arrow_table: Table = reader.read_all()  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        with pyarrow.ipc.open_stream(response.content) as reader:
+            arrow_table: Table = reader.read_all()
         return arrow_table  # pyright: ignore[reportUnknownVariableType]
 
     def query_csv(
@@ -361,8 +365,8 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             max_timestamp=max_timestamp,
             limit=limit,
         )
-        with pyarrow.ipc.open_stream(response.content) as reader:  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-            arrow_table: Table = reader.read_all()  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        with pyarrow.ipc.open_stream(response.content) as reader:
+            arrow_table: Table = reader.read_all()
         return arrow_table  # pyright: ignore[reportUnknownVariableType]
 
     async def query_csv(

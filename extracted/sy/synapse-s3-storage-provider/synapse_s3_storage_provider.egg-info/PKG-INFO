@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: synapse-s3-storage-provider
-Version: 1.6.0
+Version: 1.6.1
 Summary: A storage provider which can fetch and store media in Amazon S3.
 Home-page: https://github.com/matrix-org/synapse-s3-storage-provider
 Author: matrix.org team and contributors
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: Apache Software License
+Requires-Python: >=3.10, <4
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: boto3<2.0,>=1.36.0
@@ -22,6 +23,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license-file
 Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
 
 Synapse S3 Storage Provider
@@ -130,5 +132,12 @@ Packaging and release
 For maintainers:
 
 1. Update the `__version__` in setup.py. Commit. Push.
-2. Create a release on GitHub for this version.
-3. When published, a [GitHub action workflow](https://github.com/matrix-org/synapse-s3-storage-provider/actions/workflows/release.yml) will build the package and upload to [PyPI](https://pypi.org/project/synapse-s3-storage-provider/).
+1. Create a signed tag and push that:
+
+    ```
+    git tag -s vX.Y.Z
+    git push origin vX.Y.Z
+    ```
+
+1. [Create a release on GitHub](https://github.com/matrix-org/synapse-s3-storage-provider/releases/new) for this version.
+1. When published, a [GitHub action workflow](https://github.com/matrix-org/synapse-s3-storage-provider/actions/workflows/release.yml) will build the package and upload to [PyPI](https://pypi.org/project/synapse-s3-storage-provider/).

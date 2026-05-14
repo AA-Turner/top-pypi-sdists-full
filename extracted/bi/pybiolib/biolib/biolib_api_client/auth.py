@@ -1,6 +1,6 @@
 from biolib import api
 from biolib.biolib_api_client.api_client import UserTokens
-from biolib.typing_utils import TypedDict, Literal
+from biolib.typing_utils import Literal, TypedDict
 
 
 class AuthChallengeCreate(TypedDict):
@@ -16,7 +16,6 @@ class AuthChallengeStatus(_AuthChallengeStatus, total=False):
 
 
 class BiolibAuthChallengeApi:
-
     @staticmethod
     def create_auth_challenge() -> AuthChallengeCreate:
         response = api.client.post(path='/user/auth_challenges/')

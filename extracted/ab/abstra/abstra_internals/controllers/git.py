@@ -140,6 +140,14 @@ class GitController:
             )
 
     def get_status(self) -> Dict[str, Any]:
+        """
+        Get the git status of the project, including current branch, last commit,
+        whether the working tree has uncommitted changes, and a list of changed files.
+
+        Returns:
+            dict: ``{ available, branch, last_commit, has_changes, changed_files, ... }``.
+            ``available`` is ``False`` when the project is not a git repository.
+        """
         self._ensure_authentication()
 
         status = self.git_repository.get_repository_status()
@@ -243,6 +251,20 @@ class GitController:
     def commit_changes(
         self, message: str, author: Optional[str] = None
     ) -> Dict[str, Any]:
+        """
+        Stage and commit ALL current working-tree changes with the given message.
+
+        Use this when the user asks to checkpoint progress or before deploying.
+        Does NOT push. Fails if the project contains files larger than 5MB
+        (returns ``errorType: "large_files"``).
+
+        Args:
+            message (str): Commit message. Required and non-empty.
+            author (Optional[str]): Override the commit author (``Name <email>`` format).
+
+        Returns:
+            dict: ``{ success: bool, message: str, errorType?: str, largeFiles?: list }``.
+        """
         commit_message = message.strip()
         if not commit_message:
             return {"success": False, "message": "Commit message cannot be empty"}
@@ -296,6 +318,17 @@ class GitController:
     def get_commit_history(
         self, limit: int = 10, offset: int = 0, branch: Optional[str] = None
     ) -> Dict[str, Any]:
+        """
+        List recent commits on the current (or named) branch.
+
+        Args:
+            limit (int): Maximum number of commits to return.
+            offset (int): Skip the most recent ``offset`` commits.
+            branch (Optional[str]): Branch to read history from. Omit for current.
+
+        Returns:
+            dict: ``{ commits: [{ hash, message, author, date }], hasMore: bool }``.
+        """
         commits = self.git_repository.get_commit_history(
             limit=limit, offset=offset, branch=branch
         )

@@ -1581,6 +1581,7 @@ class DuckDBGenerator(generator.Generator):
             f"CAST(STRFTIME({self.sql(e, 'this')}, {self.dialect.DATEINT_FORMAT}) AS INT)"
         ),
         exp.Decode: lambda self, e: encode_decode_sql(self, e, "DECODE", replace=False),
+        exp.HexDecodeString: lambda self, e: self.sql(exp.Decode(this=exp.Unhex(this=e.this))),
         exp.DiToDate: lambda self, e: (
             f"CAST(STRPTIME(CAST({self.sql(e, 'this')} AS TEXT), {self.dialect.DATEINT_FORMAT}) AS DATE)"
         ),
@@ -1727,7 +1728,7 @@ class DuckDBGenerator(generator.Generator):
         exp.DType.BPCHAR: "TEXT",
         exp.DType.CHAR: "TEXT",
         exp.DType.DATETIME: "TIMESTAMP",
-        exp.DType.DECFLOAT: "DECIMAL(38, 5)",
+        exp.DType.DECFLOAT: "DECIMAL",
         exp.DType.FLOAT: "REAL",
         exp.DType.JSONB: "JSON",
         exp.DType.NCHAR: "TEXT",
@@ -1741,7 +1742,13 @@ class DuckDBGenerator(generator.Generator):
         exp.DType.TIMESTAMP_S: "TIMESTAMP_S",
         exp.DType.TIMESTAMP_MS: "TIMESTAMP_MS",
         exp.DType.TIMESTAMP_NS: "TIMESTAMP_NS",
-        exp.DType.BIGDECIMAL: "DECIMAL(38, 5)",
+        exp.DType.BIGDECIMAL: "DECIMAL",
+    }
+
+    TYPE_PARAM_SETTINGS = {
+        **generator.Generator.TYPE_PARAM_SETTINGS,
+        exp.DType.BIGDECIMAL: ((38, 5), (38, 38)),
+        exp.DType.DECFLOAT: ((38, 5), (38, 38)),
     }
 
     # https://github.com/duckdb/duckdb/blob/ff7f24fd8e3128d94371827523dae85ebaf58713/third_party/libpg_query/grammar/keywords/reserved_keywords.list#L1-L77
@@ -3607,15 +3614,13 @@ class DuckDBGenerator(generator.Generator):
 
         return self.sql(result)
 
-    def hexencode_sql(self, expression: exp.HexEncode) -> str:
-        arg = expression.this
+    def hex_sql(self, expression: exp.Hex) -> str:
         case = expression.args.get("case")
-        hex_expr = exp.Hex(this=arg)
 
         if not case:
-            return self.sql(hex_expr)
+            return self.func("HEX", expression.this)
 
-        # Emit runtime CASE WHEN to handle NULL propagation and case=0 (lowercase) vs case=1 (uppercase)
+        hex_expr = exp.Hex(this=expression.this)
         return self.sql(
             exp.case()
             .when(case.is_(exp.null()), exp.null())

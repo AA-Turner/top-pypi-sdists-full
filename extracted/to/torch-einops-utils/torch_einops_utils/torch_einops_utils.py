@@ -61,10 +61,13 @@ def masked_mean(
     t,
     mask = None,
     dim = None,
-    eps = 1e-5
+    eps = 1e-5,
+    keepdim = False
 ):
+    dim_kwargs = dict(dim = dim, keepdim = keepdim)
+
     if not exists(mask):
-        return t.mean(dim = dim) if exists(dim) else t.mean()
+        return t.mean(**dim_kwargs) if exists(dim) else t.mean()
 
     if mask.ndim < t.ndim:
         mask = pad_right_ndim(mask, t.ndim - mask.ndim)
@@ -74,8 +77,8 @@ def masked_mean(
     if not exists(dim):
         return t[mask].mean() if mask.any() else t[mask].sum()
 
-    num = (t * mask).sum(dim = dim)
-    den = mask.sum(dim = dim)
+    num = (t * mask).sum(**dim_kwargs)
+    den = mask.sum(**dim_kwargs)
 
     return num / den.clamp(min = eps)
 

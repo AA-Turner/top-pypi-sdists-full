@@ -61,31 +61,49 @@ class StatementExecutor:
         }
 
         # Prepare execute_statement parameters
-        execute_params = {
-            "Database": self.connection_params.database_name,
-            "Sql": sql,
-        }
+        execute_params = {"Sql": sql}
 
-        # Add cluster identifier or workgroup name
-        if self.connection_params.cluster_identifier:
-            execute_params["ClusterIdentifier"] = self.connection_params.cluster_identifier
-        elif self.connection_params.workgroup_name:
-            execute_params["WorkgroupName"] = self.connection_params.workgroup_name
-        else:
-            raise ProgrammingError("Either cluster_identifier or workgroup_name must be specified")
-
-        # Add database user if provided and not using secret ARN
-        if self.connection_params.db_user is not None and not self.connection_params.secret_arn:
-            execute_params["DbUser"] = self.connection_params.db_user
-
-        # Add secret ARN if provided
-        if self.connection_params.secret_arn:
-            execute_params["SecretArn"] = self.connection_params.secret_arn
+        # Invalidate session if it's been idle too long
+        self.connection._invalidate_session_if_expired()
 
         # Add transaction ID if in transaction mode
         transaction_id = self.connection.get_transaction_id()
         if transaction_id:
             execute_params["TransactionId"] = transaction_id
+
+        # Only ONE of: ClusterIdentifier, WorkgroupName, SessionId, Database
+        reuse_session = (
+            self.connection._persist_session and self.connection._session_id and not transaction_id
+        )
+
+        if reuse_session:
+            # Reuse existing session
+            execute_params["SessionId"] = self.connection._session_id
+            execute_params["SessionKeepAliveSeconds"] = self.connection._session_keep_alive_seconds
+        else:
+            # Add cluster/workgroup and database
+            if self.connection_params.cluster_identifier:
+                execute_params["ClusterIdentifier"] = self.connection_params.cluster_identifier
+            elif self.connection_params.workgroup_name:
+                execute_params["WorkgroupName"] = self.connection_params.workgroup_name
+            else:
+                raise ProgrammingError(
+                    "Either cluster_identifier or workgroup_name must be specified"
+                )
+
+            execute_params["Database"] = self.connection_params.database_name
+
+            # Add auth params
+            if self.connection_params.db_user and not self.connection_params.secret_arn:
+                execute_params["DbUser"] = self.connection_params.db_user
+            if self.connection_params.secret_arn:
+                execute_params["SecretArn"] = self.connection_params.secret_arn
+
+            # Add session keep-alive for first query if enabled
+            if self.connection._persist_session and not transaction_id:
+                execute_params["SessionKeepAliveSeconds"] = (
+                    self.connection._session_keep_alive_seconds
+                )
 
         # Add parameters if provided
         if parameters:
@@ -114,13 +132,25 @@ class StatementExecutor:
             statement_id = response["Id"]
             execution_context["statement_id"] = statement_id
 
+            # Capture session ID from response if session persistency is enabled
+            if self.connection._persist_session and not transaction_id and "SessionId" in response:
+                self.connection._session_id = response["SessionId"]
+
         except Exception as e:
+            if reuse_session:
+                self.connection._session_id = None
             # Map boto3 exceptions with execution context
             mapped_exception = map_boto3_exception(e, execution_context)
             raise mapped_exception
 
         # Poll for completion
-        return self._poll_statement_completion(statement_id, timeout_seconds, execution_context)
+        result = self._poll_statement_completion(statement_id, timeout_seconds, execution_context)
+
+        # Update last query time after query completes (not during transactions)
+        if self.connection._persist_session and not transaction_id:
+            self.connection._update_last_query_time()
+
+        return result
 
     def _format_parameters(self, parameters: Union[List, Dict]) -> List[Dict[str, str]]:
         """

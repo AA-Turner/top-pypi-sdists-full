@@ -7,8 +7,10 @@ from abstra_internals.interface.sdk.connectors import (
     get_gsheets_credentials,
     run_connection_action,
 )
+from abstra_internals.repositories.connectors import AccessTokenDTO
 
 __all__ = [
+    "AccessTokenDTO",
     "get_access_token",
     "get_gsheets_credentials",
     "get_gdrive_credentials",

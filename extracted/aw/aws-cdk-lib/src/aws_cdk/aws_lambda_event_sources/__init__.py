@@ -53,6 +53,7 @@ behavior:
 * **batchSize**: Determines how many records are buffered before invoking your lambda function.
 * **maxBatchingWindow**: The maximum amount of time to gather records before invoking the lambda. This increases the likelihood of a full batch at the cost of delayed processing.
 * **maxConcurrency**: The maximum concurrency setting limits the number of concurrent instances of the function that an Amazon SQS event source can invoke.
+* **provisionedPollerConfig**: Controls the number of pollers that can be provisioned to read from the queue. Valid ranges: `minimumPollers` 2–200 (default: 2), `maximumPollers` 2–2000 (default: 200).
 * **enabled**: If the SQS event source mapping should be enabled. The default is true.
 
 ```python
@@ -294,6 +295,7 @@ You can write Lambda functions to process data either from [Amazon MSK](https://
 * **reportBatchItemFailures**: Allow functions to return partially successful responses for a batch of records. Available in provisioned mode only.
 * **retryAttempts**: The maximum number of times a record should be retried in the event of failure. Available in provisioned mode only.
 * **maxRecordAge**: The maximum age of a record that will be sent to the function for processing. Records that exceed the max age will be treated as failures. Available in provisioned mode only.
+* **provisionedPollerConfig**: Controls the number of pollers that can be provisioned to read from the event source. Valid ranges: `minimumPollers` 1–200 (default: 1), `maximumPollers` 1–2000 (default: 200).
 
 The following code sets up Amazon MSK as an event source for a lambda function. Credentials will need to be configured to access the
 MSK cluster, as described in [Username/Password authentication](https://docs.aws.amazon.com/msk/latest/developerguide/msk-password.html).
@@ -1011,8 +1013,6 @@ class BaseStreamEventSourceProps:
                 provisioned_poller_config=lambda_event_sources.ProvisionedPollerConfig(
                     maximum_pollers=123,
                     minimum_pollers=123,
-            
-                    # the properties below are optional
                     poller_group_name="pollerGroupName"
                 )
             )
@@ -1095,6 +1095,8 @@ class BaseStreamEventSourceProps:
         that can be provisioned to process events from the source.
 
         :default: - no provisioned pollers
+
+        :see: https://docs.aws.amazon.com/lambda/latest/dg/kafka-scaling-modes.html
         '''
         result = self._values.get("provisioned_poller_config")
         return typing.cast(typing.Optional["ProvisionedPollerConfig"], result)
@@ -1767,8 +1769,6 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
                 provisioned_poller_config=lambda_event_sources.ProvisionedPollerConfig(
                     maximum_pollers=123,
                     minimum_pollers=123,
-            
-                    # the properties below are optional
                     poller_group_name="pollerGroupName"
                 ),
                 report_batch_item_failures=False,
@@ -1899,6 +1899,8 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
         that can be provisioned to process events from the source.
 
         :default: - no provisioned pollers
+
+        :see: https://docs.aws.amazon.com/lambda/latest/dg/kafka-scaling-modes.html
         '''
         result = self._values.get("provisioned_poller_config")
         return typing.cast(typing.Optional["ProvisionedPollerConfig"], result)
@@ -2288,6 +2290,8 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
         that can be provisioned to process events from the source.
 
         :default: - no provisioned pollers
+
+        :see: https://docs.aws.amazon.com/lambda/latest/dg/kafka-scaling-modes.html
         '''
         result = self._values.get("provisioned_poller_config")
         return typing.cast(typing.Optional["ProvisionedPollerConfig"], result)
@@ -2471,14 +2475,14 @@ class ProvisionedPollerConfig:
     def __init__(
         self,
         *,
-        maximum_pollers: jsii.Number,
-        minimum_pollers: jsii.Number,
+        maximum_pollers: typing.Optional[jsii.Number] = None,
+        minimum_pollers: typing.Optional[jsii.Number] = None,
         poller_group_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(Amazon MSK and self-managed Apache Kafka only) The provisioned mode configuration for the event source.
 
-        :param maximum_pollers: The maximum number of pollers that can be provisioned. Default: 200
-        :param minimum_pollers: The minimum number of pollers that should be provisioned. Default: 1
+        :param maximum_pollers: The maximum number of pollers that can be provisioned. Valid Range: Minimum value of 1. Maximum value of 2000. Default: 200
+        :param minimum_pollers: The minimum number of pollers that should be provisioned. Valid Range: Minimum value of 1. Maximum value of 200. Default: 1
         :param poller_group_name: An optional identifier that groups multiple ESMs to share EPU capacity and reduce costs. ESMs with the same PollerGroupName share compute resources. Default: - not set, dedicated compute resource per event source.
 
         :exampleMetadata: infused
@@ -2515,32 +2519,35 @@ class ProvisionedPollerConfig:
             check_type(argname="argument maximum_pollers", value=maximum_pollers, expected_type=type_hints["maximum_pollers"])
             check_type(argname="argument minimum_pollers", value=minimum_pollers, expected_type=type_hints["minimum_pollers"])
             check_type(argname="argument poller_group_name", value=poller_group_name, expected_type=type_hints["poller_group_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "maximum_pollers": maximum_pollers,
-            "minimum_pollers": minimum_pollers,
-        }
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if maximum_pollers is not None:
+            self._values["maximum_pollers"] = maximum_pollers
+        if minimum_pollers is not None:
+            self._values["minimum_pollers"] = minimum_pollers
         if poller_group_name is not None:
             self._values["poller_group_name"] = poller_group_name
 
     @builtins.property
-    def maximum_pollers(self) -> jsii.Number:
+    def maximum_pollers(self) -> typing.Optional[jsii.Number]:
         '''The maximum number of pollers that can be provisioned.
+
+        Valid Range: Minimum value of 1. Maximum value of 2000.
 
         :default: 200
         '''
         result = self._values.get("maximum_pollers")
-        assert result is not None, "Required property 'maximum_pollers' is missing"
-        return typing.cast(jsii.Number, result)
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def minimum_pollers(self) -> jsii.Number:
+    def minimum_pollers(self) -> typing.Optional[jsii.Number]:
         '''The minimum number of pollers that should be provisioned.
+
+        Valid Range: Minimum value of 1. Maximum value of 200.
 
         :default: 1
         '''
         result = self._values.get("minimum_pollers")
-        assert result is not None, "Required property 'minimum_pollers' is missing"
-        return typing.cast(jsii.Number, result)
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def poller_group_name(self) -> typing.Optional[builtins.str]:
@@ -3072,6 +3079,8 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
         that can be provisioned to process events from the source.
 
         :default: - no provisioned pollers
+
+        :see: https://docs.aws.amazon.com/lambda/latest/dg/kafka-scaling-modes.html
         '''
         result = self._values.get("provisioned_poller_config")
         return typing.cast(typing.Optional["ProvisionedPollerConfig"], result)
@@ -3592,6 +3601,7 @@ class SqsEventSource(
         max_batching_window: typing.Optional["_Duration_4839e8c3"] = None,
         max_concurrency: typing.Optional[jsii.Number] = None,
         metrics_config: typing.Optional[typing.Union["_MetricsConfig_48ab59c4", typing.Dict[builtins.str, typing.Any]]] = None,
+        provisioned_poller_config: typing.Optional[typing.Union["_ProvisionedPollerConfig_1025e063", typing.Dict[builtins.str, typing.Any]]] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -3603,6 +3613,7 @@ class SqsEventSource(
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Valid Range: Minimum value of 0 minutes. Maximum value of 5 minutes. Default: - no batching window. The lambda function will be invoked immediately with the records that are available.
         :param max_concurrency: The maximum concurrency setting limits the number of concurrent instances of the function that an Amazon SQS event source can invoke. Default: - No specific limit.
         :param metrics_config: Configuration for enhanced monitoring metrics collection When specified, enables collection of additional metrics for the stream event source. Default: - Enhanced monitoring is disabled
+        :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the queue. Default: - no provisioned pollers
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
         '''
         if __debug__:
@@ -3616,6 +3627,7 @@ class SqsEventSource(
             max_batching_window=max_batching_window,
             max_concurrency=max_concurrency,
             metrics_config=metrics_config,
+            provisioned_poller_config=provisioned_poller_config,
             report_batch_item_failures=report_batch_item_failures,
         )
 
@@ -3661,6 +3673,7 @@ class SqsEventSource(
         "max_batching_window": "maxBatchingWindow",
         "max_concurrency": "maxConcurrency",
         "metrics_config": "metricsConfig",
+        "provisioned_poller_config": "provisionedPollerConfig",
         "report_batch_item_failures": "reportBatchItemFailures",
     },
 )
@@ -3675,6 +3688,7 @@ class SqsEventSourceProps:
         max_batching_window: typing.Optional["_Duration_4839e8c3"] = None,
         max_concurrency: typing.Optional[jsii.Number] = None,
         metrics_config: typing.Optional[typing.Union["_MetricsConfig_48ab59c4", typing.Dict[builtins.str, typing.Any]]] = None,
+        provisioned_poller_config: typing.Optional[typing.Union["_ProvisionedPollerConfig_1025e063", typing.Dict[builtins.str, typing.Any]]] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -3685,6 +3699,7 @@ class SqsEventSourceProps:
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Valid Range: Minimum value of 0 minutes. Maximum value of 5 minutes. Default: - no batching window. The lambda function will be invoked immediately with the records that are available.
         :param max_concurrency: The maximum concurrency setting limits the number of concurrent instances of the function that an Amazon SQS event source can invoke. Default: - No specific limit.
         :param metrics_config: Configuration for enhanced monitoring metrics collection When specified, enables collection of additional metrics for the stream event source. Default: - Enhanced monitoring is disabled
+        :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the queue. Default: - no provisioned pollers
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
 
         :exampleMetadata: infused
@@ -3707,6 +3722,8 @@ class SqsEventSourceProps:
         '''
         if isinstance(metrics_config, dict):
             metrics_config = _MetricsConfig_48ab59c4(**metrics_config)
+        if isinstance(provisioned_poller_config, dict):
+            provisioned_poller_config = _ProvisionedPollerConfig_1025e063(**provisioned_poller_config)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__15f8ac7c8dd3ede272e50988fdcd091f07e9c5d7ef95ab596dc66b4c940652b4)
             check_type(argname="argument batch_size", value=batch_size, expected_type=type_hints["batch_size"])
@@ -3716,6 +3733,7 @@ class SqsEventSourceProps:
             check_type(argname="argument max_batching_window", value=max_batching_window, expected_type=type_hints["max_batching_window"])
             check_type(argname="argument max_concurrency", value=max_concurrency, expected_type=type_hints["max_concurrency"])
             check_type(argname="argument metrics_config", value=metrics_config, expected_type=type_hints["metrics_config"])
+            check_type(argname="argument provisioned_poller_config", value=provisioned_poller_config, expected_type=type_hints["provisioned_poller_config"])
             check_type(argname="argument report_batch_item_failures", value=report_batch_item_failures, expected_type=type_hints["report_batch_item_failures"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if batch_size is not None:
@@ -3732,6 +3750,8 @@ class SqsEventSourceProps:
             self._values["max_concurrency"] = max_concurrency
         if metrics_config is not None:
             self._values["metrics_config"] = metrics_config
+        if provisioned_poller_config is not None:
+            self._values["provisioned_poller_config"] = provisioned_poller_config
         if report_batch_item_failures is not None:
             self._values["report_batch_item_failures"] = report_batch_item_failures
 
@@ -3815,6 +3835,22 @@ class SqsEventSourceProps:
         '''
         result = self._values.get("metrics_config")
         return typing.cast(typing.Optional["_MetricsConfig_48ab59c4"], result)
+
+    @builtins.property
+    def provisioned_poller_config(
+        self,
+    ) -> typing.Optional["_ProvisionedPollerConfig_1025e063"]:
+        '''Configuration for provisioned pollers that read from the event source.
+
+        When specified, allows control over the minimum and maximum number of pollers
+        that can be provisioned to process events from the queue.
+
+        :default: - no provisioned pollers
+
+        :see: https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html
+        '''
+        result = self._values.get("provisioned_poller_config")
+        return typing.cast(typing.Optional["_ProvisionedPollerConfig_1025e063"], result)
 
     @builtins.property
     def report_batch_item_failures(self) -> typing.Optional[builtins.bool]:
@@ -4115,8 +4151,6 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
                 provisioned_poller_config=lambda_event_sources.ProvisionedPollerConfig(
                     maximum_pollers=123,
                     minimum_pollers=123,
-            
-                    # the properties below are optional
                     poller_group_name="pollerGroupName"
                 ),
                 report_batch_item_failures=False,
@@ -4234,6 +4268,8 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
         that can be provisioned to process events from the source.
 
         :default: - no provisioned pollers
+
+        :see: https://docs.aws.amazon.com/lambda/latest/dg/kafka-scaling-modes.html
         '''
         result = self._values.get("provisioned_poller_config")
         return typing.cast(typing.Optional["ProvisionedPollerConfig"], result)
@@ -4673,6 +4709,8 @@ class DynamoEventSourceProps(StreamEventSourceProps):
         that can be provisioned to process events from the source.
 
         :default: - no provisioned pollers
+
+        :see: https://docs.aws.amazon.com/lambda/latest/dg/kafka-scaling-modes.html
         '''
         result = self._values.get("provisioned_poller_config")
         return typing.cast(typing.Optional["ProvisionedPollerConfig"], result)
@@ -5231,6 +5269,8 @@ class KinesisEventSourceProps(StreamEventSourceProps):
         that can be provisioned to process events from the source.
 
         :default: - no provisioned pollers
+
+        :see: https://docs.aws.amazon.com/lambda/latest/dg/kafka-scaling-modes.html
         '''
         result = self._values.get("provisioned_poller_config")
         return typing.cast(typing.Optional["ProvisionedPollerConfig"], result)
@@ -5795,8 +5835,8 @@ def _typecheckingstub__e930f585c1bae37174885c54f0f224909bfb0a75d9f1b652bbcf33461
 
 def _typecheckingstub__52613c26f6551f26dae012e5cb997a9c6c981e7e4a8c59f252b025ef2acd28a7(
     *,
-    maximum_pollers: jsii.Number,
-    minimum_pollers: jsii.Number,
+    maximum_pollers: typing.Optional[jsii.Number] = None,
+    minimum_pollers: typing.Optional[jsii.Number] = None,
     poller_group_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -5945,6 +5985,7 @@ def _typecheckingstub__bf54c2a4adfa05b385a456a89f23dd0699f8e61461cae79f7a40b0a82
     max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
     max_concurrency: typing.Optional[jsii.Number] = None,
     metrics_config: typing.Optional[typing.Union[_MetricsConfig_48ab59c4, typing.Dict[builtins.str, typing.Any]]] = None,
+    provisioned_poller_config: typing.Optional[typing.Union[_ProvisionedPollerConfig_1025e063, typing.Dict[builtins.str, typing.Any]]] = None,
     report_batch_item_failures: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -5965,6 +6006,7 @@ def _typecheckingstub__15f8ac7c8dd3ede272e50988fdcd091f07e9c5d7ef95ab596dc66b4c9
     max_batching_window: typing.Optional[_Duration_4839e8c3] = None,
     max_concurrency: typing.Optional[jsii.Number] = None,
     metrics_config: typing.Optional[typing.Union[_MetricsConfig_48ab59c4, typing.Dict[builtins.str, typing.Any]]] = None,
+    provisioned_poller_config: typing.Optional[typing.Union[_ProvisionedPollerConfig_1025e063, typing.Dict[builtins.str, typing.Any]]] = None,
     report_batch_item_failures: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""

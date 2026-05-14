@@ -15,6 +15,9 @@ Usage::
         ClusterActiveWaiter,
         ClusterNotExistsWaiter,
         ListClustersPaginator,
+        ListStreamsPaginator,
+        StreamActiveWaiter,
+        StreamNotExistsWaiter,
     )
 
     session = Session()
@@ -22,14 +25,22 @@ Usage::
 
     cluster_active_waiter: ClusterActiveWaiter = client.get_waiter("cluster_active")
     cluster_not_exists_waiter: ClusterNotExistsWaiter = client.get_waiter("cluster_not_exists")
+    stream_active_waiter: StreamActiveWaiter = client.get_waiter("stream_active")
+    stream_not_exists_waiter: StreamNotExistsWaiter = client.get_waiter("stream_not_exists")
 
     list_clusters_paginator: ListClustersPaginator = client.get_paginator("list_clusters")
+    list_streams_paginator: ListStreamsPaginator = client.get_paginator("list_streams")
     ```
 """
 
 from .client import AuroraDSQLClient
-from .paginator import ListClustersPaginator
-from .waiter import ClusterActiveWaiter, ClusterNotExistsWaiter
+from .paginator import ListClustersPaginator, ListStreamsPaginator
+from .waiter import (
+    ClusterActiveWaiter,
+    ClusterNotExistsWaiter,
+    StreamActiveWaiter,
+    StreamNotExistsWaiter,
+)
 
 Client = AuroraDSQLClient
 
@@ -39,4 +50,7 @@ __all__ = (
     "ClusterActiveWaiter",
     "ClusterNotExistsWaiter",
     "ListClustersPaginator",
+    "ListStreamsPaginator",
+    "StreamActiveWaiter",
+    "StreamNotExistsWaiter",
 )

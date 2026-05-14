@@ -11,9 +11,8 @@ import threading
 from typing import Callable
 
 from ..clients.capsule import IntegrationCredential, LogRecord
-from ..constants import DEFAULT_TOKEN_TYPE
 from ..home import HomeContext
-from ..integration import IntegrationCredentials, KNOWN_SECRET_INTEGRATIONS, MODE_PIPEDREAM
+from ..integration import IntegrationCredentials, credentials_from_wire
 from ..session import RequestContext, Session
 
 # Query keys reserved by the gateway for routing/identity; strip before
@@ -87,25 +86,12 @@ def _parse_integration_credential(ic: IntegrationCredential) -> IntegrationCrede
     For secret-based integrations the gateway JSON-encodes the field map
     into ``access_token``. We unpack it here so ``cred.fields`` is populated.
     """
-    is_secret = ic.type in KNOWN_SECRET_INTEGRATIONS or ic.token_type in {
-        "fields",
-        MODE_PIPEDREAM,
-    }
-    secret_fields: dict[str, str] = {}
-    if is_secret and ic.access_token:
-        try:
-            parsed = json.loads(ic.access_token)
-            if isinstance(parsed, dict):
-                secret_fields = parsed
-        except (json.JSONDecodeError, TypeError):
-            pass
-
-    return IntegrationCredentials(
-        access_token="" if secret_fields else ic.access_token,
-        token_type=ic.token_type or DEFAULT_TOKEN_TYPE,
+    return credentials_from_wire(
+        integration_type=ic.type,
+        access_token=ic.access_token,
+        token_type=ic.token_type,
         scopes=list(ic.scopes),
         expires_at=ic.expires_at,
-        fields=secret_fields,
     )
 
 

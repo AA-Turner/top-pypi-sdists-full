@@ -66,6 +66,7 @@ dependencies = [
     # HTTP / networking
     "rich>=13.0",
     "click>=8.1.7",
+    "prompt_toolkit>=3.0",
     "aiohttp-swagger3==0.10.0",
     "aiohttp-sse-client==0.2.1",
     "aiohttp-cors>=0.8.1",
@@ -486,6 +487,7 @@ namespaces = true
 
 [tool.setuptools.package-data]
 parrot = ["py.typed", "templates/*.tpl"]
+"parrot.auth" = ["templates/*.html"]
 "parrot.integrations.telegram" = ["static/*.html"]
 "parrot.voice" = ["ui/*.html", "ui/*.js", "ui/*.css"]
 "parrot.outputs.formats.assets" = ["*.js", "*.css"]

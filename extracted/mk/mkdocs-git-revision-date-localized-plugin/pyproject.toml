@@ -125,6 +125,7 @@ dev = [
     "ruff",
     "pre-commit>=4.5.1",
     "ty>=0.0.13",
+    "prek>=0.3.0",
 ]
 
 [tool.ty.environment]

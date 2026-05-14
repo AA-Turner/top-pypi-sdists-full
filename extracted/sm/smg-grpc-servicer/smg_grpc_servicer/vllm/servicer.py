@@ -5,13 +5,17 @@ vLLM gRPC Servicer
 Implements the VllmEngine gRPC service on top of vLLM's EngineClient.
 """
 
+import hashlib
 import itertools
+import json
 import time
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, AsyncIterator
+from pathlib import Path
 
 import grpc
 import torch
 from smg_grpc_proto import vllm_engine_pb2, vllm_engine_pb2_grpc
+from smg_grpc_proto.generated import common_pb2
 from transformers import BatchFeature
 from vllm import PoolingParams, SamplingParams, TokensPrompt
 from vllm.engine.protocol import EngineClient
@@ -27,7 +31,27 @@ from vllm.multimodal.inputs import (
 from vllm.outputs import CompletionOutput, RequestOutput
 from vllm.sampling_params import RequestOutputKind, StructuredOutputsParams
 
+from smg_grpc_servicer.tokenizer_bundle import CHUNK_SIZE, build_tokenizer_zip
+
 logger = init_logger(__name__)
+SAMPLING_DEFAULT_KEYS = (
+    "temperature",
+    "top_p",
+    "top_k",
+    "min_p",
+    "repetition_penalty",
+)
+
+
+def _filtered_sampling_defaults(params: dict | None) -> dict:
+    if not params:
+        return {}
+    return {
+        key: params[key]
+        for key in SAMPLING_DEFAULT_KEYS
+        if key in params and params[key] is not None
+    }
+
 
 # Proto dtype string → torch dtype
 _PROTO_DTYPE_MAP: dict[str, torch.dtype] = {
@@ -49,13 +73,14 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
     """
     gRPC servicer implementing the VllmEngine service.
 
-    Handles 6 RPCs:
+    Handles 7 RPCs:
     - Generate: Streaming text generation
     - Embed: Embeddings
     - HealthCheck: Health probe
     - Abort: Cancel requests out-of-band
     - GetModelInfo: Model metadata
     - GetServerInfo: Server state
+    - GetTokenizer: Stream tokenizer artifacts
     """
 
     def __init__(self, async_llm: EngineClient, start_time: float):
@@ -315,6 +340,10 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
         else:
             eos_token_ids = []
 
+        sampling_defaults = _filtered_sampling_defaults(
+            model_config.get_diff_sampling_param() or {}
+        )
+
         return vllm_engine_pb2.GetModelInfoResponse(
             model_path=model_config.model,
             is_generation=model_config.runner_type == "generate",
@@ -329,6 +358,9 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
             pad_token_id=getattr(hf_config, "pad_token_id", None) or 0,
             bos_token_id=getattr(hf_config, "bos_token_id", None) or 0,
             max_req_input_len=model_config.max_model_len,
+            default_sampling_params_json=(
+                json.dumps(sampling_defaults, separators=(",", ":")) if sampling_defaults else ""
+            ),
         )
 
     async def GetServerInfo(
@@ -357,6 +389,58 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
             kv_connector=kv_connector,
             kv_role=kv_role,
         )
+
+    async def GetTokenizer(
+        self,
+        request: common_pb2.GetTokenizerRequest,
+        context: grpc.aio.ServicerContext,
+    ) -> AsyncIterator[common_pb2.GetTokenizerChunk]:
+        """Stream tokenizer artifacts as a ZIP bundle.
+
+        Resolves the tokenizer directory from model_config, zips all relevant
+        tokenizer files, and streams them as GetTokenizerChunk messages.
+        The final chunk carries the SHA-256 fingerprint of the full archive.
+        """
+        logger.info("Receive GetTokenizer request")
+
+        tokenizer_path = self.engine.model_config.tokenizer
+        if not tokenizer_path:
+            await context.abort(
+                grpc.StatusCode.FAILED_PRECONDITION,
+                "Tokenizer path is not configured on this server.",
+            )
+        # TODO: model_config.tokenizer may be an HF model ID (e.g. "meta-llama/...")
+        # rather than a local path. vLLM does not resolve it on the config object.
+        # For now, GetTokenizer only works when vLLM is started with a local path.
+        tokenizer_dir = Path(tokenizer_path)
+
+        # Build ZIP archive in memory
+        try:
+            zip_buffer = build_tokenizer_zip(tokenizer_dir)
+        except Exception as e:
+            logger.exception("Failed to build tokenizer ZIP")
+            await context.abort(grpc.StatusCode.INTERNAL, str(e))
+
+        zip_data = zip_buffer.getbuffer()
+        sha256 = hashlib.sha256(zip_data).hexdigest()
+
+        logger.info(
+            "Streaming tokenizer bundle: %d bytes, sha256=%s",
+            len(zip_data),
+            sha256,
+        )
+
+        # Stream chunks; SHA-256 only on the final chunk
+        offset = 0
+        total = len(zip_data)
+        while offset < total:
+            end = min(offset + CHUNK_SIZE, total)
+            is_last = end == total
+            yield common_pb2.GetTokenizerChunk(
+                data=bytes(zip_data[offset:end]),
+                sha256=sha256 if is_last else "",
+            )
+            offset = end
 
     # ========== Helper methods ==========
 

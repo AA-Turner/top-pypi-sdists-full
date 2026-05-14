@@ -1,4 +1,8 @@
-"""Integration with the `lmstudio` library."""
+"""Integration with the `lmstudio` library.
+
+Local runtime calls intentionally bypass
+outlines.exceptions.normalize_provider_errors().
+"""
 
 from functools import singledispatchmethod
 from typing import (

@@ -4,6 +4,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import (
+    Any,
     Dict,
     List,
     Optional,
@@ -111,14 +112,17 @@ class AgentService:
         """
 
         dry_run = kwargs.get("dry_run", False)
-        agent_request = {
+        # Pycarlo inlines None values as the literal `null` in the GraphQL
+        # document, which is a syntax error — only include keys with a value.
+        agent_request: Dict[str, Any] = {
             "agent_type": agent_type,
-            "endpoint": endpoint,
             "storage_type": storage,
             "platform": platform,
             "auth_type": auth_type,
             "dry_run": dry_run,
         }
+        if endpoint:
+            agent_request["endpoint"] = endpoint
 
         if kwargs.get("dc_id"):
             agent_request["data_collector_id"] = kwargs["dc_id"]
@@ -127,19 +131,25 @@ class AgentService:
             agent_request["agent_id"] = kwargs["agent_id"]
 
         aws_region: Optional[str] = None
-        if platform == AWS and agent_type == REMOTE_AGENT:
+        if platform == AWS and agent_type == REMOTE_AGENT and endpoint:
             matches = LAMBDA_ARN_REGEX.match(endpoint)
             if matches:
                 aws_region = matches.group(LAMBDA_ARN_REGEX_GROUP_REGION)
         if auth_type == GCP_JSON_SERVICE_ACCOUNT_KEY:
             agent_request["credentials"] = read_as_json_string(kwargs["key_file"])
         elif auth_type == AWS_ASSUMABLE_ROLE:
-            creds = {"aws_assumable_role": kwargs["assumable_role"]}
-            if kwargs["external_id"]:
-                creds["external_id"] = kwargs["external_id"]
-            if aws_region:
-                creds["aws_region"] = aws_region
-            agent_request["credentials"] = json.dumps(creds)
+            # IAM ExternalId is generated server-side after registration
+            # via generate_agent_aws_external_id — see ensure_aws_external_id
+            # below. The customer pins the returned value in their IAM role
+            # trust policy before enabling the agent
+            # (https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html).
+            # On first registration the customer can omit --assumable-role to
+            # register a stub; the role is supplied on the follow-up call.
+            if kwargs.get("assumable_role"):
+                creds = {"aws_assumable_role": kwargs["assumable_role"]}
+                if aws_region:
+                    creds["aws_region"] = aws_region
+                agent_request["credentials"] = json.dumps(creds)
         elif auth_type == AZURE_STORAGE_ACCOUNT_KEYS:
             creds = {"azure_connection_string": kwargs["connection_string"]}
             agent_request["credentials"] = json.dumps(creds)
@@ -180,7 +190,16 @@ class AgentService:
         self._validate_response(result.validation_result)
 
         if result.agent_id is not None:
-            click.echo(f"Agent successfully registered!\nAgentId: {result.agent_id}")
+            is_first_registration = not kwargs.get("agent_id")
+            # The backend auto-enables on stub completion (YET-1092); surface
+            # that to the customer so they don't think they need to call
+            # `agents enable` themselves.
+            if not is_first_registration and getattr(result, "auto_enabled", False):
+                click.echo(f"Agent updated and enabled!\nAgentId: {result.agent_id}")
+            else:
+                click.echo(f"Agent successfully registered!\nAgentId: {result.agent_id}")
+            if is_first_registration and platform == AWS and auth_type == AWS_ASSUMABLE_ROLE:
+                self._ensure_aws_external_id(agent_id=str(result.agent_id), agent_type=agent_type)
         elif dry_run:
             if result.validation_result.success:
                 click.echo("Dry run completed successfully!")
@@ -188,6 +207,113 @@ class AgentService:
                 complain_and_abort("Dry run failed.")
         else:
             complain_and_abort("Failed to register agent.")
+
+    def _ensure_aws_external_id(self, agent_id: str, agent_type: str) -> None:
+        """
+        Read or mint the IAM ExternalId for a freshly registered AWS agent
+        and print it with next-step instructions. Idempotent: re-running
+        registration with --agent-id keeps an existing ExternalId in place,
+        so a transient mint failure can be recovered by re-registering.
+        """
+        existing = self._get_aws_external_id(agent_id)
+        if existing:
+            external_id = existing
+            note = "Existing ExternalId preserved (no rotation)."
+        else:
+            external_id = self._generate_aws_external_id(agent_id)
+            note = "ExternalId generated."
+        if agent_type == REMOTE_AGENT:
+            register_command = "register-aws-agent"
+            resource_flags = "--assumable-role <ROLE_ARN> --lambda-arn <LAMBDA_ARN>"
+            resources = "IAM role and the agent Lambda function"
+        else:
+            register_command = "register-s3-store"
+            resource_flags = "--assumable-role <ROLE_ARN> --bucket-name <BUCKET_NAME>"
+            resources = "IAM role and S3 bucket"
+        click.echo("")
+        click.echo(note)
+        click.echo(f"AWS ExternalId: {external_id}")
+        click.echo("")
+        click.echo("Next steps:")
+        click.echo(
+            "  1. Configure your IAM role trust policy to require this ExternalId "
+            "(sts:ExternalId condition)."
+        )
+        click.echo(f"  2. Deploy your {resources}.")
+        click.echo(
+            f"  3. Run `montecarlo agents {register_command} --agent-id {agent_id} "
+            f"{resource_flags}` to complete the registration. The agent is "
+            f"enabled automatically once everything is in place."
+        )
+
+    def _get_aws_external_id(self, agent_id: str) -> Optional[str]:
+        query = Query()
+        query.get_agent_aws_external_id(agent_id=agent_id).__fields__()
+        result = self._mc_client(query).get_agent_aws_external_id
+        return result.external_id if result else None  # type: ignore
+
+    def _generate_aws_external_id(self, agent_id: str) -> str:
+        mutation = Mutation()
+        mutation.generate_agent_aws_external_id(agent_id=agent_id).__fields__()
+        result = self._mc_client(mutation).generate_agent_aws_external_id
+        return result.result.external_id  # type: ignore
+
+    @manage_errors
+    def rotate_aws_external_id(self, agent_id: str, no_prompt: bool = False) -> None:
+        """
+        Rotate the IAM ExternalId for an AWS assume-role agent. The agent
+        will fail to assume the customer role until the new value is pinned
+        in the role's trust policy.
+        """
+        if not no_prompt:
+            click.confirm(
+                f"This will rotate the ExternalId for AWS agent {agent_id}. The agent will "
+                "fail to assume the customer role until you update the IAM role trust policy "
+                "with the new value. Continue?",
+                abort=True,
+            )
+        external_id = self._generate_aws_external_id(agent_id)
+        click.echo("")
+        click.echo("ExternalId rotated.")
+        click.echo(f"AWS ExternalId: {external_id}")
+        click.echo("")
+        click.echo("Next steps:")
+        click.echo(
+            "  1. Configure your IAM role trust policy to require this ExternalId "
+            "(sts:ExternalId condition)."
+        )
+        click.echo(
+            f"  2. Once the role is updated, verify reachability: "
+            f"`montecarlo agents enable --agent-id {agent_id} --dry-run`."
+        )
+
+    @manage_errors
+    def set_agent_enabled(self, agent_id: str, enabled: bool, dry_run: bool = False) -> None:
+        """
+        Enable or disable an agent. With dry_run=True the precondition and
+        reachability checks run but the agent's enabled state is not changed.
+        """
+        mutation = Mutation()
+        mutation.update_agent_enabled(
+            agent_id=agent_id, enabled=enabled, dry_run=dry_run
+        ).__fields__()
+        result = self._mc_client(mutation).update_agent_enabled
+
+        if enabled and result.validation_result is not None:
+            self._validate_response(result.validation_result)
+            if not result.validation_result.success:
+                if dry_run:
+                    complain_and_abort("Dry run failed: reachability check did not succeed.")
+                complain_and_abort("Failed to enable agent: reachability check failed.")
+
+        if dry_run:
+            click.echo(
+                f"Dry run completed successfully. Agent {agent_id} would be "
+                f"{'enabled' if enabled else 'disabled'}."
+            )
+            return
+
+        click.echo(f"Agent {agent_id} {'enabled' if enabled else 'disabled'}.")
 
     @manage_errors
     def delete_agent(self, agent_id) -> None:

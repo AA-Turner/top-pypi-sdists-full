@@ -60,7 +60,7 @@ from .generated_types import (
     PromptOptions,
     SpanAttributes,
 )
-from .git_fields import GitMetadataSettings, RepoInfo
+from .git_fields import GitMetadataSettings, RepoInfo, default_git_metadata_settings
 from .gitutil import get_past_n_ancestors, get_repo_info
 from .merge_row_batch import batch_items, merge_row_batch
 from .object import DEFAULT_IS_LEGACY_DATASET, ensure_dataset_record
@@ -1384,29 +1384,30 @@ class _HTTPBackgroundLogger:
                 if overflow_rows:
                     self._overflow_upload_count += 1
                 return
-            if error is None and resp is not None:
-                resp_errmsg = f"{resp.status_code}: {resp.text}"
-            else:
-                resp_errmsg = str(error)
+            has_response = error is None and resp is not None
+            is_413 = has_response and resp.status_code == 413
+            resp_errmsg = f"{resp.status_code}: {resp.text}" if has_response else str(error)
 
-            is_retrying = i + 1 < self.num_tries
-            retrying_text = "" if is_retrying else " Retrying"
-            errmsg = f"log request failed. Elapsed time: {time.time() - start_time} seconds. Payload size: {payload_bytes}.{retrying_text} Error: {resp_errmsg}"
+            should_retry = i + 1 < self.num_tries and not is_413
 
-            if not is_retrying and self.failed_publish_payloads_dir:
+            if not should_retry and self.failed_publish_payloads_dir:
                 _HTTPBackgroundLogger._write_payload_to_dir(
                     payload_dir=self.failed_publish_payloads_dir, payload=dataStr
                 )
                 self._log_failed_payloads_dir()
 
-            if not is_retrying and self.sync_flush:
+            retrying_text = " Retrying" if should_retry else ""
+            errmsg = f"log request failed. Elapsed time: {time.time() - start_time} seconds. Payload size: {payload_bytes}.{retrying_text} Error: {resp_errmsg}"
+            if not should_retry and self.sync_flush:
                 raise Exception(errmsg)
-            else:
-                print(errmsg, file=self.outfile)
-                if is_retrying:
-                    sleep_time_s = BACKGROUND_LOGGER_BASE_SLEEP_TIME_S * (2**i)
-                    print(f"Sleeping for {sleep_time_s}s", file=self.outfile)
-                    time.sleep(sleep_time_s)
+            print(errmsg, file=self.outfile)
+
+            if is_413:
+                return
+            if should_retry:
+                sleep_time_s = BACKGROUND_LOGGER_BASE_SLEEP_TIME_S * (2**i)
+                print(f"Sleeping for {sleep_time_s}s", file=self.outfile)
+                time.sleep(sleep_time_s)
 
         print(f"log request failed after {self.num_tries} retries. Dropping batch", file=self.outfile)
 
@@ -1620,7 +1621,7 @@ def init(
     :param org_name: (Optional) The name of a specific organization to connect to. This is useful if you belong to multiple.
     :param metadata: (Optional) a dictionary with additional data about the test example, model outputs, or just about anything else that's relevant, that you can use to help find and analyze examples later. For example, you could log the `prompt`, example's `id`, or anything else that would be useful to slice/dice later. The values in `metadata` can be any JSON-serializable type, but its keys must be strings.
     :param tags: (Optional) a list of strings to tag the experiment with. Tags can be used to filter and organize experiments.
-    :param git_metadata_settings: (Optional) Settings for collecting git metadata. By default, will collect all git metadata fields allowed in org-level settings.
+    :param git_metadata_settings: (Optional) Settings for collecting git metadata. By default, will collect git metadata fields allowed in org-level settings, excluding diff content unless the org opts in.
     :param set_current: If true (the default), set the global current-experiment to the newly-created one.
     :param open: If the experiment already exists, open it in read-only mode. Throws an error if the experiment does not already exist.
     :param project_id: The id of the project to create the experiment in. This takes precedence over `project` if specified.
@@ -2667,7 +2668,9 @@ def _check_org_info(state, org_info, org_name):
             state.org_name = orgs["name"]
             state.api_url = os.environ.get("BRAINTRUST_API_URL", orgs["api_url"])
             state.proxy_url = os.environ.get("BRAINTRUST_PROXY_URL", orgs["proxy_url"])
-            state.git_metadata_settings = GitMetadataSettings(**(orgs.get("git_metadata") or {}))
+            state.git_metadata_settings = GitMetadataSettings(
+                **(orgs.get("git_metadata") or default_git_metadata_settings().as_dict())
+            )
             break
 
     if state.org_id is None:

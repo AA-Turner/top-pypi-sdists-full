@@ -1,0 +1,2311 @@
+from __future__ import annotations
+
+import contextlib
+import dataclasses
+import inspect
+import json
+import os
+import re
+from datetime import timedelta
+from pathlib import Path
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Collection,
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    ParamSpec,
+    Sequence,
+    Type,
+    TypeAlias,
+    TypeVar,
+    Union,
+    cast,
+)
+
+import yaml
+from yaml.scanner import ScannerError
+
+from chalk import Environments, OfflineResolver, OnlineResolver, Tags
+from chalk._lsp.error_builder import SQLFileResolverErrorBuilder
+from chalk.features import DataFrame, Feature, FeatureNotFoundException, Features, Underscore
+from chalk.features.feature_set import CURRENT_FEATURE_REGISTRY
+from chalk.features.namespace_context import build_namespaced_name
+from chalk.features.namespace_context import namespace as namespace_ctx
+from chalk.features.pseudofeatures import Now
+from chalk.features.resolver import Cron, ResolverArgErrorHandler, StreamResolver
+from chalk.sql._internal.incremental import IncrementalSettings
+from chalk.sql._internal.integrations.bigquery import BigQuerySourceImpl
+from chalk.sql._internal.integrations.cloudsql import CloudSQLSourceImpl
+from chalk.sql._internal.integrations.databricks import DatabricksSourceImpl
+from chalk.sql._internal.integrations.mssql import MSSQLSourceImpl
+from chalk.sql._internal.integrations.mysql import MySQLSourceImpl
+from chalk.sql._internal.integrations.postgres import PostgreSQLSourceImpl
+from chalk.sql._internal.integrations.redshift import RedshiftSourceImpl
+from chalk.sql._internal.integrations.snowflake import SnowflakeSourceImpl
+from chalk.sql._internal.integrations.spanner import SpannerSourceImpl
+from chalk.sql._internal.integrations.sqlite import SQLiteSourceImpl
+from chalk.sql._internal.sql_settings import SQLResolverSettings
+from chalk.sql._internal.sql_source import BaseSQLSource
+from chalk.sql.finalized_query import Finalizer
+from chalk.streams import KafkaSource, get_resolver_error_builder
+from chalk.streams.base import StreamSource
+from chalk.streams.types import StreamResolverSignature
+from chalk.utils import MachineType, notebook
+from chalk.utils.collections import get_unique_item, get_unique_item_if_exists
+from chalk.utils.duration import CronTab, Duration, parse_chalk_duration, parse_chalk_duration_s, timedelta_to_duration
+from chalk.utils.environment_parsing import env_var_bool
+from chalk.utils.missing_dependency import missing_dependency_exception
+from chalk.utils.string import to_snake_case
+
+P = ParamSpec("P")
+T = TypeVar("T")
+
+FeatureReference: TypeAlias = Union[str, Any]
+
+if TYPE_CHECKING:
+    import sqlglot.expressions
+    from pydantic import BaseModel, ValidationError
+    from sqlglot.lineage import Node
+
+    from chalk.sql import BaseSQLSourceProtocol, SQLSourceGroup
+
+    def validator(*args: str, pre: bool = ...) -> Callable[[Callable[P, T]], Callable[P, T]]: ...
+
+else:
+    try:
+        from pydantic.v1 import BaseModel, ValidationError, validator
+    except ImportError:
+        from pydantic import BaseModel, ValidationError, validator
+
+_SOURCES: Mapping[str, Union[Type[BaseSQLSource], Type[StreamSource]]] = {
+    "snowflake": SnowflakeSourceImpl,
+    "postgres": PostgreSQLSourceImpl,
+    "postgresql": PostgreSQLSourceImpl,
+    "mysql": MySQLSourceImpl,
+    "mssql": MSSQLSourceImpl,
+    "bigquery": BigQuerySourceImpl,
+    "cloudsql": CloudSQLSourceImpl,
+    "databricks": DatabricksSourceImpl,
+    "redshift": RedshiftSourceImpl,
+    "sqlite": SQLiteSourceImpl,
+    "kafka": KafkaSource,
+    "spanner": SpannerSourceImpl,
+}
+
+_SQLGLOT_DIALECTS = frozenset(
+    (
+        "snowflake",
+        "postgres",
+        "mysql",
+        "bigquery",
+        "redshift",
+        "sqlite",
+        "databricks",
+    )
+)
+"""These dialects are used if a "kind" of source is listed, rather than a specific source."""
+
+_RESOLVER_TYPES = {
+    "offline": OfflineResolver,
+    "batch": OfflineResolver,
+    "online": OnlineResolver,
+    "realtime": OnlineResolver,
+    "stream": StreamResolver,
+    "streaming": StreamResolver,
+}
+
+CHALK_SQL_FILE_RESOLVER_FILENAME_SUFFIX = ".chalk.sql"
+
+
+class IncrementalSettingsSQLFileResolver(BaseModel):
+    incremental_column: Optional[str]
+
+    lookback_period: Optional[Duration]
+
+    mode: Literal["row", "group", "parameter"] = "row"
+
+    incremental_timestamp: Optional[Literal["feature_time", "resolver_execution_time"]] = "feature_time"
+
+    @validator("lookback_period")
+    @classmethod
+    def validate_lookback_period(cls, value: Optional[str]):
+        if value is None:
+            return None
+        if isinstance(value, timedelta):
+            return value
+        parse_chalk_duration_s(value)
+        return value
+
+    @validator("mode")
+    @classmethod
+    def validate_mode(cls, mode: Literal["row", "group", "parameter"], values: Dict[str, Any]):
+        if mode in ["row", "group"] and not values["incremental_column"]:
+            raise ValueError("'incremental_column' must be set if mode is 'row' or 'group'.")
+        return mode
+
+
+class CommentDict(BaseModel):
+    total: Optional[bool]
+    source: Optional[str]
+    resolves: Optional[str]
+    namespace: Optional[str]
+    incremental: Optional[IncrementalSettingsSQLFileResolver]
+    tags: Optional[List[str]]
+    environment: Optional[List[str]]
+    count: Optional[Literal[1, "one", "one_or_none", "all"]]
+    cron: Optional[Any]
+    machine_type: Optional[str]
+    owner: Optional[str]
+    type: Optional[str]
+    timeout: Optional[str]
+    fields: Optional[Dict[str, str]]
+    field_types: Optional[Dict[str, str]]
+    unique_on: Optional[List[str]]
+    partitioned_by: Optional[List[str]]
+    skip_sql_validation: Optional[bool]
+    handle_duplicate_outputs: Optional[str]
+
+    @validator("tags", "environment", "unique_on", "partitioned_by", pre=True)
+    @classmethod
+    def validate_list_inputs(cls, value: Union[str, List[str], None]):
+        if value is None:
+            return None
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+            return [value]
+        raise ValueError(f"Value {value} must be a string or a list of strings.")
+
+    @validator("cron", pre=True)
+    @classmethod
+    def validate_cron_input(cls, value: Any):
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value
+        if isinstance(value, timedelta):
+            return value
+        if isinstance(value, Cron):
+            return value
+        raise ValueError(f"Value {value} must be a string or a Cron")
+
+    @validator("timeout")
+    @classmethod
+    def validate_timedelta(cls, string: Optional[str]):
+        if string is None:
+            return None
+        parse_chalk_duration_s(string)
+        return string
+
+    @validator("type")
+    @classmethod
+    def validate_type(cls, resolver_type: str | None):
+        if resolver_type is None:
+            return None
+        if resolver_type not in _RESOLVER_TYPES:
+            raise ValueError(
+                (
+                    f"Resolver type '{resolver_type}' not supported. "
+                    f"'online', 'offline' and 'streaming' are supported options"
+                )
+            )
+        return resolver_type
+
+
+@dataclasses.dataclass(frozen=True)
+class ResolverError:
+    """Generic class for returning errors at any point during resolution process"""
+
+    display: str
+    path: str
+    parameter: Optional[str]
+
+
+@dataclasses.dataclass(frozen=True)
+class ResolverResult:
+    """Chief return class with resolver we actually use"""
+
+    resolver: Optional[Union[OnlineResolver, OfflineResolver, StreamResolver]]
+    errors: List[ResolverError]
+    db: Optional[Union[BaseSQLSource, StreamSource, SQLSourceGroup]]
+    fields: Optional[Dict[str, str]]
+    args: Optional[Dict[str, str]]
+    data_lineage: Optional[Dict[str, Dict[str, Dict[str, List[str]]]]] = None
+
+
+@dataclasses.dataclass(frozen=True)
+class SQLStringResult:
+    """Class for getting the sql string from the file"""
+
+    path: str
+    sql_string: Optional[str]
+    error: Optional[ResolverError]
+    override_comment_dict: Optional[CommentDict] = None
+    override_name: Optional[str] = None
+    autogenerated: bool = False
+    postprocessing_expr: Underscore | None = None
+
+    def __post_init__(self):
+        # Validation: if autogenerated is True, override_name must not be None
+        if self.autogenerated and self.override_name is None:
+            raise ValueError("override_name must be non-None if autogenerated is True.")
+
+    @classmethod
+    def fail(cls, display_error: str, path: str) -> "SQLStringResult":
+        return cls(
+            path=path,
+            sql_string=None,
+            error=ResolverError(display=display_error, path=path, parameter=None),
+        )
+
+
+@dataclasses.dataclass(frozen=True)
+class GlotResult:
+    """Class for editing the sql string, and using sqlglot on sql string"""
+
+    sql_string: str
+    glot: Optional[Union[sqlglot.expressions.Select, sqlglot.expressions.Union]]
+    args: Dict[str, str]
+    default_args: List[Union[Optional[str], ellipsis]]
+    comment_dict: Optional[CommentDict]
+    docstring: Optional[str]
+    errors: List[ResolverError]
+    source: Union[BaseSQLSource, StreamSource, SQLSourceGroup, None]
+
+
+@dataclasses.dataclass(frozen=True)
+class ParseResult:
+    """Class for important info gathered from glot"""
+
+    sql_string: str
+    comment_dict: CommentDict
+    fields: Dict[str, str]
+    namespace: str
+    source: Union[BaseSQLSource, StreamSource, SQLSourceGroup, None]
+    docstring: Optional[str]
+    errors: List[ResolverError]
+
+    # data_lineage is stored as a map { data_source: { table: { column: feature } } }
+    data_lineage: Optional[Dict[str, Dict[str, Dict[str, List[str]]]]] = None
+
+
+_filepath_to_sql_string: dict[str, str] = {}
+"""Mapping from filepath to sql string. Used to skip reimporting the same sql file if the content is identical to what was already imported
+If the content is different, then we'll import it again, but we may error later when attempting to add the resolver to the registry if we don't
+allow overrides and we're not in a notebook.
+"""
+
+
+def get_sql_file_resolvers(
+    *,
+    sql_file_resolve_location: Path | None,
+    sources: Sequence[BaseSQLSource | SQLSourceGroup],
+    has_import_errors: bool,
+) -> Iterable[ResolverResult]:
+    """Iterate through all `.chalk.sql` filepaths, gather the sql strings, and get a resolver hopefully for each.
+
+    When sql_file_resolve_location is None, only generated resolvers (from make_sql_file_resolver) are yielded.
+    """
+    if sql_file_resolve_location is not None:
+        for dp, dn, fn in os.walk(os.path.expanduser(sql_file_resolve_location)):
+            del dn  # unused
+            for f in sorted(fn):  # Sort filenames for deterministic ordering
+                filepath = os.path.join(dp, f)
+                if not filepath.endswith(CHALK_SQL_FILE_RESOLVER_FILENAME_SUFFIX):
+                    continue
+                sql_string_result = _get_sql_string(filepath)
+                # Skip re-importing if the sql content is identical to what was already imported
+                if sql_string_result.sql_string is not None:
+                    if _filepath_to_sql_string.get(filepath) == sql_string_result.sql_string:
+                        continue
+                    _filepath_to_sql_string[filepath] = sql_string_result.sql_string
+                yield get_sql_file_resolver(sources, sql_string_result, has_import_errors)
+    # Only yield generated resolvers whose filepath is under the directory being scanned
+    for sql_string_result in _GENERATED_SQL_FILE_RESOLVER_REGISTRY.get_generated_sql_file_resolvers(
+        filter_by_directory=sql_file_resolve_location
+    ):
+        yield get_sql_file_resolver(sources, sql_string_result, has_import_errors)
+
+
+def get_sql_file_resolvers_from_paths(
+    *,
+    sources: Sequence[BaseSQLSource | SQLSourceGroup],
+    paths: List[str],
+    has_import_errors: bool,
+    filter_generated_by_directory: Path | None,
+) -> Iterable[ResolverResult]:
+    for p in paths:
+        sql_string_result = _get_sql_string(path=p)
+        # Skip re-importing if the sql content is identical to what was already imported
+        if sql_string_result.sql_string is not None:
+            if _filepath_to_sql_string.get(p) == sql_string_result.sql_string:
+                continue
+            _filepath_to_sql_string[p] = sql_string_result.sql_string
+        yield get_sql_file_resolver(
+            sources=sources,
+            sql_string_result=sql_string_result,
+            has_import_errors=has_import_errors,
+        )
+    # Filter generated resolvers by directory rather than by SQL paths,
+    # since generated resolvers have .py filepaths (the calling module).
+    for sql_string_result in _GENERATED_SQL_FILE_RESOLVER_REGISTRY.get_generated_sql_file_resolvers(
+        filter_by_directory=filter_generated_by_directory
+    ):
+        yield get_sql_file_resolver(sources, sql_string_result, has_import_errors)
+
+
+def get_sql_file_resolver(
+    sources: Iterable[BaseSQLSource | SQLSourceGroup],
+    sql_string_result: SQLStringResult,
+    has_import_errors: bool = False,
+) -> ResolverResult:
+    from chalk.sql import SQLSourceGroup
+
+    registry_features = CURRENT_FEATURE_REGISTRY.get().get_feature_sets()
+
+    assert sql_string_result.sql_string is not None, f"SQL string from path {sql_string_result.path} should not be None"
+    error_builder = SQLFileResolverErrorBuilder(
+        uri=sql_string_result.path, sql_string=sql_string_result.sql_string, has_import_errors=has_import_errors
+    )
+
+    """Parse the sql strings and get a ResolverResult from each"""
+    if sql_string_result.error:
+        return ResolverResult(
+            resolver=None,
+            errors=[sql_string_result.error],
+            db=None,
+            fields=None,
+            args=None,
+        )
+    path = sql_string_result.path
+
+    errors: List[ResolverError] = []
+    glot_result = _get_sql_glot(
+        sql_string=sql_string_result.sql_string,
+        path=path,
+        sources=sources,
+        error_builder=error_builder,
+        override_comment_dict=sql_string_result.override_comment_dict,
+    )
+    if glot_result.errors:
+        return ResolverResult(
+            resolver=None,
+            errors=glot_result.errors,
+            db=None,
+            fields=None,
+            args=None,
+        )
+
+    parsed = _parse_glot(
+        glot_result=glot_result,
+        path=path,
+        error_builder=error_builder,
+    )
+    if parsed.errors:
+        return ResolverResult(
+            resolver=None,
+            errors=parsed.errors,
+            db=parsed.source,
+            fields=None,
+            args=None,
+        )
+    with (
+        namespace_ctx(parsed.comment_dict.namespace)
+        if parsed.comment_dict and parsed.comment_dict.namespace
+        else contextlib.nullcontext()
+    ):
+        # validate inputs and outputs as real features in graph
+        inputs: List[Feature] = []
+        for arg in glot_result.args.values():
+            try:
+                inputs.append(Feature.from_root_fqn(build_namespaced_name(name=arg)))
+            except FeatureNotFoundException:  # other exceptions will be caught eventually
+                message = f"SQL file resolver references an input feature '{arg}' which does not exist."
+                if arg in registry_features:
+                    message += f" It appears '{arg}' is a feature class, not a feature."
+                try:
+                    error_builder.add_diagnostic_with_spellcheck(
+                        spellcheck_item=arg,
+                        spellcheck_candidates=[
+                            feature.fqn
+                            for feature in registry_features[build_namespaced_name(name=parsed.namespace)].features
+                        ],
+                        message=message,
+                        code="152",
+                        label="input feature not recognized",
+                        range=error_builder.variable_range_by_name(arg),
+                    )
+                except Exception:
+                    # it's possible the graph is incomplete due to other import errors and we cannot find spellcheck candidates
+                    # in this case, a simple error will do
+                    error_builder.add_diagnostic(
+                        message=message,
+                        code="152",
+                        label="input feature not recognized",
+                        range=error_builder.variable_range_by_name(arg),
+                    )
+                errors.append(
+                    ResolverError(
+                        display=message,
+                        path=path,
+                        parameter=arg,
+                    )
+                )
+        outputs: List[Feature] = []
+        query_fields: Dict[str, str] = {}
+        for variable, output in parsed.fields.items():
+            message = f"SQL file resolver references an output feature '{output}' which does not exist. "
+            if output.endswith("*"):
+                features = registry_features[build_namespaced_name(name=parsed.namespace)].features
+                for feature in features:
+                    if (
+                        feature.is_scalar
+                        and not feature.is_autogenerated
+                        and not feature.is_pseudofeature
+                        and not feature.is_windowed
+                    ):
+                        outputs.append(feature)
+                continue
+
+            unrecognized_output = False
+            try:
+                feature = Feature.from_root_fqn(output)
+                outputs.append(feature)
+                query_fields[variable] = output
+            except FeatureNotFoundException:
+                # there's only one way to have a recognized output here, if the output is in the comment dict 'fields'
+                unrecognized_output = True
+                if parsed.comment_dict.fields is not None:
+                    split = output.split(".", 1)
+                    if len(split) > 1:
+                        namespace = split[0]
+                        output_name = split[1]
+                        if output_name in parsed.comment_dict.fields:
+                            field = parsed.comment_dict.fields.get(output_name)
+                            output = f"{namespace}.{field}"
+                            try:
+                                feature = Feature.from_root_fqn(build_namespaced_name(name=output))
+                                outputs.append(feature)
+                                query_fields[output_name] = output
+                                unrecognized_output = False
+                            except:
+                                pass
+            except Exception as e:
+                # it's possible the graph is incomplete due to other import errors and we cannot even use Feature.from_root_fqn without
+                # throwing an unhandled error. In this case, we don't addi a diagnostic because we are confident the error
+                # will surface later with a better stack
+                errors.append(
+                    ResolverError(
+                        display=f"{message}: {e}",
+                        path=path,
+                        parameter=output,
+                    )
+                )
+                continue
+
+            if unrecognized_output:
+                value = output.split(".", 1)[1] if "." in output else output
+                # Only add diagnostic if glot is available (i.e., validation was not skipped)
+                if glot_result.glot is not None:
+                    try:
+                        error_builder.add_diagnostic_with_spellcheck(
+                            spellcheck_item=output,
+                            spellcheck_candidates=[
+                                feature.fqn
+                                for feature in registry_features[build_namespaced_name(name=parsed.namespace)].features
+                            ],
+                            message=message,
+                            code="153",
+                            label="output feature not recognized",
+                            range=error_builder.value_range_by_name(glot_result.glot, value),
+                        )
+                    except Exception:
+                        # it's possible the graph is incomplete due to other import errors and we cannot find spellcheck candidates
+                        # in this case, we don't add a diagnostic because we are confident the error will surface later with a better stack
+                        pass
+                errors.append(
+                    ResolverError(
+                        display=message,
+                        path=path,
+                        parameter=output,
+                    )
+                )
+        if errors:
+            return ResolverResult(resolver=None, errors=errors, db=parsed.source, fields=None, args=glot_result.args)
+
+        if len(outputs) == 0:
+            message = (
+                "SQL file resolver has no detected outputs. Make sure that all select outputs are aliased to features "
+                "defined within the feature set referenced by the `resolves` parameter."
+            )
+            error_builder.add_diagnostic(
+                message=message,
+                code="154",
+                label="no outputs detected",
+                range=error_builder.sql_range(),
+            )
+            errors.append(ResolverError(display=message, path=path, parameter=None))
+
+        if parsed.comment_dict.unique_on is not None:
+            unique_on = _validate_feature_strings_in_comments(
+                feature_strings=parsed.comment_dict.unique_on,
+                error_builder=error_builder,
+                namespace=parsed.namespace,
+                path=path,
+                errors=errors,
+                outputs=outputs,
+                arg_name="unique_on",
+            )
+        else:
+            unique_on = None
+        if parsed.comment_dict.partitioned_by is not None:
+            partitioned_by = _validate_feature_strings_in_comments(
+                feature_strings=parsed.comment_dict.partitioned_by,
+                error_builder=error_builder,
+                namespace=parsed.namespace,
+                path=path,
+                errors=errors,
+                outputs=outputs,
+                arg_name="partitioned_by",
+            )
+        else:
+            partitioned_by = None
+        resolver_type_str = parsed.comment_dict.type if parsed.comment_dict.type else "online"
+        resolver_type = _RESOLVER_TYPES[resolver_type_str]
+
+        if resolver_type == StreamResolver:
+            return _get_stream_resolver(path, glot_result, parsed, outputs, error_builder)
+
+        incremental_dict = parsed.comment_dict.incremental.dict() if parsed.comment_dict.incremental else None
+        finalizer = parse_finalizer(parsed.comment_dict.count)
+        source = parsed.source
+
+        if not isinstance(source, (BaseSQLSource, SQLSourceGroup)):
+            raise ValueError(f"Datasource '{source}' is not configured. Is the driver installed?")
+
+        # function for online resolver to process
+        def fn(
+            *input_values: Any,
+            database: BaseSQLSource | SQLSourceGroup = source,
+            sql_query: str = parsed.sql_string,
+            field_dict: Dict[str, str] = query_fields,
+            args_dict: Dict[str, str] = glot_result.args,
+            incremental: Optional[Dict[str, Any]] = incremental_dict,
+        ):
+            arg_dict = {arg: input_value for input_value, arg in zip(input_values, args_dict.keys())}
+            func = database.query_string(
+                query=sql_query,
+                fields=field_dict,
+                args=arg_dict,
+            )
+            if incremental:
+                func = func.incremental(**incremental)
+            elif finalizer == Finalizer.ONE:
+                func = func.one()
+            elif finalizer == Finalizer.ONE_OR_NONE:
+                func = func.one_or_none()
+            elif finalizer == Finalizer.ALL:
+                func = func.all()
+            return func
+
+        if errors:
+            return ResolverResult(
+                resolver=None,
+                errors=errors,
+                db=parsed.source,
+                fields=parsed.fields,
+                args=glot_result.args,
+            )
+        if finalizer is None:
+            # If the root ns of the inputs is the same as what is being resolved, then it is always return one
+            input_root_namespace = get_unique_item_if_exists(x.root_namespace for x in inputs if x.fqn != Now.fqn)
+            output_root_namespace = get_unique_item(x.root_namespace for x in outputs)
+            if input_root_namespace is not None and input_root_namespace == output_root_namespace:
+                finalizer = Finalizer.ONE
+
+        if finalizer == Finalizer.ONE or finalizer == Finalizer.ONE_OR_NONE:
+            output = Features[tuple(outputs)]
+        else:
+            output = Features[DataFrame[tuple(outputs)]]
+        if incremental_dict is None:
+            incremental_settings = None
+        else:
+            incremental_mode = incremental_dict.get("mode", "row")
+            if incremental_mode not in ["row", "group", "parameter"]:
+                raise ValueError(f"Invalid incremental mode: {incremental_mode}")
+            if incremental_dict.get("lookback_period") is not None:
+                lookback_period = parse_chalk_duration(incremental_dict["lookback_period"])
+            else:
+                lookback_period = None
+            incremental_timestamp = incremental_dict.get("incremental_timestamp", "feature_time")
+            if incremental_timestamp not in ["feature_time", "resolver_execution_time"]:
+                raise ValueError(f"Invalid incremental timestamp: {incremental_timestamp}")
+            incremental_settings = IncrementalSettings(
+                mode=incremental_mode,
+                incremental_column=incremental_dict.get("incremental_column"),
+                lookback_period=lookback_period,
+                incremental_timestamp=incremental_timestamp,
+            )
+
+        default_args: List[Optional[ResolverArgErrorHandler]] = [
+            None if default_value is ... else ResolverArgErrorHandler(default_value)
+            for default_value in glot_result.default_args
+        ]
+
+        filename = os.path.basename(path)
+        # attempt to instantiate the resolver
+        try:
+            if resolver_type not in (OnlineResolver, OfflineResolver):
+                raise ValueError(f"Resolver type '{resolver_type}' is not supported for .chalk.sql resolvers")
+            if not isinstance(parsed.source, (BaseSQLSource, SQLSourceGroup)):
+                raise ValueError(f"Datasource '{parsed.source}' is not configured. Is the driver installed")
+            if sql_string_result.autogenerated:
+                """Autogenerated resolvers are expected to have a name passed in through make_sql_file_resolver"""
+                assert (
+                    sql_string_result.override_name is not None
+                ), "override_name must be non-None if autogenerated is True."
+                fqn = sql_string_result.override_name
+            else:
+                """Non-autogenerated resolvers will have a name derived from the filename"""
+                fqn = filename.replace(CHALK_SQL_FILE_RESOLVER_FILENAME_SUFFIX, "")
+
+            resolver = resolver_type(
+                filename=path,
+                function_definition=sql_string_result.sql_string,
+                fqn=fqn,
+                doc=parsed.docstring,
+                inputs=inputs,
+                output=output,
+                fn=fn,
+                environment=parsed.comment_dict.environment,
+                tags=parsed.comment_dict.tags,
+                cron=parsed.comment_dict.cron,
+                machine_type=parsed.comment_dict.machine_type,
+                when=None,
+                default_args=default_args,
+                owner=parsed.comment_dict.owner,
+                timeout=parsed.comment_dict.timeout,
+                is_sql_file_resolver=True,
+                data_sources=[parsed.source],
+                source_line=None,
+                lsp_builder=get_resolver_error_builder(fn),
+                static=False,
+                parse=None,
+                resource_hint=None,
+                total=True if parsed.comment_dict.total else False,
+                autogenerated=sql_string_result.autogenerated,
+                unique_on=unique_on,
+                partitioned_by=partitioned_by,
+                data_lineage=parsed.data_lineage,
+                sql_settings=SQLResolverSettings(
+                    finalizer=finalizer if finalizer is not None else Finalizer.ALL,
+                    fields_root_fqn=query_fields,
+                    incremental_settings=incremental_settings,
+                    params_to_root_fqn=glot_result.args,
+                    field_types=parsed.comment_dict.field_types or {},
+                ),
+                postprocessing=sql_string_result.postprocessing_expr,
+                handle_duplicate_outputs=parsed.comment_dict.handle_duplicate_outputs,
+            )
+        except Exception as e:
+            raise e
+            message = f"SQL file resolver '{filename}'  could not be instantiated, {e}"
+            error_builder.add_diagnostic(
+                message=message,
+                code="155",
+                label="resolver instantiation failed",
+                range=error_builder.full_range(),
+            )
+            errors.append(
+                ResolverError(
+                    display=message,
+                    path=path,
+                    parameter=None,
+                )
+            )
+            return ResolverResult(
+                resolver=None, errors=errors, db=parsed.source, fields=parsed.fields, args=glot_result.args
+            )
+
+        return ResolverResult(
+            resolver=resolver,
+            errors=errors,
+            db=parsed.source,
+            fields=parsed.fields,
+            args=glot_result.args,
+            data_lineage=parsed.data_lineage,
+        )
+
+
+def _get_sql_string(path: str) -> SQLStringResult:
+    """Attempt to get a sql string from a filepath and gracefully exit if unable to"""
+
+    if not path.endswith(CHALK_SQL_FILE_RESOLVER_FILENAME_SUFFIX):
+        return SQLStringResult.fail(display_error=f"sql resolver file '{path}' must end in '.chalk.sql'", path=path)
+    sql_string = None
+    if os.path.isfile(path):
+        with open(path) as f:
+            sql_string = f.read()
+    else:
+        frame = inspect.currentframe()
+        assert frame is not None, "could not inspect current frame"
+        caller_frame = frame.f_back
+        del frame
+        assert caller_frame is not None, "could not inspect caller frame"
+        caller_filename = inspect.getsourcefile(caller_frame)
+        assert caller_filename is not None, "could not find caller filename"
+        dir_path = os.path.dirname(os.path.realpath(caller_filename))
+        if isinstance(path, bytes):
+            path = path.decode("utf-8")
+        relative_path = os.path.join(dir_path, path)
+        if os.path.isfile(relative_path):
+            with open(relative_path) as f:
+                sql_string = f.read()
+    if sql_string is None:
+        return SQLStringResult.fail(display_error=f"Cannot find file '{path}'", path=path)
+    return SQLStringResult(path=path, sql_string=sql_string, error=None)
+
+
+# {table_name: {output_column: [input_columns]}}
+_DataLineageGraphIntermediate = Dict[str, Dict[str, set[str]]]
+DataLineageResult = Dict[str, Dict[str, List[str]]]
+
+
+def _merge_lineage(target: _DataLineageGraphIntermediate, source: _DataLineageGraphIntermediate):
+    for table, columns in source.items():
+        if table not in target:
+            target[table] = {}
+        for output_col, input_cols in columns.items():
+            if output_col not in target[table]:
+                target[table][output_col] = set()
+            target[table][output_col].update(input_cols)
+
+
+def _recurse_build_lineage(node: Node, toplevelcolumn: str) -> _DataLineageGraphIntermediate:
+    # no need for try catch because _get_data_lineage handles it
+    from sqlglot import exp
+
+    # no more downstream means we have hit a leaf node
+    if not node.downstream:
+        # hit a table
+        if isinstance(node.expression, exp.Table):
+            input_col: str
+            # if name is * or star we just use the toplevel column name
+            if node.name in ("*", "", None):
+                input_col = toplevelcolumn
+            else:
+                # split to get ride of table name in front
+                input_col = node.name.rsplit(".", 1)[-1]
+            return {node.expression.this.name: {toplevelcolumn: {input_col}}}
+        # hit an aggregation function that has no actual input like count(*)
+        elif isinstance(node.expression.this, exp.AggFunc):
+            # verify we are not using NONE
+            from_clause = node.source.find(exp.From)
+            if from_clause is None:
+                return {}
+            table = from_clause.find(exp.Table)
+            if table is None:
+                return {}
+            return {table.this.name: {toplevelcolumn: {node.expression.this.sql(dialect="")}}}
+        else:
+            # other cases like literals
+            # they don't come from a table so we just return empty
+            # note other cases like functions/generated columns might be here?
+            return {}
+
+    target_lineage: _DataLineageGraphIntermediate = {}
+    # there are sources to parse through
+    for dnode in node.downstream:
+        # if statement for case where we have unresolved column (column where we don't know which table it came from)
+        # just assign to the first table in the from clause
+        if isinstance(dnode.expression, exp.Placeholder) and not dnode.downstream:
+            from_table = node.source.find(exp.From)
+            if from_table:
+                # Also check that can do .find
+                table = from_table.find(exp.Table)
+                if table is None:
+                    continue
+                table_name = table.this.name
+                # also getting rid of table name from field
+                input_col = dnode.name.rsplit(".", 1)[-1]
+                _merge_lineage(target_lineage, {table_name: {toplevelcolumn: {input_col}}})
+        # if there is a real source we recursively go find it
+        else:
+            sub_lineage: _DataLineageGraphIntermediate = _recurse_build_lineage(dnode, toplevelcolumn)
+            _merge_lineage(target_lineage, sub_lineage)
+
+    # lineage is {tablenames: {output features: [input features]}}
+    return target_lineage
+
+
+def _get_data_lineage(sql: str) -> DataLineageResult:
+    try:
+        import sqlglot
+        from sqlglot import exp
+        from sqlglot.lineage import lineage
+    except ImportError:
+        raise missing_dependency_exception("chalkpy[runtime]")
+
+    try:
+        # Parse the SQL into an abstract syntax tree (AST)
+        ast = sqlglot.parse_one(sql)
+
+        # get all top level columns from select statement
+        select = ast.find(exp.Select)
+        if select is None:
+            return {}
+        output_expressions = [expr for expr in select.expressions]
+        result_lineage: _DataLineageGraphIntermediate = {}
+
+        # loop through each top level column
+        for expr in output_expressions:
+            node = lineage(expr.alias_or_name.lower(), sql.lower())
+            # recursively go get each
+            sub_lineage: _DataLineageGraphIntermediate = _recurse_build_lineage(node, expr.alias_or_name)
+            _merge_lineage(result_lineage, sub_lineage)
+
+        return {
+            table: {col: list(inputs) for col, inputs in columns.items()} for table, columns in result_lineage.items()
+        }
+
+    except Exception:
+        return {}
+
+
+@dataclasses.dataclass
+class EscapedSqlString:
+    escaped_sql_string: str
+    args: dict[str, str]  # sql string -> input feature string
+    default_args: List[Union[str, None, ellipsis]]
+    errors: List[ResolverError]
+
+
+@dataclasses.dataclass
+class ParsedSqlResolver:
+    inputs: list[str]
+    outputs: list[str]
+
+
+def parse_sql_resolver(sql_string: str) -> ParsedSqlResolver:
+    """
+    Parse a SQL resolver string to extract input and output features.
+
+    Args:
+        sql_string: SQL string with ${feature.name} syntax for inputs and directive comments
+
+    Returns:
+        ParsedSqlResolver with inputs (feature names) and outputs (fully qualified column names)
+    """
+    try:
+        import sqlglot
+        import sqlglot.expressions
+    except ImportError:
+        raise missing_dependency_exception("chalkpy[runtime]")
+
+    from chalk._lsp.error_builder import SQLFileResolverErrorBuilder
+
+    error_builder = SQLFileResolverErrorBuilder(
+        uri="<parse-request>",
+        sql_string=sql_string,
+        has_import_errors=False,
+    )
+
+    # Extract inputs
+    escaped = escape_sql_params(
+        sql_string=sql_string,
+        path="<parse-request>",
+        error_builder=error_builder,
+        parse_only=True,
+    )
+    inputs = list(escaped.args.values())
+    sql_string = escaped.escaped_sql_string
+
+    # Parse directive comments
+    comments = ""
+    docstring = ""
+    for comment in sql_string.splitlines():
+        if comment.strip().startswith("--"):
+            stripped_comment = comment.strip().replace("--", "")
+            if stripped_comment.strip().startswith("-"):
+                comments += f"{stripped_comment}\n"
+            else:
+                if count_colons(stripped_comment) != 1:
+                    docstring += f"{stripped_comment.strip()}\n"
+                else:
+                    comments += f"{stripped_comment}\n"
+        else:
+            break
+
+    # Extract resolves and namespace directives to build the output namespace
+    namespace_str = None
+    if len(comments) != 0:
+        try:
+            comment_dict: Dict[str, Any] = yaml.safe_load(comments)
+        except Exception:
+            comment_dict = {}
+
+        if comment_dict and "resolves" in comment_dict:
+            resolves = comment_dict["resolves"]
+            namespace_from_comment = comment_dict.get("namespace")
+            namespace_str = build_namespaced_name(namespace=namespace_from_comment, name=to_snake_case(resolves))
+
+    # Parse SELECT columns and qualify with namespace if available
+    outputs = []
+    try:
+        glots = sqlglot.parse(sql=sql_string)
+        if glots:
+            glot = glots[0]
+            if isinstance(glot, (sqlglot.expressions.Select, sqlglot.expressions.Union)):
+                raw_outputs = list(glot.named_selects)
+                if namespace_str:
+                    outputs = [f"{namespace_str}.{col}" for col in raw_outputs]
+                else:
+                    outputs = raw_outputs
+    except Exception:
+        pass
+
+    return ParsedSqlResolver(inputs=inputs, outputs=outputs)
+
+
+def escape_sql_params(
+    sql_string: str,
+    path: str,
+    error_builder: SQLFileResolverErrorBuilder,
+    parse_only: bool = False,
+) -> EscapedSqlString:
+    """
+    Chalk allows people to write SQL resolvers that reference features using ${} syntax, such as:
+    ```
+    SELECT id, burrito_name FROM burritos_table where id=${burrito.id}
+    ```
+
+    However this isn't valid sql -- we replace each occurrence of ${} w/ a placeholder name and
+    return the escaped SQL string w/ additional info about the params & relevant Chalk features.
+
+    Parameters
+    ----------
+    sql_string
+        String of the original SQL resolver.
+    path
+        For error reporting, filepath of the SQL resolver.
+    error_builder
+        For LSP errors.
+    parse_only
+        If `True`, skip feature registry lookups for default values.
+    """
+    args = {}  # sql string -> input feature string
+
+    # In order to ensure that the variables are ordered deterministically, we use a `dict`
+    # instead of a `set`, since `dict` ensures iteration order matches insertion order.
+    variables = {key: None for key in re.findall("\\${.*?\\}", sql_string)}
+    errors: List[ResolverError] = []
+    default_args: List[Union[Optional[str], ellipsis]] = []
+    # replace ?{variable_name} with :variable_name for sqlalchemy, and keep track of input args necessary
+    for variable_pattern in variables:
+        has_default_arg = False
+        variable = variable_pattern[2:-1]  # cut off ${ and }
+        for split_var in ("|", " or "):  # default argument
+            # TODO cannot parse something like {Transaction.category or "Waffles or Pancakes"} yet
+            if split_var in variable:
+                split = variable.split(split_var)
+                if len(split) != 2:
+                    message = (
+                        f"If character '|' is used, both variable name and default value must be "
+                        f"specified in '({variable})' like '?{{variable_name | \"default_value\"}}"
+                    )
+                    error_builder.add_diagnostic(
+                        message=message,
+                        code="140",
+                        label="invalid variable",
+                        range=error_builder.variable_range_by_name(variable),
+                    )
+                    errors.append(
+                        ResolverError(
+                            display=message,
+                            path=path,
+                            parameter=None,
+                        )
+                    )
+                else:  # has default argument
+                    variable = split[0].strip()
+                    default_arg = split[1].strip()
+                    default_arg = json.loads(default_arg)
+                    if not parse_only:
+                        f = Feature.from_root_fqn(variable)
+                        default_arg = f.converter.from_json_to_rich(default_arg)
+                    default_args.append(default_arg)
+                    has_default_arg = True
+        if not has_default_arg:
+            default_args.append(...)
+        period_replaced = variable.replace(".", "_")
+        sql_safe_str = f"__chalk_{period_replaced}__"
+        sql_string = sql_string.replace(variable_pattern, f":{sql_safe_str}")
+        args[sql_safe_str] = variable
+
+    return EscapedSqlString(escaped_sql_string=sql_string, args=args, errors=errors, default_args=default_args)
+
+
+def _get_sql_glot(
+    sql_string: str,
+    path: str,
+    sources: Iterable[BaseSQLSource | SQLSourceGroup],
+    error_builder: SQLFileResolverErrorBuilder,
+    override_comment_dict: Optional[CommentDict] = None,
+) -> GlotResult:
+    """Get sqlglot from sql string and gracefully exit if unable to"""
+    try:
+        import sqlglot
+        import sqlglot.errors
+        import sqlglot.expressions
+        import sqlglot.optimizer.scope
+    except ImportError:
+        raise missing_dependency_exception("chalkpy[runtime]")
+    errors: List[ResolverError] = []
+    escaped_sql = escape_sql_params(sql_string=sql_string, path=path, error_builder=error_builder)
+    errors.extend(escaped_sql.errors)
+    args = escaped_sql.args
+    default_args = escaped_sql.default_args
+    sql_string = escaped_sql.escaped_sql_string
+
+    comments = ""
+    docstring = ""
+    comment_row_to_file_row: Dict[int, int] = {}
+    comment_row_offset: Dict[int, int] = {}
+    comment_line_counter = 0
+    """
+    Comments and docstrings are required to be at the beginning of the file resolver.
+    Thus, we need to make sure that for ranges, comments are mapped to the right line number
+    as docstrings are not included in the comments variable above.
+
+    We also need to keep track of the offset of the comment in order to properly detect the range.
+    """
+    for line_no, comment in enumerate(sql_string.splitlines()):
+        if comment.strip().startswith("--"):
+            stripped_comment = comment.strip().replace("--", "")
+            comment_offset = len(comment) - len(stripped_comment)
+            if stripped_comment.strip().startswith("-"):
+                comments += f"{stripped_comment}\n"
+            else:
+                if count_colons(stripped_comment) != 1:
+                    docstring += f"{stripped_comment.strip()}\n"
+                else:
+                    comments += f"{stripped_comment}\n"
+                    comment_row_to_file_row[comment_line_counter] = line_no
+                    comment_row_offset[comment_line_counter] = comment_offset
+                    comment_line_counter += 1
+        else:
+            break
+
+    if len(comments) == 0 and override_comment_dict is None:
+        message = "SQL file resolvers require comments that describe key-value pairs in YAML form."
+        error_builder.add_diagnostic(
+            message=message,
+            code="141",
+            label="missing comments",
+            range=error_builder.full_range(),
+            code_href="https://docs.chalk.ai/docs/sql#sql-file-resolvers",
+        )
+        errors.append(
+            ResolverError(
+                display=message,
+                path=path,
+                parameter=None,
+            )
+        )
+        return GlotResult(
+            sql_string=sql_string,
+            glot=None,
+            args=args,
+            default_args=default_args,
+            comment_dict=None,
+            docstring=docstring,
+            errors=errors,
+            source=None,
+        )
+    if len(comments) != 0:
+        try:
+            comment_dict: Dict[str, Any] = yaml.safe_load(comments)
+        except Exception as e:
+            message = f"SQL File resolver comments must have key-values in YAML form: {e}"
+            if isinstance(e, ScannerError) and e.problem_mark is not None:
+                comment_line_no = e.problem_mark.line
+                comment_col_no = e.problem_mark.column
+                file_line_no = comment_row_to_file_row[comment_line_no]
+                file_comment_no = comment_row_offset[comment_line_no] + comment_col_no
+                error_builder.add_diagnostic(
+                    message=message,
+                    code="142",
+                    label="Could not parse comments as YAML",
+                    range=error_builder.custom_range(line_no=file_line_no + 1, col=file_comment_no + 1),
+                )
+
+            errors.append(
+                ResolverError(
+                    display=message,
+                    path=path,
+                    parameter=comments,
+                )
+            )
+            return GlotResult(
+                sql_string=sql_string,
+                glot=None,
+                args=args,
+                default_args=default_args,
+                comment_dict=None,
+                docstring=docstring,
+                errors=errors,
+                source=None,
+            )
+    else:
+        comment_dict = {}
+    if override_comment_dict is not None:
+        for key, value in override_comment_dict.dict().items():
+            if value is not None:
+                comment_dict[key] = value
+    if "source" not in comment_dict:
+        """This would be caught by the following BaseModel.parse_obj() but the error message is bad"""
+        message = (
+            "The datasource is a required field for SQL file resolvers. "
+            "Please add a comment '-- source: my_name'  where 'my_name' refers to a named integration."
+        )
+        error_builder.add_diagnostic(
+            message=message,
+            code="143",
+            label="missing source",
+            range=error_builder.full_comment_range(),
+            code_href="https://docs.chalk.ai/docs/integrations",
+        )
+        errors.append(
+            ResolverError(
+                display=message,
+                path=path,
+                parameter=json.dumps(comment_dict),
+            )
+        )
+        return GlotResult(
+            sql_string=sql_string,
+            glot=None,
+            args=args,
+            default_args=default_args,
+            comment_dict=None,
+            docstring=docstring,
+            errors=errors,
+            source=None,
+        )
+    if "resolves" not in comment_dict:
+        """This would be caught by the following BaseModel.parse_obj() but the error message is bad"""
+        message = (
+            "A feature class must be specified for SQL file resolvers. "
+            "Please add a comment '-- resolves: my_name'  where 'my_name' refers to a feature class."
+        )
+        error_builder.add_diagnostic(
+            message=message,
+            code="144",
+            label="missing feature class: please use the 'resolves' keyword",
+            range=error_builder.full_comment_range(),
+            code_href="https://docs.chalk.ai/docs/integrations",
+        )
+        errors.append(
+            ResolverError(
+                display=message,
+                path=path,
+                parameter=json.dumps(comment_dict),
+            )
+        )
+        return GlotResult(
+            sql_string=sql_string,
+            glot=None,
+            args=args,
+            default_args=default_args,
+            comment_dict=None,
+            docstring=docstring,
+            errors=errors,
+            source=None,
+        )
+
+    try:
+        comment_dict_object = CommentDict.parse_obj(comment_dict)
+    except ValidationError as e:
+        for error in e.errors():
+            location = error["loc"][-1]  # the innermost error
+            message = f"SQL file resolver could not validate comment '{location}': {error['msg']}"
+            range = error_builder.comment_range_by_key(str(location))
+            if range is None and location in IncrementalSettingsSQLFileResolver.__fields__:
+                range = error_builder.comment_range_by_key("incremental")
+            error_builder.add_diagnostic(
+                message=message,
+                code="145",
+                label="Could not validate comment",
+                range=range,
+            )
+            errors.append(
+                ResolverError(
+                    display=message,
+                    path=path,
+                    parameter=json.dumps(comment_dict),
+                )
+            )
+        return GlotResult(
+            sql_string=sql_string,
+            glot=None,
+            args=args,
+            default_args=default_args,
+            comment_dict=None,
+            docstring=docstring,
+            errors=errors,
+            source=None,
+        )
+    docstring = docstring.strip()
+
+    source_name = comment_dict_object.source
+    source = None
+    if source_name not in _SOURCES:  # actual name of source
+        for possible_source in sources:
+            if possible_source.name == source_name:
+                source = possible_source
+    else:  # source type, e.g. snowflake
+        for possible_source in sources:
+            source_type = None if source_name is None else _SOURCES.get(source_name)
+            if source_type is not None and isinstance(possible_source, source_type):
+                if possible_source.name in _SOURCES:
+                    source = possible_source
+                    break
+                if source:
+                    message = (
+                        f"SQL file resolver refers to '{source_name}' when more than one {source_name}-type source "
+                        f"exists. Instead, refer to the integration by name among "
+                        f"({[source.name for source in sources]})."
+                    )
+                    error_builder.add_diagnostic(
+                        message=message,
+                        code="149",
+                        label="Refer to source via name instead",
+                        range=error_builder.comment_range_by_key("source"),
+                    )
+                    errors.append(
+                        ResolverError(
+                            display=message,
+                            path=path,
+                            parameter=source_name,
+                        )
+                    )
+                source = possible_source
+    if source is None:
+        message = (
+            f"SQL file resolver refers to unrecognized source '{source_name}'. "
+            f"Please refer to your source via its name on your Chalk dashboard, "
+            f"and make sure the driver, e.g. chalkpy[snowflake], is installed. "
+            f"You will need to instantiate your source somewhere in Python, e.g. "
+            f"`source = SnowflakeSource(name='{source_name}')` if it's a Snowflake source."
+        )
+        error_builder.add_diagnostic(
+            message=message,
+            code="150",
+            label="Source not found",
+            range=error_builder.comment_range_by_key("source"),
+        )
+        errors.append(
+            ResolverError(
+                display=message,
+                path=path,
+                parameter=source_name,
+            )
+        )
+    if errors:
+        return GlotResult(
+            sql_string=sql_string,
+            glot=None,
+            args=args,
+            default_args=default_args,
+            comment_dict=comment_dict_object,
+            docstring=docstring,
+            errors=errors,
+            source=None,
+        )
+    assert source is not None, "unrecognized source should be handled by now"
+
+    # Skip SQL validation if the flag is set
+    if comment_dict_object.skip_sql_validation:
+        return GlotResult(
+            sql_string=sql_string,
+            glot=None,
+            args=args,
+            default_args=default_args,
+            comment_dict=comment_dict_object,
+            docstring=docstring,
+            errors=errors,
+            source=source,
+        )
+
+    source_dialect_string = source.get_sqlglot_dialect()
+    try:
+        glots = sqlglot.parse(sql=sql_string, read=source_dialect_string)
+    except Exception as e:
+        message = f"SQL file resolver could not SQL parse string: {e}"
+        if isinstance(e, sqlglot.errors.ParseError):
+            for error in e.errors:
+                error_builder.add_diagnostic(
+                    message=message,
+                    code="146",
+                    label="could not parse SQL",
+                    range=error_builder.custom_range(
+                        line_no=error["line"],
+                        col=error["col"] - 2,
+                        length=len(error["highlight"]),  # ????
+                    ),
+                )
+        errors.append(ResolverError(display=message, path=path, parameter=None))
+        return GlotResult(
+            sql_string=sql_string,
+            glot=None,
+            args=args,
+            default_args=default_args,
+            comment_dict=comment_dict_object,
+            docstring=docstring,
+            errors=errors,
+            source=source,
+        )
+    if len(glots) > 1:
+        message = f"SQL file resolver query {sql_string} has more than one 'SELECT' statements. Only one is permitted."
+        error_builder.add_diagnostic(
+            message=message,
+            code="147",
+            label="SQL query must be a single SELECT statement",
+            range=error_builder.sql_range(),
+        )
+        errors.append(ResolverError(display=message, path=path, parameter=None))
+        return GlotResult(
+            sql_string=sql_string,
+            glot=None,
+            args=args,
+            default_args=default_args,
+            comment_dict=comment_dict_object,
+            docstring=docstring,
+            errors=errors,
+            source=source,
+        )
+    glot = glots[0]
+    if not isinstance(glot, (sqlglot.expressions.Select, sqlglot.expressions.Union)):
+        message = f"SQL file resolver query {sql_string} should be of 'SELECT' type"
+        error_builder.add_diagnostic(
+            message=message,
+            code="147",
+            label="SQL query must be a SELECT statement",
+            range=error_builder.sql_range(),
+        )
+        errors.append(ResolverError(display=message, path=path, parameter=None))
+        return GlotResult(
+            sql_string=sql_string,
+            glot=None,
+            args=args,
+            default_args=default_args,
+            comment_dict=comment_dict_object,
+            docstring=docstring,
+            errors=errors,
+            source=source,
+        )
+    if len(glot.selects) > len(glot.named_selects):
+        for select in glot.selects:
+            matched = False
+            for named_select in glot.named_selects:
+                if select.alias_or_name == named_select:
+                    matched = True
+            if not matched:
+                message = (
+                    f"SQL file resolver query with unnamed select '{str(select)}'. "
+                    f"All selects must either match a feature name, e.g. 'id', or must be aliased, e.g. "
+                    f"'SELECT COUNT (DISTINCT merchant_id) AS num_unique_merchant_ids. "
+                    f"All names/aliases must match to features on the feature set defined "
+                    f"by the 'resolves' comment parameter. "
+                )
+                error_builder.add_diagnostic(
+                    message=message,
+                    code="148",
+                    label="all selects must map to features",
+                    range=error_builder.value_range_by_name(glot=glot, name=str(select).lower()),
+                )
+                errors.append(
+                    ResolverError(
+                        display=message,
+                        path=path,
+                        parameter=None,
+                    )
+                )
+    return GlotResult(
+        sql_string=sql_string,
+        glot=glot,
+        args=args,
+        default_args=default_args,
+        comment_dict=comment_dict_object,
+        docstring=docstring,
+        errors=errors,
+        source=source,
+    )
+
+
+def _parse_glot(
+    glot_result: GlotResult,
+    path: str,
+    error_builder: SQLFileResolverErrorBuilder,
+) -> ParseResult:
+    """Parse useful info from sqlglot and gracefully exit if unable to"""
+    try:
+        import sqlglot
+        import sqlglot.expressions
+    except ImportError:
+        raise missing_dependency_exception("chalkpy[runtime]")
+    # define a source SQL database. Can either specify name or kind if only one of the kind is present.
+    comment_dict = glot_result.comment_dict
+    assert comment_dict is not None, "comment dict failed to parse"
+    docstring = glot_result.docstring
+    source = glot_result.source
+    errors: List[ResolverError] = []
+    # get resolver fields: which columns selected will match to which chalk feature?
+    assert comment_dict.resolves is not None, "comment dict failed to parse"
+    namespace = build_namespaced_name(namespace=comment_dict.namespace, name=to_snake_case(comment_dict.resolves))
+    if namespace not in CURRENT_FEATURE_REGISTRY.get().get_feature_sets():
+        message = f"No @features class with the name '{namespace}'"
+        error_builder.add_diagnostic(
+            message=message,
+            code="151",
+            label="Unrecognized namespace ",
+            range=error_builder.comment_range_by_key("resolves"),
+        )
+        errors.append(ResolverError(display=message, path=path, parameter=namespace))
+
+    stripped_sql = _remove_comments(glot_result.sql_string)
+    lineage: DataLineageResult | None = None
+    if env_var_bool("CHALK_SQL_RESOLVER_PARSE_LINEAGE", True):
+        lineage = _get_data_lineage(stripped_sql)
+    # FIXME: @melrchen: need to make a name for unnamed datasources
+    source_name = glot_result.source.name or "" if glot_result.source is not None else ""
+    namespaced_lineage = (
+        {
+            table: {f"{namespace}.{feature}": columns for feature, columns in features.items()}
+            for table, features in lineage.items()
+        }
+        if lineage
+        else None
+    )
+    data_lineage_with_source = {source_name: namespaced_lineage} if namespaced_lineage else None
+
+    if len(errors) > 0:
+        return ParseResult(
+            sql_string=glot_result.sql_string,
+            comment_dict=comment_dict,
+            fields={},
+            namespace=namespace,
+            source=source,
+            docstring=docstring,
+            data_lineage=data_lineage_with_source,
+            errors=errors,
+        )
+
+    # If SQL validation was skipped, we need to use the fields from comment_dict
+    if glot_result.glot is None:
+        # When validation is skipped, fields must be explicitly provided
+        if comment_dict.fields is not None:
+            fields: Dict[str, str] = {
+                variable: f"{namespace}.{output}" if "." not in output else output
+                for variable, output in comment_dict.fields.items()
+            }
+        else:
+            fields = {}
+    else:
+        assert isinstance(
+            glot_result.glot, (sqlglot.expressions.Select, sqlglot.expressions.Union)
+        ), f"glot {glot_result.glot} is not a select or union statement"
+        # sql target -> output feature string
+        output_columns = _get_output_columns_from_glot(glot_result.glot, cte_queries={})
+        fields = {column_name: f"{namespace}.{column_name}" for column_name in output_columns}
+
+    return ParseResult(
+        sql_string=glot_result.sql_string,
+        comment_dict=comment_dict,
+        fields=fields,
+        namespace=namespace,
+        source=source,
+        docstring=docstring,
+        data_lineage=data_lineage_with_source,
+        errors=errors,
+    )
+
+
+def _get_output_columns_from_glot(
+    glot: sqlglot.expressions.Select | sqlglot.expressions.Union,
+    cte_queries: Dict[str, _CTEProjection],
+) -> List[str]:
+    """Return the final output column names, expanding wildcard selects when their source query is knowable."""
+    import sqlglot.expressions
+
+    merged_cte_queries = {**cte_queries, **_get_cte_queries(glot)}
+    if isinstance(glot, sqlglot.expressions.Union):
+        return list(glot.named_selects)
+
+    named_selects = list(glot.named_selects)
+    output_columns: List[str] = []
+    for index, select_expr in enumerate(glot.selects):
+        column_name = named_selects[index]
+        if column_name.endswith("*"):
+            resolved_columns = _resolve_wildcard_select(
+                select_expr=select_expr,
+                select_glot=glot,
+                cte_queries=merged_cte_queries,
+            )
+            output_columns.extend(resolved_columns or [column_name])
+            continue
+        output_columns.append(column_name)
+    return output_columns
+
+
+@dataclasses.dataclass(frozen=True)
+class _CTEProjection:
+    query: sqlglot.expressions.Select | sqlglot.expressions.Union
+    output_aliases: Optional[List[str]] = None
+
+
+def _get_cte_queries(
+    glot: sqlglot.expressions.Select | sqlglot.expressions.Union,
+) -> Dict[str, _CTEProjection]:
+    """Collect the CTE query bodies defined on this query node.
+    Example:
+        WITH table AS (SELECT id, name FROM burritos_table) --> cte_queries: {table: <Select query expr>}
+    """
+    cte_queries: Dict[str, _CTEProjection] = {}
+    with_clause = glot.args.get("with")
+    if with_clause is None:
+        return cte_queries
+
+    for cte in with_clause.expressions:
+        query_expr = _as_query_expression_or_none(cte.this)
+        if query_expr is None:
+            # Some valid CTE bodies (for example VALUES clauses) are not SELECT/UNION queries.
+            # We only need CTE entries that we can recurse into for wildcard expansion, so skip
+            # unsupported bodies instead of crashing parsing for queries that do not use them.
+            continue
+        cte_queries[cte.alias_or_name] = _CTEProjection(query=query_expr, output_aliases=_get_cte_output_aliases(cte))
+    return cte_queries
+
+
+def _get_cte_output_aliases(cte: sqlglot.expressions.Expression) -> Optional[List[str]]:
+    """Return declared CTE column aliases from `WITH cte(col1, col2) AS (...)`."""
+    alias = cte.args.get("alias")
+    if alias is None:
+        return None
+
+    columns = alias.args.get("columns") or []
+    names = [col.name for col in columns if getattr(col, "name", None)]
+    return names or None
+
+
+def _resolve_wildcard_select(
+    *,
+    select_expr: sqlglot.expressions.Expression,
+    select_glot: sqlglot.expressions.Select,
+    cte_queries: Dict[str, _CTEProjection],
+) -> Optional[List[str]]:
+    """Resolve `*` or `alias.*` to concrete column names when it points at a visible CTE or subquery."""
+    qualifier = _get_wildcard_qualifier(select_expr)
+    sources = _get_select_sources(select_glot)
+
+    source_expr: sqlglot.expressions.Expression | None
+    if qualifier is None:
+        if len(sources) != 1:
+            # occurs for SELECT * FROM a, b or SELECT * FROM a JOIN b.
+            # Unfortunately, when there are multiple sources, it become hard to guarantee unique column names
+            # so we should default to the old behavior of returning *
+            return None
+        source_expr = next(iter(sources.values()))
+    else:
+        source_expr = sources.get(qualifier)
+        if source_expr is None:  # if somehow the qualifier is not one of the sources, exit
+            return None
+
+    projection = _get_projection_for_source(source_expr=source_expr, cte_queries=cte_queries)
+    if projection is None:
+        # occurs for SELECT * FROM table where table is not a CTE, in which case we want to just return all names
+        return None
+
+    if projection.output_aliases is not None:
+        return projection.output_aliases
+
+    return _get_output_columns_from_glot(projection.query, cte_queries=cte_queries)
+
+
+def _get_wildcard_qualifier(select_expr: sqlglot.expressions.Expression) -> Optional[str]:
+    """Return the qualifier from `alias.*`; plain `*` has no qualifier."""
+    import sqlglot.expressions
+
+    if isinstance(select_expr, sqlglot.expressions.Star):
+        return None
+
+    if isinstance(select_expr, sqlglot.expressions.Column) and isinstance(select_expr.this, sqlglot.expressions.Star):
+        table = select_expr.args.get("table")
+        if table is not None:
+            return table.name
+
+
+def _get_select_sources(select_glot: sqlglot.expressions.Select) -> Dict[str, sqlglot.expressions.Expression]:
+    """Map each FROM/JOIN source name or alias to the corresponding sqlglot source expression.
+    Finds from and join clauses and calls _add_source_names to create the dict."""
+    sources: Dict[str, sqlglot.expressions.Expression] = {}
+
+    from_clause = select_glot.args.get("from")
+    if from_clause is not None and from_clause.this is not None:
+        _add_source_names(sources=sources, source_expr=from_clause.this)
+
+    for join in select_glot.args.get("joins") or []:
+        if join.this is not None:
+            _add_source_names(sources=sources, source_expr=join.this)
+
+    return sources
+
+
+def _add_source_names(
+    *,
+    sources: Dict[str, sqlglot.expressions.Expression],
+    source_expr: sqlglot.expressions.Expression,
+) -> None:
+    """Register every usable name for a source expression, including aliases.
+    Example:
+
+    SELECT agg.*
+    FROM aggregated AS agg
+    JOIN extras AS ex ON agg.id = ex.id
+        |
+        |
+        v
+    {
+        "agg": <Table aggregated AS agg>,
+        "aggregated": <Table aggregated AS agg>,
+        "ex": <Table extras AS ex>,
+        "extras": <Table extras AS ex>,
+    }
+    source_name:source_expr
+    """
+    names = [source_expr.alias_or_name]
+    source_name = getattr(source_expr, "name", None)
+    if source_name:
+        names.append(source_name)
+
+    for name in names:
+        if name:
+            sources[name] = source_expr
+
+
+def _get_projection_for_source(
+    *,
+    source_expr: sqlglot.expressions.Expression,
+    cte_queries: Dict[str, _CTEProjection],
+) -> Optional[_CTEProjection]:
+    """Return the query represented by a source node if it is a subquery or a visible CTE reference.
+    Example:
+        WITH table AS (SELECT id, name FROM burritos_table)
+        SELECT * FROM table
+    At this stage, the CTE is already stored in cte_queries as {table: _CTEProjection(query=<Select query>, output_aliases=...)}.
+    The from in the base query is table which is of type sqlglot.expressions.Table. In this case, we
+    query the cte_queries dict to get the source expression."""
+    import sqlglot.expressions
+
+    if isinstance(source_expr, sqlglot.expressions.Subquery):
+        inner_expr = source_expr.this
+        if isinstance(inner_expr, (sqlglot.expressions.Select, sqlglot.expressions.Union)):
+            return _CTEProjection(query=inner_expr)
+
+    if isinstance(source_expr, sqlglot.expressions.Table):
+        return cte_queries.get(source_expr.name)
+
+    return None
+
+
+def _as_query_expression_or_none(
+    expr: sqlglot.expressions.Expression,
+) -> Optional[sqlglot.expressions.Select | sqlglot.expressions.Union]:
+    """Unwrap a CTE body to its underlying SELECT or UNION query or subquery."""
+    import sqlglot.expressions
+
+    if isinstance(expr, (sqlglot.expressions.Select, sqlglot.expressions.Union)):
+        return expr
+
+    if isinstance(expr, sqlglot.expressions.Subquery):
+        inner_expr = expr.this
+        if isinstance(inner_expr, (sqlglot.expressions.Select, sqlglot.expressions.Union)):
+            return inner_expr
+
+    return None
+
+
+def _get_stream_resolver(
+    path: str,
+    glot_result: GlotResult,
+    parsed: ParseResult,
+    outputs: List[Feature],
+    error_builder: SQLFileResolverErrorBuilder,
+) -> ResolverResult:
+    errors = []
+    output_features = Features[DataFrame[tuple(outputs)]]
+
+    if isinstance(output_features.features[0], type) and issubclass(output_features.features[0], DataFrame):
+        output_feature_fqns = set(f.fqn for f in cast(Type[DataFrame], output_features.features[0]).columns)
+    else:
+        output_feature_fqns = set(f.fqn for f in output_features.features)
+
+    signature = StreamResolverSignature(
+        params=[],
+        output_feature_fqns=output_feature_fqns,
+    )
+
+    sql_query: str = _remove_comments(parsed.sql_string)
+    filename = os.path.basename(path)
+    try:
+
+        def fn():
+            return sql_query
+
+        # attempt to instantiate the resolver
+        resolver = StreamResolver(
+            function_definition=sql_query,
+            fqn=filename.replace(CHALK_SQL_FILE_RESOLVER_FILENAME_SUFFIX, ""),
+            filename=path,
+            source=cast(StreamSource, parsed.source),
+            fn=fn,
+            environment=parsed.comment_dict.environment,
+            doc=parsed.docstring,
+            mode=None,
+            machine_type=parsed.comment_dict.machine_type,
+            message=None,
+            output=output_features,
+            signature=signature,
+            sql_query=sql_query,
+            owner=parsed.comment_dict.owner,
+            parse=None,
+            keys=None,  # TODO implement parse and keys for sql file resolvers?
+            timestamp=None,
+            source_line=None,
+            tags=None,
+            lsp_builder=get_resolver_error_builder(fn),
+            autogenerated=False,
+            updates_materialized_aggregations=True,
+            sql_settings=None,
+            feature_expressions=None,
+            message_producer_parsed=None,
+        )
+    except Exception as e:
+        message = f"Streaming SQL file resolver could not be instantiated, {e}"
+        error_builder.add_diagnostic(
+            message=message,
+            code="141",
+            label="resolver instantiation failed",
+            range=error_builder.full_range(),
+        )
+        errors.append(
+            ResolverError(
+                display=message,
+                path=path,
+                parameter=None,
+            )
+        )
+        return ResolverResult(resolver=None, errors=errors, db=parsed.source, fields=None, args=None)
+
+    return ResolverResult(
+        resolver=resolver,
+        errors=errors,
+        db=parsed.source,
+        fields=parsed.fields,
+        args=glot_result.args,
+    )
+
+
+def _validate_feature_strings_in_comments(
+    feature_strings: list[str],
+    error_builder: SQLFileResolverErrorBuilder,
+    namespace: str,
+    path: str,
+    errors: list[ResolverError],
+    outputs: list[Feature],
+    arg_name: str,
+) -> tuple[Feature, ...]:
+    feature_list: list[Feature] = []
+    for f in feature_strings:
+        feature = None
+        try:
+            feature = Feature.from_root_fqn(f)
+        except:
+            if "." not in f:
+                reconstructed_fqn = f"{namespace}.{f}"
+                try:
+                    feature = Feature.from_root_fqn(reconstructed_fqn)
+                except:
+                    pass
+        if feature is None:
+            message = f"SQL file resolver {path} references a 'unique_on' feature '{f}' which does not exist."
+
+            error_builder.add_diagnostic_with_spellcheck(
+                spellcheck_item=f,
+                spellcheck_candidates=[
+                    feature.fqn
+                    for feature in CURRENT_FEATURE_REGISTRY.get()
+                    .get_feature_sets()[build_namespaced_name(name=namespace)]
+                    .features
+                ],
+                message=message,
+                code="153a",
+                label="output feature not recognized",
+                range=error_builder.comment_range_by_key(arg_name),
+            )
+            errors.append(
+                ResolverError(
+                    display=message,
+                    path=path,
+                    parameter=f,
+                )
+            )
+            continue
+
+        if feature not in outputs:
+            message = (
+                f"SQL file resolver {path} references a '{arg_name}' feature '{f}' which is not an output feature."
+            )
+            error_builder.add_diagnostic(
+                message=message,
+                code="153b",
+                label=f"{arg_name} feature not in outputs",
+                range=error_builder.comment_range_by_key(arg_name),
+            )
+            errors.append(
+                ResolverError(
+                    display=message,
+                    path=path,
+                    parameter=f,
+                )
+            )
+        elif feature in feature_list:
+            message = f"SQL file resolver {path} references '{arg_name}' feature '{f}' multiple times."
+            error_builder.add_diagnostic(
+                message=message,
+                code="153b",
+                label=f"{arg_name} feature stated multiple times",
+                range=error_builder.comment_range_by_key(arg_name),
+            )
+            errors.append(
+                ResolverError(
+                    display=message,
+                    path=path,
+                    parameter=f,
+                )
+            )
+        else:
+            feature_list.append(feature)
+    return tuple(feature_list)
+
+
+def _remove_comments(sql_string: str) -> str:
+    sql_string = re.sub(
+        re.compile("/\\*.*?\\*/", re.DOTALL), "", sql_string
+    )  # remove all occurrences streamed comments (/*COMMENT */) from string
+    sql_string = re.sub(
+        re.compile("//.*?\n"), "", sql_string
+    )  # remove all occurrence single-line comments (//COMMENT\n ) from string
+    sql_string = re.sub(
+        re.compile("--.*?\n"), "", sql_string
+    )  # remove all occurrence single-line comments (//COMMENT\n ) from string
+    return sql_string.strip()
+
+
+def count_colons(s: str) -> int:
+    count = 0
+    inside_single_quotes = False
+    inside_double_quotes = False
+
+    for char in s:
+        if char == '"':
+            inside_double_quotes = not inside_double_quotes
+        elif char == "'":
+            inside_single_quotes = not inside_single_quotes
+        elif char == ":" and not inside_single_quotes and not inside_double_quotes:
+            count += 1
+    return count
+
+
+@dataclasses.dataclass(frozen=True)
+class GeneratedSQLFileResolverInfo:
+    filepath: str
+    sql_string: str
+    comment_dict: CommentDict
+    postprocessing_expr: Underscore | None
+
+
+class GeneratedSQLFileResolverRegistry:
+    def __init__(self):
+        super().__init__()
+        self.resolver_name_to_generated_infos: Dict[str, GeneratedSQLFileResolverInfo] = {}
+
+    def add_sql_file_resolver(
+        self,
+        name: str,
+        filepath: str,
+        sql_string: str,
+        comment_dict: CommentDict,
+        postprocessing_expr: Underscore | None = None,
+    ):
+        if name in self.resolver_name_to_generated_infos and filepath != "<notebook>":
+            raise ValueError(f"A SQL file resolver already exists with name '{name}'. They must have unique names.")
+        self.resolver_name_to_generated_infos[name] = GeneratedSQLFileResolverInfo(
+            filepath=filepath, sql_string=sql_string, comment_dict=comment_dict, postprocessing_expr=postprocessing_expr
+        )
+
+    def get_generated_sql_file_resolvers(self, filter_by_directory: Path | None = None) -> Iterable[SQLStringResult]:
+        """
+        Yield generated SQL file resolvers, optionally filtered by directory.
+
+        Args:
+            filter_by_directory: If provided, only yield resolvers whose filepath is under this directory.
+                                 If `None`, yield all generated resolvers (legacy behavior).
+        """
+        for name, generated_info in self.resolver_name_to_generated_infos.items():
+            # If filtering by directory is requested, check if the resolver's filepath is under that directory
+            if filter_by_directory is not None:
+                # Special case: notebook resolvers (filepath == "<notebook>") should never be auto-yielded
+                # when scanning directories, only when explicitly requested
+                if generated_info.filepath == "<notebook>":
+                    continue
+
+                # Convert to absolute paths for comparison and check if resolver path is under filter directory
+                resolver_path = Path(generated_info.filepath).resolve()
+                filter_path = Path(filter_by_directory).resolve()
+
+                if not resolver_path.is_relative_to(filter_path):
+                    continue
+
+            yield SQLStringResult(
+                path=generated_info.filepath,
+                sql_string=generated_info.sql_string,
+                error=None,
+                override_comment_dict=generated_info.comment_dict,
+                override_name=name,
+                autogenerated=True,
+                postprocessing_expr=generated_info.postprocessing_expr,
+            )
+
+    def pop_generated_sql_file_resolver(self, name: str) -> Optional["SQLStringResult"]:
+        """Remove and return a single generated resolver by name, or None if not found."""
+        generated_info = self.resolver_name_to_generated_infos.pop(name, None)
+        if generated_info is None:
+            return None
+        return SQLStringResult(
+            path=generated_info.filepath,
+            sql_string=generated_info.sql_string,
+            error=None,
+            override_comment_dict=generated_info.comment_dict,
+            override_name=name,
+            autogenerated=True,
+            postprocessing_expr=generated_info.postprocessing_expr,
+        )
+
+
+_GENERATED_SQL_FILE_RESOLVER_REGISTRY = GeneratedSQLFileResolverRegistry()
+
+# name --> resolver
+NOTEBOOK_DEFINED_SQL_RESOLVERS: Dict[str, ResolverResult] = {}
+
+
+def make_sql_file_resolver(
+    name: str,
+    sql: str,
+    source: str | BaseSQLSourceProtocol | None = None,
+    resolves: str | Any | None = None,
+    kind: Literal["online", "offline", "streaming"] | None = None,
+    incremental: IncrementalSettings | None = None,
+    count: Literal[1, "one", "one_or_none", "all"] | None = None,
+    timeout: Duration | None = None,
+    cron: CronTab | Duration | Cron | None = None,
+    owner: str | None = None,
+    machine_type: MachineType | None = None,
+    fields: dict[str, str | FeatureReference] | None = None,
+    field_types: dict[str, str] | None = None,
+    environment: Environments | None = None,
+    tags: Tags | None = None,
+    unique_on: Collection[FeatureReference] | None = None,
+    partitioned_by: Collection[Any] | None = None,
+    total: Optional[bool] = None,
+    skip_sql_validation: Optional[bool] = None,
+    postprocessing_expression: Optional[Underscore] = None,
+    handle_duplicate_outputs: Optional[str] = None,
+):
+    """Generate a Chalk SQL file resolver from a filepath and a sql string.
+    This will generate a resolver in your web dashboard that can be queried,
+    but will not output a `.chalk.sql` file.
+
+    The optional parameters are overrides for the comment key-value pairs
+    at the top of the sql file resolver. Comment key-value pairs specify
+    important resolver information such as the source, feature namespace
+    to resolve, and other details.
+    Note that these will override any values specified in the sql string.
+    See https://docs.chalk.ai/docs/sql#configuration for more information.
+
+    See https://docs.chalk.ai/docs/sql#sql-file-resolvers for more information
+    on SQL file resolvers.
+
+    Parameters
+    ----------
+    name
+        The name of your resolver
+    sql
+        The sql string for your query.
+    kind
+        The type of resolver.
+        If not specified, defaults to "online".
+    source
+        Can either be a BaseSQLSource or a string.
+        If a string is provided, it will be used to infer the source by
+        first scanning for a source with the same name, then inferring
+        the source if it is a type, e.g. `snowflake` if there is only
+        one database of that type. Optional if `source` is specified in `sql`.
+    resolves
+        Describes the feature namespace to which the outputs belong.
+        Optional if `resolves` is specified in `sql`.
+
+    Other Parameters
+    ----------------
+    incremental
+        Parameters for incremental queries.
+        For more information, see https://docs.chalk.ai/docs/sql#incremental-queries.
+    count
+        If set to `one`, the resolver will return only one row.
+        If set to `one_or_none`, the resolver will return at most one row.
+        If set to `all`, the resolver will return all rows
+    timeout
+        You can specify the maximum duration to wait for the
+        resolver's result. Once the resolver's runtime exceeds
+        the specified duration, a timeout error will be returned
+        along with each output feature.
+
+        Please use supported Chalk durations
+        'w', 'd', 'h', 'm', 's', and/or 'ms'.
+
+        Read more at https://docs.chalk.ai/docs/timeout and https://docs.chalk.ai/api-docs#Duration
+    cron
+        You can schedule resolvers to run on a pre-determined
+        schedule via the cron argument to resolver decorators.
+
+        Cron can sample all examples, a subset of all examples,
+        or a custom provided set of examples.
+
+        Read more at https://docs.chalk.ai/docs/resolver-cron
+    environment
+        Environments are used to trigger behavior
+        in different deployments such as staging, production, and
+        local development. For example, you may wish to interact with
+        a vendor via an API call in the production environment, and
+        opt to return a constant value in a staging environment.
+
+        Environment can take one of three types:
+            - `None` (default) - candidate to run in every environment
+            - `str` - run only in this environment
+            - `list[str]` - run in any of the specified environment and no others
+
+        Read more at https://docs.chalk.ai/docs/resolver-environments
+    tags
+        Allow you to scope requests within an
+        environment. Both tags and environment need to match for a
+        resolver to be a candidate to execute.
+
+        You might consider using tags, for example, to change out
+        whether you want to use a sandbox environment for a vendor,
+        or to bypass the vendor and return constant values in a
+        staging environment.
+
+        Read more at https://docs.chalk.ai/docs/resolver-tags
+    owner
+        Individual or team responsible for this resolver.
+        The Chalk Dashboard will display this field, and alerts
+        can be routed to owners.
+    machine_type
+        You can optionally specify that resolvers need to run on
+        a machine other than the default. Must be configured in
+        your deployment.
+    fields
+        An optional mapping from SQL column to Chalk feature.
+        For example, let's say we have a Chalk feature class 'Transaction' with a primary key 'id'.
+        If we have a SQL query like `SELECT txn_id from transactions`,
+        we can map the `txn_id` to our Chalk feature with the mapping
+        `txn_id: id`.
+    field_types
+        An optional mapping from SQL column to database-specific type.
+        Used to generate CAST expressions for query parameters to ensure proper type matching.
+        For example, `field_types={"user_id": "uuid"}` will wrap parameters for the `user_id`
+        column with `CAST($1 AS uuid)` in PostgreSQL or `CAST(? AS uuid)` in MySQL.
+        This is particularly useful for database types that don't auto-cast from text,
+        such as PostgreSQL's UUID, INET, or MySQL's BINARY types.
+    unique_on
+        A list of features that must be unique for each row of the output.
+        This enables unique optimizations in the resolver execution.
+        Only applicable to resolvers that return a DataFrame.
+    partitioned_by
+        A list of features that correspond to partition keys in the data source.
+        This field indicates that this resolver executes its query against a data storage system that is
+        partitioned by a particular set of columns.
+        This is most common with data-warehouse sources like Snowflake, BigQuery or Databricks.
+    total
+        Whether this resolver returns all ids of a given namespace. To have this annotation, the resolver must
+        take no arguments and return a DataFrame.
+    skip_sql_validation
+        If set to `True`, skips sqlglot validation of the SQL query. This is useful when the SQL contains
+        database-specific syntax that sqlglot cannot parse. When validation is skipped, you must provide
+        the `fields` parameter to explicitly map SQL columns to Chalk features.
+    handle_duplicate_outputs
+        Controls how this resolver handles duplicate primary-key rows in its output.
+        Overrides the server-wide ``DEFAULT_HANDLE_DUPLICATE_OUTPUTS`` setting for this resolver only.
+
+        Accepted values:
+
+        - ``"skip_validation"`` — do not check for duplicates.
+        - ``"dedup_any"`` — deduplicate by selecting one row and dropping all others silently.
+        - ``"error"`` — raise an error if any primary-key value appears more than once.
+
+        If ``None`` (the default), the server-wide default is used.
+
+
+    Examples
+    --------
+    >>> from chalk import make_sql_file_resolver
+    >>> from chalk.features import features
+    >>> @features
+    ... class User:
+    ...     id: int
+    ...     name: str
+    >>> make_sql_file_resolver(
+    ...     name="my_resolver",
+    ...     sql="SELECT user_id as id, name FROM users",
+    ...     source="snowflake",
+    ...     resolves=User,
+    ...     kind="offline",
+    ... )
+    """
+    if name.endswith(CHALK_SQL_FILE_RESOLVER_FILENAME_SUFFIX):
+        name = name.replace(CHALK_SQL_FILE_RESOLVER_FILENAME_SUFFIX, "")
+    filename = None
+    frame = inspect.currentframe()
+    assert frame is not None, "Failed to get current frame"
+    caller_frame = frame.f_back
+    assert caller_frame is not None, "Failed to get caller frame"
+    filename = caller_frame.f_code.co_filename
+    del frame
+    is_defined_in_notebook: bool = False
+    if notebook.is_notebook():
+        module = inspect.getmodule(caller_frame)
+        if module is not None:
+            filename = module.__name__
+        else:
+            filename = "<notebook>"
+            is_defined_in_notebook = True
+
+    comment_dict = CommentDict(
+        source=source if isinstance(source, str) or source is None else source.name,
+        resolves=str(resolves) if resolves is not None else None,
+        type=kind,
+        incremental=incremental and _convert_incremental_settings(incremental),
+        count=count,
+        timeout=(
+            timeout
+            if timeout is None
+            else timedelta_to_duration(timeout) if isinstance(timeout, timedelta) else timeout
+        ),
+        cron=cron,
+        owner=owner,
+        fields=None if fields is None else {k: str(v) for k, v in fields.items()},
+        field_types=None if field_types is None else {k: str(v) for k, v in field_types.items()},
+        environment=(
+            None if environment is None else [environment] if isinstance(environment, str) else list(environment)
+        ),
+        tags=None if tags is None else [tags] if isinstance(tags, str) else list(tags),
+        total=total,
+        namespace=None,
+        machine_type=machine_type,
+        unique_on=[str(f) for f in unique_on] if unique_on is not None else None,
+        partitioned_by=[str(f) for f in partitioned_by] if partitioned_by is not None else None,
+        skip_sql_validation=skip_sql_validation,
+        handle_duplicate_outputs=handle_duplicate_outputs,
+    )
+    _GENERATED_SQL_FILE_RESOLVER_REGISTRY.add_sql_file_resolver(
+        filepath=filename,
+        sql_string=sql,
+        comment_dict=comment_dict,
+        name=name,
+        postprocessing_expr=postprocessing_expression,
+    )
+    if is_defined_in_notebook:
+        from chalk.sql import SQLSourceGroup
+
+        current_sql_sources: List[BaseSQLSource | SQLSourceGroup] = [
+            *BaseSQLSource.registry,
+            *SQLSourceGroup.registry,
+        ]
+        if isinstance(source, str):
+            source_names = {s.name for s in current_sql_sources}
+            if source not in _SOURCES:
+                if source not in source_names:
+                    msg = f"Unable to create SQL resolver '{name}' since a SQL source with the name '{source}' was not found. Please make sure the SQL source exists & is imported in the current environment."
+                    if len(source_names) <= 10:
+                        msg += f" Currently loaded SQL sources: {source_names}"
+                    raise RuntimeError(msg)
+            else:
+                source_type = _SOURCES[source]
+                possible_sources = [s for s in current_sql_sources if isinstance(s, source_type)]
+                if len(possible_sources) == 0:
+                    msg = f"Unable to create SQL resolver '{name}' since no SQL sources of type '{source}' were found. Please make sure the SQL source exists & is imported in the current environment."
+                    if len(source_names) <= 10:
+                        msg += f" Currently loaded SQL sources: {source_names}"
+                    raise RuntimeError(msg)
+                elif len(possible_sources) > 1:
+                    msg = f"Unable to create SQL resolver '{name}' since multiple SQL sources of type '{source}' were found: {[x.name for x in possible_sources]} Please refer to the SQL source by name (e.g. '{possible_sources[0].name}') instead of by type."
+                    raise RuntimeError(msg)
+
+        generated_info = _GENERATED_SQL_FILE_RESOLVER_REGISTRY.resolver_name_to_generated_infos[name]
+        info = SQLStringResult(
+            path=generated_info.filepath,
+            sql_string=generated_info.sql_string,
+            error=None,
+            override_comment_dict=generated_info.comment_dict,
+            override_name=name,
+            autogenerated=True,
+            postprocessing_expr=postprocessing_expression,
+        )
+        resolver_result = get_sql_file_resolver(
+            sources=current_sql_sources, sql_string_result=info, has_import_errors=False
+        )
+        if resolver_result.errors:
+            errs = [e.display for e in resolver_result.errors]
+            err_message = "\n".join(errs)
+            raise RuntimeError(
+                f"Failed to parse notebook-defined SQL resolver '{name}'. Found the following errors:\n{err_message}"
+            )
+        NOTEBOOK_DEFINED_SQL_RESOLVERS[name] = resolver_result
+        return resolver_result
+
+
+def _convert_incremental_settings(settings: IncrementalSettings) -> IncrementalSettingsSQLFileResolver:
+    return IncrementalSettingsSQLFileResolver(
+        incremental_column=settings.incremental_column,
+        lookback_period=(
+            timedelta_to_duration(settings.lookback_period) if settings.lookback_period is not None else None
+        ),
+        mode=settings.mode,
+        incremental_timestamp=settings.incremental_timestamp,
+    )
+
+
+def parse_finalizer(count: Literal[1, "one", "one_or_none", "all"] | None) -> Finalizer | None:
+    if count == 1 or count == "one":
+        return Finalizer.ONE
+    if count == "one_or_none":
+        return Finalizer.ONE_OR_NONE
+    if count == "all":
+        return Finalizer.ALL
+    return None

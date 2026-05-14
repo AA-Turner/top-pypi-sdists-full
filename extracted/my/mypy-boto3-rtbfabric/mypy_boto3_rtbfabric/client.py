@@ -27,6 +27,8 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListCertificateAssociationsPaginator,
+    ListLinkRoutingRulesPaginator,
     ListLinksPaginator,
     ListRequesterGatewaysPaginator,
     ListResponderGatewaysPaginator,
@@ -34,10 +36,14 @@ from .paginator import (
 from .type_defs import (
     AcceptLinkRequestTypeDef,
     AcceptLinkResponseTypeDef,
+    AssociateCertificateRequestTypeDef,
+    AssociateCertificateResponseTypeDef,
     CreateInboundExternalLinkRequestTypeDef,
     CreateInboundExternalLinkResponseTypeDef,
     CreateLinkRequestTypeDef,
     CreateLinkResponseTypeDef,
+    CreateLinkRoutingRuleRequestTypeDef,
+    CreateLinkRoutingRuleResponseTypeDef,
     CreateOutboundExternalLinkRequestTypeDef,
     CreateOutboundExternalLinkResponseTypeDef,
     CreateRequesterGatewayRequestTypeDef,
@@ -48,22 +54,34 @@ from .type_defs import (
     DeleteInboundExternalLinkResponseTypeDef,
     DeleteLinkRequestTypeDef,
     DeleteLinkResponseTypeDef,
+    DeleteLinkRoutingRuleRequestTypeDef,
+    DeleteLinkRoutingRuleResponseTypeDef,
     DeleteOutboundExternalLinkRequestTypeDef,
     DeleteOutboundExternalLinkResponseTypeDef,
     DeleteRequesterGatewayRequestTypeDef,
     DeleteRequesterGatewayResponseTypeDef,
     DeleteResponderGatewayRequestTypeDef,
     DeleteResponderGatewayResponseTypeDef,
+    DisassociateCertificateRequestTypeDef,
+    DisassociateCertificateResponseTypeDef,
+    GetCertificateAssociationRequestTypeDef,
+    GetCertificateAssociationResponseTypeDef,
     GetInboundExternalLinkRequestTypeDef,
     GetInboundExternalLinkResponseTypeDef,
     GetLinkRequestTypeDef,
     GetLinkResponseTypeDef,
+    GetLinkRoutingRuleRequestTypeDef,
+    GetLinkRoutingRuleResponseTypeDef,
     GetOutboundExternalLinkRequestTypeDef,
     GetOutboundExternalLinkResponseTypeDef,
     GetRequesterGatewayRequestTypeDef,
     GetRequesterGatewayResponseTypeDef,
     GetResponderGatewayRequestTypeDef,
     GetResponderGatewayResponseTypeDef,
+    ListCertificateAssociationsRequestTypeDef,
+    ListCertificateAssociationsResponseTypeDef,
+    ListLinkRoutingRulesRequestTypeDef,
+    ListLinkRoutingRulesResponseTypeDef,
     ListLinksRequestTypeDef,
     ListLinksResponseTypeDef,
     ListRequesterGatewaysRequestTypeDef,
@@ -80,17 +98,23 @@ from .type_defs import (
     UpdateLinkModuleFlowResponseTypeDef,
     UpdateLinkRequestTypeDef,
     UpdateLinkResponseTypeDef,
+    UpdateLinkRoutingRuleRequestTypeDef,
+    UpdateLinkRoutingRuleResponseTypeDef,
     UpdateRequesterGatewayRequestTypeDef,
     UpdateRequesterGatewayResponseTypeDef,
     UpdateResponderGatewayRequestTypeDef,
     UpdateResponderGatewayResponseTypeDef,
 )
 from .waiter import (
+    CertificateAssociatedWaiter,
+    CertificateDisassociatedWaiter,
     InboundExternalLinkActiveWaiter,
     InboundExternalLinkDeletedWaiter,
     LinkAcceptedWaiter,
     LinkActiveWaiter,
     LinkDeletedWaiter,
+    LinkRoutingRuleActiveWaiter,
+    LinkRoutingRuleDeletedWaiter,
     OutboundExternalLinkActiveWaiter,
     OutboundExternalLinkDeletedWaiter,
     RequesterGatewayActiveWaiter,
@@ -162,6 +186,16 @@ class RTBFabricClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#accept_link)
         """
 
+    def associate_certificate(
+        self, **kwargs: Unpack[AssociateCertificateRequestTypeDef]
+    ) -> AssociateCertificateResponseTypeDef:
+        """
+        Associates an ACM certificate with a responder gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/associate_certificate.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#associate_certificate)
+        """
+
     def create_inbound_external_link(
         self, **kwargs: Unpack[CreateInboundExternalLinkRequestTypeDef]
     ) -> CreateInboundExternalLinkResponseTypeDef:
@@ -178,6 +212,16 @@ class RTBFabricClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/create_link.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#create_link)
+        """
+
+    def create_link_routing_rule(
+        self, **kwargs: Unpack[CreateLinkRoutingRuleRequestTypeDef]
+    ) -> CreateLinkRoutingRuleResponseTypeDef:
+        """
+        Creates a routing rule for a link.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/create_link_routing_rule.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#create_link_routing_rule)
         """
 
     def create_outbound_external_link(
@@ -228,6 +272,16 @@ class RTBFabricClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#delete_link)
         """
 
+    def delete_link_routing_rule(
+        self, **kwargs: Unpack[DeleteLinkRoutingRuleRequestTypeDef]
+    ) -> DeleteLinkRoutingRuleResponseTypeDef:
+        """
+        Deletes a routing rule from a link.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/delete_link_routing_rule.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#delete_link_routing_rule)
+        """
+
     def delete_outbound_external_link(
         self, **kwargs: Unpack[DeleteOutboundExternalLinkRequestTypeDef]
     ) -> DeleteOutboundExternalLinkResponseTypeDef:
@@ -258,6 +312,26 @@ class RTBFabricClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#delete_responder_gateway)
         """
 
+    def disassociate_certificate(
+        self, **kwargs: Unpack[DisassociateCertificateRequestTypeDef]
+    ) -> DisassociateCertificateResponseTypeDef:
+        """
+        Removes a certificate association from a responder gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/disassociate_certificate.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#disassociate_certificate)
+        """
+
+    def get_certificate_association(
+        self, **kwargs: Unpack[GetCertificateAssociationRequestTypeDef]
+    ) -> GetCertificateAssociationResponseTypeDef:
+        """
+        Retrieves the details of a certificate association with a responder gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_certificate_association.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_certificate_association)
+        """
+
     def get_inbound_external_link(
         self, **kwargs: Unpack[GetInboundExternalLinkRequestTypeDef]
     ) -> GetInboundExternalLinkResponseTypeDef:
@@ -274,6 +348,16 @@ class RTBFabricClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_link.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_link)
+        """
+
+    def get_link_routing_rule(
+        self, **kwargs: Unpack[GetLinkRoutingRuleRequestTypeDef]
+    ) -> GetLinkRoutingRuleResponseTypeDef:
+        """
+        Retrieves the details of a routing rule for a link.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_link_routing_rule.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_link_routing_rule)
         """
 
     def get_outbound_external_link(
@@ -304,6 +388,26 @@ class RTBFabricClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_responder_gateway.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_responder_gateway)
+        """
+
+    def list_certificate_associations(
+        self, **kwargs: Unpack[ListCertificateAssociationsRequestTypeDef]
+    ) -> ListCertificateAssociationsResponseTypeDef:
+        """
+        Lists the certificate associations for a responder gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/list_certificate_associations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#list_certificate_associations)
+        """
+
+    def list_link_routing_rules(
+        self, **kwargs: Unpack[ListLinkRoutingRulesRequestTypeDef]
+    ) -> ListLinkRoutingRulesResponseTypeDef:
+        """
+        Lists the routing rules for a link.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/list_link_routing_rules.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#list_link_routing_rules)
         """
 
     def list_links(self, **kwargs: Unpack[ListLinksRequestTypeDef]) -> ListLinksResponseTypeDef:
@@ -386,6 +490,16 @@ class RTBFabricClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#update_link_module_flow)
         """
 
+    def update_link_routing_rule(
+        self, **kwargs: Unpack[UpdateLinkRoutingRuleRequestTypeDef]
+    ) -> UpdateLinkRoutingRuleResponseTypeDef:
+        """
+        Updates a routing rule for a link.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/update_link_routing_rule.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#update_link_routing_rule)
+        """
+
     def update_requester_gateway(
         self, **kwargs: Unpack[UpdateRequesterGatewayRequestTypeDef]
     ) -> UpdateRequesterGatewayResponseTypeDef:
@@ -404,6 +518,28 @@ class RTBFabricClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/update_responder_gateway.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#update_responder_gateway)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_certificate_associations"]
+    ) -> ListCertificateAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_link_routing_rules"]
+    ) -> ListLinkRoutingRulesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]
@@ -437,6 +573,28 @@ class RTBFabricClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_paginator.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["certificate_associated"]
+    ) -> CertificateAssociatedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_waiter.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["certificate_disassociated"]
+    ) -> CertificateDisassociatedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_waiter.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_waiter)
         """
 
     @overload  # type: ignore[override]
@@ -487,6 +645,28 @@ class RTBFabricClient(BaseClient):
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["link_deleted"]
     ) -> LinkDeletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_waiter.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["link_routing_rule_active"]
+    ) -> LinkRoutingRuleActiveWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_waiter.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["link_routing_rule_deleted"]
+    ) -> LinkRoutingRuleDeletedWaiter:
         """
         Returns an object that can wait for some condition.
 

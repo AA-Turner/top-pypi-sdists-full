@@ -990,7 +990,12 @@ def iter_parameters_v2(
 
     if form_parameters:
         form_data = form_data_to_json_schema(form_parameters)
-        for media_type in form_data_media_types:
+        # `in: formData` requires a form MIME in `consumes`; if none present, pick multipart when a file param exists, else urlencoded.
+        form_media_types = [m for m in form_data_media_types if m in FORM_MEDIA_TYPES]
+        if not form_media_types:
+            has_file = any(parameter.get("type") == "file" for parameter in form_parameters)
+            form_media_types = ["multipart/form-data" if has_file else "application/x-www-form-urlencoded"]
+        for media_type in form_media_types:
             # Individual `formData` parameters are joined into a single "composite" one.
             yield OpenApiBody.from_form_parameters(
                 definition=form_data, media_type=media_type, name_to_uri=form_name_to_uri, adapter=adapter
@@ -1127,7 +1132,16 @@ class OpenApiParameterSet(ParameterSet):
     items: list[OpenApiParameter]
     location: ParameterLocation
 
-    __slots__ = ("items", "location", "adapter", "_schema", "_schema_cache", "_strategy_cache", "_strict_validator")
+    __slots__ = (
+        "items",
+        "location",
+        "adapter",
+        "_schema",
+        "_validation_schema",
+        "_schema_cache",
+        "_strategy_cache",
+        "_strict_validator",
+    )
 
     def __init__(
         self,
@@ -1140,6 +1154,7 @@ class OpenApiParameterSet(ParameterSet):
         self.adapter = adapter
         self.items = items or []
         self._schema: dict | NotSet = NOT_SET
+        self._validation_schema: dict | NotSet = NOT_SET
         self._schema_cache: dict[frozenset[str], dict[str, Any]] = {}
         self._strategy_cache: dict[tuple[frozenset[str], GenerationMode, int | None], st.SearchStrategy] = {}
         self._strict_validator: jsonschema_rs.Validator | NotSet = NOT_SET
@@ -1157,6 +1172,14 @@ class OpenApiParameterSet(ParameterSet):
             self._schema = parameters_to_json_schema(self.items, self.location)
         assert not isinstance(self._schema, NotSet)
         return self._schema
+
+    @property
+    def validation_schema(self) -> dict[str, Any]:
+        # Suitable for Draft 2020-12 validators — keeps `prefixItems` intact.
+        if self._validation_schema is NOT_SET:
+            self._validation_schema = parameters_to_validation_schema(self.items, self.location)
+        assert not isinstance(self._validation_schema, NotSet)
+        return self._validation_schema
 
     @property
     def name_to_uri(self) -> dict[str, str]:

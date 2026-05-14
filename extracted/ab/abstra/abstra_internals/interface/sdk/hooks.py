@@ -1,9 +1,12 @@
-from typing import Dict, List, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Tuple, Union
 
 from abstra_internals.controllers.sdk.sdk_context import SDKContextStore
 from abstra_internals.interface.sdk.user_exceptions import BadSendResponse
 from abstra_internals.utils import serialize
 from abstra_internals.utils.insensitive_dict import CaseInsensitiveDict
+
+if TYPE_CHECKING:
+    from mailparser import MailParser
 
 
 def get_raw_request() -> Tuple[str, Dict[str, str], Dict[str, str]]:
@@ -18,11 +21,13 @@ def get_raw_request() -> Tuple[str, Dict[str, str], Dict[str, str]]:
     return SDKContextStore.get_by_thread().hook_sdk.get_raw_request()
 
 
-def get_email_request():
+def get_email_request() -> "MailParser":
     """Get the raw email request data.
 
     Returns:
-        dict: Email request data containing sender, recipients, subject, and body information.
+        mailparser.MailParser: A `MailParser` instance with the parsed email
+            payload (sender, recipients, subject, body, attachments). See the
+            `mail-parser` package docs for the full attribute surface.
     """
     return SDKContextStore.get_by_thread().hook_sdk.get_email_request()
 

@@ -39,13 +39,20 @@ class ExecutionStatus(Enum):
 
 @dataclass
 class ExecutionResult:
-    """
-    Result of executing a SQL statement.
+    """Result of executing a single SQL statement.
 
-    The result field can contain different types depending on the execution engine:
-    - pandas.DataFrame: For SQL engines (Redshift, Athena, etc.) and DuckDB
-    - pyspark.sql.DataFrame: For Spark connections
-    - int: Row count for DML operations (INSERT, UPDATE, DELETE)
+    Attributes:
+        statement_index: Zero-based index of the statement in the query.
+        statement: The SQL statement text that was executed.
+        statement_type: Type of SQL statement (SELECT, INSERT, UPDATE, etc.).
+        result: The result field can contain different types depending on the execution engine:
+            - pandas.DataFrame: For SQL engines (Redshift, Athena, etc.) and DuckDB
+            - pyspark.sql.DataFrame: For Spark connections
+            - int: Row count for DML operations (INSERT, UPDATE, DELETE)
+        error: Error message if execution failed, None on success.
+        status: Execution status (SUCCESS or ERROR).
+        rows_affected: Number of rows affected by DML operations.
+        execution_time: Execution time in seconds (if measured).
     """
 
     statement_index: int
@@ -148,16 +155,49 @@ class SqlExecutor:
         engine: Engine,
         query: str,
         parameters: Optional[Union[Dict[str, Any], List[str]]] = None,
+        *,
+        connection: Optional[Connection] = None,
         error_strategy: str = ErrorStrategy.STOP_ON_ERROR,
     ) -> Generator[ExecutionResult, None, None]:
         """Execute SQL query with optional parameters using provided engine.
 
+        This method supports two connection lifecycle patterns:
+        - Auto-managed (connection=None): Creates and closes connection automatically
+        - Caller-managed (connection provided): Uses provided connection, caller handles lifecycle
+
+        The query is split into individual statements and executed sequentially. Each statement
+        yields an ExecutionResult containing the result data or error information.
+
+        Args:
+            engine: SQLAlchemy engine configured for the target database.
+            query: SQL query string, may contain multiple statements separated by semicolons.
+            connection: Optional SQLAlchemy connection. If None, a new connection is created
+                and automatically closed after execution. If provided, the connection remains
+                open and must be closed by the caller.
+            parameters: Optional query parameters for parameterized queries. Can be a dictionary
+                for named parameters or a list for positional parameters.
+            error_strategy: Error handling strategy. STOP_ON_ERROR (default) stops execution
+                on first error. CONTINUE_ON_ERROR executes remaining statements after errors.
+
         Yields:
-            ExecutionResult: Result for each statement in the query.
+            ExecutionResult: Result for each executed statement in the query.
 
         Raises:
             SQLAlchemyError: For database-specific errors (table exists, syntax errors, etc.)
             ValueError: If query contains more than MAX_STATEMENTS statements.
+
+        Example:
+            >>> # Auto-managed connection
+            >>> for result in executor.execute(engine, "SELECT 1; SELECT 2"):
+            ...     print(result.result)
+
+            >>> # Caller-managed connection (persistent session)
+            >>> conn = engine.connect()
+            >>> for result in executor.execute(engine, "CREATE TEMP TABLE t (id INT)", connection=conn):
+            ...     pass
+            >>> for result in executor.execute(engine, "INSERT INTO t VALUES (1)", connection=conn):
+            ...     pass
+            >>> conn.close()
         """
         execution_options = engine.get_execution_options()
         connection_type = execution_options.get("connection_type", "UNKNOWN")
@@ -166,12 +206,22 @@ class SqlExecutor:
         statements = transformer.split_query(query)
 
         try:
-            with engine.connect() as conn:
+            # no connection => auto-close after execution
+            if connection is None:
+                with engine.connect() as conn:
+                    yield from self.execute_statements(
+                        statements,
+                        lambda stmt: self._execute_single(conn, stmt, parameters),
+                        error_strategy,
+                    )
+            # caller manages connection lifecycle
+            else:
                 yield from self.execute_statements(
                     statements,
-                    lambda stmt: self._execute_single(conn, stmt, parameters),
+                    lambda stmt: self._execute_single(connection, stmt, parameters),
                     error_strategy,
                 )
+
         except SQLAlchemyError:
             raise
 
@@ -260,7 +310,9 @@ class SqlExecutor:
         elif definition.mode is FetchMode.SQL_EXECUTION:
             # definition.sql is guaranteed by __post_init__
             try:
-                result = next(self.execute(engine, definition.sql, definition.sql_parameters))
+                result = next(
+                    self.execute(engine, definition.sql, parameters=definition.sql_parameters)
+                )
             except StopIteration:
                 raise ValueError(
                     f"SQL execution returned no results for resource type: {resource_type}"

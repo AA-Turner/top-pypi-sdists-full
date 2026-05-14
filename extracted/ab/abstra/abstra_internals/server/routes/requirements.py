@@ -72,6 +72,22 @@ def get_editor_bp(controller: MainController):
         RequirementsRepository.save(requirements)
         return requirements.to_dict()
 
+    @bp.post("/<name>/remove-version")
+    @editor_usage
+    def _remove_fixed_version(name: str):
+        requirements = RequirementsRepository.load()
+        requirements.remove_fixed_version(name)
+        RequirementsRepository.save(requirements)
+        return requirements.to_dict()
+
+    @bp.post("/remove-fixed-versions")
+    @editor_usage
+    def _remove_all_fixed_versions():
+        requirements = RequirementsRepository.load()
+        requirements.remove_all_fixed_versions()
+        RequirementsRepository.save(requirements)
+        return requirements.to_dict()
+
     @bp.get("/recommendations")
     def _get_requirements_recommendation():
         return [r.to_dict() for r in RequirementsRepository.get_recommendation()]

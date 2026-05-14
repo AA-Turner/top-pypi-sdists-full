@@ -104,7 +104,9 @@ class TestGetResources(unittest.TestCase):
             resource_type=None,
             parents={},
         )
-        self.svc.execute.assert_called_once_with(self.engine, "SELECT name FROM t", {"p": 1})
+        self.svc.execute.assert_called_once_with(
+            self.engine, "SELECT name FROM t", parameters={"p": 1}
+        )
         self.assertEqual([r.name for r in out], ["a", "b"])
         self.assertEqual([r.type for r in out], ["TABLE", "TABLE"])
         self.assertEqual([r.children for r in out], [["COLUMN"], ["COLUMN"]])
@@ -374,7 +376,9 @@ class TestMultiStatementExecution(unittest.TestCase):
         self.mock_connection.execute.return_value = mock_result
 
         parameters = {"param": 42}
-        results = list(self.executor.execute(self.mock_engine, "SELECT :param", parameters))
+        results = list(
+            self.executor.execute(self.mock_engine, "SELECT :param", parameters=parameters)
+        )
 
         self.assertEqual(len(results), 1)
         self.mock_connection.execute.assert_called_with(unittest.mock.ANY, parameters)
@@ -488,3 +492,235 @@ class TestMultiStatementExecution(unittest.TestCase):
             list(self.executor.execute(self.mock_engine, "SELECT 1"))
 
         self.assertIn("Unsupported connection type: UNKNOWN_DB", str(cm.exception))
+
+
+class TestExecuteWithOptionalConnection(unittest.TestCase):
+    """Test suite for execute method with optional connection parameter"""
+
+    def setUp(self):
+        self.executor = SqlExecutor()
+        self.mock_engine = Mock()
+        self.mock_auto_connection = Mock()
+        self.mock_provided_connection = Mock()
+
+        # Setup auto-managed connection (context manager)
+        self.mock_engine.connect.return_value = Mock()
+        self.mock_engine.connect.return_value.__enter__ = Mock(
+            return_value=self.mock_auto_connection
+        )
+        self.mock_engine.connect.return_value.__exit__ = Mock(return_value=None)
+        self.mock_engine.get_execution_options.return_value = {"connection_type": "REDSHIFT"}
+
+        # Setup transformer
+        self.mock_transformer = Mock()
+        self.mock_transformer.split_query.return_value = [
+            Mock(statement="SELECT 1", statement_type="SELECT")
+        ]
+        self.mock_transformer.get_loggers.return_value = []
+        self.executor._transformer_classes = {"REDSHIFT": self.mock_transformer}
+
+    def test_execute_without_connection_creates_and_closes_connection(self):
+        """Test that execute without connection parameter creates and auto-closes connection"""
+        mock_result = Mock()
+        mock_result.returns_rows = True
+        mock_result.fetchall.return_value = [(1,)]
+        mock_result.keys.return_value = ["col"]
+        self.mock_auto_connection.execute.return_value = mock_result
+
+        results = list(self.executor.execute(self.mock_engine, "SELECT 1"))
+
+        # Verify connection was created via context manager
+        self.mock_engine.connect.assert_called_once()
+        # Verify __enter__ and __exit__ were called (context manager protocol)
+        self.mock_engine.connect.return_value.__enter__.assert_called_once()
+        self.mock_engine.connect.return_value.__exit__.assert_called_once()
+        # Verify query was executed on auto-managed connection
+        self.mock_auto_connection.execute.assert_called_once()
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].status, "success")
+
+    def test_execute_with_connection_uses_provided_connection(self):
+        """Test that execute with connection parameter uses provided connection"""
+        mock_result = Mock()
+        mock_result.returns_rows = True
+        mock_result.fetchall.return_value = [(1,)]
+        mock_result.keys.return_value = ["col"]
+        self.mock_provided_connection.execute.return_value = mock_result
+
+        results = list(
+            self.executor.execute(
+                self.mock_engine, "SELECT 1", connection=self.mock_provided_connection
+            )
+        )
+
+        # Verify engine.connect was NOT called (no auto-managed connection)
+        self.mock_engine.connect.assert_not_called()
+        # Verify query was executed on provided connection
+        self.mock_provided_connection.execute.assert_called_once()
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].status, "success")
+
+    def test_execute_with_connection_does_not_close_connection(self):
+        """Test that provided connection is not closed by execute method"""
+        mock_result = Mock()
+        mock_result.returns_rows = True
+        mock_result.fetchall.return_value = [(1,)]
+        mock_result.keys.return_value = ["col"]
+        self.mock_provided_connection.execute.return_value = mock_result
+        self.mock_provided_connection.close = Mock()
+
+        list(
+            self.executor.execute(
+                self.mock_engine, "SELECT 1", connection=self.mock_provided_connection
+            )
+        )
+
+        # Verify connection.close was NOT called
+        self.mock_provided_connection.close.assert_not_called()
+
+    def test_execute_with_connection_multiple_statements(self):
+        """Test persistent connection with multiple statements"""
+        self.mock_transformer.split_query.return_value = [
+            Mock(statement="CREATE TEMP TABLE t (id INT)", statement_type="CREATE"),
+            Mock(statement="INSERT INTO t VALUES (1)", statement_type="INSERT"),
+            Mock(statement="SELECT * FROM t", statement_type="SELECT"),
+        ]
+
+        # Mock results for each statement
+        create_result = Mock(returns_rows=False, rowcount=0)
+        insert_result = Mock(returns_rows=False, rowcount=1)
+        select_result = Mock(returns_rows=True)
+        select_result.fetchall.return_value = [(1,)]
+        select_result.keys.return_value = ["id"]
+
+        self.mock_provided_connection.execute.side_effect = [
+            create_result,
+            insert_result,
+            select_result,
+        ]
+
+        results = list(
+            self.executor.execute(
+                self.mock_engine,
+                "CREATE TEMP TABLE t (id INT); INSERT INTO t VALUES (1); SELECT * FROM t",
+                connection=self.mock_provided_connection,
+            )
+        )
+
+        # Verify all statements executed on same connection
+        self.assertEqual(self.mock_provided_connection.execute.call_count, 3)
+        self.assertEqual(len(results), 3)
+        self.assertEqual(results[0].statement_type, "CREATE")
+        self.assertEqual(results[1].statement_type, "INSERT")
+        self.assertEqual(results[2].statement_type, "SELECT")
+        # Verify connection not closed
+        self.mock_engine.connect.assert_not_called()
+
+    def test_execute_with_connection_and_parameters(self):
+        """Test provided connection with parameterized query"""
+        mock_result = Mock()
+        mock_result.returns_rows = True
+        mock_result.fetchall.return_value = [(42,)]
+        mock_result.keys.return_value = ["value"]
+        self.mock_provided_connection.execute.return_value = mock_result
+
+        parameters = {"param": 42}
+        results = list(
+            self.executor.execute(
+                self.mock_engine,
+                "SELECT :param",
+                connection=self.mock_provided_connection,
+                parameters=parameters,
+            )
+        )
+
+        # Verify parameters were passed to execute
+        self.mock_provided_connection.execute.assert_called_once()
+        call_args = self.mock_provided_connection.execute.call_args
+        self.assertEqual(call_args[0][1], parameters)
+        self.assertEqual(len(results), 1)
+
+    def test_execute_with_connection_and_error_strategy(self):
+        """Test provided connection with error strategy"""
+        from sagemaker_studio.sql_engine.sql_executor import ErrorStrategy
+
+        self.mock_transformer.split_query.return_value = [
+            Mock(statement="SELECT 1", statement_type="SELECT"),
+            Mock(statement="INVALID", statement_type="UNKNOWN"),
+            Mock(statement="SELECT 3", statement_type="SELECT"),
+        ]
+
+        mock_result1 = Mock(returns_rows=True)
+        mock_result1.fetchall.return_value = [(1,)]
+        mock_result1.keys.return_value = ["col"]
+
+        mock_result3 = Mock(returns_rows=True)
+        mock_result3.fetchall.return_value = [(3,)]
+        mock_result3.keys.return_value = ["col"]
+
+        self.mock_provided_connection.execute.side_effect = [
+            mock_result1,
+            Exception("Syntax error"),
+            mock_result3,
+        ]
+
+        results = list(
+            self.executor.execute(
+                self.mock_engine,
+                "SELECT 1; INVALID; SELECT 3",
+                connection=self.mock_provided_connection,
+                error_strategy=ErrorStrategy.CONTINUE_ON_ERROR,
+            )
+        )
+
+        # Verify all statements attempted on same connection
+        self.assertEqual(self.mock_provided_connection.execute.call_count, 3)
+        self.assertEqual(len(results), 3)
+        self.assertEqual(results[0].status, "success")
+        self.assertEqual(results[1].status, "error")
+        self.assertEqual(results[2].status, "success")
+
+    def test_execute_connection_parameter_none_vs_not_provided(self):
+        """Test that connection=None behaves same as not providing connection"""
+        mock_result = Mock()
+        mock_result.returns_rows = True
+        mock_result.fetchall.return_value = [(1,)]
+        mock_result.keys.return_value = ["col"]
+        self.mock_auto_connection.execute.return_value = mock_result
+
+        # Test with connection=None explicitly
+        results1 = list(self.executor.execute(self.mock_engine, "SELECT 1", connection=None))
+
+        # Reset mocks
+        self.mock_engine.connect.reset_mock()
+        self.mock_auto_connection.execute.reset_mock()
+
+        # Test without connection parameter
+        results2 = list(self.executor.execute(self.mock_engine, "SELECT 1"))
+
+        # Both should create auto-managed connection
+        self.assertEqual(len(results1), 1)
+        self.assertEqual(len(results2), 1)
+        # Verify engine.connect was called both times
+        self.assertEqual(
+            self.mock_engine.connect.call_count, 1
+        )  # Only second call counted after reset
+
+    def test_execute_with_connection_error_wrapped_in_execution_result(self):
+        """Test that errors with provided connection are wrapped in ExecutionResult"""
+        self.mock_provided_connection.execute.side_effect = Exception("Database error")
+
+        results = list(
+            self.executor.execute(
+                self.mock_engine,
+                "SELECT 1",
+                connection=self.mock_provided_connection,
+            )
+        )
+
+        # Error should be wrapped in ExecutionResult, not raised
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].status, "error")
+        self.assertIn("Database error", results[0].error)
+        # Verify connection was not closed by executor
+        self.mock_engine.connect.assert_not_called()

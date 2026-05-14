@@ -1,19 +1,34 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ...abc._bundle import Bundle
+from ..._internal import over
+from ...abc import Bundle
 
 from .._font import Font
 
-from numbers import Real
+from numbers import Integral
 
 # ======================================== BUNDLE ========================================
 class FontBundle(Bundle):
-    """Paquet de polices"""
+    """Paquet de polices
+    
+    Args:
+        paths: dictionnaire des chemin vers les fichiers des polices
+        size: taille par défaut des polices
+    """
     __slots__ = ("_size",)
 
-    def __init__(self, paths: dict[str, str], size: int = 16):
+    def __init__(self, paths: dict[str, str], size: Integral = 16):
+        # Initialisation du paquet
         super().__init__(paths)
+
+        # Transtypage et vérifications
+        size = int(size)
+
+        if __debug__:
+            over(size, 0, include=False)
+
+        # Attributs publiques
         self._size: int = size
 
     # ======================================== PROPERTIES ========================================
@@ -27,9 +42,10 @@ class FontBundle(Bundle):
         return self._size
 
     @size.setter
-    def size(self, value: int) -> None:
+    def size(self, value: Integral) -> None:
         value = int(value)
-        assert value > 0, f"size ({value}) must be strictly positive"
+        if __debug__:
+            over(value, 0, include=False)
         self._size = value
 
     # ======================================== INTERFACE ========================================

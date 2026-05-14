@@ -439,6 +439,7 @@ EvaluationSuggestedAnswerStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDE
 EvaluationTranscriptTypeType = Literal["RAW", "REDACTED"]
 EvaluationTypeType = Literal["CALIBRATION", "STANDARD"]
 EventSourceNameType = Literal[
+    "OnAlertUpdate",
     "OnCaseCreate",
     "OnCaseUpdate",
     "OnContactEvaluationSubmit",
@@ -449,6 +450,9 @@ EventSourceNameType = Literal[
     "OnRealTimeCallAnalysisAvailable",
     "OnRealTimeChatAnalysisAvailable",
     "OnSalesforceCaseCreate",
+    "OnSchedulePublish",
+    "OnScheduleTimeOffRequestActivity",
+    "OnScheduleUpdate",
     "OnSlaBreach",
     "OnZendeskTicketCreate",
     "OnZendeskTicketStatusUpdate",

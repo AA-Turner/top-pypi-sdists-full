@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.24.47
+Version: 0.24.49
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -47,6 +47,7 @@ Requires-Dist: navigator-api[google,locale,uvloop]>=3.0.3
 Requires-Dist: asyncdb>=2.11.6
 Requires-Dist: rich>=13.0
 Requires-Dist: click>=8.1.7
+Requires-Dist: prompt_toolkit>=3.0
 Requires-Dist: aiohttp-swagger3==0.10.0
 Requires-Dist: aiohttp-sse-client==0.2.1
 Requires-Dist: aiohttp-cors>=0.8.1

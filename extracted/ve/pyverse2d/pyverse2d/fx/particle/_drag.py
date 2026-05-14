@@ -12,7 +12,7 @@ class Drag(ParticleModifier):
     """Modificateur de frottement: ralentit les particules proportionnellement à leur vitesse
 
     Args:
-        coefficient: facteur de résistance [0, 1[
+        coefficient: facteur de résistance *[0, 1[*
     """
     __slots__ = ("_coef",)
 
@@ -24,7 +24,7 @@ class Drag(ParticleModifier):
             clamped(coefficient)
 
         # Attributs publiques
-        self._coefficient = coefficient
+        self._coefficient: float = coefficient
 
     # ======================================== PROPERTIES ========================================
     @property

@@ -1,23 +1,40 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ...abc._bundle import Bundle
+from ..._internal import over, different_from
+from ...abc import Bundle
 
 from .._image import Image
 
-from typing import TYPE_CHECKING
 from numbers import Real
-
-if TYPE_CHECKING:
-    from ..._managers._audio import SoundGroup
 
 # ======================================== BUNDLE ========================================
 class ImageBundle(Bundle):
-    """Paquet d'images"""
+    """Paquet d'images
+    
+    Args:
+        paths: chemins vers les fichiers
+        width: largeur par défaut
+        height: hauteur par défaut
+        scale_factor: facteur de redimensionnement par défaut
+    """
     __slots__ = ("_width", "_height", "_scale_factor")
 
     def __init__(self, paths: dict[str, str], width: Real = None, height: Real = None, scale_factor: Real = 1.0):
+        # Initialisation du paquet
         super().__init__(paths)
+
+        # Transtypage et vérifications
+        width = int(width) if width is not None else None
+        height = int(height) if height is not None else None
+        scale_factor = float(scale_factor)
+
+        if __debug__:
+            if width is not None: over(width, 0, include=False)
+            if height is not None: over(height, 0, include=False)
+            different_from(scale_factor, 0.0)
+
+        # Attributs publiques
         self._width: Real | None = width
         self._height: Real | None = height
         self._scale_factor: Real = scale_factor
@@ -36,7 +53,8 @@ class ImageBundle(Bundle):
     def width(self, value: Real | None) -> None:
         if value is not None:
             value = float(value)
-            assert value > 0.0, f"width ({value}) must be positive"
+            if __debug__:
+                over(value, 0, include=False)
         self._width = value
     
     @property
@@ -52,14 +70,15 @@ class ImageBundle(Bundle):
     def height(self, value: Real | None) -> None:
         if value is not None:
             value = float(value)
-            assert value > 0.0, f"height ({value}) must be positive"
+            if __debug__:
+                over(value, 0, include=False)
         self._height = value
     
     @property
     def scale_factor(self) -> Real:
         """Facteur d'échelle de lecture des images du bundle
 
-        Le facteur d'échelle doit être un ``Réel`` positif.
+        Le facteur d'échelle doit être un ``Réel`` non nul.
         Mettre cette propriété à ``1.0`` pour une échelle normale.
         """
         return self._scale_factor
@@ -67,7 +86,8 @@ class ImageBundle(Bundle):
     @scale_factor.setter
     def scale_factor(self, value: Real) -> None:
         value = float(value)
-        assert value > 0.0, f"scale_factor ({value}) must be positive"
+        if __debug__:
+            different_from(value, 0)
         self._scale_factor = value
 
     # ======================================== INTERFACE ========================================

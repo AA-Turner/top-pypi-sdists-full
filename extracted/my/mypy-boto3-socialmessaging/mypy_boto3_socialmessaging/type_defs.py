@@ -173,8 +173,10 @@ class S3PresignedUrlTypeDef(TypedDict):
 GetWhatsAppMessageTemplateInputTypeDef = TypedDict(
     "GetWhatsAppMessageTemplateInputTypeDef",
     {
-        "metaTemplateId": str,
         "id": str,
+        "metaTemplateId": NotRequired[str],
+        "templateName": NotRequired[str],
+        "templateLanguageCode": NotRequired[str],
     },
 )
 
@@ -357,7 +359,9 @@ UpdateWhatsAppMessageTemplateInputTypeDef = TypedDict(
     "UpdateWhatsAppMessageTemplateInputTypeDef",
     {
         "id": str,
-        "metaTemplateId": str,
+        "metaTemplateId": NotRequired[str],
+        "templateName": NotRequired[str],
+        "templateLanguageCode": NotRequired[str],
         "parameterFormat": NotRequired[str],
         "templateCategory": NotRequired[str],
         "templateComponents": NotRequired[BlobTypeDef],
@@ -433,6 +437,7 @@ LinkedWhatsAppBusinessAccountSummaryTypeDef = TypedDict(
         "linkDate": datetime,
         "wabaName": str,
         "eventDestinations": list[WhatsAppBusinessAccountEventDestinationTypeDef],
+        "marketingMessagesOnboardingStatus": NotRequired[str],
     },
 )
 PutWhatsAppBusinessAccountEventDestinationsInputTypeDef = TypedDict(
@@ -453,6 +458,7 @@ LinkedWhatsAppBusinessAccountTypeDef = TypedDict(
         "wabaName": str,
         "eventDestinations": list[WhatsAppBusinessAccountEventDestinationTypeDef],
         "phoneNumbers": list[WhatsAppPhoneNumberSummaryTypeDef],
+        "marketingMessagesOnboardingStatus": NotRequired[str],
     },
 )
 
@@ -557,6 +563,7 @@ class WhatsAppSetupFinalizationTypeDef(TypedDict):
 class AssociateWhatsAppBusinessAccountOutputTypeDef(TypedDict):
     signupCallbackResult: WhatsAppSignupCallbackResultTypeDef
     statusCode: int
+    linkedWhatsAppBusinessAccountId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 

@@ -69,12 +69,20 @@ __all__ = (
     "AssetsTypeDef",
     "AssetsUnionTypeDef",
     "AuthenticationTypeDef",
+    "BatchDeleteCodeReviewsInputTypeDef",
+    "BatchDeleteCodeReviewsOutputTypeDef",
     "BatchDeletePentestsInputTypeDef",
     "BatchDeletePentestsOutputTypeDef",
     "BatchGetAgentSpacesInputTypeDef",
     "BatchGetAgentSpacesOutputTypeDef",
     "BatchGetArtifactMetadataInputTypeDef",
     "BatchGetArtifactMetadataOutputTypeDef",
+    "BatchGetCodeReviewJobTasksInputTypeDef",
+    "BatchGetCodeReviewJobTasksOutputTypeDef",
+    "BatchGetCodeReviewJobsInputTypeDef",
+    "BatchGetCodeReviewJobsOutputTypeDef",
+    "BatchGetCodeReviewsInputTypeDef",
+    "BatchGetCodeReviewsOutputTypeDef",
     "BatchGetFindingsInputTypeDef",
     "BatchGetFindingsOutputTypeDef",
     "BatchGetPentestJobTasksInputTypeDef",
@@ -88,13 +96,22 @@ __all__ = (
     "BlobTypeDef",
     "CategoryTypeDef",
     "CloudWatchLogTypeDef",
+    "CodeLocationTypeDef",
     "CodeRemediationTaskDetailsTypeDef",
     "CodeRemediationTaskTypeDef",
+    "CodeReviewJobSummaryTypeDef",
+    "CodeReviewJobTaskSummaryTypeDef",
+    "CodeReviewJobTaskTypeDef",
+    "CodeReviewJobTypeDef",
     "CodeReviewSettingsTypeDef",
+    "CodeReviewSummaryTypeDef",
+    "CodeReviewTypeDef",
     "CreateAgentSpaceInputTypeDef",
     "CreateAgentSpaceOutputTypeDef",
     "CreateApplicationRequestTypeDef",
     "CreateApplicationResponseTypeDef",
+    "CreateCodeReviewInputTypeDef",
+    "CreateCodeReviewOutputTypeDef",
     "CreateIntegrationInputTypeDef",
     "CreateIntegrationOutputTypeDef",
     "CreateMembershipRequestTypeDef",
@@ -107,6 +124,7 @@ __all__ = (
     "DeleteAgentSpaceOutputTypeDef",
     "DeleteApplicationRequestTypeDef",
     "DeleteArtifactInputTypeDef",
+    "DeleteCodeReviewFailureTypeDef",
     "DeleteIntegrationInputTypeDef",
     "DeleteMembershipRequestTypeDef",
     "DeletePentestFailureTypeDef",
@@ -151,6 +169,15 @@ __all__ = (
     "ListArtifactsInputPaginateTypeDef",
     "ListArtifactsInputTypeDef",
     "ListArtifactsOutputTypeDef",
+    "ListCodeReviewJobTasksInputPaginateTypeDef",
+    "ListCodeReviewJobTasksInputTypeDef",
+    "ListCodeReviewJobTasksOutputTypeDef",
+    "ListCodeReviewJobsForCodeReviewInputPaginateTypeDef",
+    "ListCodeReviewJobsForCodeReviewInputTypeDef",
+    "ListCodeReviewJobsForCodeReviewOutputTypeDef",
+    "ListCodeReviewsInputPaginateTypeDef",
+    "ListCodeReviewsInputTypeDef",
+    "ListCodeReviewsOutputTypeDef",
     "ListDiscoveredEndpointsInputPaginateTypeDef",
     "ListDiscoveredEndpointsInputTypeDef",
     "ListDiscoveredEndpointsOutputTypeDef",
@@ -198,9 +225,12 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "SourceCodeRepositoryTypeDef",
     "StartCodeRemediationInputTypeDef",
+    "StartCodeReviewJobInputTypeDef",
+    "StartCodeReviewJobOutputTypeDef",
     "StartPentestJobInputTypeDef",
     "StartPentestJobOutputTypeDef",
     "StepTypeDef",
+    "StopCodeReviewJobInputTypeDef",
     "StopPentestJobInputTypeDef",
     "TagResourceInputTypeDef",
     "TargetDomainSummaryTypeDef",
@@ -212,6 +242,8 @@ __all__ = (
     "UpdateAgentSpaceOutputTypeDef",
     "UpdateApplicationRequestTypeDef",
     "UpdateApplicationResponseTypeDef",
+    "UpdateCodeReviewInputTypeDef",
+    "UpdateCodeReviewOutputTypeDef",
     "UpdateFindingInputTypeDef",
     "UpdateIntegratedResourcesInputTypeDef",
     "UpdatePentestInputTypeDef",
@@ -300,6 +332,14 @@ class IntegratedRepositoryTypeDef(TypedDict):
 class SourceCodeRepositoryTypeDef(TypedDict):
     s3Location: NotRequired[str]
 
+class BatchDeleteCodeReviewsInputTypeDef(TypedDict):
+    codeReviewIds: Sequence[str]
+    agentSpaceId: str
+
+class DeleteCodeReviewFailureTypeDef(TypedDict):
+    codeReviewId: NotRequired[str]
+    reason: NotRequired[str]
+
 class BatchDeletePentestsInputTypeDef(TypedDict):
     pentestIds: Sequence[str]
     agentSpaceId: str
@@ -314,6 +354,18 @@ class BatchGetAgentSpacesInputTypeDef(TypedDict):
 class BatchGetArtifactMetadataInputTypeDef(TypedDict):
     agentSpaceId: str
     artifactIds: Sequence[str]
+
+class BatchGetCodeReviewJobTasksInputTypeDef(TypedDict):
+    agentSpaceId: str
+    codeReviewJobTaskIds: Sequence[str]
+
+class BatchGetCodeReviewJobsInputTypeDef(TypedDict):
+    codeReviewJobIds: Sequence[str]
+    agentSpaceId: str
+
+class BatchGetCodeReviewsInputTypeDef(TypedDict):
+    codeReviewIds: Sequence[str]
+    agentSpaceId: str
 
 class BatchGetFindingsInputTypeDef(TypedDict):
     findingIds: Sequence[str]
@@ -342,10 +394,57 @@ class CloudWatchLogTypeDef(TypedDict):
     logGroup: NotRequired[str]
     logStream: NotRequired[str]
 
+class CodeLocationTypeDef(TypedDict):
+    filePath: str
+    lineStart: NotRequired[int]
+    lineEnd: NotRequired[int]
+    label: NotRequired[str]
+
 class CodeRemediationTaskDetailsTypeDef(TypedDict):
     repoName: NotRequired[str]
     codeDiffLink: NotRequired[str]
     pullRequestLink: NotRequired[str]
+
+class CodeReviewJobSummaryTypeDef(TypedDict):
+    codeReviewJobId: str
+    codeReviewId: str
+    title: NotRequired[str]
+    status: NotRequired[JobStatusType]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+
+class CodeReviewJobTaskSummaryTypeDef(TypedDict):
+    taskId: str
+    codeReviewId: NotRequired[str]
+    codeReviewJobId: NotRequired[str]
+    agentSpaceId: NotRequired[str]
+    title: NotRequired[str]
+    riskType: NotRequired[RiskTypeType]
+    executionStatus: NotRequired[TaskExecutionStatusType]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+
+class ErrorInformationTypeDef(TypedDict):
+    code: NotRequired[ErrorCodeType]
+    message: NotRequired[str]
+
+class ExecutionContextTypeDef(TypedDict):
+    contextType: NotRequired[ContextTypeType]
+    context: NotRequired[str]
+    timestamp: NotRequired[datetime]
+
+class StepTypeDef(TypedDict):
+    name: NotRequired[StepNameType]
+    status: NotRequired[StepStatusType]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+
+class CodeReviewSummaryTypeDef(TypedDict):
+    codeReviewId: str
+    agentSpaceId: str
+    title: str
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
 
 class CreateApplicationRequestTypeDef(TypedDict):
     idcInstanceArn: NotRequired[str]
@@ -398,20 +497,13 @@ class DnsVerificationTypeDef(TypedDict):
     dnsRecordName: NotRequired[str]
     dnsRecordType: NotRequired[Literal["TXT"]]
 
-class ErrorInformationTypeDef(TypedDict):
-    code: NotRequired[ErrorCodeType]
-    message: NotRequired[str]
-
-class ExecutionContextTypeDef(TypedDict):
-    contextType: NotRequired[ContextTypeType]
-    context: NotRequired[str]
-    timestamp: NotRequired[datetime]
-
 class FindingSummaryTypeDef(TypedDict):
     findingId: str
     agentSpaceId: str
     pentestId: NotRequired[str]
     pentestJobId: NotRequired[str]
+    codeReviewId: NotRequired[str]
+    codeReviewJobId: NotRequired[str]
     name: NotRequired[str]
     status: NotRequired[FindingStatusType]
     riskType: NotRequired[str]
@@ -489,6 +581,25 @@ class ListArtifactsInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
 
+class ListCodeReviewJobTasksInputTypeDef(TypedDict):
+    agentSpaceId: str
+    maxResults: NotRequired[int]
+    codeReviewJobId: NotRequired[str]
+    stepName: NotRequired[StepNameType]
+    categoryName: NotRequired[str]
+    nextToken: NotRequired[str]
+
+class ListCodeReviewJobsForCodeReviewInputTypeDef(TypedDict):
+    codeReviewId: str
+    agentSpaceId: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class ListCodeReviewsInputTypeDef(TypedDict):
+    agentSpaceId: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
 class ListDiscoveredEndpointsInputTypeDef(TypedDict):
     pentestJobId: str
     agentSpaceId: str
@@ -497,9 +608,10 @@ class ListDiscoveredEndpointsInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 class ListFindingsInputTypeDef(TypedDict):
-    pentestJobId: str
     agentSpaceId: str
     maxResults: NotRequired[int]
+    pentestJobId: NotRequired[str]
+    codeReviewJobId: NotRequired[str]
     nextToken: NotRequired[str]
     riskType: NotRequired[str]
     riskLevel: NotRequired[RiskLevelType]
@@ -590,20 +702,23 @@ class NetworkTrafficRuleTypeDef(TypedDict):
     pattern: NotRequired[str]
     networkTrafficRuleType: NotRequired[Literal["URL"]]
 
-class StepTypeDef(TypedDict):
-    name: NotRequired[StepNameType]
-    status: NotRequired[StepStatusType]
-    createdAt: NotRequired[datetime]
-    updatedAt: NotRequired[datetime]
-
 class StartCodeRemediationInputTypeDef(TypedDict):
     agentSpaceId: str
-    pentestJobId: str
     findingIds: Sequence[str]
+    pentestJobId: NotRequired[str]
+    codeReviewJobId: NotRequired[str]
+
+class StartCodeReviewJobInputTypeDef(TypedDict):
+    agentSpaceId: str
+    codeReviewId: str
 
 class StartPentestJobInputTypeDef(TypedDict):
     agentSpaceId: str
     pentestId: str
+
+class StopCodeReviewJobInputTypeDef(TypedDict):
+    agentSpaceId: str
+    codeReviewJobId: str
 
 class StopPentestJobInputTypeDef(TypedDict):
     agentSpaceId: str
@@ -712,6 +827,16 @@ class ListTagsForResourceOutputTypeDef(TypedDict):
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class StartCodeReviewJobOutputTypeDef(TypedDict):
+    title: str
+    status: JobStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    codeReviewId: str
+    codeReviewJobId: str
+    agentSpaceId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class StartPentestJobOutputTypeDef(TypedDict):
     title: str
     status: JobStatusType
@@ -763,6 +888,11 @@ class GetArtifactOutputTypeDef(TypedDict):
     updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
+class BatchDeleteCodeReviewsOutputTypeDef(TypedDict):
+    deleted: list[str]
+    failed: list[DeleteCodeReviewFailureTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class LogLocationTypeDef(TypedDict):
     logType: NotRequired[Literal["CLOUDWATCH"]]
     cloudWatchLog: NotRequired[CloudWatchLogTypeDef]
@@ -771,6 +901,39 @@ class CodeRemediationTaskTypeDef(TypedDict):
     status: CodeRemediationTaskStatusType
     statusReason: NotRequired[str]
     taskDetails: NotRequired[list[CodeRemediationTaskDetailsTypeDef]]
+
+class ListCodeReviewJobsForCodeReviewOutputTypeDef(TypedDict):
+    codeReviewJobSummaries: list[CodeReviewJobSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListCodeReviewJobTasksOutputTypeDef(TypedDict):
+    codeReviewJobTaskSummaries: list[CodeReviewJobTaskSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class CodeReviewJobTypeDef(TypedDict):
+    codeReviewJobId: NotRequired[str]
+    codeReviewId: NotRequired[str]
+    title: NotRequired[str]
+    overview: NotRequired[str]
+    status: NotRequired[JobStatusType]
+    documents: NotRequired[list[DocumentInfoTypeDef]]
+    sourceCode: NotRequired[list[SourceCodeRepositoryTypeDef]]
+    steps: NotRequired[list[StepTypeDef]]
+    executionContext: NotRequired[list[ExecutionContextTypeDef]]
+    serviceRole: NotRequired[str]
+    logConfig: NotRequired[CloudWatchLogTypeDef]
+    errorInformation: NotRequired[ErrorInformationTypeDef]
+    integratedRepositories: NotRequired[list[IntegratedRepositoryTypeDef]]
+    codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+
+class ListCodeReviewsOutputTypeDef(TypedDict):
+    codeReviewSummaries: list[CodeReviewSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class ListDiscoveredEndpointsOutputTypeDef(TypedDict):
     discoveredEndpoints: list[DiscoveredEndpointTypeDef]
@@ -832,6 +995,22 @@ class ListArtifactsInputPaginateTypeDef(TypedDict):
     agentSpaceId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListCodeReviewJobTasksInputPaginateTypeDef(TypedDict):
+    agentSpaceId: str
+    codeReviewJobId: NotRequired[str]
+    stepName: NotRequired[StepNameType]
+    categoryName: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListCodeReviewJobsForCodeReviewInputPaginateTypeDef(TypedDict):
+    codeReviewId: str
+    agentSpaceId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListCodeReviewsInputPaginateTypeDef(TypedDict):
+    agentSpaceId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListDiscoveredEndpointsInputPaginateTypeDef(TypedDict):
     pentestJobId: str
     agentSpaceId: str
@@ -839,8 +1018,9 @@ class ListDiscoveredEndpointsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListFindingsInputPaginateTypeDef(TypedDict):
-    pentestJobId: str
     agentSpaceId: str
+    pentestJobId: NotRequired[str]
+    codeReviewJobId: NotRequired[str]
     riskType: NotRequired[str]
     riskLevel: NotRequired[RiskLevelType]
     status: NotRequired[FindingStatusType]
@@ -971,6 +1151,20 @@ class AssetsTypeDef(TypedDict):
     sourceCode: NotRequired[Sequence[SourceCodeRepositoryTypeDef]]
     integratedRepositories: NotRequired[Sequence[IntegratedRepositoryTypeDef]]
 
+class CodeReviewJobTaskTypeDef(TypedDict):
+    taskId: str
+    codeReviewId: NotRequired[str]
+    codeReviewJobId: NotRequired[str]
+    agentSpaceId: NotRequired[str]
+    title: NotRequired[str]
+    description: NotRequired[str]
+    categories: NotRequired[list[CategoryTypeDef]]
+    riskType: NotRequired[RiskTypeType]
+    executionStatus: NotRequired[TaskExecutionStatusType]
+    logsLocation: NotRequired[LogLocationTypeDef]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+
 class TaskTypeDef(TypedDict):
     taskId: str
     pentestId: NotRequired[str]
@@ -991,6 +1185,8 @@ class FindingTypeDef(TypedDict):
     agentSpaceId: str
     pentestId: NotRequired[str]
     pentestJobId: NotRequired[str]
+    codeReviewId: NotRequired[str]
+    codeReviewJobId: NotRequired[str]
     taskId: NotRequired[str]
     name: NotRequired[str]
     description: NotRequired[str]
@@ -1003,8 +1199,14 @@ class FindingTypeDef(TypedDict):
     attackScript: NotRequired[str]
     codeRemediationTask: NotRequired[CodeRemediationTaskTypeDef]
     lastUpdatedBy: NotRequired[str]
+    codeLocations: NotRequired[list[CodeLocationTypeDef]]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
+
+class BatchGetCodeReviewJobsOutputTypeDef(TypedDict):
+    codeReviewJobs: list[CodeReviewJobTypeDef]
+    notFound: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 CreateIntegrationInputTypeDef = TypedDict(
     "CreateIntegrationInputTypeDef",
@@ -1125,6 +1327,29 @@ class UpdateAgentSpaceInputTypeDef(TypedDict):
     targetDomainIds: NotRequired[Sequence[str]]
     codeReviewSettings: NotRequired[CodeReviewSettingsTypeDef]
 
+class CodeReviewTypeDef(TypedDict):
+    codeReviewId: str
+    agentSpaceId: str
+    title: str
+    assets: AssetsOutputTypeDef
+    serviceRole: NotRequired[str]
+    logConfig: NotRequired[CloudWatchLogTypeDef]
+    codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+
+class CreateCodeReviewOutputTypeDef(TypedDict):
+    codeReviewId: str
+    title: str
+    createdAt: datetime
+    updatedAt: datetime
+    assets: AssetsOutputTypeDef
+    serviceRole: str
+    logConfig: CloudWatchLogTypeDef
+    agentSpaceId: str
+    codeRemediationStrategy: CodeRemediationStrategyType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreatePentestOutputTypeDef(TypedDict):
     pentestId: str
     title: str
@@ -1151,6 +1376,18 @@ class PentestTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
+class UpdateCodeReviewOutputTypeDef(TypedDict):
+    codeReviewId: str
+    title: str
+    createdAt: datetime
+    updatedAt: datetime
+    assets: AssetsOutputTypeDef
+    serviceRole: str
+    logConfig: CloudWatchLogTypeDef
+    agentSpaceId: str
+    codeRemediationStrategy: CodeRemediationStrategyType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdatePentestOutputTypeDef(TypedDict):
     pentestId: str
     title: str
@@ -1164,6 +1401,11 @@ class UpdatePentestOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 AssetsUnionTypeDef = Union[AssetsTypeDef, AssetsOutputTypeDef]
+
+class BatchGetCodeReviewJobTasksOutputTypeDef(TypedDict):
+    codeReviewJobTasks: list[CodeReviewJobTaskTypeDef]
+    notFound: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchGetPentestJobTasksOutputTypeDef(TypedDict):
     tasks: list[TaskTypeDef]
@@ -1200,6 +1442,11 @@ class BatchGetPentestJobsOutputTypeDef(TypedDict):
     notFound: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class BatchGetCodeReviewsOutputTypeDef(TypedDict):
+    codeReviews: list[CodeReviewTypeDef]
+    notFound: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class BatchDeletePentestsOutputTypeDef(TypedDict):
     deleted: list[PentestTypeDef]
     failed: list[DeletePentestFailureTypeDef]
@@ -1210,6 +1457,14 @@ class BatchGetPentestsOutputTypeDef(TypedDict):
     notFound: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateCodeReviewInputTypeDef(TypedDict):
+    title: str
+    agentSpaceId: str
+    assets: AssetsUnionTypeDef
+    serviceRole: NotRequired[str]
+    logConfig: NotRequired[CloudWatchLogTypeDef]
+    codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
+
 class CreatePentestInputTypeDef(TypedDict):
     title: str
     agentSpaceId: str
@@ -1219,6 +1474,15 @@ class CreatePentestInputTypeDef(TypedDict):
     logConfig: NotRequired[CloudWatchLogTypeDef]
     vpcConfig: NotRequired[VpcConfigUnionTypeDef]
     networkTrafficConfig: NotRequired[NetworkTrafficConfigUnionTypeDef]
+    codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
+
+class UpdateCodeReviewInputTypeDef(TypedDict):
+    codeReviewId: str
+    agentSpaceId: str
+    title: NotRequired[str]
+    assets: NotRequired[AssetsUnionTypeDef]
+    serviceRole: NotRequired[str]
+    logConfig: NotRequired[CloudWatchLogTypeDef]
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
 
 class UpdatePentestInputTypeDef(TypedDict):

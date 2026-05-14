@@ -12,7 +12,13 @@ from typing import ClassVar
 # ======================================== EFFECT ========================================
 @dataclass(slots=True, frozen=True)
 class Vignette(LightEffect):
-    """Effect lumineux: Vision réduite"""
+    """Effect lumineux: Vision réduite
+    
+    Args:
+        radius: rayon normalise de la vignette
+        color: couleur d'assombrissement
+        strenght: force d'assombrissement
+    """
     radius: Real = 0.6
     color: Color = (0, 0, 0)
     strength: Real = 1.0

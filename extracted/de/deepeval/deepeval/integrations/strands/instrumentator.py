@@ -10,8 +10,9 @@ so the interceptor reads ``gen_ai.user.message`` / ``gen_ai.choice`` /
 ``{invoke_agent, chat, execute_tool, ...}`` classifier.
 
 Mirrors the Pydantic AI POC pattern: pushes ``BaseSpan`` placeholders for
-``update_current_span(...)``, an implicit ``Trace(is_otel_implicit=True)``
-for bare callers, consumes ``next_*_span(...)`` payloads at on_start,
+``update_current_span(...)``, an implicit ``Trace`` placeholder
+(``_is_otel_implicit=True``) for bare callers, consumes
+``next_*_span(...)`` payloads at on_start,
 resolves trace attrs FRESH at on_end, and stashes ``BaseMetric`` instances
 when evaluating.
 
@@ -41,6 +42,7 @@ from deepeval.tracing.otel.utils import (
     to_hex_string,
 )
 from deepeval.tracing.perf_epoch_bridge import init_clock_bridge
+from deepeval.tracing.integrations import Integration
 from deepeval.tracing.tracing import trace_manager
 from deepeval.tracing.types import (
     AgentSpan,
@@ -48,6 +50,10 @@ from deepeval.tracing.types import (
     Trace,
     TraceSpanStatus,
     ToolCall,
+)
+from deepeval.tracing.utils import (
+    infer_provider_from_model,
+    normalize_span_provider_for_platform,
 )
 
 logger = logging.getLogger(__name__)
@@ -620,8 +626,10 @@ class StrandsSpanInterceptor(SpanProcessor):
     def _maybe_push_implicit_trace_context(self, span) -> None:
         """Push an implicit ``Trace`` for OTel roots without enclosing context.
 
-        Tagged ``is_otel_implicit=True`` so ``ContextAwareSpanProcessor``
-        still routes to OTLP.
+        Tagged ``_is_otel_implicit=True`` so ``ContextAwareSpanProcessor``
+        still routes to OTLP. ``_is_otel_implicit`` is a Pydantic
+        ``PrivateAttr``, so it must be set after construction (it's not a
+        constructor kwarg).
         """
         if current_trace_context.get() is not None:
             return
@@ -640,8 +648,8 @@ class StrandsSpanInterceptor(SpanProcessor):
                 root_spans=[],
                 status=TraceSpanStatus.IN_PROGRESS,
                 start_time=start_time,
-                is_otel_implicit=True,
             )
+            implicit._is_otel_implicit = True
             token = current_trace_context.set(implicit)
             self._trace_tokens[sid] = token
             self._trace_placeholders[sid] = implicit
@@ -863,6 +871,10 @@ class StrandsSpanInterceptor(SpanProcessor):
         span_type = attrs.get("confident.span.type") or _classify_span(span)
         if span_type and "confident.span.type" not in attrs:
             self._set_attr_post_end(span, "confident.span.type", span_type)
+        if not attrs.get("confident.span.integration"):
+            self._set_attr_post_end(
+                span, "confident.span.integration", Integration.STRANDS.value
+            )
 
         input_text, output_text = _extract_messages(span)
 
@@ -902,6 +914,15 @@ class StrandsSpanInterceptor(SpanProcessor):
         )
         if model:
             self._set_attr_post_end(span, "confident.llm.model", model)
+            if span_type == "llm" and not attrs.get("confident.span.provider"):
+                provider = _get_attr(span, "gen_ai.response.provider")
+                if not provider:
+                    provider = infer_provider_from_model(model)
+                if provider:
+                    provider = normalize_span_provider_for_platform(provider)
+                    self._set_attr_post_end(
+                        span, "confident.span.provider", provider
+                    )
 
         tools_called: List[ToolCall] = []
 

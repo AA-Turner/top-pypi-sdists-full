@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._internal import positive
+from ..._internal import positive, expect_callable
 from ...math.easing import EasingFunc
 
 from abc import ABC
@@ -31,17 +31,27 @@ class Tween(ABC):
     )
 
     def __init__(self, attribut: str, target_value: object, duration: Real, easing: EasingFunc):
-        self._widget: Widget = None
-        self._attribut: str = attribut
-        self._base_value: object = None
-        self._target_value: object = target_value
-        self._duration: float = float(duration)
-        self._t: float = 0.0
-        self._easing: EasingFunc = easing
-        self._direction: int = 0
+        # Transtypage et vérifications
+        attribut = str(attribut)
+        duration = float(duration)
 
         if __debug__:
-            positive(self._duration)
+            positive(duration)
+            expect_callable(easing)
+
+        # Attributs publiques
+        self._attribut: str = attribut
+        self._target_value: object = target_value
+        self._duration: float = duration
+        self._easing: EasingFunc = easing
+
+        # Attributs internes
+        self._widget: Widget = None
+        self._base_value: object = None
+
+        # Progression
+        self._t: float = 0.0
+        self._direction: int = 0
 
     # ======================================== PROPERTIES ========================================
     @property
@@ -67,15 +77,16 @@ class Tween(ABC):
     def duration(self) -> float:
         """Durée de transition
         
-        La durée doit être un ``Réel`` positif.
-        Mettre à 0.0 pour une transition instantannée.
+        La durée doit être un ``Real`` positif.
+        Mettre cette propriété à ``0.0`` pour une transition instantannée.
         """
         return self._duration
     
     @duration.setter
     def duration(self, value: float) -> None:
         value = float(value)
-        assert value >= 0.0, f"duration ({value}) must be positive"
+        if __debug__:
+            positive(value)
         self._duration = value
 
     @property
@@ -93,7 +104,8 @@ class Tween(ABC):
     
     @easing.setter
     def easing(self, value: EasingFunc) -> None:
-        assert callable(value), f"easing ({value}) must be an EasingFunc"
+        if __debug__:
+            expect_callable(value)
         self._easing = value
     
     # ======================================== PREDICATES ========================================

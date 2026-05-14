@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyzipper"
+dynamic = ["version"]
+requires-python = ">= 3.4"
+dependencies = [
+    'pycryptodomex',
+]
+authors = [
+  {name = "Daniel Hillier", email = "daniel.hillier@gmail.com"},
+]
+description = 'AES encryption for zipfile.'
+readme = "README.rst"
+license = "MIT"
+license-files = ["LICENSE", "LICENSE.python", "AUTHORS.rst"]
+classifiers = [
+    'Development Status :: 4 - Beta',
+    'Topic :: System :: Archiving :: Compression',
+    'Intended Audience :: Developers',
+    'Operating System :: MacOS :: MacOS X',
+    'Operating System :: Microsoft :: Windows',
+    'Operating System :: POSIX :: Linux',
+    'Operating System :: POSIX',
+    'Operating System :: OS Independent',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.4',
+    'Programming Language :: Python :: 3.5',
+    'Programming Language :: Python :: 3.6',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
+]
+
+[project.urls]
+Homepage = "https://github.com/danifus/pyzipper"
+
+[tool.setuptools.dynamic]
+version = {attr = "pyzipper.__version__.__version__"}

@@ -114,6 +114,7 @@ class CfnAgentSpace(
             # the properties below are optional
             description="description",
             kms_key_arn="kmsKeyArn",
+            locale="locale",
             operator_app=devopsagent.CfnAgentSpace.OperatorAppProperty(
                 iam=devopsagent.CfnAgentSpace.IamAuthConfigurationProperty(
                     operator_app_role_arn="operatorAppRoleArn",
@@ -147,6 +148,7 @@ class CfnAgentSpace(
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
+        locale: typing.Optional[builtins.str] = None,
         operator_app: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAgentSpace.OperatorAppProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -157,6 +159,7 @@ class CfnAgentSpace(
         :param name: The name of the Agent Space.
         :param description: The description of the Agent Space.
         :param kms_key_arn: The ARN of the KMS key to use for encryption.
+        :param locale: The locale for the AgentSpace, which determines the language used in agent responses.
         :param operator_app: 
         :param tags: An array of key-value pairs to apply to this resource.
         '''
@@ -168,6 +171,7 @@ class CfnAgentSpace(
             name=name,
             description=description,
             kms_key_arn=kms_key_arn,
+            locale=locale,
             operator_app=operator_app,
             tags=tags,
         )
@@ -405,6 +409,19 @@ class CfnAgentSpace(
             type_hints = typing.get_type_hints(_typecheckingstub__b76e61f2aed973e234fd4e93bccf47cc83cb11b8379358a7715db1a908b35af7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="locale")
+    def locale(self) -> typing.Optional[builtins.str]:
+        '''The locale for the AgentSpace, which determines the language used in agent responses.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "locale"))
+
+    @locale.setter
+    def locale(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f3c5c48fa94eac9f504f8cd877ac92984721e2ff36ab18973138af88e32af2f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "locale", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="operatorApp")
@@ -735,6 +752,7 @@ class CfnAgentSpace(
         "name": "name",
         "description": "description",
         "kms_key_arn": "kmsKeyArn",
+        "locale": "locale",
         "operator_app": "operatorApp",
         "tags": "tags",
     },
@@ -746,6 +764,7 @@ class CfnAgentSpaceProps:
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
+        locale: typing.Optional[builtins.str] = None,
         operator_app: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAgentSpace.OperatorAppProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -754,6 +773,7 @@ class CfnAgentSpaceProps:
         :param name: The name of the Agent Space.
         :param description: The description of the Agent Space.
         :param kms_key_arn: The ARN of the KMS key to use for encryption.
+        :param locale: The locale for the AgentSpace, which determines the language used in agent responses.
         :param operator_app: 
         :param tags: An array of key-value pairs to apply to this resource.
 
@@ -773,6 +793,7 @@ class CfnAgentSpaceProps:
                 # the properties below are optional
                 description="description",
                 kms_key_arn="kmsKeyArn",
+                locale="locale",
                 operator_app=devopsagent.CfnAgentSpace.OperatorAppProperty(
                     iam=devopsagent.CfnAgentSpace.IamAuthConfigurationProperty(
                         operator_app_role_arn="operatorAppRoleArn",
@@ -802,6 +823,7 @@ class CfnAgentSpaceProps:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            check_type(argname="argument locale", value=locale, expected_type=type_hints["locale"])
             check_type(argname="argument operator_app", value=operator_app, expected_type=type_hints["operator_app"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -811,6 +833,8 @@ class CfnAgentSpaceProps:
             self._values["description"] = description
         if kms_key_arn is not None:
             self._values["kms_key_arn"] = kms_key_arn
+        if locale is not None:
+            self._values["locale"] = locale
         if operator_app is not None:
             self._values["operator_app"] = operator_app
         if tags is not None:
@@ -842,6 +866,15 @@ class CfnAgentSpaceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-agentspace.html#cfn-devopsagent-agentspace-kmskeyarn
         '''
         result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def locale(self) -> typing.Optional[builtins.str]:
+        '''The locale for the AgentSpace, which determines the language used in agent responses.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-agentspace.html#cfn-devopsagent-agentspace-locale
+        '''
+        result = self._values.get("locale")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -8302,6 +8335,7 @@ def _typecheckingstub__3897cdc52c2bc2a74bdd32702e32905947b3c0fc36798edcdac7875cc
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
+    locale: typing.Optional[builtins.str] = None,
     operator_app: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgentSpace.OperatorAppProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -8366,6 +8400,12 @@ def _typecheckingstub__b76e61f2aed973e234fd4e93bccf47cc83cb11b8379358a7715db1a90
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5f3c5c48fa94eac9f504f8cd877ac92984721e2ff36ab18973138af88e32af2f(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__833bedcb900be3dc99153bbcef5866a753457156d32ebc2661b687708cf7f6fa(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAgentSpace.OperatorAppProperty]],
 ) -> None:
@@ -8411,6 +8451,7 @@ def _typecheckingstub__ea00a21cf40eafce14a4e6e1a4cd3e9f843a2f2e416299a20a2159ce8
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
+    locale: typing.Optional[builtins.str] = None,
     operator_app: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgentSpace.OperatorAppProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

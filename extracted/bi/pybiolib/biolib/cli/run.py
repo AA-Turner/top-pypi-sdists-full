@@ -1,9 +1,9 @@
 import sys
 
 from biolib import biolib_errors, utils
+from biolib._experiment.experiment import Experiment
 from biolib._internal import cli
 from biolib.app import BioLibApp
-from biolib.experiments.experiment import Experiment
 from biolib.typing_utils import Optional, Tuple
 
 

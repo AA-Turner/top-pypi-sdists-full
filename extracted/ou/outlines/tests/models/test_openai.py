@@ -9,6 +9,7 @@ from openai import AsyncOpenAI as AsyncOpenAIClient, OpenAI as OpenAIClient
 from pydantic import BaseModel, Field
 
 import outlines
+from outlines.exceptions import BadRequestError
 from outlines.inputs import Chat, Image, Video
 from outlines.models.openai import AsyncOpenAI, OpenAI
 from outlines.types import json_schema
@@ -160,15 +161,6 @@ def test_openai_simple_pydantic(model):
 
 
 @pytest.mark.api_call
-def test_openai_simple_pydantic_refusal(model):
-    class Foo(BaseModel):
-        bar: Annotated[str, Field(int, pattern=r"^\d+$")]
-
-    with pytest.raises(TypeError, match="OpenAI does not support your schema"):
-        _ = model.generate("foo?", Foo)
-
-
-@pytest.mark.api_call
 def test_openai_simple_vision_pydantic(image, model):
     class Logo(BaseModel):
         name: int
@@ -309,16 +301,6 @@ async def test_openai_async_simple_pydantic(async_model):
 
 @pytest.mark.asyncio
 @pytest.mark.api_call
-async def test_openai_async_simple_pydantic_refusal(async_model):
-    class Foo(BaseModel):
-        bar: Annotated[str, Field(int, pattern=r"^\d+$")]
-
-    with pytest.raises(TypeError, match="OpenAI does not support your schema"):
-        _ = await async_model.generate("foo?", Foo)
-
-
-@pytest.mark.asyncio
-@pytest.mark.api_call
 async def test_openai_async_simple_vision_pydantic(image, async_model):
     class Logo(BaseModel):
         name: int
@@ -357,3 +339,17 @@ async def test_openai_async_batch(async_model):
         await async_model.batch(
             ["Respond with one word.", "Respond with one word."],
         )
+
+
+# ---------------------------------------------------------------------------
+# Live schema-rejection: OpenAI rejects unsupported JSON-schema features with
+# a 400, which the wrapper surfaces as BadRequestError. Mocked status-code
+# coverage lives in tests/models/test_provider_exceptions.py.
+# ---------------------------------------------------------------------------
+@pytest.mark.api_call
+def test_openai_invalid_schema_raises_bad_request(model):
+    class Foo(BaseModel):
+        bar: Annotated[str, Field(int, pattern=r"^\d+$")]
+
+    with pytest.raises(BadRequestError):
+        model.generate("foo?", Foo)

@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 
 import typer
 
+from dazzle.back.runtime.renderers.init import default_renderer_names
 from dazzle.cli.utils import load_project_appspec
 from dazzle.core.discovery import Relevance
 from dazzle.core.errors import DazzleError, ParseError
@@ -419,6 +420,22 @@ def validate_command(
         appspec = load_project_appspec(root)
         errors, warnings, relevance = lint_appspec(appspec)
 
+        # Statically parse sitespec.yaml (if present) so schema errors
+        # surface at validate-time instead of being swallowed by the
+        # try/except in serve.py / app_factory.py at boot.
+        from dazzle.core.sitespec_loader import (
+            SiteSpecError,
+            load_sitespec,
+            sitespec_exists,
+        )
+
+        if sitespec_exists(root):
+            try:
+                load_sitespec(root)
+            except SiteSpecError as e:
+                typer.echo(f"sitespec.yaml: {e}", err=True)
+                raise typer.Exit(code=1) from e
+
         if format == "vscode":
             _print_vscode_diagnostics(errors, warnings, root)
         else:
@@ -489,7 +506,7 @@ def lint_command(
                 return
 
         modules = parse_modules(dsl_files)
-        appspec = build_appspec(modules, mf.project_root)
+        appspec = build_appspec(modules, mf.project_root, known_renderers=default_renderer_names())
         errors, warnings, relevance = lint_appspec(appspec, extended=True)
 
         if format == "vscode":

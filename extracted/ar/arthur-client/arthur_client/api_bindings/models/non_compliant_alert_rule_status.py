@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.compliance_alert_summary import ComplianceAlertSummary
 from typing import Optional, Set
 from typing_extensions import Self
@@ -29,8 +29,9 @@ class NonCompliantAlertRuleStatus(BaseModel):
     """ # noqa: E501
     id: StrictStr = Field(description="The ID of the alert rule.")
     name: StrictStr = Field(description="The name of the alert rule.")
-    alert: ComplianceAlertSummary = Field(description="The alert that caused the violation.")
-    __properties: ClassVar[List[str]] = ["id", "name", "alert"]
+    alert: Optional[ComplianceAlertSummary] = None
+    error_message: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["id", "name", "alert", "error_message"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -74,6 +75,16 @@ class NonCompliantAlertRuleStatus(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of alert
         if self.alert:
             _dict['alert'] = self.alert.to_dict()
+        # set to None if alert (nullable) is None
+        # and model_fields_set contains the field
+        if self.alert is None and "alert" in self.model_fields_set:
+            _dict['alert'] = None
+
+        # set to None if error_message (nullable) is None
+        # and model_fields_set contains the field
+        if self.error_message is None and "error_message" in self.model_fields_set:
+            _dict['error_message'] = None
+
         return _dict
 
     @classmethod
@@ -88,7 +99,8 @@ class NonCompliantAlertRuleStatus(BaseModel):
         _obj = cls.model_validate({
             "id": obj.get("id"),
             "name": obj.get("name"),
-            "alert": ComplianceAlertSummary.from_dict(obj["alert"]) if obj.get("alert") is not None else None
+            "alert": ComplianceAlertSummary.from_dict(obj["alert"]) if obj.get("alert") is not None else None,
+            "error_message": obj.get("error_message")
         })
         return _obj
 

@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: betterproto2_compiler
-Version: 0.10.0
+Version: 0.10.1
 Summary: Compiler for betterproto2
 Keywords: protobuf,gRPC,compiler
 Author: Adrien Vannson, Daniel G. Taylor
 Author-email: Adrien Vannson <adrien.vannson@protonmail.com>, Daniel G. Taylor <danielgtaylor@gmail.com>
 License-Expression: MIT
-Requires-Dist: betterproto2>=0.9.0,<0.10
+Requires-Dist: betterproto2~=0.10.0
 Requires-Dist: ruff>=0.9.3
 Requires-Dist: jinja2>=3.0.3
 Requires-Dist: typing-extensions>=4.7.1,<5

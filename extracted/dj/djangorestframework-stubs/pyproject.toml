@@ -1,6 +1,6 @@
 [project]
 name = "djangorestframework-stubs"
-version = "3.16.9"
+version = "3.17.0"
 requires-python = ">=3.10"
 description = "PEP-484 stubs for django-rest-framework"
 readme = "README.md"
@@ -23,7 +23,7 @@ classifiers = [
   "Framework :: Django",
 ]
 dependencies = [
-  "django-stubs>=5.2.9",
+  "django-stubs>=6.0.4",
   "typing-extensions>=4.0",
   "types-PyYAML",
 ]
@@ -34,24 +34,23 @@ Funding = "https://github.com/sponsors/typeddjango"
 "Release notes" = "https://github.com/typeddjango/djangorestframework-stubs/releases"
 
 [project.optional-dependencies]
-compatible-mypy = ["mypy>=1.13,<1.21", "django-stubs[compatible-mypy]"]
+compatible-mypy = ["mypy>=1.13,<2.2", "django-stubs[compatible-mypy]"]
 coreapi = ["coreapi>=2.0.0"]
 markdown = ["types-Markdown>=0.1.5"]
 requests = ["types-requests"]
 
 [dependency-groups]
 dev = [
-  "pre-commit==4.5.1",
-  "pytest==9.0.2",
-  "pytest-mypy-plugins==4.0.0",
-  "djangorestframework==3.16.1",
+  "pre-commit==4.6.0",
+  "pytest==9.0.3",
+  "pytest-mypy-plugins==4.0.2",
+  "djangorestframework==3.17.1",
   "django==5.2.*; python_version < '3.12'",
   "django==6.0.*; python_version >= '3.12'",
-  "types-pytz==2026.1.1.20260304",
-  "types-requests==2.33.0.20260327",
-  "types-urllib3==1.26.25.14",
-  "types-Pygments==2.19.0.20251121",
-  "types-pyyaml==6.0.12.20250915",
+  "types-pytz",
+  "types-requests",
+  "types-Pygments",
+  "types-pyyaml",
   "django-stubs[compatible-mypy] @ git+https://github.com/typeddjango/django-stubs",
   "django-stubs-ext @ git+https://github.com/typeddjango/django-stubs#subdirectory=ext",
   "djangorestframework-stubs[compatible-mypy,coreapi,markdown,requests]",

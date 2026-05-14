@@ -1,4 +1,8 @@
-"""Integration with the `mlx_lm` library."""
+"""Integration with the `mlx_lm` library.
+
+Local runtime calls intentionally bypass
+outlines.exceptions.normalize_provider_errors().
+"""
 
 from functools import singledispatchmethod
 from typing import TYPE_CHECKING, Iterator, List, Optional

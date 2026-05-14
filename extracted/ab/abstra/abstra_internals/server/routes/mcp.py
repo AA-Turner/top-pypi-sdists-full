@@ -1,8 +1,12 @@
+from typing import cast
+
 from abstra_internals.controllers import language_server as language_server_controller
 from abstra_internals.controllers.docs import DocsController
+from abstra_internals.controllers.git import EmailProvider, GitController
 from abstra_internals.controllers.main import MainController
 from abstra_internals.controllers.tasks import TasksController
 from abstra_internals.controllers.workflows import WorkflowController
+from abstra_internals.environment import EDITOR_MODE
 from abstra_internals.utils.mcp import requires_approval
 from abstra_internals.utils.mcp_bp import mcp_bp
 
@@ -11,6 +15,11 @@ def get_editor_bp(main_controller: MainController):
     tasks_controller = TasksController(main_controller.repositories)
     workflow_controller = WorkflowController(main_controller.repositories)
     docs_controller = DocsController(main_controller.repositories)
+    git_controller = (
+        GitController(email_provider=cast(EmailProvider, main_controller))
+        if EDITOR_MODE == "local"
+        else GitController()
+    )
 
     return mcp_bp(
         [
@@ -83,5 +92,8 @@ def get_editor_bp(main_controller: MainController):
             main_controller.list_linter_issues,
             requires_approval(main_controller.linter_repository.fix_issue_in_codebase),
             requires_approval(main_controller.add_and_install_requirement),
+            git_controller.get_status,
+            git_controller.get_commit_history,
+            git_controller.commit_changes,
         ]
     )

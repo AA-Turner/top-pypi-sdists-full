@@ -1,8 +1,8 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._internal import expect,  positive, clamped, over, HasPosition, expect_callable, not_null
-from ..._core import Transform
+from ..._internal import positive, clamped, over, HasPosition, expect_callable, not_null
+from ..._core import Transformable
 from ...math import Point, Vector
 from ...math.easing import EasingFunc
 from ...abc import Request, Space
@@ -17,21 +17,12 @@ from math import cos, sin, radians
 # ======================================== REQUEST ========================================
 @dataclass(slots=True)
 class TransitionRequest(Request):
-    """Requête de transition
-    
-    Args:
-        start: position initiale
-        end: position finale
-        duration: durée de transition
-        easing: fonction d'atténuation temporelle
-        elapsed: temps écoulé
-    """
+    """Requête de transition"""
     start: Point
     end: Point
     duration: float
+    elapsed: float
     easing: EasingFunc | None
-
-    elapsed: float = 0.0
 
     _id: ClassVar[str] = "transition"
 
@@ -47,19 +38,11 @@ class TransitionRequest(Request):
 
 @dataclass(frozen=True, slots=True)
 class FollowRequest(Request):
-    """Requête de transition
-    
-    Args:
-        target: cible
-        offset: décalage par rapport à la cible
-        smoothing: atténuation *[0, 1[*
-        max_speed: vitesse maximale *(u/s)*
-    """
+    """Requête de transition"""
     target: HasPosition
     offset: Vector
     smoothing: float
-
-    max_speed: float | None = None
+    max_speed: float
 
     _id: ClassVar[str] = "follow"
 
@@ -75,18 +58,7 @@ class FollowRequest(Request):
 
 @dataclass(frozen=True, slots=True)
 class AttachRequest(Request):
-    """Requête d'attachement
-    
-    Args:
-        camera: ``Camera`` à suivre
-        offset: décalage par rapport à la cible
-        parallax_x: effet parallax horizontal
-        parallax_y: effet parallax vertical
-        same_zoom: suivi du zoom
-        zoom_factor: facteur de redimensionnement supplémentaire
-        same_rotation: suivi de la rotation
-        rotation_offset: décalage de la rotation
-    """
+    """Requête d'attachement"""
     camera: Camera
     offset: Vector
     parallax_x: float
@@ -112,7 +84,7 @@ class AttachRequest(Request):
             not_null(self.zoom_factor)
 
 # ======================================== CAMERA ========================================
-class Camera(Space):
+class Camera(Space, Transformable):
     """Définit un point de vue du monde
 
     Args:
@@ -124,20 +96,19 @@ class Camera(Space):
         rotation: angle de rotation
     """
     __slots__ = (
-        "_transform",
         "_view_width", "_view_height",
        "_state",
     )
 
     # Requêtes
-    TransitionRequest: Type[TransitionRequest] = TransitionRequest
-    FollowRequest: Type[FollowRequest] = FollowRequest
-    AttachRequest: Type[AttachRequest] = AttachRequest
+    TransitionRequest: ClassVar[Type[TransitionRequest]] = TransitionRequest
+    FollowRequest: ClassVar[Type[FollowRequest]] = FollowRequest
+    AttachRequest: ClassVar[Type[AttachRequest]] = AttachRequest
 
     # Caches de matrices
-    _PROJECTION_CACHE: ClassVar[dict[tuple, Mat4]] = {}
-    _VIEW_CACHE_STORED: ClassVar[dict[tuple, Mat4]] = {}
-    _VIEW_CACHE_FRAME: ClassVar[dict[tuple, Mat4]] = {}
+    _PROJECTION_CACHE: dict[tuple, Mat4] = {}
+    _VIEW_CACHE_STORED: dict[tuple, Mat4] = {}
+    _VIEW_CACHE_FRAME: dict[tuple, Mat4] = {}
 
     def __init__(
             self,
@@ -148,8 +119,10 @@ class Camera(Space):
             zoom: Real = 1.0,
             rotation: Real = 0.0,
         ):
+        # Initialisation du Transform
+        Transformable.__init__(self, position, anchor, rotation, zoom)
+
         # Transtypage et vérifications
-        transform = Transform(position, anchor, rotation, zoom)
         view_width = float(view_width) if view_width is not None else None
         view_height = float(view_height) if view_height is not None else None
 
@@ -158,7 +131,6 @@ class Camera(Space):
             if view_height is not None: over(view_height, 0, include=False)
 
         # Attributs publiques
-        self._transform: Transform = transform
         self._view_width: float = view_width
         self._view_height: float = view_height
 
@@ -205,47 +177,6 @@ class Camera(Space):
 
     # ======================================== PROPERTIES ========================================
     @property
-    def transform(self) -> Transform:
-        """Renvoie la transformation monde"""
-        return self._transform
-
-    @property
-    def position(self) -> Point:
-        """Position de la vision
-
-        La position peut être un objet ``Point`` ou un tuple ``(x, y)``.
-        """
-        return self._transform.position
-    
-    @position.setter
-    def position(self, value: Point) -> None:
-        self._transform.position = value
-
-    @property
-    def x(self) -> float:
-        """Coordonnée horizontale
-        
-        La coordonnée doit être un ``Réel``.
-        """
-        return self._transform.x
-    
-    @x.setter
-    def x(self, value: Real) -> None:
-        self._transform.x = value
-
-    @property
-    def y(self) -> float:
-        """Coordonnée verticale.
-        
-        La coordonnée doit être un ``Réel``.
-        """
-        return self._transform.y
-    
-    @y.setter
-    def y(self, value: Real) -> None:
-        self._transform.y = value
-
-    @property
     def view_width(self) -> float:
         """Largeur de vision (en unités)
 
@@ -278,19 +209,6 @@ class Camera(Space):
         self._view_height = value
 
     @property
-    def anchor(self) -> Point:
-        """Ancre relative locale
-
-        Les coordonnées de l'ancre doivent être normalisées dans l'intervalle [0, 1].
-        Cette propriété défini le point de la caméra correspondant à sa position ``(cx, cy)``.
-        """
-        return self.transform.anchor
-    
-    @anchor.setter
-    def anchor(self, value: Point) -> None:
-        self._transform.anchor = value
-
-    @property
     def zoom(self) -> float:
         """Facteur de zoom
         
@@ -301,18 +219,6 @@ class Camera(Space):
     @zoom.setter
     def zoom(self, value: Real):
         self._transform.scale = value
-
-    @property
-    def rotation(self) -> float:
-        """Angle de rotation
-
-        La rotation se fait en ``degrés`` dans le sens trigonométrique ``(CCW)``.
-        """
-        return self._transform.rotation
-    
-    @rotation.setter
-    def rotation(self, value: Real) -> None:
-        self._transform.rotation = value
 
     # ======================================== PREDICATES ========================================
     def in_transition(self) -> bool:

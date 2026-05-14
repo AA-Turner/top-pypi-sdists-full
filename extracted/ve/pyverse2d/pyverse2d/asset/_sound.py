@@ -4,7 +4,7 @@ from .._internal import expect, positive
 from .._flag import AudioState
 from ..abc import Asset
 
-from typing import TYPE_CHECKING, Type, Any, Callable
+from typing import TYPE_CHECKING, Type, Any, Callable, ClassVar
 from numbers import Real
 import os
 
@@ -12,11 +12,11 @@ if TYPE_CHECKING:
     from .._managers._audio import AudioManager, SoundGroup, SoundHandle
 
 class Sound(Asset):
-    """Son court chargé en mémoire *(SFX)*
+    """Descripteur mutable de son court chargé en mémoire *(SFX)*
 
     Args:
         path: chemin vers le fichier audio
-        volume: volume propre [0, 1]
+        volume: volume propre
         cooldown: délai minimal entre deux lectures *(secondes)*
         group: groupe auquel appartient ce son
     """
@@ -26,7 +26,7 @@ class Sound(Asset):
     )
 
     _GROUP_CLASS: Type[SoundGroup] = None
-    _AUDIO_MANAGER: AudioManager = None
+    _AUDIO_MANAGER: ClassVar[AudioManager] = None
 
     @classmethod
     def _get_group_class(cls) -> Type[SoundGroup]:
@@ -48,19 +48,26 @@ class Sound(Asset):
         self,
         path: str,
         volume: Real = 1.0,
-        cooldown: float = 0.0,
+        cooldown: Real = 0.0,
         group: SoundGroup | None = None,
     ):
-        self._path: str = path
-        self._volume: float = float(volume)
-        self._cooldown: float = float(cooldown)
-        self._group: SoundGroup | None = group
+        # Transtypage et vérifications
+        path = str(path)
+        volume = float(volume)
+        cooldown = float(cooldown)
 
         if __debug__:
-            positive(self._volume)
-            positive(self._cooldown)
-            expect(self._group, (self._get_group_class(), None))
+            positive(volume)
+            positive(cooldown)
+            expect(group, (SoundGroup, None))
 
+        # Attributs publiques
+        self._path: str = path
+        self._volume: float = volume
+        self._cooldown: float = cooldown
+        self._group: SoundGroup | None = group
+
+        # Attributs internes
         self._paths: list[str] = [path]
         self._handles: set[SoundHandle] = set()
         self._cooldown_timer: float = 0.0
@@ -115,11 +122,6 @@ class Sound(Asset):
         """Chemin du fichier audio"""
         return self._path
 
-    @path.setter
-    def path(self, value: str) -> None:
-        self._path = value
-        self._refresh_paths()
-
     @property
     def volume(self) -> float:
         """Volume propre
@@ -131,7 +133,8 @@ class Sound(Asset):
     @volume.setter
     def volume(self, value: float) -> None:
         value = float(value)
-        assert value >= 0.0, f"volume ({value}) must be positive"
+        if __debug__:
+            positive(value)
         self._volume = value
 
     @property
@@ -146,7 +149,8 @@ class Sound(Asset):
     @cooldown.setter
     def cooldown(self, value: float) -> None:
         value = float(value)
-        assert value >= 0.0, f"cooldown ({value}) must be positive"
+        if __debug__:
+            positive(value)
         self._cooldown = value
 
     @property
@@ -160,7 +164,8 @@ class Sound(Asset):
 
     @group.setter
     def group(self, value: SoundGroup | None) -> None:
-        assert isinstance(value, self._get_group_class()), f"group ({value}) must be a SoundGroup"
+        if __debug__:
+            expect(value, (SoundGroup, None))
         self._group = value
 
     # ======================================== PREDICATES ========================================
@@ -248,10 +253,6 @@ class Sound(Asset):
     def _apply_cooldown(self) -> None:
         """Initialise le délai"""
         self._cooldown_timer = self._cooldown
-
-    def _refresh_paths(self) -> None:
-        """Actualise les chemins de variation"""
-        self._paths[0] = self._path
 
     def _tick(self, dt: float) -> bool:
         """Actualise le délai"""

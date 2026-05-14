@@ -7,11 +7,11 @@ from logging import getLogger
 
 from asgiref.sync import sync_to_async
 from django.db import transaction
-from rest_framework.serializers import ValidationError
 
 from pulpcore.app import models
 from pulpcore.app.models import ProgressReport
 from pulpcore.app.util import get_domain
+from pulpcore.exceptions.base import RepositoryVersionDeleteError
 
 log = getLogger(__name__)
 
@@ -44,12 +44,7 @@ def delete_version(pk):
             return
 
         if version.repository.versions.complete().count() <= 1:
-            raise ValidationError(
-                _(
-                    "Cannot delete repository version. Repositories must have at least one "
-                    "repository version."
-                )
-            )
+            raise RepositoryVersionDeleteError()
 
         log.info(
             "Deleting and squashing version {num} of repository '{repo}'".format(
@@ -203,7 +198,9 @@ def repair_all_artifacts(verify_checksums):
     loop.run_until_complete(_repair_artifacts_for_content(verify_checksums=verify_checksums))
 
 
-def add_and_remove(repository_pk, add_content_units, remove_content_units, base_version_pk=None):
+def add_and_remove(
+    repository_pk, add_content_units, remove_content_units, base_version_pk=None, overwrite=True
+):
     """
     Create a new repository version by adding and then removing content units.
 
@@ -216,6 +213,8 @@ def add_and_remove(repository_pk, add_content_units, remove_content_units, base_
             should be removed from the previous Repository Version for this Repository.
         base_version_pk (uuid): the primary key for a RepositoryVersion whose content will be used
             as the initial set of content for our new RepositoryVersion
+        overwrite (bool): When False, raise ContentOverwriteError if any content being added
+            conflicts with existing content based on repo_key_fields. Defaults to True.
     """
     repository = models.Repository.objects.get(pk=repository_pk).cast()
 
@@ -230,6 +229,14 @@ def add_and_remove(repository_pk, add_content_units, remove_content_units, base_
             remove_content_units = latest.content.values_list("pk", flat=True)
         else:
             remove_content_units = []
+
+    if not overwrite and add_content_units:
+        version = base_version or repository.latest_version()
+        if version:
+            remove_pks = list(remove_content_units) if remove_content_units else None
+            repository.check_content_overwrite(
+                version, add_content_units, remove_content_pks=remove_pks
+            )
 
     with repository.new_version(base_version=base_version) as new_version:
         new_version.remove_content(models.Content.objects.filter(pk__in=remove_content_units))

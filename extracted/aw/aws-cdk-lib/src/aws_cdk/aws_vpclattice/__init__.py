@@ -2631,6 +2631,7 @@ class CfnResourceGateway(
             # the properties below are optional
             ip_address_type="ipAddressType",
             ipv4_addresses_per_eni=123,
+            resource_config_dns_resolution="resourceConfigDnsResolution",
             security_group_ids=["securityGroupIds"],
             tags=[CfnTag(
                 key="key",
@@ -2649,6 +2650,7 @@ class CfnResourceGateway(
         vpc_identifier: builtins.str,
         ip_address_type: typing.Optional[builtins.str] = None,
         ipv4_addresses_per_eni: typing.Optional[jsii.Number] = None,
+        resource_config_dns_resolution: typing.Optional[builtins.str] = None,
         security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -2661,6 +2663,7 @@ class CfnResourceGateway(
         :param vpc_identifier: The ID of the VPC for the resource gateway.
         :param ip_address_type: The type of IP address used by the resource gateway.
         :param ipv4_addresses_per_eni: The number of IPv4 addresses in each ENI for the resource gateway.
+        :param resource_config_dns_resolution: 
         :param security_group_ids: The IDs of the security groups applied to the resource gateway.
         :param tags: The tags for the resource gateway.
         '''
@@ -2674,6 +2677,7 @@ class CfnResourceGateway(
             vpc_identifier=vpc_identifier,
             ip_address_type=ip_address_type,
             ipv4_addresses_per_eni=ipv4_addresses_per_eni,
+            resource_config_dns_resolution=resource_config_dns_resolution,
             security_group_ids=security_group_ids,
             tags=tags,
         )
@@ -2842,6 +2846,21 @@ class CfnResourceGateway(
         jsii.set(self, "ipv4AddressesPerEni", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="resourceConfigDnsResolution")
+    def resource_config_dns_resolution(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "resourceConfigDnsResolution"))
+
+    @resource_config_dns_resolution.setter
+    def resource_config_dns_resolution(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c42a5f422c1a73e27bc241c0fc95f9a2802cfe8821b78143cdf284c3aad468cd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceConfigDnsResolution", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="securityGroupIds")
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The IDs of the security groups applied to the resource gateway.'''
@@ -2880,6 +2899,7 @@ class CfnResourceGateway(
         "vpc_identifier": "vpcIdentifier",
         "ip_address_type": "ipAddressType",
         "ipv4_addresses_per_eni": "ipv4AddressesPerEni",
+        "resource_config_dns_resolution": "resourceConfigDnsResolution",
         "security_group_ids": "securityGroupIds",
         "tags": "tags",
     },
@@ -2893,6 +2913,7 @@ class CfnResourceGatewayProps:
         vpc_identifier: builtins.str,
         ip_address_type: typing.Optional[builtins.str] = None,
         ipv4_addresses_per_eni: typing.Optional[jsii.Number] = None,
+        resource_config_dns_resolution: typing.Optional[builtins.str] = None,
         security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -2903,6 +2924,7 @@ class CfnResourceGatewayProps:
         :param vpc_identifier: The ID of the VPC for the resource gateway.
         :param ip_address_type: The type of IP address used by the resource gateway.
         :param ipv4_addresses_per_eni: The number of IPv4 addresses in each ENI for the resource gateway.
+        :param resource_config_dns_resolution: 
         :param security_group_ids: The IDs of the security groups applied to the resource gateway.
         :param tags: The tags for the resource gateway.
 
@@ -2924,6 +2946,7 @@ class CfnResourceGatewayProps:
                 # the properties below are optional
                 ip_address_type="ipAddressType",
                 ipv4_addresses_per_eni=123,
+                resource_config_dns_resolution="resourceConfigDnsResolution",
                 security_group_ids=["securityGroupIds"],
                 tags=[CfnTag(
                     key="key",
@@ -2938,6 +2961,7 @@ class CfnResourceGatewayProps:
             check_type(argname="argument vpc_identifier", value=vpc_identifier, expected_type=type_hints["vpc_identifier"])
             check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
             check_type(argname="argument ipv4_addresses_per_eni", value=ipv4_addresses_per_eni, expected_type=type_hints["ipv4_addresses_per_eni"])
+            check_type(argname="argument resource_config_dns_resolution", value=resource_config_dns_resolution, expected_type=type_hints["resource_config_dns_resolution"])
             check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2949,6 +2973,8 @@ class CfnResourceGatewayProps:
             self._values["ip_address_type"] = ip_address_type
         if ipv4_addresses_per_eni is not None:
             self._values["ipv4_addresses_per_eni"] = ipv4_addresses_per_eni
+        if resource_config_dns_resolution is not None:
+            self._values["resource_config_dns_resolution"] = resource_config_dns_resolution
         if security_group_ids is not None:
             self._values["security_group_ids"] = security_group_ids
         if tags is not None:
@@ -3003,6 +3029,14 @@ class CfnResourceGatewayProps:
         '''
         result = self._values.get("ipv4_addresses_per_eni")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def resource_config_dns_resolution(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html#cfn-vpclattice-resourcegateway-resourceconfigdnsresolution
+        '''
+        result = self._values.get("resource_config_dns_resolution")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def security_group_ids(
@@ -8413,6 +8447,7 @@ def _typecheckingstub__c33d35acb93670756de87bb99dc9b48c5bdce217c8b7068ec8d831a66
     vpc_identifier: builtins.str,
     ip_address_type: typing.Optional[builtins.str] = None,
     ipv4_addresses_per_eni: typing.Optional[jsii.Number] = None,
+    resource_config_dns_resolution: typing.Optional[builtins.str] = None,
     security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -8473,6 +8508,12 @@ def _typecheckingstub__5ebc10ed1c8e6c6821b6b7f4cd71006b4e3ce26c6b201ba4637014b89
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c42a5f422c1a73e27bc241c0fc95f9a2802cfe8821b78143cdf284c3aad468cd(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7e2e4828934d008108e9f5f74e2c02dbd9f159db6f7be2e11295977601d1296b(
     value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
@@ -8492,6 +8533,7 @@ def _typecheckingstub__ed2c643634b9016a56acc1cdf5c3044eaa6f62d982922519a82cdbd49
     vpc_identifier: builtins.str,
     ip_address_type: typing.Optional[builtins.str] = None,
     ipv4_addresses_per_eni: typing.Optional[jsii.Number] = None,
+    resource_config_dns_resolution: typing.Optional[builtins.str] = None,
     security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

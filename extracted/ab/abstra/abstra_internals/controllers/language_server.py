@@ -922,24 +922,42 @@ def read_external_file(file_uri: str) -> Optional[str]:
         return None
 
 
-def analyze_python_syntax(code: str) -> List[dict]:
+_TYPE_DISCIPLINE_HINT = (
+    "Do not silence these errors with `Any`, `cast(Any, ...)`, untyped "
+    "`list`/`dict`, or `# type: ignore`. Import the correct type from "
+    "`abstra.types` (or the specific submodule like `abstra.forms`, "
+    "`abstra.tables`, `abstra.tasks`, `abstra.hooks`, `abstra.connectors`, "
+    "`abstra.ai`, `abstra.pages`) and fix the root cause."
+)
+
+
+def analyze_python_syntax(code: str) -> dict:
     """
     Analyze Python code for syntax and type errors using Pyrefly.
-
-    Returns LSP-compatible diagnostics.
 
     Args:
         code (str): Python source code to analyze.
 
     Returns:
-        List[Dict]: LSP Diagnostic objects, each containing:
-            - range: {start: {line, character}, end: {line, character}} (0-based)
-            - severity: 1=Error, 2=Warning, 3=Information, 4=Hint
-            - message: Error description
-            - source: "pyrefly"
+        dict with keys:
+            - diagnostics (List[dict]): LSP Diagnostic objects with
+                range/severity/message/source. Severities: 1=Error, 2=Warning,
+                3=Information, 4=Hint.
+            - error_count (int): Number of severity=1 diagnostics.
+            - warning_count (int): Number of severity=2 diagnostics.
+            - type_discipline_hint (str | None): Short reminder pointing at the
+                Abstra SDK types. Set whenever there is at least one error.
 
     Copywritings:
         Analyze Python code for syntax and type errors
         Analyzing Python code for errors...
     """
-    return get_diagnostics(code)
+    diagnostics = get_diagnostics(code)
+    error_count = sum(1 for d in diagnostics if d.get("severity") == 1)
+    warning_count = sum(1 for d in diagnostics if d.get("severity") == 2)
+    return {
+        "diagnostics": diagnostics,
+        "error_count": error_count,
+        "warning_count": warning_count,
+        "type_discipline_hint": _TYPE_DISCIPLINE_HINT if error_count > 0 else None,
+    }

@@ -11,6 +11,7 @@ from typing import (
     cast,
 )
 
+from outlines.exceptions import normalize_provider_errors
 from outlines.inputs import Chat, Image
 from outlines.models.base import AsyncModel, Model, ModelTypeAdapter
 from outlines.types import CFG, JsonSchema, Regex
@@ -18,6 +19,8 @@ from outlines.types import CFG, JsonSchema, Regex
 if TYPE_CHECKING:
     from ollama import Client
     from ollama import AsyncClient
+
+PROVIDER = "ollama"
 
 __all__ = ["AsyncOllama", "Ollama", "from_ollama"]
 
@@ -195,11 +198,13 @@ class Ollama(Model):
 
         print(self.type_adapter.format_input(model_input))
 
-        response = self.client.chat(
-            messages=self.type_adapter.format_input(model_input),
-            format=self.type_adapter.format_output_type(output_type),
-            **kwargs,
-        )
+        with normalize_provider_errors(PROVIDER):
+            response = self.client.chat(
+                messages=self.type_adapter.format_input(model_input),
+                format=self.type_adapter.format_output_type(output_type),
+                **kwargs,
+            )
+
         return response.message.content
 
     def generate_batch(
@@ -240,14 +245,15 @@ class Ollama(Model):
         if "model" not in kwargs and self.model_name is not None:
             kwargs["model"] = self.model_name
 
-        response = self.client.chat(
-            messages=self.type_adapter.format_input(model_input),
-            format=self.type_adapter.format_output_type(output_type),
-            stream=True,
-            **kwargs,
-        )
-        for chunk in response:
-            yield chunk.message.content
+        with normalize_provider_errors(PROVIDER):
+            response = self.client.chat(
+                messages=self.type_adapter.format_input(model_input),
+                format=self.type_adapter.format_output_type(output_type),
+                stream=True,
+                **kwargs,
+            )
+            for chunk in response:
+                yield chunk.message.content
 
 
 class AsyncOllama(AsyncModel):
@@ -301,11 +307,12 @@ class AsyncOllama(AsyncModel):
         if "model" not in kwargs and self.model_name is not None:
             kwargs["model"] = self.model_name
 
-        response = await self.client.chat(
-            messages=self.type_adapter.format_input(model_input),
-            format=self.type_adapter.format_output_type(output_type),
-            **kwargs,
-        )
+        with normalize_provider_errors(PROVIDER):
+            response = await self.client.chat(
+                messages=self.type_adapter.format_input(model_input),
+                format=self.type_adapter.format_output_type(output_type),
+                **kwargs,
+            )
         return response.message.content
 
     async def generate_batch(
@@ -346,14 +353,15 @@ class AsyncOllama(AsyncModel):
         if "model" not in kwargs and self.model_name is not None:
             kwargs["model"] = self.model_name
 
-        stream = await self.client.chat(
-            messages=self.type_adapter.format_input(model_input),
-            format=self.type_adapter.format_output_type(output_type),
-            stream=True,
-            **kwargs,
-        )
-        async for chunk in stream:
-            yield chunk.message.content
+        with normalize_provider_errors(PROVIDER):
+            stream = await self.client.chat(
+                messages=self.type_adapter.format_input(model_input),
+                format=self.type_adapter.format_output_type(output_type),
+                stream=True,
+                **kwargs,
+            )
+            async for chunk in stream:
+                yield chunk.message.content
 
 
 def from_ollama(

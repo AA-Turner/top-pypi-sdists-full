@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rigour
-Version: 2.1.0
+Version: 2.1.1
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: MIT License
@@ -8,10 +8,10 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Rust
 Requires-Dist: pyyaml>=5.0.0,<7.0.0
 Requires-Dist: normality>=3.0.1,<4.0.0
-Requires-Dist: rapidfuzz>=3.9.0,<4.0.0
 Requires-Dist: orjson>=3.0.0,<4.0.0
 Requires-Dist: python-stdnum>=2.0,<3.0.0
 Requires-Dist: jinja2>=3.1.0,<4.0.0
@@ -26,7 +26,6 @@ Requires-Dist: mypy ; extra == 'dev'
 Requires-Dist: pytest ; extra == 'dev'
 Requires-Dist: pytest-cov ; extra == 'dev'
 Requires-Dist: types-pyyaml ; extra == 'dev'
-Requires-Dist: types-requests ; extra == 'dev'
 Requires-Dist: types-setuptools ; extra == 'dev'
 Requires-Dist: types-pyyaml ; extra == 'dev'
 Requires-Dist: coverage>=4.1 ; extra == 'dev'

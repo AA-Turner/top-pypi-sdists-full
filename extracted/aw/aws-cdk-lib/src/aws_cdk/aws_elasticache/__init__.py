@@ -203,7 +203,7 @@ class CfnCacheCluster(
         :param auto_minor_version_upgrade: If you are running Valkey 7.2 or later, or Redis OSS engine version 6.0 or later, set this parameter to yes if you want to opt-in to the next minor version upgrade campaign. This parameter is disabled for previous versions.
         :param az_mode: Specifies whether the nodes in this Memcached cluster are created in a single Availability Zone or created across multiple Availability Zones in the cluster's region. This parameter is only supported for Memcached clusters. If the ``AZMode`` and ``PreferredAvailabilityZones`` are not specified, ElastiCache assumes ``single-az`` mode.
         :param cache_parameter_group_name: The name of the parameter group to associate with this cluster. If this argument is omitted, the default parameter group for the specified engine is used. You cannot use any parameter group which has ``cluster-enabled='yes'`` when creating a cluster.
-        :param cache_security_group_names: A list of security group names to associate with this cluster. Use this parameter only when you are creating a cluster outside of an Amazon Virtual Private Cloud (Amazon VPC).
+        :param cache_security_group_names: (deprecated) A list of security group names to associate with this cluster. Use this parameter only when you are creating a cluster outside of an Amazon Virtual Private Cloud (Amazon VPC).
         :param cache_subnet_group_name: The name of the subnet group to be used for the cluster. Use this parameter only when you are creating a cluster in an Amazon Virtual Private Cloud (Amazon VPC). .. epigraph:: If you're going to launch your cluster in an Amazon VPC, you need to create a subnet group before you start creating a cluster. For more information, see ``[AWS::ElastiCache::SubnetGroup](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-subnetgroup.html) .``
         :param cluster_name: A name for the cache cluster. If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the cache cluster. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . The name must contain 1 to 50 alphanumeric characters or hyphens. The name must start with a letter and cannot end with a hyphen or contain two consecutive hyphens.
         :param engine_version: The version number of the cache engine to be used for this cluster. To view the supported cache engine versions, use the DescribeCacheEngineVersions operation. *Important:* You can upgrade to a newer engine version (see `Selecting a Cache Engine and Version <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/SelectEngine.html#VersionManagement>`_ ), but you cannot downgrade to an earlier engine version. If you want to use an earlier engine version, you must delete the existing cluster or replication group and create it anew with the earlier engine version.
@@ -300,6 +300,14 @@ class CfnCacheCluster(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrConfigurationEndpoint")
+    def attr_configuration_endpoint(self) -> "_IResolvable_da3f097b":
+        '''
+        :cloudformationAttribute: ConfigurationEndpoint
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrConfigurationEndpoint"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrConfigurationEndpointAddress")
     def attr_configuration_endpoint_address(self) -> builtins.str:
         '''The DNS hostname of the cache node.
@@ -326,13 +334,12 @@ class CfnCacheCluster(
         return typing.cast(builtins.str, jsii.get(self, "attrConfigurationEndpointPort"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The resource name.
-
-        :cloudformationAttribute: Id
+    @jsii.member(jsii_name="attrRedisEndpoint")
+    def attr_redis_endpoint(self) -> "_IResolvable_da3f097b":
         '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+        :cloudformationAttribute: RedisEndpoint
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrRedisEndpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="attrRedisEndpointAddress")
@@ -460,7 +467,12 @@ class CfnCacheCluster(
     @builtins.property
     @jsii.member(jsii_name="cacheSecurityGroupNames")
     def cache_security_group_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of security group names to associate with this cluster.'''
+        '''(deprecated) A list of security group names to associate with this cluster.
+
+        :deprecated: this property has been deprecated
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "cacheSecurityGroupNames"))
 
     @cache_security_group_names.setter
@@ -868,6 +880,73 @@ class CfnCacheCluster(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticache.CfnCacheCluster.EndpointProperty",
+        jsii_struct_bases=[],
+        name_mapping={"address": "address", "port": "port"},
+    )
+    class EndpointProperty:
+        def __init__(
+            self,
+            *,
+            address: typing.Optional[builtins.str] = None,
+            port: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param address: 
+            :param port: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-cachecluster-endpoint.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticache as elasticache
+                
+                endpoint_property = elasticache.CfnCacheCluster.EndpointProperty(
+                    address="address",
+                    port="port"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6de0a3a92625d3159a2fa3c7d1c2369e2bfd1c1164e6a71ed07082ad5bd39264)
+                check_type(argname="argument address", value=address, expected_type=type_hints["address"])
+                check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if address is not None:
+                self._values["address"] = address
+            if port is not None:
+                self._values["port"] = port
+
+        @builtins.property
+        def address(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-cachecluster-endpoint.html#cfn-elasticache-cachecluster-endpoint-address
+            '''
+            result = self._values.get("address")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def port(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-cachecluster-endpoint.html#cfn-elasticache-cachecluster-endpoint-port
+            '''
+            result = self._values.get("port")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EndpointProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_elasticache.CfnCacheCluster.KinesisFirehoseDestinationDetailsProperty",
         jsii_struct_bases=[],
         name_mapping={"delivery_stream": "deliveryStream"},
@@ -1108,7 +1187,7 @@ class CfnCacheClusterProps:
         :param auto_minor_version_upgrade: If you are running Valkey 7.2 or later, or Redis OSS engine version 6.0 or later, set this parameter to yes if you want to opt-in to the next minor version upgrade campaign. This parameter is disabled for previous versions.
         :param az_mode: Specifies whether the nodes in this Memcached cluster are created in a single Availability Zone or created across multiple Availability Zones in the cluster's region. This parameter is only supported for Memcached clusters. If the ``AZMode`` and ``PreferredAvailabilityZones`` are not specified, ElastiCache assumes ``single-az`` mode.
         :param cache_parameter_group_name: The name of the parameter group to associate with this cluster. If this argument is omitted, the default parameter group for the specified engine is used. You cannot use any parameter group which has ``cluster-enabled='yes'`` when creating a cluster.
-        :param cache_security_group_names: A list of security group names to associate with this cluster. Use this parameter only when you are creating a cluster outside of an Amazon Virtual Private Cloud (Amazon VPC).
+        :param cache_security_group_names: (deprecated) A list of security group names to associate with this cluster. Use this parameter only when you are creating a cluster outside of an Amazon Virtual Private Cloud (Amazon VPC).
         :param cache_subnet_group_name: The name of the subnet group to be used for the cluster. Use this parameter only when you are creating a cluster in an Amazon Virtual Private Cloud (Amazon VPC). .. epigraph:: If you're going to launch your cluster in an Amazon VPC, you need to create a subnet group before you start creating a cluster. For more information, see ``[AWS::ElastiCache::SubnetGroup](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-subnetgroup.html) .``
         :param cluster_name: A name for the cache cluster. If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the cache cluster. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . The name must contain 1 to 50 alphanumeric characters or hyphens. The name must start with a letter and cannot end with a hyphen or contain two consecutive hyphens.
         :param engine_version: The version number of the cache engine to be used for this cluster. To view the supported cache engine versions, use the DescribeCacheEngineVersions operation. *Important:* You can upgrade to a newer engine version (see `Selecting a Cache Engine and Version <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/SelectEngine.html#VersionManagement>`_ ), but you cannot downgrade to an earlier engine version. If you want to use an earlier engine version, you must delete the existing cluster or replication group and create it anew with the earlier engine version.
@@ -1392,11 +1471,14 @@ class CfnCacheClusterProps:
 
     @builtins.property
     def cache_security_group_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of security group names to associate with this cluster.
+        '''(deprecated) A list of security group names to associate with this cluster.
 
         Use this parameter only when you are creating a cluster outside of an Amazon Virtual Private Cloud (Amazon VPC).
 
+        :deprecated: this property has been deprecated
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-cachecluster.html#cfn-elasticache-cachecluster-cachesecuritygroupnames
+        :stability: deprecated
         '''
         result = self._values.get("cache_security_group_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -8664,6 +8746,14 @@ def _typecheckingstub__000cbd02f7786299cee1e93bf5afb34c16e6ab92a2447aa9f4bf42256
     *,
     cloud_watch_logs_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCacheCluster.CloudWatchLogsDestinationDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kinesis_firehose_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCacheCluster.KinesisFirehoseDestinationDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6de0a3a92625d3159a2fa3c7d1c2369e2bfd1c1164e6a71ed07082ad5bd39264(
+    *,
+    address: typing.Optional[builtins.str] = None,
+    port: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

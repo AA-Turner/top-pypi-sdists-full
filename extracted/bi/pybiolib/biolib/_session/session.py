@@ -1,12 +1,12 @@
 from biolib import utils
+from biolib._experiment.experiment import Experiment
 from biolib._internal.utils.auth import exchange_azure_oauth_token_for_biolib_refresh_token
 from biolib._internal.utils.experiment import fetch_experiment_by_uri
 from biolib._internal.utils.job_url import parse_result_id_or_url
+from biolib._result.result import Result
 from biolib.api.client import ApiClient, ApiClientInitDict
 from biolib.app import BioLibApp
 from biolib.biolib_errors import BioLibError
-from biolib.experiments.experiment import Experiment
-from biolib._result.result import Result
 from biolib.typing_utils import Optional
 
 

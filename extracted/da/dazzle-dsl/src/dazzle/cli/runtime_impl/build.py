@@ -46,7 +46,7 @@ def build_ui_command(
 
     try:
         # Verify UI package is available
-        from dazzle_ui.runtime.static_preview import generate_preview_files as _check  # noqa: F401
+        from dazzle.ui.runtime.static_preview import generate_preview_files as _check  # noqa: F401
     except ImportError as e:
         typer.echo(f"Dazzle UI not available: {e}", err=True)
         typer.echo("Install with: pip install dazzle-dsl[serve]", err=True)
@@ -148,7 +148,7 @@ def build_api_command(
 Auto-generated API stub for {appspec.name}.
 
 Usage:
-    from dazzle_back.runtime import create_app_from_json
+    from dazzle.back.runtime import create_app_from_json
     app = create_app_from_json('appspec.json')
 
 Or run directly:
@@ -158,7 +158,7 @@ Or run directly:
 from pathlib import Path
 
 try:
-    from dazzle_back.runtime import create_app_from_json, FASTAPI_AVAILABLE
+    from dazzle.back.runtime import create_app_from_json, FASTAPI_AVAILABLE
     if not FASTAPI_AVAILABLE:
         raise ImportError("FastAPI not installed")
 
@@ -328,7 +328,7 @@ def build_command(
     from dazzle.cli.services.build_service import BuildService
 
     try:
-        from dazzle_ui.runtime.static_preview import generate_preview_files as _check  # noqa: F401
+        from dazzle.ui.runtime.static_preview import generate_preview_files as _check  # noqa: F401
     except ImportError as e:
         typer.echo(f"Dazzle UI not available: {e}", err=True)
         typer.echo("Install with: pip install dazzle-dsl[serve]", err=True)
@@ -498,7 +498,7 @@ def _run_codegen_targets(appspec: Any, output_dir: Path, target: str) -> None:
 def _generate_sql_target(appspec: Any, output_dir: Path) -> None:
     """Generate SQL DDL schema from AppSpec."""
     try:
-        from dazzle_back import build_metadata, convert_entities
+        from dazzle.back import build_metadata, convert_entities
     except ImportError as e:
         typer.echo(f"  SQL target requires dazzle-app-back: {e}", err=True)
         return
@@ -579,7 +579,35 @@ def _generate_asyncapi_target(appspec: Any, output_dir: Path) -> None:
     typer.echo(f"  AsyncAPI -> {yaml_file}, {json_file}")
 
 
-# `build_css_command` removed in v0.62 (Phase 4 teardown). The Tailwind
-# JIT bundle is no longer needed — every Dazzle template now consumes
-# the semantic .dz-* class families from dazzle-framework.css. See
-# dev_docs/2026-04-27-css-refactor-phase-4.md for the migration notes.
+# `build_css_command` was removed in v0.62 (Phase 4 teardown — the
+# Tailwind JIT bundle is no longer needed; every Dazzle template now
+# consumes the semantic .dz-* class families from dazzle-framework.css).
+# See dev_docs/2026-04-27-css-refactor-phase-4.md for the migration
+# notes.
+#
+# v0.67.21 (#1038): re-introduced as a no-op CLI command because
+# downstream `bin/post_compile` deploy hooks were silently failing
+# with typer's "No such command" error since v0.62 — quiet enough
+# that operators wouldn't notice unless they read deploy logs
+# carefully. The no-op prints a one-shot migration note and exits 0
+# so the deploy pipeline doesn't fail-loud either; deploy hooks
+# should remove the call at their convenience. The build behaviour
+# itself remains removed (the pre-built CSS bundle ships in the
+# wheel); this entry is purely for invocation ergonomics.
+def build_css_command() -> None:
+    """No-op for the v0.62-removed `dazzle build-css` CLI command.
+
+    Prints a migration note and exits 0. Downstream deploy hooks
+    (e.g. cyfuture's `bin/post_compile`) had been calling this in
+    defence-in-depth; with Dazzle now shipping pre-built CSS at
+    `src/dazzle/ui/runtime/static/dist/dazzle.min.css` (served at
+    `/static/dist/dazzle.min.css` by the typed Page primitive), the
+    post-compile is genuinely obsolete. This no-op lets those hooks keep
+    invoking `dazzle build-css` until they're cleaned up.
+    """
+    typer.echo(
+        "NOTE: dazzle build-css is a no-op since v0.62. Dazzle now ships\n"
+        "pre-built CSS at src/dazzle/ui/runtime/static/dist/dazzle.min.css,\n"
+        "served at /static/dist/dazzle.min.css. Remove this call from your\n"
+        "deploy hooks; no replacement is needed."
+    )

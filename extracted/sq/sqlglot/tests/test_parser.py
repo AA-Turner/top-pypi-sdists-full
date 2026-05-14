@@ -97,6 +97,17 @@ class TestParser(unittest.TestCase):
 
         self.assertIsNotNone(parse_one("date").find(exp.Column))
 
+    def test_no_paren_functions_after_dot(self):
+        # NO_PAREN_FUNCTIONS (token-type-based): should be identifiers after a dot
+        col = parse_one("SELECT t.current_date FROM t").find(exp.Column)
+        self.assertEqual(col.table, "t")
+        self.assertEqual(col.name, "current_date")
+
+        # Slow path via :: cast
+        cast = parse_one("SELECT t.current_user::TEXT FROM t", dialect="postgres").find(exp.Cast)
+        self.assertIsInstance(cast.this, exp.Column)
+        self.assertEqual(cast.this.name, "current_user")
+
     def test_tuple(self):
         parse_one("(a,)").assert_is(exp.Tuple)
 
@@ -1063,6 +1074,24 @@ class TestParser(unittest.TestCase):
             parse_one(sql, error_level=ErrorLevel.IGNORE).sql(),
             "SELECT * FROM a WHERE c = 'false'",
         )
+
+    def test_window_clause_without_from(self):
+        # https://github.com/tobymao/sqlglot/issues/7438
+        for dialect in (None, "sqlite", "postgres", "mysql", "duckdb", "bigquery"):
+            sql = "SELECT 1 WINDOW a AS (PARTITION BY x)"
+            self.assertEqual(parse_one(sql, dialect=dialect).sql(dialect=dialect), sql)
+
+        # multiple named windows still work
+        self.assertEqual(
+            parse_one("SELECT 1 WINDOW a AS (PARTITION BY x), b AS (ORDER BY y)").sql(),
+            "SELECT 1 WINDOW a AS (PARTITION BY x), b AS (ORDER BY y)",
+        )
+
+        # WINDOW can still be used as an explicit alias (SELECT 1 AS WINDOW)
+        self.assertEqual(parse_one("SELECT 1 AS WINDOW").sql(), "SELECT 1 AS WINDOW")
+
+        # WINDOW remains usable as an implicit alias when not followed by `<id> AS (`
+        self.assertEqual(parse_one("SELECT col window FROM t").sql(), "SELECT col AS window FROM t")
 
     def test_parse_into_grant_principal(self):
         self.assertIsInstance(parse_one("ROLE blah", into=exp.GrantPrincipal), exp.GrantPrincipal)

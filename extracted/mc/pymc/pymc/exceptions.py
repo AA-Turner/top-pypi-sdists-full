@@ -13,12 +13,18 @@
 #   limitations under the License.
 
 __all__ = [
+    "BlockModelAccessError",
+    "DtypeError",
+    "ImplicitFreezeWarning",
     "ImputationWarning",
     "IncorrectArgumentsError",
+    "NotConstantValueError",
     "SamplingError",
     "ShapeError",
     "ShapeWarning",
     "TraceDirectoryError",
+    "TruncationError",
+    "UndefinedMomentException",
 ]
 
 
@@ -38,6 +44,17 @@ class TraceDirectoryError(ValueError):
 
 class ImputationWarning(UserWarning):
     """Warning that there are missing values that will be imputed."""
+
+    pass
+
+
+class ImplicitFreezeWarning(UserWarning):
+    """Warning that trace values are being reused instead of resampled.
+
+    Emitted by ``sample_posterior_predictive`` when a trace basic RV has a
+    volatile upstream (changed Data/coords or a resampled ancestor) but is not
+    listed in ``sample_vars``.
+    """
 
     pass
 

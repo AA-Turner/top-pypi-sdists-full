@@ -25,6 +25,7 @@ from pytensor import scan, shared
 from pytensor.compile import UnusedInputError
 from pytensor.compile.builders import OpFromGraph
 from pytensor.graph.basic import Variable, equal_computations
+from pytensor.link.vm import VMLinker
 from pytensor.tensor.subtensor import AdvancedIncSubtensor
 
 import pymc as pm
@@ -43,9 +44,11 @@ from pymc.pytensorf import (
     extract_obs_data,
     hessian,
     hessian_diag,
+    make_shared_replacements,
     replace_rng_nodes,
     replace_vars_in_graphs,
     reseed_rngs,
+    resolve_backend_compile_kwargs,
 )
 from pymc.vartypes import int_types
 
@@ -85,14 +88,14 @@ def test_pd_as_tensor_variable_multiindex() -> None:
 
 class TestBroadcasting:
     def test_make_shared_replacements(self):
-        """Check if pm.make_shared_replacements preserves broadcasting."""
+        """Check if make_shared_replacements preserves broadcasting."""
 
         with pm.Model() as test_model:
             test1 = pm.Normal("test1", mu=0.0, sigma=1.0, size=(1, 10))
             test2 = pm.Normal("test2", mu=0.0, sigma=1.0, size=(10, 1))
 
         # Replace test1 with a shared variable, keep test 2 the same
-        replacement = pm.make_shared_replacements(
+        replacement = make_shared_replacements(
             test_model.initial_point(), [test_model.test2], test_model
         )
         assert (
@@ -325,8 +328,8 @@ class TestCompile:
         f = compile([], x)
         assert not np.isclose(f(), f())
 
-        # Check that update was not done inplace
-        assert rng.default_update is None
+        # Check that compile() didn't mutate the shared rng — a plain
+        # pytensor.function over the same graph should still be deterministic.
         f = pytensor.function([], x)
         assert f() == f()
 
@@ -344,19 +347,11 @@ class TestCompile:
         f = compile([], x)
         assert f() != f()
 
-        # An explicit update should override the default_update, like pytensor.function does
-        # For testing purposes, we use an update that leaves the rng unchanged
+        # An explicit update should override the inferred default update, like
+        # pytensor.function does. For testing purposes, we use an update that
+        # leaves the rng unchanged.
         f = compile([], x, updates={rng: rng})
         assert f() == f()
-
-        # If we specify a custom default_update directly it should use that instead.
-        rng.default_update = rng
-        f = compile([], x)
-        assert f() == f()
-
-        # And again, it should be overridden by an explicit update
-        f = compile([], x, updates={rng: x.owner.outputs[0]})
-        assert f() != f()
 
     def test_compile_pymc_updates_inputs(self):
         """Test that compile_pymc does not include rngs updates of variables that are inputs
@@ -446,11 +441,11 @@ class TestCompile:
         assert x3_eval == x2_eval
         assert y3_eval == y2_eval
 
-    @pytest.mark.filterwarnings("error")  # This is part of the test
+    @pytest.mark.filterwarnings("error")
     def test_multiple_updates_same_variable(self):
         rng = pytensor.shared(np.random.default_rng(), name="rng")
-        x = pt.random.normal(0, rng=rng)
-        y = pt.random.normal(1, rng=rng)
+        _, x = pt.random.normal(0, rng=rng, return_next_rng=True)
+        _, y = pt.random.normal(1, rng=rng, return_next_rng=True)
 
         # No warnings if only one variable is used
         assert compile([], [x])
@@ -466,17 +461,11 @@ class TestCompile:
             f = compile([], [x, y], updates={rng: y.owner.outputs[0]}, random_seed=456)
         assert f() != f()
 
-        # Same with default update
-        rng.default_update = x.owner.outputs[0]
-        with pytest.warns(UserWarning, match=user_warn_msg):
-            f = compile([], [x, y], updates={rng: y.owner.outputs[0]}, random_seed=456)
-        assert f() != f()
-
-    @pytest.mark.filterwarnings("error")  # This is part of the test
+    @pytest.mark.filterwarnings("error")
     def test_duplicated_client_nodes(self):
         """Test compile_pymc can handle duplicated (mergeable) RV updates."""
         rng = pytensor.shared(np.random.default_rng(1))
-        x = pt.random.normal(rng=rng)
+        _, x = pt.random.normal(rng=rng, return_next_rng=True)
         y = x.owner.clone().default_output()
 
         fn = compile([], [x, y], random_seed=1)
@@ -580,6 +569,31 @@ class TestCompile:
         assert collect_default_updates([x]) == {rng: next_rng}
         assert collect_default_updates([y]) == {rng: next_rng}
         assert collect_default_updates([x, y]) == {rng: next_rng}
+
+
+class TestResolveBackendCompileKwargs:
+    def test_backend_materializes_as_mode(self):
+        out = resolve_backend_compile_kwargs("numba", None)
+        assert isinstance(out["mode"], pytensor.compile.Mode)
+
+    def test_passthrough_when_backend_none(self):
+        assert resolve_backend_compile_kwargs(None, None) == {}
+        assert resolve_backend_compile_kwargs(None, {"profile": True}) == {"profile": True}
+
+    def test_does_not_mutate_caller(self):
+        original = {"profile": True}
+        resolve_backend_compile_kwargs("numba", original)
+        assert original == {"profile": True}
+
+    def test_raises_when_backend_conflicts_with_mode(self):
+        with pytest.raises(ValueError, match="Can only define one of"):
+            resolve_backend_compile_kwargs("numba", {"mode": "FAST_RUN"})
+
+    def test_backend_c_aliases_cvm(self):
+        out = resolve_backend_compile_kwargs("c", None)
+        linker = out["mode"].linker
+        assert isinstance(linker, VMLinker)
+        assert linker.use_cloop is True
 
 
 def test_replace_rng_nodes():

@@ -2,14 +2,15 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Iterator
+from typing import Iterator,  ClassVar, Tuple
 
 # ======================================== ABSTRACT CLASS ========================================
 class Component(ABC):
     """Classe abstraite des composants"""
-    __slots__ = ()
-    requires: tuple[type, ...] = ()
-    conflicts: tuple[type, ...] = ()
+    __slots__ = tuple()
+
+    requires: ClassVar[Tuple[str, ...]] = tuple()
+    conflicts: ClassVar[Tuple[str, ...]] = tuple()
 
     # ======================================== CONTRACT ========================================
     @abstractmethod

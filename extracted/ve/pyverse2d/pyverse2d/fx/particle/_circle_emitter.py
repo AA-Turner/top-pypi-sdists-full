@@ -1,6 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
+from ..._core import Positionable
 from ...abc import ParticleEmitter
 from ...math import Point
 
@@ -38,18 +39,18 @@ class CircleEmitter(ParticleEmitter):
         rate: Real = 50.0,
         active: bool = False,
     ):
+        # Initialisation de l'émetteur
+        super().__init__(position, particle=particle, max_particles=max_particles, rate=rate, active=active)
+
         # Transtypage
         radius = abs(float(radius))
         fill = bool(fill)
         outward = bool(outward)
 
-        # Initialisation de l'émetteur
-        super().__init__(position, particle=particle, max_particles=max_particles, rate=rate, active=active)
-
         # Attributs publiques
-        self._radius = radius
-        self._fill = fill
-        self._outward = outward
+        self._radius: float = radius
+        self._fill: bool = fill
+        self._outward: bool = outward
 
     # ======================================== PROPERTIES ========================================
     @property

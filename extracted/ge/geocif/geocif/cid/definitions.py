@@ -84,6 +84,15 @@ dict_ndvi = {
     "AUC_NDVI": ["VI", "Area under the curve of NDVI"],
 }
 
+dict_etref = {
+    "MEAN_ETREF": ["ETREF", "Mean reference ET"],
+    "MAX_ETREF":  ["ETREF", "Maximum reference ET"],
+    "MIN_ETREF":  ["ETREF", "Minimum reference ET"],
+    "STD_ETREF":  ["ETREF", "Standard deviation of reference ET"],
+    "AUC_ETREF":  ["ETREF", "Area under the curve of reference ET"],
+    "SUM_ETREF":  ["ETREF", "Total reference ET over period"],
+}
+
 dict_gcvi = {
     "MEAN_GCVI": ["VI", "Mean GCVI"],
     "MAX_GCVI": ["VI", "Maximum GCVI"],

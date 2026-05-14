@@ -3132,6 +3132,15 @@ class CfnTargetDomain(
         return typing.cast(builtins.str, jsii.get(self, "attrVerificationStatus"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrVerificationStatusReason")
+    def attr_verification_status_reason(self) -> builtins.str:
+        '''Reason for the current target domain verification status.
+
+        :cloudformationAttribute: VerificationStatusReason
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVerificationStatusReason"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrVerifiedAt")
     def attr_verified_at(self) -> builtins.str:
         '''Timestamp when the target domain was last successfully verified.

@@ -1,6 +1,9 @@
 import importlib.metadata
+import json
 import logging
-from typing import Literal, Optional
+import os
+from datetime import datetime, timezone
+from typing import Any, Dict, Literal, Optional
 
 import sentry_sdk
 from sentry_sdk.integrations.logging import LoggingIntegration
@@ -19,8 +22,8 @@ internal_logger = lambda: logging.getLogger("abstra_internal")  # noqa: E731
 
 class DevSDK:
     @classmethod
-    def init(cls, *args, **kwargs):
-        pass
+    def init(cls, *_args, **_kwargs):
+        del _args, _kwargs
 
     @classmethod
     def capture_exception(cls, exception: BaseException):
@@ -38,6 +41,21 @@ class DevSDK:
 
 
 LoggerEnvironment = Literal["cloud", "local"]
+
+
+def _format(message: str, attrs: Optional[Dict[str, Any]]) -> str:
+    """Append non-null attrs as `k=v k=v ...` after the message, separated by ` | `."""
+    if not attrs:
+        return message
+    pairs = []
+    for k, v in attrs.items():
+        if v is None:
+            continue
+        if isinstance(v, (str, int, float, bool)):
+            pairs.append(f"{k}={v}")
+        else:
+            pairs.append(f"{k}={json.dumps(v, default=str)}")
+    return f"{message} | {' '.join(pairs)}" if pairs else message
 
 
 class AbstraLogger:
@@ -84,20 +102,52 @@ class AbstraLogger:
         cls.get_sdk().flush()
 
     @classmethod
-    def warning(cls, message: str):
-        internal_logger().warning(message)
+    def warning(cls, message: str, attrs: Optional[Dict[str, Any]] = None):
+        internal_logger().warning(_format(message, attrs))
 
     @classmethod
-    def info(cls, message: str):
-        internal_logger().info(message)
+    def info(cls, message: str, attrs: Optional[Dict[str, Any]] = None):
+        internal_logger().info(_format(message, attrs))
 
     @classmethod
-    def debug(cls, message: str):
-        internal_logger().debug(message)
+    def debug(cls, message: str, attrs: Optional[Dict[str, Any]] = None):
+        internal_logger().debug(_format(message, attrs))
 
     @classmethod
-    def error(cls, message: str):
-        internal_logger().error(message)
+    def error(cls, message: str, attrs: Optional[Dict[str, Any]] = None):
+        internal_logger().error(_format(message, attrs))
+
+    # High-volume lifecycle logging emits a single-line JSON object shaped like
+    # `tracing-subscriber`'s output ({timestamp, level, fields, target}) so Fluent
+    # Bit's Merge_Log lifts attrs into top-level Elasticsearch fields under
+    # `log_processed.fields.*` — same query path as central-scheduler/dispatcher.
+    #
+    # Writes directly to fd 1 via os.write() so the line is unaffected by:
+    # (a) StdioPatcher's monkey-patching of sys.stdout.write — fd 1 is what Docker
+    #     captures, and os.write goes there directly, never touching sys.stdout. This
+    #     means lifecycle calls inside `with SDKContext(...)` blocks DON'T leak into
+    #     the user-facing execution-logs view via BroadcastController, and
+    # (b) ABSTRA_LOGLEVEL — internal lifecycle logging always emits regardless of
+    #     the Python logger's level.
+    # os.write() is atomic for buffers <= PIPE_BUF (typically 4096 bytes on Linux),
+    # which comfortably covers any realistic lifecycle line.
+    @classmethod
+    def lifecycle(cls, message: str, attrs: Optional[Dict[str, Any]] = None):
+        fields: Dict[str, Any] = {"message": message}
+        if attrs:
+            for k, v in attrs.items():
+                if v is not None:
+                    fields[k] = v
+        payload = {
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "level": "INFO",
+            "fields": fields,
+            "target": "abstra_internal",
+        }
+        try:
+            os.write(1, (json.dumps(payload, default=str) + "\n").encode("utf-8"))
+        except Exception:
+            pass
 
     @classmethod
     def get_sdk(cls):

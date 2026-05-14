@@ -1,22 +1,22 @@
 Metadata-Version: 2.4
 Name: litellm
-Version: 1.83.14
+Version: 1.84.0
 Summary: Library to easily interface with LLM API providers
 Author: BerriAI
 License-Expression: MIT
 License-File: LICENSE
-Requires-Dist: fastuuid==0.14.0
-Requires-Dist: httpx==0.28.1
-Requires-Dist: openai==2.24.0
-Requires-Dist: python-dotenv==1.2.2
-Requires-Dist: tiktoken==0.12.0
-Requires-Dist: importlib-metadata==8.5.0
-Requires-Dist: tokenizers==0.22.2
-Requires-Dist: click==8.1.8
-Requires-Dist: jinja2==3.1.6
-Requires-Dist: aiohttp==3.13.4
-Requires-Dist: pydantic==2.12.5
-Requires-Dist: jsonschema==4.23.0
+Requires-Dist: fastuuid>=0.14.0,<1.0
+Requires-Dist: httpx>=0.28.0,<1.0
+Requires-Dist: openai>=2.20.0,<3.0.0
+Requires-Dist: python-dotenv>=1.0.0,<2.0
+Requires-Dist: tiktoken>=0.8.0,<1.0
+Requires-Dist: importlib-metadata>=8.0.0,<9.0
+Requires-Dist: tokenizers>=0.21.0,<1.0
+Requires-Dist: click>=8.0.0,<9.0
+Requires-Dist: jinja2>=3.1.6,<4.0
+Requires-Dist: aiohttp>=3.10,<4.0
+Requires-Dist: pydantic>=2.10.0,<3.0.0
+Requires-Dist: jsonschema>=4.0.0,<5.0
 Requires-Dist: diskcache==5.6.3 ; extra == 'caching'
 Requires-Dist: prisma==0.11.0 ; extra == 'extra-proxy'
 Requires-Dist: azure-identity==1.25.2 ; extra == 'extra-proxy'
@@ -40,16 +40,16 @@ Requires-Dist: orjson==3.11.6 ; extra == 'proxy'
 Requires-Dist: apscheduler==3.11.2 ; extra == 'proxy'
 Requires-Dist: fastapi-sso==0.19.0 ; extra == 'proxy'
 Requires-Dist: pyjwt==2.12.0 ; extra == 'proxy'
-Requires-Dist: python-multipart==0.0.26 ; extra == 'proxy'
+Requires-Dist: python-multipart==0.0.27 ; extra == 'proxy'
 Requires-Dist: cryptography==46.0.7 ; extra == 'proxy'
 Requires-Dist: pynacl==1.6.2 ; extra == 'proxy'
 Requires-Dist: websockets==15.0.1 ; extra == 'proxy'
-Requires-Dist: boto3==1.42.59 ; extra == 'proxy'
+Requires-Dist: boto3==1.43.1 ; extra == 'proxy'
 Requires-Dist: azure-identity==1.25.2 ; extra == 'proxy'
 Requires-Dist: azure-storage-blob==12.28.0 ; extra == 'proxy'
 Requires-Dist: mcp==1.26.0 ; extra == 'proxy'
-Requires-Dist: litellm-proxy-extras==0.4.69 ; extra == 'proxy'
-Requires-Dist: litellm-enterprise==0.1.39 ; extra == 'proxy'
+Requires-Dist: litellm-proxy-extras==0.4.72 ; extra == 'proxy'
+Requires-Dist: litellm-enterprise==0.1.40 ; extra == 'proxy'
 Requires-Dist: restrictedpython==8.1 ; extra == 'proxy'
 Requires-Dist: rich==13.9.4 ; extra == 'proxy'
 Requires-Dist: polars==1.38.1 ; extra == 'proxy'
@@ -160,7 +160,7 @@ Managing LLM calls across providers gets complicated fast — different SDKs, au
     <td><img height="60" alt="Stripe" src="https://github.com/user-attachments/assets/f7296d4f-9fbd-460d-9d05-e4df31697c4b" /></td>
     <td><img height="60" alt="image" src="https://github.com/user-attachments/assets/436fca71-988b-40bb-b5fe-8450c80fdbd0" /></td>
     <td><img height="60" alt="Google ADK" src="https://github.com/user-attachments/assets/caf270a2-5aee-45c4-8222-41a2070c4f19" /></td>
-    <td><img height="60" alt="Greptile" src="https://github.com/user-attachments/assets/0be4bd8a-7cfa-48d3-9090-f415fe948280" /></td>
+    <td><img height="60" alt="Greptile" src="https://github.com/user-attachments/assets/3db0ae72-0843-4005-a56d-bba1dde2193d" /></td>
     <td><img height="60" alt="OpenHands" src="https://github.com/user-attachments/assets/a6150c4c-149e-4cae-888b-8b92be6e003f" /></td>
     <td><h2>Netflix</h2></td>
     <td><img height="60" alt="OpenAI Agents SDK" src="https://github.com/user-attachments/assets/c02f7be0-8c2e-4d27-aea7-7c024bfaebc0" /></td>

@@ -1973,7 +1973,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            matching_attributes_list: typing.Union[typing.Sequence[typing.Sequence[builtins.str]], "_IResolvable_da3f097b"],
+            matching_attributes_list: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Sequence[builtins.str]]],
         ) -> None:
             '''A list of matching attributes that represent matching criteria.
 
@@ -2004,14 +2004,14 @@ class CfnDomain(
         @builtins.property
         def matching_attributes_list(
             self,
-        ) -> typing.Union[typing.List[typing.List[builtins.str]], "_IResolvable_da3f097b"]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.List[builtins.str]]]:
             '''A list of matching criteria.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-consolidation.html#cfn-customerprofiles-domain-consolidation-matchingattributeslist
             '''
             result = self._values.get("matching_attributes_list")
             assert result is not None, "Required property 'matching_attributes_list' is missing"
-            return typing.cast(typing.Union[typing.List[typing.List[builtins.str]], "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.List[builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12955,7 +12955,7 @@ def _typecheckingstub__39a5c699e09d6961f3eed32cb756eca983664193f4a0cdfbac7965404
 
 def _typecheckingstub__2f3fee71d236ee85937168636cf44627d0e12e7714908fdcc02548a6e6baa537(
     *,
-    matching_attributes_list: typing.Union[typing.Sequence[typing.Sequence[builtins.str]], _IResolvable_da3f097b],
+    matching_attributes_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Sequence[builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass

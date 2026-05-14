@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: braintrust
-Version: 0.19.0
+Version: 0.20.0
 Summary: SDK for integrating Braintrust
 Author-email: Braintrust <sdk@braintrustdata.com>
 License-Expression: MIT
@@ -12,7 +12,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
-Requires-Dist: GitPython
+Requires-Dist: GitPython>=3.1.50
 Requires-Dist: requests
 Requires-Dist: chevron
 Requires-Dist: tqdm

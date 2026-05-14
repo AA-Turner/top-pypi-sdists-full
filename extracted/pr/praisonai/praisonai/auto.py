@@ -467,19 +467,15 @@ class BaseAutoGenerator:
         Args:
             config_list: Optional LLM configuration list
         """
-        # Support multiple environment variable patterns for better compatibility
-        model_name = os.environ.get("MODEL_NAME") or os.environ.get("OPENAI_MODEL_NAME", "gpt-4o-mini")
-        base_url = (
-            os.environ.get("OPENAI_BASE_URL") or 
-            os.environ.get("OPENAI_API_BASE") or
-            os.environ.get("OLLAMA_API_BASE", "https://api.openai.com/v1")
-        )
+        # Resolve LLM endpoint configuration from environment variables
+        from praisonai.llm.env import resolve_llm_endpoint
+        ep = resolve_llm_endpoint()
         
         self.config_list = config_list or [
             {
-                'model': model_name,
-                'base_url': base_url,
-                'api_key': os.environ.get("OPENAI_API_KEY")
+                'model': ep.model,
+                'base_url': ep.base_url,
+                'api_key': ep.api_key
             }
         ]
     
@@ -632,7 +628,8 @@ class AutoGenerator(BaseAutoGenerator):
     
     def __init__(self, topic="Movie Story writing about AI", agent_file="test.yaml", 
                  framework="crewai", config_list: Optional[List[Dict]] = None,
-                 pattern: str = "sequential", single_agent: bool = False):
+                 pattern: str = "sequential", single_agent: bool = False, 
+                 adapter_registry=None):
         """
         Initialize the AutoGenerator class with the specified topic, agent file, and framework.
         
@@ -650,15 +647,15 @@ class AutoGenerator(BaseAutoGenerator):
         super().__init__(config_list=config_list)
         
         # Validate framework availability using adapter registry
-        from .framework_adapters.registry import FrameworkAdapterRegistry
+        from .framework_adapters.registry import get_default_registry
         
-        registry = FrameworkAdapterRegistry.get_instance()
+        self._adapter_registry = adapter_registry or get_default_registry()
         try:
-            adapter = registry.create(framework)
+            adapter = self._adapter_registry.create(framework)
         except ValueError as e:
             raise ImportError(
                 f"Unknown framework '{framework}'. Available frameworks: "
-                f"{', '.join(registry.list_registered())}"
+                f"{', '.join(self._adapter_registry.list_registered())}"
             ) from e
 
         # Use safe fallbacks for new adapter attributes

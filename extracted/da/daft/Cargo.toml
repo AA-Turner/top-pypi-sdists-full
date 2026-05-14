@@ -253,7 +253,7 @@ name = "daft"
 [package]
 name = "daft"
 publish = false
-version = "0.7.11"
+version = "0.7.12"
 exclude = ["examples/dvector", "tests/", "benchmarking/", "tutorials/", "k8s/", "ci/", "docs/", "assets/", "tools/", "*.md", "codecov.yml", "mkdocs.yml"]
 
 [package.edition]
@@ -705,4 +705,4 @@ priority = 1
 
 [workspace.package]
 edition = "2024"
-version = "0.7.11"
+version = "0.7.12"

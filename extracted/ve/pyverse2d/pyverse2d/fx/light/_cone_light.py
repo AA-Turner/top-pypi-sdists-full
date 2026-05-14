@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._internal import not_null, clamped
+from ..._internal import not_null, clamped, different_from
 from ...abc import LightSource
 from ...math import Point, Vector
 from ...math.easing import EasingFunc
@@ -42,16 +42,22 @@ class ConeLight(LightSource):
         # Initialisation de la source de lumière
         super().__init__(position, color, intensity, falloff, enabled)
 
-        # Paramètres publiques
-        self._direction: Vector = Vector(direction).normalized
-        self._radius: float = abs(float(radius))
-        self._angle: float = abs(float(angle))
-        self._softness: float = float(softness)
+        # Transtypage et vérifications
+        direction = Vector(direction).normalized
+        radius = abs(float(radius))
+        angle = abs(float(angle))
+        softness = float(softness)
 
         if __debug__:
             if self._direction.is_null(): raise ValueError(f"direction cannot be null vector")
-            not_null(self._angle)
-            clamped(self._softness)
+            different_from(angle, 0)
+            clamped(softness)
+
+        # Paramètres publiques
+        self._direction: Vector = direction
+        self._radius: float = radius
+        self._angle: float = angle
+        self._softness: float = softness
 
     # ======================================== PROPERTIES ========================================
     @property
@@ -67,7 +73,8 @@ class ConeLight(LightSource):
     @direction.setter
     def direction(self, value: Vector) -> None:
         value = Vector(value)
-        assert not value.is_null(), f"direction cannot be null vector"
+        if __debug__:
+            if value.is_null(): raise ValueError(f"direction cannot be null vector")
         self._direction = value.normalized
 
     @property
@@ -96,7 +103,8 @@ class ConeLight(LightSource):
     @angle.setter
     def angle(self, value: Real) -> None:
         value = abs(float(value))
-        assert  value != 0.0, f"angle ({value}) cannot be null"
+        if __debug__:
+            different_from(value, 0)
         self._angle = value
     
     @property
@@ -111,7 +119,8 @@ class ConeLight(LightSource):
     @softness.setter
     def softness(self, value: Real) -> None:
         value = float(value)
-        assert 0.0 <= value <= 1.0, f"softness ({value}) must be within 0.0 and 1.0"
+        if __debug__:
+            clamped(value)
         self._softness = value
 
     # ======================================== GETTERS ========================================

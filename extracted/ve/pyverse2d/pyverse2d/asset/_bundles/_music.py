@@ -1,7 +1,8 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ...abc._bundle import Bundle
+from ..._internal import positive
+from ...abc import Bundle
 
 from .._music import Music
 
@@ -9,17 +10,31 @@ from numbers import Real
 
 # ======================================== BUNDLE ========================================
 class MusicBundle(Bundle):
-    """Paquet de musiques"""
+    """Paquet de musiques
+    
+    Args:
+        paths: chemins vers les fichiers
+        volume: volume par défaut
+    """
     __slots__ = ("_volume",)
 
     def __init__(self, paths: dict[str, str], volume: Real = 1.0):
+        # Initialisation du paquet
         super().__init__(paths)
+
+        # Transtypage et vérifications
+        volume = float(volume)
+
+        if __debug__:
+            positive(volume)
+
+        # Attributs publiques
         self._volume: Real = volume
 
     # ======================================== PROPERTIES ========================================
     @property
     def volume(self) -> Real:
-        """Volume de lecture des musiques du bundle
+        """Volume de lecture des musiques du bundle par défaut
 
         Le volume doit être un ``Réel`` positif.
         Mettre cette propriété à ``1.0`` pour un volume normal.
@@ -29,7 +44,8 @@ class MusicBundle(Bundle):
     @volume.setter
     def volume(self, value: Real) -> None:
         value = float(value)
-        assert value >= 0.0, f"volume ({value}) must be positive"
+        if __debug__:
+            positive(value)
         self._volume = value
 
     # ======================================== INTERFACE ========================================

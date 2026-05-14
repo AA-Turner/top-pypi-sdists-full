@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect, not_null, positive
+from .._internal import expect, not_null, positive, over, different_from
 from ..abc import Asset
 
 from numbers import Real
@@ -16,7 +16,10 @@ class Image(Asset):
         height: hauteur cible en pixels
         scale_factor: facteur de redimensionnement
     """
-    __slots__ = ("_path", "_width", "_height", "_scale_factor")
+    __slots__ = (
+        "_path",
+        "_width", "_height", "_scale_factor",
+    )
 
     def __init__(
             self,
@@ -25,10 +28,22 @@ class Image(Asset):
             height: Real = None,
             scale_factor: Real = 1.0,
         ):
-        self._path: str = expect(path, str)
-        self._width: float | None = float(positive(expect(width, Real))) if width is not None else None
-        self._height: float | None = float(positive(expect(height, Real))) if height is not None else None
-        self._scale_factor: float = float(positive(not_null(expect(scale_factor, Real))))
+        # Transtypage et véririfications
+        path = str(path)
+        width = float(width) if width is not None else None
+        height = float(height) if height is not None else None
+        scale_factor = float(scale_factor)
+
+        if __debug__:
+            if width is not None: over(width, 0, include=False)
+            if height is not None: over(height, 0, include=False)
+            different_from(scale_factor, 0)
+
+        # Attributs publiques
+        self._path: str = path
+        self._width: float | None = width
+        self._height: float | None = height
+        self._scale_factor: float = scale_factor
 
     # ======================================== CONVERSIONS ========================================
     def __repr__(self) -> str:
@@ -40,6 +55,11 @@ class Image(Asset):
     def path(self) -> str:
         """Renvoie le chemin du fichier"""
         return self._path
+    
+    @property
+    def size(self) -> tuple[float, float] | None:
+        """Renvoie la taille de l'image ou ``None`` si non définie"""
+        return (self._width, self._width) if self._width and self._height else None
 
     @property
     def width(self) -> float | None:

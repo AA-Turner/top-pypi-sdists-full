@@ -347,14 +347,12 @@ def handle_execute(
             user_jwt=request.user_jwt,
         )
 
-        def sigterm_handler(signum, frame):
+        def sigterm_handler(_signum, _frame):
+            del _signum, _frame
             raise ClientAbandoned()
 
         signal.signal(signal.SIGTERM, sigterm_handler)
 
-        AbstraLogger.info(
-            f"[Executor] Starting execution (execution_id={request.execution_id})"
-        )
         execution_controller.run(
             execution_id=request.execution_id, worker_id=request.worker_id
         )
@@ -362,9 +360,15 @@ def handle_execute(
         total_time = time.time() - execution_start
         state.executions_completed += 1
 
-        AbstraLogger.info(
-            f"[Executor] Execution completed successfully "
-            f"(execution_id={request.execution_id}, time={total_time:.3f}s)"
+        AbstraLogger.lifecycle(
+            f"[RUN {request.execution_id}] User code finished",
+            {
+                "executionId": request.execution_id,
+                "jobId": request.stage.id,
+                "status": "finished",
+                "durationMs": int(total_time * 1000),
+                "stage": "runtime.user_code.finished",
+            },
         )
 
         response_queue.put(
@@ -376,8 +380,18 @@ def handle_execute(
         )
 
     except Exception as e:
+        total_time = time.time() - execution_start
         AbstraLogger.error(
-            f"[Executor] Execution failed (execution_id={request.execution_id}): {e}"
+            f"[RUN {request.execution_id}] User code failed",
+            {
+                "executionId": request.execution_id,
+                "jobId": request.stage.id,
+                "status": "failed",
+                "durationMs": int(total_time * 1000),
+                "errorType": type(e).__name__,
+                "errorMessage": str(e),
+                "stage": "runtime.user_code.failed",
+            },
         )
         AbstraLogger.capture_exception(e)
         traceback.print_exc()

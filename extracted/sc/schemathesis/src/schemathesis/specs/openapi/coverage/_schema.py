@@ -20,6 +20,7 @@ from schemathesis.core.jsonschema import (
     is_valid,
     make_validator,
     make_validator_for,
+    maybe_resolve_bundled,
 )
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY
 from schemathesis.core.jsonschema.keywords import ALL_KEYWORDS
@@ -573,8 +574,12 @@ class CoverageContext:
 
         # Deep clone to prevent hypothesis_jsonschema from mutating the original schema
         cloned = deepclone(schema)
-        if isinstance(cloned, dict) and BUNDLE_STORAGE_KEY in cloned:
-            _apply_pattern_optimizations(cloned[BUNDLE_STORAGE_KEY], self.update_pattern)
+        bundle: dict[str, Any] | None = None
+        if isinstance(cloned, dict):
+            if BUNDLE_STORAGE_KEY in cloned:
+                _apply_pattern_optimizations(cloned[BUNDLE_STORAGE_KEY], self.update_pattern)
+                bundle = cloned[BUNDLE_STORAGE_KEY]
+            _deep_relax_inherited_additional_properties(cloned, bundle)
         strategy = from_schema(cloned, custom_formats=self.custom_formats)
         # Keep generation consistent with the validator draft semantics used by this operation.
         # This avoids producing positive values that the validator for the same schema would reject.
@@ -939,6 +944,8 @@ def _inline_allof_refs(schema: dict, ctx: CoverageContext, seen: frozenset[str] 
     all_of = schema.get("allOf")
     if not all_of:
         return
+    raw_parent_properties = schema.get("properties")
+    parent_properties: dict[str, Any] = raw_parent_properties if isinstance(raw_parent_properties, dict) else {}
     for idx, sub_schema in enumerate(all_of):
         if isinstance(sub_schema, dict) and "$ref" in sub_schema:
             ref = sub_schema["$ref"]
@@ -947,8 +954,53 @@ def _inline_allof_refs(schema: dict, ctx: CoverageContext, seen: frozenset[str] 
                 all_of[idx] = resolved
                 if isinstance(resolved, dict):
                     _inline_allof_refs(resolved, ctx, seen | {ref})
+                    _relax_inherited_additional_properties(resolved, parent_properties)
         elif isinstance(sub_schema, dict):
             _inline_allof_refs(sub_schema, ctx, seen)
+            _relax_inherited_additional_properties(sub_schema, parent_properties)
+
+
+def _relax_inherited_additional_properties(
+    branch: dict[str, Any], parent_properties: dict[str, Any], bundle: dict[str, Any] | None = None
+) -> None:
+    # Inherited `additionalProperties: false` from an allOf base forbids extras the outer
+    # declares, leaving the canonical intersection unsatisfiable; drop it so the outer's
+    # required keys survive through chained bases (resolved via `bundle`).
+    if not parent_properties:
+        return
+    raw_branch_properties = branch.get("properties")
+    branch_properties: dict[str, Any] = raw_branch_properties if isinstance(raw_branch_properties, dict) else {}
+    if any(key not in branch_properties for key in parent_properties):
+        if branch.get("additionalProperties") is False:
+            del branch["additionalProperties"]
+    nested = branch.get("allOf")
+    if isinstance(nested, list):
+        for inner in nested:
+            if not isinstance(inner, dict):
+                continue
+            node = {**inner, BUNDLE_STORAGE_KEY: bundle} if bundle is not None and "$ref" in inner else inner
+            _relax_inherited_additional_properties(maybe_resolve_bundled(node), parent_properties, bundle)
+
+
+def _deep_relax_inherited_additional_properties(schema: dict[str, Any], bundle: dict[str, Any] | None) -> None:
+    # Find every nested object that declares both `allOf` and own `properties`, and relax each
+    # base accordingly so deep wrapper chains stay generatable.
+    all_of = schema.get("allOf")
+    raw_parent_properties = schema.get("properties")
+    parent_properties: dict[str, Any] = raw_parent_properties if isinstance(raw_parent_properties, dict) else {}
+    if isinstance(all_of, list) and parent_properties:
+        for branch in all_of:
+            if not isinstance(branch, dict):
+                continue
+            node = {**branch, BUNDLE_STORAGE_KEY: bundle} if bundle is not None and "$ref" in branch else branch
+            _relax_inherited_additional_properties(maybe_resolve_bundled(node), parent_properties, bundle)
+    for value in schema.values():
+        if isinstance(value, dict):
+            _deep_relax_inherited_additional_properties(value, bundle)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    _deep_relax_inherited_additional_properties(item, bundle)
 
 
 @contextmanager
@@ -1098,7 +1150,9 @@ def cover_schema_iter(
                     if isinstance(template, dict):
                         yield from _negative_property_names(ctx, template, value)
                 elif key == "items" and isinstance(value, dict):
-                    yield from _negative_items(ctx, value)
+                    parent_min_items = schema.get("minItems")
+                    min_items = parent_min_items if isinstance(parent_min_items, int) else 0
+                    yield from _negative_items(ctx, value, min_items=min_items)
                 elif key == "items" and isinstance(value, list):
                     yield from _negative_prefix_items(ctx, value)
                 elif key == "pattern":
@@ -1558,8 +1612,24 @@ def _get_properties(schema: JsonSchema, ctx: CoverageContext) -> JsonSchema:
                 _schema["examples"] = valid_examples
             else:
                 del _schema["examples"]
+        if _schema.get("type") == "string" and _xml_string_needs_non_empty(ctx, _schema):
+            _schema["minLength"] = 1
         return _schema
     return schema
+
+
+def _xml_string_needs_non_empty(ctx: CoverageContext, schema: JsonSchemaObject) -> bool:
+    # Empty XML elements (<tag></tag>) round-trip as None on common parsers (etree, xmltodict,
+    # default Jackson), so positive cases never exercise server-side string keywords and "kept-valid"
+    # context in negative cases reaches the server malformed. Force >= 1 character.
+    if ctx.location != ParameterLocation.BODY or ctx.media_type is None or not is_xml_parts(ctx.media_type):
+        return False
+    if schema.get("minLength") not in (None, 0):
+        return False
+    max_length = schema.get("maxLength")
+    if max_length is not None and max_length < 1:
+        return False
+    return "enum" not in schema and "const" not in schema
 
 
 _FAST_PATH_KEYS = frozenset({"properties", "required", "type"})
@@ -1655,6 +1725,9 @@ def _positive_string(ctx: CoverageContext, schema: JsonSchemaObject) -> Generato
     ):
         # Don't apply it for known formats - they will insure the correct format during generation
         schema = _ensure_valid_headers_schema(schema)
+    elif _xml_string_needs_non_empty(ctx, schema):
+        schema = {**schema, "minLength": 1}
+        min_length = 1
 
     # Sentinel-based reads so falsy spec hints (`default: 0`, `example: ""`) and explicit
     # `default: null` / `example: null` aren't confused with "key absent".
@@ -2240,11 +2313,27 @@ def _negative_pattern_properties(
                 )
 
 
-def _negative_items(ctx: CoverageContext, schema: JsonSchema) -> Generator[GeneratedValue, None, None]:
+def _negative_items(
+    ctx: CoverageContext, schema: JsonSchema, *, min_items: int = 0
+) -> Generator[GeneratedValue, None, None]:
     """Arrays not matching the schema."""
     nctx = ctx.with_negative()
+    filler: object = NOT_SET
+    # Cap padding at NEGATIVE_MODE_MAX_ITEMS so an adversarial `minItems` doesn't blow up memory;
+    # above the cap, fall back to single-item arrays (same as pre-padding behavior for that range).
+    if 1 < min_items <= NEGATIVE_MODE_MAX_ITEMS:
+        try:
+            filler = ctx.with_positive().generate_from_schema(schema)
+        except (InvalidArgument, Unsatisfiable):
+            # Items schema can't produce a valid filler — fall back to single-item negative
+            # rather than emitting nothing.
+            pass
     for value in cover_schema_iter(nctx, schema):
-        items = [value.value]
+        if filler is not NOT_SET:
+            # Pad to satisfy `minItems` so the items[i] check fires instead of failing at length.
+            items = [value.value, *(filler for _ in range(min_items - 1))]
+        else:
+            items = [value.value]
         if ctx.leads_to_negative_test_case(items):
             yield NegativeValue(
                 items,

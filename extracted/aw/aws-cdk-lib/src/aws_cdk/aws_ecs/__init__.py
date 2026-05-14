@@ -19544,12 +19544,12 @@ class CfnService(
                         rollback=False
                     ),
                     lifecycle_hooks=[ecs.CfnService.DeploymentLifecycleHookProperty(
-                        hook_target_arn="hookTargetArn",
                         lifecycle_stages=["lifecycleStages"],
-                        role_arn="roleArn",
                 
                         # the properties below are optional
-                        hook_details=hook_details
+                        hook_details=hook_details,
+                        hook_target_arn="hookTargetArn",
+                        role_arn="roleArn"
                     )],
                     linear_configuration=ecs.CfnService.LinearConfigurationProperty(
                         step_bake_time_in_minutes=123,
@@ -19850,20 +19850,20 @@ class CfnService(
         jsii_type="aws-cdk-lib.aws_ecs.CfnService.DeploymentLifecycleHookProperty",
         jsii_struct_bases=[],
         name_mapping={
-            "hook_target_arn": "hookTargetArn",
             "lifecycle_stages": "lifecycleStages",
-            "role_arn": "roleArn",
             "hook_details": "hookDetails",
+            "hook_target_arn": "hookTargetArn",
+            "role_arn": "roleArn",
         },
     )
     class DeploymentLifecycleHookProperty:
         def __init__(
             self,
             *,
-            hook_target_arn: builtins.str,
             lifecycle_stages: typing.Sequence[builtins.str],
-            role_arn: builtins.str,
             hook_details: typing.Any = None,
+            hook_target_arn: typing.Optional[builtins.str] = None,
+            role_arn: typing.Optional[builtins.str] = None,
         ) -> None:
             '''A deployment lifecycle hook runs custom logic at specific stages of the deployment process.
 
@@ -19871,10 +19871,10 @@ class CfnService(
 
             For more information, see `Lifecycle hooks for Amazon ECS service deployments <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-lifecycle-hooks.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
 
-            :param hook_target_arn: The Amazon Resource Name (ARN) of the hook target. Currently, only Lambda function ARNs are supported. You must provide this parameter when configuring a deployment lifecycle hook.
             :param lifecycle_stages: The lifecycle stages at which to run the hook. Choose from these valid values:. - RECONCILE_SERVICE The reconciliation stage that only happens when you start a new service deployment with more than 1 service revision in an ACTIVE state. You can use a lifecycle hook for this stage. - PRE_SCALE_UP The green service revision has not started. The blue service revision is handling 100% of the production traffic. There is no test traffic. You can use a lifecycle hook for this stage. - POST_SCALE_UP The green service revision has started. The blue service revision is handling 100% of the production traffic. There is no test traffic. You can use a lifecycle hook for this stage. - TEST_TRAFFIC_SHIFT The blue and green service revisions are running. The blue service revision handles 100% of the production traffic. The green service revision is migrating from 0% to 100% of test traffic. You can use a lifecycle hook for this stage. - POST_TEST_TRAFFIC_SHIFT The test traffic shift is complete. The green service revision handles 100% of the test traffic. You can use a lifecycle hook for this stage. - PRODUCTION_TRAFFIC_SHIFT Production traffic is shifting to the green service revision. The green service revision is migrating from 0% to 100% of production traffic. You can use a lifecycle hook for this stage. - POST_PRODUCTION_TRAFFIC_SHIFT The production traffic shift is complete. You can use a lifecycle hook for this stage. You must provide this parameter when configuring a deployment lifecycle hook.
-            :param role_arn: The Amazon Resource Name (ARN) of the IAM role that grants Amazon ECS permission to call Lambda functions on your behalf. For more information, see `Permissions required for Lambda functions in Amazon ECS blue/green deployments <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/blue-green-permissions.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
             :param hook_details: Use this field to specify custom parameters that Amazon ECS passes to your hook target invocations (such as a Lambda function). This field must be a JSON object as a string.
+            :param hook_target_arn: The Amazon Resource Name (ARN) of the hook target. Currently, only Lambda function ARNs are supported. You must provide this parameter when configuring a deployment lifecycle hook.
+            :param role_arn: The Amazon Resource Name (ARN) of the IAM role that grants Amazon ECS permission to call Lambda functions on your behalf. For more information, see `Permissions required for Lambda functions in Amazon ECS blue/green deployments <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/blue-green-permissions.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentlifecyclehook.html
             :exampleMetadata: fixture=_generated
@@ -19888,39 +19888,29 @@ class CfnService(
                 # hook_details: Any
                 
                 deployment_lifecycle_hook_property = ecs.CfnService.DeploymentLifecycleHookProperty(
-                    hook_target_arn="hookTargetArn",
                     lifecycle_stages=["lifecycleStages"],
-                    role_arn="roleArn",
                 
                     # the properties below are optional
-                    hook_details=hook_details
+                    hook_details=hook_details,
+                    hook_target_arn="hookTargetArn",
+                    role_arn="roleArn"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__81d51cf744a434ad2ba13fc9f3dea23611c28b28f4a9414d8324cf57768cea5e)
-                check_type(argname="argument hook_target_arn", value=hook_target_arn, expected_type=type_hints["hook_target_arn"])
                 check_type(argname="argument lifecycle_stages", value=lifecycle_stages, expected_type=type_hints["lifecycle_stages"])
-                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument hook_details", value=hook_details, expected_type=type_hints["hook_details"])
+                check_type(argname="argument hook_target_arn", value=hook_target_arn, expected_type=type_hints["hook_target_arn"])
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
-                "hook_target_arn": hook_target_arn,
                 "lifecycle_stages": lifecycle_stages,
-                "role_arn": role_arn,
             }
             if hook_details is not None:
                 self._values["hook_details"] = hook_details
-
-        @builtins.property
-        def hook_target_arn(self) -> builtins.str:
-            '''The Amazon Resource Name (ARN) of the hook target. Currently, only Lambda function ARNs are supported.
-
-            You must provide this parameter when configuring a deployment lifecycle hook.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentlifecyclehook.html#cfn-ecs-service-deploymentlifecyclehook-hooktargetarn
-            '''
-            result = self._values.get("hook_target_arn")
-            assert result is not None, "Required property 'hook_target_arn' is missing"
-            return typing.cast(builtins.str, result)
+            if hook_target_arn is not None:
+                self._values["hook_target_arn"] = hook_target_arn
+            if role_arn is not None:
+                self._values["role_arn"] = role_arn
 
         @builtins.property
         def lifecycle_stages(self) -> typing.List[builtins.str]:
@@ -19977,18 +19967,6 @@ class CfnService(
             return typing.cast(typing.List[builtins.str], result)
 
         @builtins.property
-        def role_arn(self) -> builtins.str:
-            '''The Amazon Resource Name (ARN) of the IAM role that grants Amazon ECS permission to call Lambda functions on your behalf.
-
-            For more information, see `Permissions required for Lambda functions in Amazon ECS blue/green deployments <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/blue-green-permissions.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentlifecyclehook.html#cfn-ecs-service-deploymentlifecyclehook-rolearn
-            '''
-            result = self._values.get("role_arn")
-            assert result is not None, "Required property 'role_arn' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
         def hook_details(self) -> typing.Any:
             '''Use this field to specify custom parameters that Amazon ECS passes to your hook target invocations (such as a Lambda function).
 
@@ -19998,6 +19976,28 @@ class CfnService(
             '''
             result = self._values.get("hook_details")
             return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def hook_target_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the hook target. Currently, only Lambda function ARNs are supported.
+
+            You must provide this parameter when configuring a deployment lifecycle hook.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentlifecyclehook.html#cfn-ecs-service-deploymentlifecyclehook-hooktargetarn
+            '''
+            result = self._values.get("hook_target_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def role_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the IAM role that grants Amazon ECS permission to call Lambda functions on your behalf.
+
+            For more information, see `Permissions required for Lambda functions in Amazon ECS blue/green deployments <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/blue-green-permissions.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentlifecyclehook.html#cfn-ecs-service-deploymentlifecyclehook-rolearn
+            '''
+            result = self._values.get("role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -22742,12 +22742,12 @@ class CfnServiceProps:
                         rollback=False
                     ),
                     lifecycle_hooks=[ecs.CfnService.DeploymentLifecycleHookProperty(
-                        hook_target_arn="hookTargetArn",
                         lifecycle_stages=["lifecycleStages"],
-                        role_arn="roleArn",
             
                         # the properties below are optional
-                        hook_details=hook_details
+                        hook_details=hook_details,
+                        hook_target_arn="hookTargetArn",
+                        role_arn="roleArn"
                     )],
                     linear_configuration=ecs.CfnService.LinearConfigurationProperty(
                         step_bake_time_in_minutes=123,
@@ -54869,7 +54869,6 @@ class BaseService(
     def _network_configuration(
         self,
     ) -> typing.Optional["CfnService.NetworkConfigurationProperty"]:
-        '''A list of Elastic Load Balancing load balancer objects, containing the load balancer name, the container name (as it appears in a container definition), and the container port to access from the load balancer.'''
         return typing.cast(typing.Optional["CfnService.NetworkConfigurationProperty"], jsii.get(self, "networkConfiguration"))
 
     @_network_configuration.setter
@@ -58402,10 +58401,10 @@ def _typecheckingstub__e9921934df7686d8808e649b9ab979d2747a6f8cba336af2424f59783
 
 def _typecheckingstub__81d51cf744a434ad2ba13fc9f3dea23611c28b28f4a9414d8324cf57768cea5e(
     *,
-    hook_target_arn: builtins.str,
     lifecycle_stages: typing.Sequence[builtins.str],
-    role_arn: builtins.str,
     hook_details: typing.Any = None,
+    hook_target_arn: typing.Optional[builtins.str] = None,
+    role_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

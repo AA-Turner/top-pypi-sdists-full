@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Flask-JWT-Extended
-Version: 4.7.3
+Version: 4.7.4
 Summary: Extended JWT integration with Flask
 Home-page: https://github.com/vimalloc/flask-jwt-extended
 Author: Lily Acadia Gilbert
@@ -32,7 +32,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: Werkzeug>=0.14
 Requires-Dist: Flask<4.0,>=2.0
-Requires-Dist: PyJWT<3.0,>=2.0
+Requires-Dist: PyJWT<3.0,>=2.11.0
 Provides-Extra: asymmetric-crypto
 Requires-Dist: cryptography>=3.3.1; extra == "asymmetric-crypto"
 Dynamic: author

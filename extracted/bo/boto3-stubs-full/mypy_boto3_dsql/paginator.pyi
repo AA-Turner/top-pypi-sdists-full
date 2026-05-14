@@ -13,12 +13,14 @@ Usage::
     from mypy_boto3_dsql.client import AuroraDSQLClient
     from mypy_boto3_dsql.paginator import (
         ListClustersPaginator,
+        ListStreamsPaginator,
     )
 
     session = Session()
     client: AuroraDSQLClient = session.client("dsql")
 
     list_clusters_paginator: ListClustersPaginator = client.get_paginator("list_clusters")
+    list_streams_paginator: ListStreamsPaginator = client.get_paginator("list_streams")
     ```
 """
 
@@ -29,14 +31,19 @@ from typing import TYPE_CHECKING
 
 from botocore.paginate import PageIterator, Paginator
 
-from .type_defs import ListClustersInputPaginateTypeDef, ListClustersOutputTypeDef
+from .type_defs import (
+    ListClustersInputPaginateTypeDef,
+    ListClustersOutputTypeDef,
+    ListStreamsInputPaginateTypeDef,
+    ListStreamsOutputTypeDef,
+)
 
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
     from typing_extensions import Unpack
 
-__all__ = ("ListClustersPaginator",)
+__all__ = ("ListClustersPaginator", "ListStreamsPaginator")
 
 if TYPE_CHECKING:
     _ListClustersPaginatorBase = Paginator[ListClustersOutputTypeDef]
@@ -54,4 +61,22 @@ class ListClustersPaginator(_ListClustersPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/paginator/ListClusters.html#AuroraDSQL.Paginator.ListClusters.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/paginators/#listclusterspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListStreamsPaginatorBase = Paginator[ListStreamsOutputTypeDef]
+else:
+    _ListStreamsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListStreamsPaginator(_ListStreamsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/paginator/ListStreams.html#AuroraDSQL.Paginator.ListStreams)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/paginators/#liststreamspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListStreamsInputPaginateTypeDef]
+    ) -> PageIterator[ListStreamsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/paginator/ListStreams.html#AuroraDSQL.Paginator.ListStreams.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/paginators/#liststreamspaginator)
         """

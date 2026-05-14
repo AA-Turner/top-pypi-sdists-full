@@ -1,4 +1,4 @@
-from .account import AccountDict, AccountDetailedDict
+from .account import AccountDetailedDict, AccountDict
 from .account_member import AccountMemberDict
 from .app import AppDetailedDict, AppSlimDict
 from .data_record import (

@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import platform
+import shlex
 import shutil
 import stat as stat_mod
 import subprocess
@@ -511,7 +512,7 @@ async def s3_upload_batch(config: S3Config, uploads: list[tuple[str, str]]) -> N
     with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as batch:
         for local_path, s3_key in uploads:
             s3_url = f"s3://{config.bucket}/{s3_key}"
-            batch.write(f"cp {local_path} {s3_url}\n")
+            batch.write(f"cp --raw {shlex.quote(local_path)} {shlex.quote(s3_url)}\n")
         batch_path = batch.name
 
     try:

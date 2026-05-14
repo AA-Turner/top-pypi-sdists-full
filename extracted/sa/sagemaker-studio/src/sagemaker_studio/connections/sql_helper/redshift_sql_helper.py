@@ -33,6 +33,7 @@ class RedshiftSqlHelper(SqlHelper):
                 - aws_access_key_id: AWS access key
                 - aws_secret_access_key: AWS secret key
                 - aws_session_token: AWS session token (if present)
+                - credential_provider: Callable that returns fresh credentials (if provided)
         """
         connection_data = SqlHelper.get_connection_data(connection)
 
@@ -50,7 +51,6 @@ class RedshiftSqlHelper(SqlHelper):
             secret_arn = connection._find_secret_arn()
         except Exception:
             secret_arn = None
-        connection_creds = connection_data["connection_creds"]
 
         config = {
             "region": region,
@@ -58,11 +58,18 @@ class RedshiftSqlHelper(SqlHelper):
             "workgroup_name": workgroup_name,
             "database_name": database_name,
             "secret_arn": secret_arn,
-            "aws_access_key_id": connection_creds.get("access_key_id"),
-            "aws_secret_access_key": connection_creds.get("secret_access_key"),
         }
 
-        if connection_creds.get("session_token"):
-            config["aws_session_token"] = connection_creds.get("session_token")
+        # Use credential_provider if provided, otherwise use static credentials
+        credential_provider = kwargs.get("credential_provider")
+
+        if credential_provider is not None:
+            config["credential_provider"] = credential_provider
+        else:
+            connection_creds = connection_data["connection_creds"]
+            config["aws_access_key_id"] = connection_creds.get("access_key_id")
+            config["aws_secret_access_key"] = connection_creds.get("secret_access_key")
+            if connection_creds.get("session_token"):
+                config["aws_session_token"] = connection_creds.get("session_token")
 
         return config

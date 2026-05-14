@@ -125,6 +125,7 @@ def mock_parse_pyproject_toml():
             },
             "entrypoint-app": {
                 "python_entry_point": "simple.app:SimpleApp",
+                "python_version": "3.12",
                 "requirements": ["fal"],
             },
         }
@@ -191,6 +192,7 @@ def test_deploy_with_toml_success(
             reset_scale=False,
             team=None,
             name="my-app",
+            local_project_root=".",
         ),
         force_env_build=False,
         environment_name=None,
@@ -232,6 +234,7 @@ def test_deploy_python_entry_point_forwards_to_loader(
     mock_load_function_from.assert_called_once()
     _, call_kwargs = mock_load_function_from.call_args
     assert call_kwargs["python_entry_point"] == "simple.app:SimpleApp"
+    assert call_kwargs["options"].environment["python_version"] == "3.12"
     assert call_kwargs["options"].environment["requirements"] == ["fal"]
 
 
@@ -250,7 +253,7 @@ def test_deploy_with_toml_python_entry_point(
     cleanly without crashing on the absent ``ref``.
     """
     mock_parse_toml.return_value = mock_parse_pyproject_toml
-    options = Options(environment={"requirements": ["fal"]})
+    options = Options(environment={"requirements": ["fal"], "python_version": "3.12"})
 
     args = mock_args(app_ref=("entrypoint-app", None))
 
@@ -268,6 +271,7 @@ def test_deploy_with_toml_python_entry_point(
             team=None,
             name="entrypoint-app",
             options=options,
+            local_project_root=".",
         ),
         force_env_build=False,
         environment_name=None,
@@ -305,6 +309,7 @@ def test_deploy_with_toml_no_auth(
             reset_scale=False,
             team=None,
             name="another-app",
+            local_project_root=".",
         ),
         force_env_build=False,
         environment_name=None,
@@ -343,6 +348,7 @@ def test_deploy_with_toml_overrides_applied(
                 host={"min_concurrency": 2, "regions": ["us-east"]},
                 environment={"requirements": ["numpy==1.26.4"]},
             ),
+            local_project_root=".",
         ),
         force_env_build=False,
         environment_name=None,
@@ -476,6 +482,7 @@ def test_deploy_with_toml_deployment_strategy(
             reset_scale=False,
             team=None,
             name="my-app",
+            local_project_root=".",
         ),
         force_env_build=False,
         environment_name=None,
@@ -511,6 +518,7 @@ def test_deploy_with_toml_default_deployment_strategy(
             reset_scale=False,
             team=None,
             name="another-app",
+            local_project_root=".",
         ),
         force_env_build=False,
         environment_name=None,
@@ -865,6 +873,51 @@ def test_get_app_data_from_toml_without_team(
 
 @patch("fal.cli._utils.find_pyproject_toml", return_value="pyproject.toml")
 @patch("fal.cli._utils.parse_pyproject_toml")
+def test_get_app_data_from_toml_with_python_version(mock_parse_toml, mock_find_toml):
+    from fal.cli._utils import get_app_data_from_toml
+
+    mock_parse_toml.return_value = {
+        "apps": {
+            "python-version-app": {
+                "ref": "src/my_app/inference.py::MyApp",
+                "python_version": "3.12",
+            }
+        }
+    }
+
+    toml_data = get_app_data_from_toml("python-version-app")
+
+    assert toml_data.options.environment == {"python_version": "3.12"}
+
+
+@patch("fal.cli._utils.find_pyproject_toml", return_value="pyproject.toml")
+@patch("fal.cli._utils.parse_pyproject_toml")
+def test_get_app_data_from_toml_rejects_non_string_python_version(
+    mock_parse_toml, mock_find_toml
+):
+    from fal.cli._utils import get_app_data_from_toml
+
+    mock_parse_toml.return_value = {
+        "apps": {
+            "python-version-app": {
+                "ref": "src/my_app/inference.py::MyApp",
+                "python_version": 3.12,
+            }
+        }
+    }
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "App python-version-app python_version must be a string "
+            "in pyproject.toml"
+        ),
+    ):
+        get_app_data_from_toml("python-version-app")
+
+
+@patch("fal.cli._utils.find_pyproject_toml", return_value="pyproject.toml")
+@patch("fal.cli._utils.parse_pyproject_toml")
 def test_get_app_data_from_toml_with_app_files(
     mock_parse_toml, mock_find_toml, mock_parse_pyproject_toml
 ):
@@ -907,6 +960,169 @@ def test_get_app_data_from_toml_rejects_app_files_context_dir_without_app_files(
         match="app_files_context_dir is only supported when app_files is provided.",
     ):
         get_app_data_from_toml("my-app")
+
+
+@patch("fal.cli._utils.find_pyproject_toml")
+@patch("fal.cli._utils.parse_pyproject_toml")
+def test_get_app_data_from_toml_with_image(mock_parse_toml, mock_find_toml, tmp_path):
+    from fal.cli._utils import get_app_data_from_toml
+
+    dockerfile = "FROM python:3.12-slim\n"
+    (tmp_path / "Dockerfile").write_text(dockerfile)
+    mock_find_toml.return_value = str(tmp_path / "pyproject.toml")
+    mock_parse_toml.return_value = {
+        "apps": {
+            "container-app": {
+                "ref": "src/my_app/inference.py::MyApp",
+                "image": {
+                    "dockerfile": "Dockerfile",
+                    "build_args": {"FOO": "bar"},
+                    "registries": {
+                        "myregistry.com": {"username": "u", "password": "p"}
+                    },
+                    "secrets": {"TOKEN": "shh"},
+                },
+            }
+        }
+    }
+
+    toml_data = get_app_data_from_toml("container-app")
+
+    env = toml_data.options.environment
+    assert env["kind"] == "container"
+    assert env["image"]["dockerfile_str"] == dockerfile
+    assert env["image"]["build_args"] == {"FOO": "bar"}
+    assert env["image"]["registries"] == {
+        "myregistry.com": {"username": "u", "password": "p"}
+    }
+    assert env["image"]["secrets"] == {"TOKEN": "shh"}
+
+
+@patch("fal.cli._utils.find_pyproject_toml", return_value="pyproject.toml")
+@patch("fal.cli._utils.parse_pyproject_toml")
+def test_get_app_data_from_toml_rejects_image_without_dockerfile(
+    mock_parse_toml, mock_find_toml
+):
+    from fal.cli._utils import get_app_data_from_toml
+
+    mock_parse_toml.return_value = {
+        "apps": {
+            "container-app": {
+                "ref": "src/my_app/inference.py::MyApp",
+                "image": {"build_args": {"FOO": "bar"}},
+            }
+        }
+    }
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "App container-app image must specify 'dockerfile' "
+            r"\(path\) in pyproject.toml"
+        ),
+    ):
+        get_app_data_from_toml("container-app")
+
+
+@patch("fal.cli._utils.find_pyproject_toml")
+@patch("fal.cli._utils.parse_pyproject_toml")
+def test_get_app_data_from_toml_rejects_unknown_image_keys(
+    mock_parse_toml, mock_find_toml, tmp_path
+):
+    from fal.cli._utils import get_app_data_from_toml
+
+    (tmp_path / "Dockerfile").write_text("FROM python:3.12-slim\n")
+    mock_find_toml.return_value = str(tmp_path / "pyproject.toml")
+    mock_parse_toml.return_value = {
+        "apps": {
+            "container-app": {
+                "ref": "src/my_app/inference.py::MyApp",
+                "image": {
+                    "dockerfile": "Dockerfile",
+                    "bogus": "value",
+                },
+            }
+        }
+    }
+
+    with pytest.raises(
+        ValueError,
+        match=r"Found unexpected keys in app container-app image",
+    ):
+        get_app_data_from_toml("container-app")
+
+
+@patch("fal.cli._utils.find_pyproject_toml")
+@patch("fal.cli._utils.parse_pyproject_toml")
+def test_get_app_data_from_toml_rejects_image_with_app_files(
+    mock_parse_toml, mock_find_toml, tmp_path
+):
+    from fal.cli._utils import get_app_data_from_toml
+
+    (tmp_path / "Dockerfile").write_text("FROM python:3.12-slim\n")
+    mock_find_toml.return_value = str(tmp_path / "pyproject.toml")
+    mock_parse_toml.return_value = {
+        "apps": {
+            "container-app": {
+                "ref": "src/my_app/inference.py::MyApp",
+                "image": {"dockerfile": "Dockerfile"},
+                "app_files": ["assets"],
+            }
+        }
+    }
+
+    with pytest.raises(
+        ValueError,
+        match="app_files is not supported for container apps.",
+    ):
+        get_app_data_from_toml("container-app")
+
+
+@patch("fal.cli._utils.find_pyproject_toml")
+@patch("fal.cli._utils.parse_pyproject_toml")
+def test_get_app_data_from_toml_allows_image_with_empty_app_files(
+    mock_parse_toml, mock_find_toml, tmp_path
+):
+    from fal.cli._utils import get_app_data_from_toml
+
+    (tmp_path / "Dockerfile").write_text("FROM python:3.12-slim\n")
+    mock_find_toml.return_value = str(tmp_path / "pyproject.toml")
+    mock_parse_toml.return_value = {
+        "apps": {
+            "container-app": {
+                "ref": "src/my_app/inference.py::MyApp",
+                "image": {"dockerfile": "Dockerfile"},
+                "app_files": [],
+            }
+        }
+    }
+
+    toml_data = get_app_data_from_toml("container-app")
+    assert toml_data.options.environment["kind"] == "container"
+
+
+@patch("fal.cli._utils.find_pyproject_toml")
+@patch("fal.cli._utils.parse_pyproject_toml")
+def test_get_app_data_from_toml_rejects_missing_dockerfile(
+    mock_parse_toml, mock_find_toml, tmp_path
+):
+    from fal.cli._utils import get_app_data_from_toml
+
+    mock_find_toml.return_value = str(tmp_path / "pyproject.toml")
+    mock_parse_toml.return_value = {
+        "apps": {
+            "container-app": {
+                "ref": "src/my_app/inference.py::MyApp",
+                "image": {"dockerfile": "missing.Dockerfile"},
+            }
+        }
+    }
+
+    with pytest.raises(
+        ValueError,
+        match=r"App container-app image.dockerfile not found:",
+    ):
+        get_app_data_from_toml("container-app")
 
 
 @patch("fal.cli._utils.find_pyproject_toml", return_value="pyproject.toml")
@@ -986,6 +1202,7 @@ def _prepared_deployment(
             reset_scale=reset_scale,
             deployment_strategy="rolling",
             name="my-app",
+            local_project_root=".",
         ),
     )
 

@@ -98,9 +98,7 @@ class MouseManager(Manager):
     """
     __slots__ = (
         "_mouse_x", "_mouse_y", "_mouse_out", "_world_position",
-        "_mouse_dx", "_mouse_dy",
-        "_drag_dx", "_drag_dy",
-        "_scroll_dx", "_scroll_dy",
+        "_mouse_dx", "_mouse_dy", "_drag_dx", "_drag_dy", "_scroll_dx", "_scroll_dy",
         "_step", "_pressed", "_released_this_frame",
     )
 

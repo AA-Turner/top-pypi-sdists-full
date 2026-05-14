@@ -683,7 +683,12 @@ def safe_write_file(filepath: Path, content: str, timeout: float = 2.0) -> bool:
         return False
 
     try:
-        filepath.write_text(content, encoding="utf-8")
+        # write_bytes (instead of write_text) avoids Python's automatic
+        # \n -> os.linesep translation. On Windows write_text turns "\r\n"
+        # coming from the editor into "\r\r\n" on disk, which a subsequent
+        # universal-newline read interprets as two line breaks, exponentially
+        # doubling blank lines on every save/read cycle.
+        filepath.write_bytes(content.encode("utf-8"))
         return True
     except (PermissionError, OSError) as e:
         print(f"Error writing {filepath}: {e}")

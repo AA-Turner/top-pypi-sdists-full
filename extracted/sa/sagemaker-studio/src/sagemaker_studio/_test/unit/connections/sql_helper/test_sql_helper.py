@@ -249,3 +249,126 @@ def test_to_redshift_helper_sql_config_uses_connection_default_database():
 def test_to_redshift_helper_sql_config_uses_user_selected_database():
     result = RedshiftSqlHelper.to_sql_config(redshift_connection, database_name="user_selected_db")
     assert result["database_name"] == "user_selected_db"
+
+
+@patch(
+    "sagemaker_studio.connections.sql_helper.athena_sql_helper.AthenaSqlHelper._get_s3_staging_dir"
+)
+def test_to_athena_helper_sql_config_with_credential_provider(mock_get_s3_staging_dir):
+    """Test Athena helper uses credential_provider when provided"""
+    mock_get_s3_staging_dir.return_value = "s3://test-bucket/athena-results/"
+
+    def mock_credential_provider():
+        return {
+            "access_key_id": "refreshed_key",
+            "secret_access_key": "refreshed_secret",
+            "session_token": "refreshed_token",
+        }
+
+    result = AthenaSqlHelper.to_sql_config(
+        athena_connection, credential_provider=mock_credential_provider
+    )
+
+    assert result == {
+        "region": "us-east-1",
+        "work_group": "test-workgroup",
+        "s3_staging_dir": "s3://test-bucket/athena-results/",
+        "credential_provider": mock_credential_provider,
+    }
+    assert "aws_access_key_id" not in result
+    assert "aws_secret_access_key" not in result
+
+
+def test_to_redshift_helper_sql_config_with_credential_provider():
+    """Test Redshift helper uses credential_provider when provided"""
+    from sagemaker_studio.connections.sql_helper.redshift_sql_helper import RedshiftSqlHelper
+
+    redshift_connection = make_dataclass(
+        "Connection", ["secret", "connection_creds", "data", "_find_secret_arn"]
+    )(
+        {},
+        make_dataclass(
+            "ConnectionCredentials", ["access_key_id", "secret_access_key", "session_token"]
+        )(
+            access_key_id="dummy_access_key_id",
+            secret_access_key="dummy_secret_access_key",
+            session_token="dummy_session_token",
+        ),
+        make_dataclass(
+            "ConnectionData", ["physical_endpoints", "database_name", "storage", "connection_creds"]
+        )(
+            physical_endpoints=[
+                make_dataclass("PhysicalEndpoint", ["awsLocation"])(
+                    awsLocation={"awsRegion": "us-east-1"}
+                )
+            ],
+            database_name="test-db",
+            storage={"workgroupName": "test-workgroup"},
+            connection_creds={
+                "access_key_id": "dummy_access_key_id",
+                "secret_access_key": "dummy_secret_access_key",
+                "session_token": "dummy_session_token",
+            },
+        ),
+        lambda: None,  # _find_secret_arn method
+    )
+
+    def mock_credential_provider():
+        return {
+            "access_key_id": "refreshed_key",
+            "secret_access_key": "refreshed_secret",
+            "session_token": "refreshed_token",
+        }
+
+    result = RedshiftSqlHelper.to_sql_config(
+        redshift_connection, credential_provider=mock_credential_provider
+    )
+
+    assert result["credential_provider"] == mock_credential_provider
+    assert "aws_access_key_id" not in result
+    assert "aws_secret_access_key" not in result
+    assert result["region"] == "us-east-1"
+    assert result["workgroup_name"] == "test-workgroup"
+    assert result["database_name"] == "test-db"
+
+
+def test_to_redshift_helper_sql_config_without_credential_provider():
+    """Test Redshift helper uses static credentials when credential_provider not provided"""
+    from sagemaker_studio.connections.sql_helper.redshift_sql_helper import RedshiftSqlHelper
+
+    redshift_connection = make_dataclass(
+        "Connection", ["secret", "connection_creds", "data", "_find_secret_arn"]
+    )(
+        {},
+        make_dataclass(
+            "ConnectionCredentials", ["access_key_id", "secret_access_key", "session_token"]
+        )(
+            access_key_id="dummy_access_key_id",
+            secret_access_key="dummy_secret_access_key",
+            session_token="dummy_session_token",
+        ),
+        make_dataclass(
+            "ConnectionData", ["physical_endpoints", "database_name", "storage", "connection_creds"]
+        )(
+            physical_endpoints=[
+                make_dataclass("PhysicalEndpoint", ["awsLocation"])(
+                    awsLocation={"awsRegion": "us-east-1"}
+                )
+            ],
+            database_name="test-db",
+            storage={"workgroupName": "test-workgroup"},
+            connection_creds={
+                "access_key_id": "dummy_access_key_id",
+                "secret_access_key": "dummy_secret_access_key",
+                "session_token": "dummy_session_token",
+            },
+        ),
+        lambda: None,  # _find_secret_arn method
+    )
+
+    result = RedshiftSqlHelper.to_sql_config(redshift_connection)
+
+    assert result["aws_access_key_id"] == "dummy_access_key_id"
+    assert result["aws_secret_access_key"] == "dummy_secret_access_key"
+    assert result["aws_session_token"] == "dummy_session_token"
+    assert "credential_provider" not in result

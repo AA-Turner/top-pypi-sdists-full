@@ -71,8 +71,7 @@ except ImportError:  # pragma: no cover
         raise RuntimeError("polyagamma package is not installed!")
 
 
-from scipy import stats
-from scipy.interpolate import InterpolatedUnivariateSpline
+from pytensor.utils import lazy_scipy_module
 
 from pymc.distributions import transforms
 from pymc.distributions.dist_math import (
@@ -93,6 +92,9 @@ from pymc.distributions.distribution import DIST_PARAMETER_TYPES, Continuous, Sy
 from pymc.distributions.shape_utils import implicit_size_from_params, rv_size_is_none
 from pymc.distributions.transforms import _default_transform
 from pymc.math import invlogit, logdiffexp
+
+stats = lazy_scipy_module("stats")
+interpolate = lazy_scipy_module("interpolate")
 
 __all__ = [
     "AsymmetricLaplace",
@@ -396,7 +398,32 @@ halfflat = HalfFlatRV()
 
 
 class HalfFlat(PositiveContinuous):
-    """Improper flat prior over the positive reals."""
+    r"""
+    Improper flat prior over the positive reals.
+
+    This is an unnormalized distribution and should be used only as
+    a vague, uninformative prior. It is not a valid probability
+    distribution and cannot be used for posterior predictive sampling.
+
+    The pdf of this distribution is
+
+    .. math::
+
+       f(x) \propto \begin{cases} 1 & \text{if } x > 0 \\ 0 & \text{otherwise} \end{cases}
+
+    ========  ============================
+    Support   :math:`x \in [0, \infty)`
+    Mean      undefined
+    Variance  undefined
+    ========  ============================
+
+    Examples
+    --------
+    .. code-block:: python
+
+        with pm.Model():
+            x = pm.HalfFlat("x")
+    """
 
     rv_op = halfflat
 
@@ -1232,7 +1259,7 @@ class KumaraswamyRV(SymbolicRandomVariable):
         if rv_size_is_none(size):
             size = implicit_size_from_params(a, b, ndims_params=cls.ndims_params)
 
-        next_rng, u = uniform(size=size, rng=rng).owner.outputs
+        next_rng, u = uniform(size=size, rng=rng, return_next_rng=True)
         draws = (1 - (1 - u) ** (1 / b)) ** (1 / a)
 
         return cls(
@@ -1545,7 +1572,7 @@ class AsymmetricLaplaceRV(SymbolicRandomVariable):
         if rv_size_is_none(size):
             size = implicit_size_from_params(b, kappa, mu, ndims_params=cls.ndims_params)
 
-        next_rng, u = uniform(size=size, rng=rng).owner.outputs
+        next_rng, u = uniform(size=size, rng=rng, return_next_rng=True)
         switch = kappa**2 / (1 + kappa**2)
         non_positive_x = mu + kappa * pt.log(u * (1 / switch)) / b
         positive_x = mu - pt.log((1 - u) * (1 + kappa**2)) / (kappa * b)
@@ -1750,6 +1777,19 @@ class LogNormal(PositiveContinuous):
             pt.le(value, 0),
             -np.inf,
             normal_lcdf(mu, sigma, pt.log(value)),
+        )
+
+        return check_parameters(
+            res,
+            sigma > 0,
+            msg="sigma > 0",
+        )
+
+    def logccdf(value, mu, sigma):
+        res = pt.switch(
+            pt.le(value, 0),
+            0.0,
+            normal_lccdf(mu, sigma, pt.log(value)),
         )
 
         return check_parameters(
@@ -2235,7 +2275,7 @@ class HalfCauchyRV(SymbolicRandomVariable):
         rng = normalize_rng_param(rng)
         size = normalize_size_param(size)
 
-        next_rng, cauchy_draws = cauchy(loc=0, scale=beta, size=size, rng=rng).owner.outputs
+        next_rng, cauchy_draws = cauchy(loc=0, scale=beta, size=size, rng=rng, return_next_rng=True)
         draws = pt.abs(cauchy_draws)
 
         return cls(inputs=[rng, size, beta], outputs=[next_rng, draws])(rng, size, beta)
@@ -2643,7 +2683,7 @@ class WeibullBetaRV(SymbolicRandomVariable):
         if rv_size_is_none(size):
             size = implicit_size_from_params(alpha, beta, ndims_params=cls.ndims_params)
 
-        next_rng, raw_weibull = pt.random.weibull(alpha, size=size, rng=rng).owner.outputs
+        next_rng, raw_weibull = pt.random.weibull(alpha, size=size, rng=rng, return_next_rng=True)
         draws = beta * raw_weibull
         return cls(
             inputs=[rng, size, alpha, beta],
@@ -2767,7 +2807,7 @@ class HalfStudentTRV(SymbolicRandomVariable):
         rng = normalize_rng_param(rng)
         size = normalize_size_param(size)
 
-        next_rng, t_draws = t(df=nu, scale=sigma, size=size, rng=rng).owner.outputs
+        next_rng, t_draws = t(df=nu, scale=sigma, size=size, rng=rng, return_next_rng=True)
         draws = pt.abs(t_draws)
 
         return cls(inputs=[rng, size, nu, sigma], outputs=[next_rng, draws])(rng, size, nu, sigma)
@@ -2892,8 +2932,12 @@ class ExGaussianRV(SymbolicRandomVariable):
         if rv_size_is_none(size):
             size = implicit_size_from_params(mu, sigma, nu, ndims_params=cls.ndims_params)
 
-        next_rng, normal_draws = normal(loc=mu, scale=sigma, size=size, rng=rng).owner.outputs
-        final_rng, exponential_draws = exponential(scale=nu, size=size, rng=next_rng).owner.outputs
+        next_rng, normal_draws = normal(
+            loc=mu, scale=sigma, size=size, rng=rng, return_next_rng=True
+        )
+        final_rng, exponential_draws = exponential(
+            scale=nu, size=size, rng=next_rng, return_next_rng=True
+        )
         draws = normal_draws + exponential_draws
 
         return cls(inputs=[rng, size, mu, sigma, nu], outputs=[final_rng, draws])(
@@ -3818,7 +3862,7 @@ class Interpolated(BoundedContinuous):
 
     @classmethod
     def dist(cls, x_points, pdf_points, *args, **kwargs):
-        interp = InterpolatedUnivariateSpline(x_points, pdf_points, k=1, ext="zeros")
+        interp = interpolate.InterpolatedUnivariateSpline(x_points, pdf_points, k=1, ext="zeros")
 
         Z = interp.integral(x_points[0], x_points[-1])
         cdf_points = interp.antiderivative()(x_points) / Z
@@ -3849,7 +3893,9 @@ class Interpolated(BoundedContinuous):
     def logp(value, x_points, pdf_points, cdf_points):
         # x_points and pdf_points are expected to be non-symbolic arrays wrapped
         # within a tensor.constant. We use the .data method to retrieve them
-        interp = InterpolatedUnivariateSpline(x_points.data, pdf_points.data, k=1, ext="zeros")
+        interp = interpolate.InterpolatedUnivariateSpline(
+            x_points.data, pdf_points.data, k=1, ext="zeros"
+        )
         Z = interp.integral(x_points.data[..., 0], x_points.data[..., -1])
 
         # interp and Z are converted to symbolic variables here

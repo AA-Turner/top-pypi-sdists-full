@@ -1,8 +1,8 @@
 # -*- coding=utf-8
 import json
 
-from qcloud_cos import CosS3Auth
-from qcloud_cos.cos_client import logger, CosS3Client
+from qcloud_cos.cos_auth import CosS3Auth
+from qcloud_cos.cos_client import logger, CosS3Client, CosConfig
 from .cos_comm import *
 
 
@@ -11,15 +11,19 @@ class CosVectorsClient(CosS3Client):
     def create_vector_bucket(self, Bucket, SseType=None, **kwargs):
         """ 创建向量存储桶
 
-            :param Bucket(string) 向量存储桶名称.
-            :param SseType(string) 存储桶加密类型.
-            :param kwargs:(dict) 设置上传的headers.
-            :return(dict): response header.
+            :param Bucket: 向量存储桶名称.
+            :type Bucket: string
+            :param SseType: 存储桶加密类型.
+            :type SseType: string
+            :param kwargs: 设置上传的headers.
+            :type kwargs: dict
+            :return: response header 和请求成功返回的结果.
+            :rtype: tuple(dict, dict)
 
             .. code-block:: python
 
-                endpoint = "cos-vectors.ap-beijing.myqcloud.com" # 设置访问向量桶的endpoint
-                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Endpoint=endpoint)
+                domain = "vectors.ap-guangzhou.coslake.com" # 设置访问向量桶的domain, 默认为vectors.<Region>.coslake.com
+                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Domain=domain)
                 client = CosVectorsClient(config)
                 # 创建向量桶
                 resp, data = client.create_vector_bucket(Bucket="examplevectorbucket-1250000000", SseType="AES256")
@@ -34,7 +38,7 @@ class CosVectorsClient(CosS3Client):
         headers['Content-Type'] = 'application/json'
 
         path = "/" + "CreateVectorBucket"
-        url = self._conf.uri(bucket=Bucket, path=path, endpoint=self._conf._endpoint)
+        url = self._conf.cos_vectors_uri(path=path)
 
         logger.debug("create vector bucket, url=:{url} ,headers=:{headers}".format(
             url=url,
@@ -43,7 +47,6 @@ class CosVectorsClient(CosS3Client):
             method='POST',
             url=url,
             data=json.dumps(data),
-            bucket=Bucket,
             auth=CosS3Auth(self._conf, path),
             headers=headers)
         
@@ -57,15 +60,17 @@ class CosVectorsClient(CosS3Client):
     def get_vector_bucket(self, Bucket, **kwargs):
         """ 获取向量存储桶信息
 
-            :param Bucket(string) 向量存储桶名称.
-            :param kwargs:(dict) 设置上传的headers.
-            :return(dict): response header.
-            :return(dict): 请求成功返回的结果,dict类型.
+            :param Bucket: 向量存储桶名称.
+            :type Bucket: string
+            :param kwargs: 设置上传的headers.
+            :type kwargs: dict
+            :return: response header 和请求成功返回的结果.
+            :rtype: tuple(dict, dict)
 
             .. code-block:: python
 
-                endpoint = "cos-vectors.ap-beijing.myqcloud.com" # 设置访问向量桶的endpoint
-                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Endpoint=endpoint)
+                domain = "vectors.ap-guangzhou.coslake.com" # 设置访问向量桶的domain, 默认为vectors.<Region>.coslake.com
+                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Domain=domain)
                 client = CosVectorsClient(config)
                 # 获取向量桶信息
                 resp, data = client.get_vector_bucket(Bucket="examplevectorbucket-1250000000")
@@ -79,7 +84,7 @@ class CosVectorsClient(CosS3Client):
         headers['Content-Type'] = 'application/json'
 
         path = "/" + "GetVectorBucket"
-        url = self._conf.uri(bucket=Bucket, path=path, endpoint=self._conf._endpoint)
+        url = self._conf.cos_vectors_uri(path=path)
 
         logger.debug("get vector bucket, url=:{url} ,headers=:{headers}".format(
             url=url,
@@ -88,7 +93,6 @@ class CosVectorsClient(CosS3Client):
             method = "POST",
             url = url,
             data = json.dumps(data),
-            bucket = Bucket,
             auth = CosS3Auth(self._conf, path),
             headers = headers
         )
@@ -103,17 +107,26 @@ class CosVectorsClient(CosS3Client):
     def list_vector_buckets(self, MaxResults=None, NextToken=None, Prefix=None, **kwargs):
         """ 获取向量存储桶列表
 
-            :param kwargs:(dict) 设置上传的headers.
-            :return(dict): response header.
-            :return(dict): 请求成功返回的结果,dict类型.
+            :param MaxResults: 最大返回结果数.
+            :type MaxResults: int
+            :param NextToken: 下一页的token.
+            :type NextToken: string
+            :param Prefix: 向量存储桶名称前缀.
+            :type Prefix: string
+            :param kwargs: 设置上传的headers.
+            :type kwargs: dict
+            :return: response header 和请求成功返回的结果.
+            :rtype: tuple(dict, dict)
 
             .. code-block:: python
 
-                endpoint = "cos-vectors.ap-beijing.myqcloud.com" # 设置访问向量桶的endpoint
-                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Endpoint=endpoint)
+                domain = "vectors.ap-guangzhou.coslake.com" # 设置访问向量桶的domain, 默认为vectors.<Region>.coslake.com
+                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Domain=domain)
                 client = CosVectorsClient(config)
                 # 获取向量桶列表
-                resp, data = client.list_vector_buckets()
+                resp, data = client.list_vector_buckets(
+                    MaxResults=10,
+                    Prefix="example")
                 print(resp)
                 print(data)
 
@@ -129,7 +142,7 @@ class CosVectorsClient(CosS3Client):
             data['prefix'] = Prefix
         
         path = "/" + "ListVectorBuckets"
-        url = self._conf.uri(bucket=None, path=path, endpoint=self._conf._endpoint)
+        url = self._conf.cos_vectors_uri(path=path)
 
         logger.debug("list vector buckets, url=:{url} ,headers=:{headers}".format(url=url, headers=headers))
 
@@ -137,7 +150,6 @@ class CosVectorsClient(CosS3Client):
             method="POST",
             url=url,
             data=json.dumps(data),
-            bucket=None,
             auth=CosS3Auth(self._conf, path),
             headers=headers
         )
@@ -151,14 +163,17 @@ class CosVectorsClient(CosS3Client):
 
     def delete_vector_bucket(self, Bucket, **kwargs):
         """ 删除向量存储桶
-            :param Bucket(string) 向量存储桶名称.
-            :param kwargs:(dict) 设置上传的headers.
-            :return(dict): response header.
+            :param Bucket: 向量存储桶名称.
+            :type Bucket: string
+            :param kwargs: 设置上传的headers.
+            :type kwargs: dict
+            :return: response header.
+            :rtype: dict
 
             .. code-block:: python
 
-                endpoint = "cos-vectors.ap-beijing.myqcloud.com" # 设置访问向量桶的endpoint
-                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Endpoint=endpoint)
+                domain = "vectors.ap-guangzhou.coslake.com" # 设置访问向量桶的domain, 默认为vectors.<Region>.coslake.com
+                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Domain=domain)
                 client = CosVectorsClient(config)
                 # 删除向量桶
                 resp = client.delete_vector_bucket(Bucket="examplevectorbucket-1250000000")
@@ -173,7 +188,7 @@ class CosVectorsClient(CosS3Client):
 
         # 构造请求URL
         path = "/" + "DeleteVectorBucket"
-        url = self._conf.uri(bucket=Bucket, path=path, endpoint=self._conf._endpoint)
+        url = self._conf.cos_vectors_uri(path=path)
 
         logger.debug("delete vector bucket, url=:{url} ,headers=:{headers}".format(url=url, headers=headers))
 
@@ -181,7 +196,6 @@ class CosVectorsClient(CosS3Client):
             method="POST",
             url=url,
             data=json.dumps(data),
-            bucket=Bucket,
             auth=CosS3Auth(self._conf, path),
             headers=headers
         )
@@ -193,23 +207,35 @@ class CosVectorsClient(CosS3Client):
     def create_index(self, Bucket, Index, DataType, Dimension, DistanceMetric, NonFilterableMetadataKeys=None, **kwargs):
         """ 创建向量索引
 
-            :param Bucket(string) 向量存储桶名称.
-            :param Index(string) 向量索引名称.
-            :param dataType(string) 向量数据类型, 支持float32.
-            :param dimension(int) 向量维度, 范围1-4096.
-            :distanceMetric(string) 距离度量, 支持cosine, euclidean.
-            :param nonFilterableMetadataKeys(list) 非过滤元数据键列表.
-            :param kwargs:(dict) 设置上传的headers.
-            :return(dict): response header.
-            :return(dict): 请求成功返回的结果,dict类型.
+            :param Bucket: 向量存储桶名称.
+            :type Bucket: string
+            :param Index: 向量索引名称.
+            :type Index: string
+            :param DataType: 向量数据类型, 支持float32.
+            :type DataType: string
+            :param Dimension: 向量维度, 范围1-4096.
+            :type Dimension: int
+            :param DistanceMetric: 距离度量, 支持cosine, euclidean.
+            :type DistanceMetric: string
+            :param NonFilterableMetadataKeys: 非过滤元数据键列表.
+            :type NonFilterableMetadataKeys: list
+            :param kwargs: 设置上传的headers.
+            :type kwargs: dict
+            :return: response header 和请求成功返回的结果.
+            :rtype: tuple(dict, dict)
 
             .. code-block:: python
 
-                endpoint = "cos-vectors.ap-beijing.myqcloud.com" # 设置访问向量桶的endpoint
-                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Endpoint=endpoint)
+                domain = "vectors.ap-guangzhou.coslake.com" # 设置访问向量桶的domain, 默认为vectors.<Region>.coslake.com
+                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Domain=domain)
                 client = CosVectorsClient(config)
-                # 创建向量桶
-                resp, data = client.create_vector_bucket(Bucket="examplevectorbucket-1250000000")
+                # 创建向量索引
+                resp, data = client.create_index(
+                    Bucket="examplevectorbucket-1250000000",
+                    Index="example-index",
+                    DataType="float32",
+                    Dimension=128,
+                    DistanceMetric="cosine")
                 print(resp)
                 print(data)
         """
@@ -228,7 +254,7 @@ class CosVectorsClient(CosS3Client):
 
         # 构造请求URL
         path = "/" + "CreateIndex"
-        url = self._conf.uri(bucket=Bucket, path=path, endpoint=self._conf._endpoint)
+        url = self._conf.cos_vectors_uri(path=path)
 
         logger.debug("create index, url=:{url} ,headers=:{headers}".format(url=url, headers=headers))
 
@@ -236,7 +262,6 @@ class CosVectorsClient(CosS3Client):
             method="POST",
             url=url,
             data=json.dumps(data),
-            bucket=Bucket,
             auth=CosS3Auth(self._conf, path),
             headers=headers
         )
@@ -250,16 +275,19 @@ class CosVectorsClient(CosS3Client):
     
     def get_index(self, Bucket, Index, **kwargs):
         """ 获取向量桶的索引信息
-            :param Bucket(string) 向量存储桶名称.
-            :param Index(string) 向量索引名称.
-            :param kwargs:(dict) 设置上传的headers.
-            :return(dict): response header.
-            :return(dict): 请求成功返回的结果,dict类型.
+            :param Bucket: 向量存储桶名称.
+            :type Bucket: string
+            :param Index: 向量索引名称.
+            :type Index: string
+            :param kwargs: 设置上传的headers.
+            :type kwargs: dict
+            :return: response header 和请求成功返回的结果.
+            :rtype: tuple(dict, dict)
 
             .. code-block:: python
 
-                endpoint = "cos-vectors.ap-beijing.myqcloud.com" # 设置访问向量桶的endpoint
-                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Endpoint=endpoint)
+                domain = "vectors.ap-guangzhou.coslake.com" # 设置访问向量桶的domain, 默认为vectors.<Region>.coslake.com
+                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Domain=domain)
                 client = CosVectorsClient(config)
                 # 获取向量桶的索引信息
                 resp, data = client.get_index(Bucket="examplevectorbucket-1250000000", Index="exampleindex")
@@ -275,7 +303,7 @@ class CosVectorsClient(CosS3Client):
 
         # 构造请求URL
         path = "/" + "GetIndex"
-        url = self._conf.uri(bucket=Bucket, path=path, endpoint=self._conf._endpoint)
+        url = self._conf.cos_vectors_uri(path=path)
 
         logger.debug("get index, url=:{url} ,headers=:{headers}".format(url=url, headers=headers))
 
@@ -283,7 +311,6 @@ class CosVectorsClient(CosS3Client):
             method="POST",
             url=url,
             data=json.dumps(data),
-            bucket=Bucket,
             auth=CosS3Auth(self._conf, path),
             headers=headers
         )
@@ -297,13 +324,31 @@ class CosVectorsClient(CosS3Client):
     
     def list_indexes(self, Bucket, MaxResults=None, NextToken=None, Prefix=None, **kwargs):
         """ 获取向量桶的索引列表
-            :param Bucket(string) 向量存储桶名称.
-            :param maxResults(int) 最大返回结果数.
-            :param nextToken(string) 下一页的token.
-            :param prefix(string) 索引名称前缀.
-            :param kwargs:(dict) 设置上传的headers.
-            :return(dict): response header.
-            :return(dict): 请求成功返回的结果,dict类型.
+            :param Bucket: 向量存储桶名称.
+            :type Bucket: string
+            :param MaxResults: 最大返回结果数.
+            :type MaxResults: int
+            :param NextToken: 下一页的token.
+            :type NextToken: string
+            :param Prefix: 索引名称前缀.
+            :type Prefix: string
+            :param kwargs: 设置上传的headers.
+            :type kwargs: dict
+            :return: response header 和请求成功返回的结果.
+            :rtype: tuple(dict, dict)
+
+            .. code-block:: python
+
+                domain = "vectors.ap-guangzhou.coslake.com" # 设置访问向量桶的domain, 默认为vectors.<Region>.coslake.com
+                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Domain=domain)
+                client = CosVectorsClient(config)
+                # 获取向量桶的索引列表
+                resp, data = client.list_indexes(
+                    Bucket="examplevectorbucket-1250000000",
+                    MaxResults=10,
+                    Prefix="example")
+                print(resp)
+                print(data)
 
         """
         headers = mapped(kwargs)
@@ -320,7 +365,7 @@ class CosVectorsClient(CosS3Client):
 
         # 构造请求URL
         path = "/" + "ListIndexes"
-        url = self._conf.uri(bucket=Bucket, path=path, endpoint=self._conf._endpoint)
+        url = self._conf.cos_vectors_uri(path=path)
 
         logger.debug("list indexes, url=:{url} ,headers=:{headers}".format(url=url, headers=headers))
 
@@ -328,7 +373,6 @@ class CosVectorsClient(CosS3Client):
             method="POST",
             url=url,
             data=json.dumps(data),
-            bucket=Bucket,
             auth=CosS3Auth(self._conf, path),
             headers=headers
         )
@@ -342,10 +386,25 @@ class CosVectorsClient(CosS3Client):
     
     def delete_index(self, Bucket, Index, **kwargs):
         """ 删除向量桶的索引
-            :param Bucket(string) 向量存储桶名称.
-            :param Index(string) 向量索引名称.
-            :param kwargs:(dict) 设置上传的headers.
-            :return(dict): response header.
+            :param Bucket: 向量存储桶名称.
+            :type Bucket: string
+            :param Index: 向量索引名称.
+            :type Index: string
+            :param kwargs: 设置上传的headers.
+            :type kwargs: dict
+            :return: response header.
+            :rtype: dict
+
+            .. code-block:: python
+
+                domain = "vectors.ap-guangzhou.coslake.com" # 设置访问向量桶的domain, 默认为vectors.<Region>.coslake.com
+                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Domain=domain)
+                client = CosVectorsClient(config)
+                # 删除向量桶的索引
+                resp = client.delete_index(
+                    Bucket="examplevectorbucket-1250000000",
+                    Index="example-index")
+                print(resp)
         """
         headers = mapped(kwargs)
         headers['Content-Type'] = 'application/json'
@@ -356,7 +415,7 @@ class CosVectorsClient(CosS3Client):
 
         # 构造请求URL
         path = "/" + "DeleteIndex"
-        url = self._conf.uri(bucket=Bucket, path=path, endpoint=self._conf._endpoint)
+        url = self._conf.cos_vectors_uri(path=path)
 
         logger.debug("delete index, url=:{url} ,headers=:{headers}".format(url=url, headers=headers))
 
@@ -364,7 +423,6 @@ class CosVectorsClient(CosS3Client):
             method="POST",
             url=url,
             data=json.dumps(data),
-            bucket=Bucket,
             auth=CosS3Auth(self._conf, path),
             headers=headers
         )
@@ -376,16 +434,21 @@ class CosVectorsClient(CosS3Client):
     def put_vectors(self, Bucket, Index, Vectors, **kwargs):
         """ 在向量桶的索引中添加或更新向量
 
-            :param Bucket(string) 向量存储桶名称.
-            :param Index(string) 索引名称.
-            :param Vectors(list) 向量列表, 例如[{"key": "key1", "data": {"float32": [0.1] * 128}, "metadata": {"d1": "value1"}}].
-            :param kwargs:(dict) 设置上传的headers.
-            :return(dict): response header.
+            :param Bucket: 向量存储桶名称.
+            :type Bucket: string
+            :param Index: 索引名称.
+            :type Index: string
+            :param Vectors: 向量列表, 例如[{"key": "key1", "data": {"float32": [0.1] * 128}, "metadata": {"d1": "value1"}}].
+            :type Vectors: list
+            :param kwargs: 设置上传的headers.
+            :type kwargs: dict
+            :return: response header.
+            :rtype: dict
 
             .. code-block:: python
 
-                endpoint = "cos-vectors.ap-beijing.myqcloud.com" # 设置访问向量桶的endpoint
-                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Endpoint=endpoint)
+                domain = "vectors.ap-guangzhou.coslake.com" # 设置访问向量桶的domain, 默认为vectors.<Region>.coslake.com
+                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Domain=domain)
                 client = CosVectorsClient(config)
                 # 向量
                 vectors = [
@@ -415,7 +478,7 @@ class CosVectorsClient(CosS3Client):
         headers['Content-Type'] = 'application/json'
 
         path = "/" + "PutVectors"
-        url = self._conf.uri(bucket=Bucket, path=path, endpoint=self._conf._endpoint)
+        url = self._conf.cos_vectors_uri(path=path)
 
         logger.debug("put vectors, url=:{url} ,headers=:{headers}".format(
             url=url,
@@ -424,26 +487,31 @@ class CosVectorsClient(CosS3Client):
             method='POST',
             url=url,
             data=json.dumps(data),
-            bucket=Bucket,
             auth=CosS3Auth(self._conf, path),
             headers=headers)
         return rt.headers
     
     def get_vectors(self, Bucket, Index, Keys, ReturnData=None, ReturnMetaData=None, **kwargs):
         """ 获取向量桶的索引中的向量
-            :param Bucket(string) 向量存储桶名称.
-            :param Index(string) 向量索引名称.
-            :param Keys(list) 向量键列表.
-            :param returnData(bool) 是否返回向量数据.
-            :param returnMetaData(bool) 是否返回向量元数据.
-            :param kwargs:(dict) 设置上传的headers.
-            :return(dict): response header.
-            :return(dict): 请求成功返回的结果,dict类型.
+            :param Bucket: 向量存储桶名称.
+            :type Bucket: string
+            :param Index: 向量索引名称.
+            :type Index: string
+            :param Keys: 向量键列表.
+            :type Keys: list
+            :param ReturnData: 是否返回向量数据.
+            :type ReturnData: bool
+            :param ReturnMetaData: 是否返回向量元数据.
+            :type ReturnMetaData: bool
+            :param kwargs: 设置上传的headers.
+            :type kwargs: dict
+            :return: response header 和请求成功返回的结果.
+            :rtype: tuple(dict, dict)
 
             .. code-block:: python
 
-                endpoint = "cos-vectors.ap-beijing.myqcloud.com" # 设置访问向量桶的endpoint
-                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Endpoint=endpoint)
+                domain = "vectors.ap-guangzhou.coslake.com" # 设置访问向量桶的domain, 默认为vectors.<Region>.coslake.com
+                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Domain=domain)
                 client = CosVectorsClient(config)
                 # 获取向量
                 resp, data = client.get_vectors(
@@ -468,7 +536,7 @@ class CosVectorsClient(CosS3Client):
         
         # 构造请求URL
         path = "/" + "GetVectors"
-        url = self._conf.uri(bucket=Bucket, path=path, endpoint=self._conf._endpoint)
+        url = self._conf.cos_vectors_uri(path=path)
 
         logger.debug("get vectors, url=:{url} ,headers=:{headers}".format(url=url, headers=headers))
 
@@ -476,7 +544,6 @@ class CosVectorsClient(CosS3Client):
             method="POST",
             url=url,
             data=json.dumps(data),
-            bucket=Bucket,
             auth=CosS3Auth(self._conf, path),
             headers=headers
         )
@@ -489,25 +556,36 @@ class CosVectorsClient(CosS3Client):
         return response, data
     
     def list_vectors(self, Bucket, Index, MaxResults=None, NextToken=None, 
-                     ReturnData=None, ReturnMetaData=None, SegmentCount=None, SegmentIndex=None, **kwargs):
+                     ReturnData=None, ReturnMetaData=None, SegmentCount=None, SegmentIndex=None,
+                     Filter=None, **kwargs):
         """ 获取向量桶的索引中的向量列表
-            :param Bucket(string) 向量存储桶名称.
-            :param Index(string) 向量索引名称.
-            :param maxResults(int) 最大返回结果数.
-            :param nextToken(string) 下一次请求的token.
-            :param prefix(string) 向量键前缀.
-            :param returnData(bool) 是否返回向量数据.
-            :param returnMetaData(bool) 是否返回向量元数据.
-            :param segmentCount(int) 分段数.
-            :param segmentIndex(int) 分段索引, 从0开始.
-            :param kwargs:(dict) 设置上传的headers.
-            :return(dict): response header.
-            :return(dict): 请求成功返回的结果,dict类型.
+            :param Bucket: 向量存储桶名称.
+            :type Bucket: string
+            :param Index: 向量索引名称.
+            :type Index: string
+            :param MaxResults: 最大返回结果数.
+            :type MaxResults: int
+            :param NextToken: 下一次请求的token.
+            :type NextToken: string
+            :param ReturnData: 是否返回向量数据.
+            :type ReturnData: bool
+            :param ReturnMetaData: 是否返回向量元数据.
+            :type ReturnMetaData: bool
+            :param SegmentCount: 分段数.
+            :type SegmentCount: int
+            :param SegmentIndex: 分段索引, 从0开始.
+            :type SegmentIndex: int
+            :param Filter: 过滤条件, 例如{"metadata": {"$eq": "value1"}}, 语法详见接口文档.
+            :type Filter: dict
+            :param kwargs: 设置上传的headers.
+            :type kwargs: dict
+            :return: response header 和请求成功返回的结果.
+            :rtype: tuple(dict, dict)
 
             .. code-block:: python
 
-                endpoint = "cos-vectors.ap-beijing.myqcloud.com" # 设置访问向量桶的endpoint
-                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Endpoint=endpoint)
+                domain = "vectors.ap-guangzhou.coslake.com" # 设置访问向量桶的domain, 默认为vectors.<Region>.coslake.com
+                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Domain=domain)
                 client = CosVectorsClient(config)
                 # 获取向量列表
                 resp, data = client.list_vectors(
@@ -533,10 +611,12 @@ class CosVectorsClient(CosS3Client):
         if SegmentCount is not None and SegmentIndex is not None:
             data["segmentCount"] = SegmentCount
             data["segmentIndex"] = SegmentIndex
+        if Filter is not None:
+            data["filter"] = Filter
         
         # 构造请求URL
         path = "/" + "ListVectors"
-        url = self._conf.uri(bucket=Bucket, path=path, endpoint=self._conf._endpoint)
+        url = self._conf.cos_vectors_uri(path=path)
 
         logger.debug("list vector buckets, url=:{url} ,headers=:{headers}".format(url=url, headers=headers))
 
@@ -544,7 +624,6 @@ class CosVectorsClient(CosS3Client):
             method="POST",
             url=url,
             data=json.dumps(data),
-            bucket=Bucket,
             auth=CosS3Auth(self._conf, path),
             headers=headers
         )
@@ -558,16 +637,21 @@ class CosVectorsClient(CosS3Client):
     
     def delete_vectors(self, Bucket, Index, Keys, **kwargs):
         """ 删除向量桶的索引中的向量
-            :param Bucket(string) 向量存储桶名称.
-            :param Index(string) 向量索引名称.
-            :param Keys(list) 向量键列表.
-            :param kwargs:(dict) 设置上传的headers.
-            :return(dict): response header.
+            :param Bucket: 向量存储桶名称.
+            :type Bucket: string
+            :param Index: 向量索引名称.
+            :type Index: string
+            :param Keys: 向量键列表.
+            :type Keys: list
+            :param kwargs: 设置上传的headers.
+            :type kwargs: dict
+            :return: response header.
+            :rtype: dict
 
             .. code-block:: python
 
-                endpoint = "cos-vectors.ap-beijing.myqcloud.com" # 设置访问向量桶的endpoint
-                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Endpoint=endpoint)
+                domain = "vectors.ap-guangzhou.coslake.com" # 设置访问向量桶的domain, 默认为vectors.<Region>.coslake.com
+                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Domain=domain)
                 client = CosVectorsClient(config)
                 # 删除向量
                 resp = client.delete_vectors(
@@ -586,7 +670,7 @@ class CosVectorsClient(CosS3Client):
 
         # 构造请求URL
         path = "/" + "DeleteVectors"
-        url = self._conf.uri(bucket=Bucket, path=path, endpoint=self._conf._endpoint)
+        url = self._conf.cos_vectors_uri(path=path)
 
         logger.debug("delete vectors, url=:{url} ,headers=:{headers}".format(url=url, headers=headers))
 
@@ -594,7 +678,6 @@ class CosVectorsClient(CosS3Client):
             method="POST",
             url=url,
             data=json.dumps(data),
-            bucket=Bucket,
             auth=CosS3Auth(self._conf, path),
             headers=headers
         )
@@ -604,28 +687,36 @@ class CosVectorsClient(CosS3Client):
     def query_vectors(self, Bucket, Index, QueryVector, TopK, Filter=None,
                       ReturnDistance=None, ReturnMetaData=None, **kwargs):
         """ 查询向量桶的索引中的向量
-            :param Bucket(string) 向量存储桶名称.
-            :param Index(string) 向量索引名称.
-            :param QueryVector(dict) 查询向量的表示, 如{"float32":[1.0, 2.0, 3.0]}.
-            :param topK(int) 返回结果数.
-            :param Filter(dict) 过滤条件, 语法详见接口文档.
-            :param returnDistance(bool) 是否返回距离.
-            :param returnMetaData(bool) 是否返回元数据.
-            :param kwargs:(dict) 设置上传的headers.
-            :return(dict): response header.
-            :return(dict): 请求成功返回的结果,dict类型.
+            :param Bucket: 向量存储桶名称.
+            :type Bucket: string
+            :param Index: 向量索引名称.
+            :type Index: string
+            :param QueryVector: 查询向量的表示, 如{"float32":[1.0, 2.0, 3.0]}.
+            :type QueryVector: dict
+            :param TopK: 返回结果数.
+            :type TopK: int
+            :param Filter: 过滤条件, {"metadata": {"$eq": "value1"}}, 语法详见接口文档.
+            :type Filter: dict
+            :param ReturnDistance: 是否返回距离.
+            :type ReturnDistance: bool
+            :param ReturnMetaData: 是否返回元数据.
+            :type ReturnMetaData: bool
+            :param kwargs: 设置上传的headers.
+            :type kwargs: dict
+            :return: response header 和请求成功返回的结果.
+            :rtype: tuple(dict, dict)
 
             .. code-block:: python
 
-                endpoint = "cos-vectors.ap-beijing.myqcloud.com" # 设置访问向量桶的endpoint
-                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Endpoint=endpoint)
+                domain = "vectors.ap-guangzhou.coslake.com" # 设置访问向量桶的domain, 默认为vectors.<Region>.coslake.com
+                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Domain=domain)
                 client = CosVectorsClient(config)
                 # 查询向量
                 resp, data = client.query_vectors(
                     Bucket="examplevectorbucket-1250000000",
                     Index="example-index",
                     QueryVector={"float32":[1.0, 2.0, 3.0]},
-                    topK=10)
+                    TopK=10)
                 print(resp)
                 print(data)
         """
@@ -646,7 +737,7 @@ class CosVectorsClient(CosS3Client):
 
         # 构造请求URL
         path = "/" + "QueryVectors"
-        url = self._conf.uri(bucket=Bucket, path=path, endpoint=self._conf._endpoint)
+        url = self._conf.cos_vectors_uri(path=path)
 
         logger.debug("query vectors, url=:{url} ,headers=:{headers}".format(url=url, headers=headers))
 
@@ -654,7 +745,6 @@ class CosVectorsClient(CosS3Client):
             method="POST",
             url=url,
             data=json.dumps(data),
-            bucket=Bucket,
             auth=CosS3Auth(self._conf, path),
             headers=headers
         )
@@ -668,15 +758,19 @@ class CosVectorsClient(CosS3Client):
 
     def put_vector_bucket_policy(self, Bucket, Policy, **kwargs):
         """ 设置向量桶的策略
-            :param Bucket(string) 向量存储桶名称.
-            :param Policy(string) 策略内容.
-            :param kwargs:(dict) 设置上传的headers.
-            :return(dict): response header.
+            :param Bucket: 向量存储桶名称.
+            :type Bucket: string
+            :param Policy: 策略内容.
+            :type Policy: string or dict
+            :param kwargs: 设置上传的headers.
+            :type kwargs: dict
+            :return: response header.
+            :rtype: dict
 
             .. code-block:: python
 
-                endpoint = "cos-vectors.ap-beijing.myqcloud.com" # 设置访问向量桶的endpoint
-                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Endpoint=endpoint)
+                domain = "vectors.ap-guangzhou.coslake.com" # 设置访问向量桶的domain, 默认为vectors.<Region>.coslake.com
+                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Domain=domain)
                 client = CosVectorsClient(config)
                 # 设置向量桶的策略
                 resp = client.put_vector_bucket_policy(
@@ -689,10 +783,9 @@ class CosVectorsClient(CosS3Client):
         data = dict()
         # 构造请求数据
         policy_str = Policy  # 策略内容, 可以是json格式字符串或者json格式字典
-        policy_type = type(policy_str)
-        if policy_type != str and policy_type != dict:
+        if not isinstance(policy_str, string_types) and not isinstance(policy_str, dict):
             raise CosClientError("Policy must be a json format string or json format dict")
-        if policy_type == dict:
+        if isinstance(policy_str, dict):
             policy_str = json.dumps(policy_str)
             
         data["policy"] = policy_str
@@ -700,7 +793,7 @@ class CosVectorsClient(CosS3Client):
 
         # 构造请求URL
         path = "/" + "PutVectorBucketPolicy"
-        url = self._conf.uri(bucket=Bucket, path=path, endpoint=self._conf._endpoint)
+        url = self._conf.cos_vectors_uri(path=path)
 
         logger.debug("put vector bucket policy, url=:{url} ,headers=:{headers}".format(url=url, headers=headers))
         
@@ -708,7 +801,6 @@ class CosVectorsClient(CosS3Client):
             method="POST",
             url=url,
             data=json.dumps(data),
-            bucket=Bucket,
             auth=CosS3Auth(self._conf, path),
             headers=headers
         )
@@ -717,15 +809,17 @@ class CosVectorsClient(CosS3Client):
 
     def get_vector_bucket_policy(self, Bucket, **kwargs):
         """ 获取向量桶的策略
-            :param Bucket(string) 向量存储桶名称.
-            :param kwargs:(dict) 设置上传的headers.
-            :return(dict): response header.
-            :return(dict): 请求成功返回的结果,dict类型.
+            :param Bucket: 向量存储桶名称.
+            :type Bucket: string
+            :param kwargs: 设置上传的headers.
+            :type kwargs: dict
+            :return: response header 和请求成功返回的结果, policy字段为字符串, 可解析为dict.
+            :rtype: tuple(dict, dict)
 
             .. code-block:: python
 
-                endpoint = "cos-vectors.ap-beijing.myqcloud.com" # 设置访问向量桶的endpoint
-                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Endpoint=endpoint)
+                domain = "vectors.ap-guangzhou.coslake.com" # 设置访问向量桶的domain, 默认为vectors.<Region>.coslake.com
+                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Domain=domain)
                 client = CosVectorsClient(config)
                 # 获取向量桶的策略
                 resp, data = client.get_vector_bucket_policy(
@@ -741,7 +835,7 @@ class CosVectorsClient(CosS3Client):
 
         # 构造请求URL
         path = "/" + "GetVectorBucketPolicy"
-        url = self._conf.uri(bucket=Bucket, path=path, endpoint=self._conf._endpoint)
+        url = self._conf.cos_vectors_uri(path=path)
         
         logger.debug("get vector bucket policy, url=:{url} ,headers=:{headers}".format(url=url, headers=headers))
         
@@ -749,7 +843,6 @@ class CosVectorsClient(CosS3Client):
             method="POST",
             url=url,
             data=json.dumps(data),
-            bucket=Bucket,
             auth=CosS3Auth(self._conf, path),
             headers=headers
         )
@@ -762,14 +855,17 @@ class CosVectorsClient(CosS3Client):
 
     def delete_vector_bucket_policy(self, Bucket, **kwargs):
         """ 删除向量桶的策略
-            :param Bucket(string) 向量存储桶名称.
-            :param kwargs:(dict) 设置上传的headers.
-            :return(dict): response header.
+            :param Bucket: 向量存储桶名称.
+            :type Bucket: string
+            :param kwargs: 设置上传的headers.
+            :type kwargs: dict
+            :return: response header.
+            :rtype: dict
 
             .. code-block:: python
 
-                endpoint = "cos-vectors.ap-beijing.myqcloud.com" # 设置访问向量桶的endpoint
-                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Endpoint=endpoint)
+                domain = "vectors.ap-guangzhou.coslake.com" # 设置访问向量桶的domain, 默认为vectors.<Region>.coslake.com
+                config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Domain=domain)
                 client = CosVectorsClient(config)
                 # 删除向量桶的策略
                 resp = client.delete_vector_bucket_policy(
@@ -784,7 +880,7 @@ class CosVectorsClient(CosS3Client):
 
         # 构造请求URL
         path = "/" + "DeleteVectorBucketPolicy"
-        url = self._conf.uri(bucket=Bucket, path=path, endpoint=self._conf._endpoint)
+        url = self._conf.cos_vectors_uri(path=path)
         
         logger.debug("delete vector bucket policy, url=:{url} ,headers=:{headers}".format(url=url, headers=headers))
         
@@ -792,7 +888,6 @@ class CosVectorsClient(CosS3Client):
             method="POST",
             url=url,
             data=json.dumps(data),
-            bucket=Bucket,
             auth=CosS3Auth(self._conf, path),
             headers=headers
         )

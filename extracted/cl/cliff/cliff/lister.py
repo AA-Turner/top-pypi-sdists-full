@@ -14,9 +14,9 @@
 
 import abc
 import argparse
-import collections.abc
+from collections.abc import Iterable, Sequence
 import logging
-import typing as ty
+from typing import Any
 
 from cliff import display
 from cliff.formatters import base as base_formatters
@@ -50,9 +50,7 @@ class Lister(
     @abc.abstractmethod
     def take_action(
         self, parsed_args: argparse.Namespace
-    ) -> tuple[
-        collections.abc.Sequence[str], collections.abc.Iterable[ty.Any]
-    ]:
+    ) -> tuple[Sequence[str], Iterable[Any]]:
         """Run command.
 
         Return a tuple containing the column names and an iterable containing
@@ -94,8 +92,8 @@ class Lister(
     def produce_output(
         self,
         parsed_args: argparse.Namespace,
-        column_names: collections.abc.Sequence[str],
-        data: collections.abc.Iterable[collections.abc.Sequence[ty.Any]],
+        column_names: Sequence[str],
+        data: Iterable[Sequence[Any]],
     ) -> int:
         if parsed_args.sort_columns and self.need_sort_by_cliff:
             indexes = [

@@ -56,3 +56,14 @@ class TestSerializersAnnotatedField:
 
         schema = TestModel.model_json_schema()
         assert schema["properties"]["account_id"]["x-unique"] is True
+
+    def test_json_schema_extra_is_merged_without_duplicate_kwarg(self) -> None:
+        """json_schema_extra must be popped from AnnotatedField kwargs before calling Field()."""
+
+        class TestModel(BaseModel):
+            name: str = AnnotatedField(..., secret=True, json_schema_extra={"custom_key": True})
+
+        schema = TestModel.model_json_schema()
+        props = schema["properties"]["name"]
+        assert props["x-secret"] is True
+        assert props["custom_key"] is True

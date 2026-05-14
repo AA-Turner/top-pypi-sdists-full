@@ -3,12 +3,15 @@
 import json
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
+from outlines.exceptions import normalize_provider_errors
 from outlines.models.base import AsyncModel, Model, ModelTypeAdapter
 from outlines.types import CFG, JsonSchema, Regex
 
 if TYPE_CHECKING:
     from dottxt import AsyncDotTxt as AsyncDottxtClient
     from dottxt import DotTxt as DottxtClient
+
+PROVIDER = "dottxt"
 
 __all__ = ["AsyncDottxt", "Dottxt", "from_dottxt"]
 
@@ -139,12 +142,15 @@ class Dottxt(Model):
                 "or as a `model=` keyword argument at generation time."
             )
 
-        result = self.client.generate(
-            input=prompt,
-            response_format=json_schema,
-            **inference_kwargs,
-        )
+        with normalize_provider_errors(PROVIDER):
+            result = self.client.generate(
+                input=prompt,
+                response_format=json_schema,
+                **inference_kwargs,
+            )
+
         return json.dumps(result)
+
 
     def generate_batch(
         self,
@@ -232,11 +238,13 @@ class AsyncDottxt(AsyncModel):
                 "or as a `model=` keyword argument at generation time."
             )
 
-        result = await self.client.generate(
-            input=prompt,
-            response_format=json_schema,
-            **inference_kwargs,
-        )
+        with normalize_provider_errors(PROVIDER):
+            result = await self.client.generate(
+                input=prompt,
+                response_format=json_schema,
+                **inference_kwargs,
+            )
+
         return json.dumps(result)
 
     async def generate_batch(

@@ -17,10 +17,10 @@ from __future__ import annotations
 import bigframes_vendored.sqlglot as sg
 import bigframes_vendored.sqlglot.expressions as sge
 
+import bigframes.core.compile.sqlglot.expression_compiler as expression_compiler
 from bigframes import dtypes
 from bigframes import operations as ops
 from bigframes.core.compile.sqlglot import sql, sqlglot_types
-import bigframes.core.compile.sqlglot.expression_compiler as expression_compiler
 from bigframes.core.compile.sqlglot.expressions.typed_expr import TypedExpr
 
 register_unary_op = expression_compiler.expression_compiler.register_unary_op
@@ -80,6 +80,27 @@ def _(expr: TypedExpr) -> sge.Expression:
     if expr.dtype == dtypes.BOOL_DTYPE:
         return sge.Not(this=sge.paren(expr.expr))
     return sge.BitwiseNot(this=sge.paren(expr.expr))
+
+
+@register_nary_op(ops.GoogleSqlScalarOp, pass_op=True)
+def _(*operands: TypedExpr, op: ops.GoogleSqlScalarOp) -> sge.Expression:
+    args: list[sge.Expression] = []
+    for i, operand in enumerate(operands):
+        if i < len(op.args):
+            arg_spec = op.args[i]
+        else:
+            assert op.args[-1].is_vararg, (
+                f"Too many arguments, for {op.sql_name}, expected {len(op.args)}"
+            )
+            arg_spec = op.args[-1]
+        if operand.is_omitted:
+            assert arg_spec.optional, f"Argument omitted, but not optional"
+            continue
+        elif arg_spec.arg_name:
+            args.append(sge.Kwarg(this=arg_spec.arg_name, expression=operand.expr))
+        else:
+            args.append(operand.expr)
+    return sg.func(op.sql_name, *args)
 
 
 @register_nary_op(ops.SqlScalarOp, pass_op=True)

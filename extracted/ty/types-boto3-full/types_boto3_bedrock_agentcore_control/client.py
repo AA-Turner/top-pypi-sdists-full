@@ -49,8 +49,11 @@ from .paginator import (
     ListPaymentManagersPaginator,
     ListPoliciesPaginator,
     ListPolicyEnginesPaginator,
+    ListPolicyEngineSummariesPaginator,
     ListPolicyGenerationAssetsPaginator,
     ListPolicyGenerationsPaginator,
+    ListPolicyGenerationSummariesPaginator,
+    ListPolicySummariesPaginator,
     ListRegistriesPaginator,
     ListRegistryRecordsPaginator,
     ListWorkloadIdentitiesPaginator,
@@ -184,10 +187,16 @@ from .type_defs import (
     GetPaymentManagerResponseTypeDef,
     GetPolicyEngineRequestTypeDef,
     GetPolicyEngineResponseTypeDef,
+    GetPolicyEngineSummaryRequestTypeDef,
+    GetPolicyEngineSummaryResponseTypeDef,
     GetPolicyGenerationRequestTypeDef,
     GetPolicyGenerationResponseTypeDef,
+    GetPolicyGenerationSummaryRequestTypeDef,
+    GetPolicyGenerationSummaryResponseTypeDef,
     GetPolicyRequestTypeDef,
     GetPolicyResponseTypeDef,
+    GetPolicySummaryRequestTypeDef,
+    GetPolicySummaryResponseTypeDef,
     GetRegistryRecordRequestTypeDef,
     GetRegistryRecordResponseTypeDef,
     GetRegistryRequestTypeDef,
@@ -242,10 +251,16 @@ from .type_defs import (
     ListPoliciesResponseTypeDef,
     ListPolicyEnginesRequestTypeDef,
     ListPolicyEnginesResponseTypeDef,
+    ListPolicyEngineSummariesRequestTypeDef,
+    ListPolicyEngineSummariesResponseTypeDef,
     ListPolicyGenerationAssetsRequestTypeDef,
     ListPolicyGenerationAssetsResponseTypeDef,
     ListPolicyGenerationsRequestTypeDef,
     ListPolicyGenerationsResponseTypeDef,
+    ListPolicyGenerationSummariesRequestTypeDef,
+    ListPolicyGenerationSummariesResponseTypeDef,
+    ListPolicySummariesRequestTypeDef,
+    ListPolicySummariesResponseTypeDef,
     ListRegistriesRequestTypeDef,
     ListRegistriesResponseTypeDef,
     ListRegistryRecordsRequestTypeDef,
@@ -1058,6 +1073,17 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#get_policy_engine)
         """
 
+    def get_policy_engine_summary(
+        self, **kwargs: Unpack[GetPolicyEngineSummaryRequestTypeDef]
+    ) -> GetPolicyEngineSummaryResponseTypeDef:
+        """
+        Retrieves a metadata-only summary of a specific policy engine without
+        decrypting customer content.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_policy_engine_summary.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#get_policy_engine_summary)
+        """
+
     def get_policy_generation(
         self, **kwargs: Unpack[GetPolicyGenerationRequestTypeDef]
     ) -> GetPolicyGenerationResponseTypeDef:
@@ -1067,6 +1093,28 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_policy_generation.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#get_policy_generation)
+        """
+
+    def get_policy_generation_summary(
+        self, **kwargs: Unpack[GetPolicyGenerationSummaryRequestTypeDef]
+    ) -> GetPolicyGenerationSummaryResponseTypeDef:
+        """
+        Retrieves a metadata-only summary of a specific policy generation request
+        without decrypting customer content.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_policy_generation_summary.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#get_policy_generation_summary)
+        """
+
+    def get_policy_summary(
+        self, **kwargs: Unpack[GetPolicySummaryRequestTypeDef]
+    ) -> GetPolicySummaryResponseTypeDef:
+        """
+        Retrieves a metadata-only summary of a specific policy without decrypting
+        customer content.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_policy_summary.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#get_policy_summary)
         """
 
     def get_registry(
@@ -1333,6 +1381,17 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#list_policies)
         """
 
+    def list_policy_engine_summaries(
+        self, **kwargs: Unpack[ListPolicyEngineSummariesRequestTypeDef]
+    ) -> ListPolicyEngineSummariesResponseTypeDef:
+        """
+        Retrieves a paginated list of metadata-only policy engine summaries without
+        decrypting customer content.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_policy_engine_summaries.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#list_policy_engine_summaries)
+        """
+
     def list_policy_engines(
         self, **kwargs: Unpack[ListPolicyEnginesRequestTypeDef]
     ) -> ListPolicyEnginesResponseTypeDef:
@@ -1354,6 +1413,17 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#list_policy_generation_assets)
         """
 
+    def list_policy_generation_summaries(
+        self, **kwargs: Unpack[ListPolicyGenerationSummariesRequestTypeDef]
+    ) -> ListPolicyGenerationSummariesResponseTypeDef:
+        """
+        Retrieves a paginated list of metadata-only policy generation summaries within
+        a policy engine without decrypting customer content.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_policy_generation_summaries.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#list_policy_generation_summaries)
+        """
+
     def list_policy_generations(
         self, **kwargs: Unpack[ListPolicyGenerationsRequestTypeDef]
     ) -> ListPolicyGenerationsResponseTypeDef:
@@ -1363,6 +1433,17 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_policy_generations.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#list_policy_generations)
+        """
+
+    def list_policy_summaries(
+        self, **kwargs: Unpack[ListPolicySummariesRequestTypeDef]
+    ) -> ListPolicySummariesResponseTypeDef:
+        """
+        Retrieves a paginated list of metadata-only policy summaries within a policy
+        engine without decrypting customer content.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_policy_summaries.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#list_policy_summaries)
         """
 
     def list_registries(
@@ -1920,6 +2001,17 @@ class BedrockAgentCoreControlClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_policy_engine_summaries"]
+    ) -> ListPolicyEngineSummariesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_policy_engines"]
     ) -> ListPolicyEnginesPaginator:
         """
@@ -1942,8 +2034,30 @@ class BedrockAgentCoreControlClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_policy_generation_summaries"]
+    ) -> ListPolicyGenerationSummariesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_policy_generations"]
     ) -> ListPolicyGenerationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_policy_summaries"]
+    ) -> ListPolicySummariesPaginator:
         """
         Create a paginator for an operation.
 

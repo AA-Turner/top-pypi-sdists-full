@@ -5,10 +5,12 @@ from ..._rendering import Pipeline
 
 from ...abc import ParticleEmitter
 
-import ctypes
-import numpy as np
 import pyglet.gl as gl
 from pyglet.graphics.shader import Shader, ShaderProgram
+import numpy as np
+
+import ctypes
+from typing import ClassVar
 
 # ======================================== CONSTANTS ========================================
 _QUAD = np.array([
@@ -64,20 +66,22 @@ void main() {
 class ParticleRenderer:
     """Renderer de particules"""
 
-    _program: ShaderProgram = None
-    _vao: gl.GLuint = None
-    _quad_vbo: gl.GLuint = None
-    _inst_vbo: gl.GLuint = None
-    _inst_capacity: int = 0
+    _program: ClassVar[ShaderProgram] = None
+    _vao: ClassVar[gl.GLuint] = None
+    _quad_vbo: ClassVar[gl.GLuint] = None
+    _inst_vbo: ClassVar[gl.GLuint] = None
+    _inst_capacity: ClassVar[int] = 0
 
     @classmethod
     def _get_program(cls) -> ShaderProgram:
+        """Renvoie le programme de shader des particules"""
         if cls._program is None:
             cls._program = ShaderProgram(Shader(_VERT, 'vertex'), Shader(_FRAG, 'fragment'))
         return cls._program
 
     @classmethod
     def _ensure_vao(cls) -> None:
+        """Prépare les arrêtes pour le GPU"""
         if cls._vao is not None:
             return
 
@@ -105,6 +109,7 @@ class ParticleRenderer:
 
     @classmethod
     def _upload(cls, data: np.ndarray) -> None:
+        """Passe les données au GPU"""
         count = len(data)
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, cls._inst_vbo)
         if count > cls._inst_capacity:

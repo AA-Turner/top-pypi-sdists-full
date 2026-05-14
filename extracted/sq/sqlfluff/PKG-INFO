@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlfluff
-Version: 4.1.0
+Version: 4.2.0
 Summary: The SQL Linter for Humans
 Author-email: Alan Cruickshank <alan@designingoverload.com>
 License: MIT License
@@ -43,7 +43,6 @@ Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -53,7 +52,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: SQL
 Classifier: Topic :: Utilities
 Classifier: Topic :: Software Development :: Quality Assurance
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: platformdirs
@@ -63,14 +62,15 @@ Requires-Dist: colorama>=0.3
 Requires-Dist: diff-cover>=2.5.0
 Requires-Dist: Jinja2
 Requires-Dist: pathspec
-Requires-Dist: pytest
 Requires-Dist: pyyaml>=5.1
 Requires-Dist: regex
 Requires-Dist: tblib
 Requires-Dist: tomli; python_version < "3.11"
 Requires-Dist: tqdm
 Provides-Extra: rs
-Requires-Dist: sqlfluffrs==4.1.0; extra == "rs"
+Requires-Dist: sqlfluffrs==4.2.0; extra == "rs"
+Provides-Extra: testutils
+Requires-Dist: pytest; extra == "testutils"
 Dynamic: license-file
 
 ![SQLFluff](https://raw.githubusercontent.com/sqlfluff/sqlfluff/main/images/sqlfluff-wide.png)

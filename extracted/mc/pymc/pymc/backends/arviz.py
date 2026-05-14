@@ -13,6 +13,9 @@
 #   limitations under the License.
 """PyMC-ArviZ conversion code."""
 
+from __future__ import annotations
+
+import json
 import logging
 import warnings
 
@@ -20,21 +23,17 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
-    Optional,
-    Union,
     cast,
 )
 
 import numpy as np
 import xarray
 
-from arviz import InferenceData, concat, rcParams
-from arviz.data.base import CoordSpec, DimSpec, dict_to_dataset, requires
 from pytensor.graph import ancestors
 from pytensor.tensor.sharedvar import SharedVariable
 from rich.progress import Console
 from rich.theme import Theme
-from xarray import Dataset
+from xarray import Dataset, DataTree
 
 import pymc
 
@@ -44,7 +43,43 @@ from pymc.pytensorf import PointFunc, extract_obs_data
 from pymc.util import get_default_varnames
 
 if TYPE_CHECKING:
+    from arviz_base.types import CoordSpec, DimSpec
+
     from pymc.backends.base import MultiTrace
+
+
+class requires:
+    """Decorator that returns None if all required attributes on the wrapped instance are None."""
+
+    def __init__(self, *props):
+        self.props = props
+
+    def __call__(self, func):
+        def wrapped(cls):
+            for prop in self.props:
+                prop_list = [prop] if isinstance(prop, str) else prop
+                if all(getattr(cls, prop_i) is None for prop_i in prop_list):
+                    return None
+            return func(cls)
+
+        return wrapped
+
+
+# Self-replacing lazy stubs. First call imports arviz_base, rebinds the module-level
+# name to the real implementation, then forwards. Subsequent calls go straight to it.
+def dict_to_dataset(*args, **kwargs):  # noqa: F811
+    global dict_to_dataset
+    from arviz_base import dict_to_dataset
+
+    return dict_to_dataset(*args, **kwargs)
+
+
+def make_attrs(*args, **kwargs):  # noqa: F811
+    global make_attrs
+    from arviz_base import make_attrs
+
+    return make_attrs(*args, **kwargs)
+
 
 ___all__ = [""]
 
@@ -58,8 +93,11 @@ RAISE_ON_INCOMPATIBLE_COORD_LENGTHS = False
 Var = Any
 
 
-def dict_to_dataset_drop_incompatible_coords(vars_dict, *args, dims, coords, **kwargs):
+def dict_to_dataset_drop_incompatible_coords(
+    vars_dict, *args, dims, coords, sample_dims=None, **kwargs
+):
     safe_coords = coords
+    dropped_coords = {}
 
     if not RAISE_ON_INCOMPATIBLE_COORD_LENGTHS:
         coords_lengths = {k: len(v) for k, v in coords.items()}
@@ -78,14 +116,25 @@ def dict_to_dataset_drop_incompatible_coords(vars_dict, *args, dims, coords, **k
                     )
                     if safe_coords is coords:
                         safe_coords = coords.copy()
-                    safe_coords.pop(dim)
+                    dropped_coords[dim] = safe_coords.pop(dim)
                     coords_lengths.pop(dim)
 
-    # FIXME: Would be better to drop coordinates altogether, but arviz defaults to `np.arange(var_length)`
-    return dict_to_dataset(vars_dict, *args, dims=dims, coords=safe_coords, **kwargs)
+    ds = dict_to_dataset(
+        vars_dict, *args, dims=dims, coords=safe_coords, sample_dims=sample_dims, **kwargs
+    )
+    # After alignment, shorter variables are padded with NaN so the final dim
+    # length may match the original coord length. Re-assign those coords.
+    reassign = {
+        dim: coord_vals
+        for dim, coord_vals in dropped_coords.items()
+        if dim in ds.dims and ds.sizes[dim] == len(coord_vals)
+    }
+    if reassign:
+        ds = ds.assign_coords(reassign)
+    return ds
 
 
-def find_observations(model: "Model") -> dict[str, Var]:
+def find_observations(model: Model) -> dict[str, Var]:
     """If there are observations available, return them as a dictionary."""
     observations = {}
     for obs in model.observed_RVs:
@@ -102,7 +151,7 @@ def find_observations(model: "Model") -> dict[str, Var]:
     return observations
 
 
-def find_constants(model: "Model") -> dict[str, Var]:
+def find_constants(model: Model) -> dict[str, Var]:
     """If there are constants available, return them as a dictionary."""
     model_vars = model.basic_RVs + model.deterministics + model.potentials
     value_vars = set(model.rvs_to_values.values())
@@ -121,6 +170,50 @@ def find_constants(model: "Model") -> dict[str, Var]:
         constant_data[var.name] = var_value
 
     return constant_data
+
+
+def patch_nutpie_idata(
+    idata: DataTree,
+    model: Model,
+    sampling_time: float,
+) -> None:
+    """Fix up the ``DataTree`` returned by ``nutpie.sample`` in place.
+
+    Work-around for gaps in what nutpie attaches to the returned ``DataTree``:
+
+    - attaches ``constant_data`` / ``observed_data`` groups gathered from the
+      model. Drop once https://github.com/pymc-devs/nutpie/issues/74 is released;
+    - stamps ``sampling_time`` / ``tuning_steps`` attrs onto the posterior.
+    """
+    import nutpie
+
+    coords, dims = coords_and_dims_for_inferencedata(model)
+    idata["constant_data"] = DataTree(
+        dict_to_dataset(
+            find_constants(model),
+            inference_library=pymc,
+            coords=coords,
+            dims=dims,  # type: ignore[arg-type]
+            sample_dims=[],
+        )
+    )
+    idata["observed_data"] = DataTree(
+        dict_to_dataset(
+            find_observations(model),
+            inference_library=pymc,
+            coords=coords,
+            dims=dims,  # type: ignore[arg-type]
+            sample_dims=[],
+        )
+    )
+
+    nutpie_settings = json.loads(idata.sample_stats.attrs["inference_library_settings"])
+    attrs = make_attrs(
+        {"sampling_time": sampling_time, "tuning_steps": nutpie_settings["settings"]["num_tune"]},
+        inference_library=nutpie,
+    )
+    for k, v in attrs.items():
+        idata.posterior.attrs[k] = v
 
 
 def coords_and_dims_for_inferencedata(model: Model) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -187,8 +280,8 @@ class _DefaultTrace:
             self.trace_dict[k][idx, :] = v
 
 
-class InferenceDataConverter:
-    """Encapsulate InferenceData specific logic."""
+class DataTreeConverter:
+    """Encapsulate conventions of InferenceData schema in DataTree conversion."""
 
     model: Model | None = None
     posterior_predictive: Mapping[str, np.ndarray] | None = None
@@ -211,7 +304,11 @@ class InferenceDataConverter:
         save_warmup: bool | None = None,
         include_transformed: bool = False,
     ):
-        self.save_warmup = rcParams["data.save_warmup"] if save_warmup is None else save_warmup
+        if save_warmup is None:
+            from arviz_base import rcParams
+
+            save_warmup = rcParams["data.save_warmup"]
+        self.save_warmup = save_warmup
         self.include_transformed = include_transformed
         self.trace = trace
 
@@ -249,7 +346,7 @@ class InferenceDataConverter:
 
         if all(elem is None for elem in (trace, predictions, posterior_predictive, prior)):
             raise ValueError(
-                "When constructing InferenceData you must pass at least"
+                "When constructing DataTree you must pass at least"
                 " one of trace, prior, posterior_predictive or predictions."
             )
 
@@ -265,7 +362,7 @@ class InferenceDataConverter:
 
         self.observations = find_observations(self.model)
 
-    def split_trace(self) -> tuple[Union[None, "MultiTrace"], Union[None, "MultiTrace"]]:
+    def split_trace(self) -> tuple[MultiTrace | None, MultiTrace | None]:
         """Split MultiTrace object into posterior and warmup.
 
         Returns
@@ -287,79 +384,88 @@ class InferenceDataConverter:
 
     @requires("trace")
     def posterior_to_xarray(self):
-        """Convert the posterior to an xarray dataset."""
+        """Convert the posterior to xarray datasets with separate warmup group."""
         var_names = get_default_varnames(
             self.trace.varnames, include_transformed=self.include_transformed
         )
-        data = {}
-        data_warmup = {}
-        for var_name in var_names:
-            if self.warmup_trace:
+
+        result = {}
+        if self.warmup_trace:
+            data_warmup = {}
+            for var_name in var_names:
                 data_warmup[var_name] = np.array(
                     self.warmup_trace.get_values(var_name, combine=False, squeeze=False)
                 )
-            if self.posterior_trace:
+            result["warmup_posterior"] = dict_to_dataset(
+                data_warmup,
+                inference_library=pymc,
+                coords=self.coords,
+                dims=self.dims,
+                attrs=self.attrs,
+            )
+
+        if self.posterior_trace:
+            data = {}
+            for var_name in var_names:
                 data[var_name] = np.array(
                     self.posterior_trace.get_values(var_name, combine=False, squeeze=False)
                 )
-        return (
-            dict_to_dataset(
+            result["posterior"] = dict_to_dataset(
                 data,
-                library=pymc,
+                inference_library=pymc,
                 coords=self.coords,
                 dims=self.dims,
                 attrs=self.attrs,
-            ),
-            dict_to_dataset(
-                data_warmup,
-                library=pymc,
-                coords=self.coords,
-                dims=self.dims,
-                attrs=self.attrs,
-            ),
-        )
+            )
+
+        return result if result else {}
 
     @requires("trace")
     def sample_stats_to_xarray(self):
-        """Extract sample_stats from PyMC trace."""
-        data = {}
+        """Extract sample_stats from PyMC trace with separate warmup group."""
         rename_key = {
             "model_logp": "lp",
             "mean_tree_accept": "acceptance_rate",
             "depth": "tree_depth",
             "tree_size": "n_steps",
         }
-        data = {}
-        data_warmup = {}
-        for stat in self.trace.stat_names:
-            name = rename_key.get(stat, stat)
-            if name in {"tune", "in_warmup"}:
-                continue
-            if self.warmup_trace:
+
+        result = {}
+        if self.warmup_trace:
+            data_warmup = {}
+            for stat in self.trace.stat_names:
+                name = rename_key.get(stat, stat)
+                if name in {"tune", "in_warmup"}:
+                    continue
                 data_warmup[name] = np.array(
                     self.warmup_trace.get_sampler_stats(stat, combine=False, squeeze=False)
                 )
-            if self.posterior_trace:
+            result["warmup_sample_stats"] = dict_to_dataset(
+                data_warmup,
+                inference_library=pymc,
+                dims=None,
+                coords=self.coords,
+                attrs=self.attrs,
+            )
+
+        if self.posterior_trace:
+            data = {}
+            for stat in self.trace.stat_names:
+                name = rename_key.get(stat, stat)
+                if name in {"tune", "in_warmup"}:
+                    continue
                 data[name] = np.array(
                     self.posterior_trace.get_sampler_stats(stat, combine=False, squeeze=False)
                 )
-
-        return (
-            dict_to_dataset(
+            result["sample_stats"] = dict_to_dataset(
                 data,
-                library=pymc,
+                inference_library=pymc,
                 dims=None,
                 coords=self.coords,
                 attrs=self.attrs,
-            ),
-            dict_to_dataset(
-                data_warmup,
-                library=pymc,
-                dims=None,
-                coords=self.coords,
-                attrs=self.attrs,
-            ),
-        )
+            )
+
+        return result if result else {}
 
     @requires(["posterior_predictive"])
     def posterior_predictive_to_xarray(self):
@@ -367,7 +473,11 @@ class InferenceDataConverter:
         data = self.posterior_predictive
         dims = {var_name: self.sample_dims + self.dims.get(var_name, []) for var_name in data}
         return dict_to_dataset(
-            data, library=pymc, coords=self.coords, dims=dims, default_dims=self.sample_dims
+            data,
+            inference_library=pymc,
+            coords=self.coords,
+            dims=dims,
+            sample_dims=self.sample_dims,
         )
 
     @requires(["predictions"])
@@ -376,7 +486,11 @@ class InferenceDataConverter:
         data = self.predictions
         dims = {var_name: self.sample_dims + self.dims.get(var_name, []) for var_name in data}
         return dict_to_dataset(
-            data, library=pymc, coords=self.coords, dims=dims, default_dims=self.sample_dims
+            data,
+            inference_library=pymc,
+            coords=self.coords,
+            dims=dims,
+            sample_dims=self.sample_dims,
         )
 
     def priors_to_xarray(self):
@@ -399,9 +513,10 @@ class InferenceDataConverter:
                 if var_names is None
                 else dict_to_dataset_drop_incompatible_coords(
                     {k: np.expand_dims(self.prior[k], 0) for k in var_names},
-                    library=pymc,
+                    inference_library=pymc,
                     coords=self.coords,
                     dims=self.dims,
+                    sample_dims=self.sample_dims,
                 )
             )
         return priors_dict
@@ -414,10 +529,10 @@ class InferenceDataConverter:
             return None
         return dict_to_dataset(
             self.observations,
-            library=pymc,
+            inference_library=pymc,
             coords=self.coords,
             dims=self.dims,
-            default_dims=[],
+            sample_dims=[],
         )
 
     @requires("model")
@@ -429,10 +544,10 @@ class InferenceDataConverter:
 
         xarray_dataset = dict_to_dataset(
             constant_data,
-            library=pymc,
+            inference_library=pymc,
             coords=self.coords,
             dims=self.dims,
-            default_dims=[],
+            sample_dims=[],
         )
 
         # provisional handling of scalars in constant
@@ -441,20 +556,22 @@ class InferenceDataConverter:
         scalars = [var_name for var_name, value in constant_data.items() if np.ndim(value) == 0]
         for s in scalars:
             s_dim_0_name = f"{s}_dim_0"
-            xarray_dataset = xarray_dataset.squeeze(s_dim_0_name, drop=True)
+            # Only squeeze if the dimension exists in the dataset
+            if s_dim_0_name in xarray_dataset.sizes:
+                xarray_dataset = xarray_dataset.squeeze(s_dim_0_name, drop=True)
 
         return xarray_dataset
 
     def to_inference_data(self):
-        """Convert all available data to an InferenceData object.
+        """Convert all available data to an DataTree object.
 
         Note that if groups can not be created (e.g., there is no `trace`, so
-        the `posterior` and `sample_stats` can not be extracted), then the InferenceData
+        the `posterior` and `sample_stats` can not be extracted), then the DataTree
         will not have those groups.
         """
         id_dict = {
-            "posterior": self.posterior_to_xarray(),
-            "sample_stats": self.sample_stats_to_xarray(),
+            **(self.posterior_to_xarray() or {}),
+            **(self.sample_stats_to_xarray() or {}),
             "posterior_predictive": self.posterior_predictive_to_xarray(),
             "predictions": self.predictions_to_xarray(),
             **self.priors_to_xarray(),
@@ -464,7 +581,10 @@ class InferenceDataConverter:
             id_dict["predictions_constant_data"] = self.constant_data_to_xarray()
         else:
             id_dict["constant_data"] = self.constant_data_to_xarray()
-        idata = InferenceData(save_warmup=self.save_warmup, **id_dict)
+        id_dict = {k: v for k, v in id_dict.items() if v is not None}
+        if not self.save_warmup:
+            id_dict = {k: v for k, v in id_dict.items() if not k.startswith("warmup_")}
+        idata = DataTree.from_dict({f"/{k}": v for k, v in id_dict.items()})
         if self.log_likelihood:
             from pymc.stats.log_density import compute_log_likelihood
 
@@ -491,7 +611,7 @@ class InferenceDataConverter:
 
 
 def to_inference_data(
-    trace: Optional["MultiTrace"] = None,
+    trace: MultiTrace | None = None,
     *,
     prior: Mapping[str, Any] | None = None,
     posterior_predictive: Mapping[str, Any] | None = None,
@@ -500,10 +620,10 @@ def to_inference_data(
     coords: CoordSpec | None = None,
     dims: DimSpec | None = None,
     sample_dims: list | None = None,
-    model: Optional["Model"] = None,
+    model: Model = None,
     save_warmup: bool | None = None,
     include_transformed: bool = False,
-) -> InferenceData:
+) -> DataTree:
     """Convert pymc data into an InferenceData object.
 
     All three of them are optional arguments, but at least one of ``trace``,
@@ -544,12 +664,12 @@ def to_inference_data(
 
     Returns
     -------
-    arviz.InferenceData
+    DataTree
     """
-    if isinstance(trace, InferenceData):
+    if isinstance(trace, DataTree):
         return trace
 
-    return InferenceDataConverter(
+    return DataTreeConverter(
         trace=trace,
         prior=prior,
         posterior_predictive=posterior_predictive,
@@ -568,15 +688,15 @@ def to_inference_data(
 ### perhaps we should have an inplace argument?
 def predictions_to_inference_data(
     predictions,
-    posterior_trace: Optional["MultiTrace"] = None,
-    model: Optional["Model"] = None,
+    posterior_trace: MultiTrace | None = None,
+    model: Model | None = None,
     coords: CoordSpec | None = None,
     dims: DimSpec | None = None,
     sample_dims: list | None = None,
-    idata_orig: InferenceData | None = None,
+    idata_orig: DataTree | None = None,
     inplace: bool = False,
-) -> InferenceData:
-    """Translate out-of-sample predictions into ``InferenceData``.
+) -> DataTree:
+    """Translate out-of-sample predictions into ``DataTree``.
 
     Parameters
     ----------
@@ -595,24 +715,24 @@ def predictions_to_inference_data(
         Coordinates for the variables.  Map from coordinate names to coordinate values.
     dims: Dict[str, array-like[str]]
         Map from variable name to ordered set of coordinate names.
-    idata_orig: InferenceData, optional
+    idata_orig: DataTree, optional
         If supplied, then modify this inference data in place, adding ``predictions`` and
         (if available) ``predictions_constant_data`` groups. If this is not supplied, make a
-        fresh InferenceData
+        fresh DataTree
     inplace: boolean, optional
         If idata_orig is supplied and inplace is True, merge the predictions into idata_orig,
-        rather than returning a fresh InferenceData object.
+        rather than returning a fresh DataTree object.
 
     Returns
     -------
-    InferenceData:
+    DataTree:
         May be modified ``idata_orig``.
     """
     if inplace and not idata_orig:
         raise ValueError(
-            "Do not pass True for inplace unless passing an existing InferenceData as idata_orig"
+            "Do not pass True for inplace unless passing an existing DataTree as idata_orig"
         )
-    converter = InferenceDataConverter(
+    converter = DataTreeConverter(
         trace=posterior_trace,
         predictions=predictions,
         model=model,
@@ -632,12 +752,18 @@ def predictions_to_inference_data(
     if idata_orig is None:
         return new_idata
     elif inplace:
-        concat([idata_orig, new_idata], dim=None, inplace=True)
+        existing_groups = set(idata_orig.children) & set(new_idata.children)
+        conflicting = existing_groups - {"observed_data", "constant_data"}
+        if conflicting:
+            warnings.warn(
+                f"groups {conflicting} already exist in the DataTree and will be overwritten.",
+                UserWarning,
+                stacklevel=2,
+            )
+        idata_orig.update(new_idata)
         return idata_orig
     else:
-        # if we are not returning in place, then merge the old groups into the new inference
-        # data and return that.
-        concat([new_idata, idata_orig], dim=None, copy=True, inplace=True)
+        new_idata.update(idata_orig)
         return new_idata
 
 
@@ -707,9 +833,9 @@ def apply_function_over_dataset(
 
     return dict_to_dataset(
         out_trace,
-        library=pymc,
+        inference_library=pymc,
         dims=dims,
         coords=coords,
-        default_dims=list(sample_dims),
+        sample_dims=list(sample_dims),
         skip_event_dims=True,
     )

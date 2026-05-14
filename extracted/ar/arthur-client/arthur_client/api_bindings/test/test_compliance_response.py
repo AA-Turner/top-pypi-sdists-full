@@ -68,6 +68,7 @@ class TestComplianceResponse(unittest.TestCase):
                         alert = arthur_client.api_bindings.models.compliance_alert_summary.ComplianceAlertSummary(
                             description = '', 
                             id = '', ), 
+                        error_message = '', 
                         created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
@@ -115,6 +116,7 @@ class TestComplianceResponse(unittest.TestCase):
                         alert = arthur_client.api_bindings.models.compliance_alert_summary.ComplianceAlertSummary(
                             description = '', 
                             id = '', ), 
+                        error_message = '', 
                         created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(

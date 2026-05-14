@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from abstra_internals.controllers.sdk.sdk_context import SDKContextStore
 from abstra_internals.proxy import ReadOnlyProxyDict
@@ -19,13 +19,13 @@ def get_user(refresh: bool = False) -> UserClaims:
     return SDKContextStore.get_by_thread().form_sdk.get_user(force_refresh=refresh)
 
 
-def execute_js(code: str, context: Optional[dict] = None):
+def execute_js(code: str, context: Optional[Dict[str, Any]] = None) -> Any:
     """
     Execute JavaScript code in the browser
 
     Args:
         code (str): JavaScript code to execute
-        context (dict): Context to pass to the JavaScript code. Defaults to {}.
+        context (Dict[str, Any]): Context to pass to the JavaScript code. Defaults to {}.
 
     Returns:
         Any: Result of the JavaScript code
@@ -34,7 +34,7 @@ def execute_js(code: str, context: Optional[dict] = None):
     return SDKContextStore.get_by_thread().form_sdk.execute_js(code, context or {})
 
 
-def redirect(url: str, query_params: Optional[dict] = None) -> None:
+def redirect(url: str, query_params: Optional[Dict[str, str]] = None) -> None:
     """
     Redirect the user to a new URL
 

@@ -279,6 +279,9 @@ class RunnerSessionMixin:
             integrations=integrations,
             authenticated=authenticated,
             request=request,
+            session_stub=self._session_stub,
+            app_id=self._app_id,
+            env=self._version_type,
         )
 
     async def _build_home_context(self, request: web.Request) -> HomeContext:

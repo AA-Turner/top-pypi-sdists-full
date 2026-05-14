@@ -2,15 +2,14 @@ import os
 from urllib.parse import urlparse
 
 import biolib.api
-
 from biolib import utils
 from biolib._internal.http_client import HttpError
 from biolib.api.client import ApiClient
 from biolib.biolib_api_client import CloudJob, JobState
-from biolib.biolib_errors import JobResultPermissionError, JobResultError, JobResultNotFound, StorageDownloadFailed
+from biolib.biolib_errors import JobResultError, JobResultNotFound, JobResultPermissionError, StorageDownloadFailed
 from biolib.biolib_logging import logger
+from biolib.typing_utils import Dict, Literal, Optional, TypedDict
 from biolib.utils import BIOLIB_PACKAGE_VERSION
-from biolib.typing_utils import TypedDict, Optional, Literal, Dict
 
 
 class PresignedS3UploadLinkResponse(TypedDict):

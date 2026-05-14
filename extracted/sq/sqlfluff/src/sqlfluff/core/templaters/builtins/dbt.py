@@ -37,6 +37,24 @@ class RelationEmulator:
         return self.identifier
 
 
+class VarEmulator(str):
+    """A string-like class which emulates dbt's `var()` return value."""
+
+    def __new__(cls, value: str = "item") -> "VarEmulator":
+        """Construct a string-like placeholder for mocked dbt `var()` output."""
+        return super().__new__(cls, value)
+
+    def __getattr__(self, name: str) -> "VarEmulator":
+        """When var.attribute is called return self as another placeholder."""
+        return self
+
+    def __getitem__(self, name: Any) -> str:
+        """When var['key'] is called return a placeholder instead of failing."""
+        if isinstance(name, (int, slice)):
+            return super().__getitem__(name)
+        return self
+
+
 class MacroReturn(Exception):
     """Exception used to allow macros to return non-string values."""
 
@@ -78,8 +96,14 @@ DBT_BUILTINS = {
         "source",
         lambda source_name, table: RelationEmulator(f"{source_name}_{table}"),
     ),
+    "function": FunctionWrapper(
+        "function",
+        # Mirror `ref` handling: tolerate optional qualifier args and use the
+        # last positional argument as the function identifier.
+        lambda *args, **kwargs: RelationEmulator(args[-1]),
+    ),
     "config": FunctionWrapper("config", lambda **kwargs: ""),
-    "var": FunctionWrapper("var", lambda variable, default="": "item"),
+    "var": FunctionWrapper("var", lambda variable, default="": VarEmulator()),
     # `is_incremental()` renders as True, always in this case.
     # TODO: This means we'll never parse other parts of the query,
     # that are only reachable when `is_incremental()` returns False.

@@ -19,14 +19,14 @@ if t.TYPE_CHECKING:
 
 
 def qualify_columns(
-    expression: exp.Expr,
+    expression: E,
     schema: dict[str, object] | Schema,
     expand_alias_refs: bool = True,
     expand_stars: bool = True,
     infer_schema: bool | None = None,
     allow_partial_qualification: bool = False,
     dialect: DialectType = None,
-) -> exp.Expr:
+) -> E:
     """
     Rewrite sqlglot AST to have fully qualified columns.
 
@@ -836,7 +836,7 @@ def _expand_stars(
             replaced_columns = replace_columns.get(table_id, {})
 
             if pivot:
-                pivot_columns = pivot.alias_column_names or pivot.output_columns(columns)
+                pivot_columns = pivot.output_columns(columns) or pivot.alias_column_names
 
                 if pivot_columns:
                     new_selections.extend(

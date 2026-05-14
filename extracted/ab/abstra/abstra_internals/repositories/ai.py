@@ -4,6 +4,8 @@ import json
 from abc import ABC, abstractmethod
 from typing import Any
 
+import requests
+
 from abstra_internals.cloud_api import get_session_path, get_tunnel_secret_key
 from abstra_internals.cloud_api.http_client import HTTPClient
 from abstra_internals.contracts_generated import (
@@ -91,7 +93,24 @@ class ProductionAIRepository(AIRepository):
             headers={"Content-Type": mime_type},
             data=file_content,
         )
-        response.raise_for_status()
+
+        if not response.ok:
+            # raise_for_status() drops the response body, leaving the user with
+            # a generic message like "502 Server Error: Bad Gateway". For
+            # parse-document failures, cloud-api returns a JSON {"error": "..."}
+            # describing the actual issue (e.g. "Invalid date format: ..."),
+            # which is actionable. Surface it in the exception message.
+            try:
+                body = response.json()
+                detail = body.get("error") if isinstance(body, dict) else None
+            except ValueError:
+                detail = None
+            if not detail:
+                detail = response.text or response.reason
+            raise requests.HTTPError(
+                f"{response.status_code} {response.reason}: {detail}",
+                response=response,
+            )
 
         return response.json()
 

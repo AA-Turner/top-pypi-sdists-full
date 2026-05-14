@@ -522,6 +522,30 @@ class GetUserIntegrationsResponse(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class PipedreamProxyRequest(betterproto.Message):
+    app_id: str = betterproto.string_field(1)
+    user_email: str = betterproto.string_field(2)
+    owner_id: str = betterproto.string_field(3)
+    env: str = betterproto.string_field(4)
+    integration_type: str = betterproto.string_field(5)
+    method: str = betterproto.string_field(6)
+    url: str = betterproto.string_field(7)
+    headers: Dict[str, str] = betterproto.map_field(
+        8, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
+    body: bytes = betterproto.bytes_field(9)
+
+
+@dataclass(eq=False, repr=False)
+class PipedreamProxyResponse(betterproto.Message):
+    status_code: int = betterproto.int32_field(1)
+    headers: Dict[str, str] = betterproto.map_field(
+        2, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
+    body: bytes = betterproto.bytes_field(3)
+
+
+@dataclass(eq=False, repr=False)
 class WaitForFileUploadRequest(betterproto.Message):
     app_id: str = betterproto.string_field(1)
     session_id: str = betterproto.string_field(2)
@@ -1447,6 +1471,15 @@ class SessionServiceStub(SyncServiceStub):
             GetUserIntegrationsRequest,
             GetUserIntegrationsResponse,
         )(get_user_integrations_request)
+
+    def pipedream_proxy(
+        self, pipedream_proxy_request: "PipedreamProxyRequest"
+    ) -> "PipedreamProxyResponse":
+        return self._unary_unary(
+            "/capsule.SessionService/PipedreamProxy",
+            PipedreamProxyRequest,
+            PipedreamProxyResponse,
+        )(pipedream_proxy_request)
 
     def wait_for_file_upload(
         self, wait_for_file_upload_request: "WaitForFileUploadRequest"

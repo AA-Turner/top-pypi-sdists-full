@@ -16909,15 +16909,19 @@ class AccountRootPrincipal(
 
     Example::
 
-        # Adds to IAM user's policy (not resource policy)
-        # user: iam.User
-        table = dynamodb.TableV2(self, "Table",
-            partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING)
+        my_trusted_admin_role = iam.Role.from_role_arn(self, "TrustedRole", "arn:aws:iam:....")
+        # Creates a limited admin policy and assigns to the account root.
+        my_custom_policy = iam.PolicyDocument(
+            statements=[iam.PolicyStatement(
+                actions=["kms:Create*", "kms:Describe*", "kms:Enable*", "kms:List*", "kms:Put*"
+                ],
+                principals=[iam.AccountRootPrincipal()],
+                resources=["*"]
+            )]
         )
-        
-        # Automatically adds to table's resource policy (same account)
-        table.grant_read_data(iam.AccountRootPrincipal())
-        table.grant_read_data(user)
+        key = kms.Key(self, "MyKey",
+            policy=my_custom_policy
+        )
     '''
 
     def __init__(self) -> None:

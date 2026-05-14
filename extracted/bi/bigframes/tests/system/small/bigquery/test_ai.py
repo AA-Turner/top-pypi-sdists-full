@@ -18,9 +18,9 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 
-from bigframes import dataframe, dtypes, series
 import bigframes.bigquery as bbq
 import bigframes.pandas as bpd
+from bigframes import dataframe, dtypes, series
 from bigframes.testing import utils as test_utils
 
 
@@ -160,7 +160,7 @@ def test_ai_generate_bool(session):
 
 def test_ai_generate_bool_multi_model(session):
     df = session.from_glob_path(
-        "gs://bigframes-dev-testing/a_multimodel/images/*", name="image"
+        "gs://bigframes-dev-testing/a_multimodal/images/*", name="image"
     )
 
     result = bbq.ai.generate_bool((df["image"], " contains an animal"))
@@ -197,7 +197,7 @@ def test_ai_generate_int(session):
 
 def test_ai_generate_int_multi_model(session):
     df = session.from_glob_path(
-        "gs://bigframes-dev-testing/a_multimodel/images/*", name="image"
+        "gs://bigframes-dev-testing/a_multimodal/images/*", name="image"
     )
 
     result = bbq.ai.generate_int(
@@ -236,7 +236,7 @@ def test_ai_generate_double(session):
 
 def test_ai_generate_double_multi_model(session):
     df = session.from_glob_path(
-        "gs://bigframes-dev-testing/a_multimodel/images/*", name="image"
+        "gs://bigframes-dev-testing/a_multimodal/images/*", name="image"
     )
 
     result = bbq.ai.generate_double(
@@ -255,27 +255,66 @@ def test_ai_generate_double_multi_model(session):
     )
 
 
+def test_ai_embed_series_content(session):
+    content = bpd.Series(["dog"], session=session)
+
+    result = bbq.ai.embed(content, endpoint="text-embedding-005")
+
+    assert _contains_no_nulls(result)
+    assert result.dtype == pd.ArrowDtype(
+        pa.struct(
+            (
+                pa.field("result", pa.list_(pa.float64())),
+                pa.field("status", pa.string()),
+            )
+        )
+    )
+
+
+def test_ai_embed_string_content(session):
+    with mock.patch(
+        "bigframes.core.global_session.get_global_session"
+    ) as mock_get_session:
+        mock_get_session.return_value = session
+
+        result = bbq.ai.embed("dog", endpoint="text-embedding-005")
+
+        assert _contains_no_nulls(result)
+        assert result.dtype == pd.ArrowDtype(
+            pa.struct(
+                (
+                    pa.field("result", pa.list_(pa.float64())),
+                    pa.field("status", pa.string()),
+                )
+            )
+        )
+
+
 def test_ai_if(session):
     s1 = bpd.Series(["apple", "bear"], session=session)
     s2 = bpd.Series(["fruit", "tree"], session=session)
     prompt = (s1, " is a ", s2)
 
-    result = bbq.ai.if_(prompt)
+    result = bbq.ai.if_(
+        prompt,
+        optimization_mode="maximize_quality",
+        max_error_ratio=0.5,
+    )
 
-    assert _contains_no_nulls(result)
+    assert len(result) == len(s1)
     assert result.dtype == dtypes.BOOL_DTYPE
 
 
 def test_ai_if_multi_model(session, bq_connection):
     df = session.from_glob_path(
-        "gs://bigframes-dev-testing/a_multimodel/images/*",
+        "gs://bigframes-dev-testing/a_multimodal/images/*",
         name="image",
         connection=bq_connection,
     )
 
     result = bbq.ai.if_((df["image"], " contains an animal"))
 
-    assert _contains_no_nulls(result)
+    assert len(result) == len(df)
     assert result.dtype == dtypes.BOOL_DTYPE
 
 
@@ -284,20 +323,29 @@ def test_ai_classify(session):
 
     result = bbq.ai.classify(s, ["animal", "plant"])
 
-    assert _contains_no_nulls(result)
+    assert len(result) == len(s)
+    assert result.dtype == dtypes.STRING_DTYPE
+
+
+def test_ai_classify_with_examples(session):
+    s = bpd.Series(["cat", "orchid"], session=session)
+
+    result = bbq.ai.classify(s, ["animal", "plant"], examples=[("dog", "animal")])
+
+    assert len(result) == len(s)
     assert result.dtype == dtypes.STRING_DTYPE
 
 
 def test_ai_classify_multi_model(session, bq_connection):
     df = session.from_glob_path(
-        "gs://bigframes-dev-testing/a_multimodel/images/*",
+        "gs://bigframes-dev-testing/a_multimodal/images/*",
         name="image",
         connection=bq_connection,
     )
 
     result = bbq.ai.classify(df["image"], ["photo", "cartoon"])
 
-    assert _contains_no_nulls(result)
+    assert len(result) == len(df)
     assert result.dtype == dtypes.STRING_DTYPE
 
 
@@ -307,19 +355,19 @@ def test_ai_score(session):
 
     result = bbq.ai.score(prompt)
 
-    assert _contains_no_nulls(result)
+    assert len(result) == len(s)
     assert result.dtype == dtypes.FLOAT_DTYPE
 
 
 def test_ai_score_multi_model(session):
     df = session.from_glob_path(
-        "gs://bigframes-dev-testing/a_multimodel/images/*", name="image"
+        "gs://bigframes-dev-testing/a_multimodal/images/*", name="image"
     )
     prompt = ("Rank the liveliness of ", df["image"], "on the scale from 1 to 3")
 
     result = bbq.ai.score(prompt)
 
-    assert _contains_no_nulls(result)
+    assert len(result) == len(df)
     assert result.dtype == dtypes.FLOAT_DTYPE
 
 
@@ -368,6 +416,36 @@ def test_forecast_w_params(time_series_df_default_index: dataframe.DataFrame):
         columns=expected_columns,
         index=20 * 2,  # 20 for each id
     )
+
+
+def test_ai_similarity(session):
+    s1 = bpd.Series(["happy", "sad"], session=session)
+    s2 = pd.Series(["glad", "angry"])
+
+    result = bbq.ai.similarity(s1, s2, endpoint="text-embedding-005")
+
+    assert _contains_no_nulls(result)
+    assert result.dtype == dtypes.FLOAT_DTYPE
+
+
+def test_ai_similarity_one_content_is_string_literal(session):
+    s1 = "happy"
+    s2 = bpd.Series(["glad", "angry"], session=session)
+
+    result = bbq.ai.similarity(s1, s2, model="embeddinggemma-300m")
+
+    assert _contains_no_nulls(result)
+    assert result.dtype == dtypes.FLOAT_DTYPE
+
+
+def test_ai_similarity_both_contents_are_string_literals(session):
+    s1 = "happy"
+    s2 = "glad"
+
+    result = bbq.ai.similarity(s1, s2, endpoint="text-embedding-005")
+
+    assert _contains_no_nulls(result)
+    assert result.dtype == dtypes.FLOAT_DTYPE
 
 
 def _contains_no_nulls(s: series.Series) -> bool:

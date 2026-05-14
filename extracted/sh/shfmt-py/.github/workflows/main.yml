@@ -1,0 +1,27 @@
+name: main
+
+on:
+  push:
+    branches: [master, test-me-*]
+    tags: '*'
+  pull_request:
+
+jobs:
+  test:
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, macos-15-intel, windows-latest]
+        python: ['3.9', '3.13', '3.14']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install ".[test]"
+      - run: pytest tests/
+      - run: shfmt --version
+      - run: shfmt --help

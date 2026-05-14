@@ -79,6 +79,10 @@ if TYPE_CHECKING:
     import openai
     import pydantic_ai.models
     import requests
+    from anthropic.lib.bedrock import (
+        AnthropicBedrock as _AnthropicBedrock,
+        AsyncAnthropicBedrock as _AsyncAnthropicBedrock,
+    )
     from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
     from flask.app import Flask
@@ -608,6 +612,7 @@ class Logfire:
         record_return: bool = False,
         allow_generator: bool = False,
         new_trace: bool = False,
+        level: LevelName | int | None = None,
     ) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
@@ -633,6 +638,8 @@ class Logfire:
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
             new_trace: Set to `True` to start a new trace with a span link to the current span
                 instead of creating a child of the current span.
+            level: The log level for the span. If provided, the span will be tagged with this level
+                and suppressed if the level is below the configured `min_level`.
         """
 
     @overload
@@ -660,6 +667,7 @@ class Logfire:
         record_return: bool = False,
         allow_generator: bool = False,
         new_trace: bool = False,
+        level: LevelName | int | None = None,
     ) -> Callable[[Callable[P, R]], Callable[P, R]] | Callable[P, R]:
         """Decorator for instrumenting a function as a span.
 
@@ -685,11 +693,21 @@ class Logfire:
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
             new_trace: Set to `True` to start a new trace with a span link to the current span
                 instead of creating a child of the current span.
+            level: The log level for the span. If provided, the span will be tagged with this level
+                and suppressed if the level is below the configured `min_level`.
         """
         if callable(msg_template):
             return self.instrument()(msg_template)
         return instrument(
-            self, tuple(self._tags), msg_template, span_name, extract_args, record_return, allow_generator, new_trace
+            self,
+            tuple(self._tags),
+            msg_template,
+            span_name,
+            extract_args,
+            record_return,
+            allow_generator,
+            new_trace,
+            level=level,
         )
 
     def log(
@@ -1130,7 +1148,7 @@ class Logfire:
                 If `'attributes'`, events are attached to the span as attributes.
                 If `'logs'`, events are emitted as OpenTelemetry log-based events.
             kwargs: Additional keyword arguments to pass to
-                [`InstrumentationSettings`](https://ai.pydantic.dev/api/models/instrumented/#pydantic_ai.models.instrumented.InstrumentationSettings)
+                [`InstrumentationSettings`](https://pydantic.dev/docs/ai/api/models/instrumented/#pydantic_ai.models.instrumented.InstrumentationSettings)
                 for future compatibility.
         """
         from .integrations.pydantic_ai import instrument_pydantic_ai
@@ -1330,12 +1348,12 @@ class Logfire:
         anthropic_client: (
             anthropic.Anthropic
             | anthropic.AsyncAnthropic
-            | anthropic.AnthropicBedrock
-            | anthropic.AsyncAnthropicBedrock
+            | _AnthropicBedrock
+            | _AsyncAnthropicBedrock
             | type[anthropic.Anthropic]
             | type[anthropic.AsyncAnthropic]
-            | type[anthropic.AnthropicBedrock]
-            | type[anthropic.AsyncAnthropicBedrock]
+            | type[_AnthropicBedrock]
+            | type[_AsyncAnthropicBedrock]
             | None
         ) = None,
         *,
@@ -1401,6 +1419,7 @@ class Logfire:
                 Use of this context manager is optional.
         """
         import anthropic
+        from anthropic.lib.bedrock import AnthropicBedrock, AsyncAnthropicBedrock
 
         from .integrations.llm_providers.anthropic import get_endpoint_config, is_async_client, on_response
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
@@ -1414,8 +1433,8 @@ class Logfire:
             or (
                 anthropic.Anthropic,
                 anthropic.AsyncAnthropic,
-                anthropic.AnthropicBedrock,
-                anthropic.AsyncAnthropicBedrock,
+                AnthropicBedrock,
+                AsyncAnthropicBedrock,
             ),
             suppress_other_instrumentation,
             'Anthropic',
@@ -1491,8 +1510,14 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_print(self)
 
-    def instrument_asyncpg(self, **kwargs: Any) -> None:
-        """Instrument the `asyncpg` module so that spans are automatically created for each query."""
+    def instrument_asyncpg(self, capture_parameters: bool = False, **kwargs: Any) -> None:
+        """Instrument the `asyncpg` module so that spans are automatically created for each query.
+
+        Args:
+            capture_parameters: Set to `True` to capture query parameters as span attributes.
+                Be cautious when enabling this, as it may lead to sensitive data being captured in traces.
+            kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method.
+        """
         from .integrations.asyncpg import instrument_asyncpg
 
         self._warn_if_not_initialized_for_instrumentation()
@@ -1500,6 +1525,7 @@ class Logfire:
             **{
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
+                'capture_parameters': capture_parameters,
                 **kwargs,
             },
         )
@@ -3082,6 +3108,10 @@ class NoopSpan:
     @message.setter
     def message(self, message: str):
         pass
+
+    @property
+    def _span(self) -> Any:
+        return trace_api.INVALID_SPAN
 
     def is_recording(self) -> bool:
         return False

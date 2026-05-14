@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: temporalio
-Version: 1.27.0
+Version: 1.27.2
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -23,7 +23,7 @@ Requires-Dist: opentelemetry-semantic-conventions>=0.40b0,<1 ; extra == 'lambda-
 Requires-Dist: opentelemetry-sdk-extension-aws>=2.0.0,<3 ; extra == 'lambda-worker-otel'
 Requires-Dist: langgraph>=1.1.0 ; extra == 'langgraph'
 Requires-Dist: langsmith>=0.7.0,<0.8 ; extra == 'langsmith'
-Requires-Dist: openai-agents>=0.14.0 ; extra == 'openai-agents'
+Requires-Dist: openai-agents>=0.17.1 ; extra == 'openai-agents'
 Requires-Dist: mcp>=1.9.4,<2 ; extra == 'openai-agents'
 Requires-Dist: opentelemetry-api>=1.11.1,<2 ; extra == 'opentelemetry'
 Requires-Dist: opentelemetry-sdk>=1.11.1,<2 ; extra == 'opentelemetry'
@@ -2153,6 +2153,11 @@ run for protobuf version 3 by setting the `TEMPORAL_TEST_PROTO3` env var to `1` 
 tests.
 
 ### Style
+
+```
+# runs ruff + cargo fmt
+poe format
+```
 
 * Mostly [Google Style Guide](https://google.github.io/styleguide/pyguide.html). Notable exceptions:
   * We use [ruff](https://docs.astral.sh/ruff/) for formatting, so that takes precedence

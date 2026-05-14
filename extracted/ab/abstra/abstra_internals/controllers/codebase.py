@@ -239,7 +239,9 @@ class CodebaseController:
         if isinstance(new_name, str):
             new_path = path.parent / new_name
         elif isinstance(new_name, List):
-            new_path = path.parent / Path(*new_name)
+            new_path = Path(*new_name)
+            if not new_path.is_absolute():
+                new_path = Settings.root_path / new_path
         else:
             raise ValueError(f"Invalid new name: {new_name}")
 

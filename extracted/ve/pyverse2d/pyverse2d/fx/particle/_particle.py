@@ -15,11 +15,11 @@ class Particle:
     """Pattern de configuration d'une particule
 
     Args:
-        lifetime: durée de vie (min, max) en secondes
-        speed: vitesse (min, max) en unités monde
-        size: taille initiale (min, max) en unités monde
+        lifetime: durée de vie *(min, max)* en secondes
+        speed: vitesse *(min, max)* en unités monde
+        size: taille initiale *(min, max)* en unités monde
         size_end: taille finale en unités monde
-        angular_velocity: vitesse angulaire (min, max) en degrés/s
+        angular_velocity: vitesse angulaire *(min, max)* en degrés/s
         color_start: couleur initiale
         color_end: couleur finale
         easing: fonction d'atténuation temporelle

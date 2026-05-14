@@ -1,7 +1,7 @@
 import os
 import re
 
-from setuptools import setup
+from setuptools import find_packages, setup
 
 
 def rel(*parts):
@@ -9,7 +9,7 @@ def rel(*parts):
     return os.path.abspath(os.path.join(os.path.dirname(__file__), *parts))
 
 
-with open("README.md", "r") as handler:
+with open(rel("README.md"), "r", encoding="utf-8") as handler:
     README = handler.read()
 
 with open(rel("webpack_loader", "__init__.py")) as handler:
@@ -20,11 +20,7 @@ VERSION = re.findall(r"__version__ = \"([^\"]+)\"", INIT_PY)[0]
 
 setup(
     name="django-webpack-loader",
-    packages=[
-        "webpack_loader",
-        "webpack_loader/templatetags",
-        "webpack_loader/contrib",
-    ],
+    packages=find_packages(),
     version=VERSION,
     license="MIT License",
     description="Transparently use webpack with django",

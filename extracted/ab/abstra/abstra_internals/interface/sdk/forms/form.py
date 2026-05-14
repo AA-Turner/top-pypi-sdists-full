@@ -1,6 +1,6 @@
 import inspect
 import types
-from typing import Dict, List, Optional, Sequence, Union, cast, overload
+from typing import Dict, List, Optional, Sequence, TypeVar, Union, cast, overload
 
 from abstra_internals.controllers.sdk.sdk_context import SDKContextStore
 from abstra_internals.controllers.sdk.sdk_forms import FormSDKController
@@ -16,7 +16,11 @@ from abstra_internals.entities.forms.template import (
     TemplateFunction,
     TemplateGeneratorFunction,
 )
-from abstra_internals.entities.forms.widgets.widget_base import InputWidget, Widget
+from abstra_internals.entities.forms.widgets.widget_base import (
+    InputWidget,
+    OutputWidget,
+    Widget,
+)
 from abstra_internals.interface.sdk.forms.exceptions import InvalidRunInputError
 from abstra_internals.utils.code import always_returns_none
 
@@ -66,10 +70,13 @@ class Form:
         self.state = State(initial_state or {})
         self.hide_steps = hide_steps
 
-    def run(self) -> Dict:
+    def run(self) -> State:
         return self.controller.run_form(
             steps=self.steps, state=self.state, hide_steps=self.hide_steps
         )
+
+
+WidgetValue = TypeVar("WidgetValue")
 
 
 @overload
@@ -82,10 +89,18 @@ def run(
 
 @overload
 def run(
-    runnables: Widget,
+    runnables: InputWidget[WidgetValue],
     state: Optional[Dict] = None,
     hide_steps: bool = False,
-) -> Optional[object]: ...
+) -> Optional[WidgetValue]: ...
+
+
+@overload
+def run(
+    runnables: OutputWidget,
+    state: Optional[Dict] = None,
+    hide_steps: bool = False,
+) -> None: ...
 
 
 def run(

@@ -29,6 +29,11 @@ def mock_connection():
     )
     connection.get_transaction_id.return_value = None
     connection._closed = False
+    connection._persist_session = True
+    connection._session_id = None
+    connection._session_keep_alive_seconds = 900
+    connection._invalidate_session_if_expired = Mock()
+    connection._update_last_query_time = Mock()
     return connection
 
 
@@ -112,26 +117,9 @@ class TestStatementExecutor:
         assert call_args["SecretArn"] == "arn:aws:secretsmanager:us-east-1:123456789012:secret:test"
         assert "DbUser" not in call_args
 
-    def test_execute_statement_without_db_user(self):
+    def test_execute_statement_without_db_user(self, mock_connection):
         """Test statement execution when db_user is None."""
-        from unittest.mock import Mock
-
-        from ...dbapi.connection_params import ConnectionParams
-        from ...dbapi.cursor import Cursor
-
-        # Create connection params without db_user (None)
-        connection_params = ConnectionParams(
-            database_name="test_db",
-            cluster_identifier="test-cluster",
-            db_user=None,  # Explicitly set to None
-            region="us-east-1",
-        )
-
-        # Mock connection and client
-        mock_connection = Mock()
-        mock_connection.connection_params = connection_params
-        mock_connection.get_transaction_id.return_value = None
-        mock_connection.client = Mock()
+        mock_connection.connection_params.db_user = None
 
         # Mock responses
         mock_connection.client.execute_statement.return_value = {"Id": "test-id"}
@@ -142,7 +130,7 @@ class TestStatementExecutor:
 
         call_args = mock_connection.client.execute_statement.call_args[1]
         assert "DbUser" not in call_args
-        assert call_args["Database"] == "test_db"
+        assert call_args["Database"] == "testdb"
         assert call_args["ClusterIdentifier"] == "test-cluster"
 
     def test_execute_statement_with_transaction(self, statement_executor):

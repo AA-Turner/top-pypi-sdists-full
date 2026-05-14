@@ -103,7 +103,7 @@ class ServiceCatalog(metaclass=abc.ABCMeta):
 
     def _denormalize_endpoints(
         self, endpoints: list[discover.EndpointData]
-    ) -> list[str | None]:
+    ) -> list[dict[str, ty.Any] | None]:
         """Return original endpoint description dicts.
 
         Takes a list of EndpointData objects and returns the original
@@ -239,8 +239,16 @@ class ServiceCatalog(metaclass=abc.ABCMeta):
                 ret[matched_service_type] = []
                 continue
 
-            matches_by_interface: dict[str, list[discover.EndpointData]] = {}
+            matches_by_interface: dict[
+                str | None, list[discover.EndpointData]
+            ] = {}
             for endpoint in endpoints:
+                if endpoint.interface is None:
+                    # interface will always be set in a real deployment since
+                    # it is non-nullable: if we get here, we're in a test or
+                    # broken
+                    continue
+
                 matches_by_interface.setdefault(endpoint.interface, [])
                 matches_by_interface[endpoint.interface].append(endpoint)
 
@@ -324,7 +332,7 @@ class ServiceCatalog(metaclass=abc.ABCMeta):
         service_name: str | None = None,
         service_id: str | None = None,
         endpoint_id: str | None = None,
-    ) -> dict[str, list[str | None]]:
+    ) -> dict[str, list[dict[str, ty.Any] | None]]:
         """Fetch and filter endpoint data for the specified service(s).
 
         Returns endpoints for the specified service (or all) containing
@@ -592,7 +600,7 @@ class ServiceCatalogV2(ServiceCatalog):
 
     def _denormalize_endpoints(
         self, endpoints: list[discover.EndpointData]
-    ) -> list[str | None]:
+    ) -> list[dict[str, ty.Any] | None]:
         """Return original endpoint description dicts.
 
         Takes a list of EndpointData objects and returns the original

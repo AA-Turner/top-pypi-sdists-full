@@ -416,6 +416,7 @@ class ImageSequenceSegmentationAnnotation(Annotation):
 
 class ImageSequenceSegmentationFrame(ImageSegmentationLabelAttributes):
     annotations: List[ImageSequenceSegmentationAnnotation]
+    segmentation_bitmap: Optional[URL] = None
     timestamp: Optional[Timestamp] = None
     format_version: Optional[FormatVersion] = None
 
@@ -635,12 +636,23 @@ class MultiSensorImageSequenceVectorLabelAttributes(BaseModel):
     attributes: Union[ImageSequenceVectorLabelAttributes, List]
 
 
+class MultiSensorImageSequenceSegmentationLabelAttributes(BaseModel):
+    name: str
+    task_type: Literal[TaskType.IMAGE_SEGMENTATION_SEQUENCE]
+    # TODO remove list and replace with `Optional[ImageSequenceSegmentationLabelAttributes] = None`
+    attributes: Union[ImageSequenceSegmentationLabelAttributes, List]
+
+
 class MultiSensorPointcloudSequenceVectorLabelAttributes(BaseModel):
     name: str
     task_type: Literal[TaskType.POINTCLOUD_VECTOR_SEQUENCE]
     # TODO remove list and replace with `Optional[ImageSequenceVectorLabelAttributes] = None`
     attributes: Union[BasePointcloudSequenceVectorLabelAttributes, List]
 
+class MultiSensorPointcloudSequenceSegmentationLabelAttributes(BaseModel):
+    name: str
+    task_type: Literal[TaskType.POINTCLOUD_SEGMENTATION_SEQUENCE]
+    attributes: Union[PointcloudSequenceSegmentationLabelAttributes, List]
 
 class MultiSensorLabelAttributes(BaseModel):
     sensors: List[
@@ -648,7 +660,9 @@ class MultiSensorLabelAttributes(BaseModel):
             Union[
                 MultiSensorPointcloudSequenceCuboidLabelAttributes,
                 MultiSensorPointcloudSequenceVectorLabelAttributes,
+                MultiSensorPointcloudSequenceSegmentationLabelAttributes,
                 MultiSensorImageSequenceVectorLabelAttributes,
+                MultiSensorImageSequenceSegmentationLabelAttributes,
             ],
             pydantic.Field(discriminator="task_type"),
         ]
@@ -775,13 +789,17 @@ class MultiSensorPointcloudSequenceSampleAttributes(BaseModel):
     task_type: Union[
         Literal[TaskType.POINTCLOUD_CUBOID_SEQUENCE],
         Literal[TaskType.POINTCLOUD_VECTOR_SEQUENCE],
+        Literal[TaskType.POINTCLOUD_SEGMENTATION_SEQUENCE],
     ]
     attributes: PointcloudSequenceSampleAttributes
 
 
 class MultiSensorImageSequenceSampleAttributes(BaseModel):
     name: str
-    task_type: Literal[TaskType.IMAGE_VECTOR_SEQUENCE]
+    task_type: Union[
+        Literal[TaskType.IMAGE_VECTOR_SEQUENCE],
+        Literal[TaskType.IMAGE_SEGMENTATION_SEQUENCE],
+    ]
     attributes: ImageSequenceSampleAttributes
 
 

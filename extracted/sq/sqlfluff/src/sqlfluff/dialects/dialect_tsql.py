@@ -129,6 +129,7 @@ tsql_dialect.sets("date_format").update(
         "mdy",
         "dmy",
         "ymd",
+        "ydm",
         "myd",
         "dym",
     ]
@@ -210,11 +211,11 @@ tsql_dialect.sets("currency_symbols").update(
 tsql_dialect.insert_lexer_matchers(
     [
         # According to Microsoft spec, subsequent characters in identifiers can include
-        # @, $, #, _ in addition to letters and numbers
+        # @, $, #, _ in addition to letters (Unicode 3.2) and numbers
         # https://learn.microsoft.com/en-us/sql/relational-databases/databases/database-identifiers
         RegexLexer(
             "atsign",
-            r"[@][a-zA-Z0-9_@$#]+",
+            r"[@][a-zA-Z0-9_@$#\p{L}]+",
             CodeSegment,
         ),
         # Note: $ can only appear in subsequent positions of identifiers, not as prefix
@@ -512,6 +513,37 @@ tsql_dialect.add(
             ignore_case=False,
         )
     ),
+    CursorSelectableGrammar=OneOf(
+        OptionallyBracketed(Ref("CursorWithCompoundStatementSegment")),
+        Ref("CursorNonWithSelectableGrammar"),
+        Bracketed(Ref("CursorSelectableGrammar")),
+    ),
+    CursorNonWithSelectableGrammar=OneOf(
+        Ref("CursorSetExpressionSegment"),
+        OptionallyBracketed(Ref("CursorSelectStatementSegment")),
+        Ref("CursorNonSetSelectableGrammar"),
+    ),
+    CursorNonSetSelectableGrammar=OneOf(
+        Ref("ValuesClauseSegment"),
+        Ref("CursorUnorderedSelectStatementSegment"),
+        Bracketed(Ref("CursorSelectStatementSegment")),
+        Bracketed(Ref("CursorWithCompoundStatementSegment")),
+        Bracketed(Ref("CursorNonSetSelectableGrammar")),
+        Ref("CursorBracketedSetExpressionGrammar"),
+    ),
+    CursorUnorderedSetExpressionGrammar=Sequence(
+        Ref("CursorNonSetSelectableGrammar"),
+        AnyNumberOf(
+            Sequence(
+                Ref("SetOperatorSegment"),
+                Ref("CursorNonSetSelectableGrammar"),
+            ),
+            min_times=1,
+        ),
+    ),
+    CursorBracketedSetExpressionGrammar=Bracketed(
+        Ref("CursorUnorderedSetExpressionGrammar")
+    ),
 )
 
 tsql_dialect.replace(
@@ -576,7 +608,7 @@ tsql_dialect.replace(
         ],
     ),
     ParameterNameSegment=RegexParser(
-        r"@(?!@)[A-Za-z0-9_@$#]+", CodeSegment, type="parameter"
+        r"@(?!@)[A-Za-z0-9_@$#\p{L}]+", CodeSegment, type="parameter"
     ),
     FunctionParameterGrammar=Sequence(
         Ref("ParameterNameSegment", optional=True),
@@ -914,6 +946,8 @@ class StatementSegment(ansi.StatementSegment):
             Ref("DropExternalTableStatementSegment"),
             Ref("CopyIntoTableStatementSegment"),
             Ref("CreateFullTextIndexStatementSegment"),
+            Ref("AlterFullTextIndexStatementSegment"),
+            Ref("DropFullTextIndexStatementSegment"),
             Ref("AtomicBeginEndSegment"),
             Ref("ReconfigureStatementSegment"),
             Ref("CreateColumnstoreIndexStatementSegment"),
@@ -931,6 +965,7 @@ class StatementSegment(ansi.StatementSegment):
             Ref("GrantStatementSegment"),
             Ref("DenyStatementSegment"),
             Ref("RevokeStatementSegment"),
+            Ref("AlterDatabaseScopedConfigurationSegment"),
         ],
         remove=[
             Ref("AccessStatementSegment"),
@@ -1533,6 +1568,57 @@ class AlterDatabaseStatementSegment(BaseSegment):
     )
 
 
+class AlterDatabaseScopedConfigurationSegment(BaseSegment):
+    """An `ALTER DATABASE SCOPED CONFIGURATION` statement.
+
+    https://learn.microsoft.com/en-us/sql/t-sql/statements/alter-database-scoped-configuration-transact-sql
+    """
+
+    type = "alter_database_scoped_configuration_statement"
+
+    _elevate_option = Sequence(
+        OneOf("ELEVATE_ONLINE", "ELEVATE_RESUMABLE"),
+        Ref("EqualsSegment"),
+        OneOf("OFF", "WHEN_SUPPORTED", "FAIL_UNSUPPORTED"),
+    )
+
+    _set_option = Sequence(
+        Ref("NakedIdentifierSegment"),
+        Ref("EqualsSegment"),
+        OneOf(
+            "ON",
+            "OFF",
+            "PRIMARY",
+            Ref("NumericLiteralSegment"),
+            Ref("QuotedLiteralSegment"),
+        ),
+    )
+
+    match_grammar: Matchable = Sequence(
+        "ALTER",
+        "DATABASE",
+        "SCOPED",
+        "CONFIGURATION",
+        OneOf(
+            # CLEAR PROCEDURE_CACHE [plan_handle]
+            Sequence(
+                "CLEAR",
+                "PROCEDURE_CACHE",
+                Ref("NumericLiteralSegment", optional=True),
+            ),
+            # [FOR SECONDARY] SET <option> = <value>
+            Sequence(
+                Sequence("FOR", "SECONDARY", optional=True),
+                "SET",
+                OneOf(
+                    _elevate_option,
+                    _set_option,
+                ),
+            ),
+        ),
+    )
+
+
 # Shared grammars
 class GreaterThanOrEqualToSegment(CompositeComparisonOperatorSegment):
     """Greater than or equal to operator.
@@ -1877,7 +1963,7 @@ class CursorDefinitionSegment(BaseSegment):
             Sequence("TYPE_WARNING", optional=True),
         ),
         "FOR",
-        Ref("SelectStatementSegment"),
+        Ref("CursorSelectableGrammar"),
         Sequence(
             "FOR",
             "UPDATE",
@@ -2201,6 +2287,61 @@ class WithCompoundStatementSegment(BaseSegment):
     )
 
 
+class CursorWithCompoundStatementSegment(BaseSegment):
+    """A cursor SELECT statement preceded by CTEs.
+
+    Cursor declarations allow WITH + SELECT forms, but not the broader T-SQL
+    WITH forms that introduce DML or MERGE.
+    """
+
+    type = "with_compound_statement"
+    match_grammar = Sequence(
+        "WITH",
+        Ref.keyword("RECURSIVE", optional=True),
+        Conditional(Indent, indented_ctes=True),
+        Delimited(
+            Ref("CTEDefinitionSegment"),
+            terminators=["SELECT"],
+        ),
+        Conditional(Dedent, indented_ctes=True),
+        Ref("CursorNonWithSelectableGrammar"),
+    )
+
+
+class CursorUnorderedSelectStatementSegment(BaseSegment):
+    """A cursor SELECT body before OPTION or FOR clauses.
+
+    Cursor declarations disallow SELECT INTO.
+    """
+
+    type = "select_statement"
+    match_grammar = Sequence(
+        Ref("SelectClauseSegment"),
+        Ref("FromClauseSegment", optional=True),
+        Ref("WhereClauseSegment", optional=True),
+        Ref("GroupByClauseSegment", optional=True),
+        Ref("HavingClauseSegment", optional=True),
+        Ref("NamedWindowSegment", optional=True),
+        Ref("OrderByClauseSegment", optional=True),
+    )
+
+
+class CursorSelectStatementSegment(BaseSegment):
+    """A cursor SELECT statement.
+
+    Cursor declarations accept standard SELECT statements but exclude SELECT INTO
+    and FOR BROWSE.
+    """
+
+    type = "select_statement"
+    match_grammar = CursorUnorderedSelectStatementSegment.match_grammar.copy(
+        insert=[
+            Ref("OptionClauseSegment", optional=True),
+            Ref("CursorForClauseSegment", optional=True),
+        ]
+    )
+
+
 class SelectStatementSegment(BaseSegment):
     """A `SELECT` statement.
 
@@ -2387,56 +2528,83 @@ class CreateFullTextIndexStatementSegment(BaseSegment):
 
     _catalog_filegroup_option = Sequence(
         "ON",
-        Delimited(
-            AnySetOf(
-                Ref("ObjectReferenceSegment"),
-                Sequence(
-                    "FILEGROUP",
-                    Ref("ObjectReferenceSegment"),
-                ),
+        OneOf(
+            # Documented forms
+            Ref("ObjectReferenceSegment"),
+            Bracketed(
+                Delimited(
+                    AnySetOf(
+                        Ref("ObjectReferenceSegment"),
+                        Sequence(
+                            "FILEGROUP",
+                            Ref("ObjectReferenceSegment"),
+                        ),
+                    ),
+                )
             ),
-            allow_trailing=True,
+            # Backward-compatible non-bracketed legacy form
+            Delimited(
+                AnySetOf(
+                    Ref("ObjectReferenceSegment"),
+                    Sequence(
+                        "FILEGROUP",
+                        Ref("ObjectReferenceSegment"),
+                    ),
+                ),
+                allow_trailing=True,
+            ),
         ),
         optional=True,
     )
 
-    _with_option = Sequence(
-        "WITH",
-        Bracketed(
+    # NOTE: Per the official syntax, NO POPULATION is only valid as a suffix
+    # of CHANGE_TRACKING OFF (i.e. OFF [, NO POPULATION]). We model it as a
+    # separate delimited element so that it survives the comma-delimited WITH
+    # list used by both parenthesized and unparenthesized forms.  This means
+    # the parser is intentionally lenient and will accept NO POPULATION
+    # without a preceding CHANGE_TRACKING OFF.
+    _with_option_element = OneOf(
+        Sequence(
+            "CHANGE_TRACKING",
+            Ref("EqualsSegment", optional=True),
             OneOf(
-                Sequence(
-                    "CHANGE_TRACKING",
-                    Ref("EqualsSegment", optional=True),
-                    OneOf(
-                        "MANUAL",
-                        "AUTO",
-                        Delimited(
-                            "OFF",
-                            Sequence(
-                                "NO",
-                                "POPULATION",
-                                optional=True,
-                            ),
-                        ),
-                    ),
-                ),
-                Sequence(
-                    "STOPLIST",
-                    Ref("EqualsSegment", optional=True),
-                    OneOf(
-                        "OFF",
-                        "SYSTEM",
-                        Ref("ObjectReferenceSegment"),
-                    ),
-                ),
-                Sequence(
-                    "SEARCH",
-                    "PROPERTY",
-                    "LIST",
-                    Ref("EqualsSegment", optional=True),
-                    Ref("ObjectReferenceSegment"),
-                ),
+                "MANUAL",
+                "AUTO",
+                "OFF",
             ),
+        ),
+        Sequence(
+            "STOPLIST",
+            Ref("EqualsSegment", optional=True),
+            OneOf(
+                "OFF",
+                "SYSTEM",
+                Ref("ObjectReferenceSegment"),
+            ),
+        ),
+        Sequence(
+            "SEARCH",
+            "PROPERTY",
+            "LIST",
+            Ref("EqualsSegment", optional=True),
+            Ref("ObjectReferenceSegment"),
+        ),
+        Sequence(
+            "NO",
+            "POPULATION",
+        ),
+    )
+
+    _with_option_list = Delimited(_with_option_element)
+
+    _with_option = OneOf(
+        Sequence(
+            "WITH",
+            Bracketed(_with_option_list),
+        ),
+        Sequence(
+            "WITH",
+            _with_option_list,
         ),
         optional=True,
     )
@@ -2455,14 +2623,14 @@ class CreateFullTextIndexStatementSegment(BaseSegment):
                         Sequence(
                             "TYPE",
                             "COLUMN",
-                            Ref("DatatypeSegment"),
+                            Ref("SingleIdentifierGrammar"),
                         ),
                         Sequence(
                             "LANGUAGE",
                             OneOf(
                                 Ref("NumericLiteralSegment"),
+                                Ref("HexadecimalLiteralSegment"),
                                 Ref("QuotedLiteralSegment"),
-                                optional=True,
                             ),
                         ),
                         "STATISTICAL_SEMANTICS",
@@ -2477,6 +2645,121 @@ class CreateFullTextIndexStatementSegment(BaseSegment):
             _catalog_filegroup_option,
         ),
         _with_option,
+    )
+
+
+class AlterFullTextIndexStatementSegment(BaseSegment):
+    """An `ALTER FULLTEXT INDEX` statement.
+
+    https://learn.microsoft.com/en-us/sql/t-sql/statements/alter-fulltext-index-transact-sql
+    """
+
+    type = "alter_fulltext_index_statement"
+
+    _column_with_options = Sequence(
+        Ref("ColumnReferenceSegment"),
+        AnySetOf(
+            Sequence(
+                "TYPE",
+                "COLUMN",
+                Ref("SingleIdentifierGrammar"),
+            ),
+            Sequence(
+                "LANGUAGE",
+                OneOf(
+                    Ref("NumericLiteralSegment"),
+                    Ref("HexadecimalLiteralSegment"),
+                    Ref("QuotedLiteralSegment"),
+                ),
+            ),
+            "STATISTICAL_SEMANTICS",
+        ),
+    )
+
+    _with_no_population = Sequence("WITH", "NO", "POPULATION", optional=True)
+
+    match_grammar = Sequence(
+        "ALTER",
+        "FULLTEXT",
+        "INDEX",
+        "ON",
+        Ref("TableReferenceSegment"),
+        OneOf(
+            Ref.keyword("ENABLE"),
+            Ref.keyword("DISABLE"),
+            Sequence(
+                "SET",
+                "CHANGE_TRACKING",
+                Ref("EqualsSegment", optional=True),
+                OneOf("MANUAL", "AUTO", "OFF"),
+            ),
+            Sequence(
+                "ADD",
+                Bracketed(Delimited(_column_with_options)),
+                _with_no_population,
+            ),
+            Sequence(
+                "ALTER",
+                "COLUMN",
+                Ref("ColumnReferenceSegment"),
+                OneOf("ADD", "DROP"),
+                "STATISTICAL_SEMANTICS",
+                _with_no_population,
+            ),
+            Sequence(
+                "DROP",
+                Bracketed(Delimited(Ref("ColumnReferenceSegment"))),
+                _with_no_population,
+            ),
+            Sequence(
+                "START",
+                OneOf("FULL", "INCREMENTAL", "UPDATE"),
+                "POPULATION",
+            ),
+            Sequence(
+                OneOf("STOP", "PAUSE", "RESUME"),
+                "POPULATION",
+            ),
+            Sequence(
+                "SET",
+                "STOPLIST",
+                Ref("EqualsSegment", optional=True),
+                OneOf(
+                    "OFF",
+                    "SYSTEM",
+                    Ref("ObjectReferenceSegment"),
+                ),
+                _with_no_population,
+            ),
+            Sequence(
+                "SET",
+                "SEARCH",
+                "PROPERTY",
+                "LIST",
+                Ref("EqualsSegment", optional=True),
+                OneOf(
+                    "OFF",
+                    Ref("ObjectReferenceSegment"),
+                ),
+                _with_no_population,
+            ),
+        ),
+    )
+
+
+class DropFullTextIndexStatementSegment(BaseSegment):
+    """A `DROP FULLTEXT INDEX` statement.
+
+    https://learn.microsoft.com/en-us/sql/t-sql/statements/drop-fulltext-index-transact-sql
+    """
+
+    type = "drop_fulltext_index_statement"
+    match_grammar = Sequence(
+        "DROP",
+        "FULLTEXT",
+        "INDEX",
+        "ON",
+        Ref("TableReferenceSegment"),
     )
 
 
@@ -3283,12 +3566,15 @@ class TableReferenceSegment(ObjectReferenceSegment):
         Sequence(
             Ref("SingleIdentifierGrammar"),
             AnyNumberOf(
-                Sequence(
-                    Ref("DotSegment"),
-                    Ref("SingleIdentifierGrammar", optional=True),
+                OneOf(
+                    Ref("DatatypeMethodSegment"),
+                    Sequence(
+                        Ref("DotSegment"),
+                        Ref("SingleIdentifierGrammar", optional=True),
+                    ),
                 ),
                 min_times=0,
-                max_times=3,
+                max_times=4,
             ),
         ),
         # This can have a leading number of dots. If the table reference starts with a
@@ -3472,7 +3758,7 @@ class DeclareCursorStatementSegment(BaseSegment):
                 ),
                 "CURSOR",
                 "FOR",
-                Ref("SelectStatementSegment"),
+                Ref("CursorSelectableGrammar"),
                 Sequence(
                     "FOR",
                     OneOf(
@@ -4092,9 +4378,17 @@ class SetStatementSegment(BaseSegment):
                     ),
                 ),
                 Sequence(
+                    "DATEFORMAT",
+                    Ref("EqualsSegment", optional=True),
+                    OneOf(
+                        Ref("DateFormatSegment"),
+                        Ref("QuotedLiteralSegmentOptWithN"),
+                        Ref("ParameterNameSegment"),
+                    ),
+                ),
+                Sequence(
                     Delimited(
                         "DATEFIRST",
-                        "DATEFORMAT",
                         "DEADLOCK_PRIORITY",
                         "LOCK_TIMEOUT",
                         "CONCAT_NULL_YIELDS_NULL",
@@ -4527,7 +4821,7 @@ class WithinGroupClause(BaseSegment):
         "WITHIN",
         "GROUP",
         Bracketed(
-            Ref("OrderByClauseSegment"),
+            Ref("AggregateOrderByClause"),
         ),
         Sequence(
             "OVER",
@@ -5111,7 +5405,12 @@ class AlterTableStatementSegment(BaseSegment):
                 Sequence("WITH", OneOf("CHECK", "NOCHECK"), optional=True),
                 OneOf("CHECK", "NOCHECK"),
                 "CONSTRAINT",
-                Ref("ObjectReferenceSegment"),
+                OneOf("ALL", Ref("ObjectReferenceSegment")),
+            ),
+            Sequence(
+                OneOf("ENABLE", "DISABLE"),
+                "TRIGGER",
+                OneOf("ALL", Delimited(Ref("TriggerReferenceSegment"))),
             ),
             Sequence(
                 "DROP",
@@ -6076,6 +6375,7 @@ class TableExpressionSegment(BaseSegment):
         Sequence(Ref("TableReferenceSegment"), Ref("PostTableExpressionGrammar")),
         Ref("BareFunctionSegment"),
         Ref("FunctionSegment"),
+        Ref("ContainstableSegment"),
         Ref("OpenRowSetSegment"),
         Ref("OpenJsonSegment"),
         Ref("OpenXmlSegment"),
@@ -6584,6 +6884,24 @@ class SetExpressionSegment(BaseSegment):
     )
 
 
+class CursorSetExpressionSegment(BaseSegment):
+    """A cursor set expression with UNION, INTERSECT, or EXCEPT."""
+
+    type = "set_expression"
+    match_grammar = Sequence(
+        Ref("CursorNonSetSelectableGrammar"),
+        AnyNumberOf(
+            Sequence(
+                Ref("SetOperatorSegment"),
+                Ref("CursorNonSetSelectableGrammar"),
+            ),
+            min_times=1,
+        ),
+        Ref("OrderByClauseSegment", optional=True),
+        Ref("OptionClauseSegment", optional=True),
+    )
+
+
 class ForClauseSegment(BaseSegment):
     """A For Clause segment for TSQL.
 
@@ -6665,6 +6983,87 @@ class ForClauseSegment(BaseSegment):
                         ),
                         _common_directives_for_xml,
                         _elements,
+                        Sequence(
+                            OneOf(
+                                "XMLDATA",
+                                Sequence(
+                                    "XMLSCHEMA",
+                                    Bracketed(
+                                        Ref("LiteralGrammar"),
+                                        optional=True,
+                                    ),
+                                ),
+                            ),
+                            optional=True,
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+
+class CursorForClauseSegment(BaseSegment):
+    """A FOR clause allowed in cursor SELECT statements.
+
+    Cursor declarations disallow FOR BROWSE but still allow FOR XML and FOR JSON.
+    """
+
+    type = "for_clause"
+    match_grammar = Sequence(
+        "FOR",
+        OneOf(
+            Sequence(
+                "JSON",
+                Delimited(
+                    OneOf(
+                        "AUTO",
+                        "PATH",
+                    ),
+                    Sequence(
+                        "ROOT",
+                        Bracketed(
+                            Ref("LiteralGrammar"),
+                            optional=True,
+                        ),
+                        optional=True,
+                    ),
+                    Ref.keyword("INCLUDE_NULL_VALUES", optional=True),
+                    Ref.keyword("WITHOUT_ARRAY_WRAPPER", optional=True),
+                ),
+            ),
+            Sequence(
+                "XML",
+                OneOf(
+                    Delimited(
+                        Sequence(
+                            "PATH",
+                            Bracketed(
+                                Ref("LiteralGrammar"),
+                                optional=True,
+                            ),
+                        ),
+                        ForClauseSegment._common_directives_for_xml,
+                        ForClauseSegment._elements,
+                    ),
+                    Delimited(
+                        "EXPLICIT",
+                        ForClauseSegment._common_directives_for_xml,
+                        Ref.keyword("XMLDATA", optional=True),
+                    ),
+                    Delimited(
+                        OneOf(
+                            "AUTO",
+                            Sequence(
+                                "RAW",
+                                Bracketed(
+                                    Ref("LiteralGrammar"),
+                                    optional=True,
+                                ),
+                            ),
+                        ),
+                        ForClauseSegment._common_directives_for_xml,
+                        ForClauseSegment._elements,
                         Sequence(
                             OneOf(
                                 "XMLDATA",
@@ -6939,6 +7338,10 @@ class MergeStatementSegment(ansi.MergeStatementSegment):
                 Bracketed(
                     Ref("SelectableGrammar"),
                 ),
+                Ref("AliasExpressionSegment", optional=True),
+            ),
+            Sequence(
+                Ref("TableExpressionSegment"),
                 Ref("AliasExpressionSegment", optional=True),
             ),
         ),
@@ -8185,6 +8588,49 @@ class OpenJsonSegment(BaseSegment):
             ),
         ),
         Ref("OpenJsonWithClauseSegment", optional=True),
+    )
+
+
+class ContainstableSegment(BaseSegment):
+    """A `CONTAINSTABLE()` table-valued function.
+
+    https://learn.microsoft.com/en-us/sql/relational-databases/system-functions/containstable-transact-sql
+    """
+
+    type = "containstable_segment"
+
+    _language_term = OneOf(
+        Ref("NumericLiteralSegment"),
+        Ref("HexadecimalLiteralSegment"),
+        Ref("QuotedLiteralSegmentOptWithN"),
+    )
+
+    _column_specification = OneOf(
+        Ref("ColumnReferenceSegment"),
+        Bracketed(Delimited(Ref("ColumnReferenceSegment"))),
+        Ref("StarSegment"),
+    )
+
+    match_grammar = Sequence(
+        "CONTAINSTABLE",
+        Bracketed(
+            Ref("TableReferenceSegment"),
+            Ref("CommaSegment"),
+            _column_specification,
+            Ref("CommaSegment"),
+            Ref("QuotedLiteralSegmentOptWithN"),
+            Sequence(
+                Ref("CommaSegment"),
+                "LANGUAGE",
+                _language_term,
+                optional=True,
+            ),
+            Sequence(
+                Ref("CommaSegment"),
+                Ref("NumericLiteralSegment"),
+                optional=True,
+            ),
+        ),
     )
 
 

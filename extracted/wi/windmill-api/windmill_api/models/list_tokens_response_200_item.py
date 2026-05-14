@@ -17,6 +17,7 @@ class ListTokensResponse200Item:
         token_prefix (str):
         created_at (datetime.datetime):
         last_used_at (datetime.datetime):
+        read_only (bool):
         label (Union[Unset, str]):
         expiration (Union[Unset, datetime.datetime]):
         scopes (Union[Unset, List[str]]):
@@ -27,6 +28,7 @@ class ListTokensResponse200Item:
     token_prefix: str
     created_at: datetime.datetime
     last_used_at: datetime.datetime
+    read_only: bool
     label: Union[Unset, str] = UNSET
     expiration: Union[Unset, datetime.datetime] = UNSET
     scopes: Union[Unset, List[str]] = UNSET
@@ -40,6 +42,7 @@ class ListTokensResponse200Item:
 
         last_used_at = self.last_used_at.isoformat()
 
+        read_only = self.read_only
         label = self.label
         expiration: Union[Unset, str] = UNSET
         if not isinstance(self.expiration, Unset):
@@ -59,6 +62,7 @@ class ListTokensResponse200Item:
                 "token_prefix": token_prefix,
                 "created_at": created_at,
                 "last_used_at": last_used_at,
+                "read_only": read_only,
             }
         )
         if label is not UNSET:
@@ -83,6 +87,8 @@ class ListTokensResponse200Item:
 
         last_used_at = isoparse(d.pop("last_used_at"))
 
+        read_only = d.pop("read_only")
+
         label = d.pop("label", UNSET)
 
         _expiration = d.pop("expiration", UNSET)
@@ -102,6 +108,7 @@ class ListTokensResponse200Item:
             token_prefix=token_prefix,
             created_at=created_at,
             last_used_at=last_used_at,
+            read_only=read_only,
             label=label,
             expiration=expiration,
             scopes=scopes,

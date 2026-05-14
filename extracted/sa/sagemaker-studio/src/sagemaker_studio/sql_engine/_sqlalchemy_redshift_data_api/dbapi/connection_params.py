@@ -6,7 +6,7 @@ This module handles parsing of connection URLs and validation of connection para
 
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 from urllib.parse import parse_qs
 
 from .exceptions import InterfaceError
@@ -31,6 +31,7 @@ class ConnectionParams:
         aws_secret_access_key: AWS secret access key for explicit credential authentication
         aws_session_token: AWS session token for temporary credentials
         profile_name: Named AWS profile for credential management
+        credential_provider: Callable that returns fresh credentials dict
     """
 
     database_name: str
@@ -44,6 +45,7 @@ class ConnectionParams:
     aws_secret_access_key: Optional[str] = None
     aws_session_token: Optional[str] = None
     profile_name: Optional[str] = None
+    credential_provider: Optional[Callable[[], Dict[str, str]]] = None
 
     def __post_init__(self):
         """Validate connection parameters after initialization."""
@@ -107,6 +109,12 @@ class ConnectionParams:
 
     def _validate_aws_credentials(self):
         """Validate AWS credential parameter combinations."""
+        # Skip validation if using credential_provider
+        if self.credential_provider is not None:
+            if not callable(self.credential_provider):
+                raise InterfaceError("credential_provider must be callable")
+            return
+
         # Cannot specify both profile_name and explicit AWS credentials
         if self.profile_name and (
             self.aws_access_key_id or self.aws_secret_access_key or self.aws_session_token

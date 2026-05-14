@@ -8,7 +8,13 @@ from abc import ABC, abstractmethod
 
 # ======================================== ABSTRACT CLASS ========================================
 class AudioHandle(ABC):
-    """Classe abstraite des tokens audio"""
+    """Classe abstraite des tokens audio
+    
+    Args:
+        source: ``Source`` audio associée
+        player: lecteur audio associé
+        on_stop: callback de fin de lecture
+    """
     __slots__ = (
         "source", "player", "on_stop",
         "_active", "_base_volume", "_play_volume",

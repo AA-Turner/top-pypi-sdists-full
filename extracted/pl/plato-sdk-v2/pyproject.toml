@@ -17,10 +17,10 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "gitpython==3.1.46",
+    "gitpython==3.1.50",
     "httpx==0.28.1",
     "pydantic==2.12.5",
-    "python-dotenv==1.2.1",
+    "python-dotenv==1.2.2",
     "tenacity==9.1.2",
     "typer==0.21.1",
     "rich==14.2.0",
@@ -38,7 +38,7 @@ dependencies = [
     "google-genai==1.59.0",
     "cryptography==46.0.7",
     # For LLM calls (multi-provider)
-    "litellm==1.83.0",
+    "litellm==1.83.14",
     "blake3==1.0.8",
     "cloudpickle==3.1.2",
     # For tracing/telemetry

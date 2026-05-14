@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-from collections import abc
 import datetime
 import fnmatch
 import inspect
@@ -25,22 +24,23 @@ import os
 import secrets
 import threading
 import typing
+import warnings
+import weakref
+from collections import abc
 from typing import (
+    IO,
     Any,
     Callable,
     Dict,
-    IO,
     Iterable,
     Literal,
     MutableSequence,
     Optional,
-    overload,
     Sequence,
     Tuple,
     Union,
+    overload,
 )
-import warnings
-import weakref
 
 import bigframes_vendored.constants as constants
 import bigframes_vendored.google_cloud_bigquery.retry as third_party_gcb_retry
@@ -52,34 +52,35 @@ import bigframes_vendored.pandas.io.pickle as third_party_pandas_pickle
 import google.cloud.bigquery as bigquery
 import numpy as np
 import pandas
+import pyarrow as pa
 from pandas._typing import (
     CompressionOptions,
     FilePath,
     ReadPickleBuffer,
     StorageOptions,
 )
-import pyarrow as pa
 
-from bigframes import exceptions as bfe
-from bigframes import version
 import bigframes._config
+import bigframes._config.auth
 import bigframes._config.bigquery_options as bigquery_options
 import bigframes.clients
 import bigframes.constants
 import bigframes.core
-from bigframes.core import blocks, utils
 import bigframes.core.events
 import bigframes.core.indexes
 import bigframes.core.indexes.multi
-from bigframes.core.logging import log_adapter
 import bigframes.core.pyformat
 import bigframes.formatting_helpers
 import bigframes.functions._function_session as bff_session
 import bigframes.functions.function as bff
-from bigframes.session import bigquery_session, bq_caching_executor, executor
 import bigframes.session._io.bigquery as bf_io_bigquery
 import bigframes.session.clients
 import bigframes.session.validation
+from bigframes import exceptions as bfe
+from bigframes import version
+from bigframes.core import blocks, utils
+from bigframes.core.logging import log_adapter
+from bigframes.session import bigquery_session, executor, proxy_executor
 
 # Avoid circular imports.
 if typing.TYPE_CHECKING:
@@ -107,6 +108,46 @@ _VALID_ENCODINGS = {
 MAX_INLINE_DF_BYTES = 5000
 
 logger = logging.getLogger(__name__)
+
+
+class _ExecutionHistory:
+    def __init__(self, jobs: list[dict]):
+        self._df = pandas.DataFrame(jobs)
+
+    def to_dataframe(self) -> pandas.DataFrame:
+        """Returns the execution history as a pandas DataFrame."""
+        return self._df
+
+    def _repr_html_(self) -> str | None:
+        import bigframes.formatting_helpers as formatter
+
+        if self._df.empty:
+            return "<div>No executions found.</div>"
+
+        cols = ["job_type", "job_id", "status", "total_bytes_processed", "job_url"]
+
+        # Filter columns to only those that exist in the dataframe
+        available_cols = [c for c in cols if c in self._df.columns]
+
+        def format_url(url):
+            return f'<a target="_blank" href="{url}">Open Job</a>' if url else ""
+
+        try:
+            df_display = self._df[available_cols].copy()
+            if "total_bytes_processed" in df_display.columns:
+                df_display["total_bytes_processed"] = df_display[
+                    "total_bytes_processed"
+                ].apply(formatter.get_formatted_bytes)
+            if "job_url" in df_display.columns:
+                df_display["job_url"] = df_display["job_url"].apply(format_url)
+
+            # Rename job_id to query_id to match user expectations
+            if "job_id" in df_display.columns:
+                df_display = df_display.rename(columns={"job_id": "query_id"})
+
+            return df_display.to_html(escape=False, index=False)
+        except Exception:
+            return self._df.to_html()
 
 
 @log_adapter.class_logger
@@ -147,41 +188,56 @@ class Session(
         if context is None:
             context = bigquery_options.BigQueryOptions()
 
-        if context.location is None:
-            self._location = "US"
-            msg = bfe.format_message(
-                f"No explicit location is set, so using location {self._location} for the session."
-            )
-            # User's code
-            # -> get_global_session()
-            # -> connect()
-            # -> Session()
-            #
-            # Note: We could also have:
-            # User's code
-            # -> read_gbq()
-            # -> with_default_session()
-            # -> get_global_session()
-            # -> connect()
-            # -> Session()
-            # but we currently have no way to disambiguate these
-            # situations.
-            warnings.warn(msg, stacklevel=4, category=bfe.DefaultLocationWarning)
-        else:
-            self._location = context.location
-
         self._bq_kms_key_name = context.kms_key_name
 
         # Instantiate a clients provider to help with cloud clients that will be
         # used in the future operations in the session
         if clients_provider:
+            # this path is only for unit testing. Not meant to be used by end users.
             self._clients_provider = clients_provider
+            self._location = context.location or "US"
         else:
+            credentials, project = (
+                bigframes._config.auth.resolve_credentials_and_project(context)
+            )
+            if context.location is None:
+                with bigquery.Client(
+                    project=project,
+                    credentials=credentials,
+                ) as temp_client:
+                    row_iter = temp_client.query_and_wait(
+                        "SELECT 1",
+                        job_config=bigquery.QueryJobConfig(dry_run=True),
+                    )
+                    self._location = row_iter.location or "US"
+                    msg = bfe.format_message(
+                        f"No explicit location is set, so using location {self._location} for the session."
+                    )
+                    # User's code
+                    # -> get_global_session()
+                    # -> connect()
+                    # -> Session()
+                    #
+                    # Note: We could also have:
+                    # User's code
+                    # -> read_gbq()
+                    # -> with_default_session()
+                    # -> get_global_session()
+                    # -> connect()
+                    # -> Session()
+                    # but we currently have no way to disambiguate these
+                    # situations.
+                    warnings.warn(
+                        msg, stacklevel=4, category=bfe.DefaultLocationWarning
+                    )
+            else:
+                self._location = context.location
+
             self._clients_provider = clients.ClientsProvider(
-                project=context.project,
+                project=project,
+                credentials=credentials,
                 location=self._location,
                 use_regional_endpoints=context.use_regional_endpoints,
-                credentials=context.credentials,
                 application_name=context.application_name,
                 bq_kms_key_name=self._bq_kms_key_name,
                 client_endpoints_override=context.client_endpoints_override,
@@ -233,6 +289,7 @@ class Session(
         )
 
         self._metrics = metrics.ExecutionMetrics()
+        self._publisher.subscribe(self._metrics.on_event)
         self._function_session = bff_session.FunctionSession()
         self._anon_dataset_manager = anonymous_dataset.AnonymousDatasetManager(
             self._clients_provider.bqclient,
@@ -270,7 +327,7 @@ class Session(
         if not self._strictly_ordered:
             labels["bigframes-mode"] = "unordered"
 
-        self._executor: executor.Executor = bq_caching_executor.BigQueryCachingExecutor(
+        self._executor: executor.Executor = proxy_executor.DualCompilerProxyExecutor(
             bqclient=self._clients_provider.bqclient,
             bqstoragereadclient=self._clients_provider.bqstoragereadclient,
             loader=self._loader,
@@ -278,7 +335,7 @@ class Session(
             metrics=self._metrics,
             enable_polars_execution=context.enable_polars_execution,
             publisher=self._publisher,
-            labels=labels,
+            labels=tuple(labels.items()),
         )
 
     def __del__(self):
@@ -371,6 +428,13 @@ class Session(
         """The sum of all slot time used by bigquery jobs in this session."""
         return self._metrics.slot_millis
 
+    def execution_history(self) -> _ExecutionHistory:
+        """Returns the history of executions initiated by BigFrames in the current session.
+
+        Use `.to_dataframe()` on the result to get a pandas DataFrame.
+        """
+        return _ExecutionHistory([job.__dict__ for job in self._metrics.jobs])
+
     @property
     def _allows_ambiguity(self) -> bool:
         return self._allow_ambiguity
@@ -432,8 +496,7 @@ class Session(
         col_order: Iterable[str] = ...,
         dry_run: Literal[False] = ...,
         allow_large_results: Optional[bool] = ...,
-    ) -> dataframe.DataFrame:
-        ...
+    ) -> dataframe.DataFrame: ...
 
     @overload
     def read_gbq(
@@ -449,8 +512,7 @@ class Session(
         col_order: Iterable[str] = ...,
         dry_run: Literal[True] = ...,
         allow_large_results: Optional[bool] = ...,
-    ) -> pandas.Series:
-        ...
+    ) -> pandas.Series: ...
 
     def read_gbq(
         self,
@@ -522,8 +584,7 @@ class Session(
         *,
         pyformat_args: Optional[Dict[str, Any]] = None,
         dry_run: Literal[False] = ...,
-    ) -> dataframe.DataFrame:
-        ...
+    ) -> dataframe.DataFrame: ...
 
     @overload
     def _read_gbq_colab(
@@ -532,8 +593,7 @@ class Session(
         *,
         pyformat_args: Optional[Dict[str, Any]] = None,
         dry_run: Literal[True] = ...,
-    ) -> pandas.Series:
-        ...
+    ) -> pandas.Series: ...
 
     @log_adapter.log_name_override("read_gbq_colab")
     def _read_gbq_colab(
@@ -594,8 +654,7 @@ class Session(
         filters: third_party_pandas_gbq.FiltersType = ...,
         dry_run: Literal[False] = ...,
         allow_large_results: Optional[bool] = ...,
-    ) -> dataframe.DataFrame:
-        ...
+    ) -> dataframe.DataFrame: ...
 
     @overload
     def read_gbq_query(
@@ -611,8 +670,7 @@ class Session(
         filters: third_party_pandas_gbq.FiltersType = ...,
         dry_run: Literal[True] = ...,
         allow_large_results: Optional[bool] = ...,
-    ) -> pandas.Series:
-        ...
+    ) -> pandas.Series: ...
 
     def read_gbq_query(
         self,
@@ -759,8 +817,7 @@ class Session(
         use_cache: bool = ...,
         col_order: Iterable[str] = ...,
         dry_run: Literal[False] = ...,
-    ) -> dataframe.DataFrame:
-        ...
+    ) -> dataframe.DataFrame: ...
 
     @overload
     def read_gbq_table(
@@ -774,8 +831,7 @@ class Session(
         use_cache: bool = ...,
         col_order: Iterable[str] = ...,
         dry_run: Literal[True] = ...,
-    ) -> pandas.Series:
-        ...
+    ) -> pandas.Series: ...
 
     def read_gbq_table(
         self,
@@ -926,8 +982,7 @@ class Session(
         pandas_dataframe: pandas.Index,
         *,
         write_engine: constants.WriteEngineType = "default",
-    ) -> bigframes.core.indexes.Index:
-        ...
+    ) -> bigframes.core.indexes.Index: ...
 
     @typing.overload
     def read_pandas(
@@ -935,8 +990,7 @@ class Session(
         pandas_dataframe: pandas.Series,
         *,
         write_engine: constants.WriteEngineType = "default",
-    ) -> bigframes.series.Series:
-        ...
+    ) -> bigframes.series.Series: ...
 
     @typing.overload
     def read_pandas(
@@ -944,8 +998,7 @@ class Session(
         pandas_dataframe: pandas.DataFrame,
         *,
         write_engine: constants.WriteEngineType = "default",
-    ) -> dataframe.DataFrame:
-        ...
+    ) -> dataframe.DataFrame: ...
 
     def read_pandas(
         self,
@@ -1355,7 +1408,7 @@ class Session(
                     "The provided path contains a wildcard character (*), which is not "
                     "supported by the current engine. To read files from wildcard paths, "
                     "please use the 'bigquery' engine by setting `engine='bigquery'` in "
-                    "your configuration."
+                    "the function call."
                 )
 
             read_parquet_kwargs: Dict[str, Any] = {}
@@ -1370,6 +1423,87 @@ class Session(
                 **read_parquet_kwargs,
             )
             return self._read_pandas(pandas_obj, write_engine=write_engine)
+
+    def read_orc(
+        self,
+        path: str | IO["bytes"],
+        *,
+        engine: str = "auto",
+        write_engine: constants.WriteEngineType = "default",
+    ) -> dataframe.DataFrame:
+        """Load an ORC file to a BigQuery DataFrames DataFrame.
+
+        Args:
+            path (str or IO):
+                The path or buffer to the ORC file. Can be a local path or Google Cloud Storage URI.
+            engine (str, default "auto"):
+                The engine used to read the file. Supported values: `auto`, `bigquery`, `pyarrow`.
+            write_engine (str, default "default"):
+                The write engine used to persist the data to BigQuery if needed.
+
+        Returns:
+            bigframes.pandas.DataFrame:
+                A new DataFrame representing the data from the ORC file.
+        """
+        bigframes.session.validation.validate_engine_compatibility(
+            engine=engine,
+            write_engine=write_engine,
+        )
+        if engine == "bigquery":
+            job_config = bigquery.LoadJobConfig()
+            job_config.source_format = bigquery.SourceFormat.ORC
+            job_config.labels = {"bigframes-api": "read_orc"}
+            table_id = self._loader.load_file(path, job_config=job_config)
+            return self._loader.read_gbq_table(table_id)
+        elif engine in ("auto", "pyarrow"):
+            if isinstance(path, str) and "*" in path:
+                raise ValueError(
+                    "The provided path contains a wildcard character (*), which is not "
+                    "supported by the current engine. To read files from wildcard paths, "
+                    "please use the 'bigquery' engine by setting `engine='bigquery'` in "
+                    "your configuration."
+                )
+
+            read_orc_kwargs: Dict[str, Any] = {}
+            if not pandas.__version__.startswith("1."):
+                read_orc_kwargs["dtype_backend"] = "pyarrow"
+
+            pandas_obj = pandas.read_orc(path, **read_orc_kwargs)
+            return self._read_pandas(pandas_obj, write_engine=write_engine)
+        else:
+            raise ValueError(
+                f"Unsupported engine: {repr(engine)}. Supported values: 'auto', 'bigquery', 'pyarrow'."
+            )
+
+    def read_avro(
+        self,
+        path: str | IO["bytes"],
+        *,
+        engine: str = "auto",
+    ) -> dataframe.DataFrame:
+        """Load an Avro file to a BigQuery DataFrames DataFrame.
+
+        Args:
+            path (str or IO):
+                The path or buffer to the Avro file. Can be a local path or Google Cloud Storage URI.
+            engine (str, default "auto"):
+                The engine used to read the file. Only `bigquery` is supported for Avro.
+
+        Returns:
+            bigframes.pandas.DataFrame:
+                A new DataFrame representing the data from the Avro file.
+        """
+        if engine not in ("auto", "bigquery"):
+            raise ValueError(
+                f"Unsupported engine: {repr(engine)}. Supported values: 'auto', 'bigquery'."
+            )
+
+        job_config = bigquery.LoadJobConfig()
+        job_config.use_avro_logical_types = True
+        job_config.source_format = bigquery.SourceFormat.AVRO
+        job_config.labels = {"bigframes-api": "read_avro"}
+        table_id = self._loader.load_file(path, job_config=job_config)
+        return self._loader.read_gbq_table(table_id)
 
     def read_json(
         self,
@@ -2176,7 +2310,7 @@ class Session(
         # so we must reset any encryption set in the job config
         # https://cloud.google.com/bigquery/docs/customer-managed-encryption#encrypt-model
         job_config.destination_encryption_configuration = None
-        iterator, query_job = bf_io_bigquery.start_query_with_client(
+        iterator, query_job = bf_io_bigquery.start_query_with_job(
             self.bqclient,
             sql,
             job_config=job_config,
@@ -2184,7 +2318,6 @@ class Session(
             location=None,
             project=None,
             timeout=None,
-            query_with_job=True,
             job_retry=third_party_gcb_retry.DEFAULT_ML_JOB_RETRY,
             publisher=self._publisher,
             session=self,
@@ -2206,7 +2339,7 @@ class Session(
                 uris = ['{path}']);
             """
         )
-        bf_io_bigquery.start_query_with_client(
+        bf_io_bigquery.start_query_with_job(
             self.bqclient,
             sql,
             job_config=bigquery.QueryJobConfig(),
@@ -2214,7 +2347,6 @@ class Session(
             location=None,
             project=None,
             timeout=None,
-            query_with_job=True,
             publisher=self._publisher,
             session=self,
         )

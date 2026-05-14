@@ -26,10 +26,10 @@ import numpy as np
 import pytensor.gradient as tg
 
 from numpy import isfinite
-from pytensor import Variable
+from pytensor.graph.basic import Variable
+from pytensor.utils import lazy_scipy_module
 from rich.console import Console
 from rich.progress import Progress, TextColumn
-from scipy.optimize import minimize
 
 import pymc as pm
 
@@ -37,11 +37,14 @@ from pymc.blocking import DictToArrayBijection, RaveledVars
 from pymc.initial_point import make_initial_point_fn
 from pymc.model import modelcontext
 from pymc.progress_bar import CustomProgress, default_progress_theme
+from pymc.pytensorf import floatX, inputvars
 from pymc.util import (
     get_default_varnames,
     get_value_vars_from_user_vars,
 )
 from pymc.vartypes import discrete_types, typefilter
+
+optimize = lazy_scipy_module("optimize")
 
 __all__ = ["find_MAP"]
 
@@ -112,7 +115,7 @@ def find_MAP(
             vars = get_value_vars_from_user_vars(vars, model)
         except ValueError as exc:
             # Accommodate case where user passed non-pure RV nodes
-            vars = pm.inputvars(model.replace_rvs_by_values(vars))
+            vars = inputvars(model.replace_rvs_by_values(vars))
             if vars:
                 warnings.warn(
                     "Intermediate variables (such as Deterministic or Potential) were passed. "
@@ -172,7 +175,7 @@ def find_MAP(
 
     with cost_func.progress:
         try:
-            opt_result = minimize(
+            opt_result = optimize.minimize(
                 cost_func, x0.data, method=method, jac=compute_gradient, *args, **kwargs
             )
             mx0 = opt_result["x"]  # r -> opt_result
@@ -230,10 +233,10 @@ class CostFuncWrapper:
         self.task = self.progress.add_task("MAP", total=maxeval, loss="")
 
     def __call__(self, x):
-        neg_value = np.float64(self.logp_func(pm.floatX(x)))
+        neg_value = np.float64(self.logp_func(floatX(x)))
         value = -1.0 * neg_value
         if self.use_gradient:
-            neg_grad = self.dlogp_func(pm.floatX(x))
+            neg_grad = self.dlogp_func(floatX(x))
             if np.all(np.isfinite(neg_grad)):
                 self.previous_x = x
             grad = -1.0 * neg_grad

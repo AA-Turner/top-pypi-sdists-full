@@ -29,6 +29,7 @@ from .literals import (
     Ec2AsgCapacityMonitoringApproachType,
     EcsCapacityMonitoringApproachType,
     EvaluationStatusType,
+    EventSourceMappingActionType,
     ExecutionActionType,
     ExecutionBlockTypeType,
     ExecutionEventTypeType,
@@ -86,6 +87,7 @@ __all__ = (
     "EksResourceScalingConfigurationTypeDef",
     "EksResourceScalingConfigurationUnionTypeDef",
     "EksResourceScalingUngracefulTypeDef",
+    "EventSourceMappingTypeDef",
     "ExecutionApprovalConfigurationTypeDef",
     "ExecutionBlockConfigurationOutputTypeDef",
     "ExecutionBlockConfigurationPaginatorTypeDef",
@@ -113,6 +115,10 @@ __all__ = (
     "GlobalAuroraUngracefulTypeDef",
     "KubernetesResourceTypeTypeDef",
     "KubernetesScalingResourceTypeDef",
+    "LambdaEventSourceMappingConfigurationOutputTypeDef",
+    "LambdaEventSourceMappingConfigurationTypeDef",
+    "LambdaEventSourceMappingConfigurationUnionTypeDef",
+    "LambdaEventSourceMappingUngracefulTypeDef",
     "LambdaUngracefulTypeDef",
     "LambdasTypeDef",
     "ListPlanExecutionEventsRequestPaginateTypeDef",
@@ -295,6 +301,11 @@ class KubernetesScalingResourceTypeDef(TypedDict):
     name: str
     hpaName: NotRequired[str]
 
+class EventSourceMappingTypeDef(TypedDict):
+    arn: str
+    crossAccountRole: NotRequired[str]
+    externalId: NotRequired[str]
+
 class ExecutionApprovalConfigurationTypeDef(TypedDict):
     approvalRole: str
     timeoutMinutes: NotRequired[int]
@@ -376,6 +387,9 @@ class GetPlanRequestTypeDef(TypedDict):
 
 class GlobalAuroraUngracefulTypeDef(TypedDict):
     ungraceful: NotRequired[Literal["failover"]]
+
+class LambdaEventSourceMappingUngracefulTypeDef(TypedDict):
+    behavior: NotRequired[Literal["skip"]]
 
 class ListPlanExecutionEventsRequestTypeDef(TypedDict):
     planArn: str
@@ -679,6 +693,18 @@ class GlobalAuroraConfigurationTypeDef(TypedDict):
     externalId: NotRequired[str]
     ungraceful: NotRequired[GlobalAuroraUngracefulTypeDef]
 
+class LambdaEventSourceMappingConfigurationOutputTypeDef(TypedDict):
+    action: EventSourceMappingActionType
+    regionEventSourceMappings: dict[str, EventSourceMappingTypeDef]
+    timeoutMinutes: NotRequired[int]
+    ungraceful: NotRequired[LambdaEventSourceMappingUngracefulTypeDef]
+
+class LambdaEventSourceMappingConfigurationTypeDef(TypedDict):
+    action: EventSourceMappingActionType
+    regionEventSourceMappings: Mapping[str, EventSourceMappingTypeDef]
+    timeoutMinutes: NotRequired[int]
+    ungraceful: NotRequired[LambdaEventSourceMappingUngracefulTypeDef]
+
 class ListRoute53HealthChecksInRegionResponseTypeDef(TypedDict):
     healthChecks: list[Route53HealthCheckTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -767,6 +793,9 @@ EksResourceScalingConfigurationUnionTypeDef = Union[
 GlobalAuroraConfigurationUnionTypeDef = Union[
     GlobalAuroraConfigurationTypeDef, GlobalAuroraConfigurationOutputTypeDef
 ]
+LambdaEventSourceMappingConfigurationUnionTypeDef = Union[
+    LambdaEventSourceMappingConfigurationTypeDef, LambdaEventSourceMappingConfigurationOutputTypeDef
+]
 
 class GetPlanEvaluationStatusResponseTypeDef(TypedDict):
     planArn: str
@@ -804,6 +833,7 @@ class ExecutionBlockConfigurationOutputTypeDef(TypedDict):
     rdsCreateCrossRegionReadReplicaConfig: NotRequired[
         RdsCreateCrossRegionReplicaConfigurationOutputTypeDef
     ]
+    lambdaEventSourceMappingConfig: NotRequired[LambdaEventSourceMappingConfigurationOutputTypeDef]
 
 class ExecutionBlockConfigurationPaginatorTypeDef(TypedDict):
     customActionLambdaConfig: NotRequired[CustomActionLambdaConfigurationOutputTypeDef]
@@ -821,6 +851,7 @@ class ExecutionBlockConfigurationPaginatorTypeDef(TypedDict):
     rdsCreateCrossRegionReadReplicaConfig: NotRequired[
         RdsCreateCrossRegionReplicaConfigurationOutputTypeDef
     ]
+    lambdaEventSourceMappingConfig: NotRequired[LambdaEventSourceMappingConfigurationOutputTypeDef]
 
 Route53HealthCheckConfigurationUnionTypeDef = Union[
     Route53HealthCheckConfigurationTypeDef, Route53HealthCheckConfigurationOutputTypeDef
@@ -858,6 +889,7 @@ class ExecutionBlockConfigurationTypeDef(TypedDict):
     rdsCreateCrossRegionReadReplicaConfig: NotRequired[
         RdsCreateCrossRegionReplicaConfigurationUnionTypeDef
     ]
+    lambdaEventSourceMappingConfig: NotRequired[LambdaEventSourceMappingConfigurationUnionTypeDef]
 
 class WorkflowOutputTypeDef(TypedDict):
     workflowTargetAction: WorkflowTargetActionType

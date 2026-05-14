@@ -15,6 +15,9 @@ Usage::
         ListAgentSpacesPaginator,
         ListApplicationsPaginator,
         ListArtifactsPaginator,
+        ListCodeReviewJobTasksPaginator,
+        ListCodeReviewJobsForCodeReviewPaginator,
+        ListCodeReviewsPaginator,
         ListDiscoveredEndpointsPaginator,
         ListFindingsPaginator,
         ListIntegratedResourcesPaginator,
@@ -32,6 +35,9 @@ Usage::
     list_agent_spaces_paginator: ListAgentSpacesPaginator = client.get_paginator("list_agent_spaces")
     list_applications_paginator: ListApplicationsPaginator = client.get_paginator("list_applications")
     list_artifacts_paginator: ListArtifactsPaginator = client.get_paginator("list_artifacts")
+    list_code_review_job_tasks_paginator: ListCodeReviewJobTasksPaginator = client.get_paginator("list_code_review_job_tasks")
+    list_code_review_jobs_for_code_review_paginator: ListCodeReviewJobsForCodeReviewPaginator = client.get_paginator("list_code_review_jobs_for_code_review")
+    list_code_reviews_paginator: ListCodeReviewsPaginator = client.get_paginator("list_code_reviews")
     list_discovered_endpoints_paginator: ListDiscoveredEndpointsPaginator = client.get_paginator("list_discovered_endpoints")
     list_findings_paginator: ListFindingsPaginator = client.get_paginator("list_findings")
     list_integrated_resources_paginator: ListIntegratedResourcesPaginator = client.get_paginator("list_integrated_resources")
@@ -58,6 +64,12 @@ from .type_defs import (
     ListApplicationsResponseTypeDef,
     ListArtifactsInputPaginateTypeDef,
     ListArtifactsOutputTypeDef,
+    ListCodeReviewJobsForCodeReviewInputPaginateTypeDef,
+    ListCodeReviewJobsForCodeReviewOutputTypeDef,
+    ListCodeReviewJobTasksInputPaginateTypeDef,
+    ListCodeReviewJobTasksOutputTypeDef,
+    ListCodeReviewsInputPaginateTypeDef,
+    ListCodeReviewsOutputTypeDef,
     ListDiscoveredEndpointsInputPaginateTypeDef,
     ListDiscoveredEndpointsOutputTypeDef,
     ListFindingsInputPaginateTypeDef,
@@ -88,6 +100,9 @@ __all__ = (
     "ListAgentSpacesPaginator",
     "ListApplicationsPaginator",
     "ListArtifactsPaginator",
+    "ListCodeReviewJobTasksPaginator",
+    "ListCodeReviewJobsForCodeReviewPaginator",
+    "ListCodeReviewsPaginator",
     "ListDiscoveredEndpointsPaginator",
     "ListFindingsPaginator",
     "ListIntegratedResourcesPaginator",
@@ -160,6 +175,71 @@ class ListArtifactsPaginator(_ListArtifactsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListArtifacts.html#SecurityAgent.Paginator.ListArtifacts.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityagent/paginators/#listartifactspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListCodeReviewJobTasksPaginatorBase = Paginator[ListCodeReviewJobTasksOutputTypeDef]
+else:
+    _ListCodeReviewJobTasksPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListCodeReviewJobTasksPaginator(_ListCodeReviewJobTasksPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListCodeReviewJobTasks.html#SecurityAgent.Paginator.ListCodeReviewJobTasks)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityagent/paginators/#listcodereviewjobtaskspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCodeReviewJobTasksInputPaginateTypeDef]
+    ) -> PageIterator[ListCodeReviewJobTasksOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListCodeReviewJobTasks.html#SecurityAgent.Paginator.ListCodeReviewJobTasks.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityagent/paginators/#listcodereviewjobtaskspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListCodeReviewJobsForCodeReviewPaginatorBase = Paginator[
+        ListCodeReviewJobsForCodeReviewOutputTypeDef
+    ]
+else:
+    _ListCodeReviewJobsForCodeReviewPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListCodeReviewJobsForCodeReviewPaginator(_ListCodeReviewJobsForCodeReviewPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListCodeReviewJobsForCodeReview.html#SecurityAgent.Paginator.ListCodeReviewJobsForCodeReview)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityagent/paginators/#listcodereviewjobsforcodereviewpaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCodeReviewJobsForCodeReviewInputPaginateTypeDef]
+    ) -> PageIterator[ListCodeReviewJobsForCodeReviewOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListCodeReviewJobsForCodeReview.html#SecurityAgent.Paginator.ListCodeReviewJobsForCodeReview.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityagent/paginators/#listcodereviewjobsforcodereviewpaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListCodeReviewsPaginatorBase = Paginator[ListCodeReviewsOutputTypeDef]
+else:
+    _ListCodeReviewsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListCodeReviewsPaginator(_ListCodeReviewsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListCodeReviews.html#SecurityAgent.Paginator.ListCodeReviews)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityagent/paginators/#listcodereviewspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCodeReviewsInputPaginateTypeDef]
+    ) -> PageIterator[ListCodeReviewsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListCodeReviews.html#SecurityAgent.Paginator.ListCodeReviews.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityagent/paginators/#listcodereviewspaginator)
         """
 
 

@@ -2933,7 +2933,13 @@ class Geocif:
             model = self.model
         
         try:
-            output.store(self.db_path, experiment_id, df, model, self.model_name)
+            save_model_blobs = self.parser.getboolean(
+                "ML", "save_model_blobs", fallback=False
+            )
+            output.store(
+                self.db_path, experiment_id, df, model, self.model_name,
+                save_model_blobs=save_model_blobs,
+            )
         except Exception as e:
             self.logger.error(f"Error storing results for {experiment_id}: {e}")
 

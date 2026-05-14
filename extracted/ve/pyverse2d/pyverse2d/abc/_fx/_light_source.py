@@ -3,8 +3,9 @@ from __future__ import annotations
 
 from ..._internal import HasPosition, expect, clamped, expect_callable
 from ..._flag import Activity
+from ..._core import Positionable
 from ...math import Vector, Point
-from ...math.easing import EasingFunc, is_easing
+from ...math.easing import EasingFunc
 from ...asset import Color
 
 from abc import ABC
@@ -14,13 +15,19 @@ from numbers import Real
 # ======================================== REQUEST ========================================
 @dataclass(slots=True)
 class AttachRequest:
-    """Requête d'attache"""
+    """Requête d'attache
+    
+    Args:
+        target: cible
+        offset: décalage par rapport à la cible
+        smoothing: atténuation du suivi
+    """
     target: HasPosition
     offset: Vector
     smoothing: float
 
 # ======================================== ABSTRACT CLASS ========================================
-class LightSource(ABC):
+class LightSource(ABC, Positionable):
     """Classe abstraite des sources de lumière
 
     Args:
@@ -31,7 +38,6 @@ class LightSource(ABC):
         enable: activation initiale de la lumière
     """
     __slots__ = (
-        "_position",
         "_color", "_intensity", "_falloff",
         "_enabled", "_attach", "_activity",
     )
@@ -44,19 +50,19 @@ class LightSource(ABC):
             falloff: EasingFunc = None,
             enable: bool = True,
         ):
-        # Transtyping
-        position = Point(position)
+        # Initialisation de la position
+        Positionable.__init__(self, position)
+
+        # Transtyping et vérifications
         color = Color(color)
         intensity: float = float(intensity)
+        enable = bool(self.enable)
 
-        # Debugging
         if __debug__:
             clamped(intensity)
             expect_callable(falloff, include_none=True)
-            expect(enable, bool)
 
         # Attributs publiques
-        self._position: Point = position
         self._color: Color = color
         self._intensity: float = intensity
         self._falloff: EasingFunc = falloff
@@ -67,42 +73,6 @@ class LightSource(ABC):
         self._activity: Activity = Activity.DEFAULT
 
     # ======================================== PROPERTIES ========================================
-    @property
-    def position(self) -> Point:
-        """Position
-
-        La position peut être un objet ``Point`` ou un tuple ``(x, y)``.
-        """
-        return self._position
-    
-    @position.setter
-    def position(self, value: Point) -> None:
-        self._position.x, self._position.y = value
-
-    @property
-    def x(self) -> float:
-        """Position horizontale
-
-        La coordonnée doit être un ``Réel``.
-        """
-        return self._position.x
-    
-    @x.setter
-    def x(self, value: Real) -> None:
-        self._position.x = value
-
-    @property
-    def y(self) -> float:
-        """Position verticale
-
-        La coordonnée doit être un ``Réel``.
-        """
-        return self._position.y
-    
-    @y.setter
-    def y(self, value: Real) -> None:
-        self._position.y = value
-
     @property
     def color(self) -> Color:
         """Couleur de la lumière

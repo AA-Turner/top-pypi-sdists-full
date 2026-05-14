@@ -1,4 +1,8 @@
-"""Integration with the `vllm` library (offline mode)."""
+"""Integration with the `vllm` library (offline mode).
+
+Local runtime calls intentionally bypass
+outlines.exceptions.normalize_provider_errors().
+"""
 
 import json
 from functools import singledispatchmethod

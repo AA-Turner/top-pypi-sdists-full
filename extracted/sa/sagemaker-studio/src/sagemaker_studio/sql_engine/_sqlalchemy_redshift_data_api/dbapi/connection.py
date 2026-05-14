@@ -5,6 +5,8 @@ This module provides the Connection class that manages boto3 client
 and implements basic DB-API 2.0 connection interface.
 """
 
+import time
+
 from .client import RedshiftDataAPIClient
 from .connection_params import create_connection_params
 from .cursor import Cursor
@@ -55,6 +57,12 @@ class Connection:
         self._closed = False
         self.transaction_id = None
         self.autocommit = True  # Default to autocommit mode
+
+        # Session management - API generates and returns session ID
+        self._session_id = None  # Captured from execute_statement response
+        self._session_keep_alive_seconds = 900  # Default 15 minutes to match Kernel's idle timeout
+        self._persist_session = kwargs.get("persist_session", True)  # Default enabled
+        self._last_query_time = None  # Track last query time
 
     @property
     def client(self):
@@ -223,6 +231,17 @@ class Connection:
             raise InterfaceError("Connection is closed")
         self.autocommit = autocommit
 
+    def _invalidate_session_if_expired(self):
+        """Clear session if it's been idle longer than keep-alive period"""
+        if self._session_id and self._last_query_time:
+            idle_seconds = time.time() - self._last_query_time
+            if idle_seconds >= self._session_keep_alive_seconds:
+                self._session_id = None
+
+    def _update_last_query_time(self):
+        """Update the last query timestamp"""
+        self._last_query_time = time.time()
+
     def close(self):
         """
         Close the connection and clean up resources.
@@ -237,6 +256,9 @@ class Connection:
                 except Exception:
                     # Ignore rollback errors during close
                     pass
+
+            # Clear session - it will auto-expire on Redshift side
+            self._session_id = None
 
             self.client_manager.close()
             self._closed = True

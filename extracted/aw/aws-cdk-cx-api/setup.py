@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk.cx-api",
-    "version": "2.253.1",
+    "version": "2.254.0",
     "description": "Cloud executable protocol",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk.cx_api._jsii": [
-            "cx-api@2.253.1.jsii.tgz"
+            "cx-api@2.254.0.jsii.tgz"
         ],
         "aws_cdk.cx_api": [
             "py.typed"
@@ -34,8 +34,8 @@ kwargs = json.loads(
     },
     "python_requires": "~=3.9",
     "install_requires": [
-        "aws-cdk.cloud-assembly-schema>=53.18.0",
-        "jsii>=1.128.0, <2.0.0",
+        "aws-cdk.cloud-assembly-schema>=53.21.0",
+        "jsii>=1.129.0, <2.0.0",
         "publication>=0.0.3",
         "typeguard==2.13.3"
     ],

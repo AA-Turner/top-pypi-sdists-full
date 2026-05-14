@@ -904,6 +904,7 @@ class ConfigLoader:
     dont_jit_compile: bool
     no_normalize_y: bool
     transforms: List[str]
+    dump_config: Optional[str]
     no_transform_inputs: bool
     occ: bool
     force_choice_for_ranges: bool
@@ -998,6 +999,7 @@ class ConfigLoader:
         optional.add_argument('--skip_search', help='Skips the actual search, uses exit code 0 if not the environment variable SKIP_SEARCH_EXIT_CODE is set', action='store_true', default=False)
         optional.add_argument('--nr_evals_per_arm', help='Number of evaluations per arm (hyperparameter combination) to check deviation from random initialization. Default: 1', type=int, default=1)
         optional.add_argument('--disable_notifications', help='Disable desktop notifications', action='store_true', default=False)
+        optional.add_argument('--dump_config', help='Dump the current configuration to a file. Format is auto-detected from extension (.yaml/.yml, .toml, .json). Use - or omit the path to print to stdout (defaults to YAML). Example: --dump_config my_config.toml', type=str, nargs='?', const='-', default=None)
 
         speed.add_argument('--dont_warm_start_refitting', help='Do not keep Model weights, thus, refit for every generator (may be more accurate, but slower)', action='store_true', default=False)
         speed.add_argument('--refit_on_cv', help='Refit on Cross-Validation (helps in accuracy, but makes generating new points slower)', action='store_true', default=False)
@@ -1110,8 +1112,128 @@ class ConfigLoader:
 
         return cli_args
 
+    def _dump_config(self, args_namespace: argparse.Namespace) -> None:
+        """
+        Serialize the current resolved configuration to a file or stdout.
+
+        Format detection priority:
+          1. File extension of the path  (.yaml/.yml → YAML, .toml → TOML, .json → JSON)
+          2. If path is "-" or None      → YAML to stdout
+          3. If extension is unrecognized → warn, fall back to YAML, still write to the file
+        """
+        dest = args_namespace.dump_config
+        if dest is None:
+            return
+
+        config = self._build_config_dict(args_namespace)
+        writing_to_stdout = False
+        if dest == '-':
+            writing_to_stdout = True
+
+        fmt = self._detect_format(dest, writing_to_stdout)
+        serialized = self._serialize_config(config, fmt)
+        self._write_config(dest, serialized, fmt, writing_to_stdout)
+
+    def _build_config_dict(self, args_namespace: argparse.Namespace) -> dict:
+        """Build the config dict from the resolved Namespace, skipping meta keys."""
+        config = {}
+        skip_keys = {'dump_config', 'config_yaml', 'config_toml', 'config_json'}
+        for key, value in sorted(vars(args_namespace).items()):
+            if key in skip_keys:
+                continue
+            # Convert Path objects so serializers don't choke
+            if isinstance(value, Path):
+                value = str(value)
+            config[key] = value
+        return config
+
+    def _detect_format(self, dest: str, writing_to_stdout: bool) -> str:
+        """Determine the output format from the file extension, defaulting to YAML."""
+        EXTENSION_MAP = {
+            '.yaml': 'yaml',
+            '.yml': 'yaml',
+            '.json': 'json',
+            '.toml': 'toml',
+        }
+
+        if writing_to_stdout:
+            return 'yaml'
+
+        _, ext = os.path.splitext(dest)
+        ext = ext.lower()
+
+        if ext in EXTENSION_MAP:
+            return EXTENSION_MAP[ext]
+
+        if ext == '':
+            print_yellow(
+                f"No file extension detected in '{dest}'. "
+                f"Defaulting to YAML format. "
+                f"Supported extensions: {', '.join(sorted(EXTENSION_MAP.keys()))}"
+            )
+        else:
+            print_yellow(
+                f"Unrecognized file extension '{ext}' in '{dest}'. "
+                f"Falling back to YAML format. "
+                f"Supported extensions: {', '.join(sorted(EXTENSION_MAP.keys()))}"
+            )
+
+        return 'yaml'
+
+    def _serialize_config(self, config: dict, fmt: str) -> str:
+        """Serialize the config dict to a string in the given format."""
+        try:
+            if fmt == 'yaml':
+                return yaml.dump(
+                    config,
+                    default_flow_style=False,
+                    sort_keys=True,
+                    allow_unicode=True,
+                )
+            if fmt == 'json':
+                return json.dumps(config, indent=2, sort_keys=True, ensure_ascii=False)
+            if fmt == 'toml':
+                # toml.dumps doesn't handle None values; strip them out
+                toml_safe = {k: v for k, v in config.items() if v is not None}
+                return toml.dumps(toml_safe)
+            return yaml.dump(config, default_flow_style=False, sort_keys=True)
+        except Exception as e:
+            print_red(f"Error serializing configuration as {fmt.upper()}: {e}")
+            sys.exit(5)
+
+    def _write_config(self, dest: str, serialized: str, fmt: str, writing_to_stdout: bool) -> None:
+        """Write the serialized config to stdout or a file."""
+        if writing_to_stdout:
+            original_print(serialized)
+            return
+
+        self._ensure_parent_dir(dest)
+
+        try:
+            with open(dest, 'w', encoding='utf-8') as f:
+                f.write(serialized)
+            print_green(f"Configuration written to '{dest}' ({fmt.upper()} format)")
+        except OSError as e:
+            print_red(f"Failed to write config file '{dest}': {e}")
+            sys.exit(5)
+
+    def _ensure_parent_dir(self, dest: str) -> None:
+        """Ensure the parent directory of the destination file exists."""
+        parent_dir = os.path.dirname(os.path.abspath(dest))
+        if parent_dir and not os.path.isdir(parent_dir):
+            try:
+                os.makedirs(parent_dir, exist_ok=True)
+            except OSError as e:
+                print_red(
+                    f"Cannot create directory '{parent_dir}' for config file: {e}"
+                )
+                sys.exit(5)
+
     def parse_arguments(self: Any) -> argparse.Namespace:
         _args = self.parser.parse_args()
+
+        if _args.dump_config is not None:
+            self._dump_config(_args)
 
         config = {}
 
@@ -1122,6 +1244,8 @@ class ConfigLoader:
         if yaml_and_toml or yaml_and_json or json_and_toml:
             print("Error: Cannot use YAML, JSON and TOML configuration files simultaneously.]")
             print("Exit-Code: 5")
+
+            my_exit(5)
 
         if _args.config_yaml:
             config = self.load_config(_args.config_yaml, 'yaml')
@@ -4013,11 +4137,11 @@ def _add_to_csv_rewrite_file(file_path: str, rows: List[list], existing_heading:
         writer = csv.writer(tmp_file)
         writer.writerow(all_headings)
         for row in rows[1:]:
-            tmp_file.writerow([ # type: ignore[attr-defined]
+            writer.writerow([
                 row[existing_heading.index(h)] if h in existing_heading else ""
                 for h in all_headings
             ])
-        tmp_file.writerow([ # type: ignore[attr-defined]
+        writer.writerow([
             formatted_data[new_heading.index(h)] if h in new_heading else ""
             for h in all_headings
         ])

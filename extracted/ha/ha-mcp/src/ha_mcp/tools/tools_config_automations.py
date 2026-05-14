@@ -22,14 +22,12 @@ from ..errors import (
 from ..utils.config_hash import compute_config_hash
 from ..utils.python_sandbox import (
     PythonSandboxError,
+    format_sandbox_error,
     get_security_documentation,
     safe_execute,
 )
 from .best_practice_checker import (
     check_automation_config as _check_best_practices,
-)
-from .best_practice_checker import (
-    get_skill_prefix as _get_skill_prefix,
 )
 from .helpers import (
     exception_to_structured_error,
@@ -170,6 +168,38 @@ def _normalize_trigger_keys(triggers: list[dict[str, Any]]) -> list[dict[str, An
     return normalized_triggers
 
 
+def _action_contains_scene_create(action: Any) -> bool:
+    """True if the action — or any nested action under HA's wrapper keys —
+    invokes ``scene.create``.
+
+    Walks the standard wrappers: ``sequence``, ``parallel``, ``choose``
+    (with options' inner ``sequence``), ``default``, and the ``then``/
+    ``else`` siblings of ``if``. Returns True on the first hit, so a deep
+    misroute is caught before the upsert reaches HA.
+    """
+    if not isinstance(action, dict):
+        return False
+    # 'service:' is the legacy key, 'action:' the modern HA service-call
+    # key (HA 2024.8+). Both reach scene.create.
+    if "scene.create" in (action.get("service"), action.get("action")):
+        return True
+    # Wrappers whose value is a list of nested actions.
+    for nested_key in ("sequence", "parallel", "default", "then", "else"):
+        nested = action.get(nested_key)
+        if isinstance(nested, list):
+            for sub in nested:
+                if _action_contains_scene_create(sub):
+                    return True
+    # ``choose``: list of ``{conditions, sequence}`` options.
+    if isinstance(action.get("choose"), list):
+        for opt in action["choose"]:
+            if isinstance(opt, dict) and isinstance(opt.get("sequence"), list):
+                for sub in opt["sequence"]:
+                    if _action_contains_scene_create(sub):
+                        return True
+    return False
+
+
 def _normalize_config_for_roundtrip(config: dict[str, Any]) -> dict[str, Any]:
     """
     Normalize automation config from GET response for direct use in SET.
@@ -247,6 +277,8 @@ class AutomationConfigTools:
         Retrieve Home Assistant automation configuration.
 
         Returns the complete configuration including triggers, conditions, actions, and mode settings.
+
+        The returned `config_hash` is stable across consecutive reads of an unchanged config — `compute_config_hash` documents the underlying contract.
 
         EXAMPLES:
         - Get automation: ha_config_get_automation("automation.morning_routine")
@@ -371,6 +403,36 @@ class AutomationConfigTools:
         """
         Create or update a Home Assistant automation.
 
+        Before reaching for ``ha_config_set_automation``, consider whether a
+        dedicated tool fits the use case better:
+
+        - State snapshot of one or more entities (capture-then-replay,
+          no trigger needed) -> ha_config_set_scene
+        - State-derived value that recomputes when its inputs change
+          (template sensor / binary sensor / number / select)
+          -> ha_config_set_helper(helper_type='template')
+        - Stateful counter / timer / schedule / boolean / etc.
+          -> ha_config_set_helper(helper_type='counter' | 'timer' | ...)
+
+        PREFER NATIVE SOLUTIONS OVER TEMPLATES (read this before writing any `{{ ... }}`):
+        Native triggers/conditions/actions are validated at config load, fail loudly, and
+        do not bypass HA's schema. Templates fail silently at runtime and obscure intent.
+        - `condition: numeric_state` instead of `{{ states('x') | float > N }}`
+        - `condition: state` (with `state:` list) instead of `{{ is_state(...) }}` /
+          `{{ states(x) in [...] }}`
+        - `condition: time` instead of `{{ now().hour ... }}` or `{{ now().weekday() ... }}`
+        - `condition: sun` instead of `{{ is_state('sun.sun', ...) }}`
+        - `wait_for_trigger` instead of `wait_template`
+        - `choose` action instead of template-based service names
+        - For one-shot date firing, use a `time` trigger plus `automation.turn_off` on a
+          hardcoded entity_id — not `{{ now().date() ... }}`.
+        - Hardcode `target.entity_id` literals — never `{{ this.entity_id }}`.
+        Templates are appropriate ONLY in `data.*` fields, notification message/title,
+        `event_data`, and `variables`. The reactive best-practice checker on this tool
+        will surface anything in a logic position that should be native; consult the
+        `best_practice_warnings` field on the response and fix before re-submitting.
+        For comprehensive guidance, call `ha_get_skill_home_assistant_best_practices`.
+
         Supports two modes: full config replacement OR Python transformation.
 
         WHEN TO USE WHICH MODE:
@@ -478,14 +540,6 @@ class AutomationConfigTools:
             }
         )
 
-        PREFER NATIVE SOLUTIONS OVER TEMPLATES:
-        Before using template triggers/conditions/actions, check if a native option exists:
-        - Use `condition: state` with `state: [list]` instead of template for multiple states
-        - Use `condition: state` with `attribute:` instead of template for attribute checks
-        - Use `condition: numeric_state` instead of template for number comparisons
-        - Use `wait_for_trigger` instead of `wait_template` when waiting for state changes
-        - Use `choose` action instead of template-based service names
-
         TRIGGER TYPES: time, time_pattern, sun, state, numeric_state, event, device, zone, template, and more
         CONDITION TYPES: state, numeric_state, time, sun, template, device, zone, and more
         ACTION TYPES: service calls, delays, wait_for_trigger, wait_template, if/then/else, choose, repeat, parallel
@@ -553,16 +607,12 @@ class AutomationConfigTools:
                 try:
                     transformed_config = safe_execute(python_transform, current_config)
                 except PythonSandboxError as e:
+                    message, suggestions = format_sandbox_error(e, python_transform)
                     raise_tool_error(
                         create_error_response(
                             ErrorCode.VALIDATION_FAILED,
-                            str(e),
-                            suggestions=[
-                                "Check expression syntax",
-                                "Ensure only allowed operations are used",
-                                "See tool description for allowed operations",
-                                f"Expression: {python_transform[:100]}{'...' if len(python_transform) > 100 else ''}",
-                            ],
+                            message,
+                            suggestions=suggestions,
                             context={"action": "python_transform", "identifier": identifier},
                         )
                     )
@@ -573,9 +623,7 @@ class AutomationConfigTools:
                 # Normalize and validate the transformed config
                 transformed_config = _normalize_automation_config(transformed_config)
                 self._validate_required_fields(transformed_config, identifier)
-                bp_warnings = _check_best_practices(
-                    transformed_config, skill_prefix=_get_skill_prefix()
-                )
+                bp_warnings = _check_best_practices(transformed_config)
 
                 # Save transformed config
                 result = await self._client.upsert_automation_config(
@@ -640,9 +688,7 @@ class AutomationConfigTools:
             self._validate_required_fields(config_dict, identifier)
 
             # Pre-check for best-practice issues.
-            bp_warnings = _check_best_practices(
-                config_dict, skill_prefix=_get_skill_prefix()
-            )
+            bp_warnings = _check_best_practices(config_dict)
 
             # Cross-check literal service and entity references against
             # the live registries. Soft warnings only — the write still
@@ -820,6 +866,55 @@ class AutomationConfigTools:
                 identifier=identifier,
                 missing_fields=missing_fields,
             ))
+
+        # Issue #1169: reject configs that wrap ``scene.create`` in an
+        # automation with no functional trigger. Models occasionally produce
+        # these when they want a state snapshot but pattern-match to
+        # ``ha_config_set_automation`` instead of ``ha_config_set_scene``.
+        # HA's REST endpoint accepts ``trigger: []`` (or ``null``/missing)
+        # and stores a never-firing automation — corruption marker, not a
+        # draft. Only the narrow misroute pattern is rejected so legitimate
+        # empty-trigger drafts paired with other actions still pass.
+        trigger_value = config_dict.get("trigger")
+        trigger_empty = trigger_value is None or (
+            isinstance(trigger_value, list) and not trigger_value
+        )
+        if trigger_empty:
+            actions_list = coerce_to_list(config_dict.get("action"))
+            # Walks the standard HA wrappers (``sequence`` / ``parallel`` /
+            # ``choose`` / ``if``-``then``/``else``) so a nested
+            # ``scene.create`` is caught alongside the top-level case.
+            scene_create_indices = [
+                i
+                for i, a in enumerate(actions_list)
+                if _action_contains_scene_create(a)
+            ]
+            if scene_create_indices:
+                raise_tool_error(create_error_response(
+                    code=ErrorCode.VALIDATION_INVALID_PARAMETER,
+                    message=(
+                        "Empty trigger paired with a scene.create action — "
+                        "this automation can never fire. For a state snapshot "
+                        "of one or more entities, use ha_config_set_scene "
+                        "directly instead of wrapping scene.create in an "
+                        "automation."
+                    ),
+                    suggestions=[
+                        "ha_config_set_scene(scene_id='...', config={'name': "
+                        "'...', 'entities': {'<entity_id>': {...}}}) creates "
+                        "a scene without a trigger.",
+                        "If the snapshot really should be the result of an "
+                        "event, add the trigger that should fire it and keep "
+                        "the automation.",
+                        "For a state-derived value that recomputes when its "
+                        "inputs change, use "
+                        "ha_config_set_helper(helper_type='template') instead.",
+                    ],
+                    context={
+                        "scene_create_action_indices": scene_create_indices,
+                        "identifier": identifier,
+                    },
+                ))
 
         # HA accepts conditions with 'platform' (trigger syntax) but then crashes
         # with an unhelpful 500 rather than a 400 validation error.

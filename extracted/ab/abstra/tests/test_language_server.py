@@ -280,21 +280,36 @@ class TestRename(TestCase):
 
 class TestAnalyzePythonSyntax(TestCase):
     def test_syntax_error_via_mcp(self):
-        diagnostics = analyze_python_syntax("if:")
+        result = analyze_python_syntax("if:")
+        self.assertIn("diagnostics", result)
+        diagnostics = result["diagnostics"]
         self.assertGreater(len(diagnostics), 0)
         diag = diagnostics[0]
         self.assertIn("range", diag)
         self.assertIn("message", diag)
         self.assertIn("severity", diag)
+        self.assertGreater(result["error_count"], 0)
+        # Hint must be present whenever there are real errors so the AI is
+        # nudged toward the SDK types instead of `Any` / `# type: ignore`.
+        self.assertIsNotNone(result["type_discipline_hint"])
+        self.assertIn("abstra", result["type_discipline_hint"])
 
     def test_valid_code_via_mcp(self):
-        diagnostics = analyze_python_syntax("x = 1\nprint(x)\n")
-        errors = [d for d in diagnostics if d.get("severity") == 1]
+        result = analyze_python_syntax("x = 1\nprint(x)\n")
+        errors = [d for d in result["diagnostics"] if d.get("severity") == 1]
         self.assertEqual(len(errors), 0)
+        self.assertEqual(result["error_count"], 0)
+        # Hint is suppressed on clean code to avoid noise in tool responses.
+        self.assertIsNone(result["type_discipline_hint"])
 
-    def test_returns_list(self):
+    def test_returns_dict(self):
         result = analyze_python_syntax("pass")
-        self.assertIsInstance(result, list)
+        self.assertIsInstance(result, dict)
+        self.assertIn("diagnostics", result)
+        self.assertIsInstance(result["diagnostics"], list)
+        self.assertIn("error_count", result)
+        self.assertIn("warning_count", result)
+        self.assertIn("type_discipline_hint", result)
 
 
 # ── PyreflyLSP lifecycle ─────────────────────────────────────────────────

@@ -8,6 +8,8 @@ from abstra_internals.environment import IS_PRODUCTION
 from abstra_internals.utils.insensitive_dict import CaseInsensitiveDict
 
 if TYPE_CHECKING:
+    from mailparser import MailParser
+
     from abstra_internals.controllers.execution.execution_client_hook import HookClient
 
 
@@ -65,7 +67,7 @@ class HookSDKController:
                 part["content"] = base64.b64encode(content).decode("ascii")
         return parts
 
-    def get_email_request(self):
+    def get_email_request(self) -> "MailParser":
         body, _, headers = self.get_raw_request()
         b64content: str = json.loads(body).get("content")
         if not b64content:

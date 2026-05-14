@@ -52,7 +52,8 @@ POSITIVE_CASES = [
     {"headers": {"h1": "5", "h2": "000"}, "query": {"q1": "6", "q2": "000"}, "body": {"j-prop": 0}},
     {"headers": {"h1": "5", "h2": "00"}, "query": {"q1": "5", "q2": "000"}, "body": {"j-prop": 0}},
     {"headers": {"h1": "4", "h2": "000"}, "query": {"q1": "5", "q2": "000"}, "body": {"j-prop": 0}},
-    {"headers": {"h1": "5", "h2": "000"}, "query": {"q1": "5", "q2": "000"}, "body": {"x-prop": ""}},
+    {"headers": {"h1": "5", "h2": "000"}, "query": {"q1": "5", "q2": "000"}, "body": {"x-prop": Pattern(".+")}},
+    {"headers": {"h1": "5", "h2": "000"}, "query": {"q1": "5", "q2": "000"}, "body": {"x-prop": Pattern(".+")}},
     {"headers": {"h1": "5", "h2": "000"}, "query": {"q1": "5", "q2": "000"}, "body": {"j-prop": 0}},
 ]
 NEGATIVE_CASES = [
@@ -142,7 +143,8 @@ MIXED_CASES = [
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": [None, None]},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": False},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": 0},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"x-prop": ""}},
+    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"x-prop": Pattern(".+")}},
+    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"x-prop": Pattern(".+")}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": {}}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": [None, None]}},
@@ -1932,11 +1934,11 @@ def test_generate_empty_headers_too(ctx):
             },
             [
                 {"body": [False, False]},
-                {"body": [{}]},
-                {"body": [[None, None]]},
-                {"body": [""]},
-                {"body": [None]},
-                {"body": [0]},
+                {"body": [{}, False, False]},
+                {"body": [[None, None], False, False]},
+                {"body": ["", False, False]},
+                {"body": [None, False, False]},
+                {"body": [0, False, False]},
                 {"body": {}},
                 {"body": ""},
                 {},
@@ -4247,15 +4249,18 @@ def test_path_parameter_with_slash_in_custom_format(ctx):
     assert all(v == "0.0.0.0%2F0" for v in path_values), f"Unexpected values: {path_values}"
 
 
-def _collect_xml_coverage_cases(ctx, body_schema):
-    """Build an XML-only schema, run in negative mode, and return coverage phase cases."""
-    loaded = load_schema(
-        ctx,
-        request_body={
-            "required": True,
-            "content": {"application/xml": {"schema": body_schema}},
-        },
-    )
+def _collect_xml_coverage_cases(ctx, body_schema, *, positive=False, full_schema=None):
+    """Build an XML schema, run coverage, and return coverage phase cases."""
+    if full_schema is not None:
+        loaded = schemathesis.openapi.from_dict(full_schema)
+    else:
+        loaded = load_schema(
+            ctx,
+            request_body={
+                "required": True,
+                "content": {"application/xml": {"schema": body_schema}},
+            },
+        )
     operation = loaded["/foo"]["post"]
 
     cases = []
@@ -4264,7 +4269,10 @@ def _collect_xml_coverage_cases(ctx, body_schema):
         if case.meta.phase.name == TestPhase.COVERAGE:
             cases.append(case)
 
-    run_negative_test(operation, collect)
+    if positive:
+        run_positive_test(operation, collect)
+    else:
+        run_negative_test(operation, collect)
     return cases
 
 
@@ -4325,6 +4333,61 @@ def test_xml_none_property_mutation_filtered_when_schema_accepts_empty_string(ct
     ]
     assert null_property_mutations == [], (
         f"None mutation for XML string field with maxLength:0 should be filtered, got: {null_property_mutations}"
+    )
+
+
+def test_xml_string_leaf_has_non_empty_positive_case(ctx):
+    # Empty XML elements bypass server-side string-keyword validators on common parsers.
+    cases = _collect_xml_coverage_cases(
+        ctx,
+        {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+        positive=True,
+    )
+    populated = [
+        c.body for c in cases if isinstance(c.body, dict) and isinstance(c.body.get("name"), str) and c.body["name"]
+    ]
+    assert populated, f"Expected at least one positive case with a non-empty 'name'; got: {[c.body for c in cases]}"
+
+
+def test_xml_optional_ref_object_property_populated_in_positive_cases(ctx):
+    raw = ctx.openapi.build_schema(
+        {
+            "/foo": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/xml": {"schema": {"$ref": "#/components/schemas/Wrapper"}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Wrapper": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "child": {"$ref": "#/components/schemas/Child"},
+                    },
+                    "required": ["id"],
+                },
+                "Child": {
+                    "type": "object",
+                    "properties": {"value": {"type": "string"}},
+                    "required": ["value"],
+                },
+            }
+        },
+    )
+    cases = _collect_xml_coverage_cases(ctx, None, positive=True, full_schema=raw)
+    with_child = [
+        c.body
+        for c in cases
+        if isinstance(c.body, dict) and isinstance(c.body.get("child"), dict) and "value" in c.body["child"]
+    ]
+    assert with_child, (
+        f"Expected at least one positive case populating optional 'child'; got: {[c.body for c in cases]}"
     )
 
 
@@ -8056,3 +8119,252 @@ def test_explicit_content_type_header_does_not_collide_with_body_coverage(ctx):
     assert all(b is NOT_SET for b in ct_mutation_bodies), (
         f"CT-mutation cases should not carry a body, got: {ct_mutation_bodies}"
     )
+
+
+def test_recursive_ref_negative_descends_past_self_reference(ctx):
+    # Self-referential arms must receive a type-violating element at the inner-`$ref` position,
+    # not just be skipped when the negative generator hits the recursion boundary.
+    schema = ctx.openapi.load_schema(
+        {
+            "/filter": {
+                "post": {
+                    "parameters": [
+                        {"name": "body", "in": "body", "required": True, "schema": {"$ref": "#/definitions/Filter"}},
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="2.0",
+        definitions={
+            "Filter": {
+                "type": "object",
+                "properties": {
+                    "and": {
+                        "type": "array",
+                        "minItems": 2,
+                        "items": {"$ref": "#/definitions/Filter"},
+                    },
+                    "or": {
+                        "type": "array",
+                        "minItems": 2,
+                        "items": {"$ref": "#/definitions/Filter"},
+                    },
+                    "not": {"$ref": "#/definitions/Filter"},
+                    "leaf": {"type": "string"},
+                },
+            },
+        },
+    )
+    operation = schema["/filter"]["POST"]
+    validator = _body_validator(operation)
+
+    negatives = [case for case in _iter_cases(operation, GenerationMode.NEGATIVE) if case.body is not NOT_SET]
+    invalid_items_for: set[str] = set()
+    invalid_not = False
+    for case in negatives:
+        body = case.body
+        if not isinstance(body, dict) or validator.is_valid(body):
+            continue
+        for arm in ("and", "or"):
+            arm_value = body.get(arm)
+            if not isinstance(arm_value, list) or len(arm_value) < 2:
+                continue
+            if any(not isinstance(item, dict) for item in arm_value):
+                invalid_items_for.add(arm)
+        not_value = body.get("not")
+        if not_value is not None and not isinstance(not_value, dict):
+            invalid_not = True
+    assert invalid_items_for == {"and", "or"}, f"missing arm items violations: {invalid_items_for}"
+    assert invalid_not, "missing 'not' arm type violation"
+
+
+def test_unsatisfiable_items_schema_falls_back_to_single_item_negative(ctx):
+    # When the items schema can't produce a valid filler (here `{"not": {}}` matches nothing),
+    # the negative-items branch falls back to a single-item array rather than emitting nothing.
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {"schema": {"type": "array", "minItems": 2, "items": {"not": {}}}}
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+    )
+    operation = schema["/items"]["POST"]
+    bodies = [case.body for case in _iter_cases(operation, GenerationMode.NEGATIVE) if case.body is not NOT_SET]
+    single_item_arrays = [b for b in bodies if isinstance(b, list) and len(b) == 1]
+    assert single_item_arrays, f"fallback should emit single-item arrays, got bodies: {bodies}"
+
+
+def _tool_branch_property(tag_keyword, value):
+    # `None` produces a bare string property so the pin falls back to the schema name.
+    if tag_keyword is None:
+        return {"type": "string"}
+    if tag_keyword == "enum":
+        return {"type": "string", "enum": [value]}
+    return {"type": "string", "const": value}
+
+
+def _tool_components(tag_keyword, *, mapping=None):
+    discriminator: dict = {"propertyName": "type"}
+    if mapping is not None:
+        discriminator["mapping"] = mapping
+    return {
+        "schemas": {
+            "Tool": {
+                "discriminator": discriminator,
+                "oneOf": [
+                    {"$ref": "#/components/schemas/FunctionTool"},
+                    {"$ref": "#/components/schemas/WebSearchTool"},
+                ],
+            },
+            "FunctionTool": {
+                "type": "object",
+                "required": ["type", "name"],
+                "properties": {
+                    "type": _tool_branch_property(tag_keyword, "function"),
+                    "name": {"type": "string"},
+                },
+            },
+            "WebSearchTool": {
+                "type": "object",
+                "required": ["type", "query"],
+                "properties": {
+                    "type": _tool_branch_property(tag_keyword, "web_search"),
+                    "query": {"type": "string"},
+                },
+            },
+        },
+    }
+
+
+def _discriminator_positive_bodies(operation):
+    return [
+        case.body
+        for case in iter_coverage_cases(
+            operation=operation,
+            generation_modes=[GenerationMode.POSITIVE],
+            generate_duplicate_query_parameters=False,
+            unexpected_methods=set(),
+            generation_config=operation.schema.config.generation,
+        )
+        if isinstance(case.body, dict)
+    ]
+
+
+@pytest.mark.parametrize(
+    ("tag_keyword", "expected_tags"),
+    [
+        ("enum", {"function", "web_search"}),
+        ("const", {"function", "web_search"}),
+        (None, {"FunctionTool", "WebSearchTool"}),
+    ],
+)
+def test_discriminator_pin_uses_branch_value_when_available(ctx, tag_keyword, expected_tags):
+    # const/enum on the branch supplies the literal tag; absence falls back to the schema name.
+    raw = ctx.openapi.build_schema(
+        {
+            "/r": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["tools"],
+                                    "properties": {"tools": {"$ref": "#/components/schemas/Tool"}},
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"default": {"description": "OK"}},
+                },
+            },
+        },
+        components=_tool_components(tag_keyword),
+    )
+    bodies = _discriminator_positive_bodies(ctx.openapi.from_full_schema(raw)["/r"]["POST"])
+    tags = {body["tools"]["type"] for body in bodies if isinstance(body.get("tools"), dict) and "type" in body["tools"]}
+    assert tags == expected_tags, f"expected {expected_tags}; got tags={tags}, bodies={bodies}"
+
+
+def test_discriminator_polymorphic_items_array_covers_each_branch(ctx):
+    raw = ctx.openapi.build_schema(
+        {
+            "/r": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["tools"],
+                                    "properties": {
+                                        "tools": {"type": "array", "items": {"$ref": "#/components/schemas/Tool"}},
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"default": {"description": "OK"}},
+                },
+            },
+        },
+        components=_tool_components("enum"),
+    )
+    bodies = _discriminator_positive_bodies(ctx.openapi.from_full_schema(raw)["/r"]["POST"])
+    tags = {
+        item["type"]
+        for body in bodies
+        if isinstance(body.get("tools"), list)
+        for item in body["tools"]
+        if isinstance(item, dict) and "type" in item
+    }
+    assert tags == {"function", "web_search"}, f"expected both branches; got tags={tags}, bodies={bodies}"
+
+
+def test_discriminator_explicit_mapping_overrides_branch_const(ctx):
+    # The mapping pins FunctionTool to "f-tag" (conflicts with its const "function" -> unsatisfiable),
+    # and WebSearchTool to "web_search" (matches its const). If the mapping correctly wins over the
+    # branch const, only the WebSearchTool branch is generatable.
+    components = _tool_components(
+        "const",
+        mapping={
+            "f-tag": "#/components/schemas/FunctionTool",
+            "web_search": "#/components/schemas/WebSearchTool",
+        },
+    )
+    raw = ctx.openapi.build_schema(
+        {
+            "/r": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["tools"],
+                                    "properties": {"tools": {"$ref": "#/components/schemas/Tool"}},
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"default": {"description": "OK"}},
+                },
+            },
+        },
+        components=components,
+    )
+    bodies = _discriminator_positive_bodies(ctx.openapi.from_full_schema(raw)["/r"]["POST"])
+    tags = {body["tools"]["type"] for body in bodies if isinstance(body.get("tools"), dict) and "type" in body["tools"]}
+    assert tags == {"web_search"}, f"mapping must override branch const; got tags={tags}, bodies={bodies}"

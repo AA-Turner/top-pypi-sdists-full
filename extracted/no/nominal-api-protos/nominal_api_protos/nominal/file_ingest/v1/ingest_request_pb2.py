@@ -22,13 +22,12 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 from nominal_api_protos.nominal.gen.v1 import alias_pb2 as nominal_dot_gen_dot_v1_dot_alias__pb2
 from nominal_api_protos.nominal.types.object_storage import handle_pb2 as nominal_dot_types_dot_object__storage_dot_handle__pb2
 from nominal_api_protos.nominal.types.time import timestamp_parsers_pb2 as nominal_dot_types_dot_time_dot_timestamp__parsers__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n+nominal/file_ingest/v1/ingest_request.proto\x12\x16nominal.file_ingest.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1anominal/gen/v1/alias.proto\x1a)nominal/types/object_storage/handle.proto\x1a*nominal/types/time/timestamp_parsers.proto\"\xe3\x06\n\x11IngestFileRequest\x12@\n\x0eingest_job_rid\x18\x01 \x01(\tB(\x9a\xb2\x1a$\n\"io.nominal.ingest.api.IngestJobRid\x12\x42\n\x0f\x64\x61taset_file_id\x18\x02 \x01(\tB)\x9a\xb2\x1a%\n#io.nominal.datasource.DatasetFileId\x12\x39\n\x0b\x64\x61taset_rid\x18\x03 \x01(\tB$\x9a\xb2\x1a \n\x1eio.nominal.api.rids.DatasetRid\x12;\n\x07org_rid\x18\x04 \x01(\tB*\x9a\xb2\x1a&\n$io.nominal.authentication.api.OrgRid\x12=\n\rworkspace_rid\x18\x05 \x01(\tB&\x9a\xb2\x1a\"\n io.nominal.api.rids.WorkspaceRid\x12\x34\n\x06handle\x18\x06 \x01(\x0b\x32$.nominal.types.object_storage.Handle\x12\x45\n\x12timestamp_metadata\x18\x07 \x01(\x0b\x32).nominal.file_ingest.v1.TimestampMetadata\x12\x8d\x01\n\x0f\x61\x64\x64itional_tags\x18\x08 \x03(\x0b\x32=.nominal.file_ingest.v1.IngestFileRequest.AdditionalTagsEntryB5\x9a\xb2\x1a\x31\x12\x16io.nominal.api.TagName\x1a\x17io.nominal.api.TagValue\x12;\n\nlog_ingest\x18\t \x01(\x0b\x32%.nominal.file_ingest.v1.LogFileIngestH\x00\x12=\n\x0b\x64\x61ta_ingest\x18\n \x01(\x0b\x32&.nominal.file_ingest.v1.DataFileIngestH\x00\x12\x33\n\x0f\x66ile_created_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\nis_primary\x18\x0c \x01(\x08\x1a\x35\n\x13\x41\x64\x64itionalTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x08\n\x06ingest\"B\n\rLogFileIngest\x12\x31\n\x0blog_channel\x18\x01 \x01(\tB\x1c\x9a\xb2\x1a\x18\n\x16io.nominal.api.Channel\"\x93\x03\n\x0e\x44\x61taFileIngest\x12\x35\n\twide_opts\x18\x01 \x01(\x0b\x32 .nominal.file_ingest.v1.WideOptsH\x00\x12\x35\n\tlong_opts\x18\x02 \x01(\x0b\x32 .nominal.file_ingest.v1.LongOptsH\x00\x12\x37\n\nbatch_opts\x18\x03 \x01(\x0b\x32!.nominal.file_ingest.v1.BatchOptsH\x00\x12s\n\x05units\x18\x04 \x03(\x0b\x32\x31.nominal.file_ingest.v1.DataFileIngest.UnitsEntryB1\x9a\xb2\x1a-\x12\x16io.nominal.api.Channel\x1a\x13io.nominal.api.Unit\x12\x1b\n\x0e\x63hannel_prefix\x18\x05 \x01(\tH\x01\x88\x01\x01\x1a,\n\nUnitsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x07\n\x05shapeB\x11\n\x0f_channel_prefix\"\xaa\x03\n\x08WideOpts\x12\x33\n\x08\x63sv_opts\x18\x01 \x01(\x0b\x32\x1f.nominal.file_ingest.v1.CsvOptsH\x00\x12;\n\x0cparquet_opts\x18\x02 \x01(\x0b\x32#.nominal.file_ingest.v1.ParquetOptsH\x00\x12\x35\n\tavro_opts\x18\x03 \x01(\x0b\x32 .nominal.file_ingest.v1.AvroOptsH\x00\x12~\n\x0btag_columns\x18\x04 \x03(\x0b\x32\x30.nominal.file_ingest.v1.WideOpts.TagColumnsEntryB7\x9a\xb2\x1a\x33\x12\x16io.nominal.api.TagName\x1a\x19io.nominal.api.ColumnName\x12\x38\n\x0f\x65xclude_columns\x18\x05 \x03(\tB\x1f\x9a\xb2\x1a\x1b\n\x19io.nominal.api.ColumnName\x1a\x31\n\x0fTagColumnsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x08\n\x06\x66ormat\"\xf8\x02\n\x08LongOpts\x12\x33\n\x08\x63sv_opts\x18\x01 \x01(\x0b\x32\x1f.nominal.file_ingest.v1.CsvOptsH\x00\x12;\n\x0cparquet_opts\x18\x02 \x01(\x0b\x32#.nominal.file_ingest.v1.ParquetOptsH\x00\x12\x35\n\tavro_opts\x18\x03 \x01(\x0b\x32 .nominal.file_ingest.v1.AvroOptsH\x00\x12\x37\n\x0e\x63hannel_column\x18\x04 \x01(\tB\x1f\x9a\xb2\x1a\x1b\n\x19io.nominal.api.ColumnName\x12\x35\n\x0cvalue_column\x18\x05 \x01(\tB\x1f\x9a\xb2\x1a\x1b\n\x19io.nominal.api.ColumnName\x12\x39\n\x0btags_column\x18\x06 \x01(\tB\x1f\x9a\xb2\x1a\x1b\n\x19io.nominal.api.ColumnNameH\x01\x88\x01\x01\x42\x08\n\x06\x66ormatB\x0e\n\x0c_tags_column\"\xbf\x02\n\tBatchOpts\x12\x35\n\tavro_opts\x18\x01 \x01(\x0b\x32 .nominal.file_ingest.v1.AvroOptsH\x00\x12\x36\n\rchannel_field\x18\x02 \x01(\tB\x1f\x9a\xb2\x1a\x1b\n\x19io.nominal.api.ColumnName\x12\x39\n\x10timestamps_field\x18\x03 \x01(\tB\x1f\x9a\xb2\x1a\x1b\n\x19io.nominal.api.ColumnName\x12\x35\n\x0cvalues_field\x18\x04 \x01(\tB\x1f\x9a\xb2\x1a\x1b\n\x19io.nominal.api.ColumnName\x12\x38\n\ntags_field\x18\x05 \x01(\tB\x1f\x9a\xb2\x1a\x1b\n\x19io.nominal.api.ColumnNameH\x01\x88\x01\x01\x42\x08\n\x06\x66ormatB\r\n\x0b_tags_field\"u\n\x11TimestampMetadata\x12/\n\x06\x63olumn\x18\x01 \x01(\tB\x1f\x9a\xb2\x1a\x1b\n\x19io.nominal.api.ColumnName\x12/\n\x04type\x18\x02 \x01(\x0b\x32!.nominal.types.time.TimestampType\"\t\n\x07\x43svOpts\"\r\n\x0bParquetOpts\"\n\n\x08\x41vroOptsB\x1d\n\x19io.nominal.file_ingest.v1P\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n+nominal/file_ingest/v1/ingest_request.proto\x12\x16nominal.file_ingest.v1\x1a\x1anominal/gen/v1/alias.proto\x1a)nominal/types/object_storage/handle.proto\x1a*nominal/types/time/timestamp_parsers.proto\"\xae\x06\n\x11IngestFileRequest\x12@\n\x0eingest_job_rid\x18\x01 \x01(\tB(\x9a\xb2\x1a$\n\"io.nominal.ingest.api.IngestJobRid\x12\x42\n\x0f\x64\x61taset_file_id\x18\x02 \x01(\tB)\x9a\xb2\x1a%\n#io.nominal.datasource.DatasetFileId\x12\x39\n\x0b\x64\x61taset_rid\x18\x03 \x01(\tB$\x9a\xb2\x1a \n\x1eio.nominal.api.rids.DatasetRid\x12;\n\x07org_rid\x18\x04 \x01(\tB*\x9a\xb2\x1a&\n$io.nominal.authentication.api.OrgRid\x12=\n\rworkspace_rid\x18\x05 \x01(\tB&\x9a\xb2\x1a\"\n io.nominal.api.rids.WorkspaceRid\x12\x34\n\x06handle\x18\x06 \x01(\x0b\x32$.nominal.types.object_storage.Handle\x12\x45\n\x12timestamp_metadata\x18\x07 \x01(\x0b\x32).nominal.file_ingest.v1.TimestampMetadata\x12\x8d\x01\n\x0f\x61\x64\x64itional_tags\x18\x08 \x03(\x0b\x32=.nominal.file_ingest.v1.IngestFileRequest.AdditionalTagsEntryB5\x9a\xb2\x1a\x31\x12\x16io.nominal.api.TagName\x1a\x17io.nominal.api.TagValue\x12;\n\nlog_ingest\x18\t \x01(\x0b\x32%.nominal.file_ingest.v1.LogFileIngestH\x00\x12=\n\x0b\x64\x61ta_ingest\x18\n \x01(\x0b\x32&.nominal.file_ingest.v1.DataFileIngestH\x00\x12\x12\n\nis_primary\x18\x0c \x01(\x08\x1a\x35\n\x13\x41\x64\x64itionalTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x08\n\x06ingest\"B\n\rLogFileIngest\x12\x31\n\x0blog_channel\x18\x01 \x01(\tB\x1c\x9a\xb2\x1a\x18\n\x16io.nominal.api.Channel\"\x93\x03\n\x0e\x44\x61taFileIngest\x12\x35\n\twide_opts\x18\x01 \x01(\x0b\x32 .nominal.file_ingest.v1.WideOptsH\x00\x12\x35\n\tlong_opts\x18\x02 \x01(\x0b\x32 .nominal.file_ingest.v1.LongOptsH\x00\x12\x37\n\nbatch_opts\x18\x03 \x01(\x0b\x32!.nominal.file_ingest.v1.BatchOptsH\x00\x12s\n\x05units\x18\x04 \x03(\x0b\x32\x31.nominal.file_ingest.v1.DataFileIngest.UnitsEntryB1\x9a\xb2\x1a-\x12\x16io.nominal.api.Channel\x1a\x13io.nominal.api.Unit\x12\x1b\n\x0e\x63hannel_prefix\x18\x05 \x01(\tH\x01\x88\x01\x01\x1a,\n\nUnitsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x07\n\x05shapeB\x11\n\x0f_channel_prefix\"\xaa\x03\n\x08WideOpts\x12\x33\n\x08\x63sv_opts\x18\x01 \x01(\x0b\x32\x1f.nominal.file_ingest.v1.CsvOptsH\x00\x12;\n\x0cparquet_opts\x18\x02 \x01(\x0b\x32#.nominal.file_ingest.v1.ParquetOptsH\x00\x12\x35\n\tavro_opts\x18\x03 \x01(\x0b\x32 .nominal.file_ingest.v1.AvroOptsH\x00\x12~\n\x0btag_columns\x18\x04 \x03(\x0b\x32\x30.nominal.file_ingest.v1.WideOpts.TagColumnsEntryB7\x9a\xb2\x1a\x33\x12\x16io.nominal.api.TagName\x1a\x19io.nominal.api.ColumnName\x12\x38\n\x0f\x65xclude_columns\x18\x05 \x03(\tB\x1f\x9a\xb2\x1a\x1b\n\x19io.nominal.api.ColumnName\x1a\x31\n\x0fTagColumnsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x08\n\x06\x66ormat\"\xf8\x02\n\x08LongOpts\x12\x33\n\x08\x63sv_opts\x18\x01 \x01(\x0b\x32\x1f.nominal.file_ingest.v1.CsvOptsH\x00\x12;\n\x0cparquet_opts\x18\x02 \x01(\x0b\x32#.nominal.file_ingest.v1.ParquetOptsH\x00\x12\x35\n\tavro_opts\x18\x03 \x01(\x0b\x32 .nominal.file_ingest.v1.AvroOptsH\x00\x12\x37\n\x0e\x63hannel_column\x18\x04 \x01(\tB\x1f\x9a\xb2\x1a\x1b\n\x19io.nominal.api.ColumnName\x12\x35\n\x0cvalue_column\x18\x05 \x01(\tB\x1f\x9a\xb2\x1a\x1b\n\x19io.nominal.api.ColumnName\x12\x39\n\x0btags_column\x18\x06 \x01(\tB\x1f\x9a\xb2\x1a\x1b\n\x19io.nominal.api.ColumnNameH\x01\x88\x01\x01\x42\x08\n\x06\x66ormatB\x0e\n\x0c_tags_column\"\xbf\x02\n\tBatchOpts\x12\x35\n\tavro_opts\x18\x01 \x01(\x0b\x32 .nominal.file_ingest.v1.AvroOptsH\x00\x12\x36\n\rchannel_field\x18\x02 \x01(\tB\x1f\x9a\xb2\x1a\x1b\n\x19io.nominal.api.ColumnName\x12\x39\n\x10timestamps_field\x18\x03 \x01(\tB\x1f\x9a\xb2\x1a\x1b\n\x19io.nominal.api.ColumnName\x12\x35\n\x0cvalues_field\x18\x04 \x01(\tB\x1f\x9a\xb2\x1a\x1b\n\x19io.nominal.api.ColumnName\x12\x38\n\ntags_field\x18\x05 \x01(\tB\x1f\x9a\xb2\x1a\x1b\n\x19io.nominal.api.ColumnNameH\x01\x88\x01\x01\x42\x08\n\x06\x66ormatB\r\n\x0b_tags_field\"u\n\x11TimestampMetadata\x12/\n\x06\x63olumn\x18\x01 \x01(\tB\x1f\x9a\xb2\x1a\x1b\n\x19io.nominal.api.ColumnName\x12/\n\x04type\x18\x02 \x01(\x0b\x32!.nominal.types.time.TimestampType\"\t\n\x07\x43svOpts\"\r\n\x0bParquetOpts\"\n\n\x08\x41vroOptsB\x1d\n\x19io.nominal.file_ingest.v1P\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -78,30 +77,30 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_BATCHOPTS'].fields_by_name['tags_field']._serialized_options = b'\232\262\032\033\n\031io.nominal.api.ColumnName'
   _globals['_TIMESTAMPMETADATA'].fields_by_name['column']._loaded_options = None
   _globals['_TIMESTAMPMETADATA'].fields_by_name['column']._serialized_options = b'\232\262\032\033\n\031io.nominal.api.ColumnName'
-  _globals['_INGESTFILEREQUEST']._serialized_start=220
-  _globals['_INGESTFILEREQUEST']._serialized_end=1087
-  _globals['_INGESTFILEREQUEST_ADDITIONALTAGSENTRY']._serialized_start=1024
-  _globals['_INGESTFILEREQUEST_ADDITIONALTAGSENTRY']._serialized_end=1077
-  _globals['_LOGFILEINGEST']._serialized_start=1089
-  _globals['_LOGFILEINGEST']._serialized_end=1155
-  _globals['_DATAFILEINGEST']._serialized_start=1158
-  _globals['_DATAFILEINGEST']._serialized_end=1561
-  _globals['_DATAFILEINGEST_UNITSENTRY']._serialized_start=1489
-  _globals['_DATAFILEINGEST_UNITSENTRY']._serialized_end=1533
-  _globals['_WIDEOPTS']._serialized_start=1564
-  _globals['_WIDEOPTS']._serialized_end=1990
-  _globals['_WIDEOPTS_TAGCOLUMNSENTRY']._serialized_start=1931
-  _globals['_WIDEOPTS_TAGCOLUMNSENTRY']._serialized_end=1980
-  _globals['_LONGOPTS']._serialized_start=1993
-  _globals['_LONGOPTS']._serialized_end=2369
-  _globals['_BATCHOPTS']._serialized_start=2372
-  _globals['_BATCHOPTS']._serialized_end=2691
-  _globals['_TIMESTAMPMETADATA']._serialized_start=2693
-  _globals['_TIMESTAMPMETADATA']._serialized_end=2810
-  _globals['_CSVOPTS']._serialized_start=2812
-  _globals['_CSVOPTS']._serialized_end=2821
-  _globals['_PARQUETOPTS']._serialized_start=2823
-  _globals['_PARQUETOPTS']._serialized_end=2836
-  _globals['_AVROOPTS']._serialized_start=2838
-  _globals['_AVROOPTS']._serialized_end=2848
+  _globals['_INGESTFILEREQUEST']._serialized_start=187
+  _globals['_INGESTFILEREQUEST']._serialized_end=1001
+  _globals['_INGESTFILEREQUEST_ADDITIONALTAGSENTRY']._serialized_start=938
+  _globals['_INGESTFILEREQUEST_ADDITIONALTAGSENTRY']._serialized_end=991
+  _globals['_LOGFILEINGEST']._serialized_start=1003
+  _globals['_LOGFILEINGEST']._serialized_end=1069
+  _globals['_DATAFILEINGEST']._serialized_start=1072
+  _globals['_DATAFILEINGEST']._serialized_end=1475
+  _globals['_DATAFILEINGEST_UNITSENTRY']._serialized_start=1403
+  _globals['_DATAFILEINGEST_UNITSENTRY']._serialized_end=1447
+  _globals['_WIDEOPTS']._serialized_start=1478
+  _globals['_WIDEOPTS']._serialized_end=1904
+  _globals['_WIDEOPTS_TAGCOLUMNSENTRY']._serialized_start=1845
+  _globals['_WIDEOPTS_TAGCOLUMNSENTRY']._serialized_end=1894
+  _globals['_LONGOPTS']._serialized_start=1907
+  _globals['_LONGOPTS']._serialized_end=2283
+  _globals['_BATCHOPTS']._serialized_start=2286
+  _globals['_BATCHOPTS']._serialized_end=2605
+  _globals['_TIMESTAMPMETADATA']._serialized_start=2607
+  _globals['_TIMESTAMPMETADATA']._serialized_end=2724
+  _globals['_CSVOPTS']._serialized_start=2726
+  _globals['_CSVOPTS']._serialized_end=2735
+  _globals['_PARQUETOPTS']._serialized_start=2737
+  _globals['_PARQUETOPTS']._serialized_end=2750
+  _globals['_AVROOPTS']._serialized_start=2752
+  _globals['_AVROOPTS']._serialized_end=2762
 # @@protoc_insertion_point(module_scope)

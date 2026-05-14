@@ -1,0 +1,46 @@
+#!/usr/bin/env python
+# =========================================================================
+#
+#  Copyright NumFOCUS
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0.txt
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+# =========================================================================
+
+""" An example script using SimpleITK's ExtractImageFilter to extact a slice from a 3D image. """
+
+import sys
+import os
+import SimpleITK as sitk
+
+if len(sys.argv) != 4:
+    print(f"Usage: {sys.argv[0]} inputImage sliceNumber outputImage")
+    sys.exit(1)
+
+zslice = int(sys.argv[2])
+
+inputImage = sitk.ReadImage(str(sys.argv[1]))
+
+size = list(inputImage.GetSize())
+size[2] = 0
+
+index = [0, 0, zslice]
+
+Extractor = sitk.ExtractImageFilter()
+Extractor.SetSize(size)
+Extractor.SetIndex(index)
+
+sitk.WriteImage(Extractor.Execute(inputImage), str(sys.argv[3]))
+
+if "SITK_NOSHOW" not in os.environ:
+    sitk.Show(Extractor.Execute(inputImage))

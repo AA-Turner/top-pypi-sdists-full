@@ -49,27 +49,14 @@ def _retry_on_errors(retry_for: list[Type[Exception]], exc: BaseException) -> bo
 
 def _parse_integration_credential(ic: Any) -> Any:
     """Re-import helper to avoid circular dep on runner.py at module level."""
-    from .integration import IntegrationCredentials, KNOWN_SECRET_INTEGRATIONS, MODE_PIPEDREAM
+    from .integration import credentials_from_wire
 
-    is_secret = ic.type in KNOWN_SECRET_INTEGRATIONS or ic.token_type in {
-        "fields",
-        MODE_PIPEDREAM,
-    }
-    secret_fields: dict[str, str] = {}
-    if is_secret and ic.access_token:
-        try:
-            parsed = json.loads(ic.access_token)
-            if isinstance(parsed, dict):
-                secret_fields = parsed
-        except (json.JSONDecodeError, TypeError):
-            pass
-
-    return IntegrationCredentials(
-        access_token="" if secret_fields else ic.access_token,
-        token_type=ic.token_type or "bearer",
+    return credentials_from_wire(
+        integration_type=ic.type,
+        access_token=ic.access_token,
+        token_type=ic.token_type,
         scopes=list(ic.scopes),
         expires_at=ic.expires_at,
-        fields=secret_fields,
     )
 
 

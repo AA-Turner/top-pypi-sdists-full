@@ -15,7 +15,7 @@ logging.addLevelName(TRACE, 'TRACE')
 # note: Logger classes should never be instantiated directly
 class _BioLibLogger(logging.Logger):
     def __init__(self, name: str, level=logging.INFO):
-        super(_BioLibLogger, self).__init__(name=name, level=level)
+        super().__init__(name=name, level=level)
 
     def configure(self, default_log_level):
         env_log_level = os.getenv('BIOLIB_LOG')
@@ -27,7 +27,7 @@ class _BioLibLogger(logging.Logger):
     def setLevel(self, level) -> None:
         try:
             normalized_level = level.upper() if isinstance(level, str) else level
-            super(_BioLibLogger, self).setLevel(normalized_level)
+            super().setLevel(normalized_level)
         except ValueError:
             raise Exception(f'Unknown log level "{level}"') from None
 

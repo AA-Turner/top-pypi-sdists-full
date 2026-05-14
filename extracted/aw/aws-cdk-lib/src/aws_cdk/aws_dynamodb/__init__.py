@@ -1026,6 +1026,50 @@ This behavior follows the same pattern as other AWS services like KMS and S3, wh
 
 **To avoid wildcards in resource policies:** If you need scoped resource ARNs instead of wildcards, use `addToResourcePolicy()` directly with an explicit table name instead of grant methods. See the "Scoped Resource Policies (Advanced)" section above for details.
 
+### Stream Resource Policy
+
+You can attach a resource policy to a DynamoDB stream using `streamResourcePolicy`. This applies per-replica, so you can set different policies for the primary table and each replica:
+
+```python
+stream_policy = iam.PolicyDocument(
+    statements=[
+        iam.PolicyStatement(
+            actions=["dynamodb:DescribeStream", "dynamodb:GetRecords", "dynamodb:GetShardIterator"],
+            principals=[iam.AccountRootPrincipal()],
+            resources=["*"]
+        )
+    ]
+)
+
+dynamodb.TableV2(self, "GlobalTable",
+    partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
+    dynamo_stream=dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
+    stream_resource_policy=stream_policy,
+    replicas=[dynamodb.ReplicaTableProps(
+        region="us-west-2",
+        stream_resource_policy=stream_policy
+    )
+    ]
+)
+```
+
+You can also add stream resource policy statements dynamically using `addToStreamResourcePolicy`:
+
+```python
+table = dynamodb.TableV2(self, "Table",
+    partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
+    dynamo_stream=dynamodb.StreamViewType.NEW_AND_OLD_IMAGES
+)
+
+table.add_to_stream_resource_policy(iam.PolicyStatement(
+    actions=["dynamodb:DescribeStream", "dynamodb:GetRecords", "dynamodb:GetShardIterator"],
+    principals=[iam.AccountRootPrincipal()],
+    resources=["*"]
+))
+```
+
+Note: `addToStreamResourcePolicy` applies to the primary table's stream only. To set a stream resource policy on a replica, pass `streamResourcePolicy` in the replica props.
+
 ## Grants
 
 Using any of the `grant*` methods on an instance of the `TableV2` construct will only apply to the primary table, its indexes, and any associated `encryptionKey`. As an example, `grantReadData` used below will only apply the table in `us-west-2`:
@@ -15040,6 +15084,7 @@ class TableOptions(SchemaOptions):
         "point_in_time_recovery": "pointInTimeRecovery",
         "point_in_time_recovery_specification": "pointInTimeRecoverySpecification",
         "resource_policy": "resourcePolicy",
+        "stream_resource_policy": "streamResourcePolicy",
         "table_class": "tableClass",
         "tags": "tags",
     },
@@ -15055,6 +15100,7 @@ class TableOptionsV2:
         point_in_time_recovery: typing.Optional[builtins.bool] = None,
         point_in_time_recovery_specification: typing.Optional[typing.Union["PointInTimeRecoverySpecification", typing.Dict[builtins.str, typing.Any]]] = None,
         resource_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
+        stream_resource_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
         table_class: typing.Optional["TableClass"] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -15067,6 +15113,7 @@ class TableOptionsV2:
         :param point_in_time_recovery: (deprecated) Whether point-in-time recovery is enabled. Default: false - point in time recovery is not enabled.
         :param point_in_time_recovery_specification: Whether point-in-time recovery is enabled and recoveryPeriodInDays is set. Default: - point in time recovery is not enabled.
         :param resource_policy: Resource policy to assign to DynamoDB Table. Default: - No resource policy statements are added to the created table.
+        :param stream_resource_policy: Resource policy to assign to DynamoDB Stream. Default: - No resource policy statements are added to the stream.
         :param table_class: The table class. Default: TableClass.STANDARD
         :param tags: Tags to be applied to the primary table (default replica table). Default: - no tags
 
@@ -15102,6 +15149,7 @@ class TableOptionsV2:
                     recovery_period_in_days=123
                 ),
                 resource_policy=policy_document,
+                stream_resource_policy=policy_document,
                 table_class=dynamodb.TableClass.STANDARD,
                 tags=[CfnTag(
                     key="key",
@@ -15122,6 +15170,7 @@ class TableOptionsV2:
             check_type(argname="argument point_in_time_recovery", value=point_in_time_recovery, expected_type=type_hints["point_in_time_recovery"])
             check_type(argname="argument point_in_time_recovery_specification", value=point_in_time_recovery_specification, expected_type=type_hints["point_in_time_recovery_specification"])
             check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
+            check_type(argname="argument stream_resource_policy", value=stream_resource_policy, expected_type=type_hints["stream_resource_policy"])
             check_type(argname="argument table_class", value=table_class, expected_type=type_hints["table_class"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -15139,6 +15188,8 @@ class TableOptionsV2:
             self._values["point_in_time_recovery_specification"] = point_in_time_recovery_specification
         if resource_policy is not None:
             self._values["resource_policy"] = resource_policy
+        if stream_resource_policy is not None:
+            self._values["stream_resource_policy"] = stream_resource_policy
         if table_class is not None:
             self._values["table_class"] = table_class
         if tags is not None:
@@ -15219,6 +15270,17 @@ class TableOptionsV2:
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-resourcepolicy
         '''
         result = self._values.get("resource_policy")
+        return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], result)
+
+    @builtins.property
+    def stream_resource_policy(self) -> typing.Optional["_PolicyDocument_3ac34393"]:
+        '''Resource policy to assign to DynamoDB Stream.
+
+        :default: - No resource policy statements are added to the stream.
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicastreamspecification.html#cfn-dynamodb-globaltable-replicastreamspecification-resourcepolicy
+        '''
+        result = self._values.get("stream_resource_policy")
         return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], result)
 
     @builtins.property
@@ -15833,6 +15895,7 @@ class TableProps(TableOptions):
         "point_in_time_recovery": "pointInTimeRecovery",
         "point_in_time_recovery_specification": "pointInTimeRecoverySpecification",
         "resource_policy": "resourcePolicy",
+        "stream_resource_policy": "streamResourcePolicy",
         "table_class": "tableClass",
         "tags": "tags",
         "partition_key": "partitionKey",
@@ -15863,6 +15926,7 @@ class TablePropsV2(TableOptionsV2):
         point_in_time_recovery: typing.Optional[builtins.bool] = None,
         point_in_time_recovery_specification: typing.Optional[typing.Union["PointInTimeRecoverySpecification", typing.Dict[builtins.str, typing.Any]]] = None,
         resource_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
+        stream_resource_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
         table_class: typing.Optional["TableClass"] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         partition_key: typing.Union["Attribute", typing.Dict[builtins.str, typing.Any]],
@@ -15890,6 +15954,7 @@ class TablePropsV2(TableOptionsV2):
         :param point_in_time_recovery: (deprecated) Whether point-in-time recovery is enabled. Default: false - point in time recovery is not enabled.
         :param point_in_time_recovery_specification: Whether point-in-time recovery is enabled and recoveryPeriodInDays is set. Default: - point in time recovery is not enabled.
         :param resource_policy: Resource policy to assign to DynamoDB Table. Default: - No resource policy statements are added to the created table.
+        :param stream_resource_policy: Resource policy to assign to DynamoDB Stream. Default: - No resource policy statements are added to the stream.
         :param table_class: The table class. Default: TableClass.STANDARD
         :param tags: Tags to be applied to the primary table (default replica table). Default: - no tags
         :param partition_key: Partition key attribute definition.
@@ -15921,8 +15986,9 @@ class TablePropsV2(TableOptionsV2):
             mrsc_table = dynamodb.TableV2(stack, "MRSCTable",
                 partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
                 multi_region_consistency=dynamodb.MultiRegionConsistency.STRONG,
-                replicas=[dynamodb.ReplicaTableProps(region="us-east-1"), dynamodb.ReplicaTableProps(region="us-east-2")
-                ]
+                replicas=[dynamodb.ReplicaTableProps(region="us-east-1")
+                ],
+                witness_region="us-east-2"
             )
         '''
         if isinstance(contributor_insights_specification, dict):
@@ -15944,6 +16010,7 @@ class TablePropsV2(TableOptionsV2):
             check_type(argname="argument point_in_time_recovery", value=point_in_time_recovery, expected_type=type_hints["point_in_time_recovery"])
             check_type(argname="argument point_in_time_recovery_specification", value=point_in_time_recovery_specification, expected_type=type_hints["point_in_time_recovery_specification"])
             check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
+            check_type(argname="argument stream_resource_policy", value=stream_resource_policy, expected_type=type_hints["stream_resource_policy"])
             check_type(argname="argument table_class", value=table_class, expected_type=type_hints["table_class"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument partition_key", value=partition_key, expected_type=type_hints["partition_key"])
@@ -15978,6 +16045,8 @@ class TablePropsV2(TableOptionsV2):
             self._values["point_in_time_recovery_specification"] = point_in_time_recovery_specification
         if resource_policy is not None:
             self._values["resource_policy"] = resource_policy
+        if stream_resource_policy is not None:
+            self._values["stream_resource_policy"] = stream_resource_policy
         if table_class is not None:
             self._values["table_class"] = table_class
         if tags is not None:
@@ -16086,6 +16155,17 @@ class TablePropsV2(TableOptionsV2):
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-resourcepolicy
         '''
         result = self._values.get("resource_policy")
+        return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], result)
+
+    @builtins.property
+    def stream_resource_policy(self) -> typing.Optional["_PolicyDocument_3ac34393"]:
+        '''Resource policy to assign to DynamoDB Stream.
+
+        :default: - No resource policy statements are added to the stream.
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicastreamspecification.html#cfn-dynamodb-globaltable-replicastreamspecification-resourcepolicy
+        '''
+        result = self._values.get("stream_resource_policy")
         return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], result)
 
     @builtins.property
@@ -16334,6 +16414,7 @@ class TableV2(
         point_in_time_recovery: typing.Optional[builtins.bool] = None,
         point_in_time_recovery_specification: typing.Optional[typing.Union["PointInTimeRecoverySpecification", typing.Dict[builtins.str, typing.Any]]] = None,
         resource_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
+        stream_resource_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
         table_class: typing.Optional["TableClass"] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -16362,6 +16443,7 @@ class TableV2(
         :param point_in_time_recovery: (deprecated) Whether point-in-time recovery is enabled. Default: false - point in time recovery is not enabled.
         :param point_in_time_recovery_specification: Whether point-in-time recovery is enabled and recoveryPeriodInDays is set. Default: - point in time recovery is not enabled.
         :param resource_policy: Resource policy to assign to DynamoDB Table. Default: - No resource policy statements are added to the created table.
+        :param stream_resource_policy: Resource policy to assign to DynamoDB Stream. Default: - No resource policy statements are added to the stream.
         :param table_class: The table class. Default: TableClass.STANDARD
         :param tags: Tags to be applied to the primary table (default replica table). Default: - no tags
         '''
@@ -16392,6 +16474,7 @@ class TableV2(
             point_in_time_recovery=point_in_time_recovery,
             point_in_time_recovery_specification=point_in_time_recovery_specification,
             resource_policy=resource_policy,
+            stream_resource_policy=stream_resource_policy,
             table_class=table_class,
             tags=tags,
         )
@@ -16579,6 +16662,7 @@ class TableV2(
         point_in_time_recovery: typing.Optional[builtins.bool] = None,
         point_in_time_recovery_specification: typing.Optional[typing.Union["PointInTimeRecoverySpecification", typing.Dict[builtins.str, typing.Any]]] = None,
         resource_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
+        stream_resource_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
         table_class: typing.Optional["TableClass"] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -16597,6 +16681,7 @@ class TableV2(
         :param point_in_time_recovery: (deprecated) Whether point-in-time recovery is enabled. Default: false - point in time recovery is not enabled.
         :param point_in_time_recovery_specification: Whether point-in-time recovery is enabled and recoveryPeriodInDays is set. Default: - point in time recovery is not enabled.
         :param resource_policy: Resource policy to assign to DynamoDB Table. Default: - No resource policy statements are added to the created table.
+        :param stream_resource_policy: Resource policy to assign to DynamoDB Stream. Default: - No resource policy statements are added to the stream.
         :param table_class: The table class. Default: TableClass.STANDARD
         :param tags: Tags to be applied to the primary table (default replica table). Default: - no tags
         '''
@@ -16612,6 +16697,7 @@ class TableV2(
             point_in_time_recovery=point_in_time_recovery,
             point_in_time_recovery_specification=point_in_time_recovery_specification,
             resource_policy=resource_policy,
+            stream_resource_policy=stream_resource_policy,
             table_class=table_class,
             tags=tags,
         )
@@ -16635,6 +16721,24 @@ class TableV2(
             type_hints = typing.get_type_hints(_typecheckingstub__3b1216d49044543b59bb31b8cbf4866b8c803b0f0801c1170ed12229f1643c37)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement]))
+
+    @jsii.member(jsii_name="addToStreamResourcePolicy")
+    def add_to_stream_resource_policy(
+        self,
+        statement: "_PolicyStatement_0fe33853",
+    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        '''Adds a statement to the resource policy associated with this table's stream.
+
+        A stream resource policy will be automatically created upon the first call to ``addToStreamResourcePolicy``.
+
+        Note that this does not work with imported tables.
+
+        :param statement: The policy statement to add.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ae45981c606ba843d7bfef829ee2dcf9e149b2332969a6952733bfccf510f53)
+            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
+        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToStreamResourcePolicy", [statement]))
 
     @jsii.member(jsii_name="replica")
     def replica(self, region: builtins.str) -> "ITableV2":
@@ -16725,6 +16829,22 @@ class TableV2(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="streamResourcePolicy")
+    def stream_resource_policy(self) -> typing.Optional["_PolicyDocument_3ac34393"]:
+        '''Resource policy associated with this table's stream.'''
+        return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], jsii.get(self, "streamResourcePolicy"))
+
+    @stream_resource_policy.setter
+    def stream_resource_policy(
+        self,
+        value: typing.Optional["_PolicyDocument_3ac34393"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e926a59d9befa27c7eb48aee7445d2065fc297f722e40ebc06fdff7f366f264f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "streamResourcePolicy", value) # pyright: ignore[reportArgumentType]
+
 
 class TableV2MultiAccountReplica(
     TableBaseV2,
@@ -16791,6 +16911,7 @@ class TableV2MultiAccountReplica(
         point_in_time_recovery: typing.Optional[builtins.bool] = None,
         point_in_time_recovery_specification: typing.Optional[typing.Union["PointInTimeRecoverySpecification", typing.Dict[builtins.str, typing.Any]]] = None,
         resource_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
+        stream_resource_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
         table_class: typing.Optional["TableClass"] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -16810,6 +16931,7 @@ class TableV2MultiAccountReplica(
         :param point_in_time_recovery: (deprecated) Whether point-in-time recovery is enabled. Default: false - point in time recovery is not enabled.
         :param point_in_time_recovery_specification: Whether point-in-time recovery is enabled and recoveryPeriodInDays is set. Default: - point in time recovery is not enabled.
         :param resource_policy: Resource policy to assign to DynamoDB Table. Default: - No resource policy statements are added to the created table.
+        :param stream_resource_policy: Resource policy to assign to DynamoDB Stream. Default: - No resource policy statements are added to the stream.
         :param table_class: The table class. Default: TableClass.STANDARD
         :param tags: Tags to be applied to the primary table (default replica table). Default: - no tags
         '''
@@ -16831,6 +16953,7 @@ class TableV2MultiAccountReplica(
             point_in_time_recovery=point_in_time_recovery,
             point_in_time_recovery_specification=point_in_time_recovery_specification,
             resource_policy=resource_policy,
+            stream_resource_policy=stream_resource_policy,
             table_class=table_class,
             tags=tags,
         )
@@ -16850,6 +16973,20 @@ class TableV2MultiAccountReplica(
             type_hints = typing.get_type_hints(_typecheckingstub__89d9d29d77162b4cc8596d1247faedcf174b68d83efb6ddb294c729272d1d7ed)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement]))
+
+    @jsii.member(jsii_name="addToStreamResourcePolicy")
+    def add_to_stream_resource_policy(
+        self,
+        statement: "_PolicyStatement_0fe33853",
+    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        '''Adds a statement to the resource policy associated with this table's stream.
+
+        :param statement: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__538d80ffdb57ef88fdce75e101e946b60055cf71f889bbbbf309083f8ff00d07)
+            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
+        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToStreamResourcePolicy", [statement]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -16928,6 +17065,22 @@ class TableV2MultiAccountReplica(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="streamResourcePolicy")
+    def stream_resource_policy(self) -> typing.Optional["_PolicyDocument_3ac34393"]:
+        '''Resource policy associated with this table's stream.'''
+        return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], jsii.get(self, "streamResourcePolicy"))
+
+    @stream_resource_policy.setter
+    def stream_resource_policy(
+        self,
+        value: typing.Optional["_PolicyDocument_3ac34393"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a1731264d75b7f73b07a1fa5fa428c82db704c1964283f3b0a5ded32703b25d8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "streamResourcePolicy", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_dynamodb.TableV2MultiAccountReplicaProps",
@@ -16940,6 +17093,7 @@ class TableV2MultiAccountReplica(
         "point_in_time_recovery": "pointInTimeRecovery",
         "point_in_time_recovery_specification": "pointInTimeRecoverySpecification",
         "resource_policy": "resourcePolicy",
+        "stream_resource_policy": "streamResourcePolicy",
         "table_class": "tableClass",
         "tags": "tags",
         "encryption": "encryption",
@@ -16961,6 +17115,7 @@ class TableV2MultiAccountReplicaProps(TableOptionsV2):
         point_in_time_recovery: typing.Optional[builtins.bool] = None,
         point_in_time_recovery_specification: typing.Optional[typing.Union["PointInTimeRecoverySpecification", typing.Dict[builtins.str, typing.Any]]] = None,
         resource_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
+        stream_resource_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
         table_class: typing.Optional["TableClass"] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         encryption: typing.Optional["TableEncryptionV2"] = None,
@@ -16982,6 +17137,7 @@ class TableV2MultiAccountReplicaProps(TableOptionsV2):
         :param point_in_time_recovery: (deprecated) Whether point-in-time recovery is enabled. Default: false - point in time recovery is not enabled.
         :param point_in_time_recovery_specification: Whether point-in-time recovery is enabled and recoveryPeriodInDays is set. Default: - point in time recovery is not enabled.
         :param resource_policy: Resource policy to assign to DynamoDB Table. Default: - No resource policy statements are added to the created table.
+        :param stream_resource_policy: Resource policy to assign to DynamoDB Stream. Default: - No resource policy statements are added to the stream.
         :param table_class: The table class. Default: TableClass.STANDARD
         :param tags: Tags to be applied to the primary table (default replica table). Default: - no tags
         :param encryption: The server-side encryption configuration for the replica table. Note: Each replica manages its own encryption independently. This is not synchronized across replicas. Default: TableEncryptionV2.dynamoOwnedKey()
@@ -17036,6 +17192,7 @@ class TableV2MultiAccountReplicaProps(TableOptionsV2):
             check_type(argname="argument point_in_time_recovery", value=point_in_time_recovery, expected_type=type_hints["point_in_time_recovery"])
             check_type(argname="argument point_in_time_recovery_specification", value=point_in_time_recovery_specification, expected_type=type_hints["point_in_time_recovery_specification"])
             check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
+            check_type(argname="argument stream_resource_policy", value=stream_resource_policy, expected_type=type_hints["stream_resource_policy"])
             check_type(argname="argument table_class", value=table_class, expected_type=type_hints["table_class"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
@@ -17059,6 +17216,8 @@ class TableV2MultiAccountReplicaProps(TableOptionsV2):
             self._values["point_in_time_recovery_specification"] = point_in_time_recovery_specification
         if resource_policy is not None:
             self._values["resource_policy"] = resource_policy
+        if stream_resource_policy is not None:
+            self._values["stream_resource_policy"] = stream_resource_policy
         if table_class is not None:
             self._values["table_class"] = table_class
         if tags is not None:
@@ -17151,6 +17310,17 @@ class TableV2MultiAccountReplicaProps(TableOptionsV2):
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-resourcepolicy
         '''
         result = self._values.get("resource_policy")
+        return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], result)
+
+    @builtins.property
+    def stream_resource_policy(self) -> typing.Optional["_PolicyDocument_3ac34393"]:
+        '''Resource policy to assign to DynamoDB Stream.
+
+        :default: - No resource policy statements are added to the stream.
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicastreamspecification.html#cfn-dynamodb-globaltable-replicastreamspecification-resourcepolicy
+        '''
+        result = self._values.get("stream_resource_policy")
         return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], result)
 
     @builtins.property
@@ -18548,6 +18718,7 @@ class OperationsMetricOptions(SystemErrorsForOperationsMetricOptions):
         "point_in_time_recovery": "pointInTimeRecovery",
         "point_in_time_recovery_specification": "pointInTimeRecoverySpecification",
         "resource_policy": "resourcePolicy",
+        "stream_resource_policy": "streamResourcePolicy",
         "table_class": "tableClass",
         "tags": "tags",
         "region": "region",
@@ -18567,6 +18738,7 @@ class ReplicaTableProps(TableOptionsV2):
         point_in_time_recovery: typing.Optional[builtins.bool] = None,
         point_in_time_recovery_specification: typing.Optional[typing.Union["PointInTimeRecoverySpecification", typing.Dict[builtins.str, typing.Any]]] = None,
         resource_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
+        stream_resource_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
         table_class: typing.Optional["TableClass"] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         region: builtins.str,
@@ -18583,6 +18755,7 @@ class ReplicaTableProps(TableOptionsV2):
         :param point_in_time_recovery: (deprecated) Whether point-in-time recovery is enabled. Default: false - point in time recovery is not enabled.
         :param point_in_time_recovery_specification: Whether point-in-time recovery is enabled and recoveryPeriodInDays is set. Default: - point in time recovery is not enabled.
         :param resource_policy: Resource policy to assign to DynamoDB Table. Default: - No resource policy statements are added to the created table.
+        :param stream_resource_policy: Resource policy to assign to DynamoDB Stream. Default: - No resource policy statements are added to the stream.
         :param table_class: The table class. Default: TableClass.STANDARD
         :param tags: Tags to be applied to the primary table (default replica table). Default: - no tags
         :param region: The region that the replica table will be created in.
@@ -18620,6 +18793,7 @@ class ReplicaTableProps(TableOptionsV2):
             check_type(argname="argument point_in_time_recovery", value=point_in_time_recovery, expected_type=type_hints["point_in_time_recovery"])
             check_type(argname="argument point_in_time_recovery_specification", value=point_in_time_recovery_specification, expected_type=type_hints["point_in_time_recovery_specification"])
             check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
+            check_type(argname="argument stream_resource_policy", value=stream_resource_policy, expected_type=type_hints["stream_resource_policy"])
             check_type(argname="argument table_class", value=table_class, expected_type=type_hints["table_class"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -18643,6 +18817,8 @@ class ReplicaTableProps(TableOptionsV2):
             self._values["point_in_time_recovery_specification"] = point_in_time_recovery_specification
         if resource_policy is not None:
             self._values["resource_policy"] = resource_policy
+        if stream_resource_policy is not None:
+            self._values["stream_resource_policy"] = stream_resource_policy
         if table_class is not None:
             self._values["table_class"] = table_class
         if tags is not None:
@@ -18729,6 +18905,17 @@ class ReplicaTableProps(TableOptionsV2):
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-resourcepolicy
         '''
         result = self._values.get("resource_policy")
+        return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], result)
+
+    @builtins.property
+    def stream_resource_policy(self) -> typing.Optional["_PolicyDocument_3ac34393"]:
+        '''Resource policy to assign to DynamoDB Stream.
+
+        :default: - No resource policy statements are added to the stream.
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicastreamspecification.html#cfn-dynamodb-globaltable-replicastreamspecification-resourcepolicy
+        '''
+        result = self._values.get("stream_resource_policy")
         return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], result)
 
     @builtins.property
@@ -20763,6 +20950,7 @@ def _typecheckingstub__1b65ee3c8ef5c3b632f4d1fad233252caadaa5f607c0fd92f49b64933
     point_in_time_recovery: typing.Optional[builtins.bool] = None,
     point_in_time_recovery_specification: typing.Optional[typing.Union[PointInTimeRecoverySpecification, typing.Dict[builtins.str, typing.Any]]] = None,
     resource_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
+    stream_resource_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
     table_class: typing.Optional[TableClass] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -20812,6 +21000,7 @@ def _typecheckingstub__205e5df85e01c6c2d91d5922a57e3ed5903027748a8b3222622bebd10
     point_in_time_recovery: typing.Optional[builtins.bool] = None,
     point_in_time_recovery_specification: typing.Optional[typing.Union[PointInTimeRecoverySpecification, typing.Dict[builtins.str, typing.Any]]] = None,
     resource_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
+    stream_resource_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
     table_class: typing.Optional[TableClass] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     partition_key: typing.Union[Attribute, typing.Dict[builtins.str, typing.Any]],
@@ -20859,6 +21048,7 @@ def _typecheckingstub__9ea47b003cdb497ff620f1410260696f97dbb2b00fa8558235f23771f
     point_in_time_recovery: typing.Optional[builtins.bool] = None,
     point_in_time_recovery_specification: typing.Optional[typing.Union[PointInTimeRecoverySpecification, typing.Dict[builtins.str, typing.Any]]] = None,
     resource_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
+    stream_resource_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
     table_class: typing.Optional[TableClass] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -20903,6 +21093,12 @@ def _typecheckingstub__3b1216d49044543b59bb31b8cbf4866b8c803b0f0801c1170ed12229f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9ae45981c606ba843d7bfef829ee2dcf9e149b2332969a6952733bfccf510f53(
+    statement: _PolicyStatement_0fe33853,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7cb08c3fe1f7c7db5d9459ba46cc1e0bd7ab496a45ecca2bb34f276862672708(
     region: builtins.str,
 ) -> None:
@@ -20910,6 +21106,12 @@ def _typecheckingstub__7cb08c3fe1f7c7db5d9459ba46cc1e0bd7ab496a45ecca2bb34f27686
     pass
 
 def _typecheckingstub__7c681fc6a08524e2909b1c97c77ad38edec11b1f8bd3f666a073a61c09638e19(
+    value: typing.Optional[_PolicyDocument_3ac34393],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e926a59d9befa27c7eb48aee7445d2065fc297f722e40ebc06fdff7f366f264f(
     value: typing.Optional[_PolicyDocument_3ac34393],
 ) -> None:
     """Type checking stubs"""
@@ -20932,6 +21134,7 @@ def _typecheckingstub__bddc8e0e51cce1292d490e765c3b74b0be1c084318743207cfd09dca0
     point_in_time_recovery: typing.Optional[builtins.bool] = None,
     point_in_time_recovery_specification: typing.Optional[typing.Union[PointInTimeRecoverySpecification, typing.Dict[builtins.str, typing.Any]]] = None,
     resource_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
+    stream_resource_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
     table_class: typing.Optional[TableClass] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -20944,7 +21147,19 @@ def _typecheckingstub__89d9d29d77162b4cc8596d1247faedcf174b68d83efb6ddb294c72927
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__538d80ffdb57ef88fdce75e101e946b60055cf71f889bbbbf309083f8ff00d07(
+    statement: _PolicyStatement_0fe33853,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3e867cd3b95f74fb19d4e40aeffd7b9068449e391b56096a093c16acbbad5164(
+    value: typing.Optional[_PolicyDocument_3ac34393],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1731264d75b7f73b07a1fa5fa428c82db704c1964283f3b0a5ded32703b25d8(
     value: typing.Optional[_PolicyDocument_3ac34393],
 ) -> None:
     """Type checking stubs"""
@@ -20959,6 +21174,7 @@ def _typecheckingstub__632a723da10d655047edc6c60b8be025b58e06223927f17ca0d17df88
     point_in_time_recovery: typing.Optional[builtins.bool] = None,
     point_in_time_recovery_specification: typing.Optional[typing.Union[PointInTimeRecoverySpecification, typing.Dict[builtins.str, typing.Any]]] = None,
     resource_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
+    stream_resource_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
     table_class: typing.Optional[TableClass] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     encryption: typing.Optional[TableEncryptionV2] = None,
@@ -21074,6 +21290,7 @@ def _typecheckingstub__7500a741eaeb840f48aaefcd8fc5fbbb8b1082165601116ca363e5ddb
     point_in_time_recovery: typing.Optional[builtins.bool] = None,
     point_in_time_recovery_specification: typing.Optional[typing.Union[PointInTimeRecoverySpecification, typing.Dict[builtins.str, typing.Any]]] = None,
     resource_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
+    stream_resource_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
     table_class: typing.Optional[TableClass] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     region: builtins.str,

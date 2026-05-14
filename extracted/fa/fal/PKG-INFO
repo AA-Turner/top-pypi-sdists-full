@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fal
-Version: 1.72.7
+Version: 1.73.0
 Summary: fal is an easy-to-use Serverless Python Framework
 Author: Features & Labels <support@fal.ai>
 Requires-Python: >=3.8
@@ -43,6 +43,7 @@ Requires-Dist: tomli<3,>2
 Requires-Dist: tomli-w<2,>=1
 Requires-Dist: fsspec
 Requires-Dist: tblib<3.2.0
+Requires-Dist: build<2,>=1.0
 Provides-Extra: docs
 Requires-Dist: sphinx<8.2.0; extra == "docs"
 Requires-Dist: sphinx-rtd-theme; extra == "docs"

@@ -261,7 +261,7 @@ class BiomeConfiguration:
 
         :param assist: (experimental) Specific configuration for assists.
         :param css: (experimental) Specific configuration for the Css language.
-        :param extends: (experimental) A list of paths to other JSON files, used to extends the current configuration.
+        :param extends: (experimental) A list of paths to other JSON files, used to extend the current configuration.
         :param files: (experimental) The configuration of the filesystem.
         :param formatter: (experimental) The configuration of the formatter.
         :param graphql: (experimental) Specific configuration for the GraphQL language.
@@ -375,7 +375,7 @@ class BiomeConfiguration:
 
     @builtins.property
     def extends(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) A list of paths to other JSON files, used to extends the current configuration.
+        '''(experimental) A list of paths to other JSON files, used to extend the current configuration.
 
         :stability: experimental
         :schema: BiomeConfiguration#extends

@@ -5,7 +5,7 @@ from ..._internal import profile_section
 from ._tween import Tween
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING, Type, ClassVar
 
 if TYPE_CHECKING:
     from ...scene import GuiLayer
@@ -15,8 +15,9 @@ if TYPE_CHECKING:
 class Behavior(ABC):
     """Class abstraite des comportements UI"""
     __slots__ = ("_owner", "_enabled", "_tweens")
-    _ID: str = "default"
-    _PRIORITY: int = 0
+
+    _ID: ClassVar[str] = "default"
+    _PRIORITY: ClassVar[int] = 0
 
     def __init__(self):
         self._owner: Widget = None

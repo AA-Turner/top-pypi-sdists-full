@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: knack
-Version: 0.13.0
+Version: 0.14.0
 Summary: A Command-Line Interface framework
 Home-page: https://github.com/microsoft/knack
 Author: Microsoft Corporation
@@ -11,11 +11,11 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: MIT License
 License-File: LICENSE
 Requires-Dist: argcomplete

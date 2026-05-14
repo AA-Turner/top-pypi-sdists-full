@@ -1,9 +1,9 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC
 
 # ======================================== ABSTRACT CLASS ========================================
 class Space(ABC):
-    """Classe abstraite pour les espaces"""
+    """Classe abstraite des espaces de rendu"""
     __slots__ = tuple()

@@ -5,5 +5,5 @@ from abc import ABC
 
 # ======================================== ABSTRACT CLASS ========================================
 class RenderObject(ABC):
-    """Classe abstraite des formes"""
+    """Classe abstraite des formes de rendu"""
     __slots__ = tuple()

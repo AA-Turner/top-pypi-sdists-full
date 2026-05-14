@@ -196,7 +196,8 @@ postgres_dialect.insert_lexer_matchers(
             # them. In future we may want to enhance this to actually parse them to
             # ensure they are valid meta commands.
             "meta_command",
-            r"\\(?!gset|gexec|copy\b|set\b)([^\\\r\n])+((\\\\)|(?=\n)|(?=\r\n))?",
+            r"\\(?!gset|gexec|crosstabview\b|copy\b|set\b)"
+            r"([^\\\r\n])+((\\\\)|(?=\n)|(?=\r\n))?",
             CommentSegment,
         ),
         RegexLexer(
@@ -441,6 +442,16 @@ postgres_dialect.add(
         "word",
         CodeSegment,
         type="properties_naked_identifier",
+    ),
+    QualifiedParameterNameGrammar=Sequence(
+        Ref("ParameterNameSegment"),
+        Sequence(
+            Ref("DotSegment"),
+            Ref("ParameterNameSegment"),
+            optional=True,
+            allow_gaps=False,
+        ),
+        allow_gaps=False,
     ),
     SingleIdentifierFullGrammar=OneOf(
         Ref("NakedIdentifierSegment"),
@@ -1816,6 +1827,7 @@ class FunctionDefinitionGrammar(ansi.FunctionDefinitionGrammar):
             Sequence(
                 "BEGIN",
                 "ATOMIC",
+                Indent,
                 AnyNumberOf(
                     Sequence(
                         Ref("InsertStatementSegment"),
@@ -1838,6 +1850,7 @@ class FunctionDefinitionGrammar(ansi.FunctionDefinitionGrammar):
                         Ref("SemicolonSegment"),
                     ),
                 ),
+                Dedent,
                 "END",
             ),
         ),
@@ -3298,7 +3311,7 @@ class AlterMaterializedViewActionSegment(BaseSegment):
                     Bracketed(
                         Delimited(
                             Sequence(
-                                Ref("ParameterNameSegment"),
+                                Ref("QualifiedParameterNameGrammar"),
                                 Ref("EqualsSegment"),
                                 Ref("LiteralGrammar"),
                             ),
@@ -3307,7 +3320,7 @@ class AlterMaterializedViewActionSegment(BaseSegment):
                 ),
                 Sequence(
                     "RESET",
-                    Bracketed(Delimited(Ref("ParameterNameSegment"))),
+                    Bracketed(Delimited(Ref("QualifiedParameterNameGrammar"))),
                 ),
                 Sequence(
                     "SET", "STORAGE", OneOf("PLAIN", "EXTERNAL", "EXTENDED", "MAIN")
@@ -3322,7 +3335,7 @@ class AlterMaterializedViewActionSegment(BaseSegment):
             Bracketed(
                 Delimited(
                     Sequence(
-                        Ref("ParameterNameSegment"),
+                        Ref("QualifiedParameterNameGrammar"),
                         Sequence(
                             Ref("EqualsSegment"), Ref("LiteralGrammar"), optional=True
                         ),
@@ -3332,7 +3345,7 @@ class AlterMaterializedViewActionSegment(BaseSegment):
         ),
         Sequence(
             "RESET",
-            Bracketed(Delimited(Ref("ParameterNameSegment"))),
+            Bracketed(Delimited(Ref("QualifiedParameterNameGrammar"))),
         ),
         Sequence(
             "OWNER",
@@ -3518,7 +3531,7 @@ class AlterViewStatementSegment(BaseSegment):
                 Bracketed(
                     Delimited(
                         Sequence(
-                            Ref("ParameterNameSegment"),
+                            Ref("QualifiedParameterNameGrammar"),
                             Sequence(
                                 Ref("EqualsSegment"),
                                 Ref("LiteralGrammar"),
@@ -3530,7 +3543,7 @@ class AlterViewStatementSegment(BaseSegment):
             ),
             Sequence(
                 "RESET",
-                Bracketed(Delimited(Ref("ParameterNameSegment"))),
+                Bracketed(Delimited(Ref("QualifiedParameterNameGrammar"))),
             ),
         ),
     )
@@ -4943,6 +4956,7 @@ class CreateStatisticsStatementSegment(BaseSegment):
                 "DEPENDENCIES",
                 "MCV",
                 "NDISTINCT",
+                "CORRELATION",
             ),
             optional=True,
         ),
@@ -4967,6 +4981,7 @@ class AlterStatisticsStatementSegment(BaseSegment):
     match_grammar = Sequence(
         "ALTER",
         "STATISTICS",
+        Ref("IfExistsGrammar", optional=True),
         Ref("StatisticsReferenceSegment"),
         OneOf(
             Sequence(

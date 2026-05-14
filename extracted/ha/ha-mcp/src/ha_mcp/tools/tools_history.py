@@ -14,6 +14,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
 
+from fastmcp import Context
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 from pydantic import Field
@@ -25,6 +26,8 @@ from .helpers import (
     log_tool_usage,
     raise_tool_error,
     register_tool_methods,
+    safe_info,
+    safe_progress,
 )
 from .util_helpers import (
     add_timezone_metadata,
@@ -205,6 +208,7 @@ class HistoryTools:
                 default=None,
             ),
         ] = None,
+        ctx: Context | None = None,
     ) -> dict[str, Any]:
         """
         Retrieve historical data from Home Assistant's recorder.
@@ -288,9 +292,24 @@ class HistoryTools:
             # Parse time parameters
             start_dt, end_dt = _parse_time_range(start_time, end_time, default_hours)
 
+            await safe_info(
+                ctx,
+                f"ha_get_history starting: source={source} "
+                f"entities={len(entity_id_list)} "
+                f"window={start_dt.isoformat()}..{end_dt.isoformat()}",
+            )
+            await safe_progress(
+                ctx,
+                progress=0,
+                total=3,
+                message="connecting to Home Assistant WebSocket",
+            )
+
             # Connect to WebSocket (shared by both sources)
             ws_client, error = await get_connected_ws_client(
-                self._client.base_url, self._client.token
+                self._client.base_url,
+                self._client.token,
+                verify_ssl=self._client.verify_ssl,
             )
             if error or ws_client is None:
                 raise_tool_error(error or create_error_response(
@@ -298,20 +317,34 @@ class HistoryTools:
                     "Failed to connect to Home Assistant WebSocket",
                 ))
 
+            await safe_progress(
+                ctx,
+                progress=1,
+                total=3,
+                message=f"querying recorder ({source})",
+            )
+
             try:
                 if source == "statistics":
-                    return await _fetch_statistics(
+                    result = await _fetch_statistics(
                         ws_client, self._client, entity_id_list,
                         start_dt, end_dt, period, statistic_types,
                         limit, offset,
                     )
                 else:
-                    return await _fetch_history(
+                    result = await _fetch_history(
                         ws_client, self._client, entity_id_list,
                         start_dt, end_dt, minimal_response,
                         significant_changes_only, limit, offset,
                         _DEFAULT_HISTORY_LIMIT, _MAX_HISTORY_LIMIT,
                     )
+                await safe_progress(
+                    ctx,
+                    progress=3,
+                    total=3,
+                    message="recorder query complete",
+                )
+                return result
             finally:
                 if ws_client:
                     await ws_client.disconnect()

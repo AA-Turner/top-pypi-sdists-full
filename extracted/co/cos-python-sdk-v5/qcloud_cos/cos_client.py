@@ -192,6 +192,47 @@ class CosConfig(object):
                 url=to_unicode(url)
             )
         return request_url
+    
+    def cos_vectors_uri(self, domain=None, path=None):
+        """拼接url
+        :param domain(string):  使用自定义的域名来访问COS
+        :param path(string): 请求COSVectos的路径(即方法，如/GetVectorBucket).
+        :return(string): 请求COS Vectors的URL地址.
+        """
+
+        def format_uri(scheme, url, path):
+            return u"{scheme}://{url}/{path}".format(scheme=to_unicode(scheme), url=to_unicode(url), path=to_unicode(path))
+
+        if path is None:
+            raise CosClientError("path is required not empty")
+        
+        # path处理
+        if path[0] == u'/':
+                path = path[1:]
+        path = quote(to_bytes(path), '/-_.~')
+        path = path.replace('./', '.%2F')
+
+        scheme = self._scheme
+        # 优先级：ip:port > domain > region
+
+        # ip:port
+        if self._ip is not None and self._port is not None:
+            url = u"{ip}:{port}".format(ip=self._ip, port=self._port)
+            return format_uri(scheme, url, path)
+
+        # domain
+        if domain is None:
+            domain = self._domain
+        if domain is not None:
+            return format_uri(scheme, domain, path)
+        
+        # region
+        if self._region is not None:
+            url =  u"vectors.{region}.coslake.com".format(region=self._region)
+            return format_uri(scheme, url, path)
+
+        raise CosClientError('Region is Required!')
+
 
     def get_host(self, Bucket=None, Appid=None):
         """传入bucket名称,根据endpoint获取Host名称

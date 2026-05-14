@@ -45,6 +45,7 @@ from lsprotocol.types import (
 )
 from pygls.lsp.server import LanguageServer
 
+from dazzle.back.runtime.renderers.init import default_renderer_names
 from dazzle.core import ir
 from dazzle.core.errors import DazzleError, LinkError, ParseError, ValidationError
 from dazzle.core.fileset import discover_dsl_files
@@ -195,7 +196,9 @@ def _load_project(ls: DazzleLanguageServer, file_path: Path | None = None) -> No
         all_uris = {f.resolve().as_uri() for f in dsl_files}
 
         modules = parse_modules(dsl_files)
-        ls.appspec = build_appspec(modules, mf.project_root)
+        ls.appspec = build_appspec(
+            modules, mf.project_root, known_renderers=default_renderer_names()
+        )
         logger.info(
             "Loaded project from %s with %s entities",
             project_root,

@@ -11,6 +11,7 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+
 import warnings
 
 from collections.abc import Iterable, Sequence
@@ -20,7 +21,6 @@ import numpy as np
 import pandas as pd
 import pytensor
 import pytensor.tensor as pt
-import scipy.sparse as sps
 
 from pytensor.compile import Function, Mode, get_mode
 from pytensor.compile.builders import OpFromGraph
@@ -35,6 +35,7 @@ from pytensor.graph.basic import (
 )
 from pytensor.graph.fg import FunctionGraph, Output
 from pytensor.graph.op import HasInnerGraph
+from pytensor.graph.replace import clone_replace
 from pytensor.graph.traversal import explicit_graph_inputs, graph_inputs, walk
 from pytensor.scalar.basic import Cast
 from pytensor.scan.op import Scan
@@ -42,16 +43,19 @@ from pytensor.tensor.basic import _as_tensor_variable
 from pytensor.tensor.elemwise import Elemwise
 from pytensor.tensor.random.op import RandomVariable, RNGConsumerOp
 from pytensor.tensor.random.type import RandomType
-from pytensor.tensor.random.var import RandomGeneratorSharedVariable
+from pytensor.tensor.random.variable import RandomGeneratorSharedVariable
 from pytensor.tensor.rewriting.basic import topo_unconditional_constant_folding
 from pytensor.tensor.rewriting.shape import ShapeFeature
 from pytensor.tensor.sharedvar import SharedVariable
 from pytensor.tensor.subtensor import AdvancedIncSubtensor, AdvancedIncSubtensor1
 from pytensor.tensor.variable import TensorVariable
+from pytensor.utils import lazy_scipy_module
 
 from pymc.exceptions import NotConstantValueError
 from pymc.util import makeiter
 from pymc.vartypes import continuous_types, isgenerator, typefilter
+
+sparse = lazy_scipy_module("sparse")
 
 PotentialShapeType = int | np.ndarray | Sequence[int | Variable] | TensorVariable
 
@@ -115,7 +119,7 @@ def convert_data(data) -> np.ndarray | Variable:
                 ret = data
     elif isinstance(data, Variable):
         ret = data
-    elif sps.issparse(data):
+    elif sparse.issparse(data):
         ret = data
     else:
         ret = np.asarray(data)
@@ -134,7 +138,7 @@ def dataframe_to_tensor_variable(df: pd.DataFrame, *args, **kwargs) -> TensorVar
     return pt.as_tensor_variable(df.to_numpy(), *args, **kwargs)
 
 
-_cheap_eval_mode = Mode(linker="py", optimizer="minimum_compile")
+_cheap_eval_mode = Mode(linker="py", optimizer=None)
 
 
 def extract_obs_data(x: TensorVariable) -> np.ndarray:
@@ -364,7 +368,6 @@ def jacobian_diag(f, x):
     )
 
 
-@pytensor.config.change_flags(compute_test_value="ignore")
 def hessian(f, vars=None, negate_output=True):
     res = jacobian(gradient(f, vars), vars)
     if negate_output:
@@ -378,7 +381,6 @@ def hessian(f, vars=None, negate_output=True):
     return res
 
 
-@pytensor.config.change_flags(compute_test_value="ignore")
 def hessian_diag1(f, v):
     g = gradient1(f, v)
     idx = pt.arange(g.shape[0], dtype="int32")
@@ -389,7 +391,6 @@ def hessian_diag1(f, v):
     return pytensor.map(hess_ii, idx, return_updates=False)
 
 
-@pytensor.config.change_flags(compute_test_value="ignore")
 def hessian_diag(f, vars=None, negate_output=True):
     if vars is None:
         vars = cont_inputs(f)
@@ -580,9 +581,6 @@ def join_nonshared_inputs(
         joined_values = np.concatenate([point[var.name].ravel() for var in inputs])
         joined_inputs = pytensor.shared(joined_values, "joined_inputs")
 
-    if pytensor.config.compute_test_value != "off":
-        joined_inputs.tag.test_value = raveled_inputs.tag.test_value
-
     replace: dict[Variable, Variable] = {}
     last_idx = 0
     for var in inputs:
@@ -597,9 +595,7 @@ def join_nonshared_inputs(
     if shared_inputs is not None:
         replace.update(shared_inputs)
 
-    new_outputs = [
-        pytensor.clone_replace(output, replace, rebuild_strict=False) for output in outputs
-    ]
+    new_outputs = [clone_replace(output, replace, rebuild_strict=False) for output in outputs]
     return new_outputs, joined_inputs
 
 
@@ -632,7 +628,7 @@ class CallableTensor:
         input: TensorVariable
         """
         (oldinput,) = explicit_graph_inputs(self.tensor)
-        return pytensor.clone_replace(self.tensor, {oldinput: input}, rebuild_strict=False)
+        return clone_replace(self.tensor, {oldinput: input}, rebuild_strict=False)
 
 
 def ix_(*args):
@@ -876,18 +872,28 @@ def collect_default_updates(
             and isinstance(inp.type, RandomType)
         )
     ):
-        # Even if an explicit default update is provided, we call it to
-        # issue any warnings about invalid random graphs.
         default_update = find_default_update(clients, input_rng)
-
-        # Respect default update if provided
-        if hasattr(input_rng, "default_update") and input_rng.default_update is not None:
-            rng_updates[input_rng] = input_rng.default_update
-        else:
-            if default_update is not None:
-                rng_updates[input_rng] = default_update
+        if default_update is not None:
+            rng_updates[input_rng] = default_update
 
     return rng_updates
+
+
+def resolve_backend_compile_kwargs(backend: str | None, compile_kwargs: dict | None) -> dict:
+    """Materialize a `backend` shortcut as `compile_kwargs['mode']`.
+
+    Returns a new dict so the caller's input is never mutated. Raises if both
+    `backend` and `compile_kwargs['mode']` are provided.
+    """
+    compile_kwargs = {} if compile_kwargs is None else compile_kwargs.copy()
+    if backend is not None:
+        if "mode" in compile_kwargs:
+            raise ValueError("Can only define one of `backend` or `compile_kwargs['mode']`")
+        # Users associate "c" with pytensor's default C+VM backend.
+        if backend == "c":
+            backend = "cvm"
+        compile_kwargs["mode"] = get_mode(backend)
+    return compile_kwargs
 
 
 def compile(
@@ -1032,7 +1038,7 @@ class StringConstant(Constant):
     pass
 
 
-@pytensor._as_symbolic.register(str)
+@pytensor.basic._as_symbolic.register(str)
 def as_symbolic_string(x, **kwargs):
     return StringConstant(stringtype, x)
 
@@ -1056,7 +1062,7 @@ def toposort_replace(
 def normalize_rng_param(rng: None | Variable) -> Variable:
     """Validate rng is a valid type or create a new one if None."""
     if rng is None:
-        rng = pytensor.shared(np.random.default_rng())
+        rng = pt.random.shared_rng(seed=None)
     elif not isinstance(rng.type, RandomType):
         raise TypeError(
             "The type of rng should be an instance of either RandomGeneratorType or RandomStateType"

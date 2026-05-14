@@ -40,20 +40,37 @@ requires-python = ">= 3.10"
 [project.optional-dependencies]
 dev = [
 'check-manifest==0.51',
-'pre-commit==4.3.0',
-'pyright[nodejs]== 1.1.407',
-'pytest==8.4.2',
+'pre-commit==4.5.1',
+'pyright[nodejs]== 1.1.408',
+'pytest==9.0.2',
 'pytest-cov==7.0.0',
-'ruff==0.14.2',
-'setuptools==80.9.0',
-'setuptools_scm==9.2.2',
-'tox==4.31.0',
+'ruff==0.15.4',
+'setuptools==82.0.1',
+'tox==4.46.3',
+'setuptools_scm==10.0.5',
+]
+# `pip install abnf[rust]` pulls in the companion `abnf-rust`
+# distribution, which provides the compiled extension that
+# `abnf.parser` routes its combinator primitives through.  The
+# pure-Python `abnf` package on its own remains the default and a
+# fully working fallback (also forced via the ABNF_NO_RUST=1
+# environment variable when the extra is installed).
+rust = [
+    # Lock-stepped versioning: `abnf` and `abnf-rust` release under
+    # the same git tag.  Lower bound matches the current minor; upper
+    # bound clamps to the next major so a future `abnf-rust` release
+    # with a breaking change can't silently come in via the extra.
+    'abnf-rust>=2.5,<3',
 ]
 
 [tool.black]
 
 [tool.check-manifest]
 ignore = [
+    # The packages/abnf-rust subtree builds the companion `abnf-rust`
+    # distribution and is intentionally excluded from the `abnf` sdist.
+    "packages",
+    "packages/**",
     "tests/notes",
 ]
 

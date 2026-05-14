@@ -230,7 +230,9 @@ duckdb_dialect.replace(
     # Add postfix factorial operator support
     Expression_C_Grammar=Sequence(
         postgres_dialect.get_grammar("Expression_C_Grammar"),
-        Ref("FactorialOperatorSegment", optional=True),
+        Ref(
+            "FactorialOperatorSegment", exclude=Ref("NotEqualToSegment"), optional=True
+        ),
     ),
     ComparisonOperatorGrammar=ansi_dialect.get_grammar(
         "ComparisonOperatorGrammar"
@@ -919,7 +921,7 @@ class ObjectLiteralElementSegment(ansi.ObjectLiteralElementSegment):
 
     match_grammar: Matchable = Sequence(
         OneOf(
-            Ref("NakedIdentifierSegment"),
+            Ref("SingleIdentifierGrammar"),
             Ref("QuotedLiteralSegment"),
         ),
         Ref("ColonSegment"),

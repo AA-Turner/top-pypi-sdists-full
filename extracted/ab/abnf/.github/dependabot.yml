@@ -1,9 +1,32 @@
 version: 2
 updates:
-  - package-ecosystem: pip
+  - package-ecosystem: uv
     # Files stored in repository root
     directory: "/"
     schedule:
       interval: daily
       time: "04:00"
       timezone: America/Kentucky/Monticello
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      time: "04:00"
+      timezone: America/Kentucky/Monticello
+
+  - package-ecosystem: cargo
+    # Rust workspace for the optional `abnf-rust` companion package.
+    directory: "/packages/abnf-rust"
+    schedule:
+      interval: weekly
+      time: "04:00"
+      timezone: America/Kentucky/Monticello
+    ignore:
+      # pyo3 makes breaking API changes on every minor (0.x.y).
+      # Treat each pyo3 bump as a deliberate migration task; do not
+      # auto-propose semver-minor or semver-major updates.
+      - dependency-name: "pyo3"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-major"

@@ -245,6 +245,7 @@ from arthur_client.api_bindings.models.permission_response_item import Permissio
 from arthur_client.api_bindings.models.permissions_request import PermissionsRequest
 from arthur_client.api_bindings.models.permissions_response import PermissionsResponse
 from arthur_client.api_bindings.models.policy import Policy
+from arthur_client.api_bindings.models.policy_alert_guardrail_rule import PolicyAlertGuardrailRule
 from arthur_client.api_bindings.models.policy_alert_rule import PolicyAlertRule
 from arthur_client.api_bindings.models.policy_assignment import PolicyAssignment
 from arthur_client.api_bindings.models.policy_assignment_detail import PolicyAssignmentDetail

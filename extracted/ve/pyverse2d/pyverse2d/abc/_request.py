@@ -5,5 +5,5 @@ from abc import ABC
 
 # ======================================== ABSTRACT CLASS ========================================
 class Request(ABC):
-    """Requête contenant un jeu d'informations"""
+    """Classe abstraites des requête contenant un jeu d'informations ponctuel"""
     __slots__ = tuple()

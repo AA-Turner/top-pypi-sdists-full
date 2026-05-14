@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kernels
-Version: 0.14.0
+Version: 0.14.1
 Summary: Download compute kernels
 Author-email: Daniel de Kok <daniel@huggingface.co>, David Holtz <david@huggingface.co>
 License: Apache-2.0

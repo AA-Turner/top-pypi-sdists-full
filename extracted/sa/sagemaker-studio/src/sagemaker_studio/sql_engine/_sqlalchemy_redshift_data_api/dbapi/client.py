@@ -102,7 +102,42 @@ class RedshiftDataAPIClient:
         """
         params = self.connection_params
 
-        # Method 1: Named AWS profile
+        # Method 1: Credential provider (refreshable)
+        if params.credential_provider is not None and callable(params.credential_provider):
+            from botocore.credentials import RefreshableCredentials
+            from botocore.session import get_session
+
+            def refresh():
+                """Fetch fresh credentials from provider"""
+                creds = params.credential_provider()
+                required_keys = ["access_key_id", "secret_access_key", "expiration"]
+                missing = [k for k in required_keys if k not in creds]
+                if missing:
+                    raise OperationalError(
+                        f"credential_provider must return a dict with keys: {required_keys}. "
+                        f"Missing: {missing}"
+                    )
+                return {
+                    "access_key": creds["access_key_id"],
+                    "secret_key": creds["secret_access_key"],
+                    "token": creds.get("session_token"),
+                    "expiry_time": creds.get("expiration"),
+                }
+
+            try:
+                session_credentials = RefreshableCredentials.create_from_metadata(
+                    metadata=refresh(),
+                    refresh_using=refresh,
+                    method="custom-provider",
+                    advisory_timeout=60,  # Refresh 1 minute before expiry
+                )
+                botocore_session = get_session()
+                botocore_session._credentials = session_credentials
+                return boto3.Session(botocore_session=botocore_session)
+            except Exception as e:
+                raise OperationalError(f"Failed to create session with credential provider: {e}")
+
+        # Method 2: Named AWS profile
         if params.profile_name:
             try:
                 session = boto3.Session(profile_name=params.profile_name)
@@ -112,7 +147,7 @@ class RedshiftDataAPIClient:
                     f"Failed to create session with profile '{params.profile_name}': {e}"
                 )
 
-        # Method 2: Explicit AWS credentials
+        # Method 3: Explicit AWS credentials
         elif params.aws_access_key_id and params.aws_secret_access_key:
             try:
                 session_kwargs = {
@@ -129,7 +164,7 @@ class RedshiftDataAPIClient:
             except Exception as e:
                 raise OperationalError(f"Failed to create session with explicit credentials: {e}")
 
-        # Method 3: Default credential chain
+        # Method 4: Default credential chain
         else:
             try:
                 session = boto3.Session()

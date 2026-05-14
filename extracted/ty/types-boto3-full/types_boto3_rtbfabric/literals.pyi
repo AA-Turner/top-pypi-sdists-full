@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_rtbfabric.literals import ConnectivityTypeType
+    from types_boto3_rtbfabric.literals import CertificateAssociatedWaiterName
 
-    data: ConnectivityTypeType = "DEFAULT"
+    data: CertificateAssociatedWaiterName = "certificate_associated"
     ```
 """
 
@@ -22,6 +22,9 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "CertificateAssociatedWaiterName",
+    "CertificateAssociationStatusType",
+    "CertificateDisassociatedWaiterName",
     "ConnectivityTypeType",
     "FilterTypeType",
     "GatewayTypeType",
@@ -31,7 +34,11 @@ __all__ = (
     "LinkActiveWaiterName",
     "LinkDeletedWaiterName",
     "LinkDirectionType",
+    "LinkRoutingRuleActiveWaiterName",
+    "LinkRoutingRuleDeletedWaiterName",
     "LinkStatusType",
+    "ListCertificateAssociationsPaginatorName",
+    "ListLinkRoutingRulesPaginatorName",
     "ListLinksPaginatorName",
     "ListRequesterGatewaysPaginatorName",
     "ListResponderGatewaysPaginatorName",
@@ -49,10 +56,16 @@ __all__ = (
     "ResponderGatewayActiveWaiterName",
     "ResponderGatewayDeletedWaiterName",
     "ResponderGatewayStatusType",
+    "RuleStatusType",
     "ServiceName",
     "WaiterName",
 )
 
+CertificateAssociatedWaiterName = Literal["certificate_associated"]
+CertificateAssociationStatusType = Literal[
+    "ASSOCIATED", "DISASSOCIATED", "FAILED", "PENDING_ASSOCIATION", "PENDING_DISASSOCIATION"
+]
+CertificateDisassociatedWaiterName = Literal["certificate_disassociated"]
 ConnectivityTypeType = Literal["DEFAULT", "EXTERNAL_INBOUND", "PUBLIC_EGRESS", "PUBLIC_INGRESS"]
 FilterTypeType = Literal["EXCLUDE", "INCLUDE"]
 GatewayTypeType = Literal["EXTERNAL", "INTERNAL"]
@@ -62,6 +75,8 @@ LinkAcceptedWaiterName = Literal["link_accepted"]
 LinkActiveWaiterName = Literal["link_active"]
 LinkDeletedWaiterName = Literal["link_deleted"]
 LinkDirectionType = Literal["REQUEST", "RESPONSE"]
+LinkRoutingRuleActiveWaiterName = Literal["link_routing_rule_active"]
+LinkRoutingRuleDeletedWaiterName = Literal["link_routing_rule_deleted"]
 LinkStatusType = Literal[
     "ACCEPTED",
     "ACTIVE",
@@ -77,6 +92,8 @@ LinkStatusType = Literal[
     "REJECTED",
     "REQUESTED",
 ]
+ListCertificateAssociationsPaginatorName = Literal["list_certificate_associations"]
+ListLinkRoutingRulesPaginatorName = Literal["list_link_routing_rules"]
 ListLinksPaginatorName = Literal["list_links"]
 ListRequesterGatewaysPaginatorName = Literal["list_requester_gateways"]
 ListResponderGatewaysPaginatorName = Literal["list_responder_gateways"]
@@ -110,6 +127,14 @@ ResponderGatewayStatusType = Literal[
     "PENDING_ISOLATION",
     "PENDING_RESTORATION",
     "PENDING_UPDATE",
+]
+RuleStatusType = Literal[
+    "ACTIVE",
+    "CREATION_IN_PROGRESS",
+    "DELETED",
+    "DELETION_IN_PROGRESS",
+    "FAILED",
+    "UPDATE_IN_PROGRESS",
 ]
 RTBFabricServiceName = Literal["rtbfabric"]
 ServiceName = Literal[
@@ -540,13 +565,23 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_links", "list_requester_gateways", "list_responder_gateways"]
+PaginatorName = Literal[
+    "list_certificate_associations",
+    "list_link_routing_rules",
+    "list_links",
+    "list_requester_gateways",
+    "list_responder_gateways",
+]
 WaiterName = Literal[
+    "certificate_associated",
+    "certificate_disassociated",
     "inbound_external_link_active",
     "inbound_external_link_deleted",
     "link_accepted",
     "link_active",
     "link_deleted",
+    "link_routing_rule_active",
+    "link_routing_rule_deleted",
     "outbound_external_link_active",
     "outbound_external_link_deleted",
     "requester_gateway_active",

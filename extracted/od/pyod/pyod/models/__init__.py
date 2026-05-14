@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+# Intentionally avoid package-level model imports; several detectors
+# require optional extras (torch, combo, xgboost, suod, pythresh, ...)
+# and importing them here would force every PyOD user to install every
+# extra. Import each detector explicitly, e.g.
+# `from pyod.models.iforest import IForest`.
 # from .abod import ABOD
 # from .auto_encoder import AutoEncoder
 # from .cblof import CBLOF

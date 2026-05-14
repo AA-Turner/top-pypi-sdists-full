@@ -4,7 +4,7 @@ from .basesdk import BaseSDK
 from .sdkconfiguration import SDKConfiguration
 from orq_ai_sdk import models, utils
 from orq_ai_sdk._hooks import HookContext
-from orq_ai_sdk.orq_agents_responses import OrqAgentsResponses
+from orq_ai_sdk.orq_responses import OrqResponses
 from orq_ai_sdk.types import BaseModel, OptionalNullable, UNSET
 from orq_ai_sdk.utils import eventstreaming, get_security_from_env
 from orq_ai_sdk.utils.unmarshal_json_response import unmarshal_json_response
@@ -13,7 +13,7 @@ from typing_extensions import deprecated
 
 
 class Agents(BaseSDK):
-    responses: OrqAgentsResponses
+    responses: OrqResponses
 
     def __init__(
         self, sdk_config: SDKConfiguration, parent_ref: Optional[object] = None
@@ -23,7 +23,7 @@ class Agents(BaseSDK):
         self._init_sdks()
 
     def _init_sdks(self):
-        self.responses = OrqAgentsResponses(
+        self.responses = OrqResponses(
             self.sdk_configuration, parent_ref=self.parent_ref
         )
 

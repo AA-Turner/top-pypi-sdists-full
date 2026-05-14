@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Unified-python-sdk
-Version: 0.57.45
+Version: 0.57.46
 Summary: Python Client SDK for Unified.to
 License-File: LICENSE.md
 Author: Unified API Inc.
@@ -1648,6 +1648,7 @@ asyncio.run(main())
 * [list_shipping_carriers](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#list_shipping_carriers) - List all carriers
 * [list_shipping_labels](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#list_shipping_labels) - List all labels
 * [list_shipping_shipments](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#list_shipping_shipments) - List all shipments
+* [list_shipping_trackings](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#list_shipping_trackings) - List all trackings
 * [patch_shipping_label](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#patch_shipping_label) - Update a label
 * [patch_shipping_shipment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#patch_shipping_shipment) - Update a shipment
 * [remove_shipping_label](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#remove_shipping_label) - Remove a label
@@ -1821,6 +1822,7 @@ asyncio.run(main())
 ### [Tracking](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/tracking/README.md)
 
 * [get_shipping_tracking](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/tracking/README.md#get_shipping_tracking) - Retrieve a tracking
+* [list_shipping_trackings](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/tracking/README.md#list_shipping_trackings) - List all trackings
 
 ### [Transaction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/transaction/README.md)
 

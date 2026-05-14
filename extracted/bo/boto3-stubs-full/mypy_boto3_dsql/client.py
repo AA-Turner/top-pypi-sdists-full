@@ -26,23 +26,31 @@ from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListClustersPaginator
+from .paginator import ListClustersPaginator, ListStreamsPaginator
 from .type_defs import (
     CreateClusterInputTypeDef,
     CreateClusterOutputTypeDef,
+    CreateStreamInputTypeDef,
+    CreateStreamOutputTypeDef,
     DeleteClusterInputTypeDef,
     DeleteClusterOutputTypeDef,
     DeleteClusterPolicyInputTypeDef,
     DeleteClusterPolicyOutputTypeDef,
+    DeleteStreamInputTypeDef,
+    DeleteStreamOutputTypeDef,
     EmptyResponseMetadataTypeDef,
     GetClusterInputTypeDef,
     GetClusterOutputTypeDef,
     GetClusterPolicyInputTypeDef,
     GetClusterPolicyOutputTypeDef,
+    GetStreamInputTypeDef,
+    GetStreamOutputTypeDef,
     GetVpcEndpointServiceNameInputTypeDef,
     GetVpcEndpointServiceNameOutputTypeDef,
     ListClustersInputTypeDef,
     ListClustersOutputTypeDef,
+    ListStreamsInputTypeDef,
+    ListStreamsOutputTypeDef,
     ListTagsForResourceInputTypeDef,
     ListTagsForResourceOutputTypeDef,
     PutClusterPolicyInputTypeDef,
@@ -52,7 +60,12 @@ from .type_defs import (
     UpdateClusterInputTypeDef,
     UpdateClusterOutputTypeDef,
 )
-from .waiter import ClusterActiveWaiter, ClusterNotExistsWaiter
+from .waiter import (
+    ClusterActiveWaiter,
+    ClusterNotExistsWaiter,
+    StreamActiveWaiter,
+    StreamNotExistsWaiter,
+)
 
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
@@ -120,6 +133,16 @@ class AuroraDSQLClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/client/#create_cluster)
         """
 
+    def create_stream(
+        self, **kwargs: Unpack[CreateStreamInputTypeDef]
+    ) -> CreateStreamOutputTypeDef:
+        """
+        Creates a new change data capture (CDC) stream for a cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/client/create_stream.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/client/#create_stream)
+        """
+
     def delete_cluster(
         self, **kwargs: Unpack[DeleteClusterInputTypeDef]
     ) -> DeleteClusterOutputTypeDef:
@@ -140,6 +163,16 @@ class AuroraDSQLClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/client/#delete_cluster_policy)
         """
 
+    def delete_stream(
+        self, **kwargs: Unpack[DeleteStreamInputTypeDef]
+    ) -> DeleteStreamOutputTypeDef:
+        """
+        Deletes a stream from a cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/client/delete_stream.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/client/#delete_stream)
+        """
+
     def get_cluster(self, **kwargs: Unpack[GetClusterInputTypeDef]) -> GetClusterOutputTypeDef:
         """
         Retrieves information about a cluster.
@@ -156,6 +189,14 @@ class AuroraDSQLClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/client/get_cluster_policy.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/client/#get_cluster_policy)
+        """
+
+    def get_stream(self, **kwargs: Unpack[GetStreamInputTypeDef]) -> GetStreamOutputTypeDef:
+        """
+        Retrieves information about a stream.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/client/get_stream.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/client/#get_stream)
         """
 
     def get_vpc_endpoint_service_name(
@@ -176,6 +217,14 @@ class AuroraDSQLClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/client/list_clusters.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/client/#list_clusters)
+        """
+
+    def list_streams(self, **kwargs: Unpack[ListStreamsInputTypeDef]) -> ListStreamsOutputTypeDef:
+        """
+        Retrieves information about a list of streams for a cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/client/list_streams.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/client/#list_streams)
         """
 
     def list_tags_for_resource(
@@ -229,9 +278,21 @@ class AuroraDSQLClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/client/#update_cluster)
         """
 
+    @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_clusters"]
     ) -> ListClustersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_streams"]
+    ) -> ListStreamsPaginator:
         """
         Create a paginator for an operation.
 
@@ -254,6 +315,28 @@ class AuroraDSQLClient(BaseClient):
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["cluster_not_exists"]
     ) -> ClusterNotExistsWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["stream_active"]
+    ) -> StreamActiveWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["stream_not_exists"]
+    ) -> StreamNotExistsWaiter:
         """
         Returns an object that can wait for some condition.
 

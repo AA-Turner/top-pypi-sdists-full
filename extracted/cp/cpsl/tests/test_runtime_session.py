@@ -28,6 +28,7 @@ from cpsl.session import (
     SessionChannel,
     UserInfo,
     current_session,
+    pipedream,
     session_data_base_checksum,
     session_data_checksum,
     session_data_revision,
@@ -59,6 +60,47 @@ class RuntimeSessionTests(unittest.TestCase):
             self.assertIsNone(current_session())
         finally:
             reset_active_identity(token)
+
+    def test_request_context_pipedream_uses_gateway_context(self):
+        stub = object()
+        ctx = RequestContext(
+            user=UserInfo(id="user-123", email="user@example.com", org_id="org-1"),
+            integrations={},
+            session_stub=stub,
+            app_id="app-1",
+            env="deploy",
+        )
+
+        transport = ctx.pipedream("microsoft_outlook")
+
+        self.assertIs(transport._stub, stub)
+        self.assertEqual(transport._app_id, "app-1")
+        self.assertEqual(transport._user_email, "user@example.com")
+        self.assertEqual(transport._owner_id, "org:org-1")
+        self.assertEqual(transport._env, "deploy")
+        self.assertEqual(transport._integration_type, "microsoft_outlook")
+
+    def test_module_pipedream_supports_active_request_context(self):
+        stub = object()
+        ctx = RequestContext(
+            user=UserInfo(id="user-123", email="user@example.com"),
+            integrations={},
+            session_stub=stub,
+            app_id="app-1",
+            env="serve",
+        )
+        token = set_active_identity(ctx)
+        try:
+            transport = pipedream("gmail")
+        finally:
+            reset_active_identity(token)
+
+        self.assertIs(transport._stub, stub)
+        self.assertEqual(transport._app_id, "app-1")
+        self.assertEqual(transport._user_email, "user@example.com")
+        self.assertEqual(transport._owner_id, "user-123")
+        self.assertEqual(transport._env, "serve")
+        self.assertEqual(transport._integration_type, "gmail")
 
     def test_task_descriptor_detects_session_parameter_anywhere(self):
         async def with_session(session, value):

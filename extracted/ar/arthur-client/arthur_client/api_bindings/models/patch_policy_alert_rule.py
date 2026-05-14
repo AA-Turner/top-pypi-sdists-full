@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from arthur_client.api_bindings.models.alert_bound import AlertBound
 from arthur_client.api_bindings.models.alert_rule_interval import AlertRuleInterval
+from arthur_client.api_bindings.models.policy_alert_guardrail_rule import PolicyAlertGuardrailRule
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -35,7 +36,8 @@ class PatchPolicyAlertRule(BaseModel):
     query: Optional[StrictStr] = None
     metric_name: Optional[StrictStr] = None
     interval: Optional[AlertRuleInterval] = None
-    __properties: ClassVar[List[str]] = ["name", "description", "threshold", "bound", "query", "metric_name", "interval"]
+    dependent_resource: Optional[PolicyAlertGuardrailRule] = None
+    __properties: ClassVar[List[str]] = ["name", "description", "threshold", "bound", "query", "metric_name", "interval", "dependent_resource"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -79,6 +81,9 @@ class PatchPolicyAlertRule(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of interval
         if self.interval:
             _dict['interval'] = self.interval.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of dependent_resource
+        if self.dependent_resource:
+            _dict['dependent_resource'] = self.dependent_resource.to_dict()
         # set to None if name (nullable) is None
         # and model_fields_set contains the field
         if self.name is None and "name" in self.model_fields_set:
@@ -114,6 +119,11 @@ class PatchPolicyAlertRule(BaseModel):
         if self.interval is None and "interval" in self.model_fields_set:
             _dict['interval'] = None
 
+        # set to None if dependent_resource (nullable) is None
+        # and model_fields_set contains the field
+        if self.dependent_resource is None and "dependent_resource" in self.model_fields_set:
+            _dict['dependent_resource'] = None
+
         return _dict
 
     @classmethod
@@ -132,7 +142,8 @@ class PatchPolicyAlertRule(BaseModel):
             "bound": obj.get("bound"),
             "query": obj.get("query"),
             "metric_name": obj.get("metric_name"),
-            "interval": AlertRuleInterval.from_dict(obj["interval"]) if obj.get("interval") is not None else None
+            "interval": AlertRuleInterval.from_dict(obj["interval"]) if obj.get("interval") is not None else None,
+            "dependent_resource": PolicyAlertGuardrailRule.from_dict(obj["dependent_resource"]) if obj.get("dependent_resource") is not None else None
         })
         return _obj
 

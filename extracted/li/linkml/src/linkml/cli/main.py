@@ -23,6 +23,7 @@ from linkml.generators.jsonldgen import cli as gen_jsonld
 from linkml.generators.jsonschemagen import cli as gen_json_schema
 from linkml.generators.linkmlgen import cli as gen_linkml
 from linkml.generators.namespacegen import cli as gen_namespaces
+from linkml.generators.openapigen import cli as gen_openapi
 from linkml.generators.owlgen import cli as gen_owl
 from linkml.generators.panderagen import cli as gen_pandera
 from linkml.generators.plantumlgen import cli as gen_plantuml
@@ -38,6 +39,7 @@ from linkml.generators.shexgen import cli as gen_shex
 from linkml.generators.sparqlgen import cli as gen_sparql
 from linkml.generators.sqlalchemygen import cli as gen_sqla
 from linkml.generators.sqltablegen import cli as gen_sqltables
+from linkml.generators.sqlvalidationgen import cli as gen_sqlvalidation
 from linkml.generators.sssomgen import cli as gen_sssom
 from linkml.generators.summarygen import cli as gen_summary
 from linkml.generators.terminusdbgen import cli as gen_terminusdb
@@ -56,7 +58,7 @@ from linkml.workspaces.example_runner import cli as linkml_run_examples
 # --------------------------------------------------
 
 
-@click.group()
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(__version__, "-V", "--version")
 def linkml():
     """
@@ -105,6 +107,7 @@ generate.add_command(gen_jsonld, name="jsonld")
 generate.add_command(gen_json_schema, name="json-schema")
 generate.add_command(gen_doc, name="doc")
 generate.add_command(gen_namespaces, name="namespaces")
+generate.add_command(gen_openapi, name="openapi")
 generate.add_command(gen_owl, name="owl")
 generate.add_command(gen_plantuml, name="plantuml")
 generate.add_command(gen_proto, name="proto")
@@ -122,6 +125,7 @@ generate.add_command(gen_yaml, name="yaml")
 generate.add_command(gen_erdiagram, name="erdiagram")
 generate.add_command(gen_sqla, name="sqla")
 generate.add_command(gen_sqltables, name="sqltables")
+generate.add_command(gen_sqlvalidation, name="sqlvalidation")
 generate.add_command(gen_summary, name="summary")
 generate.add_command(gen_project, name="project")
 generate.add_command(gen_excel, name="excel")

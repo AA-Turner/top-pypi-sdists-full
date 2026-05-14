@@ -12,6 +12,7 @@ import sys
 import time
 from typing import Any, Literal, NoReturn, overload
 
+from fastmcp import Context
 from fastmcp.exceptions import ToolError
 
 from ..client.rest_client import (
@@ -78,7 +79,7 @@ def extract_tool_error_message(te: ToolError) -> str:
 
 
 async def get_connected_ws_client(
-    base_url: str, token: str
+    base_url: str, token: str, verify_ssl: bool | None = None
 ) -> tuple[HomeAssistantWebSocketClient | None, dict[str, Any] | None]:
     """
     Create and connect a WebSocket client.
@@ -86,11 +87,15 @@ async def get_connected_ws_client(
     Args:
         base_url: Home Assistant base URL
         token: Authentication token
+        verify_ssl: TLS verification override. Pass ``client.verify_ssl``
+            from the calling REST client so a programmatic
+            ``HomeAssistantClient(verify_ssl=False)`` propagates to the
+            WebSocket too. ``None`` falls back to ``settings.verify_ssl``.
 
     Returns:
         Tuple of (ws_client, error_dict). If connection fails, ws_client is None.
     """
-    ws_client = HomeAssistantWebSocketClient(base_url, token)
+    ws_client = HomeAssistantWebSocketClient(base_url, token, verify_ssl=verify_ssl)
     connected = await ws_client.connect()
     if not connected:
         return None, create_connection_error(
@@ -365,6 +370,49 @@ def log_tool_usage(func: Any) -> Any:
             )
 
     return wrapper
+
+
+async def safe_progress(
+    ctx: Context | None,
+    *,
+    progress: float,
+    total: float | None = None,
+    message: str | None = None,
+) -> None:
+    """Report progress via ``ctx.report_progress`` with best-effort error handling.
+
+    A transport hiccup on a progress notification must never convert a
+    successful tool result into a ``ToolError``. Transport errors are logged
+    at debug; ``TypeError``/``AttributeError`` are escalated to ``warning``
+    because they signal a signature/interface mismatch (call-site bug or
+    Context object missing the expected method), not a flaky client.
+    ``ctx is None`` short-circuits without I/O.
+    """
+    if ctx is None:
+        return
+    try:
+        await ctx.report_progress(progress=progress, total=total, message=message)
+    except (TypeError, AttributeError) as e:
+        logger.warning(
+            "ctx.report_progress signature error (%s): %s", type(e).__name__, e
+        )
+    except Exception as e:
+        logger.debug("ctx.report_progress failed (%s): %s", type(e).__name__, e)
+
+
+async def safe_info(ctx: Context | None, message: str) -> None:
+    """Emit an info message via ``ctx.info`` with best-effort error handling.
+
+    Shares the rationale and exception-handling contract of ``safe_progress``.
+    """
+    if ctx is None:
+        return
+    try:
+        await ctx.info(message)
+    except (TypeError, AttributeError) as e:
+        logger.warning("ctx.info signature error (%s): %s", type(e).__name__, e)
+    except Exception as e:
+        logger.debug("ctx.info failed (%s): %s", type(e).__name__, e)
 
 
 def register_tool_methods(mcp: Any, instance: Any) -> None:

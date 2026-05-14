@@ -1,4 +1,5 @@
 import datetime
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -293,6 +294,79 @@ class TestCodebaseControllerGetFile(unittest.TestCase):
         """Relative paths escaping root (path traversal) are still blocked."""
         resp = self.client.get("/codebase/read-file?path=../../etc/passwd")
         self.assertEqual(resp.status_code, 403)
+
+
+class TestCodebaseControllerRenameFile(unittest.TestCase):
+    """Unit tests for CodebaseController.rename_file logic."""
+
+    def setUp(self):
+        self.original_root_path = SettingsController._root_path
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        SettingsController._root_path = Path(self.tmp_dir.name)
+
+        mock_project = MagicMock()
+        mock_project.get_stages_by_file_path.return_value = []
+
+        self.repos = MagicMock()
+        self.repos.project.load.return_value = mock_project
+
+        self.controller = CodebaseController(self.repos)
+
+    def tearDown(self):
+        SettingsController._root_path = self.original_root_path
+        self.tmp_dir.cleanup()
+
+    def test_rename_file_in_root(self):
+        """Files in the project root rename correctly."""
+        original = Path(self.tmp_dir.name) / "old.py"
+        original.write_text("# hi")
+
+        result = self.controller.rename_file(["old.py"], ["new.py"])
+
+        self.assertTrue(result.ok)
+        self.assertFalse(original.exists())
+        self.assertTrue((Path(self.tmp_dir.name) / "new.py").exists())
+
+    def test_rename_file_inside_subdirectory(self):
+        """Files inside subdirectories rename without duplicating the directory.
+
+        Regression test: previously, when newPathParts contained the full
+        relative path (e.g. ['hey', 'another_fil.py']), the controller would
+        join it onto the parent of the source path, producing
+        '/root/hey/hey/another_fil.py' instead of '/root/hey/another_fil.py'.
+        """
+        subdir = Path(self.tmp_dir.name) / "hey"
+        subdir.mkdir()
+        original = subdir / "another_file.py"
+        original.write_text("# hi")
+
+        result = self.controller.rename_file(
+            ["hey", "another_file.py"],
+            ["hey", "another_fil.py"],
+        )
+
+        self.assertTrue(result.ok)
+        self.assertFalse(original.exists())
+        self.assertTrue((subdir / "another_fil.py").exists())
+        self.assertFalse((subdir / "hey").exists())
+
+    def test_rename_file_moves_across_directories(self):
+        """Renaming can also move a file to a different directory."""
+        src_dir = Path(self.tmp_dir.name) / "src"
+        dst_dir = Path(self.tmp_dir.name) / "dst"
+        src_dir.mkdir()
+        dst_dir.mkdir()
+        original = src_dir / "file.py"
+        original.write_text("# hi")
+
+        result = self.controller.rename_file(
+            ["src", "file.py"],
+            ["dst", "renamed.py"],
+        )
+
+        self.assertTrue(result.ok)
+        self.assertFalse(original.exists())
+        self.assertTrue((dst_dir / "renamed.py").exists())
 
 
 if __name__ == "__main__":

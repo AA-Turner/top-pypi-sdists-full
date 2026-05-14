@@ -73,7 +73,9 @@ ListClustersPaginatorName = Literal["list_clusters"]
 ListComputeNodeGroupsPaginatorName = Literal["list_compute_node_groups"]
 ListQueuesPaginatorName = Literal["list_queues"]
 NetworkTypeType = Literal["IPV4", "IPV6"]
-PurchaseOptionType = Literal["CAPACITY_BLOCK", "ONDEMAND", "SPOT"]
+PurchaseOptionType = Literal[
+    "CAPACITY_BLOCK", "INTERRUPTIBLE_CAPACITY_RESERVATION", "ONDEMAND", "SPOT"
+]
 QueueStatusType = Literal[
     "ACTIVE",
     "CREATE_FAILED",

@@ -644,6 +644,7 @@ class Parser:
         TokenType.INDEX,
         TokenType.PROCEDURE,
         TokenType.TRIGGER,
+        TokenType.TYPE,
         *DB_CREATABLES,
     }
 
@@ -2485,6 +2486,20 @@ class Parser:
 
             this = trigger_name
             extend_props(exp.Properties(expressions=[trigger_props] if trigger_props else []))
+        elif create_token_type == TokenType.TYPE:
+            this = self._parse_table_parts(schema=True)
+            if not this or not self._match(TokenType.ALIAS):
+                return self._parse_as_command(start)
+
+            if self._match(TokenType.ENUM):
+                expression = exp.DataType(
+                    this=exp.DType.ENUM,
+                    expressions=self._parse_wrapped_csv(self._parse_string),
+                )
+            elif self._match(TokenType.L_PAREN, advance=False):
+                expression = self._parse_schema()
+            else:
+                return self._parse_as_command(start)
         elif create_token_type in self.DB_CREATABLES:
             table_parts = self._parse_table_parts(
                 schema=True, is_db_reference=create_token_type == TokenType.SCHEMA
@@ -3724,7 +3739,7 @@ class Parser:
                 is_unpivot=self._prev.token_type == TokenType.UNPIVOT
             )
         elif self._match(TokenType.FROM):
-            from_ = self._parse_from(skip_from_token=True, consume_pipe=True)
+            from_ = self._parse_from(joins=True, skip_from_token=True, consume_pipe=True)
             # Support parentheses for duckdb FROM-first syntax
             select = self._parse_select(from_=from_)
             if select:
@@ -3838,14 +3853,29 @@ class Parser:
                 else None
             )
 
-            if all_ and distinct:
-                self.raise_error("Cannot specify both ALL and DISTINCT after SELECT")
-
             operation_modifiers = []
             while self._curr and self._match_texts(self.OPERATION_MODIFIERS):
                 operation_modifiers.append(exp.var(self._prev.text.upper()))
 
             limit = self._parse_limit(top=True)
+
+            # Some dialects (e.g. Redshift, T-SQL) allow SELECT TOP N DISTINCT ...
+            if limit and not matched_distinct and not all_:
+                matched_distinct = self._match_set(self.DISTINCT_TOKENS)
+                if matched_distinct:
+                    distinct = self.expression(
+                        exp.Distinct(
+                            on=self._parse_value(values=False)
+                            if self._match(TokenType.ON)
+                            else None
+                        )
+                    )
+                else:
+                    all_ = self._match(TokenType.ALL)
+
+            if all_ and distinct:
+                self.raise_error("Cannot specify both ALL and DISTINCT after SELECT")
+
             projections, exclude = self._parse_projections()
 
             this = self.expression(
@@ -5529,6 +5559,23 @@ class Parser:
 
         return result
 
+    def _can_parse_named_window(self) -> bool:
+        # `WINDOW` is in ID_VAR_TOKENS so it could be mistakenly consumed as an implicit alias.
+        # Refuse only when the following tokens look like a named-window clause: `WINDOW <id> AS (`.
+        if not self._match(TokenType.WINDOW, advance=False):
+            return False
+
+        name = self._tokens[self._index + 1] if self._index + 1 < len(self._tokens) else None
+        if name is None or name.token_type not in self.ID_VAR_TOKENS:
+            return False
+
+        alias_tok = self._tokens[self._index + 2] if self._index + 2 < len(self._tokens) else None
+        if alias_tok is None or alias_tok.token_type != TokenType.ALIAS:
+            return False
+
+        body = self._tokens[self._index + 3] if self._index + 3 < len(self._tokens) else None
+        return body is not None and body.token_type == TokenType.L_PAREN
+
     def _parse_limit_by(self) -> list[exp.Expr] | None:
         return self._parse_csv(self._parse_bitwise) if self._match_text_seq("BY") else None
 
@@ -5751,6 +5798,11 @@ class Parser:
 
     def _negate_range(self, this: exp.Expr | None = None) -> exp.Expr | None:
         if not this:
+            return this
+
+        expression = this.this if isinstance(this, exp.Escape) else this
+        if isinstance(expression, (exp.Like, exp.ILike)):
+            expression.set("negate", True)
             return this
 
         return self.expression(exp.Not(this=this))
@@ -6099,7 +6151,11 @@ class Parser:
         return exp.DataType.from_str(type_name, dialect=self.dialect, udt=True)
 
     def _parse_types(
-        self, check_func: bool = False, schema: bool = False, allow_identifiers: bool = True
+        self,
+        check_func: bool = False,
+        schema: bool = False,
+        allow_identifiers: bool = True,
+        with_collation: bool = False,
     ) -> exp.Expr | None:
         index = self._index
         this: exp.Expr | None = None
@@ -6220,7 +6276,10 @@ class Parser:
             else:
                 expressions = self._parse_csv(
                     lambda: self._parse_types(
-                        check_func=check_func, schema=schema, allow_identifiers=allow_identifiers
+                        check_func=check_func,
+                        schema=schema,
+                        allow_identifiers=allow_identifiers,
+                        with_collation=True,
                     )
                 )
 
@@ -6340,6 +6399,9 @@ class Parser:
             converter = self.TYPE_CONVERTERS.get(this.this)
             if converter:
                 this = converter(t.cast(exp.DataType, this))
+
+        if with_collation and isinstance(this, exp.DataType) and self._match(TokenType.COLLATE):
+            this.set("collate", self._parse_identifier() or self._parse_column())
 
         return this
 
@@ -6808,13 +6870,19 @@ class Parser:
         this: str | exp.Expr = self._curr.text
         upper = self._curr.text.upper()
 
+        after_dot = prev.token_type == TokenType.DOT
         parser = self.NO_PAREN_FUNCTION_PARSERS.get(upper)
-        if optional_parens and parser and token_type not in self.INVALID_FUNC_NAME_TOKENS:
+        if (
+            optional_parens
+            and parser
+            and token_type not in self.INVALID_FUNC_NAME_TOKENS
+            and not after_dot
+        ):
             self._advance()
             return self._parse_window(parser(self))
 
         if self._next.token_type != TokenType.L_PAREN:
-            if optional_parens and token_type in self.NO_PAREN_FUNCTIONS:
+            if optional_parens and token_type in self.NO_PAREN_FUNCTIONS and not after_dot:
                 self._advance()
                 return self.expression(self.NO_PAREN_FUNCTIONS[token_type]())
 
@@ -7011,6 +7079,7 @@ class Parser:
                 exp.Distinct(expressions=self._parse_csv(self._parse_disjunction))
             )
         else:
+            self._match(TokenType.ALL)  # ALL is the default/no-op aggregate modifier (SQL-92)
             this = self._parse_select_or_expression(alias=alias)
 
         return self._parse_limit(
@@ -7654,7 +7723,7 @@ class Parser:
             self.raise_error("Expected AS after CAST")
 
         fmt = None
-        to = self._parse_types()
+        to = self._parse_types(with_collation=True)
 
         default = None
         if self._match(TokenType.DEFAULT):
@@ -8260,6 +8329,11 @@ class Parser:
         if self._can_parse_limit_or_offset():
             return this
 
+        # WINDOW is in ID_VAR_TOKENS, so it can be consumed as an implicit alias. Detect the
+        # named-window clause shape (`WINDOW <ident> AS (...)`) and avoid swallowing it.
+        if self._can_parse_named_window():
+            return this
+
         any_token = self._match(TokenType.ALIAS)
         comments = self._prev_comments
 
@@ -8645,7 +8719,9 @@ class Parser:
         return self._parse_csv(self._parse_alter_drop_action)
 
     def _parse_alter_table_rename(self) -> exp.AlterRename | exp.RenameColumn | None:
-        if self._match(TokenType.COLUMN) or not self.ALTER_RENAME_REQUIRES_COLUMN:
+        if self._match(TokenType.COLUMN) or (
+            not self.ALTER_RENAME_REQUIRES_COLUMN and not self._match_text_seq("TO", advance=False)
+        ):
             exists = self._parse_exists()
             old_column = self._parse_column()
             to = self._match_text_seq("TO")

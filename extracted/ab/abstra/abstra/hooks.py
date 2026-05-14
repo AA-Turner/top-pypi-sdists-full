@@ -1,3 +1,5 @@
+from mailparser import MailParser
+
 from abstra_internals.interface.sdk.hooks import (
     get_email_request,
     get_raw_request,
@@ -12,4 +14,8 @@ __all__ = [
     "send_response",
     "send_json",
     "get_email_request",
+    # Re-exported so users can annotate their own variables, e.g.
+    #   from abstra.hooks import MailParser, get_email_request
+    #   email: MailParser = get_email_request()
+    "MailParser",
 ]
