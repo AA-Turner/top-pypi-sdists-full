@@ -197,11 +197,16 @@ class AgentLoop:
             progress to users during long-running operations.
 
         Example:
-            >>> await self._publish_thinking_event(
-            ...     session_key=SessionKey(channel="telegram", chat_id="123"),
-            ...     event_type=OutboundEventType.TOOL_START,
-            ...     content="Executing web search..."
-            ... )
+            async def notify_tool_call() -> None:
+                await self._publish_thinking_event(
+                    session_key=SessionKey(
+                        type="telegram",
+                        channel_id="default",
+                        chat_id="123",
+                    ),
+                    event_type=OutboundEventType.TOOL_CALL,
+                    content="Executing web search...",
+                )
         """
         await self.bus.publish_outbound(
             OutboundMessage(
@@ -267,6 +272,7 @@ class AgentLoop:
         sender_id: str | None = None,
         ov_tools_enable: bool = True,
         memory_user_ids: list[str] | None = None,
+        disabled_tools: list[str] | None = None,
     ) -> tuple[str | None, str | None, list[dict], dict[str, int], int]:
         """
         Run the core agent loop: call LLM, execute tools, repeat until done.
@@ -277,6 +283,7 @@ class AgentLoop:
             publish_events: Whether to publish ITERATION/REASONING/TOOL_CALL events to the bus
             ov_tools_enable: Whether to enable OpenViking tools for this session
             memory_user_ids: List of user IDs for memory retrieval
+            disabled_tools: Tool names to hide from the model for this request
 
         Returns:
             tuple of (final_content, final_reasoning_content, tools_used, token_usage, iteration)
@@ -290,6 +297,7 @@ class AgentLoop:
             "completion_tokens": 0,
             "total_tokens": 0,
         }
+        write_exp_injected = False
 
         while iteration < self.max_iterations:
             iteration += 1
@@ -305,7 +313,10 @@ class AgentLoop:
 
             response = await self.provider.chat(
                 messages=messages,
-                tools=self.tools.get_definitions(ov_tools_enable=ov_tools_enable),
+                tools=self.tools.get_definitions(
+                    ov_tools_enable=ov_tools_enable,
+                    disabled_tools=disabled_tools,
+                ),
                 model=self.model,
                 session_id=session_key.safe_name(),
             )
@@ -325,6 +336,33 @@ class AgentLoop:
                 )
 
             if response.has_tool_calls:
+                # Inject experience memory before write-related tool calls (once per session)
+                if not write_exp_injected:
+                    _ov_cfg = load_config().ov_server
+                    _write_tools = set(_ov_cfg.exp_write_tools)
+                    if any(tc.name in _write_tools for tc in response.tool_calls):
+                        write_exp_injected = True
+                        try:
+                            # Build query from last 3 user messages
+                            _user_msgs = [
+                                m["content"] for m in messages
+                                if m.get("role") == "user" and isinstance(m.get("content"), str)
+                            ]
+                            _query = "\n".join(_user_msgs[-3:])
+                            workspace_id = self.sandbox_manager.to_workspace_id(session_key) if self.sandbox_manager else "shared"
+                            _exp = await self.context.memory.get_viking_experience_context(
+                                query=_query, workspace_id=workspace_id
+                            )
+                            logger.info(f"[WRITE_EXP]: write tool detected, exp_found={bool(_exp)}, query={_query[:50]}")
+                            if _exp:
+                                messages.append({
+                                    "role": "user",
+                                    "content": f"## Relevant Agent Experience\n{_exp}",
+                                })
+                                continue
+                        except Exception as _e:
+                            logger.warning(f"[WRITE_EXP]: failed to load experience: {_e}")
+
                 final_reasoning_content = response.reasoning_content
                 args_list = [tc.arguments for tc in response.tool_calls]
                 tool_call_dicts = [
@@ -488,6 +526,9 @@ class AgentLoop:
             session = self.sessions.get_or_create(session_key, skip_heartbeat=skip_heartbeat)
 
             ov_tools_enable = self._get_ov_tools_enable(session_key)
+            disabled_tools = msg.metadata.get("disabled_tools", []) if msg.metadata else []
+            if not isinstance(disabled_tools, list):
+                disabled_tools = []
             # Get profile_user_list from channel config
             profile_user_list = []
             # Try to get memory_users from message metadata first (CLI mode), then from channel config
@@ -640,6 +681,7 @@ class AgentLoop:
                     sender_id=msg.sender_id,
                     ov_tools_enable=ov_tools_enable,
                     memory_user_ids=memory_user,
+                    disabled_tools=disabled_tools,
                 )
 
             # Log response preview

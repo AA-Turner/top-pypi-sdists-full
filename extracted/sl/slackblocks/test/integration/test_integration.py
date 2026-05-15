@@ -1,5 +1,6 @@
-# TODO(nick): enable in GH actions
+from __future__ import annotations
 
+# TODO(nick): enable in GH actions
 from os import environ
 
 from slack_sdk import WebClient
@@ -19,7 +20,7 @@ def test_basic_attachment_message() -> None:
     client = WebClient(token=environ["SLACK_BOT_TOKEN"])
     response = client.chat_postMessage(**message)
     assert response.status_code == 200
-    with open("test/samples/message_basic_attachment.json", "r") as expected:
+    with open("test/samples/message_basic_attachment.json") as expected:
         assert repr(message) == expected.read()
 
 
@@ -42,5 +43,5 @@ def test_compound_message() -> None:
     client = WebClient(token=environ["SLACK_BOT_TOKEN"])
     response = client.chat_postMessage(**message)
     assert response.status_code == 200
-    with open("test/samples/message_compound.json", "r") as expected:
+    with open("test/samples/message_compound.json") as expected:
         assert repr(message) == expected.read()

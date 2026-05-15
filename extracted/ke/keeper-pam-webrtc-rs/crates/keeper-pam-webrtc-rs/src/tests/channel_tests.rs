@@ -96,6 +96,7 @@ async fn test_server_mode_data_flow() -> Result<()> {
         rx_from_dc,
         tx_from_dc: Arc::new(Mutex::new(Some(tx_to_channel))),
         channel_id: "test_server_mode".to_string(),
+        conversation_id: "test_server_mode".to_string(),
         tube_id: "test-tube".to_string(),
         timeouts: None,                                        // default timeouts
         protocol_settings: settings,                           // protocol_settings
@@ -291,6 +292,7 @@ async fn test_client_mode_data_flow() -> Result<()> {
         rx_from_dc,
         tx_from_dc: Arc::new(Mutex::new(Some(tx_to_channel.clone()))),
         channel_id: "test_client_mode".to_string(),
+        conversation_id: "test_client_mode".to_string(),
         tube_id: "test-tube".to_string(),
         timeouts: None,                                        // default timeouts
         protocol_settings: settings,                           // protocol_settings
@@ -371,8 +373,9 @@ fn extract_frame_from_bytes(data: &Bytes) -> Result<Frame> {
 
     // Use the crate's frame parsing logic if available
     match crate::tube_protocol::try_parse_frame(&mut buffer) {
-        Some(frame) => Ok(frame),
-        None => anyhow::bail!("Failed to parse frame from bytes"),
+        Ok(Some(frame)) => Ok(frame),
+        Ok(None) => anyhow::bail!("Failed to parse frame from bytes"),
+        Err(e) => anyhow::bail!("Frame parse error: {}", e),
     }
 }
 

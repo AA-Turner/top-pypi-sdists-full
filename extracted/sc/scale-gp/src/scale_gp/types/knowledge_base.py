@@ -1,8 +1,10 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Dict, List, Union, Optional
+from typing import TYPE_CHECKING, Dict, List, Union, Optional
 from datetime import datetime
 from typing_extensions import Literal, TypeAlias
+
+from pydantic import Field as FieldInfo
 
 from .._compat import PYDANTIC_V1, ConfigDict
 from .._models import BaseModel
@@ -15,6 +17,7 @@ __all__ = [
     "EmbeddingConfigEmbeddingConfigBase",
     "ArtifactsStatus",
     "Connection",
+    "KBIndexConfiguration",
 ]
 
 
@@ -96,6 +99,35 @@ class Connection(BaseModel):
     """The status of the deletion job for this data source connection, if any."""
 
 
+class KBIndexConfiguration(BaseModel):
+    """
+    The effective metadata schema enforced on this knowledge base's underlying index, including system defaults (`page`, `artifact_uri_public`, `artifact_name`). Populated for Azure AI Search backends; `null` for schemaless backends (OpenSearch, Vertex AI). Only returned when the caller opts in via `view=IndexConfiguration` on both the GET and list endpoints.
+    """
+
+    fields: Dict[str, object]
+    """Schema defining metadata fields for the knowledge base.
+
+    Each field can have properties: type (string, int32, int64, double, boolean,
+    complex), filterable (bool), searchable (bool). Complex types can have nested
+    'fields' with the same structure.
+    """
+
+    max_index_size: Optional[int] = None
+    """Maximum size (in bytes) for the index. If not provided, uses the default."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
 class KnowledgeBase(BaseModel):
     created_at: str
     """The timestamp at which the knowledge base was created"""
@@ -139,6 +171,18 @@ class KnowledgeBase(BaseModel):
 
     created_by_user_id: Optional[str] = None
     """The user ID of the user who created the knowledge base."""
+
+    index_backend: Optional[Literal["AzureSearch", "OpenSearch", "Redis", "VertexAISearch"]] = None
+    """The underlying search backend powering this knowledge base."""
+
+    kb_index_configuration: Optional[KBIndexConfiguration] = None
+    """
+    The effective metadata schema enforced on this knowledge base's underlying
+    index, including system defaults (`page`, `artifact_uri_public`,
+    `artifact_name`). Populated for Azure AI Search backends; `null` for schemaless
+    backends (OpenSearch, Vertex AI). Only returned when the caller opts in via
+    `view=IndexConfiguration` on both the GET and list endpoints.
+    """
 
     metadata: Optional[Dict[str, object]] = None
     """Metadata associated with the knowledge base"""

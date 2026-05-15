@@ -130,13 +130,30 @@ def session_data_payload_json(data: MutableMapping[str, Any]) -> str:
     return session_data_json(_without_session_metadata(data))
 
 
-def session_data_checksum(data: MutableMapping[str, Any]) -> str:
-    """Return the checksum for the canonical session data payload."""
+def _go_json_escape(payload: str) -> str:
+    """Match Go encoding/json's default string escaping for checksums."""
+    return (
+        payload.replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
+
+
+def _session_data_checksum_json(data: MutableMapping[str, Any]) -> str:
     payload = json.dumps(
         _json_safe_value(_without_session_metadata(data)),
         sort_keys=True,
         separators=(",", ":"),
+        ensure_ascii=False,
     )
+    return _go_json_escape(payload)
+
+
+def session_data_checksum(data: MutableMapping[str, Any]) -> str:
+    """Return the checksum for the canonical session data payload."""
+    payload = _session_data_checksum_json(data)
     return "sha256:" + hashlib.sha256(payload.encode()).hexdigest()
 
 
@@ -255,7 +272,7 @@ def _json_safe_value(value: Any) -> Any:
 
 def session_data_json(data: Any) -> str:
     """Encode session data through the SDK's durable JSON boundary."""
-    return json.dumps(_json_safe_value(data))
+    return json.dumps(_json_safe_value(data), ensure_ascii=False, separators=(",", ":"))
 
 
 @dataclass

@@ -3,7 +3,7 @@ from __future__ import annotations
 import collections.abc
 import inspect
 import logging
-from typing import TYPE_CHECKING, Any, NamedTuple, Union
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -68,7 +68,7 @@ class ColormeshArtists(NamedTuple):
     text: Any
 
 
-Hist1DArtists = Union[StairsArtists, ErrorBarArtists]
+Hist1DArtists = StairsArtists | ErrorBarArtists
 Hist2DArtists = ColormeshArtists
 
 
@@ -769,7 +769,10 @@ def histplot(
 
     # Add sticky edges for autoscale
     if "bar" not in histtype:
-        listy = _artist.sticky_edges.y
+        # histtype excludes "bar"/"barstep" here, so _artist is StepPatch or
+        # ErrorbarContainer; both expose sticky_edges. mypy can't narrow
+        # through the string-membership check, hence the ignore.
+        listy = _artist.sticky_edges.y  # type: ignore[union-attr]
         assert hasattr(listy, "append"), "cannot append to sticky edges"
         listy.append(0)
 
@@ -1524,6 +1527,7 @@ def model(
             unstacked_colors,
             unstacked_labels,
             unstacked_kwargs_list,
+            strict=True,
         ):
             if model_type == "histograms":
                 unstacked_kwargs.setdefault("histtype", "step")

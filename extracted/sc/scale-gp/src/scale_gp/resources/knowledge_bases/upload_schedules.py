@@ -9,7 +9,7 @@ from typing_extensions import Literal
 import httpx
 
 from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -96,7 +96,9 @@ class UploadSchedulesResource(SyncAPIResource):
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
         return self._post(
-            f"/v4/knowledge-bases/{knowledge_base_id}/upload-schedules",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/upload-schedules", knowledge_base_id=knowledge_base_id
+            ),
             body=maybe_transform(
                 {
                     "chunking_strategy_config": chunking_strategy_config,
@@ -153,7 +155,11 @@ class UploadSchedulesResource(SyncAPIResource):
         if not upload_schedule_id:
             raise ValueError(f"Expected a non-empty value for `upload_schedule_id` but received {upload_schedule_id!r}")
         return self._get(
-            f"/v4/knowledge-bases/{knowledge_base_id}/upload-schedules/{upload_schedule_id}",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/upload-schedules/{upload_schedule_id}",
+                knowledge_base_id=knowledge_base_id,
+                upload_schedule_id=upload_schedule_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -208,7 +214,11 @@ class UploadSchedulesResource(SyncAPIResource):
         if not upload_schedule_id:
             raise ValueError(f"Expected a non-empty value for `upload_schedule_id` but received {upload_schedule_id!r}")
         return self._patch(
-            f"/v4/knowledge-bases/{knowledge_base_id}/upload-schedules/{upload_schedule_id}",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/upload-schedules/{upload_schedule_id}",
+                knowledge_base_id=knowledge_base_id,
+                upload_schedule_id=upload_schedule_id,
+            ),
             body=maybe_transform(
                 {
                     "chunking_strategy_config": chunking_strategy_config,
@@ -267,7 +277,9 @@ class UploadSchedulesResource(SyncAPIResource):
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
         return self._get_api_list(
-            f"/v4/knowledge-bases/{knowledge_base_id}/upload-schedules",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/upload-schedules", knowledge_base_id=knowledge_base_id
+            ),
             page=SyncPageResponse[UploadScheduleWithViews],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -324,7 +336,11 @@ class UploadSchedulesResource(SyncAPIResource):
         if not upload_schedule_id:
             raise ValueError(f"Expected a non-empty value for `upload_schedule_id` but received {upload_schedule_id!r}")
         return self._delete(
-            f"/v4/knowledge-bases/{knowledge_base_id}/upload-schedules/{upload_schedule_id}",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/upload-schedules/{upload_schedule_id}",
+                knowledge_base_id=knowledge_base_id,
+                upload_schedule_id=upload_schedule_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -395,7 +411,9 @@ class AsyncUploadSchedulesResource(AsyncAPIResource):
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
         return await self._post(
-            f"/v4/knowledge-bases/{knowledge_base_id}/upload-schedules",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/upload-schedules", knowledge_base_id=knowledge_base_id
+            ),
             body=await async_maybe_transform(
                 {
                     "chunking_strategy_config": chunking_strategy_config,
@@ -452,7 +470,11 @@ class AsyncUploadSchedulesResource(AsyncAPIResource):
         if not upload_schedule_id:
             raise ValueError(f"Expected a non-empty value for `upload_schedule_id` but received {upload_schedule_id!r}")
         return await self._get(
-            f"/v4/knowledge-bases/{knowledge_base_id}/upload-schedules/{upload_schedule_id}",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/upload-schedules/{upload_schedule_id}",
+                knowledge_base_id=knowledge_base_id,
+                upload_schedule_id=upload_schedule_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -509,7 +531,11 @@ class AsyncUploadSchedulesResource(AsyncAPIResource):
         if not upload_schedule_id:
             raise ValueError(f"Expected a non-empty value for `upload_schedule_id` but received {upload_schedule_id!r}")
         return await self._patch(
-            f"/v4/knowledge-bases/{knowledge_base_id}/upload-schedules/{upload_schedule_id}",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/upload-schedules/{upload_schedule_id}",
+                knowledge_base_id=knowledge_base_id,
+                upload_schedule_id=upload_schedule_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "chunking_strategy_config": chunking_strategy_config,
@@ -568,7 +594,9 @@ class AsyncUploadSchedulesResource(AsyncAPIResource):
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
         return self._get_api_list(
-            f"/v4/knowledge-bases/{knowledge_base_id}/upload-schedules",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/upload-schedules", knowledge_base_id=knowledge_base_id
+            ),
             page=AsyncPageResponse[UploadScheduleWithViews],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -625,7 +653,11 @@ class AsyncUploadSchedulesResource(AsyncAPIResource):
         if not upload_schedule_id:
             raise ValueError(f"Expected a non-empty value for `upload_schedule_id` but received {upload_schedule_id!r}")
         return await self._delete(
-            f"/v4/knowledge-bases/{knowledge_base_id}/upload-schedules/{upload_schedule_id}",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/upload-schedules/{upload_schedule_id}",
+                knowledge_base_id=knowledge_base_id,
+                upload_schedule_id=upload_schedule_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

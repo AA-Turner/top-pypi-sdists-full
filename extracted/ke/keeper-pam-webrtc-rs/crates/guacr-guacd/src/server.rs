@@ -14,6 +14,7 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, mpsc};
 use tokio::task::JoinHandle;
+use uuid::Uuid;
 
 use crate::args::{get_protocol_arg_names, get_protocol_args};
 
@@ -78,6 +79,7 @@ pub struct GuacdHandshake<S> {
     stream: BufReader<S>,
     protocol: Option<String>,
     arg_names: Vec<&'static str>,
+    pub conversation_id: Option<String>,
 }
 
 impl<S: AsyncRead + AsyncWrite + Unpin> GuacdHandshake<S> {
@@ -87,6 +89,17 @@ impl<S: AsyncRead + AsyncWrite + Unpin> GuacdHandshake<S> {
             stream: BufReader::new(stream),
             protocol: None,
             arg_names: Vec::new(),
+            conversation_id: None,
+        }
+    }
+
+    /// Create a new handshake handler with a conversation ID for log correlation
+    pub fn new_with_conversation_id(stream: S, conversation_id: Option<String>) -> Self {
+        Self {
+            stream: BufReader::new(stream),
+            protocol: None,
+            arg_names: Vec::new(),
+            conversation_id,
         }
     }
 
@@ -487,9 +500,10 @@ pub async fn handle_guacd_connection_with_timeout(
     registry: Arc<ProtocolHandlerRegistry>,
     handshake_timeout: Duration,
 ) -> std::result::Result<(), HandshakeError> {
+    let connection_id = Uuid::new_v4().to_string();
     // Wrap handshake in timeout to prevent slowloris attacks
     let handshake_result = tokio::time::timeout(handshake_timeout, async {
-        let mut handshake = GuacdHandshake::new(socket);
+        let mut handshake = GuacdHandshake::new_with_conversation_id(socket, Some(connection_id));
 
         // 1. Read select instruction
         let select = handshake.read_select().await?;

@@ -2514,7 +2514,7 @@ class ScreeningStatistics:
             signal_type = save_dict.get("B/S", "NA")
             
             return symbol, (has_signal, confidence, signal_type)
-        
+        max_workers = max(2,max_workers)
         # Process stocks in parallel with ThreadPoolExecutor
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {

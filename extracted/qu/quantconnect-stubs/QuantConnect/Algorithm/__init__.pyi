@@ -49,279 +49,16 @@ import pandas
 
 QuantConnect_Algorithm__EventContainer_Callable = typing.TypeVar("QuantConnect_Algorithm__EventContainer_Callable")
 QuantConnect_Algorithm__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Algorithm__EventContainer_ReturnType")
+QuantConnect_Algorithm_QCAlgorithm_AddData_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_AddData_T")
+QuantConnect_Algorithm_QCAlgorithm_AddCommand_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_AddCommand_T")
 QuantConnect_Algorithm_QCAlgorithm_RegisterIndicator_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_RegisterIndicator_T")
 QuantConnect_Algorithm_QCAlgorithm_WarmUpIndicator_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_WarmUpIndicator_T")
 QuantConnect_Algorithm_QCAlgorithm_Consolidate_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_Consolidate_T")
 QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T")
-QuantConnect_Algorithm_QCAlgorithm_History_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_History_T")
-QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T")
 QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T")
 QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T")
-QuantConnect_Algorithm_QCAlgorithm_AddData_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_AddData_T")
-QuantConnect_Algorithm_QCAlgorithm_AddCommand_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_AddCommand_T")
-
-
-class UniverseDefinitions(System.Object):
-    """Provides helpers for defining universes in algorithms"""
-
-    @property
-    def dollar_volume(self) -> QuantConnect.Algorithm.DollarVolumeUniverseDefinitions:
-        """Gets a helper that provides methods for creating universes based on daily dollar volumes"""
-        ...
-
-    @dollar_volume.setter
-    def dollar_volume(self, value: QuantConnect.Algorithm.DollarVolumeUniverseDefinitions) -> None:
-        ...
-
-    @property
-    def unchanged(self) -> QuantConnect.Data.UniverseSelection.Universe.UnchangedUniverse:
-        """Specifies that universe selection should not make changes on this iteration"""
-        ...
-
-    @property
-    def qc_500(self) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new fine universe that contains the constituents of QC500 index based onthe company fundamentals
-        The algorithm creates a default tradable and liquid universe containing 500 US equities
-        which are chosen at the first trading day of each month.
-        """
-        ...
-
-    def __init__(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> None:
-        """
-        Initializes a new instance of the UniverseDefinitions class
-        
-        :param algorithm: The algorithm instance, used for obtaining the default UniverseSettings
-        """
-        ...
-
-    @overload
-    def etf(self, etf_ticker: str, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided etf_ticker
-        
-        :param etf_ticker: Ticker of the ETF to get constituents for
-        :param market: Market of the ETF
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, etf_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided etf_ticker
-        
-        :param etf_ticker: Ticker of the ETF to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided ETF symbol
-        
-        :param symbol: ETF Symbol to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided ETF symbol
-        
-        :param symbol: ETF Symbol to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided ETF symbol
-        
-        :param symbol: ETF Symbol to get constituents for
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, etf_ticker: str, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided etf_ticker
-        
-        :param etf_ticker: Ticker of the ETF to get constituents for
-        :param market: Market of the ETF
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, etf_ticker: str, market: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided etf_ticker
-        
-        :param etf_ticker: Ticker of the ETF to get constituents for
-        :param market: Market of the ETF
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, etf_ticker: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided etf_ticker
-        
-        :param etf_ticker: Ticker of the ETF to get constituents for
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, etf_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided etf_ticker
-        
-        :param etf_ticker: Ticker of the ETF to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_ticker: str, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided index_ticker
-        
-        :param index_ticker: Ticker of the index to get constituents for
-        :param market: Market of the index
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided index_ticker
-        
-        :param index_ticker: Ticker of the index to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided index_symbol
-        
-        :param index_symbol: Index Symbol to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided index_symbol
-        
-        :param index_symbol: Index Symbol to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided index_symbol
-        
-        :param index_symbol: Index Symbol to get constituents for
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_ticker: str, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided index_ticker
-        
-        :param index_ticker: Ticker of the index to get constituents for
-        :param market: Market of the index
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_ticker: str, market: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided index_ticker
-        
-        :param index_ticker: Ticker of the index to get constituents for
-        :param market: Market of the index
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_ticker: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided index_ticker
-        
-        :param index_ticker: Ticker of the index to get constituents for
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided index_ticker
-        
-        :param index_ticker: Ticker of the index to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    def top(self, count: int, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new coarse universe that contains the top count of stocks
-        by daily dollar volume
-        
-        :param count: The number of stock to select
-        :param universe_settings: The settings for stocks added by this universe.
-        Defaults to QCAlgorithm.universe_settings
-        :returns: A new coarse universe for the top count of stocks by dollar volume.
-        """
-        ...
+QuantConnect_Algorithm_QCAlgorithm_History_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_History_T")
+QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T")
 
 
 class CandlestickPatterns(System.Object):
@@ -1075,6 +812,487 @@ class CandlestickPatterns(System.Object):
         ...
 
 
+class UniverseDefinitions(System.Object):
+    """Provides helpers for defining universes in algorithms"""
+
+    @property
+    def dollar_volume(self) -> QuantConnect.Algorithm.DollarVolumeUniverseDefinitions:
+        """Gets a helper that provides methods for creating universes based on daily dollar volumes"""
+        ...
+
+    @dollar_volume.setter
+    def dollar_volume(self, value: QuantConnect.Algorithm.DollarVolumeUniverseDefinitions) -> None:
+        ...
+
+    @property
+    def unchanged(self) -> QuantConnect.Data.UniverseSelection.Universe.UnchangedUniverse:
+        """Specifies that universe selection should not make changes on this iteration"""
+        ...
+
+    @property
+    def qc_500(self) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new fine universe that contains the constituents of QC500 index based onthe company fundamentals
+        The algorithm creates a default tradable and liquid universe containing 500 US equities
+        which are chosen at the first trading day of each month.
+        """
+        ...
+
+    def __init__(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> None:
+        """
+        Initializes a new instance of the UniverseDefinitions class
+        
+        :param algorithm: The algorithm instance, used for obtaining the default UniverseSettings
+        """
+        ...
+
+    @overload
+    def etf(self, etf_ticker: str, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided etf_ticker
+        
+        :param etf_ticker: Ticker of the ETF to get constituents for
+        :param market: Market of the ETF
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, etf_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided etf_ticker
+        
+        :param etf_ticker: Ticker of the ETF to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided ETF symbol
+        
+        :param symbol: ETF Symbol to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided ETF symbol
+        
+        :param symbol: ETF Symbol to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided ETF symbol
+        
+        :param symbol: ETF Symbol to get constituents for
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, etf_ticker: str, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided etf_ticker
+        
+        :param etf_ticker: Ticker of the ETF to get constituents for
+        :param market: Market of the ETF
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, etf_ticker: str, market: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided etf_ticker
+        
+        :param etf_ticker: Ticker of the ETF to get constituents for
+        :param market: Market of the ETF
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, etf_ticker: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided etf_ticker
+        
+        :param etf_ticker: Ticker of the ETF to get constituents for
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, etf_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided etf_ticker
+        
+        :param etf_ticker: Ticker of the ETF to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_ticker: str, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided index_ticker
+        
+        :param index_ticker: Ticker of the index to get constituents for
+        :param market: Market of the index
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided index_ticker
+        
+        :param index_ticker: Ticker of the index to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided index_symbol
+        
+        :param index_symbol: Index Symbol to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided index_symbol
+        
+        :param index_symbol: Index Symbol to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided index_symbol
+        
+        :param index_symbol: Index Symbol to get constituents for
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_ticker: str, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided index_ticker
+        
+        :param index_ticker: Ticker of the index to get constituents for
+        :param market: Market of the index
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_ticker: str, market: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided index_ticker
+        
+        :param index_ticker: Ticker of the index to get constituents for
+        :param market: Market of the index
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_ticker: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided index_ticker
+        
+        :param index_ticker: Ticker of the index to get constituents for
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided index_ticker
+        
+        :param index_ticker: Ticker of the index to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    def top(self, count: int, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new coarse universe that contains the top count of stocks
+        by daily dollar volume
+        
+        :param count: The number of stock to select
+        :param universe_settings: The settings for stocks added by this universe.
+        Defaults to QCAlgorithm.universe_settings
+        :returns: A new coarse universe for the top count of stocks by dollar volume.
+        """
+        ...
+
+
+class _Typed_QCAlgorithm_AddData(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_AddData_T]):
+    """"""
+
+    @overload
+    def __call__(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
+        
+        :param underlying: The underlying symbol for the custom data
+        :param resolution: Resolution of the data
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution], fill_forward: bool, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
+        
+        :param underlying: The underlying symbol for the custom data
+        :param resolution: Resolution of the Data Required
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        
+        :param underlying: The underlying symbol for the custom data
+        :param resolution: Resolution of the Data Required
+        :param time_zone: Specifies the time zone of the raw data
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
+        
+        :param ticker: Key/Ticker for data
+        :param resolution: Resolution of the data
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], fill_forward: bool, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
+        
+        :param ticker: Key/Ticker for data
+        :param resolution: Resolution of the Data Required
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        
+        :param ticker: Key/Ticker for data
+        :param resolution: Resolution of the Data Required
+        :param time_zone: Specifies the time zone of the raw data
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, ticker: str, properties: QuantConnect.Securities.SymbolProperties, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source including symbol properties and exchange hours,
+        all other vars are not required and will use defaults.
+        
+        :param ticker: Key/Ticker for data
+        :param properties: The properties of this new custom data
+        :param exchange_hours: The Exchange hours of this symbol
+        :param resolution: Resolution of the Data Required
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+
+class _QCAlgorithm_AddData:
+    """"""
+
+    @overload
+    def __call__(self, type: typing.Type, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time).
+        This method is meant for custom data types that require a ticker, but have no underlying Symbol.
+        Examples of data sources that meet this criteria are U.S. Treasury Yield Curve Rates and Trading Economics data
+        
+        :param type: Data source type
+        :param ticker: Key/Ticker for data
+        :param resolution: Resolution of the data
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time).
+        This adds a Symbol to the `Underlying` property in the custom data Symbol object.
+        Use this method when adding custom data with a ticker from the past, such as "AOL"
+        before it became "TWX", or if you need to filter using custom data and place trades on the
+        Symbol associated with the custom data.
+        
+        :param type: Data source type
+        :param underlying: The underlying symbol for the custom data
+        :param resolution: Resolution of the data
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        This method is meant for custom data types that require a ticker, but have no underlying Symbol.
+        Examples of data sources that meet this criteria are U.S. Treasury Yield Curve Rates and Trading Economics data
+        
+        :param type: Data source type
+        :param ticker: Key/Ticker for data
+        :param resolution: Resolution of the Data Required
+        :param time_zone: Specifies the time zone of the raw data
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source, requiring only the minimum config options.
+        This adds a Symbol to the `Underlying` property in the custom data Symbol object.
+        Use this method when adding custom data with a ticker from the past, such as "AOL"
+        before it became "TWX", or if you need to filter using custom data and place trades on the
+        Symbol associated with the custom data.
+        
+        :param type: Data source type
+        :param underlying: The underlying symbol for the custom data
+        :param resolution: Resolution of the Data Required
+        :param time_zone: Specifies the time zone of the raw data
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    @overload
+    def __call__(self, type: typing.Type, ticker: str, properties: QuantConnect.Securities.SymbolProperties, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+        """
+        AddData a new user defined data source including symbol properties and exchange hours,
+        all other vars are not required and will use defaults.
+        This overload reflects the C# equivalent for custom properties and market hours
+        
+        :param type: Data source type
+        :param ticker: Key/Ticker for data
+        :param properties: The properties of this new custom data
+        :param exchange_hours: The Exchange hours of this symbol
+        :param resolution: Resolution of the Data Required
+        :param fill_forward: When no data available on a tradebar, return the last data that was generated
+        :param leverage: Custom leverage per security
+        :returns: The new Security.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_AddData_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_AddData[QuantConnect_Algorithm_QCAlgorithm_AddData_T]:
+        ...
+
+
+class _Typed_QCAlgorithm_AddCommand(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_AddCommand_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> None:
+        """Register a command type to be used"""
+        ...
+
+
+class _QCAlgorithm_AddCommand:
+    """"""
+
+    @overload
+    def __call__(self, type: typing.Type) -> None:
+        """
+        Register a command type to be used
+        
+        :param type: The command type
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_AddCommand_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_AddCommand[QuantConnect_Algorithm_QCAlgorithm_AddCommand_T]:
+        ...
+
+
 class _Typed_QCAlgorithm_RegisterIndicator(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_RegisterIndicator_T]):
     """"""
 
@@ -1780,6 +1998,442 @@ class _QCAlgorithm_IndicatorHistory:
         ...
 
 
+class _Typed_QCAlgorithm_AddUniverse(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T]):
+    """"""
+
+    @overload
+    def __call__(self, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
+        
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
+        
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
+        
+        :param name: A unique name for this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
+        
+        :param name: A unique name for this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, and Market.USA
+        
+        :param name: A unique name for this universe
+        :param universe_settings: The settings used for securities added by this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, and Market.USA
+        
+        :param name: A unique name for this universe
+        :param universe_settings: The settings used for securities added by this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, resolution: QuantConnect.Resolution, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Market.USA and UniverseSettings
+        
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, resolution: QuantConnect.Resolution, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Market.USA and UniverseSettings
+        
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, resolution: QuantConnect.Resolution, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, and Market.USA
+        
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param universe_settings: The settings used for securities added by this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, resolution: QuantConnect.Resolution, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, and Market.USA
+        
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param universe_settings: The settings used for securities added by this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, resolution: QuantConnect.Resolution, market: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property.
+        
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property.
+        
+        :param security_type: The security type the universe produces
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm
+        
+        :param security_type: The security type the universe produces
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param universe_settings: The subscription settings to use for newly created subscriptions
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str = None, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]] = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm
+        
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param universe_settings: The subscription settings to use for newly created subscriptions
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+
+class _QCAlgorithm_AddUniverse:
+    """"""
+
+    @overload
+    def __call__(self, py_object: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for coarse fundamental US Equity data and
+        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        :param py_object: Defines an initial coarse selection
+        """
+        ...
+
+    @overload
+    def __call__(self, py_object: typing.Any, pyfine: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for coarse and fine fundamental US Equity data and
+        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        :param py_object: Defines an initial coarse selection or a universe
+        :param pyfine: Defines a more detailed selection with access to more data
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, resolution: QuantConnect.Resolution, py_selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This can be used to return a list of string
+        symbols retrieved from anywhere and will loads those symbols under the US Equity market.
+        
+        :param name: A unique name for this universe
+        :param resolution: The resolution this universe should be triggered on
+        :param py_selector: Function delegate that accepts a DateTime and returns a collection of string symbols
+        """
+        ...
+
+    @overload
+    def __call__(self, name: str, py_selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This can be used to return a list of string
+        symbols retrieved from anywhere and will loads those symbols under the US Equity market.
+        
+        :param name: A unique name for this universe
+        :param py_selector: Function delegate that accepts a DateTime and returns a collection of string symbols
+        """
+        ...
+
+    @overload
+    def __call__(self, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, py_selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new user defined universe that will fire on the requested resolution during market hours.
+        
+        :param security_type: The security type of the universe
+        :param name: A unique name for this universe
+        :param resolution: The resolution this universe should be triggered on
+        :param market: The market of the universe
+        :param universe_settings: The subscription settings used for securities added from this universe
+        :param py_selector: Function delegate that accepts a DateTime and returns a collection of string symbols
+        """
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type, name: str, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
+        
+        :param t: The data type
+        :param name: A unique name for this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type, name: str, resolution: QuantConnect.Resolution, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Market.USA and UniverseSettings
+        
+        :param t: The data type
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type, name: str, resolution: QuantConnect.Resolution, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, and Market.USA
+        
+        :param t: The data type
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param universe_settings: The settings used for securities added by this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type, name: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, and Market.USA
+        
+        :param t: The data type
+        :param name: A unique name for this universe
+        :param universe_settings: The settings used for securities added by this universe
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the UniverseSettings property.
+        
+        :param t: The data type
+        :param security_type: The security type the universe produces
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, t: typing.Type, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm
+        
+        :param t: The data type
+        :param security_type: The security type the universe produces
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param universe_settings: The subscription settings to use for newly created subscriptions
+        :param selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, data_type: typing.Type, security_type: typing.Optional[QuantConnect.SecurityType] = None, name: str = None, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, py_selector: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm
+        
+        :param data_type: The data type
+        :param security_type: The security type the universe produces
+        :param name: A unique name for this universe
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param universe_settings: The subscription settings to use for newly created subscriptions
+        :param py_selector: Function delegate that performs selection on the universe data
+        """
+        ...
+
+    @overload
+    def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Adds the universe to the algorithm
+        
+        :param universe: The universe to be added
+        """
+        ...
+
+    @overload
+    def __call__(self, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for fundamental US Equity data and
+        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        :param selector: Defines an initial fundamental selection
+        """
+        ...
+
+    @overload
+    def __call__(self, date_rule: QuantConnect.Scheduling.IDateRule, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for fundamental US Equity data and
+        will be executed based on the provided IDateRule in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        :param date_rule: Date rule that will be used to set the Data.UniverseSelection.UniverseSettings.Schedule
+        :param selector: Defines an initial fundamental selection
+        """
+        ...
+
+    @overload
+    def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe, fine_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for fine fundamental US Equity data and
+        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        :param universe: The universe to be filtered with fine fundamental selection
+        :param fine_selector: Defines a more detailed selection with access to more data
+        """
+        ...
+
+    @overload
+    def __call__(self, coarse_selector: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]], typing.List[QuantConnect.Symbol]], fine_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.FineFundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for coarse and fine fundamental US Equity data and
+        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        
+        This method is obsolete, please use AddUniverse(Func<IEnumerable<Fundamental>, IEnumerable<Symbol>> selector) instead
+        
+        :param coarse_selector: Defines an initial coarse selection
+        :param fine_selector: Defines a more detailed selection with access to more data
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_AddUniverse[QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T]:
+        ...
+
+
+class _Typed_QCAlgorithm_GetDataFrame(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T]):
+    """"""
+
+    @overload
+    def __call__(self, data: typing.List[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T], flatten: bool) -> typing.Any:
+        """
+        Converts an enumerable of BaseData into a Python Pandas data frame
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class _QCAlgorithm_GetDataFrame:
+    """"""
+
+    @overload
+    def __call__(self, data: typing.List[QuantConnect.Data.Slice], flatten: bool, data_type: typing.Type = None) -> typing.Any:
+        """
+        Converts an enumerable of Slice into a Python Pandas data frame
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_GetDataFrame[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T]:
+        ...
+
+
 class _Typed_QCAlgorithm_History(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_History_T]):
     """"""
 
@@ -2392,786 +3046,12 @@ class _QCAlgorithm_GetDataTypedHistory:
         ...
 
 
-class _Typed_QCAlgorithm_AddUniverse(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T]):
-    """"""
-
-    @overload
-    def __call__(self, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
-        
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
-        
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
-        
-        :param name: A unique name for this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
-        
-        :param name: A unique name for this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Resolution.Daily, and Market.USA
-        
-        :param name: A unique name for this universe
-        :param universe_settings: The settings used for securities added by this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Resolution.Daily, and Market.USA
-        
-        :param name: A unique name for this universe
-        :param universe_settings: The settings used for securities added by this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, resolution: QuantConnect.Resolution, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Market.USA and UniverseSettings
-        
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, resolution: QuantConnect.Resolution, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Market.USA and UniverseSettings
-        
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, resolution: QuantConnect.Resolution, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, and Market.USA
-        
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param universe_settings: The settings used for securities added by this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, resolution: QuantConnect.Resolution, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, and Market.USA
-        
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param universe_settings: The settings used for securities added by this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, resolution: QuantConnect.Resolution, market: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property.
-        
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param market: The market for selected symbols
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property.
-        
-        :param security_type: The security type the universe produces
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param market: The market for selected symbols
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[str]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm
-        
-        :param security_type: The security type the universe produces
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param market: The market for selected symbols
-        :param universe_settings: The subscription settings to use for newly created subscriptions
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str = None, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]] = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm
-        
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param market: The market for selected symbols
-        :param universe_settings: The subscription settings to use for newly created subscriptions
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-
-class _QCAlgorithm_AddUniverse:
-    """"""
-
-    @overload
-    def __call__(self, py_object: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This is for coarse fundamental US Equity data and
-        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
-        
-        :param py_object: Defines an initial coarse selection
-        """
-        ...
-
-    @overload
-    def __call__(self, py_object: typing.Any, pyfine: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This is for coarse and fine fundamental US Equity data and
-        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
-        
-        :param py_object: Defines an initial coarse selection or a universe
-        :param pyfine: Defines a more detailed selection with access to more data
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, resolution: QuantConnect.Resolution, py_selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This can be used to return a list of string
-        symbols retrieved from anywhere and will loads those symbols under the US Equity market.
-        
-        :param name: A unique name for this universe
-        :param resolution: The resolution this universe should be triggered on
-        :param py_selector: Function delegate that accepts a DateTime and returns a collection of string symbols
-        """
-        ...
-
-    @overload
-    def __call__(self, name: str, py_selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This can be used to return a list of string
-        symbols retrieved from anywhere and will loads those symbols under the US Equity market.
-        
-        :param name: A unique name for this universe
-        :param py_selector: Function delegate that accepts a DateTime and returns a collection of string symbols
-        """
-        ...
-
-    @overload
-    def __call__(self, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, py_selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new user defined universe that will fire on the requested resolution during market hours.
-        
-        :param security_type: The security type of the universe
-        :param name: A unique name for this universe
-        :param resolution: The resolution this universe should be triggered on
-        :param market: The market of the universe
-        :param universe_settings: The subscription settings used for securities added from this universe
-        :param py_selector: Function delegate that accepts a DateTime and returns a collection of string symbols
-        """
-        ...
-
-    @overload
-    def __call__(self, t: typing.Type, name: str, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
-        
-        :param t: The data type
-        :param name: A unique name for this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, t: typing.Type, name: str, resolution: QuantConnect.Resolution, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Market.USA and UniverseSettings
-        
-        :param t: The data type
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, t: typing.Type, name: str, resolution: QuantConnect.Resolution, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, and Market.USA
-        
-        :param t: The data type
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param universe_settings: The settings used for securities added by this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, t: typing.Type, name: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property. This universe will use the defaults
-        of SecurityType.Equity, Resolution.Daily, and Market.USA
-        
-        :param t: The data type
-        :param name: A unique name for this universe
-        :param universe_settings: The settings used for securities added by this universe
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, t: typing.Type, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This will use the default universe settings
-        specified via the UniverseSettings property.
-        
-        :param t: The data type
-        :param security_type: The security type the universe produces
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param market: The market for selected symbols
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, t: typing.Type, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm
-        
-        :param t: The data type
-        :param security_type: The security type the universe produces
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param market: The market for selected symbols
-        :param universe_settings: The subscription settings to use for newly created subscriptions
-        :param selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, data_type: typing.Type, security_type: typing.Optional[QuantConnect.SecurityType] = None, name: str = None, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, py_selector: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm
-        
-        :param data_type: The data type
-        :param security_type: The security type the universe produces
-        :param name: A unique name for this universe
-        :param resolution: The expected resolution of the universe data
-        :param market: The market for selected symbols
-        :param universe_settings: The subscription settings to use for newly created subscriptions
-        :param py_selector: Function delegate that performs selection on the universe data
-        """
-        ...
-
-    @overload
-    def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Adds the universe to the algorithm
-        
-        :param universe: The universe to be added
-        """
-        ...
-
-    @overload
-    def __call__(self, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This is for fundamental US Equity data and
-        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
-        
-        :param selector: Defines an initial fundamental selection
-        """
-        ...
-
-    @overload
-    def __call__(self, date_rule: QuantConnect.Scheduling.IDateRule, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This is for fundamental US Equity data and
-        will be executed based on the provided IDateRule in the NewYork time zone (TimeZones.NEW_YORK)
-        
-        :param date_rule: Date rule that will be used to set the Data.UniverseSelection.UniverseSettings.Schedule
-        :param selector: Defines an initial fundamental selection
-        """
-        ...
-
-    @overload
-    def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe, fine_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This is for fine fundamental US Equity data and
-        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
-        
-        :param universe: The universe to be filtered with fine fundamental selection
-        :param fine_selector: Defines a more detailed selection with access to more data
-        """
-        ...
-
-    @overload
-    def __call__(self, coarse_selector: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]], typing.List[QuantConnect.Symbol]], fine_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.FineFundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This is for coarse and fine fundamental US Equity data and
-        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
-        
-        
-        This method is obsolete, please use AddUniverse(Func<IEnumerable<Fundamental>, IEnumerable<Symbol>> selector) instead
-        
-        :param coarse_selector: Defines an initial coarse selection
-        :param fine_selector: Defines a more detailed selection with access to more data
-        """
-        ...
-
-    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_AddUniverse[QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T]:
-        ...
-
-
-class _Typed_QCAlgorithm_GetDataFrame(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T]):
-    """"""
-
-    @overload
-    def __call__(self, data: typing.List[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T], flatten: bool) -> typing.Any:
-        """
-        Converts an enumerable of BaseData into a Python Pandas data frame
-        
-        
-        This Class is protected.
-        """
-        ...
-
-
-class _QCAlgorithm_GetDataFrame:
-    """"""
-
-    @overload
-    def __call__(self, data: typing.List[QuantConnect.Data.Slice], flatten: bool, data_type: typing.Type = None) -> typing.Any:
-        """
-        Converts an enumerable of Slice into a Python Pandas data frame
-        
-        
-        This Class is protected.
-        """
-        ...
-
-    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_GetDataFrame[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T]:
-        ...
-
-
-class _Typed_QCAlgorithm_AddData(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_AddData_T]):
-    """"""
-
-    @overload
-    def __call__(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
-        
-        :param underlying: The underlying symbol for the custom data
-        :param resolution: Resolution of the data
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution], fill_forward: bool, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
-        
-        :param underlying: The underlying symbol for the custom data
-        :param resolution: Resolution of the Data Required
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        
-        :param underlying: The underlying symbol for the custom data
-        :param resolution: Resolution of the Data Required
-        :param time_zone: Specifies the time zone of the raw data
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
-        
-        :param ticker: Key/Ticker for data
-        :param resolution: Resolution of the data
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], fill_forward: bool, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time)
-        
-        :param ticker: Key/Ticker for data
-        :param resolution: Resolution of the Data Required
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        
-        :param ticker: Key/Ticker for data
-        :param resolution: Resolution of the Data Required
-        :param time_zone: Specifies the time zone of the raw data
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, ticker: str, properties: QuantConnect.Securities.SymbolProperties, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source including symbol properties and exchange hours,
-        all other vars are not required and will use defaults.
-        
-        :param ticker: Key/Ticker for data
-        :param properties: The properties of this new custom data
-        :param exchange_hours: The Exchange hours of this symbol
-        :param resolution: Resolution of the Data Required
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-
-class _QCAlgorithm_AddData:
-    """"""
-
-    @overload
-    def __call__(self, type: typing.Type, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time).
-        This method is meant for custom data types that require a ticker, but have no underlying Symbol.
-        Examples of data sources that meet this criteria are U.S. Treasury Yield Curve Rates and Trading Economics data
-        
-        :param type: Data source type
-        :param ticker: Key/Ticker for data
-        :param resolution: Resolution of the data
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        The data is added with a default time zone of NewYork (Eastern Daylight Savings Time).
-        This adds a Symbol to the `Underlying` property in the custom data Symbol object.
-        Use this method when adding custom data with a ticker from the past, such as "AOL"
-        before it became "TWX", or if you need to filter using custom data and place trades on the
-        Symbol associated with the custom data.
-        
-        :param type: Data source type
-        :param underlying: The underlying symbol for the custom data
-        :param resolution: Resolution of the data
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, type: typing.Type, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        This method is meant for custom data types that require a ticker, but have no underlying Symbol.
-        Examples of data sources that meet this criteria are U.S. Treasury Yield Curve Rates and Trading Economics data
-        
-        :param type: Data source type
-        :param ticker: Key/Ticker for data
-        :param resolution: Resolution of the Data Required
-        :param time_zone: Specifies the time zone of the raw data
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source, requiring only the minimum config options.
-        This adds a Symbol to the `Underlying` property in the custom data Symbol object.
-        Use this method when adding custom data with a ticker from the past, such as "AOL"
-        before it became "TWX", or if you need to filter using custom data and place trades on the
-        Symbol associated with the custom data.
-        
-        :param type: Data source type
-        :param underlying: The underlying symbol for the custom data
-        :param resolution: Resolution of the Data Required
-        :param time_zone: Specifies the time zone of the raw data
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-    @overload
-    def __call__(self, type: typing.Type, ticker: str, properties: QuantConnect.Securities.SymbolProperties, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
-        """
-        AddData a new user defined data source including symbol properties and exchange hours,
-        all other vars are not required and will use defaults.
-        This overload reflects the C# equivalent for custom properties and market hours
-        
-        :param type: Data source type
-        :param ticker: Key/Ticker for data
-        :param properties: The properties of this new custom data
-        :param exchange_hours: The Exchange hours of this symbol
-        :param resolution: Resolution of the Data Required
-        :param fill_forward: When no data available on a tradebar, return the last data that was generated
-        :param leverage: Custom leverage per security
-        :returns: The new Security.
-        """
-        ...
-
-    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_AddData_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_AddData[QuantConnect_Algorithm_QCAlgorithm_AddData_T]:
-        ...
-
-
-class _Typed_QCAlgorithm_AddCommand(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_AddCommand_T]):
-    """"""
-
-    @overload
-    def __call__(self) -> None:
-        """Register a command type to be used"""
-        ...
-
-
-class _QCAlgorithm_AddCommand:
-    """"""
-
-    @overload
-    def __call__(self, type: typing.Type) -> None:
-        """
-        Register a command type to be used
-        
-        :param type: The command type
-        """
-        ...
-
-    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_AddCommand_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_AddCommand[QuantConnect_Algorithm_QCAlgorithm_AddCommand_T]:
-        ...
-
-
 class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm):
-    """This class has no documentation."""
-
-    @property
-    def enable_automatic_indicator_warm_up(self) -> bool:
-        """
-        Gets whether or not WarmUpIndicator is allowed to warm up indicators
-        
-        
-        Please use Settings.AutomaticIndicatorWarmUp
-        """
-        warnings.warn("Please use Settings.AutomaticIndicatorWarmUp", DeprecationWarning)
-
-    @enable_automatic_indicator_warm_up.setter
-    def enable_automatic_indicator_warm_up(self, value: bool) -> None:
-        warnings.warn("Please use Settings.AutomaticIndicatorWarmUp", DeprecationWarning)
-
-    @property
-    def debug_mode(self) -> bool:
-        """
-        Enables additional logging of framework models including:
-        All insights, portfolio targets, order events, and any risk management altered targets
-        """
-        ...
-
-    @debug_mode.setter
-    def debug_mode(self, value: bool) -> None:
-        ...
-
-    @property
-    def universe_selection(self) -> QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel:
-        """Gets or sets the universe selection model."""
-        ...
-
-    @universe_selection.setter
-    def universe_selection(self, value: QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel) -> None:
-        ...
-
-    @property
-    def alpha(self) -> QuantConnect.Algorithm.Framework.Alphas.IAlphaModel:
-        """Gets or sets the alpha model"""
-        ...
-
-    @alpha.setter
-    def alpha(self, value: QuantConnect.Algorithm.Framework.Alphas.IAlphaModel) -> None:
-        ...
-
-    @property
-    def insights(self) -> QuantConnect.Algorithm.Framework.Alphas.Analysis.InsightManager:
-        """Gets the insight manager"""
-        ...
-
-    @property
-    def portfolio_construction(self) -> QuantConnect.Algorithm.Framework.Portfolio.IPortfolioConstructionModel:
-        """Gets or sets the portfolio construction model"""
-        ...
-
-    @portfolio_construction.setter
-    def portfolio_construction(self, value: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioConstructionModel) -> None:
-        ...
-
-    @property
-    def execution(self) -> QuantConnect.Algorithm.Framework.Execution.IExecutionModel:
-        """Gets or sets the execution model"""
-        ...
-
-    @execution.setter
-    def execution(self, value: QuantConnect.Algorithm.Framework.Execution.IExecutionModel) -> None:
-        ...
-
-    @property
-    def risk_management(self) -> QuantConnect.Algorithm.Framework.Risk.IRiskManagementModel:
-        """Gets or sets the risk management model"""
-        ...
-
-    @risk_management.setter
-    def risk_management(self, value: QuantConnect.Algorithm.Framework.Risk.IRiskManagementModel) -> None:
-        ...
-
-    @property
-    def history_provider(self) -> QuantConnect.Interfaces.IHistoryProvider:
-        """Gets or sets the history provider for the algorithm"""
-        ...
-
-    @history_provider.setter
-    def history_provider(self, value: QuantConnect.Interfaces.IHistoryProvider) -> None:
-        ...
-
-    @property
-    def is_warming_up(self) -> bool:
-        """Gets whether or not this algorithm is still warming up"""
-        ...
-
-    @property
-    def transactions(self) -> QuantConnect.Securities.SecurityTransactionManager:
-        """Transaction Manager - Process transaction fills and order management."""
-        ...
-
-    @transactions.setter
-    def transactions(self, value: QuantConnect.Securities.SecurityTransactionManager) -> None:
-        ...
-
-    @property
-    def universe_manager(self) -> QuantConnect.Securities.UniverseManager:
-        """Gets universe manager which holds universes keyed by their symbol"""
-        ...
-
-    @property
-    def universe_settings(self) -> QuantConnect.Data.UniverseSelection.UniverseSettings:
-        """Gets the universe settings to be used when adding securities via universe selection"""
-        ...
-
-    @property
-    def universe(self) -> QuantConnect.Algorithm.UniverseDefinitions:
-        """Gets a helper that provides pre-defined universe definitions, such as top dollar volume"""
-        ...
-
-    @property
-    def pandas_converter(self) -> QuantConnect.Python.PandasConverter:
-        """PandasConverter for this Algorithm"""
-        ...
-
-    @property
-    def runtime_statistics(self) -> System.Collections.Concurrent.ConcurrentDictionary[str, str]:
-        """Access to the runtime statistics property. User provided statistics."""
-        ...
+    """
+    QC Algorithm Base Class - Handle the basic requirements of a trading algorithm,
+    allowing user to focus on event methods. The QCAlgorithm class implements Portfolio,
+    Securities, Transactions and Data Subscription Management.
+    """
 
     MAX_NAME_AND_TAGS_LENGTH: int = 200
     """
@@ -3547,6 +3427,138 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
+    def enable_automatic_indicator_warm_up(self) -> bool:
+        """
+        Gets whether or not WarmUpIndicator is allowed to warm up indicators
+        
+        
+        Please use Settings.AutomaticIndicatorWarmUp
+        """
+        warnings.warn("Please use Settings.AutomaticIndicatorWarmUp", DeprecationWarning)
+
+    @enable_automatic_indicator_warm_up.setter
+    def enable_automatic_indicator_warm_up(self, value: bool) -> None:
+        warnings.warn("Please use Settings.AutomaticIndicatorWarmUp", DeprecationWarning)
+
+    @property
+    def debug_mode(self) -> bool:
+        """
+        Enables additional logging of framework models including:
+        All insights, portfolio targets, order events, and any risk management altered targets
+        """
+        ...
+
+    @debug_mode.setter
+    def debug_mode(self, value: bool) -> None:
+        ...
+
+    @property
+    def universe_selection(self) -> QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel:
+        """Gets or sets the universe selection model."""
+        ...
+
+    @universe_selection.setter
+    def universe_selection(self, value: QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel) -> None:
+        ...
+
+    @property
+    def alpha(self) -> QuantConnect.Algorithm.Framework.Alphas.IAlphaModel:
+        """Gets or sets the alpha model"""
+        ...
+
+    @alpha.setter
+    def alpha(self, value: QuantConnect.Algorithm.Framework.Alphas.IAlphaModel) -> None:
+        ...
+
+    @property
+    def insights(self) -> QuantConnect.Algorithm.Framework.Alphas.Analysis.InsightManager:
+        """Gets the insight manager"""
+        ...
+
+    @property
+    def portfolio_construction(self) -> QuantConnect.Algorithm.Framework.Portfolio.IPortfolioConstructionModel:
+        """Gets or sets the portfolio construction model"""
+        ...
+
+    @portfolio_construction.setter
+    def portfolio_construction(self, value: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioConstructionModel) -> None:
+        ...
+
+    @property
+    def execution(self) -> QuantConnect.Algorithm.Framework.Execution.IExecutionModel:
+        """Gets or sets the execution model"""
+        ...
+
+    @execution.setter
+    def execution(self, value: QuantConnect.Algorithm.Framework.Execution.IExecutionModel) -> None:
+        ...
+
+    @property
+    def risk_management(self) -> QuantConnect.Algorithm.Framework.Risk.IRiskManagementModel:
+        """Gets or sets the risk management model"""
+        ...
+
+    @risk_management.setter
+    def risk_management(self, value: QuantConnect.Algorithm.Framework.Risk.IRiskManagementModel) -> None:
+        ...
+
+    @property
+    def transactions(self) -> QuantConnect.Securities.SecurityTransactionManager:
+        """Transaction Manager - Process transaction fills and order management."""
+        ...
+
+    @transactions.setter
+    def transactions(self, value: QuantConnect.Securities.SecurityTransactionManager) -> None:
+        ...
+
+    @property
+    def runtime_statistics(self) -> System.Collections.Concurrent.ConcurrentDictionary[str, str]:
+        """Access to the runtime statistics property. User provided statistics."""
+        ...
+
+    @property
+    def universe_manager(self) -> QuantConnect.Securities.UniverseManager:
+        """Gets universe manager which holds universes keyed by their symbol"""
+        ...
+
+    @property
+    def universe_settings(self) -> QuantConnect.Data.UniverseSelection.UniverseSettings:
+        """Gets the universe settings to be used when adding securities via universe selection"""
+        ...
+
+    @property
+    def universe(self) -> QuantConnect.Algorithm.UniverseDefinitions:
+        """Gets a helper that provides pre-defined universe definitions, such as top dollar volume"""
+        ...
+
+    @property
+    def pandas_converter(self) -> QuantConnect.Python.PandasConverter:
+        """PandasConverter for this Algorithm"""
+        ...
+
+    @property
+    def history_provider(self) -> QuantConnect.Interfaces.IHistoryProvider:
+        """Gets or sets the history provider for the algorithm"""
+        ...
+
+    @history_provider.setter
+    def history_provider(self, value: QuantConnect.Interfaces.IHistoryProvider) -> None:
+        ...
+
+    @property
+    def is_warming_up(self) -> bool:
+        """Gets whether or not this algorithm is still warming up"""
+        ...
+
+    @property
+    def add_data(self) -> QuantConnect.Algorithm._QCAlgorithm_AddData:
+        ...
+
+    @property
+    def add_command(self) -> QuantConnect.Algorithm._QCAlgorithm_AddCommand:
+        ...
+
+    @property
     def register_indicator(self) -> QuantConnect.Algorithm._QCAlgorithm_RegisterIndicator:
         ...
 
@@ -3563,14 +3575,6 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
-    def history(self) -> QuantConnect.Algorithm._QCAlgorithm_History:
-        ...
-
-    @property
-    def get_data_typed_history(self) -> QuantConnect.Algorithm._QCAlgorithm_GetDataTypedHistory:
-        ...
-
-    @property
     def add_universe(self) -> QuantConnect.Algorithm._QCAlgorithm_AddUniverse:
         ...
 
@@ -3579,11 +3583,11 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
-    def add_data(self) -> QuantConnect.Algorithm._QCAlgorithm_AddData:
+    def history(self) -> QuantConnect.Algorithm._QCAlgorithm_History:
         ...
 
     @property
-    def add_command(self) -> QuantConnect.Algorithm._QCAlgorithm_AddCommand:
+    def get_data_typed_history(self) -> QuantConnect.Algorithm._QCAlgorithm_GetDataTypedHistory:
         ...
 
     def __init__(self) -> None:
@@ -6379,45 +6383,6 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def plot(self, chart: str, first: QuantConnect.Indicators.Indicator, second: QuantConnect.Indicators.Indicator = None, third: QuantConnect.Indicators.Indicator = None, fourth: QuantConnect.Indicators.Indicator = None) -> None:
-        """
-        Plots the value of each indicator on the chart
-        
-        :param chart: The chart's name
-        :param first: The first indicator to plot
-        :param second: The second indicator to plot
-        :param third: The third indicator to plot
-        :param fourth: The fourth indicator to plot
-        """
-        ...
-
-    @overload
-    def plot(self, chart: str, first: QuantConnect.Indicators.BarIndicator, second: QuantConnect.Indicators.BarIndicator = None, third: QuantConnect.Indicators.BarIndicator = None, fourth: QuantConnect.Indicators.BarIndicator = None) -> None:
-        """
-        Plots the value of each indicator on the chart
-        
-        :param chart: The chart's name
-        :param first: The first indicator to plot
-        :param second: The second indicator to plot
-        :param third: The third indicator to plot
-        :param fourth: The fourth indicator to plot
-        """
-        ...
-
-    @overload
-    def plot(self, chart: str, first: QuantConnect.Indicators.TradeBarIndicator, second: QuantConnect.Indicators.TradeBarIndicator = None, third: QuantConnect.Indicators.TradeBarIndicator = None, fourth: QuantConnect.Indicators.TradeBarIndicator = None) -> None:
-        """
-        Plots the value of each indicator on the chart
-        
-        :param chart: The chart's name
-        :param first: The first indicator to plot
-        :param second: The second indicator to plot
-        :param third: The third indicator to plot
-        :param fourth: The fourth indicator to plot
-        """
-        ...
-
-    @overload
     def plot(self, series: str, value: float) -> None:
         """
         Plot a chart using string series name, with value.
@@ -6524,6 +6489,45 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         
         :param chart: The chart's name
         :param indicators: The indicators to plot
+        """
+        ...
+
+    @overload
+    def plot(self, chart: str, first: QuantConnect.Indicators.Indicator, second: QuantConnect.Indicators.Indicator = None, third: QuantConnect.Indicators.Indicator = None, fourth: QuantConnect.Indicators.Indicator = None) -> None:
+        """
+        Plots the value of each indicator on the chart
+        
+        :param chart: The chart's name
+        :param first: The first indicator to plot
+        :param second: The second indicator to plot
+        :param third: The third indicator to plot
+        :param fourth: The fourth indicator to plot
+        """
+        ...
+
+    @overload
+    def plot(self, chart: str, first: QuantConnect.Indicators.BarIndicator, second: QuantConnect.Indicators.BarIndicator = None, third: QuantConnect.Indicators.BarIndicator = None, fourth: QuantConnect.Indicators.BarIndicator = None) -> None:
+        """
+        Plots the value of each indicator on the chart
+        
+        :param chart: The chart's name
+        :param first: The first indicator to plot
+        :param second: The second indicator to plot
+        :param third: The third indicator to plot
+        :param fourth: The fourth indicator to plot
+        """
+        ...
+
+    @overload
+    def plot(self, chart: str, first: QuantConnect.Indicators.TradeBarIndicator, second: QuantConnect.Indicators.TradeBarIndicator = None, third: QuantConnect.Indicators.TradeBarIndicator = None, fourth: QuantConnect.Indicators.TradeBarIndicator = None) -> None:
+        """
+        Plots the value of each indicator on the chart
+        
+        :param chart: The chart's name
+        :param first: The first indicator to plot
+        :param second: The second indicator to plot
+        :param third: The third indicator to plot
+        :param fourth: The fourth indicator to plot
         """
         ...
 
@@ -8496,33 +8500,6 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
 
-class DollarVolumeUniverseDefinitions(System.Object):
-    """Provides helpers for defining universes based on the daily dollar volume"""
-
-    def __init__(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> None:
-        """
-        Initializes a new instance of the DollarVolumeUniverseDefinitions class
-        
-        :param algorithm: The algorithm instance, used for obtaining the default UniverseSettings
-        """
-        ...
-
-    def top(self, count: int, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new coarse Universe that contains the top count of stocks
-        by daily dollar volume
-        
-        
-        This method is deprecated. Use method `Universe.Top(...)` instead
-        
-        :param count: The number of stock to select
-        :param universe_settings: The settings for stocks added by this universe.
-        Defaults to QCAlgorithm.universe_settings
-        :returns: A new coarse universe for the top count of stocks by dollar volume.
-        """
-        warnings.warn("This method is deprecated. Use method `Universe.Top(...)` instead", DeprecationWarning)
-
-
 class ConstituentUniverseDefinitions(System.Object):
     """
     Provides helpers for defining constituent universes based on the Morningstar
@@ -8848,6 +8825,33 @@ class ConstituentUniverseDefinitions(System.Object):
     def waste_management(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
         """Morningstar WasteManagement industry group MorningstarIndustryGroupCode"""
         ...
+
+
+class DollarVolumeUniverseDefinitions(System.Object):
+    """Provides helpers for defining universes based on the daily dollar volume"""
+
+    def __init__(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> None:
+        """
+        Initializes a new instance of the DollarVolumeUniverseDefinitions class
+        
+        :param algorithm: The algorithm instance, used for obtaining the default UniverseSettings
+        """
+        ...
+
+    def top(self, count: int, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new coarse Universe that contains the top count of stocks
+        by daily dollar volume
+        
+        
+        This method is deprecated. Use method `Universe.Top(...)` instead
+        
+        :param count: The number of stock to select
+        :param universe_settings: The settings for stocks added by this universe.
+        Defaults to QCAlgorithm.universe_settings
+        :returns: A new coarse universe for the top count of stocks by dollar volume.
+        """
+        warnings.warn("This method is deprecated. Use method `Universe.Top(...)` instead", DeprecationWarning)
 
 
 class _EventContainer(typing.Generic[QuantConnect_Algorithm__EventContainer_Callable, QuantConnect_Algorithm__EventContainer_ReturnType]):

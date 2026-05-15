@@ -75,38 +75,6 @@ class ResultHandlerInitializeParameters(System.Object):
         ...
 
 
-class BacktestProgressMonitor(System.Object):
-    """Monitors and reports the progress of a backtest"""
-
-    @property
-    def total_days(self) -> int:
-        """Gets the total days the algorithm will run"""
-        ...
-
-    @property
-    def processed_days(self) -> int:
-        """Gets the current days the algorithm has been running for"""
-        ...
-
-    @property
-    def progress(self) -> float:
-        """Gets the current progress of the backtest"""
-        ...
-
-    def __init__(self, time_keeper: QuantConnect.Interfaces.ITimeKeeper, end_utc_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Creates a new instance
-        
-        :param time_keeper: The time keeper to use
-        :param end_utc_time: The end UTC time
-        """
-        ...
-
-    def invalidate_processed_days(self) -> None:
-        """Invalidates the processed days count value so it gets recalculated next time it is needed"""
-        ...
-
-
 class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
     """Provides base functionality to the implementations of IResultHandler"""
 
@@ -1391,145 +1359,35 @@ class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         ...
 
 
-class RegressionResultHandler(QuantConnect.Lean.Engine.Results.BacktestingResultHandler):
-    """
-    Provides a wrapper over the BacktestingResultHandler that logs all order events
-    to a separate file
-    """
+class BacktestProgressMonitor(System.Object):
+    """Monitors and reports the progress of a backtest"""
 
     @property
-    def log_file_path(self) -> str:
-        """Gets the path used for logging all portfolio changing events, such as orders, TPV, daily holdings values"""
+    def total_days(self) -> int:
+        """Gets the total days the algorithm will run"""
         ...
 
     @property
-    def has_runtime_error(self) -> bool:
-        """True if there was a runtime error running the algorithm"""
+    def processed_days(self) -> int:
+        """Gets the current days the algorithm has been running for"""
         ...
 
-    def __init__(self) -> None:
-        """Initializes a new instance of the RegressionResultHandler class"""
+    @property
+    def progress(self) -> float:
+        """Gets the current progress of the backtest"""
         ...
 
-    def add_to_log_store(self, message: str) -> None:
+    def __init__(self, time_keeper: QuantConnect.Interfaces.ITimeKeeper, end_utc_time: typing.Union[datetime.datetime, datetime.date]) -> None:
         """
-        Save an algorithm message to the log store. Uses a different timestamped method of adding messaging to interweve debug and logging messages.
+        Creates a new instance
         
-        
-        This Class is protected.
-        
-        :param message: String message to store
+        :param time_keeper: The time keeper to use
+        :param end_utc_time: The end UTC time
         """
         ...
 
-    def configure_console_text_writer(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
-        """
-        We want to make algorithm messages end up in both the standard regression log file {algorithm}.{language}.log
-        as well as the details log {algorithm}.{language}.details.log. The details log is focused on providing a log
-        dedicated solely to the algorithm's behavior, void of all QuantConnect.Logging.Log messages
-        
-        
-        This Class is protected.
-        """
-        ...
-
-    def debug_message(self, message: str) -> None:
-        """
-        Send a debug message back to the browser console.
-        
-        :param message: Message we'd like shown in console.
-        """
-        ...
-
-    def error_message(self, message: str, stacktrace: str = ...) -> None:
-        """
-        Send an error message back to the browser highlighted in red with a stacktrace.
-        
-        :param message: Error message we'd like shown in console.
-        :param stacktrace: Stacktrace information string
-        """
-        ...
-
-    def exit(self) -> None:
-        """
-        Terminate the result thread and apply any required exit procedures.
-        Save orders log files to disk.
-        """
-        ...
-
-    def log_message(self, message: str) -> None:
-        """
-        Send a logging message to the log list for storage.
-        
-        :param message: Message we'd in the log.
-        """
-        ...
-
-    def on_securities_changed(self, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
-        """Event fired each time that we add/remove securities from the data feed"""
-        ...
-
-    def order_event(self, new_event: QuantConnect.Orders.OrderEvent) -> None:
-        """
-        Log the order and order event to the dedicated log file for this regression algorithm
-        
-        :param new_event: New order event details
-        """
-        ...
-
-    def process_synchronous_events(self, force_process: bool = False) -> None:
-        """
-        Runs at the end of each time loop. When HighFidelityLogging is enabled, we'll
-        log each piece of data to allow for faster determination of regression causes
-        """
-        ...
-
-    def runtime_error(self, message: str, stacktrace: str = ...) -> None:
-        """
-        Send a runtime error message back to the browser highlighted with in red
-        
-        :param message: Error message.
-        :param stacktrace: Stacktrace information string
-        """
-        ...
-
-    def runtime_statistic(self, key: str, value: str) -> None:
-        """
-        Set the current runtime statistics of the algorithm.
-        These are banner/title statistics which show at the top of the live trading results.
-        
-        :param key: Runtime headline statistic name
-        :param value: Runtime headline statistic value
-        """
-        ...
-
-    def sample_performance(self, time: typing.Union[datetime.datetime, datetime.date], value: float) -> None:
-        """
-        Runs on date changes, use this to log TPV and holdings values each day
-        
-        
-        This Class is protected.
-        """
-        ...
-
-    def save_results(self, name: str, result: QuantConnect.Result) -> None:
-        """Save the results to disk"""
-        ...
-
-    def security_type(self, types: typing.List[QuantConnect.SecurityType]) -> None:
-        """Send list of security asset types the algortihm uses to browser."""
-        ...
-
-    def set_algorithm(self, algorithm: QuantConnect.Interfaces.IAlgorithm, starting_portfolio_value: float) -> None:
-        """Initializes the stream writer using the algorithm's id (name) in the file path"""
-        ...
-
-    def system_debug_message(self, message: str) -> None:
-        """
-        Send a system debug message back to the browser console.
-        
-        :param message: Message we'd like shown in console.
-        """
+    def invalidate_processed_days(self) -> None:
+        """Invalidates the processed days count value so it gets recalculated next time it is needed"""
         ...
 
 
@@ -1779,6 +1637,148 @@ class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
 
     def update_portfolio_values(self, time: typing.Union[datetime.datetime, datetime.date], force: bool = False) -> None:
         """This Class is protected."""
+        ...
+
+
+class RegressionResultHandler(QuantConnect.Lean.Engine.Results.BacktestingResultHandler):
+    """
+    Provides a wrapper over the BacktestingResultHandler that logs all order events
+    to a separate file
+    """
+
+    @property
+    def log_file_path(self) -> str:
+        """Gets the path used for logging all portfolio changing events, such as orders, TPV, daily holdings values"""
+        ...
+
+    @property
+    def has_runtime_error(self) -> bool:
+        """True if there was a runtime error running the algorithm"""
+        ...
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the RegressionResultHandler class"""
+        ...
+
+    def add_to_log_store(self, message: str) -> None:
+        """
+        Save an algorithm message to the log store. Uses a different timestamped method of adding messaging to interweve debug and logging messages.
+        
+        
+        This Class is protected.
+        
+        :param message: String message to store
+        """
+        ...
+
+    def configure_console_text_writer(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
+        """
+        We want to make algorithm messages end up in both the standard regression log file {algorithm}.{language}.log
+        as well as the details log {algorithm}.{language}.details.log. The details log is focused on providing a log
+        dedicated solely to the algorithm's behavior, void of all QuantConnect.Logging.Log messages
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def debug_message(self, message: str) -> None:
+        """
+        Send a debug message back to the browser console.
+        
+        :param message: Message we'd like shown in console.
+        """
+        ...
+
+    def error_message(self, message: str, stacktrace: str = ...) -> None:
+        """
+        Send an error message back to the browser highlighted in red with a stacktrace.
+        
+        :param message: Error message we'd like shown in console.
+        :param stacktrace: Stacktrace information string
+        """
+        ...
+
+    def exit(self) -> None:
+        """
+        Terminate the result thread and apply any required exit procedures.
+        Save orders log files to disk.
+        """
+        ...
+
+    def log_message(self, message: str) -> None:
+        """
+        Send a logging message to the log list for storage.
+        
+        :param message: Message we'd in the log.
+        """
+        ...
+
+    def on_securities_changed(self, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
+        """Event fired each time that we add/remove securities from the data feed"""
+        ...
+
+    def order_event(self, new_event: QuantConnect.Orders.OrderEvent) -> None:
+        """
+        Log the order and order event to the dedicated log file for this regression algorithm
+        
+        :param new_event: New order event details
+        """
+        ...
+
+    def process_synchronous_events(self, force_process: bool = False) -> None:
+        """
+        Runs at the end of each time loop. When HighFidelityLogging is enabled, we'll
+        log each piece of data to allow for faster determination of regression causes
+        """
+        ...
+
+    def runtime_error(self, message: str, stacktrace: str = ...) -> None:
+        """
+        Send a runtime error message back to the browser highlighted with in red
+        
+        :param message: Error message.
+        :param stacktrace: Stacktrace information string
+        """
+        ...
+
+    def runtime_statistic(self, key: str, value: str) -> None:
+        """
+        Set the current runtime statistics of the algorithm.
+        These are banner/title statistics which show at the top of the live trading results.
+        
+        :param key: Runtime headline statistic name
+        :param value: Runtime headline statistic value
+        """
+        ...
+
+    def sample_performance(self, time: typing.Union[datetime.datetime, datetime.date], value: float) -> None:
+        """
+        Runs on date changes, use this to log TPV and holdings values each day
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def save_results(self, name: str, result: QuantConnect.Result) -> None:
+        """Save the results to disk"""
+        ...
+
+    def security_type(self, types: typing.List[QuantConnect.SecurityType]) -> None:
+        """Send list of security asset types the algortihm uses to browser."""
+        ...
+
+    def set_algorithm(self, algorithm: QuantConnect.Interfaces.IAlgorithm, starting_portfolio_value: float) -> None:
+        """Initializes the stream writer using the algorithm's id (name) in the file path"""
+        ...
+
+    def system_debug_message(self, message: str) -> None:
+        """
+        Send a system debug message back to the browser console.
+        
+        :param message: Message we'd like shown in console.
+        """
         ...
 
 

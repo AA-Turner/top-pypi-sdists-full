@@ -324,7 +324,7 @@ class Geocif:
             self._setup_simple_regression_flags()
         elif self.model_name.startswith("cumulative_"):
             self._setup_cumulative_flags()
-        elif self.model_name in ["tabpfn", "desreg", "tabicl"]:
+        elif self.model_name in ["tabpfn", "desreg", "tabicl", "tabicl_ft"]:
             self._setup_tabular_flags()
         elif self.model_name in ["oblique", "ydf"]:
             self._setup_tree_flags()
@@ -3069,6 +3069,7 @@ class ModelTrainer:
             "catboost": CatBoostFitter(self.obj),
             "tabpfn": TabPFNFitter(self.obj),
             "tabicl": TabICLFitter(self.obj),
+            "tabicl_ft": TabICLFTFitter(self.obj),
             "ngboost": NGBoostFitter(self.obj),
             "oblique": ObliqueFitter(self.obj),
             "ydf": YDFFitter(self.obj),
@@ -3155,6 +3156,53 @@ class TabICLFitter(BaseFitter):
         sklearn.set_config(transform_output="default")
         try:
             self.obj.model.fit(X_train, np.asarray(self.obj.y_train).ravel())
+        finally:
+            sklearn.set_config(transform_output=prev)
+
+
+class TabICLFTFitter(BaseFitter):
+    """FinetunedTabICLRegressor — needs X_val/y_val for early stopping.
+
+    Holds out a fraction of X_train as the validation set passed to
+    ``model.fit(X, y, X_val=, y_val=)``. Fraction is configurable via
+    ``[ML] tabicl_ft_val_frac`` (default 0.2). On CPU-only nodes this
+    will fall back to CPU automatically and take ~5-10x longer per
+    task than the zero-shot ``tabicl`` baseline.
+    """
+
+    def fit(self, X_train: pd.DataFrame, X_train_scaled, df_region: pd.DataFrame):
+        import sklearn
+        from sklearn.model_selection import train_test_split
+
+        y = np.asarray(self.obj.y_train).ravel()
+        try:
+            val_frac = self.obj.parser.getfloat(
+                "ML", "tabicl_ft_val_frac", fallback=0.2
+            )
+        except Exception:
+            val_frac = 0.2
+        # Need at least 2 train rows and 1 val row for split.
+        if len(X_train) < 5:
+            self.obj.logger.warning(
+                f"tabicl_ft: only {len(X_train)} training rows — too few "
+                f"for a holdout; falling back to fit without validation"
+            )
+            prev = sklearn.get_config()["transform_output"]
+            sklearn.set_config(transform_output="default")
+            try:
+                self.obj.model.fit(X_train, y)
+            finally:
+                sklearn.set_config(transform_output=prev)
+            return
+
+        X_tr, X_val, y_tr, y_val = train_test_split(
+            X_train, y, test_size=val_frac, random_state=42, shuffle=True
+        )
+
+        prev = sklearn.get_config()["transform_output"]
+        sklearn.set_config(transform_output="default")
+        try:
+            self.obj.model.fit(X_tr, y_tr, X_val=X_val, y_val=y_val)
         finally:
             sklearn.set_config(transform_output=prev)
 

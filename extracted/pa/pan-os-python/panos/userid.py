@@ -19,11 +19,13 @@
 
 import xml.etree.ElementTree as ET
 from copy import deepcopy
+from xml.sax.saxutils import escape, quoteattr
 
 from pan.xapi import PanXapiError
 
 import panos.errors as err
 from panos import getlogger, string_or_list, string_or_list_or_none
+from panos.base import _xpath_safe
 from panos.updater import PanOSVersion
 
 logger = getlogger(__name__)
@@ -244,7 +246,7 @@ class UserId(object):
             return
         tags = [self.prefix + t for t in tags]
         for c_ip in ip:
-            tagelement = register.find("./entry[@ip='%s']/tag" % c_ip)
+            tagelement = register.find("./entry[@ip=%s]/tag" % _xpath_safe(c_ip))
             if tagelement is None:
                 entry = ET.SubElement(register, "entry", {"ip": c_ip})
                 tagelement = ET.SubElement(entry, "tag")
@@ -275,7 +277,7 @@ class UserId(object):
             return
         tags = [self.prefix + t for t in tags]
         for c_ip in ip:
-            tagelement = unregister.find("./entry[@ip='%s']/tag" % c_ip)
+            tagelement = unregister.find("./entry[@ip=%s]/tag" % _xpath_safe(c_ip))
             if tagelement is None:
                 entry = ET.SubElement(unregister, "entry", {"ip": c_ip})
                 tagelement = ET.SubElement(entry, "tag")
@@ -550,7 +552,7 @@ class UserId(object):
             "<show><user><group><list>",
         ]
         if style is not None:
-            msg.append("<entry name='{0}'/>".format(style))
+            msg.append("<entry name={0}/>".format(quoteattr(style)))
         msg.append("</list></group></user></show>")
         cmd = "".join(msg)
         vsys = self.device.vsys or "vsys1"
@@ -594,7 +596,11 @@ class UserId(object):
             list
 
         """
-        cmd = "<show><user><group><name>" + group + "</name></group></user></show>"
+        cmd = (
+            "<show><user><group><name>"
+            + escape(group)
+            + "</name></group></user></show>"
+        )
         vsys = self.device.vsys or "vsys1"
 
         resp = self.device.op(cmd, vsys=vsys, cmd_xml=False)
@@ -644,12 +650,12 @@ class UserId(object):
         if user is None:
             msg.append(
                 "<all>"
-                + "<limit>{0}</limit>".format(limit)
-                + "<start-point>{0}</start-point>".format(start)
+                + "<limit>{0}</limit>".format(escape(str(limit)))
+                + "<start-point>{0}</start-point>".format(escape(str(start)))
                 + "</all>"
             )
         else:
-            msg.append("<user>{0}</user>".format(user))
+            msg.append("<user>{0}</user>".format(escape(user)))
         msg.append("</registered-user></object></show>")
 
         cmd = ET.fromstring("".join(msg))

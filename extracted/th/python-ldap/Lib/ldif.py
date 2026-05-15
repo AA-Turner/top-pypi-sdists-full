@@ -3,7 +3,7 @@ ldif - generate and parse LDIF data (see RFC 2849)
 
 See https://www.python-ldap.org/ for details.
 """
-__version__ = '3.4.5'
+__version__ = '3.4.6'
 
 __all__ = [
   # constants
@@ -373,7 +373,8 @@ class LDIFParser:
       if self._process_url_schemes:
         u = urlparse(url)
         if u[0] in self._process_url_schemes:
-          attr_value = urlopen(url).read()
+          with urlopen(url) as fd:
+            attr_value = fd.read()
     else:
       # All values should be valid ascii; we support UTF-8 as a
       # non-official, backwards compatibility layer.

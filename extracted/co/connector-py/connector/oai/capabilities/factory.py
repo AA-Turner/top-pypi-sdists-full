@@ -1,6 +1,6 @@
 from collections.abc import Mapping, Sequence
 from functools import partial
-from typing import Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 from connector_sdk_types.oai.capability import Request
 from connector_sdk_types.oai.modules.credentials_module_types import (
@@ -18,6 +18,9 @@ from connector.observability.instrument import Instrument
 from .errors import CapabilityNotImplementedError
 from .executor import CapabilityExecutor
 
+if TYPE_CHECKING:
+    from connector.oai.integration import CapabilityMetadata
+
 REQUEST = TypeVar("REQUEST", bound=Request)
 SETTINGS = TypeVar("SETTINGS", bound=BaseModel)
 
@@ -30,6 +33,7 @@ class CapabilityExecutorFactory(Generic[REQUEST, SETTINGS]):
         *,
         app_id: str,
         capabilities: Mapping[str, CapabilityCallableProto[REQUEST]],
+        capability_metadata: Mapping[str, "CapabilityMetadata"] | None = None,
         settings_model: type[SETTINGS],
         auth_setting: AuthSetting | None,
         credentials: Sequence[CredentialConfig | OAuthConfig],
@@ -38,6 +42,7 @@ class CapabilityExecutorFactory(Generic[REQUEST, SETTINGS]):
     ) -> None:
         self._app_id = app_id
         self._capabilites = capabilities
+        self._capability_metadata: Mapping[str, "CapabilityMetadata"] = capability_metadata or {}
         self._settings_model = settings_model
         self._auth_setting = auth_setting
         self._credentials_by_id = {cred.id: cred for cred in credentials}
@@ -95,6 +100,7 @@ class CapabilityExecutorFactory(Generic[REQUEST, SETTINGS]):
             app_id=self._app_id,
         )
 
+        metadata = self._capability_metadata.get(name)
         executor = CapabilityExecutor(
             app_id=self._app_id,
             capability_name=name,
@@ -106,6 +112,7 @@ class CapabilityExecutorFactory(Generic[REQUEST, SETTINGS]):
             exception_handle=exception_handle,
             request_validate_json=request_annotation.model_validate_json,
             instrument=capability_instrument.executor,
+            capability_rate_limit_mode=metadata.rate_limit_mode if metadata else None,
         )
 
         # Cache the executor

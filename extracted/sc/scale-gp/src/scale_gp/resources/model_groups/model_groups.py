@@ -14,7 +14,7 @@ from .models import (
 )
 from ...types import model_group_list_params, model_group_create_params, model_group_update_params
 from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -40,12 +40,16 @@ __all__ = ["ModelGroupsResource", "AsyncModelGroupsResource"]
 
 
 class ModelGroupsResource(SyncAPIResource):
+    """Model API."""
+
     @cached_property
     def models(self) -> ModelsResource:
+        """Model API."""
         return ModelsResource(self._client)
 
     @cached_property
     def usage_statistics(self) -> UsageStatisticsResource:
+        """Model API."""
         return UsageStatisticsResource(self._client)
 
     @cached_property
@@ -150,7 +154,7 @@ class ModelGroupsResource(SyncAPIResource):
         if not model_group_id:
             raise ValueError(f"Expected a non-empty value for `model_group_id` but received {model_group_id!r}")
         return self._get(
-            f"/v4/model-groups/{model_group_id}",
+            path_template("/v4/model-groups/{model_group_id}", model_group_id=model_group_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -195,7 +199,7 @@ class ModelGroupsResource(SyncAPIResource):
         if not model_group_id:
             raise ValueError(f"Expected a non-empty value for `model_group_id` but received {model_group_id!r}")
         return self._patch(
-            f"/v4/model-groups/{model_group_id}",
+            path_template("/v4/model-groups/{model_group_id}", model_group_id=model_group_id),
             body=maybe_transform(
                 {
                     "description": description,
@@ -302,7 +306,7 @@ class ModelGroupsResource(SyncAPIResource):
         if not model_group_id:
             raise ValueError(f"Expected a non-empty value for `model_group_id` but received {model_group_id!r}")
         return self._delete(
-            f"/v4/model-groups/{model_group_id}",
+            path_template("/v4/model-groups/{model_group_id}", model_group_id=model_group_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -311,12 +315,16 @@ class ModelGroupsResource(SyncAPIResource):
 
 
 class AsyncModelGroupsResource(AsyncAPIResource):
+    """Model API."""
+
     @cached_property
     def models(self) -> AsyncModelsResource:
+        """Model API."""
         return AsyncModelsResource(self._client)
 
     @cached_property
     def usage_statistics(self) -> AsyncUsageStatisticsResource:
+        """Model API."""
         return AsyncUsageStatisticsResource(self._client)
 
     @cached_property
@@ -421,7 +429,7 @@ class AsyncModelGroupsResource(AsyncAPIResource):
         if not model_group_id:
             raise ValueError(f"Expected a non-empty value for `model_group_id` but received {model_group_id!r}")
         return await self._get(
-            f"/v4/model-groups/{model_group_id}",
+            path_template("/v4/model-groups/{model_group_id}", model_group_id=model_group_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -466,7 +474,7 @@ class AsyncModelGroupsResource(AsyncAPIResource):
         if not model_group_id:
             raise ValueError(f"Expected a non-empty value for `model_group_id` but received {model_group_id!r}")
         return await self._patch(
-            f"/v4/model-groups/{model_group_id}",
+            path_template("/v4/model-groups/{model_group_id}", model_group_id=model_group_id),
             body=await async_maybe_transform(
                 {
                     "description": description,
@@ -573,7 +581,7 @@ class AsyncModelGroupsResource(AsyncAPIResource):
         if not model_group_id:
             raise ValueError(f"Expected a non-empty value for `model_group_id` but received {model_group_id!r}")
         return await self._delete(
-            f"/v4/model-groups/{model_group_id}",
+            path_template("/v4/model-groups/{model_group_id}", model_group_id=model_group_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -603,10 +611,12 @@ class ModelGroupsResourceWithRawResponse:
 
     @cached_property
     def models(self) -> ModelsResourceWithRawResponse:
+        """Model API."""
         return ModelsResourceWithRawResponse(self._model_groups.models)
 
     @cached_property
     def usage_statistics(self) -> UsageStatisticsResourceWithRawResponse:
+        """Model API."""
         return UsageStatisticsResourceWithRawResponse(self._model_groups.usage_statistics)
 
 
@@ -632,10 +642,12 @@ class AsyncModelGroupsResourceWithRawResponse:
 
     @cached_property
     def models(self) -> AsyncModelsResourceWithRawResponse:
+        """Model API."""
         return AsyncModelsResourceWithRawResponse(self._model_groups.models)
 
     @cached_property
     def usage_statistics(self) -> AsyncUsageStatisticsResourceWithRawResponse:
+        """Model API."""
         return AsyncUsageStatisticsResourceWithRawResponse(self._model_groups.usage_statistics)
 
 
@@ -661,10 +673,12 @@ class ModelGroupsResourceWithStreamingResponse:
 
     @cached_property
     def models(self) -> ModelsResourceWithStreamingResponse:
+        """Model API."""
         return ModelsResourceWithStreamingResponse(self._model_groups.models)
 
     @cached_property
     def usage_statistics(self) -> UsageStatisticsResourceWithStreamingResponse:
+        """Model API."""
         return UsageStatisticsResourceWithStreamingResponse(self._model_groups.usage_statistics)
 
 
@@ -690,8 +704,10 @@ class AsyncModelGroupsResourceWithStreamingResponse:
 
     @cached_property
     def models(self) -> AsyncModelsResourceWithStreamingResponse:
+        """Model API."""
         return AsyncModelsResourceWithStreamingResponse(self._model_groups.models)
 
     @cached_property
     def usage_statistics(self) -> AsyncUsageStatisticsResourceWithStreamingResponse:
+        """Model API."""
         return AsyncUsageStatisticsResourceWithStreamingResponse(self._model_groups.usage_statistics)

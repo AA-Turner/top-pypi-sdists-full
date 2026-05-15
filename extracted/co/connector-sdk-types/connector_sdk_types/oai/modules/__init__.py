@@ -23,6 +23,18 @@ from .oauth_module_types import (
     RequestDataType,
     RequestMethod,
 )
+from .rate_limiting_types import (
+    LIMIT_CEILING,
+    MAXIMUM_RETRIES,
+    REQUESTS_PER_WINDOW_CEILING,
+    RateLimitConfig,
+    RateLimitConfigBase,
+    RateLimitExtractor,
+    RateLimitExtractorResponse,
+    RateLimitMode,
+    RateLimitPolicySource,
+    RateLimitStrategy,
+)
 
 __all__ = [
     "AccessGraphEntitlementRule",
@@ -44,4 +56,14 @@ __all__ = [
     "OAUTH_FLOW_TYPE_CAPABILITIES",
     "CredentialsSettings",
     "AUTH_TYPE_MAP",
+    "RateLimitConfig",
+    "RateLimitConfigBase",
+    "RateLimitExtractor",
+    "RateLimitExtractorResponse",
+    "RateLimitMode",
+    "RateLimitPolicySource",
+    "RateLimitStrategy",
+    "REQUESTS_PER_WINDOW_CEILING",
+    "LIMIT_CEILING",
+    "MAXIMUM_RETRIES",
 ]

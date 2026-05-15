@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 
 from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -23,6 +23,8 @@ __all__ = ["RerankingsResource", "AsyncRerankingsResource"]
 
 
 class RerankingsResource(SyncAPIResource):
+    """Model API."""
+
     @cached_property
     def with_raw_response(self) -> RerankingsResourceWithRawResponse:
         """
@@ -48,6 +50,7 @@ class RerankingsResource(SyncAPIResource):
         *,
         chunks: SequenceNotStr[str],
         query: str,
+        instruction: str | Omit = omit,
         model_request_parameters: ParameterBindingsParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -75,11 +78,12 @@ class RerankingsResource(SyncAPIResource):
                 f"Expected a non-empty value for `model_deployment_id` but received {model_deployment_id!r}"
             )
         return self._post(
-            f"/v4/models/{model_deployment_id}/rerankings",
+            path_template("/v4/models/{model_deployment_id}/rerankings", model_deployment_id=model_deployment_id),
             body=maybe_transform(
                 {
                     "chunks": chunks,
                     "query": query,
+                    "instruction": instruction,
                     "model_request_parameters": model_request_parameters,
                 },
                 reranking_create_params.RerankingCreateParams,
@@ -92,6 +96,8 @@ class RerankingsResource(SyncAPIResource):
 
 
 class AsyncRerankingsResource(AsyncAPIResource):
+    """Model API."""
+
     @cached_property
     def with_raw_response(self) -> AsyncRerankingsResourceWithRawResponse:
         """
@@ -117,6 +123,7 @@ class AsyncRerankingsResource(AsyncAPIResource):
         *,
         chunks: SequenceNotStr[str],
         query: str,
+        instruction: str | Omit = omit,
         model_request_parameters: ParameterBindingsParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -144,11 +151,12 @@ class AsyncRerankingsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `model_deployment_id` but received {model_deployment_id!r}"
             )
         return await self._post(
-            f"/v4/models/{model_deployment_id}/rerankings",
+            path_template("/v4/models/{model_deployment_id}/rerankings", model_deployment_id=model_deployment_id),
             body=await async_maybe_transform(
                 {
                     "chunks": chunks,
                     "query": query,
+                    "instruction": instruction,
                     "model_request_parameters": model_request_parameters,
                 },
                 reranking_create_params.RerankingCreateParams,

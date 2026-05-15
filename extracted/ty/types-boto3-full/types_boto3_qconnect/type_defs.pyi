@@ -33,6 +33,7 @@ from .literals import (
     ContentStatusType,
     ConversationStatusReasonType,
     ConversationStatusType,
+    CrossRegionStatusType,
     GuardrailContentFilterTypeType,
     GuardrailContextualGroundingFilterTypeType,
     GuardrailFilterStrengthType,
@@ -47,6 +48,7 @@ from .literals import (
     MessageTemplateFilterOperatorType,
     MessageTemplateQueryOperatorType,
     MessageTypeType,
+    ModelLifecycleType,
     OrderType,
     OriginType,
     ParticipantType,
@@ -335,6 +337,9 @@ __all__ = (
     "ListMessagesRequestPaginateTypeDef",
     "ListMessagesRequestTypeDef",
     "ListMessagesResponseTypeDef",
+    "ListModelsRequestPaginateTypeDef",
+    "ListModelsRequestTypeDef",
+    "ListModelsResponseTypeDef",
     "ListQuickResponsesRequestPaginateTypeDef",
     "ListQuickResponsesRequestTypeDef",
     "ListQuickResponsesResponseTypeDef",
@@ -374,6 +379,7 @@ __all__ = (
     "MessageTemplateSourceConfigurationUnionTypeDef",
     "MessageTemplateSummaryTypeDef",
     "MessageTemplateVersionSummaryTypeDef",
+    "ModelSummaryTypeDef",
     "NoteTakingAIAgentConfigurationTypeDef",
     "NotesChunkDataDetailsTypeDef",
     "NotesDataDetailsTypeDef",
@@ -1282,6 +1288,23 @@ ListMessagesRequestTypeDef = TypedDict(
     },
 )
 
+class ListModelsRequestTypeDef(TypedDict):
+    assistantId: str
+    aiPromptType: NotRequired[AIPromptTypeType]
+    modelLifecycle: NotRequired[ModelLifecycleType]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class ModelSummaryTypeDef(TypedDict):
+    modelId: str
+    displayName: str
+    crossRegionStatus: NotRequired[CrossRegionStatusType]
+    supportsPromptCaching: NotRequired[bool]
+    supportedAIPromptTypes: NotRequired[list[AIPromptTypeType]]
+    modelLifecycle: NotRequired[ModelLifecycleType]
+    legacyTimestamp: NotRequired[datetime]
+    endOfLifeTimestamp: NotRequired[datetime]
+
 class ListQuickResponsesRequestTypeDef(TypedDict):
     knowledgeBaseId: str
     nextToken: NotRequired[str]
@@ -1926,6 +1949,12 @@ ListMessagesRequestPaginateTypeDef = TypedDict(
     },
 )
 
+class ListModelsRequestPaginateTypeDef(TypedDict):
+    assistantId: str
+    aiPromptType: NotRequired[AIPromptTypeType]
+    modelLifecycle: NotRequired[ModelLifecycleType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListQuickResponsesRequestPaginateTypeDef(TypedDict):
     knowledgeBaseId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1937,6 +1966,11 @@ class ListSpansRequestPaginateTypeDef(TypedDict):
 
 class ListMessageTemplateVersionsResponseTypeDef(TypedDict):
     messageTemplateVersionSummaries: list[MessageTemplateVersionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListModelsResponseTypeDef(TypedDict):
+    modelSummaries: list[ModelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

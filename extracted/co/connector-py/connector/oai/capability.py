@@ -92,6 +92,8 @@ from connector_sdk_types.generated import (
     OAuthClientCredential,
     OAuthCredential,
     Page,
+    RateLimitRequestInfo,
+    RateLimitResponseInfo,
     RefreshAccessTokenRequest,
     RefreshAccessTokenResponse,
     ReleaseResourcesRequest,
@@ -123,7 +125,6 @@ from connector.oai.fingerprint import request_fingerprint
 BaseModelType = t.TypeVar("BaseModelType", bound=BaseModel)
 
 logger = logging.getLogger("connector.oai.capability")
-
 
 CredentialType = t.TypeVar(
     "CredentialType",
@@ -303,6 +304,7 @@ T = t.TypeVar("T")
 class Response(t.Protocol):
     response: t.Any
     raw_data: t.Any | None
+    rate_limit: RateLimitResponseInfo | None
 
 
 _Request = t.TypeVar("_Request", bound=Request, contravariant=True)
@@ -333,6 +335,7 @@ class CustomRequest(BaseModel, t.Generic[BaseModelType]):
     page: Page | None = None
     include_raw_data: bool | None = None
     settings: t.Any
+    rate_limit: RateLimitRequestInfo | None = None
 
     request: BaseModelType
 
@@ -367,6 +370,7 @@ class CustomResponse(BaseModel, t.Generic[BaseModelType]):
     page: Page | None = None
     raw_data: t.Any | None = None
     execution_summary: ExecutionSummary | None = None
+    rate_limit: RateLimitResponseInfo | None = None
 
     response: BaseModelType
 

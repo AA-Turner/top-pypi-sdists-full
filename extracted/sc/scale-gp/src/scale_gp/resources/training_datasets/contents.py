@@ -5,6 +5,7 @@ from __future__ import annotations
 import httpx
 
 from ..._types import Body, Query, Headers, NotGiven, not_given
+from ..._utils import path_template
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -68,7 +69,9 @@ class ContentsResource(SyncAPIResource):
                 f"Expected a non-empty value for `training_dataset_id` but received {training_dataset_id!r}"
             )
         return self._get_api_list(
-            f"/v4/training-datasets/{training_dataset_id}/contents",
+            path_template(
+                "/v4/training-datasets/{training_dataset_id}/contents", training_dataset_id=training_dataset_id
+            ),
             page=SyncTopLevelArray[TrainingDatasetGenerationItem],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -125,7 +128,9 @@ class AsyncContentsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `training_dataset_id` but received {training_dataset_id!r}"
             )
         return self._get_api_list(
-            f"/v4/training-datasets/{training_dataset_id}/contents",
+            path_template(
+                "/v4/training-datasets/{training_dataset_id}/contents", training_dataset_id=training_dataset_id
+            ),
             page=AsyncTopLevelArray[TrainingDatasetGenerationItem],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout

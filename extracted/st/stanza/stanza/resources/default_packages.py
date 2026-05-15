@@ -34,7 +34,7 @@ default_treebanks = {
     "et":      "edt",
     "eu":      "bdt",
     "fa":      "perdt",
-    "fi":      "tdt",
+    "fi":      "combined",
     "fo":      "farpahc",
     "fr":      "combined",
     "fro":     "profiterole",
@@ -473,6 +473,15 @@ TRANSFORMERS = {
     # aubmindlab/araelectra-base-discriminator   95.66    85.83  86.10
     "ar": "aubmindlab/araelectra-base-discriminator",
 
+    # Tried a few different BG models on BTB depparse
+    #  bg_btb LAS                              dev    test
+    # no transformer                          90.19  91.26
+    # MaCoCu/BERTovski                        90.88  91.74
+    # rmihaylov/bert-base-theseus-bg          91.81  93.21
+    # DeepPavlov/bert-base-bg-cs-pl-ru-cased  92.17  93.47
+    # rmihaylov/bert-base-bg                  92.78  94.09
+    "bg": "rmihaylov/bert-base-bg",
+
     # https://huggingface.co/Maltehb/danish-bert-botxo
     # contrary to normal expectations, this hurts F1
     # on a dev split by about 1 F1
@@ -536,6 +545,16 @@ TRANSFORMERS = {
     #   dbmdz/bert        88.70   85.14
     #   german/electra    89.21   86.06
     "de": "german-nlp-group/electra-base-german-uncased",
+
+    # EL - Greek
+    # We actually only found one greek specific transformer
+    # to experiment with.
+    # All the other transformer work covers Ancient Greek instead!
+    # el_gdt depparse scores, LAS
+    #    model                             dev     test
+    # no transformer                      88.21   89.51
+    # nlpaueb/bert-base-greek-uncased-v1  92.46   92.68
+    "el": "nlpaueb/bert-base-greek-uncased-v1",
 
     # experiments on various forms of roberta & electra
     #  https://huggingface.co/roberta-base
@@ -668,6 +687,20 @@ TRANSFORMERS = {
     #  muril-large         0.65369   0.68290
     "hi": "google/muril-large-cased",
 
+    # hr - Croatian
+    # for HR there are two main choices
+    # one is the mixed Croatian/Slovenian/English model
+    # the other is a mixed Croatian/Serbian model named BERTić
+    # testing on the hr_set dataset:
+    #   model                 dev AllTags   test AllTags   dev LAS   test LAS
+    # no transformer           94.44         94.43          86.66     87.02
+    # crosloeng                96.64         96.48          91.31     91.51
+    # bertic                   96.86         96.65          91.32     91.77
+    #
+    # so although the difference doesn't look big,
+    # it seems bertic wins by a little bit
+    "hr": "classla/bcms-bertic",
+
     # https://huggingface.co/xlm-roberta-base
     # Scores by entity for armtdp NER on 18 labels:
     # no bert : 86.68
@@ -730,6 +763,16 @@ TRANSFORMERS = {
     # rinna:   91.54 dev, 91.89 test
     "ja": "rinna/japanese-roberta-base",
 
+    # ka / Georgian
+    # there is a ka-specific Electra model
+    # however, it does not help results on the pos or depparse tasks
+    # as much as xlm-roberta does
+    #  model                dev AllTags    test AllTags   dev LAS   test LAS
+    # none                   94.69          91.54          83.03     77.98
+    # jnz/electra-ka         94.61          91.97          83.31     77.77
+    # xlm-roberta-large      95.20          92.73          85.50     80.75
+    "ka": "xlm-roberta-large",
+
     # could also try:
     # l3cube-pune/marathi-bert-v2
     #  or
@@ -740,6 +783,20 @@ TRANSFORMERS = {
     #  no transformer              74.89 63.70 57.43 53.01 57.43
     #  l3cube-pune/marathi-roberta 76.48 66.21 61.20 57.60 61.20
     "mr": "l3cube-pune/marathi-roberta",
+
+    # tested the default depparse w and w/o a transformer
+    #   mudt LAS         dev    test
+    # no transformer    80.39   78.38
+    # MaCoCu/MaltBERTa  86.46   84.41
+    "mt": "MaCoCu/MaltBERTa",
+
+    # experimented with the NL alpino dataset
+    #
+    # nl_alpino depparse LAS                    dev        test
+    # no transformer                           91.30      89.32
+    # DTAI-KULeuven/robbert-2023-dutch-large   94.57      93.80
+    # GroNLP/bert-base-dutch-cased             94.30      93.26
+    "nl": "DTAI-KULeuven/robbert-2023-dutch-large",
 
     "or": "google/muril-large-cased",
 
@@ -763,8 +820,60 @@ TRANSFORMERS = {
     # neuralmind/bert-large-portuguese-cased: 0.9343
     "pt": "neuralmind/bert-large-portuguese-cased",
 
+    # experimenting on just the RU syntagrus depparse so far
+    # ru_sytagrus depparse LAS                  dev     test
+    # no transformer                           91.64   92.39
+    # DeepPavlov/bert-base-bg-cs-pl-ru-cased   92.86   93.59
+    # DeepPavlov/rubert-base-case              93.23   93.79
+    # ai-forever/ruElectra-large               92.04   92.75
+    "ru": "DeepPavlov/rubert-base-cased",
+
     # hope is actually to build our own using a large text collection
     "sd": "google/muril-large-cased",
+
+    # Slovenian
+    # tested on the UD SSJ depparse task
+    #  model                         dev LAS     test LAS
+    # no transformer                  90.37       90.70
+    # EMBEDDIA/sloberta               94.07       94.88
+    # EMBEDDIA/crosloengual-bert      94.16       94.83
+    # cjvt/sloberta-sleng             93.73       94.46
+    # cjvt/sleng-bert                 93.85       94.56
+    # crosloengual-bert has good numbers and also has the benefit
+    # of working correctly on transformers v5...
+    # the others have a bug in their tokenizer config
+    # where we need to catch an exception and reload the tokenizer
+    # see https://github.com/huggingface/transformers/issues/44488
+    "sl": "EMBEDDIA/crosloengual-bert",
+
+    # Serbian
+    # The best for this language (on sr_set depparse, at least)
+    # is the bertic multilingual model
+    #   model                      dev LAS     test LAS
+    # no transformer                87.91       88.63
+    # nemanjaPetrovic/SrBERTa       88.24       88.96
+    # macedonizer/sr-roberta-base   89.09       89.87
+    # kalusev/NER4Legal_SRB         91.06       91.59
+    # jerteh/Jerteh-355             90.89       91.98
+    # classla/bcms-bertic           92.81       93.45
+    "sr": "classla/bcms-bertic",
+
+    # Swedish: quite a few exist for Swedish, including some
+    # cross-Scandinavian models
+    # We ran some tests on the sv_talbanken POS and depparse dataset
+    # Certainly it looks like the original bert-base is best, but we
+    # can also run more datasets to compare
+    #   sv_talbanken                               dev AT  test AT    dev LAS   test LAS
+    # no transformer                                96.10   96.07      87.32      88.85
+    # KBLab/albert-base-swedish-cased-alpha         96.03   96.04      87.11      88.81
+    # KBLab/bert-base-swedish-cased-new             96.76   96.72      90.02      91.56
+    # KBLab/bert-base-swedish-cased                 97.03   97.04      91.45      92.45
+    # AI-Nordics/bert-large-swedish-cased           96.02   95.96      91.07      92.24
+    # KBLab/megatron-bert-base-swedish-cased-600k   95.98   95.90      91.07      92.42
+    # flax-community/nordic-roberta-wiki            96.09   96.32      89.05      90.54
+    # KBLab/roberta-base-swedish-cased              96.64   96.66      90.51      92.03
+    # vesteinn/ScandiBERT                           97.03   96.96      91.04      92.31
+    "sv": "KBLab/bert-base-swedish-cased",
 
     # Tamil options: quite a few, need to run a bunch of experiments
     #                               dev pos    dev depparse las
@@ -842,13 +951,20 @@ TRANSFORMER_NICKNAMES = {
     "aubmindlab/araelectra-base-discriminator": "aubmind-electra",
     "aubmindlab/bert-base-arabertv2": "aubmind-bert",
 
-    # da
-    "vesteinn/ScandiBERT": "scandibert",
+    # bg
+    # these two required hacks to get the model to function (see bert_model.py)
+    "rmihaylov/bert-base-bg": "bert-base-bg",
+    "rmihaylov/bert-base-theseus-bg": "bert-base-theseus-bg",
+    # may also work on Macedonian?  the Macedonian UD is not large enough for building models, though
+    "MaCoCu/BERTovski": "bertovski",
 
     # de
     "bert-base-german-cased": "bert-base-german-cased",
     "dbmdz/bert-base-german-cased": "dbmdz-bert-german-cased",
     "german-nlp-group/electra-base-german-uncased": "german-nlp-electra",
+
+    # el (Greek)
+    "nlpaueb/bert-base-greek-uncased-v1": "greek-bert",
 
     # en
     "bert-base-multilingual-cased": "mbert",
@@ -864,7 +980,7 @@ TRANSFORMER_NICKNAMES = {
     "HooshvareLab/bert-base-parsbert-uncased": "parsbert",
 
     # fi
-    "TurkuNLP/bert-base-finnish-cased-v1": "bert",
+    "TurkuNLP/bert-base-finnish-cased-v1": "finnish-bert",
 
     # fr
     "benjamin/roberta-base-wechsel-french": "wechsel-roberta",
@@ -883,6 +999,9 @@ TRANSFORMER_NICKNAMES = {
     "HeNLP/HeRo": "hero-roberta",
     "imvladikon/alephbertgimmel-base-512": "alephbertgimmel",
     "onlplab/alephbert-base": "alephbert",
+
+    # hr - Croatian - mixed Bosnian, Croatian, Montenegrin and Serbian
+    "classla/bcms-bertic": "bcms-bertic",
 
     # hy
     "xlm-roberta-base": "xlm-roberta-base",
@@ -904,14 +1023,50 @@ TRANSFORMER_NICKNAMES = {
     # ja
     "rinna/japanese-roberta-base": "rinna-roberta",
 
+    # ka - Georgian
+    "jnz/electra-ka": "electra-ka",
+
     # mr
     "l3cube-pune/marathi-roberta": "l3cube-marathi-roberta",
+
+    # mt
+    "MaCoCu/MaltBERTa": "maltberta",
+
+    # nl
+    "GroNLP/bert-base-dutch-cased": "gronlp-bertje",
+    "DTAI-KULeuven/robbert-2023-dutch-large": "robbert-large",
 
     # pl
     "allegro/herbert-base-cased": "herbert",
 
     # pt
     "neuralmind/bert-large-portuguese-cased": "bertimbau",
+
+    # ru
+    "ai-forever/ruElectra-large": "ruelectra-large",
+    "DeepPavlov/rubert-base-cased": "pavlov-rubert",
+
+    # sl - slovenian
+    "EMBEDDIA/sloberta":          "sloberta",
+    # this one is Croatian, Slovenian, and English
+    "EMBEDDIA/crosloengual-bert": "crosloengual-bert",
+    "cjvt/sloberta-sleng":        "sloberta-sleng",
+    "cjvt/sleng-bert":            "sleng-bert",
+
+    # sr - serbian
+    # also, see bertic, mixed croatian/serbian transformer
+    "nemanjaPetrovic/SrBERTa":       "srberta",
+    "jerteh/Jerteh-355":             "jerteh",
+    "macedonizer/sr-roberta-base":   "sr-roberta-base",
+    "kalusev/NER4Legal_SRB":         "ner4legal-srb",
+
+    # sv - swedish
+    "KBLab/bert-base-swedish-cased":               "kb-swedish-bert",
+    "KBLab/bert-base-swedish-cased-new":           "kb-swedish-bert-new",
+    "KBLab/albert-base-swedish-cased-alpha":       "kb-swedish-albert",
+    "KBLab/roberta-base-swedish-cased":            "kb-swedish-roberta",
+    "KBLab/megatron-bert-base-swedish-cased-600k": "kb-swedish-megatron",
+    "AI-Nordics/bert-large-swedish-cased":         "ai-nordics-bert-large",
 
     # ta: tamil
     "monsoon-nlp/tamillion":         "tamillion",
@@ -924,7 +1079,7 @@ TRANSFORMER_NICKNAMES = {
     "airesearch/wangchanberta-base-att-spm-uncased":   "wangchanberta",
 
     # tr
-    "dbmdz/bert-base-turkish-128k-cased": "bert",
+    "dbmdz/bert-base-turkish-128k-cased": "turkish-bert",
 
     # vi
     "vinai/phobert-base": "phobert-base",
@@ -937,6 +1092,14 @@ TRANSFORMER_NICKNAMES = {
     "hfl/chinese-roberta-wwm-ext": "hfl-roberta-chinese",
     "hfl/chinese-electra-180g-large-discriminator": "electra-large",
     "ShannonAI/ChineseBERT-base": "shannonai-chinese-bert",
+
+    # mixed slavic
+    "DeepPavlov/bert-base-bg-cs-pl-ru-cased": "pavlov-slavic-bert",
+
+    # mixed scandinavian (da, sv, is, no, fo)
+    "vesteinn/ScandiBERT": "scandibert",
+    # mixed scandinavian (da, sv, no)
+    "flax-community/nordic-roberta-wiki": "nordic-roberta",
 
     # multi-lingual Indic
     "ai4bharat/indic-bert": "indic-bert",

@@ -35,7 +35,7 @@ fn test_caching_enabled_by_default() -> anyhow::Result<()> {
        = note: audit confidence → Low
        = note: this finding has an auto-fix
 
-    4 findings (1 ignored, 2 suppressed, 1 fixable): 0 informational, 0 low, 0 medium, 1 high
+    4 findings (1 ignored, 2 suppressed, 1 unsafe fixes): 0 informational, 0 low, 0 medium, 1 high
     ",
     );
 
@@ -67,7 +67,7 @@ fn test_caching_opt_in_boolean_toggle() -> anyhow::Result<()> {
        = note: audit confidence → Low
        = note: this finding has an auto-fix
 
-    4 findings (1 ignored, 2 suppressed, 1 fixable): 0 informational, 0 low, 0 medium, 1 high
+    4 findings (1 ignored, 2 suppressed, 1 unsafe fixes): 0 informational, 0 low, 0 medium, 1 high
     "#,
     );
 
@@ -99,7 +99,7 @@ fn test_caching_opt_in_expression() -> anyhow::Result<()> {
        = note: audit confidence → Low
        = note: this finding has an auto-fix
 
-    3 findings (1 ignored, 1 suppressed, 1 fixable): 0 informational, 0 low, 0 medium, 1 high
+    3 findings (1 ignored, 1 suppressed, 1 unsafe fixes): 0 informational, 0 low, 0 medium, 1 high
     "#,
     );
 
@@ -184,7 +184,7 @@ fn test_workflow_tag_trigger() -> anyhow::Result<()> {
        = note: audit confidence → Low
        = note: this finding has an auto-fix
 
-    4 findings (1 ignored, 2 suppressed, 1 fixable): 0 informational, 0 low, 0 medium, 1 high
+    4 findings (1 ignored, 2 suppressed, 1 unsafe fixes): 0 informational, 0 low, 0 medium, 1 high
     "#
     );
 
@@ -217,7 +217,7 @@ fn test_caching_opt_in_boolish_toggle() -> anyhow::Result<()> {
        = note: audit confidence → Low
        = note: this finding has an auto-fix
 
-    2 findings (1 suppressed, 1 fixable): 0 informational, 0 low, 0 medium, 1 high
+    2 findings (1 suppressed, 1 unsafe fixes): 0 informational, 0 low, 0 medium, 1 high
     "#,
     );
 
@@ -243,7 +243,7 @@ fn test_publisher_step() -> anyhow::Result<()> {
        = note: audit confidence → Low
        = note: this finding has an auto-fix
 
-    3 findings (1 ignored, 1 suppressed, 1 fixable): 0 informational, 0 low, 0 medium, 1 high
+    3 findings (1 ignored, 1 suppressed, 1 unsafe fixes): 0 informational, 0 low, 0 medium, 1 high
     "
     );
 
@@ -315,7 +315,7 @@ fn test_issue_343() -> anyhow::Result<()> {
        = note: audit confidence → Low
        = note: this finding has an auto-fix
 
-    5 findings (2 suppressed, 3 fixable): 0 informational, 0 low, 0 medium, 3 high
+    5 findings (2 suppressed, 3 unsafe fixes): 0 informational, 0 low, 0 medium, 3 high
     "#
     );
 
@@ -376,7 +376,7 @@ fn test_workflow_release_branch_trigger() -> anyhow::Result<()> {
        = note: audit confidence → Low
        = note: this finding has an auto-fix
 
-    4 findings (1 ignored, 2 suppressed, 1 fixable): 0 informational, 0 low, 0 medium, 1 high
+    4 findings (1 ignored, 2 suppressed, 1 unsafe fixes): 0 informational, 0 low, 0 medium, 1 high
     "#
     );
 
@@ -466,7 +466,7 @@ fn test_issue_1081() -> anyhow::Result<()> {
        = note: audit confidence → Low
        = note: this finding has an auto-fix
 
-    3 findings (1 suppressed, 2 fixable): 0 informational, 0 low, 0 medium, 2 high
+    3 findings (1 suppressed, 2 unsafe fixes): 0 informational, 0 low, 0 medium, 2 high
     "
     );
 
@@ -579,6 +579,128 @@ fn test_ramsey_composer_install_action() -> anyhow::Result<()> {
 
     3 findings (1 suppressed): 0 informational, 0 low, 0 medium, 2 high
     "
+    );
+
+    Ok(())
+}
+
+/// Tests that we properly handle `on: ... release:` style triggers,
+/// i.e. where `release:` is a key rather than a bare trigger name.
+#[test]
+fn test_workflow_release_trigger_object() -> anyhow::Result<()> {
+    insta::assert_snapshot!(
+        zizmor()
+            .input(input_under_test(
+                "cache-poisoning/workflow-release-trigger-object.yml"
+            ))
+            .run()?,
+        @r#"
+    error[cache-poisoning]: runtime artifacts potentially vulnerable to a cache poisoning attack
+      --> @@INPUT@@:23:9
+       |
+     1 | / on:
+     2 | |   push:
+     3 | |     branches:
+     4 | |       - "main"
+     5 | |   release:
+       | |__________- generally used when publishing artifacts generated at runtime
+    ...
+    23 |           uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab
+       |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ enables caching by default
+       |
+       = note: audit confidence → Low
+       = note: this finding has an auto-fix
+
+    4 findings (1 ignored, 2 suppressed, 1 unsafe fixes): 0 informational, 0 low, 0 medium, 1 high
+    "#
+    );
+
+    Ok(())
+}
+
+// See: <https://github.com/zizmorcore/zizmor/issues/1940>
+#[test]
+fn test_issue_1940() -> anyhow::Result<()> {
+    insta::assert_snapshot!(
+        zizmor()
+            .input(input_under_test("cache-poisoning/issue-1940-repro.yml")).run()?,
+        @r#"No findings to report. Good job! (2 suppressed)"#);
+
+    Ok(())
+}
+
+#[test]
+fn test_trigger_heuristics_tag_only() -> anyhow::Result<()> {
+    insta::assert_snapshot!(
+        zizmor()
+            .input(input_under_test("cache-poisoning/trigger-heuristics/tag-only.yml"))
+            .run()?,
+        @r#"
+    error[cache-poisoning]: runtime artifacts potentially vulnerable to a cache poisoning attack
+      --> @@INPUT@@:16:9
+       |
+     3 | / on:
+     4 | |   push:
+     5 | |     branches:
+     6 | |       - master
+     7 | |     tags:
+     8 | |       - "*"
+       | |___________- generally used when publishing artifacts generated at runtime
+    ...
+    16 |         - uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+       |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this step
+    17 | /         with:
+    18 | |           # this is the opposite of #1940: caching is explicitly enabled here,
+    19 | |           # but *only* for tag events, which we consider unsafe becaue we assume that
+    20 | |           # tag events correspond to releases.
+    21 | |           sccache: ${{ startsWith(github.ref, 'refs/tags/') }}
+       | |_______________________________________________________________- enables caching explicitly here
+       |
+       = note: audit confidence → Low
+       = note: this finding has an auto-fix
+
+    3 findings (2 suppressed, 1 unsafe fixes): 0 informational, 0 low, 0 medium, 1 high
+    "#
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_trigger_heuristics_tag_and_release() -> anyhow::Result<()> {
+    insta::assert_snapshot!(
+        zizmor()
+            .input(input_under_test(
+                "cache-poisoning/trigger-heuristics/tag-and-release.yml"
+            ))
+            .run()?,
+        @r#"
+    error[cache-poisoning]: runtime artifacts potentially vulnerable to a cache poisoning attack
+      --> @@INPUT@@:17:9
+       |
+     3 | / on:
+     4 | |   push:
+     5 | |     branches:
+     6 | |       - master
+     7 | |     tags:
+     8 | |       - "*"
+     9 | |   release:
+       | |__________- generally used when publishing artifacts generated at runtime
+    ...
+    17 |         - uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+       |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this step
+    18 | /         with:
+    19 | |           # we would consider this safe *if* there was only a tag trigger for this workflow,
+    20 | |           # but since there's also a release trigger we can't assert that all release
+    21 | |           # events will also be tag events.
+    22 | |           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+       | |________________________________________________________________- may enable caching here
+       |
+       = note: audit confidence → Low
+       = note: this finding has an auto-fix
+
+    3 findings (2 suppressed, 1 unsafe fixes): 0 informational, 0 low, 0 medium, 1 high
+    "#
     );
 
     Ok(())

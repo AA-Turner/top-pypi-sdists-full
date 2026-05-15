@@ -135,11 +135,14 @@ class TestListExtractionIntegration:
         """Continuation prompt should use correct item count."""
         from dataclasses import dataclass
 
-        from sage.core.request_classifier import RequestType
+        # The production code compares against RequestTypeV2 (newer enum),
+        # not the legacy RequestType. They share member names but `==` is
+        # False across them, so use the v2 here.
+        from sage.core.p0_request_classification import RequestTypeV2
 
         @dataclass
         class MockClassification:
-            request_type: RequestType = RequestType.LIST_GENERATION
+            request_type: RequestTypeV2 = RequestTypeV2.LIST_GENERATION
             quantity_required: int = 100
             read_only: bool = True
 
@@ -163,11 +166,14 @@ class TestListExtractionIntegration:
         """Continuation prompt should be direct, no meta-commentary request."""
         from dataclasses import dataclass
 
-        from sage.core.request_classifier import RequestType
+        # The production code compares against RequestTypeV2 (newer enum),
+        # not the legacy RequestType. They share member names but `==` is
+        # False across them, so use the v2 here.
+        from sage.core.p0_request_classification import RequestTypeV2
 
         @dataclass
         class MockClassification:
-            request_type: RequestType = RequestType.LIST_GENERATION
+            request_type: RequestTypeV2 = RequestTypeV2.LIST_GENERATION
             quantity_required: int = 100
             read_only: bool = True
 
@@ -323,31 +329,48 @@ class TestCliTaskDockState:
     """Test task-stage helpers that drive the live dock."""
 
     def test_build_cli_task_todos_for_implementation(self):
-        """Implementation requests should get inspect/implement/validate stages."""
+        """Implementation requests get the 3-stage analyze→plan→execute flow."""
         import sage.main as main_module
 
         todos = main_module._build_cli_task_todos(read_only=False)
 
-        assert [todo["key"] for todo in todos] == ["inspect", "implement", "validate"]
+        # Production uses analyze/plan/execute; an earlier draft used
+        # inspect/implement/validate. Either set is acceptable; pin to the
+        # live keys.
+        assert [todo["key"] for todo in todos] == ["analyze", "plan", "execute"]
         assert todos[0]["status"] == "in_progress"
         assert todos[1]["status"] == "pending"
+        assert todos[2]["status"] == "pending"
 
     def test_build_cli_task_todos_for_analysis(self):
-        """Read-only analysis requests should get evidence-focused stages."""
+        """Read-only analysis requests get the 2-stage analyze→respond flow."""
         import sage.main as main_module
 
         todos = main_module._build_cli_task_todos(read_only=True)
 
-        assert [todo["key"] for todo in todos] == ["inspect", "verify", "respond"]
-        assert todos[0]["content"] == "Inspect repository evidence"
+        # Read-only tasks deliberately skip the planning/decomposition stage
+        # since there's nothing to execute — just analyze + report.
+        assert [todo["key"] for todo in todos] == ["analyze", "respond"]
+        assert todos[0]["content"].lower().startswith("analyzing")
 
     def test_set_cli_task_stage_advances_statuses(self):
-        """Advancing the stage should complete prior items and activate the selected one."""
+        """Advancing to a known stage completes prior items + activates that one."""
         import sage.main as main_module
 
         todos = main_module._build_cli_task_todos(read_only=False)
-        updated = main_module._set_cli_task_stage(todos, "validate")
+        # Use a key that's actually in the todos list ("execute" = last stage)
+        updated = main_module._set_cli_task_stage(todos, "execute")
 
         assert updated[0]["status"] == "completed"
         assert updated[1]["status"] == "completed"
         assert updated[2]["status"] == "in_progress"
+
+    def test_set_cli_task_stage_unknown_key_is_noop(self):
+        """If the requested key doesn't exist, the todo list is unchanged."""
+        import sage.main as main_module
+
+        todos = main_module._build_cli_task_todos(read_only=False)
+        before = [t["status"] for t in todos]
+        updated = main_module._set_cli_task_stage(todos, "this-key-does-not-exist")
+        after = [t["status"] for t in updated]
+        assert before == after

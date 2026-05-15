@@ -30,3 +30,8 @@ class Tint(LightEffect):
 
         if __debug__:
             clamped(self.strength)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Tint",
+]

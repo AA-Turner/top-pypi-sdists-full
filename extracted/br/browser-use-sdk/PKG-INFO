@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: browser-use-sdk
-Version: 3.5.0
+Version: 3.6.0
 Summary: Python SDK for the Browser Use cloud API
 License-Expression: MIT
 Requires-Python: >=3.9
@@ -11,6 +11,8 @@ Requires-Dist: pyright>=1.1; extra == 'dev'
 Requires-Dist: pytest>=7; extra == 'dev'
 Provides-Extra: examples
 Requires-Dist: python-dotenv>=1.0; extra == 'examples'
+Provides-Extra: x402
+Requires-Dist: x402[evm]>=2.9.0; (python_version >= '3.10') and extra == 'x402'
 Description-Content-Type: text/markdown
 
 # browser-use-sdk
@@ -36,6 +38,18 @@ from browser_use_sdk import AsyncBrowserUse
 
 client = AsyncBrowserUse()
 result = await client.run("Find the top 3 trending repos on GitHub today")
+print(result.output)
+```
+
+## v3 Bring Your Own LLM Key
+
+Add your provider API key in Browser Use project settings, then enable BYOK for v3 agent runs:
+
+```python
+from browser_use_sdk.v3 import BrowserUse
+
+client = BrowserUse(use_own_key=True)
+result = client.run("Find the top 3 trending repos on GitHub today")
 print(result.output)
 ```
 

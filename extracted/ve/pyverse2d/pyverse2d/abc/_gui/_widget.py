@@ -1005,3 +1005,8 @@ def intersect(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> tup
     w = max(0, min(ax + aw, bx + bw) - x)
     h = max(0, min(ay + ah, by + bh) - y)
     return x, y, w, h
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Widget",
+]

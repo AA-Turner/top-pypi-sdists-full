@@ -7,12 +7,11 @@
 from typing import ClassVar
 
 from dvsim.instrumentation.base import (
-    CompositeInstrumentation,
-    NoOpInstrumentation,
+    InstrumentationAggregator,
     SchedulerInstrumentation,
 )
+from dvsim.instrumentation.compute import ComputeInstrumentation
 from dvsim.instrumentation.metadata import MetadataInstrumentation
-from dvsim.instrumentation.resources import ResourceInstrumentation
 from dvsim.instrumentation.timing import TimingInstrumentation
 
 __all__ = ("InstrumentationFactory",)
@@ -24,9 +23,9 @@ class InstrumentationFactory:
     _registry: ClassVar[dict[str, type[SchedulerInstrumentation]]] = {}
 
     @classmethod
-    def register(cls, name: str, constructor: type[SchedulerInstrumentation]) -> None:
+    def register(cls, inst_cls: type[SchedulerInstrumentation]) -> None:
         """Register a new scheduler instrumentation type."""
-        cls._registry[name] = constructor
+        cls._registry[inst_cls.name] = inst_cls
 
     @classmethod
     def options(cls) -> list[str]:
@@ -34,22 +33,20 @@ class InstrumentationFactory:
         return list(cls._registry.keys())
 
     @classmethod
-    def create(cls, names: list[str] | None) -> SchedulerInstrumentation:
+    def create(cls, names: list[str]) -> InstrumentationAggregator:
         """Create a scheduler instrumentation of the given types.
 
         Arguments:
-            names: A list of registered instrumentation names to compose into a single
-            instrumentation object, or None / an empty list for no instrumentation.
+            names: A list of registered instrumentation names.
 
         """
         if not names:
-            return NoOpInstrumentation()
+            raise ValueError("No instrumentation types given")
 
-        instances: list[SchedulerInstrumentation] = [MetadataInstrumentation()]
-        instances.extend([cls._registry[name]() for name in names])
-        return CompositeInstrumentation(instances)
+        return InstrumentationAggregator([cls._registry[name]() for name in names])
 
 
 # Register implemented instrumentation mechanisms
-InstrumentationFactory.register("timing", TimingInstrumentation)
-InstrumentationFactory.register("resources", ResourceInstrumentation)
+InstrumentationFactory.register(MetadataInstrumentation)
+InstrumentationFactory.register(TimingInstrumentation)
+InstrumentationFactory.register(ComputeInstrumentation)

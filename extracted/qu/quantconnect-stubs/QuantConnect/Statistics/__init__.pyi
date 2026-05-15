@@ -16,6 +16,29 @@ import System
 import System.Collections.Generic
 
 
+class FillGroupingMethod(IntEnum):
+    """The method used to group order fills into trades"""
+
+    FILL_TO_FILL = 0
+    """A Trade is defined by a fill that establishes or increases a position and an offsetting fill that reduces the position size (0)"""
+
+    FLAT_TO_FLAT = 1
+    """A Trade is defined by a sequence of fills, from a flat position to a non-zero position which may increase or decrease in quantity, and back to a flat position (1)"""
+
+    FLAT_TO_REDUCED = 2
+    """A Trade is defined by a sequence of fills, from a flat position to a non-zero position and an offsetting fill that reduces the position size (2)"""
+
+
+class FillMatchingMethod(IntEnum):
+    """The method used to match offsetting order fills"""
+
+    FIFO = 0
+    """First In First Out fill matching method (0)"""
+
+    LIFO = 1
+    """Last In Last Out fill matching method (1)"""
+
+
 class TradeDirection(IntEnum):
     """Direction of a trade"""
 
@@ -188,6 +211,162 @@ class Trade(System.Object):
         :param other: The trade to copy
         """
         ...
+
+
+class TradeBuilder(System.Object, QuantConnect.Interfaces.ITradeBuilder):
+    """The TradeBuilder class generates trades from executions and market price updates"""
+
+    @property
+    def closed_trades(self) -> typing.List[QuantConnect.Statistics.Trade]:
+        """The list of closed trades"""
+        ...
+
+    def __init__(self, grouping_method: QuantConnect.Statistics.FillGroupingMethod, matching_method: QuantConnect.Statistics.FillMatchingMethod) -> None:
+        """Initializes a new instance of the TradeBuilder class"""
+        ...
+
+    def apply_split(self, split: QuantConnect.Data.Market.Split, live_mode: bool, data_normalization_mode: QuantConnect.DataNormalizationMode) -> None:
+        """
+        Applies a split to the trade builder
+        
+        :param split: The split to be applied
+        :param live_mode: True if live mode, false for backtest
+        :param data_normalization_mode: The DataNormalizationMode for this security
+        """
+        ...
+
+    def has_open_position(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Returns true if there is an open position for the symbol
+        
+        :param symbol: The symbol
+        :returns: true if there is an open position for the symbol.
+        """
+        ...
+
+    def process_fill(self, fill: QuantConnect.Orders.OrderEvent, security_conversion_rate: float, fee_in_account_currency: float, multiplier: float = 1.0) -> None:
+        """
+        Processes a new fill, eventually creating new trades
+        
+        :param fill: The new fill order event
+        :param security_conversion_rate: The current security market conversion rate into the account currency
+        :param fee_in_account_currency: The current order fee in the account currency
+        :param multiplier: The contract multiplier
+        """
+        ...
+
+    def set_live_mode(self, live: bool) -> None:
+        """
+        Sets the live mode flag
+        
+        :param live: The live mode flag
+        """
+        ...
+
+    def set_market_price(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], price: float) -> None:
+        """
+        Sets the current market price for the symbol
+        
+        :param symbol: 
+        :param price: 
+        """
+        ...
+
+    def set_security_manager(self, securities: QuantConnect.Securities.SecurityManager) -> None:
+        """
+        Sets the security manager instance
+        
+        :param securities: The security manager
+        """
+        ...
+
+
+class PerformanceMetrics(System.Object):
+    """PerformanceMetrics contains the names of the various performance metrics used for evaluation purposes."""
+
+    ALPHA: str = "Alpha"
+    """Algorithm "Alpha" statistic - abnormal returns over the risk free rate and the relationshio (beta) with the benchmark returns."""
+
+    ANNUAL_STANDARD_DEVIATION: str = "Annual Standard Deviation"
+    """Annualized standard deviation"""
+
+    ANNUAL_VARIANCE: str = "Annual Variance"
+    """Annualized variance statistic calculation using the daily performance variance and trading days per year."""
+
+    AVERAGE_LOSS: str = "Average Loss"
+    """The average rate of return for trades with zero or negative profit loss"""
+
+    AVERAGE_WIN: str = "Average Win"
+    """The average rate of return for trades with positive profit loss"""
+
+    BETA: str = "Beta"
+    """Algorithm "beta" statistic - the covariance between the algorithm and benchmark performance, divided by benchmark's variance"""
+
+    COMPOUNDING_ANNUAL_RETURN: str = "Compounding Annual Return"
+    """Annual compounded returns statistic based on the final-starting capital and years."""
+
+    DRAWDOWN: str = "Drawdown"
+    """Drawdown maximum percentage."""
+
+    ESTIMATED_STRATEGY_CAPACITY: str = "Estimated Strategy Capacity"
+    """Total capacity of the algorithm"""
+
+    EXPECTANCY: str = "Expectancy"
+    """The expected value of the rate of return"""
+
+    START_EQUITY: str = "Start Equity"
+    """Initial Equity Total Value"""
+
+    END_EQUITY: str = "End Equity"
+    """Final Equity Total Value"""
+
+    INFORMATION_RATIO: str = "Information Ratio"
+    """Information ratio - risk adjusted return"""
+
+    LOSS_RATE: str = "Loss Rate"
+    """The ratio of the number of trades with zero or negative profit loss to the total number of trades"""
+
+    NET_PROFIT: str = "Net Profit"
+    """Total net profit percentage"""
+
+    PROBABILISTIC_SHARPE_RATIO: str = "Probabilistic Sharpe Ratio"
+    """
+    Probabilistic Sharpe Ratio is a probability measure associated with the Sharpe ratio.
+    It informs us of the probability that the estimated Sharpe ratio is greater than a chosen benchmark
+    """
+
+    PROFIT_LOSS_RATIO: str = "Profit-Loss Ratio"
+    """The ratio of the average win rate to the average loss rate"""
+
+    SHARPE_RATIO: str = "Sharpe Ratio"
+    """Sharpe ratio with respect to risk free rate: measures excess of return per unit of risk."""
+
+    SORTINO_RATIO: str = "Sortino Ratio"
+    """Sortino ratio with respect to risk free rate: measures excess of return per unit of downside risk."""
+
+    TOTAL_FEES: str = "Total Fees"
+    """Total amount of fees in the account currency"""
+
+    TOTAL_ORDERS: str = "Total Orders"
+    """Total amount of orders in the algorithm"""
+
+    TRACKING_ERROR: str = "Tracking Error"
+    """Tracking error volatility (TEV) statistic - a measure of how closely a portfolio follows the index to which it is benchmarked"""
+
+    TREYNOR_RATIO: str = "Treynor Ratio"
+    """Treynor ratio statistic is a measurement of the returns earned in excess of that which could have been earned on an investment that has no diversifiable risk"""
+
+    WIN_RATE: str = "Win Rate"
+    """The ratio of the number of trades with positive profit loss to the total number of trades"""
+
+    LOWEST_CAPACITY_ASSET: str = "Lowest Capacity Asset"
+    """Provide a reference to the lowest capacity symbol used in scaling down the capacity for debugging."""
+
+    PORTFOLIO_TURNOVER: str = "Portfolio Turnover"
+    """The average Portfolio Turnover"""
+
+    DRAWDOWN_RECOVERY: str = "Drawdown Recovery"
+    """The recovery time of the maximum drawdown."""
 
 
 class TradeStatistics(System.Object):
@@ -987,118 +1166,6 @@ class StatisticsBuilder(System.Object):
         ...
 
 
-class FillGroupingMethod(IntEnum):
-    """The method used to group order fills into trades"""
-
-    FILL_TO_FILL = 0
-    """A Trade is defined by a fill that establishes or increases a position and an offsetting fill that reduces the position size (0)"""
-
-    FLAT_TO_FLAT = 1
-    """A Trade is defined by a sequence of fills, from a flat position to a non-zero position which may increase or decrease in quantity, and back to a flat position (1)"""
-
-    FLAT_TO_REDUCED = 2
-    """A Trade is defined by a sequence of fills, from a flat position to a non-zero position and an offsetting fill that reduces the position size (2)"""
-
-
-class FillMatchingMethod(IntEnum):
-    """The method used to match offsetting order fills"""
-
-    FIFO = 0
-    """First In First Out fill matching method (0)"""
-
-    LIFO = 1
-    """Last In Last Out fill matching method (1)"""
-
-
-class IStatisticsService(metaclass=abc.ABCMeta):
-    """This interface exposes methods for accessing algorithm statistics results at runtime."""
-
-    def set_summary_statistic(self, name: str, value: str) -> None:
-        """
-        Sets or updates a custom summary statistic
-        
-        :param name: The statistic name
-        :param value: The statistic value
-        """
-        ...
-
-    def statistics_results(self) -> QuantConnect.Statistics.StatisticsResults:
-        """
-        Calculates and gets the current statistics for the algorithm
-        
-        :returns: The current statistics.
-        """
-        ...
-
-
-class TradeBuilder(System.Object, QuantConnect.Interfaces.ITradeBuilder):
-    """The TradeBuilder class generates trades from executions and market price updates"""
-
-    @property
-    def closed_trades(self) -> typing.List[QuantConnect.Statistics.Trade]:
-        """The list of closed trades"""
-        ...
-
-    def __init__(self, grouping_method: QuantConnect.Statistics.FillGroupingMethod, matching_method: QuantConnect.Statistics.FillMatchingMethod) -> None:
-        """Initializes a new instance of the TradeBuilder class"""
-        ...
-
-    def apply_split(self, split: QuantConnect.Data.Market.Split, live_mode: bool, data_normalization_mode: QuantConnect.DataNormalizationMode) -> None:
-        """
-        Applies a split to the trade builder
-        
-        :param split: The split to be applied
-        :param live_mode: True if live mode, false for backtest
-        :param data_normalization_mode: The DataNormalizationMode for this security
-        """
-        ...
-
-    def has_open_position(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
-        """
-        Returns true if there is an open position for the symbol
-        
-        :param symbol: The symbol
-        :returns: true if there is an open position for the symbol.
-        """
-        ...
-
-    def process_fill(self, fill: QuantConnect.Orders.OrderEvent, security_conversion_rate: float, fee_in_account_currency: float, multiplier: float = 1.0) -> None:
-        """
-        Processes a new fill, eventually creating new trades
-        
-        :param fill: The new fill order event
-        :param security_conversion_rate: The current security market conversion rate into the account currency
-        :param fee_in_account_currency: The current order fee in the account currency
-        :param multiplier: The contract multiplier
-        """
-        ...
-
-    def set_live_mode(self, live: bool) -> None:
-        """
-        Sets the live mode flag
-        
-        :param live: The live mode flag
-        """
-        ...
-
-    def set_market_price(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], price: float) -> None:
-        """
-        Sets the current market price for the symbol
-        
-        :param symbol: 
-        :param price: 
-        """
-        ...
-
-    def set_security_manager(self, securities: QuantConnect.Securities.SecurityManager) -> None:
-        """
-        Sets the security manager instance
-        
-        :param securities: The security manager
-        """
-        ...
-
-
 class DrawdownMetrics(System.Object):
     """
     Represents the result of a drawdown analysis, including the maximum drawdown percentage
@@ -1295,91 +1362,24 @@ class Statistics(System.Object):
         ...
 
 
-class PerformanceMetrics(System.Object):
-    """PerformanceMetrics contains the names of the various performance metrics used for evaluation purposes."""
+class IStatisticsService(metaclass=abc.ABCMeta):
+    """This interface exposes methods for accessing algorithm statistics results at runtime."""
 
-    ALPHA: str = "Alpha"
-    """Algorithm "Alpha" statistic - abnormal returns over the risk free rate and the relationshio (beta) with the benchmark returns."""
+    def set_summary_statistic(self, name: str, value: str) -> None:
+        """
+        Sets or updates a custom summary statistic
+        
+        :param name: The statistic name
+        :param value: The statistic value
+        """
+        ...
 
-    ANNUAL_STANDARD_DEVIATION: str = "Annual Standard Deviation"
-    """Annualized standard deviation"""
-
-    ANNUAL_VARIANCE: str = "Annual Variance"
-    """Annualized variance statistic calculation using the daily performance variance and trading days per year."""
-
-    AVERAGE_LOSS: str = "Average Loss"
-    """The average rate of return for trades with zero or negative profit loss"""
-
-    AVERAGE_WIN: str = "Average Win"
-    """The average rate of return for trades with positive profit loss"""
-
-    BETA: str = "Beta"
-    """Algorithm "beta" statistic - the covariance between the algorithm and benchmark performance, divided by benchmark's variance"""
-
-    COMPOUNDING_ANNUAL_RETURN: str = "Compounding Annual Return"
-    """Annual compounded returns statistic based on the final-starting capital and years."""
-
-    DRAWDOWN: str = "Drawdown"
-    """Drawdown maximum percentage."""
-
-    ESTIMATED_STRATEGY_CAPACITY: str = "Estimated Strategy Capacity"
-    """Total capacity of the algorithm"""
-
-    EXPECTANCY: str = "Expectancy"
-    """The expected value of the rate of return"""
-
-    START_EQUITY: str = "Start Equity"
-    """Initial Equity Total Value"""
-
-    END_EQUITY: str = "End Equity"
-    """Final Equity Total Value"""
-
-    INFORMATION_RATIO: str = "Information Ratio"
-    """Information ratio - risk adjusted return"""
-
-    LOSS_RATE: str = "Loss Rate"
-    """The ratio of the number of trades with zero or negative profit loss to the total number of trades"""
-
-    NET_PROFIT: str = "Net Profit"
-    """Total net profit percentage"""
-
-    PROBABILISTIC_SHARPE_RATIO: str = "Probabilistic Sharpe Ratio"
-    """
-    Probabilistic Sharpe Ratio is a probability measure associated with the Sharpe ratio.
-    It informs us of the probability that the estimated Sharpe ratio is greater than a chosen benchmark
-    """
-
-    PROFIT_LOSS_RATIO: str = "Profit-Loss Ratio"
-    """The ratio of the average win rate to the average loss rate"""
-
-    SHARPE_RATIO: str = "Sharpe Ratio"
-    """Sharpe ratio with respect to risk free rate: measures excess of return per unit of risk."""
-
-    SORTINO_RATIO: str = "Sortino Ratio"
-    """Sortino ratio with respect to risk free rate: measures excess of return per unit of downside risk."""
-
-    TOTAL_FEES: str = "Total Fees"
-    """Total amount of fees in the account currency"""
-
-    TOTAL_ORDERS: str = "Total Orders"
-    """Total amount of orders in the algorithm"""
-
-    TRACKING_ERROR: str = "Tracking Error"
-    """Tracking error volatility (TEV) statistic - a measure of how closely a portfolio follows the index to which it is benchmarked"""
-
-    TREYNOR_RATIO: str = "Treynor Ratio"
-    """Treynor ratio statistic is a measurement of the returns earned in excess of that which could have been earned on an investment that has no diversifiable risk"""
-
-    WIN_RATE: str = "Win Rate"
-    """The ratio of the number of trades with positive profit loss to the total number of trades"""
-
-    LOWEST_CAPACITY_ASSET: str = "Lowest Capacity Asset"
-    """Provide a reference to the lowest capacity symbol used in scaling down the capacity for debugging."""
-
-    PORTFOLIO_TURNOVER: str = "Portfolio Turnover"
-    """The average Portfolio Turnover"""
-
-    DRAWDOWN_RECOVERY: str = "Drawdown Recovery"
-    """The recovery time of the maximum drawdown."""
+    def statistics_results(self) -> QuantConnect.Statistics.StatisticsResults:
+        """
+        Calculates and gets the current statistics for the algorithm
+        
+        :returns: The current statistics.
+        """
+        ...
 
 

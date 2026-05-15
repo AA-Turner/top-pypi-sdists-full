@@ -182,12 +182,22 @@ class TestFirstTokenTimeoutWorks:
 class TestModelListingVerifiesFiles:
     """Tests that model listing verifies backing files exist."""
 
-    def test_llama_cpp_is_available_checks_files(self):
-        """LlamaCppProvider.is_available() should check file existence."""
+    def test_llama_cpp_is_available_checks_files(self, tmp_path, monkeypatch):
+        """LlamaCppProvider.is_available() should check file existence.
+
+        We isolate `_models_dir()` to a tmp path so the test doesn't pick
+        up real GGUFs already on disk — without that, any user with a
+        previously-pulled model fails this test.
+        """
         from sage.config import SageConfig
+        from sage.providers import llama_cpp as llama_cpp_mod
         from sage.providers.llama_cpp import LlamaCppProvider
 
-        # Create mock config with non-existent model file
+        # Isolate disk scan so real ~/.sage/models/ doesn't pollute the result
+        empty_dir = tmp_path / "models"
+        empty_dir.mkdir()
+        monkeypatch.setattr(llama_cpp_mod, "_models_dir", lambda: empty_dir)
+
         mock_config = MagicMock(spec=SageConfig)
         mock_config.local_model_names.return_value = ["test:model"]
         mock_model = MagicMock()
@@ -196,9 +206,7 @@ class TestModelListingVerifiesFiles:
 
         provider = LlamaCppProvider(mock_config)
 
-        # Mock llama_cpp being available
         with patch.dict("sys.modules", {"llama_cpp": MagicMock()}):
-            # Should return False because file doesn't exist
             result = provider.is_available()
             assert result is False, "Provider should not be available when model file doesn't exist"
 

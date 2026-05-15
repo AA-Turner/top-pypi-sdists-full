@@ -12,6 +12,7 @@ import torch.nn.init as init
 
 import stanza.models.common.seq2seq_constant as constant
 from stanza.models.common.trainer import Trainer as BaseTrainer
+from stanza.models.common.seq2seq_constant import VOCAB_PREFIX
 from stanza.models.common.seq2seq_model import Seq2SeqModel
 from stanza.models.common import utils, loss
 from stanza.models.mwt.character_classifier import CharacterClassifier
@@ -87,7 +88,7 @@ class Trainer(BaseTrainer):
 
         device = next(self.model.parameters()).device
         inputs, orig_text, orig_idx = unpack_batch(batch, device)
-        src, src_mask, tgt, tgt_mask = inputs
+        src, src_mask, _, _ = inputs
 
         self.model.eval()
         batch_size = src.size(0)
@@ -107,6 +108,10 @@ class Trainer(BaseTrainer):
                 pred_tokens.append(pred_seq)
         else:
             preds, _ = self.model.predict(src, src_mask, self.args['beam_size'], never_decode_unk=never_decode_unk)
+            # TODO THIS IS A HACK:
+            # this ignores any outputs which would have been <SOS> or the like
+            # ideally the output layers of the seq2seq would simply not be able to produce these characters
+            preds = [[x for x in ids if x >= len(VOCAB_PREFIX)] for ids in preds]
             pred_seqs = [vocab.unmap(ids) for ids in preds] # unmap to tokens
             pred_seqs = utils.prune_decoded_seqs(pred_seqs)
 

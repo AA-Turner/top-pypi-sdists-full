@@ -6,8 +6,13 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 
 
-@dataclass
+@dataclass(frozen=True)
 class Message:
+    """Immutable chat message — frozen to prevent accidental mutation of a
+    history entry. If you need to amend a message, build a new one via
+    `dataclasses.replace()` so the call-graph that holds references doesn't
+    silently observe the change.
+    """
     role: str
     content: str
 

@@ -37,6 +37,9 @@ class BenchlingError(Exception):
 
     The content attribute is any unparsed content returned as part of the response body.
 
+    The message attribute provides a human-readable description of the error when available.
+    This is preferred over raw content for error display.
+
     Instead of extending this class directly, prefer extending ExtendedBenchlingErrorBase.
     """
 
@@ -52,6 +55,7 @@ class BenchlingError(Exception):
         BadRequestErrorBulk,
         ConflictError,
     ]
+    message: Optional[str] = None
 
     @classmethod
     def from_response(cls, response: Response) -> BenchlingError:
@@ -66,8 +70,12 @@ class BenchlingError(Exception):
         )
 
     def __str__(self):
-        message = self.json if self.json else self.content
-        return f"{self.__class__.__name__}(status_code={self.status_code}, message={message})"
+        # Prefer explicit message if set, otherwise fall back to json or content
+        if self.message is not None:
+            display_message = self.message
+        else:
+            display_message = self.json if self.json else self.content
+        return f"{self.__class__.__name__}(status_code={self.status_code}, message={display_message})"
 
     def __hash__(self):
         return self._generate_hash()

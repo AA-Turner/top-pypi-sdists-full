@@ -12,19 +12,20 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from sentry_protos.billing.v1.common.v1 import address_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_address__pb2
 from sentry_protos.billing.v1.services.contract.v1 import invoice_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_invoice__pb2
 from sentry_protos.billing.v1.services.contract.v1 import pricing_config_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_pricing__config__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nLsentry_protos/billing/v1/services/contract/v1/endpoint_create_contract.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a;sentry_protos/billing/v1/services/contract/v1/invoice.proto\x1a\x42sentry_protos/billing/v1/services/contract/v1/pricing_config.proto\"\xea\x01\n\x15\x43reateContractRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x13\n\x0bpackage_uid\x18\x02 \x01(\t\x12O\n\x0cuser_configs\x18\x03 \x03(\x0b\x32\x39.sentry_protos.billing.v1.services.contract.v1.UserConfig\x12R\n\nline_items\x18\x04 \x03(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.InvoiceLineItem\"{\n\x16\x43reateContractResponse\x12\n\n\x02id\x18\x01 \x01(\x04\x12\x12\n\ninvoice_id\x18\x02 \x01(\x04\x12\x14\n\x0cinvoice_guid\x18\x03 \x01(\t\x12\x14\n\x0cneeds_charge\x18\x04 \x01(\x08\x12\x15\n\ramount_billed\x18\x05 \x01(\x04\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nLsentry_protos/billing/v1/services/contract/v1/endpoint_create_contract.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a\x30sentry_protos/billing/v1/common/v1/address.proto\x1a;sentry_protos/billing/v1/services/contract/v1/invoice.proto\x1a\x42sentry_protos/billing/v1/services/contract/v1/pricing_config.proto\"\xa8\x02\n\x15\x43reateContractRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x13\n\x0bpackage_uid\x18\x02 \x01(\t\x12O\n\x0cuser_configs\x18\x03 \x03(\x0b\x32\x39.sentry_protos.billing.v1.services.contract.v1.UserConfig\x12R\n\nline_items\x18\x04 \x03(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.InvoiceLineItem\x12<\n\x07\x61\x64\x64ress\x18\x05 \x01(\x0b\x32+.sentry_protos.billing.v1.common.v1.Address\"{\n\x16\x43reateContractResponse\x12\n\n\x02id\x18\x01 \x01(\x04\x12\x12\n\ninvoice_id\x18\x02 \x01(\x04\x12\x14\n\x0cinvoice_guid\x18\x03 \x01(\t\x12\x14\n\x0cneeds_charge\x18\x04 \x01(\x08\x12\x15\n\ramount_billed\x18\x05 \x01(\x04\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.contract.v1.endpoint_create_contract_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_CREATECONTRACTREQUEST']._serialized_start=257
-  _globals['_CREATECONTRACTREQUEST']._serialized_end=491
-  _globals['_CREATECONTRACTRESPONSE']._serialized_start=493
-  _globals['_CREATECONTRACTRESPONSE']._serialized_end=616
+  _globals['_CREATECONTRACTREQUEST']._serialized_start=307
+  _globals['_CREATECONTRACTREQUEST']._serialized_end=603
+  _globals['_CREATECONTRACTRESPONSE']._serialized_start=605
+  _globals['_CREATECONTRACTRESPONSE']._serialized_end=728
 # @@protoc_insertion_point(module_scope)

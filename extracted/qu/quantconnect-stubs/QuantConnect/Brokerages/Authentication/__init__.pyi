@@ -13,8 +13,8 @@ import System.Threading.Tasks
 AuthenticationHeaderValue = typing.Any
 HttpResponseMessage = typing.Any
 
-QuantConnect_Brokerages_Authentication_LeanOAuthTokenHandler_T = typing.TypeVar("QuantConnect_Brokerages_Authentication_LeanOAuthTokenHandler_T")
 QuantConnect_Brokerages_Authentication_LeanTokenHandler_T = typing.TypeVar("QuantConnect_Brokerages_Authentication_LeanTokenHandler_T")
+QuantConnect_Brokerages_Authentication_LeanOAuthTokenHandler_T = typing.TypeVar("QuantConnect_Brokerages_Authentication_LeanOAuthTokenHandler_T")
 QuantConnect_Brokerages_Authentication__EventContainer_Callable = typing.TypeVar("QuantConnect_Brokerages_Authentication__EventContainer_Callable")
 QuantConnect_Brokerages_Authentication__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Brokerages_Authentication__EventContainer_ReturnType")
 
@@ -27,6 +27,129 @@ class TokenType(IntEnum):
 
     SESSION_TOKEN = 1
     """A Session token, typically used for username/password authorization headers."""
+
+
+class LeanTokenCredentials(QuantConnect.Api.RestResponse):
+    """
+    Represents credentials required for token-based authentication,
+    including the access token and its type (e.g., Bearer).
+    """
+
+    @property
+    def token_type(self) -> QuantConnect.Brokerages.Authentication.TokenType:
+        """Gets the type of the token (e.g., Bearer)."""
+        ...
+
+    @token_type.setter
+    def token_type(self, value: QuantConnect.Brokerages.Authentication.TokenType) -> None:
+        ...
+
+    @property
+    def access_token(self) -> str:
+        """Gets the token string used for authentication."""
+        ...
+
+    @access_token.setter
+    def access_token(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, token_type: QuantConnect.Brokerages.Authentication.TokenType, access_token: str) -> None:
+        """
+        Initializes a new instance of the LeanTokenCredentials class.
+        
+        :param token_type: The type of the token.
+        :param access_token: The token string.
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the LeanTokenCredentials class."""
+        ...
+
+
+class LeanTokenHandler(typing.Generic[QuantConnect_Brokerages_Authentication_LeanTokenHandler_T], metaclass=abc.ABCMeta):
+    """
+    Provides base functionality for token-based HTTP request handling.
+    Token acquisition and retry logic are delegated entirely to get_access_token,
+    implemented by derived classes (e.g., LeanOAuthTokenHandler).
+    """
+
+    @property
+    def authentication_failed(self) -> _EventContainer[typing.Callable[[System.Object, System.Exception], typing.Any], typing.Any]:
+        """
+        Raised when authentication fails after all retry attempts are exhausted.
+        Subscribers can use this to trigger graceful application shutdown.
+        """
+        ...
+
+    @authentication_failed.setter
+    def authentication_failed(self, value: _EventContainer[typing.Callable[[System.Object, System.Exception], typing.Any], typing.Any]) -> None:
+        ...
+
+    def __init__(self, create_auth_header: typing.Callable[[QuantConnect.Brokerages.Authentication.TokenType, str], AuthenticationHeaderValue] = None, handler: typing.Any = None) -> None:
+        """
+        Initializes a new instance of the LeanTokenHandler{T} class.
+        
+        
+        This Class is protected.
+        
+        :param create_auth_header: An optional delegate for creating an AuthenticationHeaderValue
+        from the token type and access token. If not provided, a default implementation is used.
+        :param handler: An optional inner HttpMessageHandler. If not provided, a default HttpClientHandler is used.
+        """
+        ...
+
+    def get_access_token(self, cancellation_token: System.Threading.CancellationToken) -> QuantConnect_Brokerages_Authentication_LeanTokenHandler_T:
+        """
+        Retrieves a valid access token for authenticating HTTP requests.
+        Must be implemented by derived classes to provide token type and value,
+        with optional support for caching and refresh logic.
+        
+        :param cancellation_token: A cancellation token that can be used to cancel the token retrieval operation.
+        :returns: A LeanTokenCredentials instance containing the token type and access token string.
+        """
+        ...
+
+    def on_authentication_failed(self, exception: System.Exception) -> None:
+        """
+        Invokes the authentication_failed event.
+        Derived classes call this when authentication fails after exhausting all retry attempts.
+        
+        
+        This Class is protected.
+        
+        :param exception: The exception that caused the authentication failure.
+        """
+        ...
+
+    def send(self, request: typing.Any, cancellation_token: System.Threading.CancellationToken) -> typing.Any:
+        """
+        Sends an HTTP request synchronously, applying token-based authentication.
+        
+        
+        This Class is protected.
+        
+        :param request: The HTTP request message to send.
+        :param cancellation_token: A cancellation token to cancel operation.
+        :returns: The HTTP response message.
+        """
+        ...
+
+    def send_async(self, request: typing.Any, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[HttpResponseMessage]:
+        """
+        Sends an HTTP request asynchronously by internally invoking the synchronous send(HttpRequestMessage, CancellationToken) method.
+        This is useful for compatibility with components that require an asynchronous pipeline, even though the core logic is synchronous.
+        
+        
+        This Class is protected.
+        
+        :param request: The HTTP request message to send.
+        :param cancellation_token: A cancellation token to cancel the operation.
+        :returns: A task representing the asynchronous operation, containing the HTTP response message.
+        """
+        ...
 
 
 class OAuthTokenRequest(System.Object):
@@ -164,129 +287,6 @@ class LeanOAuthTokenHandler(typing.Generic[QuantConnect_Brokerages_Authenticatio
         
         :param cancellation_token: A token used to observe cancellation requests.
         :returns: A LeanTokenCredentials instance containing the token type and access token string.
-        """
-        ...
-
-
-class LeanTokenCredentials(QuantConnect.Api.RestResponse):
-    """
-    Represents credentials required for token-based authentication,
-    including the access token and its type (e.g., Bearer).
-    """
-
-    @property
-    def token_type(self) -> QuantConnect.Brokerages.Authentication.TokenType:
-        """Gets the type of the token (e.g., Bearer)."""
-        ...
-
-    @token_type.setter
-    def token_type(self, value: QuantConnect.Brokerages.Authentication.TokenType) -> None:
-        ...
-
-    @property
-    def access_token(self) -> str:
-        """Gets the token string used for authentication."""
-        ...
-
-    @access_token.setter
-    def access_token(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, token_type: QuantConnect.Brokerages.Authentication.TokenType, access_token: str) -> None:
-        """
-        Initializes a new instance of the LeanTokenCredentials class.
-        
-        :param token_type: The type of the token.
-        :param access_token: The token string.
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the LeanTokenCredentials class."""
-        ...
-
-
-class LeanTokenHandler(typing.Generic[QuantConnect_Brokerages_Authentication_LeanTokenHandler_T], metaclass=abc.ABCMeta):
-    """
-    Provides base functionality for token-based HTTP request handling.
-    Token acquisition and retry logic are delegated entirely to get_access_token,
-    implemented by derived classes (e.g., LeanOAuthTokenHandler).
-    """
-
-    @property
-    def authentication_failed(self) -> _EventContainer[typing.Callable[[System.Object, System.Exception], typing.Any], typing.Any]:
-        """
-        Raised when authentication fails after all retry attempts are exhausted.
-        Subscribers can use this to trigger graceful application shutdown.
-        """
-        ...
-
-    @authentication_failed.setter
-    def authentication_failed(self, value: _EventContainer[typing.Callable[[System.Object, System.Exception], typing.Any], typing.Any]) -> None:
-        ...
-
-    def __init__(self, create_auth_header: typing.Callable[[QuantConnect.Brokerages.Authentication.TokenType, str], AuthenticationHeaderValue] = None, handler: typing.Any = None) -> None:
-        """
-        Initializes a new instance of the LeanTokenHandler{T} class.
-        
-        
-        This Class is protected.
-        
-        :param create_auth_header: An optional delegate for creating an AuthenticationHeaderValue
-        from the token type and access token. If not provided, a default implementation is used.
-        :param handler: An optional inner HttpMessageHandler. If not provided, a default HttpClientHandler is used.
-        """
-        ...
-
-    def get_access_token(self, cancellation_token: System.Threading.CancellationToken) -> QuantConnect_Brokerages_Authentication_LeanTokenHandler_T:
-        """
-        Retrieves a valid access token for authenticating HTTP requests.
-        Must be implemented by derived classes to provide token type and value,
-        with optional support for caching and refresh logic.
-        
-        :param cancellation_token: A cancellation token that can be used to cancel the token retrieval operation.
-        :returns: A LeanTokenCredentials instance containing the token type and access token string.
-        """
-        ...
-
-    def on_authentication_failed(self, exception: System.Exception) -> None:
-        """
-        Invokes the authentication_failed event.
-        Derived classes call this when authentication fails after exhausting all retry attempts.
-        
-        
-        This Class is protected.
-        
-        :param exception: The exception that caused the authentication failure.
-        """
-        ...
-
-    def send(self, request: typing.Any, cancellation_token: System.Threading.CancellationToken) -> typing.Any:
-        """
-        Sends an HTTP request synchronously, applying token-based authentication.
-        
-        
-        This Class is protected.
-        
-        :param request: The HTTP request message to send.
-        :param cancellation_token: A cancellation token to cancel operation.
-        :returns: The HTTP response message.
-        """
-        ...
-
-    def send_async(self, request: typing.Any, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[HttpResponseMessage]:
-        """
-        Sends an HTTP request asynchronously by internally invoking the synchronous send(HttpRequestMessage, CancellationToken) method.
-        This is useful for compatibility with components that require an asynchronous pipeline, even though the core logic is synchronous.
-        
-        
-        This Class is protected.
-        
-        :param request: The HTTP request message to send.
-        :param cancellation_token: A cancellation token to cancel the operation.
-        :returns: A task representing the asynchronous operation, containing the HTTP response message.
         """
         ...
 

@@ -4,13 +4,22 @@ Block elements can be used inside of section, context, input, and actions layout
 See: <https://api.slack.com/reference/block-kit/block-elements>
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
-from json import dumps
-from typing import Any, Dict, List, Optional, Union
+from itertools import chain
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 
-from .errors import InvalidUsageError
+from ._core import RenderableMixin, resolve
+from .errors import (
+    LengthError,
+    MissingRequiredError,
+    MutualExclusivityError,
+    RangeError,
+    TypeMismatchError,
+)
 from .objects import (
     ConfirmationDialogue,
     ConversationFilter,
@@ -23,8 +32,15 @@ from .objects import (
     TextType,
     Workflow,
 )
-from .rich_text import RichText
 from .utils import coerce_to_list, validate_action_id, validate_int, validate_string
+
+if TYPE_CHECKING:
+    from .rich_text import RichText
+
+
+ButtonStyleName: TypeAlias = Literal["primary", "danger"]
+"""The string-valued ``style`` accepted by ``Button`` and ``WorkflowButton``.
+Equivalent to using ``ButtonStyle.PRIMARY`` / ``ButtonStyle.DANGER``."""
 
 
 class ElementType(Enum):
@@ -60,7 +76,7 @@ class ElementType(Enum):
     RICH_TEXT_INPUT = "rich_text_input"
 
 
-class Element(ABC):
+class Element(RenderableMixin, ABC):
     """
     Basis element containing attributes and behaviour common to all elements.
     N.B: Element is an abstract class and cannot be used directly.
@@ -70,19 +86,16 @@ class Element(ABC):
         super().__init__()
         self._type = type_
 
-    def _attributes(self) -> Dict[str, Any]:
+    def _attributes(self) -> dict[str, Any]:
         return {"type": self._type.value}
 
     @abstractmethod
-    def _resolve(self) -> Dict[str, Any]:
+    def _resolve(self) -> dict[str, Any]:
         pass
 
     @property
     def type(self) -> ElementType:
         return self._type
-
-    def __repr__(self) -> str:
-        return dumps(self._resolve(), indent=4)
 
 
 class Button(Element):
@@ -111,25 +124,23 @@ class Button(Element):
         self,
         text: TextLike,
         action_id: str,
-        url: Optional[str] = None,
-        value: Optional[str] = None,
-        style: Optional[str] = None,
-        confirm: Optional[ConfirmationDialogue] = None,
-        accessibility_label: Optional[str] = None,
+        url: str | None = None,
+        value: str | None = None,
+        style: ButtonStyle | ButtonStyleName | None = None,
+        confirm: ConfirmationDialogue | None = None,
+        accessibility_label: str | None = None,
     ) -> None:
         super().__init__(type_=ElementType.BUTTON)
         self.text = Text.to_text(text, max_length=75, force_plaintext=True)
         self.action_id = validate_action_id(action_id)
-        self.url = validate_string(
-            url, field_name="url", max_length=3000, allow_none=True
-        )
+        self.url = validate_string(url, field_name="url", max_length=3000, allow_none=True)
         self.value = validate_string(
             value,
             field_name="value",
             max_length=2000,
             allow_none=True,
         )
-        self.style: Optional[str] = None
+        self.style: str | None = None
         if isinstance(style, ButtonStyle):
             self.style = style.value
         elif isinstance(style, str):
@@ -144,23 +155,19 @@ class Button(Element):
             allow_none=True,
         )
 
-    def _resolve(self) -> Dict[str, Any]:
-        button = self._attributes()
-        if self.text is not None:
-            button["text"] = self.text._resolve()
-        if self.action_id is not None:
-            button["action_id"] = self.action_id
-        if self.style is not None:
-            button["style"] = self.style
-        if self.url is not None:
-            button["url"] = self.url
-        if self.value is not None:
-            button["value"] = self.value
-        if self.confirm is not None:
-            button["confirm"] = self.confirm._resolve()
-        if self.accessibility_label is not None:
-            button["accessibility_label"] = self.accessibility_label
-        return button
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "text": self.text,
+                "action_id": self.action_id,
+                "style": self.style,
+                "url": self.url,
+                "value": self.value,
+                "confirm": self.confirm,
+                "accessibility_label": self.accessibility_label,
+            }
+        )
 
 
 class CheckboxGroup(Element):
@@ -190,9 +197,9 @@ class CheckboxGroup(Element):
     def __init__(
         self,
         action_id: str,
-        options: Union[Option, List[Option]],
-        initial_options: Optional[Union[Option, List[Option]]] = None,
-        confirm: Optional[ConfirmationDialogue] = None,
+        options: Option | list[Option],
+        initial_options: Option | list[Option] | None = None,
+        confirm: ConfirmationDialogue | None = None,
         focus_on_load: bool = False,
     ) -> None:
         super().__init__(type_=ElementType.CHECKBOXES)
@@ -202,20 +209,17 @@ class CheckboxGroup(Element):
         self.confirm = confirm
         self.focus_on_load = focus_on_load
 
-    def _resolve(self) -> Dict[str, Any]:
-        checkbox_group = self._attributes()
-        checkbox_group["action_id"] = self.action_id
-        if self.options is not None:
-            checkbox_group["options"] = [option._resolve() for option in self.options]
-        if self.initial_options:
-            checkbox_group["initial_options"] = [
-                option._resolve() for option in self.initial_options
-            ]
-        if self.confirm:
-            checkbox_group["confirm"] = self.confirm._resolve()
-        if self.focus_on_load:
-            checkbox_group["focus_on_load"] = self.focus_on_load
-        return checkbox_group
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "options": self.options,
+                "initial_options": self.initial_options if self.initial_options else None,
+                "confirm": self.confirm,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+            }
+        )
 
 
 class DatePicker(Element):
@@ -242,35 +246,33 @@ class DatePicker(Element):
     def __init__(
         self,
         action_id: str,
-        initial_date: Optional[str] = None,
-        confirm: Optional[ConfirmationDialogue] = None,
+        initial_date: str | None = None,
+        confirm: ConfirmationDialogue | None = None,
         focus_on_load: bool = False,
-        placeholder: Optional[TextLike] = None,
+        placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.DATE_PICKER)
         self.action_id = validate_action_id(action_id)
+        self.initial_date: str | None = None
         if initial_date:
-            self.initial_date = datetime.strptime(initial_date, "%Y-%m-%d").strftime(
-                "%Y-%m-%d"
-            )
+            self.initial_date = datetime.strptime(initial_date, "%Y-%m-%d").strftime("%Y-%m-%d")
         self.confirm = confirm
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
             placeholder, force_plaintext=True, max_length=150, allow_none=True
         )
 
-    def _resolve(self) -> Dict[str, Any]:
-        date_picker = self._attributes()
-        date_picker["action_id"] = self.action_id
-        if self.initial_date is not None:
-            date_picker["initial_date"] = self.initial_date
-        if self.confirm:
-            date_picker["confirm"] = self.confirm
-        if self.focus_on_load:
-            date_picker["focus_on_load"] = self.focus_on_load
-        if self.placeholder:
-            date_picker["placeholder"] = self.placeholder._resolve()
-        return date_picker
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "initial_date": self.initial_date,
+                "confirm": self.confirm,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+                "placeholder": self.placeholder if self.placeholder else None,
+            }
+        )
 
 
 class DateTimePicker(Element):
@@ -296,27 +298,26 @@ class DateTimePicker(Element):
     def __init__(
         self,
         action_id: str,
-        initial_datetime: Optional[int] = None,
-        confirm: Optional[ConfirmationDialogue] = None,
+        initial_datetime: int | None = None,
+        confirm: ConfirmationDialogue | None = None,
         focus_on_load: bool = False,
     ) -> None:
         super().__init__(type_=ElementType.DATETIME_PICKER)
         self.action_id = validate_action_id(action_id)
-        if initial_datetime:
-            self.initial_datetime = initial_datetime
+        self.initial_datetime = initial_datetime
         self.confirm = confirm
         self.focus_on_load = focus_on_load
 
-    def _resolve(self) -> Dict[str, Any]:
-        datetime_picker = self._attributes()
-        datetime_picker["action_id"] = self.action_id
-        if self.initial_datetime:
-            datetime_picker["initial_date_time"] = self.initial_datetime
-        if self.confirm:
-            datetime_picker["confirm"] = self.confirm
-        if self.focus_on_load:
-            datetime_picker["focus_on_load"] = self.focus_on_load
-        return datetime_picker
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "initial_date_time": self.initial_datetime if self.initial_datetime else None,
+                "confirm": self.confirm,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+            }
+        )
 
 
 class EmailInput(Element):
@@ -343,10 +344,10 @@ class EmailInput(Element):
     def __init__(
         self,
         action_id: str,
-        initial_value: Optional[str] = None,
-        dispatch_action_config: Optional[DispatchActionConfiguration] = None,
+        initial_value: str | None = None,
+        dispatch_action_config: DispatchActionConfiguration | None = None,
         focus_on_load: bool = False,
-        placeholder: Optional[TextLike] = None,
+        placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.EMAIL_INPUT)
         self.action_id = validate_action_id(action_id)
@@ -357,20 +358,17 @@ class EmailInput(Element):
             placeholder, max_length=150, force_plaintext=True, allow_none=True
         )
 
-    def _resolve(self):
-        email_input = self._attributes()
-        email_input["action_id"] = self.action_id
-        if self.initial_value:
-            email_input["initial_value"] = self.initial_value
-        if self.dispatch_action_config:
-            email_input["dispatch_action_config"] = (
-                self.dispatch_action_config._resolve()
-            )
-        if self.focus_on_load:
-            email_input["focus_on_load"] = self.focus_on_load
-        if self.placeholder:
-            email_input["placeholder"] = self.placeholder._resolve()
-        return email_input
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "initial_value": self.initial_value if self.initial_value else None,
+                "dispatch_action_config": self.dispatch_action_config,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+                "placeholder": self.placeholder if self.placeholder else None,
+            }
+        )
 
 
 class FileInput(Element):
@@ -392,9 +390,9 @@ class FileInput(Element):
 
     def __init__(
         self,
-        action_id: Optional[str] = None,
-        filetypes: Optional[Union[str, List[str]]] = None,
-        max_files: Optional[int] = None,
+        action_id: str | None = None,
+        filetypes: str | list[str] | None = None,
+        max_files: int | None = None,
     ) -> None:
         super().__init__(ElementType.FILE_INPUT)
         self.action_id = validate_action_id(action_id)
@@ -403,19 +401,19 @@ class FileInput(Element):
             (str),
             allow_none=True,
         )
-        self.max_files = validate_int(
-            max_files, min_value=1, max_value=10, allow_none=True
-        )
+        self.max_files = validate_int(max_files, min_value=1, max_value=10, allow_none=True)
 
-    def _resolve(self) -> Dict[str, Any]:
-        file_input: Dict[str, Any] = {}
-        if self.action_id is not None:
-            file_input["action_id"] = self.action_id
-        if self.filetypes is not None:
-            file_input["filetypes"] = self.filetypes
-        if self.max_files is not None:
-            file_input["max_files"] = self.max_files
-        return file_input
+    def _resolve(self) -> dict[str, Any]:
+        # FileInput currently does not emit the "type" attribute; this is
+        # preserved from prior behaviour. The pre-existing #154 export work
+        # surfaced this class but did not change its rendering contract.
+        return resolve(
+            {
+                "action_id": self.action_id,
+                "filetypes": self.filetypes,
+                "max_files": self.max_files,
+            }
+        )
 
 
 class Image(Element):
@@ -443,26 +441,27 @@ class Image(Element):
     def __init__(
         self,
         alt_text: str = " ",
-        image_url: Optional[str] = None,
-        slack_file: Optional[SlackFile] = None,
+        image_url: str | None = None,
+        slack_file: SlackFile | None = None,
     ) -> None:
         super().__init__(type_=ElementType.IMAGE)
         if image_url is None and slack_file is None:
-            raise InvalidUsageError("Must provide one of `image_url` or `slack_file`")
+            raise MissingRequiredError("Must provide one of `image_url` or `slack_file`")
         if image_url and slack_file:
-            raise InvalidUsageError("Cannot provide both `image_url` or `slack_file`")
+            raise MutualExclusivityError("Cannot provide both `image_url` or `slack_file`")
         self.image_url = image_url
         self.alt_text = alt_text
         self.slack_file = slack_file
 
-    def _resolve(self) -> Dict[str, Any]:
-        image = self._attributes()
-        if self.image_url is not None:
-            image["image_url"] = self.image_url
-        image["alt_text"] = self.alt_text
-        if self.slack_file is not None:
-            image["slack_file"] = self.slack_file
-        return image
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "image_url": self.image_url,
+                "alt_text": self.alt_text,
+                "slack_file": self.slack_file,
+            }
+        )
 
 
 class StaticMultiSelectMenu(Element):
@@ -482,7 +481,7 @@ class StaticMultiSelectMenu(Element):
             (max 100). Only one of `options` or `option_groups` can be
             provided.
         initial_options: the [`Options`](/slackblocks/latest/reference/objects/#objects.Option)
-            to be intially selected when the element is first rendered.
+            to be initially selected when the element is first rendered.
         confirm: a `ConfirmationDialogue` object that will be presented when
             the menu is used.
         max_selected_items: the
@@ -498,25 +497,21 @@ class StaticMultiSelectMenu(Element):
     def __init__(
         self,
         action_id: str,
-        options: Union[Option, List[Option]],
-        option_groups: Optional[Union[OptionGroup, List[OptionGroup]]] = None,
-        initial_options: Optional[
-            Union[Option, List[Option], OptionGroup, List[OptionGroup]]
-        ] = None,
-        confirm: Optional[ConfirmationDialogue] = None,
-        max_selected_items: Optional[int] = None,
+        options: Option | list[Option],
+        option_groups: OptionGroup | list[OptionGroup] | None = None,
+        initial_options: Option | list[Option] | OptionGroup | list[OptionGroup] | None = None,
+        confirm: ConfirmationDialogue | None = None,
+        max_selected_items: int | None = None,
         focus_on_load: bool = False,
-        placeholder: Optional[TextLike] = None,
+        placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.MULTI_SELECT_STATIC)
         self.action_id = validate_action_id(action_id)
         if options and option_groups:
-            raise InvalidUsageError(
+            raise MutualExclusivityError(
                 "Cannot set both `options` and `option_groups` parameters."
             )
-        self.options = coerce_to_list(
-            options, class_=Option, allow_none=True, max_size=100
-        )
+        self.options = coerce_to_list(options, class_=Option, allow_none=True, max_size=100)
         self.option_groups = coerce_to_list(
             option_groups, class_=OptionGroup, allow_none=True, max_size=100
         )
@@ -531,32 +526,31 @@ class StaticMultiSelectMenu(Element):
             and self.initial_options
             and not all(isinstance(option, Option) for option in self.initial_options)
         ):
-            raise InvalidUsageError(
+            raise TypeMismatchError(
                 "If using `options` then `initial_options` must also be of type `List[Option]`, "
                 f"not `{type(self.initial_options)}`."
             )
         if (
             option_groups
             and self.initial_options
-            and not all(
-                isinstance(option, OptionGroup) for option in self.initial_options
-            )
+            and not all(isinstance(option, OptionGroup) for option in self.initial_options)
         ):
-            raise InvalidUsageError(
+            raise TypeMismatchError(
                 "If using `option_groups` then `initial_options` must also be of type "
                 f"`List[OptionGroup]`, not `{type(self.initial_options)}`."
             )
 
         # Check that Option Text is all TextType.PLAINTEXT
+        options_to_validate: list[Option] = []
         if self.options:
             options_to_validate = self.options
         if self.option_groups:
-            options_to_validate = sum(
-                [option_group.options for option_group in self.option_groups], []
+            options_to_validate = list(
+                chain.from_iterable(option_group.options for option_group in self.option_groups)
             )
         for option in options_to_validate:
             if option.text.text_type == TextType.MARKDOWN:
-                raise InvalidUsageError(
+                raise TypeMismatchError(
                     "Text in Options for StaticSelectMenu can only be of TextType.PLAINTEXT"
                 )
 
@@ -567,30 +561,20 @@ class StaticMultiSelectMenu(Element):
             placeholder, force_plaintext=True, max_length=150, allow_none=True
         )
 
-    def _resolve(self) -> Dict[str, Any]:
-        static_multi_select = self._attributes()
-        static_multi_select["action_id"] = self.action_id
-        if self.options:
-            static_multi_select["options"] = [
-                option._resolve() for option in self.options
-            ]
-        if self.option_groups:
-            static_multi_select["option_groups"] = [
-                option_group._resolve() for option_group in self.option_groups
-            ]
-        if self.initial_options:
-            static_multi_select["initial_options"] = [
-                initial_option._resolve() for initial_option in self.initial_options
-            ]
-        if self.confirm:
-            static_multi_select["confirm"] = self.confirm._resolve()
-        if self.max_selected_items:
-            static_multi_select["max_selected_items"] = self.max_selected_items
-        if self.focus_on_load:
-            static_multi_select["focus_on_load"] = self.focus_on_load
-        if self.placeholder:
-            static_multi_select["placeholder"] = self.placeholder._resolve()
-        return static_multi_select
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "options": self.options if self.options else None,
+                "option_groups": self.option_groups if self.option_groups else None,
+                "initial_options": self.initial_options if self.initial_options else None,
+                "confirm": self.confirm,
+                "max_selected_items": self.max_selected_items,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+                "placeholder": self.placeholder if self.placeholder else None,
+            }
+        )
 
 
 class ExternalMultiSelectMenu(Element):
@@ -605,7 +589,7 @@ class ExternalMultiSelectMenu(Element):
         min_query_length: minimum number of characters entered before the query
             is dispactched (defaults to 3 if not provided).
         initial_options: the [`Options`](/slackblocks/latest/reference/objects/#objects.Option)
-            to be intially selected when the element is first rendered.
+            to be initially selected when the element is first rendered.
         confirm: a `ConfirmationDialogue` object that will be presented when
             the menu is used.
         max_selected_items: the highest number of items from the list that
@@ -622,14 +606,12 @@ class ExternalMultiSelectMenu(Element):
     def __init__(
         self,
         action_id: str,
-        min_query_length: Optional[int] = None,
-        initial_options: Optional[
-            Union[Option, List[Option], OptionGroup, List[OptionGroup]]
-        ] = None,
-        confirm: Optional[ConfirmationDialogue] = None,
-        max_selected_items: Optional[int] = None,
+        min_query_length: int | None = None,
+        initial_options: Option | list[Option] | OptionGroup | list[OptionGroup] | None = None,
+        confirm: ConfirmationDialogue | None = None,
+        max_selected_items: int | None = None,
         focus_on_load: bool = False,
-        placeholder: Optional[TextLike] = None,
+        placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.MULTI_SELECT_EXTERNAL)
         self.action_id = validate_action_id(action_id)
@@ -647,24 +629,19 @@ class ExternalMultiSelectMenu(Element):
             placeholder, force_plaintext=True, max_length=150, allow_none=True
         )
 
-    def _resolve(self) -> Dict[str, Any]:
-        external_select_menu = self._attributes()
-        external_select_menu["action_id"] = self.action_id
-        if self.min_query_length:
-            external_select_menu["min_query_length"] = self.min_query_length
-        if self.initial_options:
-            external_select_menu["initial_options"] = [
-                initial_option._resolve() for initial_option in self.initial_options
-            ]
-        if self.confirm:
-            external_select_menu["confirm"] = self.confirm._resolve()
-        if self.max_selected_items:
-            external_select_menu["max_selected_items"] = self.max_selected_items
-        if self.focus_on_load:
-            external_select_menu["focus_on_load"] = self.focus_on_load
-        if self.placeholder:
-            external_select_menu["placeholder"] = self.placeholder._resolve()
-        return external_select_menu
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "min_query_length": self.min_query_length,
+                "initial_options": self.initial_options if self.initial_options else None,
+                "confirm": self.confirm,
+                "max_selected_items": self.max_selected_items,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+                "placeholder": self.placeholder if self.placeholder else None,
+            }
+        )
 
 
 class UserMultiSelectMenu(Element):
@@ -676,7 +653,7 @@ class UserMultiSelectMenu(Element):
 
     Args:
         action_id: an identifier so the source of the action can be known.
-        initial_users: a list of string user IDs to be intially selected
+        initial_users: a list of string user IDs to be initially selected
             when the element is first rendered.
         confirm: a `ConfirmationDialogue` object that will be presented when
             the menu is used.
@@ -694,17 +671,15 @@ class UserMultiSelectMenu(Element):
     def __init__(
         self,
         action_id: str,
-        initial_users: Optional[List[str]] = None,
-        confirm: Optional[ConfirmationDialogue] = None,
-        max_selected_items: Optional[int] = None,
+        initial_users: list[str] | None = None,
+        confirm: ConfirmationDialogue | None = None,
+        max_selected_items: int | None = None,
         focus_on_load: bool = False,
-        placeholder: Optional[TextLike] = None,
+        placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.MULTI_SELECT_USERS)
         self.action_id = validate_action_id(action_id)
-        self.initial_users: Optional[List[str]] = coerce_to_list(
-            initial_users, str, allow_none=True
-        )
+        self.initial_users: list[str] | None = coerce_to_list(initial_users, str, allow_none=True)
         self.confirm = confirm
         self.max_selected_items = max_selected_items
         self.focus_on_load = focus_on_load
@@ -712,20 +687,18 @@ class UserMultiSelectMenu(Element):
             placeholder, force_plaintext=True, max_length=150, allow_none=True
         )
 
-    def _resolve(self) -> Dict[str, Any]:
-        user_multi_select = self._attributes()
-        user_multi_select["action_id"] = self.action_id
-        if self.initial_users:
-            user_multi_select["initial_users"] = self.initial_users
-        if self.confirm:
-            user_multi_select["confirm"] = self.confirm._resolve()
-        if self.max_selected_items:
-            user_multi_select["max_selected_items"] = self.max_selected_items
-        if self.focus_on_load:
-            user_multi_select["focus_on_load"] = self.focus_on_load
-        if self.placeholder:
-            user_multi_select["placeholder"] = self.placeholder._resolve()
-        return user_multi_select
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "initial_users": self.initial_users if self.initial_users else None,
+                "confirm": self.confirm,
+                "max_selected_items": self.max_selected_items,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+                "placeholder": self.placeholder if self.placeholder else None,
+            }
+        )
 
 
 class ConversationMultiSelectMenu(Element):
@@ -761,17 +734,17 @@ class ConversationMultiSelectMenu(Element):
     def __init__(
         self,
         action_id: str,
-        initial_conversations: Optional[List[str]] = None,
-        default_to_current_conversation: Optional[bool] = False,
-        confirm: Optional[ConfirmationDialogue] = None,
-        max_selected_items: Optional[int] = None,
-        filter: Optional[ConversationFilter] = None,
-        focus_on_load: Optional[bool] = False,
-        placeholder: Optional[TextLike] = None,
+        initial_conversations: list[str] | None = None,
+        default_to_current_conversation: bool | None = False,
+        confirm: ConfirmationDialogue | None = None,
+        max_selected_items: int | None = None,
+        filter: ConversationFilter | None = None,
+        focus_on_load: bool | None = False,
+        placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.MULTI_SELECT_CONVERSATIONS)
         self.action_id = validate_action_id(action_id)
-        self.initial_conversations: Optional[List[str]] = coerce_to_list(
+        self.initial_conversations: list[str] | None = coerce_to_list(
             initial_conversations, str, allow_none=True
         )
         self.default_to_current_conversation = default_to_current_conversation
@@ -783,28 +756,24 @@ class ConversationMultiSelectMenu(Element):
             placeholder, force_plaintext=True, max_length=150, allow_none=True
         )
 
-    def _resolve(self) -> Dict[str, Any]:
-        conversation_multi_select = self._attributes()
-        conversation_multi_select["action_id"] = self.action_id
-        if self.initial_conversations:
-            conversation_multi_select["intial_conversations"] = (
-                self.initial_conversations
-            )
-        if self.default_to_current_conversation:
-            conversation_multi_select["default_to_current_conversation"] = (
-                self.default_to_current_conversation
-            )
-        if self.confirm:
-            conversation_multi_select["confirm"] = self.confirm._resolve()
-        if self.max_selected_items:
-            conversation_multi_select["max_selected_items"] = self.max_selected_items
-        if self.filter:
-            conversation_multi_select["filter"] = self.filter._resolve()
-        if self.focus_on_load:
-            conversation_multi_select["focus_on_load"] = self.focus_on_load
-        if self.placeholder:
-            conversation_multi_select["placeholder"] = self.placeholder._resolve()
-        return conversation_multi_select
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "initial_conversations": self.initial_conversations
+                if self.initial_conversations
+                else None,
+                "default_to_current_conversation": self.default_to_current_conversation
+                if self.default_to_current_conversation
+                else None,
+                "confirm": self.confirm,
+                "max_selected_items": self.max_selected_items,
+                "filter": self.filter,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+                "placeholder": self.placeholder if self.placeholder else None,
+            }
+        )
 
 
 class ChannelMultiSelectMenu(Element):
@@ -834,15 +803,15 @@ class ChannelMultiSelectMenu(Element):
     def __init__(
         self,
         action_id: str,
-        initial_channels: Optional[List[str]] = None,
-        confirm: Optional[ConfirmationDialogue] = None,
-        max_selected_items: Optional[int] = None,
+        initial_channels: list[str] | None = None,
+        confirm: ConfirmationDialogue | None = None,
+        max_selected_items: int | None = None,
         focus_on_load: bool = False,
-        placeholder: Optional[TextLike] = None,
+        placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.MULTI_SELECT_CHANNELS)
         self.action_id = validate_action_id(action_id)
-        self.initial_channels: Optional[List[str]] = coerce_to_list(
+        self.initial_channels: list[str] | None = coerce_to_list(
             initial_channels, class_=str, allow_none=True
         )
         self.confirm = confirm
@@ -852,20 +821,18 @@ class ChannelMultiSelectMenu(Element):
             placeholder, force_plaintext=True, max_length=150, allow_none=True
         )
 
-    def _resolve(self) -> Dict[str, Any]:
-        channel_multi_select = self._attributes()
-        channel_multi_select["action_id"] = self.action_id
-        if self.initial_channels:
-            channel_multi_select["initial_channels"] = self.initial_channels
-        if self.confirm:
-            channel_multi_select["confirm"] = self.confirm._resolve()
-        if self.max_selected_items:
-            channel_multi_select["max_selected_items"] = self.max_selected_items
-        if self.focus_on_load:
-            channel_multi_select["focus_on_load"] = self.focus_on_load
-        if self.placeholder:
-            channel_multi_select["placeholder"] = self.placeholder._resolve()
-        return channel_multi_select
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "initial_channels": self.initial_channels if self.initial_channels else None,
+                "confirm": self.confirm,
+                "max_selected_items": self.max_selected_items,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+                "placeholder": self.placeholder if self.placeholder else None,
+            }
+        )
 
 
 class NumberInput(Element):
@@ -896,13 +863,13 @@ class NumberInput(Element):
     def __init__(
         self,
         is_decimal_allowed: bool,
-        action_id: Optional[str] = None,
-        initial_value: Optional[str] = None,
-        min_value: Optional[Union[float, int]] = None,
-        max_value: Optional[Union[float, int]] = None,
-        dispatch_action_config: Optional[DispatchActionConfiguration] = None,
+        action_id: str | None = None,
+        initial_value: str | None = None,
+        min_value: float | int | None = None,
+        max_value: float | int | None = None,
+        dispatch_action_config: DispatchActionConfiguration | None = None,
         focus_on_load: bool = False,
-        placeholder: Optional[TextLike] = None,
+        placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.NUMBER_INPUT)
         self.is_decimal_allowed = is_decimal_allowed
@@ -910,52 +877,38 @@ class NumberInput(Element):
         self.initial_value = initial_value
         self.min_value = min_value
         self.max_value = max_value
-        if min_value:
-            if not is_decimal_allowed:
-                if isinstance(min_value, float):
-                    raise InvalidUsageError(
-                        f"`min_value` ({min_value}) cannot be a float when "
-                        "`is_decimal_allowed` is `False`"
-                    )
-        if max_value:
-            if not is_decimal_allowed:
-                if isinstance(max_value, float):
-                    raise InvalidUsageError(
-                        f"`max_value` ({max_value}) cannot be a float when "
-                        "`is_decimal_allowed` is `False`"
-                    )
-        if (min_value or min_value == 0) and (max_value or max_value == 0):
-            if min_value > max_value:
-                raise InvalidUsageError(
-                    f"`min_value` ({min_value}) cannot be greater than "
-                    "`max_value` ({min_value})"
-                )
+        if min_value and not is_decimal_allowed and isinstance(min_value, float):
+            raise TypeMismatchError(
+                f"`min_value` ({min_value}) cannot be a float when `is_decimal_allowed` is `False`"
+            )
+        if max_value and not is_decimal_allowed and isinstance(max_value, float):
+            raise TypeMismatchError(
+                f"`max_value` ({max_value}) cannot be a float when `is_decimal_allowed` is `False`"
+            )
+        if min_value is not None and max_value is not None and min_value > max_value:
+            raise RangeError(
+                f"`min_value` ({min_value}) cannot be greater than `max_value` ({max_value})"
+            )
         self.dispatch_action_config = dispatch_action_config
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
             placeholder, max_length=150, force_plaintext=True, allow_none=True
         )
 
-    def _resolve(self) -> Dict[str, Any]:
-        number_input = self._attributes()
-        number_input["is_decimal_allowed"] = self.is_decimal_allowed
-        if self.action_id:
-            number_input["action_id"] = self.action_id
-        if self.initial_value:
-            number_input["initial_value"] = self.initial_value
-        if self.min_value:
-            number_input["min_value"] = self.min_value
-        if self.max_value:
-            number_input["max_value"] = self.max_value
-        if self.dispatch_action_config:
-            number_input["dispatch_action_config"] = (
-                self.dispatch_action_config._resolve()
-            )
-        if self.focus_on_load:
-            number_input["focus_on_load"] = self.focus_on_load
-        if self.placeholder:
-            number_input["placeholder"] = self.placeholder._resolve()
-        return number_input
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "is_decimal_allowed": self.is_decimal_allowed,
+                "action_id": self.action_id if self.action_id else None,
+                "initial_value": self.initial_value if self.initial_value else None,
+                "min_value": self.min_value,
+                "max_value": self.max_value,
+                "dispatch_action_config": self.dispatch_action_config,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+                "placeholder": self.placeholder if self.placeholder else None,
+            }
+        )
 
 
 class OverflowMenu(Element):
@@ -979,24 +932,25 @@ class OverflowMenu(Element):
     def __init__(
         self,
         action_id: str,
-        options: Union[Option, List[Option]],
-        confirm: Optional[ConfirmationDialogue] = None,
+        options: Option | list[Option],
+        confirm: ConfirmationDialogue | None = None,
     ) -> None:
         super().__init__(type_=ElementType.OVERFLOW_MENU)
         self.action_id = validate_action_id(action_id)
         self.options = coerce_to_list(options, Option, min_size=1, max_size=5)
         self.confirm = confirm
 
-    def _resolve(self) -> Dict[str, Any]:
-        overflow_menu = self._attributes()
-        overflow_menu["action_id"] = self.action_id
-        if self.options is not None:
-            overflow_menu["options"] = [
-                option._resolve() for option in self.options if option is not None
-            ]
-        if self.confirm:
-            overflow_menu["confirm"] = self.confirm._resolve()
-        return overflow_menu
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "options": [option for option in self.options if option is not None]
+                if self.options is not None
+                else None,
+                "confirm": self.confirm,
+            }
+        )
 
 
 class PlainTextInput(Element):
@@ -1028,13 +982,13 @@ class PlainTextInput(Element):
     def __init__(
         self,
         action_id: str,
-        initial_value: Optional[str] = None,
+        initial_value: str | None = None,
         multiline: bool = False,
-        min_length: Optional[int] = None,
-        max_length: Optional[int] = None,
-        dispatch_action_config: Optional[DispatchActionConfiguration] = None,
+        min_length: int | None = None,
+        max_length: int | None = None,
+        dispatch_action_config: DispatchActionConfiguration | None = None,
         focus_on_load: bool = False,
-        placeholder: Optional[TextLike] = None,
+        placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.PLAIN_TEXT_INPUT)
         self.action_id = validate_action_id(action_id)
@@ -1042,7 +996,7 @@ class PlainTextInput(Element):
         self.initial_value = initial_value
         self.min_length = min_length
         if max_length and max_length > 3000:
-            raise InvalidUsageError("`max_length` value cannot exceed 3000 characters")
+            raise RangeError("`max_length` value cannot exceed 3000 characters")
         self.max_length = max_length
         self.dispatch_action_config = dispatch_action_config
         self.focus_on_load = focus_on_load
@@ -1050,27 +1004,20 @@ class PlainTextInput(Element):
             placeholder, max_length=150, force_plaintext=True, allow_none=True
         )
 
-    def _resolve(self) -> Dict[str, Any]:
-        plain_text_input = self._attributes()
-        if self.multiline:
-            plain_text_input["multiline"] = self.multiline
-        if self.action_id:
-            plain_text_input["action_id"] = self.action_id
-        if self.initial_value:
-            plain_text_input["initial_value"] = self.initial_value
-        if self.min_length:
-            plain_text_input["min_length"] = self.min_length
-        if self.max_length:
-            plain_text_input["max_length"] = self.max_length
-        if self.dispatch_action_config:
-            plain_text_input["dispatch_action_config"] = (
-                self.dispatch_action_config._resolve()
-            )
-        if self.focus_on_load:
-            plain_text_input["focus_on_load"] = self.focus_on_load
-        if self.placeholder:
-            plain_text_input["placeholder"] = self.placeholder._resolve()
-        return plain_text_input
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "multiline": self.multiline if self.multiline else None,
+                "action_id": self.action_id if self.action_id else None,
+                "initial_value": self.initial_value if self.initial_value else None,
+                "min_length": self.min_length if self.min_length else None,
+                "max_length": self.max_length if self.max_length else None,
+                "dispatch_action_config": self.dispatch_action_config,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+                "placeholder": self.placeholder if self.placeholder else None,
+            }
+        )
 
 
 class RadioButtonGroup(Element):
@@ -1099,40 +1046,35 @@ class RadioButtonGroup(Element):
     def __init__(
         self,
         action_id: str,
-        options: List[Option],
-        initial_option: Optional[Option] = None,
-        confirm: Optional[ConfirmationDialogue] = None,
+        options: list[Option],
+        initial_option: Option | None = None,
+        confirm: ConfirmationDialogue | None = None,
         focus_on_load: bool = False,
     ) -> None:
         super().__init__(type_=ElementType.RADIO_BUTTON_GROUP)
         self.action_id = validate_action_id(action_id)
         if len(options) < 1 or len(options) > 10:
-            raise InvalidUsageError(
+            raise LengthError(
                 "Number of options to RadioButtonGroup must be between 1 and 10 (inclusive)."
             )
-        self.options: Optional[List[Option]] = coerce_to_list(
-            options, class_=Option, allow_none=False
-        )
+        self.options: list[Option] | None = coerce_to_list(options, class_=Option, allow_none=False)
         if initial_option is not None and initial_option not in options:
-            raise InvalidUsageError("`initial_option` must be a member of `options`")
+            raise TypeMismatchError("`initial_option` must be a member of `options`")
         self.initial_option = initial_option
         self.confirm = confirm
         self.focus_on_load = focus_on_load
 
-    def _resolve(self) -> Dict[str, Any]:
-        radio_button_group = self._attributes()
-        radio_button_group["action_id"] = self.action_id
-        if self.options is not None:
-            radio_button_group["options"] = [
-                option._resolve() for option in self.options
-            ]
-        if self.initial_option:
-            radio_button_group["initial_option"] = self.initial_option._resolve()
-        if self.confirm:
-            radio_button_group["confirm"] = self.confirm._resolve()
-        if self.focus_on_load:
-            radio_button_group["focus_on_load"] = self.focus_on_load
-        return radio_button_group
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "options": self.options,
+                "initial_option": self.initial_option,
+                "confirm": self.confirm,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+            }
+        )
 
 
 class StaticSelectMenu(Element):
@@ -1168,50 +1110,47 @@ class StaticSelectMenu(Element):
     def __init__(
         self,
         action_id: str,
-        options: Optional[List[Option]] = None,
-        option_groups: Optional[List[OptionGroup]] = None,
-        initial_option: Optional[Union[Option, OptionGroup]] = None,
-        confirm: Optional[ConfirmationDialogue] = None,
+        options: list[Option] | None = None,
+        option_groups: list[OptionGroup] | None = None,
+        initial_option: Option | OptionGroup | None = None,
+        confirm: ConfirmationDialogue | None = None,
         focus_on_load: bool = False,
-        placeholder: Optional[TextLike] = None,
+        placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.STATIC_SELECT_MENU)
         self.action_id = validate_action_id(action_id)
         if options and option_groups:
-            raise InvalidUsageError(
+            raise MutualExclusivityError(
                 "Cannot set both `options` and `option_groups` parameters."
             )
-        self.options: Optional[List[Option]] = coerce_to_list(
+        self.options: list[Option] | None = coerce_to_list(
             options, class_=Option, allow_none=True, max_size=100
         )
-        self.option_groups: Optional[List[OptionGroup]] = coerce_to_list(
+        self.option_groups: list[OptionGroup] | None = coerce_to_list(
             option_groups, class_=OptionGroup, allow_none=True, max_size=100
         )
         if options and initial_option and not isinstance(initial_option, Option):
-            raise InvalidUsageError(
+            raise TypeMismatchError(
                 "If using `options` then `initial_option` must also be of type `Option`, "
                 f"not `{type(initial_option)}`."
             )
-        if (
-            option_groups
-            and initial_option
-            and not isinstance(initial_option, OptionGroup)
-        ):
-            raise InvalidUsageError(
+        if option_groups and initial_option and not isinstance(initial_option, OptionGroup):
+            raise TypeMismatchError(
                 "If using `option_groups` then `initial_option` must also be of type "
                 f"`OptionGroup`, not `{type(initial_option)}`."
             )
 
         # Check that Option Text is all TextType.PLAINTEXT
+        options_to_validate: list[Option] = []
         if self.options:
             options_to_validate = self.options
         if self.option_groups:
-            options_to_validate = sum(
-                [option_group.options for option_group in self.option_groups], []
+            options_to_validate = list(
+                chain.from_iterable(option_group.options for option_group in self.option_groups)
             )
         for option in options_to_validate:
             if option.text.text_type == TextType.MARKDOWN:
-                raise InvalidUsageError(
+                raise TypeMismatchError(
                     "Text in Options for StaticSelectMenu can only be of TextType.PLAINTEXT"
                 )
 
@@ -1222,26 +1161,19 @@ class StaticSelectMenu(Element):
             placeholder, max_length=150, force_plaintext=True, allow_none=True
         )
 
-    def _resolve(self) -> Dict[str, Any]:
-        static_select_menu = self._attributes()
-        static_select_menu["action_id"] = self.action_id
-        if self.options:
-            static_select_menu["options"] = [
-                option._resolve() for option in self.options
-            ]
-        if self.option_groups:
-            static_select_menu["option_groups"] = [
-                option_group._resolve() for option_group in self.option_groups
-            ]
-        if self.initial_option:
-            static_select_menu["initial_option"] = self.initial_option._resolve()
-        if self.confirm:
-            static_select_menu["confirm"] = self.confirm._resolve()
-        if self.focus_on_load:
-            static_select_menu["focus_on_load"] = self.focus_on_load
-        if self.placeholder:
-            static_select_menu["placeholder"] = self.placeholder._resolve()
-        return static_select_menu
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "options": self.options if self.options else None,
+                "option_groups": self.option_groups if self.option_groups else None,
+                "initial_option": self.initial_option,
+                "confirm": self.confirm,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+                "placeholder": self.placeholder if self.placeholder else None,
+            }
+        )
 
 
 class ExternalSelectMenu(Element):
@@ -1249,7 +1181,7 @@ class ExternalSelectMenu(Element):
     A select menu interactive UI element, sourced with externally provided options.
 
     See:
-        <https://api.slack.com/slackblocks/latest/reference/block-kit/block-elements#external_select>. # noqa: E501
+        <https://api.slack.com/slackblocks/latest/reference/block-kit/block-elements#external_select>.
 
     Args:
         action_id: an identifier so the source of the action can be known.
@@ -1272,11 +1204,11 @@ class ExternalSelectMenu(Element):
     def __init__(
         self,
         action_id: str,
-        initial_option: Optional[Union[Option, OptionGroup]] = None,
-        min_query_length: Optional[int] = None,
-        confirm: Optional[ConfirmationDialogue] = None,
+        initial_option: Option | OptionGroup | None = None,
+        min_query_length: int | None = None,
+        confirm: ConfirmationDialogue | None = None,
         focus_on_load: bool = False,
-        placeholder: Optional[TextLike] = None,
+        placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.EXTERNAL_SELECT_MENU)
         self.action_id = validate_action_id(action_id)
@@ -1291,20 +1223,18 @@ class ExternalSelectMenu(Element):
             allow_none=True,
         )
 
-    def _resolve(self) -> Dict[str, Any]:
-        external_select_menu = self._attributes()
-        external_select_menu["action_id"] = self.action_id
-        if self.initial_option:
-            external_select_menu["initial_option"] = self.initial_option._resolve()
-        if self.min_query_length is not None:
-            external_select_menu["min_query_length"] = self.min_query_length
-        if self.confirm:
-            external_select_menu["confirm"] = self.confirm._resolve()
-        if self.focus_on_load:
-            external_select_menu["focus_on_load"] = self.focus_on_load
-        if self.placeholder:
-            external_select_menu["placeholder"] = self.placeholder._resolve()
-        return external_select_menu
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "initial_option": self.initial_option,
+                "min_query_length": self.min_query_length,
+                "confirm": self.confirm,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+                "placeholder": self.placeholder if self.placeholder else None,
+            }
+        )
 
 
 class UserSelectMenu(Element):
@@ -1332,10 +1262,10 @@ class UserSelectMenu(Element):
     def __init__(
         self,
         action_id: str,
-        initial_user: Optional[str] = None,
-        confirm: Optional[ConfirmationDialogue] = None,
+        initial_user: str | None = None,
+        confirm: ConfirmationDialogue | None = None,
         focus_on_load: bool = False,
-        placeholder: Optional[TextLike] = None,
+        placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.USERS_SELECT_MENU)
         self.action_id = validate_action_id(action_id)
@@ -1346,18 +1276,17 @@ class UserSelectMenu(Element):
             placeholder, max_length=150, force_plaintext=True, allow_none=True
         )
 
-    def _resolve(self) -> Dict[str, Any]:
-        user_select_menu = self._attributes()
-        user_select_menu["action_id"] = self.action_id
-        if self.initial_user:
-            user_select_menu["initial_user"] = self.initial_user
-        if self.confirm:
-            user_select_menu["confirm"] = self.confirm._resolve()
-        if self.focus_on_load:
-            user_select_menu["focus_on_load"] = self.focus_on_load
-        if self.placeholder:
-            user_select_menu["placeholder"] = self.placeholder._resolve()
-        return user_select_menu
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "initial_user": self.initial_user if self.initial_user else None,
+                "confirm": self.confirm,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+                "placeholder": self.placeholder if self.placeholder else None,
+            }
+        )
 
 
 class ConversationSelectMenu(Element):
@@ -1369,7 +1298,7 @@ class ConversationSelectMenu(Element):
 
     Args:
         action_id: an identifier so the source of the action can be known.
-        initial_conversation: the single (string) coversation ID that will be initially
+        initial_conversation: the single (string) conversation ID that will be initially
             selected when first presented to the user.
         default_to_current_conversation: Pre-populates the select menu with the
             conversation that the user was viewing when they opened the modal
@@ -1394,13 +1323,13 @@ class ConversationSelectMenu(Element):
     def __init__(
         self,
         action_id: str,
-        initial_conversation: Optional[str] = None,
-        default_to_current_conversation: Optional[bool] = False,
-        confirm: Optional[ConfirmationDialogue] = None,
-        response_url_enabled: Optional[bool] = False,
-        filter: Optional[ConversationFilter] = None,
+        initial_conversation: str | None = None,
+        default_to_current_conversation: bool | None = False,
+        confirm: ConfirmationDialogue | None = None,
+        response_url_enabled: bool | None = False,
+        filter: ConversationFilter | None = None,
         focus_on_load: bool = False,
-        placeholder: Optional[TextLike] = None,
+        placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.CONVERSATIONS_SELECT_MENU)
         self.action_id = validate_action_id(action_id)
@@ -1417,26 +1346,26 @@ class ConversationSelectMenu(Element):
             allow_none=True,
         )
 
-    def _resolve(self) -> Dict[str, Any]:
-        conversation_select_menu = self._attributes()
-        conversation_select_menu["action_id"] = self.action_id
-        if self.initial_conversation:
-            conversation_select_menu["initial_conversation"] = self.initial_conversation
-        if self.default_to_current_conversation:
-            conversation_select_menu["default_to_current_conversation"] = (
-                self.default_to_current_conversation
-            )
-        if self.confirm:
-            conversation_select_menu["confirm"] = self.confirm._resolve()
-        if self.response_url_enabled:
-            conversation_select_menu["response_url_enabled"] = self.response_url_enabled
-        if self.filter:
-            conversation_select_menu["filter"] = self.filter
-        if self.focus_on_load:
-            conversation_select_menu["focus_on_load"] = self.focus_on_load
-        if self.placeholder:
-            conversation_select_menu["placeholder"] = self.placeholder._resolve()
-        return conversation_select_menu
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "initial_conversation": self.initial_conversation
+                if self.initial_conversation
+                else None,
+                "default_to_current_conversation": self.default_to_current_conversation
+                if self.default_to_current_conversation
+                else None,
+                "confirm": self.confirm,
+                "response_url_enabled": self.response_url_enabled
+                if self.response_url_enabled
+                else None,
+                "filter": self.filter,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+                "placeholder": self.placeholder if self.placeholder else None,
+            }
+        )
 
 
 class ChannelSelectMenu(Element):
@@ -1467,11 +1396,11 @@ class ChannelSelectMenu(Element):
     def __init__(
         self,
         action_id: str,
-        initial_channel: Optional[str] = None,
-        confirm: Optional[ConfirmationDialogue] = None,
-        response_url_enabled: Optional[bool] = False,
+        initial_channel: str | None = None,
+        confirm: ConfirmationDialogue | None = None,
+        response_url_enabled: bool | None = False,
         focus_on_load: bool = False,
-        placeholder: Optional[TextLike] = None,
+        placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.CHANNELS_SELECT_MENU)
         self.action_id = validate_action_id(action_id)
@@ -1486,20 +1415,20 @@ class ChannelSelectMenu(Element):
             allow_none=True,
         )
 
-    def _resolve(self) -> Dict[str, Any]:
-        channel_select_menu = self._attributes()
-        channel_select_menu["action_id"] = self.action_id
-        if self.initial_channel:
-            channel_select_menu["initial_channel"] = self.initial_channel
-        if self.confirm:
-            channel_select_menu["confirm"] = self.confirm._resolve()
-        if self.response_url_enabled:
-            channel_select_menu["response_url_enabled"] = self.response_url_enabled
-        if self.focus_on_load:
-            channel_select_menu["focus_on_load"] = self.focus_on_load
-        if self.placeholder:
-            channel_select_menu["placeholder"] = self.placeholder._resolve()
-        return channel_select_menu
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "initial_channel": self.initial_channel if self.initial_channel else None,
+                "confirm": self.confirm,
+                "response_url_enabled": self.response_url_enabled
+                if self.response_url_enabled
+                else None,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+                "placeholder": self.placeholder if self.placeholder else None,
+            }
+        )
 
 
 class TimePicker(Element):
@@ -1526,11 +1455,11 @@ class TimePicker(Element):
     def __init__(
         self,
         action_id: str,
-        initial_time: Optional[str] = None,
-        confirm: Optional[ConfirmationDialogue] = None,
+        initial_time: str | None = None,
+        confirm: ConfirmationDialogue | None = None,
         focus_on_load: bool = False,
-        placeholder: Optional[TextLike] = None,
-        timezone: Optional[str] = None,
+        placeholder: TextLike | None = None,
+        timezone: str | None = None,
     ) -> None:
         super().__init__(type_=ElementType.TIME_PICKER)
         self.action_id = validate_action_id(action_id)
@@ -1545,20 +1474,18 @@ class TimePicker(Element):
         )
         self.timezone = timezone
 
-    def _resolve(self) -> Dict[str, Any]:
-        time_picker = self._attributes()
-        time_picker["action_id"] = self.action_id
-        if self.initial_time:
-            time_picker["initial_time"] = self.initial_time
-        if self.confirm:
-            time_picker["confirm"] = self.confirm
-        if self.focus_on_load:
-            time_picker["focus_on_load"] = self.focus_on_load
-        if self.placeholder:
-            time_picker["placeholder"] = self.placeholder._resolve()
-        if self.timezone is not None:
-            time_picker["timezone"] = self.timezone
-        return time_picker
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "initial_time": self.initial_time if self.initial_time else None,
+                "confirm": self.confirm,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+                "placeholder": self.placeholder if self.placeholder else None,
+                "timezone": self.timezone,
+            }
+        )
 
 
 class URLInput(Element):
@@ -1586,10 +1513,10 @@ class URLInput(Element):
     def __init__(
         self,
         action_id: str,
-        initial_value: Optional[str] = None,
-        dispatch_action_config: Optional[DispatchActionConfiguration] = None,
+        initial_value: str | None = None,
+        dispatch_action_config: DispatchActionConfiguration | None = None,
         focus_on_load: bool = False,
-        placeholder: Optional[TextLike] = None,
+        placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.URL_INPUT)
         self.action_id = validate_action_id(action_id)
@@ -1603,18 +1530,17 @@ class URLInput(Element):
             allow_none=True,
         )
 
-    def _resolve(self) -> Dict[str, Any]:
-        url_input = self._attributes()
-        url_input["action_id"] = self.action_id
-        if self.initial_value is not None:
-            url_input["initial_value"] = self.initial_value
-        if self.dispatch_action_config:
-            url_input["dispatch_action_config"] = self.dispatch_action_config._resolve()
-        if self.focus_on_load:
-            url_input["focus_on_load"] = self.focus_on_load
-        if self.placeholder:
-            url_input["placeholder"] = self.placeholder
-        return url_input
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "initial_value": self.initial_value,
+                "dispatch_action_config": self.dispatch_action_config,
+                "focus_on_load": self.focus_on_load if self.focus_on_load else None,
+                "placeholder": self.placeholder if self.placeholder else None,
+            }
+        )
 
 
 class ButtonStyle(Enum):
@@ -1627,17 +1553,22 @@ class ButtonStyle(Enum):
     DANGER = "danger"
 
     @staticmethod
-    def to_button_style(style: Optional[Union["ButtonStyle", str]]) -> "ButtonStyle":
+    def to_button_style(style: ButtonStyle | str | None) -> ButtonStyle:
+        # NOTE: this implementation uses ``ButtonStyle[style]`` which looks
+        # up the enum *name* (e.g. "PRIMARY"), not the value (e.g. "primary").
+        # Preserved here for backwards compatibility -- ``Button.style`` takes
+        # the value form via ``ButtonStyleName``. The two paths are not
+        # symmetric; see the planned Phase 7 ergonomics work for cleanup.
         if isinstance(style, ButtonStyle):
             return style
         if isinstance(style, str):
             return ButtonStyle[style]
-        raise InvalidUsageError(
+        raise TypeMismatchError(
             f"Can only coerce to ButtonStyle from ButtonStyle or string, not {type(style)}."
         )
 
 
-ButtonStyleLike = Union[ButtonStyle, str]
+ButtonStyleLike: TypeAlias = ButtonStyle | str
 
 
 class WorkflowButton(Element):
@@ -1665,9 +1596,9 @@ class WorkflowButton(Element):
     def __init__(
         self,
         text: TextLike,
-        workflow: Optional[Workflow] = None,
-        style: Optional[ButtonStyleLike] = ButtonStyle.DEFAULT,
-        accessibility_label: Optional[str] = None,
+        workflow: Workflow | None = None,
+        style: ButtonStyleLike | None = ButtonStyle.DEFAULT,
+        accessibility_label: str | None = None,
     ) -> None:
         super().__init__(type_=ElementType.WORKFLOW_BUTTON)
         self.text = Text.to_text(text, force_plaintext=True, max_length=75)
@@ -1675,17 +1606,18 @@ class WorkflowButton(Element):
         self.style = ButtonStyle.to_button_style(style).value
         self.accessibility_label = accessibility_label
 
-    def _resolve(self) -> Dict[str, Any]:
-        workflow_button = self._attributes()
-        if self.text is not None:
-            workflow_button["text"] = self.text._resolve()
-        if self.workflow:
-            workflow_button["workflow"] = self.workflow._resolve()
-        if self.style is not None:
-            workflow_button["style"] = self.style
-        if self.accessibility_label:
-            workflow_button["accessibility_label"] = self.accessibility_label
-        return workflow_button
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "text": self.text,
+                "workflow": self.workflow,
+                "style": self.style,
+                "accessibility_label": self.accessibility_label
+                if self.accessibility_label
+                else None,
+            }
+        )
 
 
 class RichTextInput(Element):
@@ -1713,27 +1645,35 @@ class RichTextInput(Element):
     def __init__(
         self,
         action_id: str,
-        initial_value: Optional[RichText] = None,
-        dispatch_action_config: Optional[DispatchActionConfiguration] = None,
+        initial_value: RichText | None = None,
+        dispatch_action_config: DispatchActionConfiguration | None = None,
         focus_on_load: bool = False,
-        placeholder: Optional[TextLike] = None,
+        placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(ElementType.RICH_TEXT_INPUT)
         self.action_id = validate_action_id(action_id)
         self.initial_value = initial_value
         self.dispatch_action_config = dispatch_action_config
         self.focus_on_load = focus_on_load
-        self.placeholder = placeholder
+        self.placeholder = Text.to_text(
+            placeholder,
+            force_plaintext=True,
+            max_length=150,
+            allow_none=True,
+        )
 
-    def _resolve(self) -> Dict[str, Any]:
-        rich_text_input = super()._attributes()
-        rich_text_input["action_id"] = self.action_id
-        if self.initial_value is not None:
-            rich_text_input["initial_value"] = self.initial_value._resolve()
-        if self.dispatch_action_config is not None:
-            rich_text_input["dispatch_action_config"] = self.dispatch_action_config
-        if self.focus_on_load is not None:
-            rich_text_input["focus_on_load"] = self.focus_on_load
-        if self.placeholder is not None:
-            rich_text_input["placeholder"] = self.placeholder
-        return rich_text_input
+    def _resolve(self) -> dict[str, Any]:
+        # Note: focus_on_load is emitted unconditionally (the check used to be
+        # ``if self.focus_on_load is not None``, which is always true given the
+        # default of False). Preserving this behaviour to avoid breaking the
+        # existing test golden file.
+        return resolve(
+            {
+                **self._attributes(),
+                "action_id": self.action_id,
+                "initial_value": self.initial_value,
+                "dispatch_action_config": self.dispatch_action_config,
+                "focus_on_load": self.focus_on_load,
+                "placeholder": self.placeholder,
+            }
+        )

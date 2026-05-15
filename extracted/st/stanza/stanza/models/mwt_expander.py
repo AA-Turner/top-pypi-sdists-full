@@ -64,6 +64,7 @@ def build_argparse():
     parser.add_argument('--no_copy', dest='copy', action='store_false', help='Do not use copy mechanism in MWT expansion. By default copy mechanism is used to improve generalization.')
 
     parser.add_argument('--augment_apos', default=0.01, type=float, help='At training time, how much to augment |\'| to |"| |’| |ʼ|')
+    parser.add_argument('--non_mwt_replacement', default=0.05, type=float, help='At training time, use this fraction of non-MWT to train the model to recognize non-MWTs')
     parser.add_argument('--force_exact_pieces', default=None, action='store_true', help='If possible, make the text of the pieces of the MWT add up to the token itself.  (By default, this is determined from the dataset.)')
     parser.add_argument('--no_force_exact_pieces', dest='force_exact_pieces', action='store_false', help="Don't make the text of the pieces of the MWT add up to the token itself.  (By default, this is determined from the dataset.)")
 
@@ -219,10 +220,13 @@ def train(args):
                 logger.info("Saved epoch %d model to %s" % (epoch, save_each_name % epoch))
 
             # eval on dev
-            logger.info("Evaluating on dev set...")
+            logger.info("Evaluating epoch {} on dev set...".format(epoch))
             dev_preds = []
+            dev_loss = 0.0
             for i, batch in enumerate(dev_batch.to_loader()):
                 preds = trainer.predict(batch)
+                # eval=True doesn't backprop the loss
+                dev_loss += trainer.update(batch, eval=True)
                 dev_preds += preds
             if args.get('ensemble_dict', False) and args.get('ensemble_early_stop', False):
                 logger.info("[Ensembling dict with seq2seq model...]")
@@ -233,19 +237,23 @@ def train(args):
             system_preds = io.StringIO(system_preds)
             _, _, dev_score = scorer.score(system_preds, gold_file)
             train_loss = train_loss / train_batch.num_examples * args['batch_size'] # avg loss per batch
-            logger.info("epoch {}: train_loss = {:.6f}, dev_score = {:.4f}".format(epoch, train_loss, dev_score))
+            logger.info("epoch {}: train_loss = {:.6f}, dev_loss = {:.6f}, dev_score = {:.4f}".format(epoch, train_loss, dev_loss, dev_score))
 
             if args['wandb']:
                 wandb.log({'train_loss': train_loss, 'dev_score': dev_score})
 
             # save best model
-            if epoch == 1 or dev_score > max(dev_score_history):
+            if epoch == 1 or dev_score > max(dev_score_history) or (dev_score >= max(dev_score_history) and dev_loss < best_dev_loss):
+                best_dev_loss = dev_loss
+                best_epoch = epoch
+                best_f = dev_score
                 trainer.save(model_file)
                 logger.info("new best model saved.")
                 best_dev_preds = dev_preds
 
             # lr schedule
             if epoch > args['decay_epoch'] and dev_score <= dev_score_history[-1]:
+                # TODO: this doesn't give any grace period for a new LR
                 current_lr *= args['lr_decay']
                 trainer.change_lr(current_lr)
 
@@ -256,8 +264,7 @@ def train(args):
         if args['wandb']:
             wandb.finish()
 
-        best_f, best_epoch = max(dev_score_history)*100, np.argmax(dev_score_history)+1
-        logger.info("Best dev F1 = {:.2f}, at epoch = {}".format(best_f, best_epoch))
+        logger.info("Best dev on {}: F1 = {:.2f}, at epoch = {}".format(args['shorthand'], best_f, best_epoch))
 
         # try ensembling with dict if necessary
         if args.get('ensemble_dict', False):

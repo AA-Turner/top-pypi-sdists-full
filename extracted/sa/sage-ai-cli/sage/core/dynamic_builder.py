@@ -65,6 +65,26 @@ GenerateFn = Callable[[str], str]
 ProgressFn = Callable[[str], None]
 
 
+# Files that sage emits via deterministic templates — the LLM has no
+# business rewriting these. If the repair loop tries to (because some
+# stage 8 failure has a stack frame mentioning them), skip the write.
+# Without this guard, the repair pass overwrote our pinned tsconfig.json
+# with a broken one that referenced @types/jest packages we didn't ship.
+_PROTECTED_TEMPLATE_PATHS: frozenset[str] = frozenset({
+    "frontend/tsconfig.json",
+    "frontend/.npmrc",
+    "frontend/package.json",      # owned by dep_resolver
+    "backend/requirements.txt",   # owned by dep_resolver
+    "backend/pyproject.toml",     # owned by dep_resolver
+    ".gitignore",
+    ".env.example",
+    ".github/workflows/ci.yml",
+    "docker-compose.yml",
+    "backend/alembic.ini",
+    "backend/alembic/script.py.mako",
+})
+
+
 @dataclass
 class BuildReport:
     title: str
@@ -321,15 +341,41 @@ def _attempt_repair(
     if not isinstance(fixes, dict):
         return
 
+    from sage.core.pre_write_validator import validate_generated_file
+
     for rel_path, new_content in fixes.items():
         if not isinstance(new_content, str) or len(new_content) < 10:
             continue
+
+        # Protect template-owned files: sage controls these, the LLM
+        # has no business rewriting them. Without this guard the repair
+        # loop overwrote our pinned tsconfig.json with a broken one
+        # that referenced @types/jest and @types/zustand the project
+        # didn't have.
+        if rel_path in _PROTECTED_TEMPLATE_PATHS:
+            log(f"[repair] SKIP {rel_path} (protected template)")
+            continue
+
         # ALWAYS sanitize each fix value — the model may have embedded
         # a reasoning block inside the JSON string.
         new_content = strip_code_fences(new_content)
+
+        # Pre-write validate the proposed fix. If it has obvious defects
+        # (truncation, syntax error, framework collision), skip — keep
+        # the existing file rather than overwrite it with something worse.
+        is_rn = "frontend/" in rel_path and project.kind == "node"
+        vresult = validate_generated_file(
+            new_content, rel_path, is_rn_frontend=is_rn
+        )
+        if not vresult.ok:
+            log(
+                f"[repair] SKIP {rel_path} — proposed fix failed validation: "
+                f"{vresult.errors[0][:80] if vresult.errors else 'unknown'}"
+            )
+            continue
+
         # Resolve relative to project root, NOT out_dir
         target = project.root / rel_path
-        # Fix-target paths may be relative to repo root — try both
         if not target.parent.exists():
             target = project.root.parent / rel_path
         target.parent.mkdir(parents=True, exist_ok=True)

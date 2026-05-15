@@ -34,11 +34,11 @@ import click
 import cloup
 from click.utils import make_str
 
-from . import context, theme as _theme
+from . import context
 from .colorize import ExtraHelpColorsMixin, HelpExtraFormatter
 from .commands import ColorizedCommand, ColorizedGroup, ExtraGroup
 from .context import ExtraContext
-from .theme import HelpExtraTheme
+from .theme import BUILTIN_THEMES, HelpExtraTheme, set_default_theme
 
 logger = logging.getLogger("click_extra")
 
@@ -179,7 +179,7 @@ def patch_click(
 
     # Override the default theme if requested.
     if theme is not None:
-        _theme.default_theme = theme
+        set_default_theme(theme)
 
     logger.info(
         "Click patched: color=%s, theme=%s.",
@@ -205,7 +205,7 @@ def unpatch_click() -> None:
     ColorizedGroup.context_class = ExtraContext
 
     # Restore the default theme.
-    _theme.default_theme = HelpExtraTheme.dark()
+    set_default_theme(BUILTIN_THEMES["dark"])
 
 
 def resolve_target(script: str) -> tuple[str, str]:
@@ -384,14 +384,15 @@ def _config_args_for_target(
         app = "myapp:create_app"
         debug = true
     """
-    # Walk up to the root context to find the full config.
-    root_ctx = ctx.find_root()
-    full_conf = root_ctx.meta.get(context.CONF_FULL)
+    # ``ctx.meta`` is shared across the parent/child hierarchy, so reading
+    # from the local context is sufficient. The root command's name is still
+    # needed below to locate the right TOML section.
+    full_conf = context.get(ctx, context.CONF_FULL)
     if not full_conf:
         return ()
 
     # Extract the [click-extra.wrap.<script>] section from the raw config.
-    app_name = root_ctx.command.name or ""
+    app_name = ctx.find_root().command.name or ""
     # Normalize path separators to forward slashes so Windows absolute paths
     # like "C:\...\script.py" match TOML keys written as "C:/.../script.py".
     # TOML basic strings interpret backslashes as escape sequences, so users

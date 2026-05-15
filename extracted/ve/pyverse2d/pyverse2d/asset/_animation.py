@@ -103,3 +103,8 @@ class Animation(Asset):
         # Génération de l'animation
         frames = [Image(str(f), width=width, height=height, scale_factor=scale_factor) for f in files]
         return cls(frames, framerate)
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Animation",
+]

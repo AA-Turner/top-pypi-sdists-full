@@ -282,6 +282,7 @@ class LazyFramePlaceholder:
             - ``"auto"``: infer file type from URI/path suffix (CSV/Parquet).
             - ``"hive"``: expand Hive/glob paths without Delta inference fallback.
             - ``"delta"``: treat the input as a Delta table root (requires exactly one URI).
+            - ``"iceberg"``: treat the input as an Iceberg table root (requires exactly one URI).
         Returns
         -------
         DataFrame that reads data from the specified files.
@@ -327,6 +328,40 @@ class LazyFramePlaceholder:
             input_uris=normalized_input_uris,
             schema=schema,
             mode=mode,
+        )
+
+    @classmethod
+    def scan_iceberg(
+        cls,
+        table: str,
+        *,
+        storage_options: typing.Optional[typing.Mapping[str, str]] = None,
+        snapshot_id: typing.Optional[int] = None,
+    ) -> "LazyFramePlaceholder":
+        """Scan an Iceberg table that is registered in a catalog.
+
+        Parameters
+        ----------
+        table
+            Catalog-qualified table identifier. For Glue, ``database.table``.
+            Also used as the plan-node name.
+        storage_options
+            Apache Iceberg catalog + FileIO properties. ``None`` uses the
+            ambient catalog configuration from the host engine's environment.
+        snapshot_id
+            Pin the scan to a specific snapshot id. ``None`` selects the
+            current snapshot at plan time.
+
+        Returns
+        -------
+        DataFrame backed by the catalog-resolved Iceberg table.
+        """
+        return LazyFramePlaceholder._construct(
+            self_dataframe=None,
+            function_name="scan_iceberg",
+            table=table,
+            storage_options=storage_options,
+            snapshot_id=snapshot_id,
         )
 
     @classmethod

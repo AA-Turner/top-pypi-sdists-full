@@ -18,12 +18,26 @@ class GuiLayer(Layer):
         opacity: opacité du layer
         camera: caméra locale
     """
-    __slots__ = ("_wrappers", "_opacity")
+    __slots__ = (
+        "_opacity",
+        "_wrappers",
+    )
 
     def __init__(self, opacity: Real = 1.0, camera: Camera = None):
+        # Initialisation du layer
         super().__init__(camera)
+
+        # Transtypage et vérifications
+        opacity = float(opacity)
+
+        if __debug__:
+            clamped(opacity)
+
+        # Attributs publiques
+        self._opacity: float = opacity
+
+        # Attributs internes
         self._wrappers: list[WidgetWrapper] = []
-        self._opacity: float = clamped(float(expect(opacity, Real)))
     
     # ======================================== PROPERTIES ========================================
     @property
@@ -38,14 +52,19 @@ class GuiLayer(Layer):
     
     @opacity.setter
     def opacity(self, value: Real):
-        self._opacity = clamped(float(expect(value, Real)))
+        value = float(value)
+        if __debug__:
+            clamped(value)
+        self._opacity = value
 
     # ======================================== COLLECTIONS ========================================
     def add(self, widget: Widget, name: str = None, z: int = 0) -> None:
         """Ajoute un composant
 
         Args:
-            widget(Widget): composant à ajouter
+            widget: composant à ajouter
+            name: nom du composant
+            z: z-order
         """
         if widget.parent is not None:
             raise ValueError("Cannot add a child widget directly, try to add its parent")
@@ -59,7 +78,7 @@ class GuiLayer(Layer):
         """Retire un composant
 
         Args:
-            widget(Widget): composant à ajouter
+            widget: composant à ajouter
         """
         if widget in self._wrappers:
             widget._switch_layer(None)
@@ -69,7 +88,7 @@ class GuiLayer(Layer):
         """Retire un composant par son identifiant
 
         Args:
-            name(str): nom du composant à dissocier
+            name: nom du composant à dissocier
         """
         to_remove = []
         for wrapper in self._wrappers:
@@ -83,8 +102,8 @@ class GuiLayer(Layer):
         """Modifie le Zorder d'un composant
 
         Args:
-            widget(Widget): composant
-            z(int): ordre de rendu
+            widget: composant
+            z: ordre de rendu
         """
         wrapper = self._get_wrapper(expect(widget, Widget))
         if wrapper.z != z:
@@ -118,27 +137,43 @@ class GuiLayer(Layer):
 
     @profile_section("scene.gui_layer.update")
     def _update(self, dt: float) -> None:
-        """Actualisation du layer"""
+        """Actualisation du layer
+        
+        Args:
+            dt: delta-time
+        """
         for wrapper in reversed(self._wrappers):
             wrapper.widget.update(dt)
 
     @profile_section("scene.gui_layer.draw")
     def _draw(self, pipeline: Pipeline) -> None:
-        """Affichage du layer"""
+        """Affichage du layer
+        
+        Args:
+            pipeline: ``Pipeline``de rendu courant
+        """
         context = self._generate_context(pipeline)
         for wrapper in self._wrappers:
             wrapper.widget.draw(pipeline, context)
 
     # ======================================== INTERNALS ========================================
     def _get_wrapper(self, widget: Widget) -> WidgetWrapper:
-        """Récupère le wrapper d'un composant"""
+        """Récupère le wrapper d'un composant
+        
+        Args:
+            widget: ``Widget`` associé
+        """
         for wrapper in self._wrappers:
             if wrapper.widget == widget:
                 return wrapper
         raise ValueError(f"This layer has not widget {widget}")
     
     def _generate_context(self, pipeline: Pipeline) -> RenderContext:
-        """Génère un contexte de rendu"""
+        """Génère un contexte de rendu
+        
+        Args:
+            pipeline: ``Pipeline`` de rendu courant
+        """
         return RenderContext(
             pipeline=pipeline,
             x = 0.0,
@@ -152,7 +187,13 @@ class GuiLayer(Layer):
 
 # ======================================== WRAPPER ========================================
 class WidgetWrapper:
-    """Wrapper des composants Gui"""
+    """Wrapper des composants Gui
+    
+    Args:
+        widget ``Widget`` associé
+        name: nom du composant
+        z: z-order
+    """
     __slots__ = ("_widget", "name", "z")
 
     def __init__(self, widget: Widget, name: str, z: int):
@@ -162,6 +203,7 @@ class WidgetWrapper:
     
     @property
     def widget(self) -> Widget:
+        """``Widget`` associé *(lecture seule)*"""
         return self._widget
 
     def __eq__(self, other: Widget | WidgetWrapper) -> bool:

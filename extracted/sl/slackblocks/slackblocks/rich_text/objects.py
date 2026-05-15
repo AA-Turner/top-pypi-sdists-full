@@ -1,16 +1,18 @@
 """
 Rich text objects are containers for rich text elements.
 
-These obejects form the contents of the
+These objects form the contents of the
     [`RichTextBlock`](/slackblocks/latest/reference/blocks/#blocks.RichTextBlock).
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from enum import Enum
-from json import dumps
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
-from slackblocks.errors import InvalidUsageError
+from slackblocks._core import RenderableMixin, resolve
+from slackblocks.errors import TypeMismatchError
 from slackblocks.rich_text.elements import (
     RichText,
     RichTextChannel,
@@ -43,11 +45,11 @@ class ListType(Enum):
     ORDERED = "ordered"
 
     @classmethod
-    def all(cls) -> List[str]:
+    def all(cls) -> list[str]:
         return [list_type.value for list_type in ListType]
 
 
-class RichTextObject(ABC):
+class RichTextObject(RenderableMixin, ABC):
     """
     Abstract class housing shared functionality of RichTextObjects.
 
@@ -60,11 +62,8 @@ class RichTextObject(ABC):
         self.type_ = type_
 
     @abstractmethod
-    def _resolve(self) -> Dict[str, Any]:
+    def _resolve(self) -> dict[str, Any]:
         return {"type": self.type_.value}
-
-    def __repr__(self) -> str:
-        return dumps(self._resolve(), indent=4)
 
 
 class RichTextSection(RichTextObject):
@@ -84,7 +83,7 @@ class RichTextSection(RichTextObject):
             `RichTextObject`.
     """
 
-    def __init__(self, elements: Union[RichTextElement, List[RichTextElement]]) -> None:
+    def __init__(self, elements: RichTextElement | list[RichTextElement]) -> None:
         super().__init__(type_=RichTextObjectType.SECTION)
         self.elements = coerce_to_list(
             elements,
@@ -99,11 +98,8 @@ class RichTextSection(RichTextObject):
             min_size=1,
         )
 
-    def _resolve(self) -> Dict[str, Any]:
-        section = super()._resolve()
-        if self.elements is not None:
-            section["elements"] = [element._resolve() for element in self.elements]
-        return section
+    def _resolve(self) -> dict[str, Any]:
+        return resolve({**super()._resolve(), "elements": self.elements})
 
 
 class RichTextList(RichTextObject):
@@ -127,18 +123,18 @@ class RichTextList(RichTextObject):
 
     def __init__(
         self,
-        style: Union[str, ListType],
-        elements: Union[RichTextSection, List[RichTextSection]],
-        indent: Optional[int] = None,
-        offset: Optional[int] = 0,
-        border: Optional[int] = 0,
+        style: str | ListType,
+        elements: RichTextSection | list[RichTextSection],
+        indent: int | None = None,
+        offset: int | None = 0,
+        border: int | None = 0,
     ) -> None:
         super().__init__(type_=RichTextObjectType.LIST)
         if isinstance(style, str):
             if style in ListType.all():
                 self.style = style
             else:
-                raise InvalidUsageError(f"`style` must be one of [{ListType.all()}]")
+                raise TypeMismatchError(f"`style` must be one of [{ListType.all()}]")
         elif isinstance(style, ListType):
             self.style = style.value
         self.elements = coerce_to_list(elements, RichTextSection, min_size=1)
@@ -146,20 +142,19 @@ class RichTextList(RichTextObject):
         self.offset = validate_int(offset, allow_none=True)
         self.border = validate_int(border, allow_none=True)
 
-    def _resolve(self) -> Dict[str, Any]:
-        rich_text_list: Dict[str, Any] = super()._resolve()
-        if self.elements is not None:
-            rich_text_list["elements"] = [
-                element._resolve() for element in self.elements if element is not None
-            ]
-        rich_text_list["style"] = self.style
-        if self.indent is not None:
-            rich_text_list["indent"] = self.indent
-        if self.offset is not None:
-            rich_text_list["offset"] = self.offset
-        if self.border is not None:
-            rich_text_list["border"] = self.border
-        return rich_text_list
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **super()._resolve(),
+                "elements": [element for element in self.elements if element is not None]
+                if self.elements is not None
+                else None,
+                "style": self.style,
+                "indent": self.indent,
+                "offset": self.offset,
+                "border": self.border,
+            }
+        )
 
 
 class RichTextCodeBlock(RichTextObject):
@@ -183,8 +178,8 @@ class RichTextCodeBlock(RichTextObject):
 
     def __init__(
         self,
-        elements: Union[RichTextElement, List[RichTextElement]],
-        border: Optional[int] = None,
+        elements: RichTextElement | list[RichTextElement],
+        border: int | None = None,
     ) -> None:
         super().__init__(type_=RichTextObjectType.PREFORMATTED)
         self.elements = coerce_to_list(
@@ -200,15 +195,16 @@ class RichTextCodeBlock(RichTextObject):
         )
         self.border = border
 
-    def _resolve(self) -> Dict[str, Any]:
-        preformatted = super()._resolve()
-        if self.elements is not None:
-            preformatted["elements"] = [
-                element._resolve() for element in self.elements if element is not None
-            ]
-        if self.border is not None:
-            preformatted["border"] = self.border
-        return preformatted
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **super()._resolve(),
+                "elements": [element for element in self.elements if element is not None]
+                if self.elements is not None
+                else None,
+                "border": self.border,
+            }
+        )
 
 
 class RichTextQuote(RichTextObject):
@@ -228,8 +224,8 @@ class RichTextQuote(RichTextObject):
 
     def __init__(
         self,
-        elements: Union[RichTextElement, List[RichTextElement]],
-        border: Optional[int] = None,
+        elements: RichTextElement | list[RichTextElement],
+        border: int | None = None,
     ) -> None:
         super().__init__(RichTextObjectType.QUOTE)
         self.elements = coerce_to_list(
@@ -245,12 +241,13 @@ class RichTextQuote(RichTextObject):
         )
         self.border = border
 
-    def _resolve(self) -> Dict[str, Any]:
-        quote = super()._resolve()
-        if self.elements is not None:
-            quote["elements"] = [
-                element._resolve() for element in self.elements if element is not None
-            ]
-        if self.border is not None:
-            quote["border"] = self.border
-        return quote
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **super()._resolve(),
+                "elements": [element for element in self.elements if element is not None]
+                if self.elements is not None
+                else None,
+                "border": self.border,
+            }
+        )

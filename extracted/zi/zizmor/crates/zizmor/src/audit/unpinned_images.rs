@@ -4,12 +4,16 @@ use crate::{
         Confidence, Finding, Persona, Severity,
         location::{Locatable as _, SymbolicLocation},
     },
+    models::{AsDocument, action::DockerAction, workflow::matrix::Matrix},
     state::AuditState,
 };
 
 use github_actions_expressions::{Expr, literal::Literal};
-use github_actions_models::common::{DockerUses, expr::LoE};
 use github_actions_models::workflow::job::Container;
+use github_actions_models::{
+    action::DockerActionUses,
+    common::{DockerUses, expr::LoE},
+};
 use subfeature::Subfeature;
 
 use super::{Audit, AuditLoadError, audit_meta};
@@ -17,108 +21,15 @@ use super::{Audit, AuditLoadError, audit_meta};
 pub(crate) struct UnpinnedImages;
 
 impl UnpinnedImages {
-    fn build_finding<'doc>(
+    /// Classify a list of image references (with locations) and emit findings
+    /// for any that are unpinned.
+    fn classify_images<'a, 'doc>(
         &self,
-        location: &SymbolicLocation<'doc>,
-        annotation: &'static str,
-        confidence: Confidence,
-        persona: Persona,
-        job: &super::NormalJob<'doc>,
-    ) -> Result<Finding<'doc>, AuditError> {
-        let mut annotated_location = location.clone();
-        annotated_location = annotated_location.annotated(annotation);
-        Self::finding()
-            .severity(Severity::High)
-            .confidence(confidence)
-            .add_location(annotated_location)
-            .persona(persona)
-            .build(job)
-    }
-
-    /// Classify a `DockerUses` image and push the appropriate finding.
-    fn check_image<'doc>(
-        &self,
-        image: &DockerUses,
-        location: &SymbolicLocation<'doc>,
-        job: &super::NormalJob<'doc>,
-        findings: &mut Vec<Finding<'doc>>,
-    ) -> Result<(), AuditError> {
-        match (image.tag(), image.hash()) {
-            (_, Some(_)) => {}
-            (Some("latest"), None) => {
-                findings.push(self.build_finding(
-                    location,
-                    "container image is pinned to latest",
-                    Confidence::High,
-                    Persona::Regular,
-                    job,
-                )?);
-            }
-            (Some(_), None) => {
-                findings.push(self.build_finding(
-                    location,
-                    "container image is not pinned to a SHA256 hash",
-                    Confidence::High,
-                    Persona::Pedantic,
-                    job,
-                )?);
-            }
-            (None, None) => {
-                findings.push(self.build_finding(
-                    location,
-                    "container image is unpinned",
-                    Confidence::High,
-                    Persona::Regular,
-                    job,
-                )?);
-            }
-        }
-        Ok(())
-    }
-}
-
-audit_meta!(
-    UnpinnedImages,
-    "unpinned-images",
-    "unpinned image references"
-);
-
-#[async_trait::async_trait]
-impl Audit for UnpinnedImages {
-    fn new(_state: &AuditState) -> Result<Self, AuditLoadError> {
-        Ok(Self)
-    }
-
-    async fn audit_normal_job<'doc>(
-        &self,
-        job: &super::NormalJob<'doc>,
-        _config: &crate::config::Config,
-    ) -> anyhow::Result<Vec<Finding<'doc>>, AuditError> {
+        image_refs_with_locations: Vec<(&'doc LoE<DockerUses>, SymbolicLocation<'doc>)>,
+        matrix: Option<Matrix<'doc>>,
+        document: &'a impl AsDocument<'a, 'doc>,
+    ) -> Result<Vec<Finding<'doc>>, AuditError> {
         let mut findings = vec![];
-        let mut image_refs_with_locations: Vec<(&'doc LoE<DockerUses>, SymbolicLocation<'doc>)> =
-            vec![];
-
-        if let Some(Container::Container { image, .. }) = &job.container {
-            image_refs_with_locations.push((
-                image,
-                job.location()
-                    .primary()
-                    .with_keys(["container".into(), "image".into()]),
-            ));
-        }
-
-        for (service, config) in job.services.iter() {
-            if let Container::Container { image, .. } = &config {
-                image_refs_with_locations.push((
-                    image,
-                    job.location().primary().with_keys([
-                        "services".into(),
-                        service.as_str().into(),
-                        "image".into(),
-                    ]),
-                ));
-            }
-        }
 
         // TODO: Clean this mess up.
         for (image, ref location) in image_refs_with_locations {
@@ -151,7 +62,7 @@ impl Audit for UnpinnedImages {
                                             self.check_image(
                                                 &image,
                                                 &leaf_location,
-                                                job,
+                                                document,
                                                 &mut findings,
                                             )?;
                                         }
@@ -163,7 +74,7 @@ impl Audit for UnpinnedImages {
                                                 "container image may be unpinned",
                                                 Confidence::Low,
                                                 Persona::Regular,
-                                                job,
+                                                document,
                                             )?);
                                         }
                                     }
@@ -176,15 +87,15 @@ impl Audit for UnpinnedImages {
                                 "container image may be unpinned",
                                 Confidence::Low,
                                 Persona::Regular,
-                                job,
+                                document,
                             )?);
                             continue;
                         }
                     };
 
-                    let Some(matrix) = job.matrix() else {
+                    let Some(ref matrix) = matrix else {
                         tracing::warn!(
-                            "job references {expr} but has no matrix",
+                            "image references {expr} but has no matrix",
                             expr = expr.as_bare()
                         );
                         continue;
@@ -208,7 +119,7 @@ impl Audit for UnpinnedImages {
                                             .annotated("container image may be unpinned"),
                                     )
                                     .add_location(expansion.location())
-                                    .build(job)?,
+                                    .build(document)?,
                             );
                             break;
                         } else {
@@ -234,7 +145,7 @@ impl Audit for UnpinnedImages {
                                             "this expansion of {path}",
                                             path = expansion.path
                                         )))
-                                        .build(job)?,
+                                        .build(document)?,
                                 ),
                                 // Docker image is pined to some other tag.
                                 (Some(_), None) => findings.push(
@@ -250,7 +161,7 @@ impl Audit for UnpinnedImages {
                                             "this expansion of {path}",
                                             path = expansion.path
                                         )))
-                                        .build(job)?,
+                                        .build(document)?,
                                 ),
                                 // Image is unpinned.
                                 (None, None) => findings.push(
@@ -269,7 +180,7 @@ impl Audit for UnpinnedImages {
                                             "this expansion of {path}",
                                             path = expansion.path
                                         )))
-                                        .build(job)?,
+                                        .build(document)?,
                                 ),
                             }
                         }
@@ -277,10 +188,144 @@ impl Audit for UnpinnedImages {
                 }
                 LoE::Literal(image) if image.image().is_empty() => continue,
                 LoE::Literal(image) => {
-                    self.check_image(image, location, job, &mut findings)?;
+                    self.check_image(image, location, document, &mut findings)?;
                 }
             }
         }
+
+        Ok(findings)
+    }
+
+    fn build_finding<'a, 'doc>(
+        &self,
+        location: &SymbolicLocation<'doc>,
+        annotation: &'static str,
+        confidence: Confidence,
+        persona: Persona,
+        document: &'a impl AsDocument<'a, 'doc>,
+    ) -> Result<Finding<'doc>, AuditError> {
+        let mut annotated_location = location.clone();
+        annotated_location = annotated_location.annotated(annotation);
+        Self::finding()
+            .severity(Severity::High)
+            .confidence(confidence)
+            .add_location(annotated_location)
+            .persona(persona)
+            .build(document)
+    }
+
+    /// Classify a `DockerUses` image and push the appropriate finding.
+    fn check_image<'a, 'doc>(
+        &self,
+        image: &DockerUses,
+        location: &SymbolicLocation<'doc>,
+        document: &'a impl AsDocument<'a, 'doc>,
+        findings: &mut Vec<Finding<'doc>>,
+    ) -> Result<(), AuditError> {
+        match (image.tag(), image.hash()) {
+            (_, Some(_)) => {}
+            (Some("latest"), None) => {
+                findings.push(self.build_finding(
+                    location,
+                    "container image is pinned to latest",
+                    Confidence::High,
+                    Persona::Regular,
+                    document,
+                )?);
+            }
+            (Some(_), None) => {
+                findings.push(self.build_finding(
+                    location,
+                    "container image is not pinned to a SHA256 hash",
+                    Confidence::High,
+                    Persona::Pedantic,
+                    document,
+                )?);
+            }
+            (None, None) => {
+                findings.push(self.build_finding(
+                    location,
+                    "container image is unpinned",
+                    Confidence::High,
+                    Persona::Regular,
+                    document,
+                )?);
+            }
+        }
+        Ok(())
+    }
+}
+
+audit_meta!(
+    UnpinnedImages,
+    "unpinned-images",
+    "unpinned image references"
+);
+
+#[async_trait::async_trait]
+impl Audit for UnpinnedImages {
+    fn new(_state: &AuditState) -> Result<Self, AuditLoadError> {
+        Ok(Self)
+    }
+
+    async fn audit_docker_action<'doc>(
+        &self,
+        docker: &DockerAction<'doc>,
+        _config: &crate::config::Config,
+    ) -> anyhow::Result<Vec<Finding<'doc>>, AuditError> {
+        // Nothing to do if the action references its own intrinsic 'Dockerfile'
+        // rather than an external image.
+        let DockerActionUses::Image(image) = &docker.image else {
+            return Ok(vec![]);
+        };
+
+        self.classify_images(
+            vec![(image, docker.location().with_keys(["image".into()]))],
+            None,
+            docker,
+        )
+    }
+
+    async fn audit_normal_job<'doc>(
+        &self,
+        job: &super::NormalJob<'doc>,
+        _config: &crate::config::Config,
+    ) -> anyhow::Result<Vec<Finding<'doc>>, AuditError> {
+        let mut image_refs_with_locations: Vec<(&'doc LoE<DockerUses>, SymbolicLocation<'doc>)> =
+            vec![];
+
+        match &job.container {
+            Some(Container::Name(image)) => {
+                image_refs_with_locations.push((
+                    image,
+                    job.location().primary().with_keys(["container".into()]),
+                ));
+            }
+            Some(Container::Container { image, .. }) => {
+                image_refs_with_locations.push((
+                    image,
+                    job.location()
+                        .primary()
+                        .with_keys(["container".into(), "image".into()]),
+                ));
+            }
+            None => {}
+        }
+
+        for (service, config) in job.services.iter() {
+            if let Container::Container { image, .. } = &config {
+                image_refs_with_locations.push((
+                    image,
+                    job.location().primary().with_keys([
+                        "services".into(),
+                        service.as_str().into(),
+                        "image".into(),
+                    ]),
+                ));
+            }
+        }
+
+        let findings = self.classify_images(image_refs_with_locations, job.matrix(), job)?;
 
         Ok(findings)
     }

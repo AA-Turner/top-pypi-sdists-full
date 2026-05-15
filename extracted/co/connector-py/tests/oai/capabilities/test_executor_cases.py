@@ -13,6 +13,7 @@ from connector.oai.capabilities.errors import (
 )
 from connector.oai.capabilities.executor import CapabilityExecutor
 from connector.observability.instrument import Instrument
+from connector.utils.rate_limit_context import RATE_LIMIT_CONTEXT, RATE_LIMIT_RESULT_CONTEXT
 from connector_sdk_types.generated import (
     AuthCredential,
     BasicCredential,
@@ -24,6 +25,8 @@ from connector_sdk_types.generated import (
     OAuth1Credential,
     OAuthClientCredential,
     OAuthCredential,
+    RateLimitRequestInfo,
+    RateLimitStateSnapshot,
     ServiceAccountCredential,
     StandardCapabilityName,
     TokenCredential,
@@ -58,20 +61,27 @@ FAKE_APP_ID = "app_id"
 
 
 class ExecutorNoFrillsRequest(BaseModel):
-    ...
+    rate_limit: RateLimitRequestInfo | None = None
+    request: Any = None
 
 
 class RequiresAuthenticationRequest(BaseModel):
     credentials: None = None
+    rate_limit: RateLimitRequestInfo | None = None
+    request: Any = None
 
 
 class BothAuthRequest(BaseModel):
     auth: str = "auth"
     credentials: str = "credentials"
+    rate_limit: RateLimitRequestInfo | None = None
+    request: Any = None
 
 
 class ExecutorSettingsRequest(BaseModel):
     settings: Any = None
+    rate_limit: RateLimitRequestInfo | None = None
+    request: Any = None
 
 
 class RequiredSettings(BaseModel):
@@ -80,10 +90,31 @@ class RequiredSettings(BaseModel):
 
 class ValidCredentialsRequest(BaseModel):
     credentials: list[AuthCredential]
+    rate_limit: RateLimitRequestInfo | None = None
+    request: Any = None
 
 
 class ValidAuthRequest(BaseModel):
     auth: AuthCredential
+    rate_limit: RateLimitRequestInfo | None = None
+    request: Any = None
+
+
+class RateLimitAwareRequest(BaseModel):
+    request: ExecutorNoFrillsRequest
+    rate_limit: RateLimitRequestInfo | None = None
+
+
+class RateLimitContextResponse(BaseModel):
+    capability_name: str
+    capability_level: str
+    has_deadline: bool
+    last_known_limit: int | None = None
+
+
+class RateLimitAwareResponse(BaseModel):
+    ok: bool
+    rate_limit: Any = None
 
 
 class Fixtures:
@@ -622,13 +653,14 @@ class ExecutorFailureModeCases(Fixtures):
 
 class ExecutorSuccessModeCases(Fixtures):
     def case_valid_sync_request(self) -> CaseCapabilityExecutorSuccessMode:
+        req = ExecutorNoFrillsRequest().model_dump_json()
         return CaseCapabilityExecutorSuccessMode(
             executor=self.build_executor(
                 capability=self.capability_simple,
                 request_validate_json=ExecutorNoFrillsRequest.model_validate_json,
             ),
-            serialized_request=ExecutorNoFrillsRequest().model_dump_json(),
-            expected_response="{}",
+            serialized_request=req,
+            expected_response=req,
         )
 
     async def capability_simple_async(
@@ -637,24 +669,26 @@ class ExecutorSuccessModeCases(Fixtures):
         return req
 
     def case_valid_async_request(self) -> CaseCapabilityExecutorSuccessMode:
+        req = ExecutorNoFrillsRequest().model_dump_json()
         return CaseCapabilityExecutorSuccessMode(
             executor=self.build_executor(
                 capability=self.capability_simple_async,
                 request_validate_json=ExecutorNoFrillsRequest.model_validate_json,
             ),
-            serialized_request=ExecutorNoFrillsRequest().model_dump_json(),
-            expected_response="{}",
+            serialized_request=req,
+            expected_response=req,
         )
 
     def case_valid_no_verification_request(self) -> CaseCapabilityExecutorSuccessMode:
+        req = ExecutorNoFrillsRequest().model_dump_json()
         return CaseCapabilityExecutorSuccessMode(
             executor=self.build_executor(
                 capability=self.capability_simple_async,
                 capability_name=StandardCapabilityName.APP_INFO,
                 request_validate_json=ExecutorNoFrillsRequest.model_validate_json,
             ),
-            serialized_request=ExecutorNoFrillsRequest().model_dump_json(),
-            expected_response="{}",
+            serialized_request=req,
+            expected_response=req,
         )
 
     def case_valid_settings_request(
@@ -668,7 +702,7 @@ class ExecutorSuccessModeCases(Fixtures):
                 settings_model=RequiredSettings,
             ),
             serialized_request='{"settings":{"data":"setting_1"}}',
-            expected_response='{"settings":{"data":"setting_1"}}',
+            expected_response='{"settings":{"data":"setting_1"},"rate_limit":null,"request":null}',
         )
 
     def capability_valid_credentials(self, req: ValidCredentialsRequest) -> ValidCredentialsRequest:
@@ -862,4 +896,82 @@ class ExecutorSuccessModeCases(Fixtures):
             ),
             serialized_request=req,
             expected_response=req,
+        )
+
+    def capability_reports_rate_limit_context(
+        self, req: RateLimitAwareRequest
+    ) -> RateLimitContextResponse:
+        del req
+        context = RATE_LIMIT_CONTEXT.get()
+        assert context is not None
+
+        last_known_limit = None
+        if context.last_known_state is not None:
+            first = next(iter(context.last_known_state.values()), None)
+            last_known_limit = first.limit if first is not None else None
+
+        return RateLimitContextResponse(
+            capability_name=str(context.capability_name),
+            capability_level=context.capability_level,
+            has_deadline=context.deadline is not None,
+            last_known_limit=last_known_limit,
+        )
+
+    def case_request_rate_limit_context_is_available_to_capability(
+        self,
+    ) -> CaseCapabilityExecutorSuccessMode:
+        req = RateLimitAwareRequest(
+            request=ExecutorNoFrillsRequest(),
+            rate_limit=RateLimitRequestInfo(
+                max_execution_time=15,
+                last_known_state={
+                    FAKE_APP_ID: RateLimitStateSnapshot(
+                        limit=123,
+                        window_seconds=60,
+                        current_delay=2,
+                    )
+                },
+            ),
+        ).model_dump_json()
+        return CaseCapabilityExecutorSuccessMode(
+            executor=self.build_executor(
+                capability=self.capability_reports_rate_limit_context,
+                request_validate_json=RateLimitAwareRequest.model_validate_json,
+            ),
+            serialized_request=req,
+            expected_response=(
+                '{"capability_name":"StandardCapabilityName.LIST_ACCOUNTS",'
+                '"capability_level":"read",'
+                '"has_deadline":true,"last_known_limit":123}'
+            ),
+        )
+
+    def capability_sets_rate_limit_result(
+        self, req: ExecutorNoFrillsRequest
+    ) -> RateLimitAwareResponse:
+        del req
+        RATE_LIMIT_RESULT_CONTEXT.set(
+            {
+                FAKE_APP_ID: RateLimitStateSnapshot(
+                    remaining=7,
+                    limit=50,
+                    window_seconds=30,
+                    current_delay=1,
+                )
+            }
+        )
+        return RateLimitAwareResponse(ok=True)
+
+    def case_rate_limit_result_context_is_attached_to_response(
+        self,
+    ) -> CaseCapabilityExecutorSuccessMode:
+        snapshot_json = '"remaining":7,"limit":50,"reset":null,"window_seconds":30,"current_delay":1,"source":null'
+        expected = f'{{"ok":true,"rate_limit":{{"current_state":{{"{FAKE_APP_ID}":{{{snapshot_json}}}}}}}}}'
+        return CaseCapabilityExecutorSuccessMode(
+            executor=self.build_executor(
+                capability=self.capability_sets_rate_limit_result,
+                request_validate_json=ExecutorNoFrillsRequest.model_validate_json,
+            ),
+            serialized_request=ExecutorNoFrillsRequest().model_dump_json(),
+            expected_response=expected,
         )

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Union, Iterable
+from typing import Dict, Union, Iterable, Optional
 from typing_extensions import Literal, Required, TypeAlias, TypedDict
 
 from .shared_params.flexible_chunk import FlexibleChunk
@@ -47,7 +47,7 @@ GenerationExtraInfo: TypeAlias = Union[ChunkExtraInfoSchema, StringExtraInfoSche
 
 class ResultSchemaFlexibleParam(TypedDict, total=False):
     generation_output: Required[
-        Union[str, Dict[str, GenerationOutputAdditionalObjectGenerationOutputAdditionalObjectItem]]
+        Union[str, Dict[str, Optional[GenerationOutputAdditionalObjectGenerationOutputAdditionalObjectItem]]]
     ]
 
     generation_extra_info: GenerationExtraInfo

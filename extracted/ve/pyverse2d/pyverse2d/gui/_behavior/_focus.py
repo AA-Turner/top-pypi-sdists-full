@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._internal import expect, CallbackList
+from ..._internal import CallbackList
 from ..._managers import InputsManager
 from ..._managers._inputs import Listener
 from ...abc import Behavior
@@ -9,9 +9,11 @@ from ...math import Point
 
 from pyverse2d import key, mouse, inputs
 
+from typing import ClassVar
+
 # ======================================== BEHAVIOR ========================================
 class FocusBehavior(Behavior):
-    """Behavior gérant la concentration
+    """Comportement gérant la concentration
 
     Ce ``Behavior`` s'associe automatiquement au ``HoverBehavior`` si le ``Widget`` en possède un.
 
@@ -21,11 +23,12 @@ class FocusBehavior(Behavior):
     """
     __slots__ = (
         "_focused", "_once", "_unfocus_on_outside_click", "_unfocus_keys", "_ghost_keys",
-        "_on_focus", "_on_unfocus", "_on_keydown", "_on_keyup",
+        "_on_focus", "_on_unfocus", "_on_keydown",
         "_click_listener", "_outside_listeners", "_key_listener",
     )
-    _ID: str = "focus"
-    _PRIORITY: int = 3
+
+    _ID: ClassVar[str] = "focus"
+    _PRIORITY: ClassVar[int] = 3
 
     def __init__(
             self,
@@ -35,20 +38,25 @@ class FocusBehavior(Behavior):
         # Initialisation du comportement
         super().__init__()
 
-        # Etat
-        self._focused: bool = False
+        # Transtypage
+        once = bool(once)
+        unfocus_on_outside_click = bool(unfocus_on_outside_click)
 
-        # Paramètres
-        self._once: bool = expect(once, bool)
-        self._unfocus_on_outside_click: bool = expect(unfocus_on_outside_click, bool)
+        # Attributs publiques
+        self._once: bool = once
+        self._unfocus_on_outside_click: bool = unfocus_on_outside_click
+
+        # Attributs internes
         self._unfocus_keys: set[InputsManager.Input] = {key.K_ESCAPE}
         self._ghost_keys: set[InputsManager.Input] = set()
+
+        # Etat
+        self._focused: bool = False
 
         # Hooks
         self._on_focus: CallbackList = CallbackList()
         self._on_unfocus: CallbackList = CallbackList()
-        self._on_keydown: CallbackList = CallbackList()
-        self._on_keyup: CallbackList = CallbackList()
+        self._on_keydown: CallbackList | None = None
 
         # Listeners
         self._click_listener: Listener = None
@@ -67,7 +75,8 @@ class FocusBehavior(Behavior):
     
     @once.setter
     def once(self, value: bool) -> None:
-        self._once = expect(value, bool)
+        value = bool(value)
+        self._once = value
 
     @property
     def unfocus_on_outside_click(self) -> bool:
@@ -76,8 +85,9 @@ class FocusBehavior(Behavior):
     
     @unfocus_on_outside_click.setter
     def unfocus_on_outside_click(self, value: bool):
+        value = bool(value)
         if self._unfocus_on_outside_click != value:
-            self._unfocus_on_outside_click = expect(value, bool)
+            self._unfocus_on_outside_click = value
             if self._owner is not None:
                 self._apply_outside_listeners()
 
@@ -94,12 +104,9 @@ class FocusBehavior(Behavior):
     @property
     def on_keydown(self) -> CallbackList:
         """Fonctions appelées à l'appui d'une touche"""
+        if self._on_keydown is None:
+            self._on_keydown = CallbackList()
         return self._on_keydown
-
-    @property
-    def on_keyup(self) -> CallbackList:
-        """Fonctions appelées au relâchement d'une touche"""
-        return self._on_keyup
 
     # ======================================== PREDICATES ========================================
     def is_focused(self) -> bool:
@@ -108,11 +115,19 @@ class FocusBehavior(Behavior):
 
     # ======================================== UNFOCUS KEYS ========================================
     def add_unfocus_key(self, k: InputsManager.Input) -> None:
-        """Ajoute une clé de fin de concentration"""
+        """Ajoute une clé de fin de concentration
+
+        Args:
+            k: clé d'action
+        """
         self._unfocus_keys.add(k)
     
     def remove_unfocus_key(self, k: InputsManager.Input) -> None:
-        """Retire une clé de fin de concentration"""
+        """Retire une clé de fin de concentration
+        
+        Args:
+            k: clé d'action
+        """
         self._unfocus_keys.discard(k)
 
     def clear_unfocus_keys(self) -> None:
@@ -121,15 +136,27 @@ class FocusBehavior(Behavior):
 
     # ======================================== GHOST KEYS ========================================
     def add_ghost_key(self, k: InputsManager.Input) -> None:
-        """Ajoute une touche fantôme (ne déclenche pas once)"""
+        """Ajoute une touche fantôme *(ne déclenche pas once)*
+        
+        Args:
+            k: clé d'action
+        """
         self._ghost_keys.add(k)
 
     def remove_ghost_key(self, k: InputsManager.Input) -> None:
-        """Retire une touche fantôme"""
+        """Retire une touche fantôme
+        
+        Args:
+            k: clé d'action
+        """
         self._ghost_keys.discard(k)
 
     def clear_ghost_keys(self) -> None:
-        """Retire toutes les touches fantômes"""
+        """Retire toutes les touches fantômes
+        
+        Args:
+            k: clé d'action
+        """
         self._ghost_keys.clear()
 
     # ======================================== STATE ========================================
@@ -188,7 +215,11 @@ class FocusBehavior(Behavior):
 
     # ======================================== LIFE CYCLE ========================================
     def _update(self, dt: float) -> None:
-        """Actualisation"""
+        """Actualisation
+
+        Args:
+            dt: delta-time
+        """
         pass
 
     # ======================================== INTERNALS ========================================
@@ -202,11 +233,16 @@ class FocusBehavior(Behavior):
             self.unfocus()
 
     def _handle_keydown(self, key: InputsManager.Input) -> None:
-        """Gère l'appui d'une touche"""
+        """Gère l'appui d'une touche
+
+        Args:
+            key: clé d'action
+        """
         if key in self._unfocus_keys:
             self.unfocus()
             return
-        self._on_keydown.trigger()
+        if self._on_keydown:
+            self._on_keydown.trigger()
         if self._once and key not in self._ghost_keys:
             self.unfocus()
 
@@ -237,5 +273,14 @@ class FocusBehavior(Behavior):
         return self._owner.hover.is_hovered()
 
     def _collides(self, point: Point) -> bool:
-        """Vérifie si un point est dans le widget"""
+        """Vérifie si un point est dans le widget
+
+        Args:
+            point: ``Point`` à vérifier
+        """
         return self._owner.collidespoint(point)
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "FocusBehavior",
+]

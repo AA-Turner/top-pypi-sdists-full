@@ -8,7 +8,7 @@ from typing_extensions import Literal, overload
 import httpx
 
 from ...._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
-from ...._utils import required_args, maybe_transform, async_maybe_transform
+from ...._utils import required_args, maybe_transform, strip_not_given, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -80,6 +80,7 @@ class CompletionsResource(SyncAPIResource):
         top_k: int | Omit = omit,
         top_logprobs: int | Omit = omit,
         top_p: float | Omit = omit,
+        x_openai_api_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -208,6 +209,7 @@ class CompletionsResource(SyncAPIResource):
         top_k: int | Omit = omit,
         top_logprobs: int | Omit = omit,
         top_p: float | Omit = omit,
+        x_openai_api_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -336,6 +338,7 @@ class CompletionsResource(SyncAPIResource):
         top_k: int | Omit = omit,
         top_logprobs: int | Omit = omit,
         top_p: float | Omit = omit,
+        x_openai_api_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -464,6 +467,7 @@ class CompletionsResource(SyncAPIResource):
         top_k: int | Omit = omit,
         top_logprobs: int | Omit = omit,
         top_p: float | Omit = omit,
+        x_openai_api_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -471,6 +475,7 @@ class CompletionsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CompletionCreateResponse | Stream[ChatCompletionChunkV5]:
+        extra_headers = {**strip_not_given({"x-openai-api-key": x_openai_api_key}), **(extra_headers or {})}
         return self._post(
             "/v4/beta/chat/completions",
             body=maybe_transform(
@@ -573,6 +578,7 @@ class AsyncCompletionsResource(AsyncAPIResource):
         top_k: int | Omit = omit,
         top_logprobs: int | Omit = omit,
         top_p: float | Omit = omit,
+        x_openai_api_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -701,6 +707,7 @@ class AsyncCompletionsResource(AsyncAPIResource):
         top_k: int | Omit = omit,
         top_logprobs: int | Omit = omit,
         top_p: float | Omit = omit,
+        x_openai_api_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -829,6 +836,7 @@ class AsyncCompletionsResource(AsyncAPIResource):
         top_k: int | Omit = omit,
         top_logprobs: int | Omit = omit,
         top_p: float | Omit = omit,
+        x_openai_api_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -957,6 +965,7 @@ class AsyncCompletionsResource(AsyncAPIResource):
         top_k: int | Omit = omit,
         top_logprobs: int | Omit = omit,
         top_p: float | Omit = omit,
+        x_openai_api_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -964,6 +973,7 @@ class AsyncCompletionsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CompletionCreateResponse | AsyncStream[ChatCompletionChunkV5]:
+        extra_headers = {**strip_not_given({"x-openai-api-key": x_openai_api_key}), **(extra_headers or {})}
         return await self._post(
             "/v4/beta/chat/completions",
             body=await async_maybe_transform(

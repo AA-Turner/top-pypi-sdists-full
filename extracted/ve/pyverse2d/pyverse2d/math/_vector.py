@@ -1,11 +1,10 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect
 from ..abc import MathObject
 
 from numbers import Real
-from typing import Iterator
+from typing import Iterator, ClassVar
 from math import acos, sqrt
 
 # ======================================== OBJET ========================================
@@ -13,25 +12,34 @@ class Vector(MathObject):
     """Objet mathématique 2D abstrait : Vecteur
 
     Args:
-        x(Real): composante x, ou Vector/tuple à coercer
-        y(Real): composante y (optionnel si x est un Vector ou tuple)
+        x: composante x, ou Vector/tuple à coercer
+        y: composante y *(optionnel si x est un Vector ou tuple)*
     """
     __slots__ = ("_x", "_y")
-    PRECISION = 9
+
+    PRECISION: ClassVar[int] = 9
 
     def __init__(self, x, y=None):
+        # Transtypage
         if y is None:
             try:
                 x, y = x
             except (TypeError, ValueError):
                 raise TypeError("Expected Vector or iterable of length 2")
+            
+        # Attributs publiques
         self._x: float = round(float(x), self.PRECISION)
         self._y: float = round(float(y), self.PRECISION)
 
     # ======================================== FACTORY INTERNE ========================================
     @classmethod
     def _make(cls, x: float, y: float) -> Vector:
-        """Création rapide sans validation (usage interne uniquement)"""
+        """Création rapide sans validation
+        
+        Args:
+            x: position horizontale
+            y: position verticale
+        """
         obj = object.__new__(cls)
         obj._x = x
         obj._y = y
@@ -206,21 +214,19 @@ class Vector(MathObject):
         return self._x != 0 or self._y != 0
 
     def is_orthogonal(self, vector: Vector) -> bool:
-        """
-        Vérifie l'orthogonalité avec un autre vecteur
+        """Vérifie l'orthogonalité avec un autre vecteur
 
         Args:
-            vector(Vector): vecteur à tester
+            vector: vecteur à tester
         """
         x, y = vector
         return self._is_orthogonal(x, y)
 
     def is_collinear(self, vector: Vector) -> bool:
-        """
-        Vérifie la colinéarité avec un autre vecteur
+        """Vérifie la colinéarité avec un autre vecteur
 
         Args:
-            vector(Vector): vecteur à tester
+            vector: vecteur à tester
         """
         x, y = vector
         return self._is_collinear(x, y)
@@ -244,51 +250,46 @@ class Vector(MathObject):
         self._y = round(self._y * inv, self.PRECISION)
 
     def dot(self, vector: Vector) -> float:
-        """
-        Renvoie le produit scalaire avec un autre vecteur
+        """Renvoie le produit scalaire avec un autre vecteur
 
         Args:
-            vector(Vector): second vecteur
+            vector: second vecteur
         """
         x, y = vector
         return self._dot(x, y)
 
     def cross(self, vector: Vector) -> float:
-        """
-        Renvoie le produit vectoriel avec un autre vecteur
+        """Renvoie le produit vectoriel avec un autre vecteur
 
         Args:
-            vector(Vector): second vecteur
+            vector: second vecteur
         """
         x, y = vector
         return self._cross(x, y)
 
     def angle_with(self, vector: Vector) -> float:
-        """
-        Renvoie l'angle avec un autre vecteur en radians
+        """Renvoie l'angle avec un autre vecteur en radians
 
         Args:
-            vector(Vector): second vecteur
+            vector: second vecteur
         """
         x, y = vector
         return self._angle_with(x, y)
 
     def projection(self, vector: Vector) -> Vector:
-        """
-        Renvoie le projeté vectoriel sur le vecteur donné
+        """Renvoie le projeté vectoriel sur le vecteur donné
 
         Args:
-            vector(Vector): vecteur de projection
+            vector: vecteur de projection
         """
         x, y = vector
         return self._projection(x, y)
 
     def distance(self, vector: Vector) -> float:
-        """
-        Renvoie la distance euclidienne à un autre vecteur
+        """Renvoie la distance euclidienne à un autre vecteur
 
         Args:
-            vector(Vector): vecteur cible
+            vector: vecteur cible
         """
         x, y = vector
         return self._distance(x, y)
@@ -327,3 +328,8 @@ class Vector(MathObject):
         dx = self._x - x
         dy = self._y - y
         return sqrt(dx * dx + dy * dy)
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Vector",
+]

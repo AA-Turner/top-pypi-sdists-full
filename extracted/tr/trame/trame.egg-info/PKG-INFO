@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trame
-Version: 3.13.1
+Version: 3.13.2
 Summary: Trame, a framework to build applications in plain Python
 Author: Kitware Inc.
 License: Apache License 2.0
@@ -16,7 +16,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: trame-server<4,>=3.12.1
+Requires-Dist: trame-server<4,>=3.12.2
 Requires-Dist: trame-client<4,>=3.12.2
 Requires-Dist: trame-common<2,>=1.2.3
 Requires-Dist: wslink>=2.5.6

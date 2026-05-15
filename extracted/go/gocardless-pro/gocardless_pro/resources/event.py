@@ -188,6 +188,10 @@ class Event(object):
             return self.attributes.get('organisation')
     
         @property
+        def outbound_payment(self):
+            return self.attributes.get('outbound_payment')
+    
+        @property
         def parent_event(self):
             return self.attributes.get('parent_event')
     
@@ -198,6 +202,10 @@ class Event(object):
         @property
         def payment(self):
             return self.attributes.get('payment')
+    
+        @property
+        def payment_account_transaction(self):
+            return self.attributes.get('payment_account_transaction')
     
         @property
         def payment_request_payment(self):

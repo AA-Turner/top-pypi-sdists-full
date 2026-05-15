@@ -1,15 +1,15 @@
 Metadata-Version: 2.4
 Name: gocardless_pro
-Version: 3.3.0
-Summary: A client library for the GoCardless Pro API.
+Version: 3.4.0
+Summary: A client library for the GoCardless API.
 Home-page: https://github.com/gocardless/gocardless-pro-python
 Author: GoCardless
 Author-email: engineering@gocardless.com
 License: MIT
 Keywords: gocardless directdebit payments sepa bacs
+Requires-Python: >=3.6
 License-File: LICENSE
 Requires-Dist: requests>=2.6
-Requires-Dist: six
 Dynamic: author
 Dynamic: author-email
 Dynamic: description
@@ -18,15 +18,16 @@ Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
 Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
 
 .. |pypi-badge| image:: https://badge.fury.io/py/gocardless_pro.svg
     :target: https://pypi.python.org/pypi/gocardless_pro
 
-GoCardless Pro Python client library
+GoCardless Python client library
 ============================================
 
-A Python client for interacting with the GoCardless Pro API.
+A Python client for interacting with the GoCardless API.
 
 |pypi-badge|
 
@@ -84,10 +85,10 @@ Rate limit response headers can be read:
 
 .. code:: python
 
-    # Note these properties will be None until you make an API request with the client
-    client.rate_limit.limit
-    client.rate_limit.remaining
-    client.rate_limit.reset
+    # Note these values will be None until you make an API request with the client
+    client.rate_limit["ratelimit-limit"]
+    client.rate_limit["ratelimit-remaining"]
+    client.rate_limit["ratelimit-reset"]
 
 
 For full documentation, see our `API reference`_.
@@ -116,6 +117,17 @@ Bank account details
 
     # Get encrypted bank details
     client.bank_account_details.get('BA123', params={...})
+
+Bank account holder verifications
+''''''''''''''''''''''''''''''''''''''''''
+
+.. code:: python
+
+    # Create a bank account holder verification.
+    client.bank_account_holder_verifications.create(params={...})
+
+    # Get a bank account holder verification.
+    client.bank_account_holder_verifications.get('BAHV123', params={...})
 
 Bank authorisations
 ''''''''''''''''''''''''''''''''''''''''''
@@ -378,6 +390,14 @@ Exports
     # Iterate through all exports
     client.exports.all(params={...})
 
+Funds availabilities
+''''''''''''''''''''''''''''''''''''''''''
+
+.. code:: python
+
+    # Funds availability
+    client.funds_availabilities.check('MD123', params={...})
+
 Instalment schedules
 ''''''''''''''''''''''''''''''''''''''''''
 
@@ -531,6 +551,37 @@ Outbound payments
     # Update an outbound payment
     client.outbound_payments.update('OUT123', params={...})
 
+    # Outbound payment statistics
+    client.outbound_payments.stats(params={...})
+
+Outbound payment imports
+''''''''''''''''''''''''''''''''''''''''''
+
+.. code:: python
+
+    # Create an outbound payment import
+    client.outbound_payment_imports.create(params={...})
+
+    # Get an outbound payment import
+    client.outbound_payment_imports.get('IM123', params={...})
+
+    # List outbound payment imports
+    client.outbound_payment_imports.list(params={...})
+
+    # Iterate through all outbound_payment_imports
+    client.outbound_payment_imports.all(params={...})
+
+Outbound payment import entries
+''''''''''''''''''''''''''''''''''''''''''
+
+.. code:: python
+
+    # List outbound payment import entries
+    client.outbound_payment_import_entries.list(params={...})
+
+    # Iterate through all outbound_payment_import_entries
+    client.outbound_payment_import_entries.all(params={...})
+
 Payer authorisations
 ''''''''''''''''''''''''''''''''''''''''''
 
@@ -585,10 +636,27 @@ Payments
     # Retry a payment
     client.payments.retry('PM123', params={...})
 
+Payment accounts
+''''''''''''''''''''''''''''''''''''''''''
+
+.. code:: python
+
+    # Get a single payment account details
+    client.payment_accounts.get('BA123', params={...})
+
+    # List payment accounts
+    client.payment_accounts.list(params={...})
+
+    # Iterate through all payment_accounts
+    client.payment_accounts.all(params={...})
+
 Payment account transactions
 ''''''''''''''''''''''''''''''''''''''''''
 
 .. code:: python
+
+    # Get a single payment account transaction
+    client.payment_account_transactions.get('BA123', params={...})
 
     # List payment account transactions
     client.payment_account_transactions.list('BA123', params={...})

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: quacc
-Version: 1.2.6
+Version: 1.2.8
 Summary: A platform to enable high-throughput, database-driven quantum chemistry and computational materials science
 Author-email: "Andrew S. Rosen" <asrosen@princeton.edu>
 Maintainer-email: "Andrew S. Rosen" <asrosen@princeton.edu>
@@ -54,7 +54,7 @@ Provides-Extra: mace
 Requires-Dist: mace-torch>=0.3.3; extra == "mace"
 Requires-Dist: mace-models>=0.1.6; extra == "mace"
 Provides-Extra: matgl
-Requires-Dist: matgl>=2.0.2; extra == "matgl"
+Requires-Dist: matgl>=3.0.3; extra == "matgl"
 Provides-Extra: mp
 Requires-Dist: atomate2>=0.0.14; extra == "mp"
 Provides-Extra: newtonnet
@@ -68,6 +68,8 @@ Requires-Dist: seekpath>=2.1.0; extra == "phonons"
 Provides-Extra: prefect
 Requires-Dist: prefect[dask]>=3.3.6; extra == "prefect"
 Requires-Dist: dask-jobqueue>=0.8.2; extra == "prefect"
+Provides-Extra: ray
+Requires-Dist: ray>=2.55.0; extra == "ray"
 Provides-Extra: redun
 Requires-Dist: redun>=0.16.2; extra == "redun"
 Provides-Extra: sella

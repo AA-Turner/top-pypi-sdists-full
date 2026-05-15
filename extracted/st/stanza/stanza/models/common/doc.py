@@ -1094,6 +1094,9 @@ def dict_to_conll_text(token_dict, id_connector="-"):
                 misc_chains.append("%s%sid%d" % (coref_position, is_representative, chain.chain.index))
             misc.append("{}={}".format(key, ",".join(misc_chains)))
 
+    if MORPHEMES in token_dict and token_dict[MORPHEMES]:
+        misc.append("Morphemes={}".format(",".join(token_dict[MORPHEMES])))
+
     for key in token_dict.keys():
         if key == ID:
             token_conll[FIELD_TO_IDX[key]] = id_connector.join([str(x) for x in token_dict[key]]) if isinstance(token_dict[key], tuple) else str(token_dict[key])
@@ -1344,11 +1347,14 @@ class Token(StanzaObject):
                 if getattr(self, field, None) is not None:
                     token_dict[field] = getattr(self, field)
             if MISC in fields:
+                needs_sorting = False
+
                 spaces_after = self.spaces_after
                 if spaces_after is not None and spaces_after != ' ':
                     space_misc = space_after_to_misc(spaces_after)
                     if token_dict.get(MISC):
                         token_dict[MISC] = token_dict[MISC] + "|" + space_misc
+                        needs_sorting = True
                     else:
                         token_dict[MISC] = space_misc
 
@@ -1357,8 +1363,12 @@ class Token(StanzaObject):
                     space_misc = space_before_to_misc(spaces_before)
                     if token_dict.get(MISC):
                         token_dict[MISC] = token_dict[MISC] + "|" + space_misc
+                        needs_sorting = True
                     else:
                         token_dict[MISC] = space_misc
+                if needs_sorting:
+                    pieces = sorted(token_dict[MISC].split("|"))
+                    token_dict[MISC] = "|".join(pieces)
 
             ret.append(token_dict)
         for word in self.words:
@@ -1368,11 +1378,14 @@ class Token(StanzaObject):
             if len(self.id) == 1 and MULTI_NER in fields and getattr(self, MULTI_NER) is not None: # propagate MULTI_NER label to Word if it is a single-word token
                 word_dict[MULTI_NER] = getattr(self, MULTI_NER)
             if len(self.id) == 1 and MISC in fields:
+                needs_sorting = False
+
                 spaces_after = self.spaces_after
                 if spaces_after is not None and spaces_after != ' ':
                     space_misc = space_after_to_misc(spaces_after)
                     if word_dict.get(MISC):
                         word_dict[MISC] = word_dict[MISC] + "|" + space_misc
+                        needs_sorting = True
                     else:
                         word_dict[MISC] = space_misc
 
@@ -1381,8 +1394,12 @@ class Token(StanzaObject):
                     space_misc = space_before_to_misc(spaces_before)
                     if word_dict.get(MISC):
                         word_dict[MISC] = word_dict[MISC] + "|" + space_misc
+                        needs_sorting = True
                     else:
                         word_dict[MISC] = space_misc
+                if needs_sorting:
+                    pieces = sorted(word_dict[MISC].split("|"))
+                    word_dict[MISC] = "|".join(pieces)
             ret.append(word_dict)
         return ret
 

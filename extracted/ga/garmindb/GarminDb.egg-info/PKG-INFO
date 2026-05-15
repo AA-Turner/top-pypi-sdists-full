@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: GarminDb
-Version: 3.7.0
+Version: 3.8.0
 Summary: Garmin Connect download and analysis
 Home-page: https://github.com/tcgoetz/GarminDB
 Author: Tom Goetz
@@ -12,23 +12,21 @@ Project-URL: Changelog, https://github.com/tcgoetz/GarminDB/releases
 Keywords: garmin,garmin connect
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: GNU General Public License v2 (GPLv2)
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.0
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cached-property==2.0.1
 Requires-Dist: fitfile>=1.2.0
-Requires-Dist: garth==0.6.3
+Requires-Dist: garminconnect==0.3.3
 Requires-Dist: idbutils>=1.1.0
 Requires-Dist: python-dateutil==2.9.0.post0
-Requires-Dist: sqlalchemy==2.0.46
+Requires-Dist: sqlalchemy==2.0.49
 Requires-Dist: tcxfile>=1.0.4
 Requires-Dist: tornado>=6.5.4
 Requires-Dist: tqdm==4.67.1

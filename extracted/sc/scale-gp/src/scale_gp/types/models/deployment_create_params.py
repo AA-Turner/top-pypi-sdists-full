@@ -25,6 +25,12 @@ class DeploymentCreateParams(TypedDict, total=False):
 
     vendor_configuration: VendorConfiguration
 
+    wait_for_ready: bool
+    """If true, the request will block until the Launch endpoint is READY.
+
+    Defaults to true.
+    """
+
 
 class VendorConfigurationLaunchDeploymentVendorConfiguration(TypedDict, total=False):
     max_workers: int

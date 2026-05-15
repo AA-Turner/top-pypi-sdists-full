@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stanza
-Version: 1.11.1
+Version: 1.12.0
 Summary: A Python NLP Library for Many Human Languages, by the Stanford NLP Group
 Home-page: https://github.com/stanfordnlp/stanza
 Author: Stanford Natural Language Processing Group
@@ -59,7 +59,7 @@ Requires-Dist: spacy; extra == "visualization"
 Requires-Dist: streamlit; extra == "visualization"
 Requires-Dist: ipython; extra == "visualization"
 Provides-Extra: morphseg
-Requires-Dist: morphseg>=0.2.0; extra == "morphseg"
+Requires-Dist: morphseg>=0.2.5.1; extra == "morphseg"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

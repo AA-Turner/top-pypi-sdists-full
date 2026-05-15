@@ -9,9 +9,9 @@ import System.Collections.Generic
 import System.Collections.Immutable
 import System.Linq
 
-System_Linq_IOrderedEnumerable_TElement = typing.TypeVar("System_Linq_IOrderedEnumerable_TElement")
 System_Linq_Lookup_TKey = typing.TypeVar("System_Linq_Lookup_TKey")
 System_Linq_Lookup_TElement = typing.TypeVar("System_Linq_Lookup_TElement")
+System_Linq_IOrderedEnumerable_TElement = typing.TypeVar("System_Linq_IOrderedEnumerable_TElement")
 System_Linq_IGrouping_TKey = typing.TypeVar("System_Linq_IGrouping_TKey")
 System_Linq_IGrouping_TElement = typing.TypeVar("System_Linq_IGrouping_TElement")
 System_Linq_ILookup_TKey = typing.TypeVar("System_Linq_ILookup_TKey")
@@ -41,28 +41,11 @@ System_Linq_ImmutableArrayExtensions_ToDictionary_TKey = typing.TypeVar("System_
 System_Linq_ImmutableArrayExtensions_ToDictionary_T = typing.TypeVar("System_Linq_ImmutableArrayExtensions_ToDictionary_T")
 System_Linq_ImmutableArrayExtensions_ToDictionary_TElement = typing.TypeVar("System_Linq_ImmutableArrayExtensions_ToDictionary_TElement")
 System_Linq_ImmutableArrayExtensions_ToArray_T = typing.TypeVar("System_Linq_ImmutableArrayExtensions_ToArray_T")
-System_Linq_Enumerable_Distinct_TSource = typing.TypeVar("System_Linq_Enumerable_Distinct_TSource")
-System_Linq_Enumerable_DistinctBy_TSource = typing.TypeVar("System_Linq_Enumerable_DistinctBy_TSource")
-System_Linq_Enumerable_DistinctBy_TKey = typing.TypeVar("System_Linq_Enumerable_DistinctBy_TKey")
-System_Linq_Enumerable_Index_TSource = typing.TypeVar("System_Linq_Enumerable_Index_TSource")
-System_Linq_Enumerable_Chunk_TSource = typing.TypeVar("System_Linq_Enumerable_Chunk_TSource")
-System_Linq_Enumerable_SequenceEqual_TSource = typing.TypeVar("System_Linq_Enumerable_SequenceEqual_TSource")
-System_Linq_Enumerable_Reverse_TSource = typing.TypeVar("System_Linq_Enumerable_Reverse_TSource")
-System_Linq_Enumerable_DefaultIfEmpty_TSource = typing.TypeVar("System_Linq_Enumerable_DefaultIfEmpty_TSource")
-System_Linq_Enumerable_Shuffle_TSource = typing.TypeVar("System_Linq_Enumerable_Shuffle_TSource")
-System_Linq_Enumerable_First_TSource = typing.TypeVar("System_Linq_Enumerable_First_TSource")
-System_Linq_Enumerable_FirstOrDefault_TSource = typing.TypeVar("System_Linq_Enumerable_FirstOrDefault_TSource")
-System_Linq_Enumerable_Except_TSource = typing.TypeVar("System_Linq_Enumerable_Except_TSource")
-System_Linq_Enumerable_ExceptBy_TSource = typing.TypeVar("System_Linq_Enumerable_ExceptBy_TSource")
-System_Linq_Enumerable_ExceptBy_TKey = typing.TypeVar("System_Linq_Enumerable_ExceptBy_TKey")
-System_Linq_Enumerable_Sum_TSource = typing.TypeVar("System_Linq_Enumerable_Sum_TSource")
-System_Linq_Enumerable_AsEnumerable_TSource = typing.TypeVar("System_Linq_Enumerable_AsEnumerable_TSource")
-System_Linq_Enumerable_Empty_TResult = typing.TypeVar("System_Linq_Enumerable_Empty_TResult")
 System_Linq_Enumerable_Append_TSource = typing.TypeVar("System_Linq_Enumerable_Append_TSource")
 System_Linq_Enumerable_Prepend_TSource = typing.TypeVar("System_Linq_Enumerable_Prepend_TSource")
-System_Linq_Enumerable_ElementAt_TSource = typing.TypeVar("System_Linq_Enumerable_ElementAt_TSource")
-System_Linq_Enumerable_ElementAtOrDefault_TSource = typing.TypeVar("System_Linq_Enumerable_ElementAtOrDefault_TSource")
-System_Linq_Enumerable_Average_TSource = typing.TypeVar("System_Linq_Enumerable_Average_TSource")
+System_Linq_Enumerable_Skip_TSource = typing.TypeVar("System_Linq_Enumerable_Skip_TSource")
+System_Linq_Enumerable_SkipWhile_TSource = typing.TypeVar("System_Linq_Enumerable_SkipWhile_TSource")
+System_Linq_Enumerable_SkipLast_TSource = typing.TypeVar("System_Linq_Enumerable_SkipLast_TSource")
 System_Linq_Enumerable_Order_T = typing.TypeVar("System_Linq_Enumerable_Order_T")
 System_Linq_Enumerable_OrderBy_TSource = typing.TypeVar("System_Linq_Enumerable_OrderBy_TSource")
 System_Linq_Enumerable_OrderBy_TKey = typing.TypeVar("System_Linq_Enumerable_OrderBy_TKey")
@@ -73,77 +56,44 @@ System_Linq_Enumerable_ThenBy_TSource = typing.TypeVar("System_Linq_Enumerable_T
 System_Linq_Enumerable_ThenBy_TKey = typing.TypeVar("System_Linq_Enumerable_ThenBy_TKey")
 System_Linq_Enumerable_ThenByDescending_TSource = typing.TypeVar("System_Linq_Enumerable_ThenByDescending_TSource")
 System_Linq_Enumerable_ThenByDescending_TKey = typing.TypeVar("System_Linq_Enumerable_ThenByDescending_TKey")
-System_Linq_Enumerable_GroupJoin_TOuter = typing.TypeVar("System_Linq_Enumerable_GroupJoin_TOuter")
-System_Linq_Enumerable_GroupJoin_TInner = typing.TypeVar("System_Linq_Enumerable_GroupJoin_TInner")
-System_Linq_Enumerable_GroupJoin_TKey = typing.TypeVar("System_Linq_Enumerable_GroupJoin_TKey")
-System_Linq_Enumerable_GroupJoin_TResult = typing.TypeVar("System_Linq_Enumerable_GroupJoin_TResult")
-System_Linq_Enumerable_AggregateBy_TSource = typing.TypeVar("System_Linq_Enumerable_AggregateBy_TSource")
-System_Linq_Enumerable_AggregateBy_TAccumulate = typing.TypeVar("System_Linq_Enumerable_AggregateBy_TAccumulate")
-System_Linq_Enumerable_AggregateBy_TKey = typing.TypeVar("System_Linq_Enumerable_AggregateBy_TKey")
-System_Linq_Enumerable_Any_TSource = typing.TypeVar("System_Linq_Enumerable_Any_TSource")
-System_Linq_Enumerable_All_TSource = typing.TypeVar("System_Linq_Enumerable_All_TSource")
-System_Linq_Enumerable_Aggregate_TSource = typing.TypeVar("System_Linq_Enumerable_Aggregate_TSource")
-System_Linq_Enumerable_Aggregate_TAccumulate = typing.TypeVar("System_Linq_Enumerable_Aggregate_TAccumulate")
-System_Linq_Enumerable_Aggregate_TResult = typing.TypeVar("System_Linq_Enumerable_Aggregate_TResult")
-System_Linq_Enumerable_Intersect_TSource = typing.TypeVar("System_Linq_Enumerable_Intersect_TSource")
-System_Linq_Enumerable_IntersectBy_TSource = typing.TypeVar("System_Linq_Enumerable_IntersectBy_TSource")
-System_Linq_Enumerable_IntersectBy_TKey = typing.TypeVar("System_Linq_Enumerable_IntersectBy_TKey")
+System_Linq_Enumerable_Sum_TSource = typing.TypeVar("System_Linq_Enumerable_Sum_TSource")
+System_Linq_Enumerable_Index_TSource = typing.TypeVar("System_Linq_Enumerable_Index_TSource")
+System_Linq_Enumerable_Chunk_TSource = typing.TypeVar("System_Linq_Enumerable_Chunk_TSource")
+System_Linq_Enumerable_Sequence_T = typing.TypeVar("System_Linq_Enumerable_Sequence_T")
+System_Linq_Enumerable_AsEnumerable_TSource = typing.TypeVar("System_Linq_Enumerable_AsEnumerable_TSource")
+System_Linq_Enumerable_Empty_TResult = typing.TypeVar("System_Linq_Enumerable_Empty_TResult")
+System_Linq_Enumerable_First_TSource = typing.TypeVar("System_Linq_Enumerable_First_TSource")
+System_Linq_Enumerable_FirstOrDefault_TSource = typing.TypeVar("System_Linq_Enumerable_FirstOrDefault_TSource")
 System_Linq_Enumerable_Select_TSource = typing.TypeVar("System_Linq_Enumerable_Select_TSource")
 System_Linq_Enumerable_Select_TResult = typing.TypeVar("System_Linq_Enumerable_Select_TResult")
-System_Linq_Enumerable_SelectMany_TSource = typing.TypeVar("System_Linq_Enumerable_SelectMany_TSource")
-System_Linq_Enumerable_SelectMany_TResult = typing.TypeVar("System_Linq_Enumerable_SelectMany_TResult")
-System_Linq_Enumerable_SelectMany_TCollection = typing.TypeVar("System_Linq_Enumerable_SelectMany_TCollection")
-System_Linq_Enumerable_Cast_TResult = typing.TypeVar("System_Linq_Enumerable_Cast_TResult")
-System_Linq_Enumerable_Skip_TSource = typing.TypeVar("System_Linq_Enumerable_Skip_TSource")
-System_Linq_Enumerable_SkipWhile_TSource = typing.TypeVar("System_Linq_Enumerable_SkipWhile_TSource")
-System_Linq_Enumerable_SkipLast_TSource = typing.TypeVar("System_Linq_Enumerable_SkipLast_TSource")
-System_Linq_Enumerable_Min_TSource = typing.TypeVar("System_Linq_Enumerable_Min_TSource")
-System_Linq_Enumerable_Min_TResult = typing.TypeVar("System_Linq_Enumerable_Min_TResult")
-System_Linq_Enumerable_MinBy_TSource = typing.TypeVar("System_Linq_Enumerable_MinBy_TSource")
-System_Linq_Enumerable_MinBy_TKey = typing.TypeVar("System_Linq_Enumerable_MinBy_TKey")
-System_Linq_Enumerable_Sequence_T = typing.TypeVar("System_Linq_Enumerable_Sequence_T")
-System_Linq_Enumerable_GroupBy_TSource = typing.TypeVar("System_Linq_Enumerable_GroupBy_TSource")
-System_Linq_Enumerable_GroupBy_TKey = typing.TypeVar("System_Linq_Enumerable_GroupBy_TKey")
-System_Linq_Enumerable_GroupBy_TElement = typing.TypeVar("System_Linq_Enumerable_GroupBy_TElement")
-System_Linq_Enumerable_GroupBy_TResult = typing.TypeVar("System_Linq_Enumerable_GroupBy_TResult")
-System_Linq_Enumerable_RightJoin_TOuter = typing.TypeVar("System_Linq_Enumerable_RightJoin_TOuter")
-System_Linq_Enumerable_RightJoin_TResult = typing.TypeVar("System_Linq_Enumerable_RightJoin_TResult")
-System_Linq_Enumerable_RightJoin_TInner = typing.TypeVar("System_Linq_Enumerable_RightJoin_TInner")
-System_Linq_Enumerable_RightJoin_TKey = typing.TypeVar("System_Linq_Enumerable_RightJoin_TKey")
-System_Linq_Enumerable_Contains_TSource = typing.TypeVar("System_Linq_Enumerable_Contains_TSource")
-System_Linq_Enumerable_Union_TSource = typing.TypeVar("System_Linq_Enumerable_Union_TSource")
-System_Linq_Enumerable_UnionBy_TSource = typing.TypeVar("System_Linq_Enumerable_UnionBy_TSource")
-System_Linq_Enumerable_UnionBy_TKey = typing.TypeVar("System_Linq_Enumerable_UnionBy_TKey")
-System_Linq_Enumerable_Max_TSource = typing.TypeVar("System_Linq_Enumerable_Max_TSource")
-System_Linq_Enumerable_Max_TResult = typing.TypeVar("System_Linq_Enumerable_Max_TResult")
-System_Linq_Enumerable_MaxBy_TSource = typing.TypeVar("System_Linq_Enumerable_MaxBy_TSource")
-System_Linq_Enumerable_MaxBy_TKey = typing.TypeVar("System_Linq_Enumerable_MaxBy_TKey")
-System_Linq_Enumerable_CountBy_TSource = typing.TypeVar("System_Linq_Enumerable_CountBy_TSource")
-System_Linq_Enumerable_CountBy_TKey = typing.TypeVar("System_Linq_Enumerable_CountBy_TKey")
 System_Linq_Enumerable_Count_TSource = typing.TypeVar("System_Linq_Enumerable_Count_TSource")
 System_Linq_Enumerable_TryGetNonEnumeratedCount_TSource = typing.TypeVar("System_Linq_Enumerable_TryGetNonEnumeratedCount_TSource")
 System_Linq_Enumerable_LongCount_TSource = typing.TypeVar("System_Linq_Enumerable_LongCount_TSource")
-System_Linq_Enumerable_Take_TSource = typing.TypeVar("System_Linq_Enumerable_Take_TSource")
-System_Linq_Enumerable_TakeWhile_TSource = typing.TypeVar("System_Linq_Enumerable_TakeWhile_TSource")
-System_Linq_Enumerable_TakeLast_TSource = typing.TypeVar("System_Linq_Enumerable_TakeLast_TSource")
-System_Linq_Enumerable_Repeat_TResult = typing.TypeVar("System_Linq_Enumerable_Repeat_TResult")
-System_Linq_Enumerable_OfType_TResult = typing.TypeVar("System_Linq_Enumerable_OfType_TResult")
-System_Linq_Enumerable_LeftJoin_TOuter = typing.TypeVar("System_Linq_Enumerable_LeftJoin_TOuter")
-System_Linq_Enumerable_LeftJoin_TResult = typing.TypeVar("System_Linq_Enumerable_LeftJoin_TResult")
-System_Linq_Enumerable_LeftJoin_TInner = typing.TypeVar("System_Linq_Enumerable_LeftJoin_TInner")
-System_Linq_Enumerable_LeftJoin_TKey = typing.TypeVar("System_Linq_Enumerable_LeftJoin_TKey")
-System_Linq_Enumerable_InfiniteSequence_T = typing.TypeVar("System_Linq_Enumerable_InfiniteSequence_T")
-System_Linq_Enumerable_Last_TSource = typing.TypeVar("System_Linq_Enumerable_Last_TSource")
-System_Linq_Enumerable_LastOrDefault_TSource = typing.TypeVar("System_Linq_Enumerable_LastOrDefault_TSource")
-System_Linq_Enumerable_Where_TSource = typing.TypeVar("System_Linq_Enumerable_Where_TSource")
-System_Linq_Enumerable_ToLookup_TSource = typing.TypeVar("System_Linq_Enumerable_ToLookup_TSource")
-System_Linq_Enumerable_ToLookup_TKey = typing.TypeVar("System_Linq_Enumerable_ToLookup_TKey")
-System_Linq_Enumerable_ToLookup_TElement = typing.TypeVar("System_Linq_Enumerable_ToLookup_TElement")
-System_Linq_Enumerable_Concat_TSource = typing.TypeVar("System_Linq_Enumerable_Concat_TSource")
 System_Linq_Enumerable_Zip_TFirst = typing.TypeVar("System_Linq_Enumerable_Zip_TFirst")
 System_Linq_Enumerable_Zip_TResult = typing.TypeVar("System_Linq_Enumerable_Zip_TResult")
 System_Linq_Enumerable_Zip_TSecond = typing.TypeVar("System_Linq_Enumerable_Zip_TSecond")
 System_Linq_Enumerable_Zip_TThird = typing.TypeVar("System_Linq_Enumerable_Zip_TThird")
+System_Linq_Enumerable_Join_TOuter = typing.TypeVar("System_Linq_Enumerable_Join_TOuter")
+System_Linq_Enumerable_Join_TResult = typing.TypeVar("System_Linq_Enumerable_Join_TResult")
+System_Linq_Enumerable_Join_TInner = typing.TypeVar("System_Linq_Enumerable_Join_TInner")
+System_Linq_Enumerable_Join_TKey = typing.TypeVar("System_Linq_Enumerable_Join_TKey")
+System_Linq_Enumerable_InfiniteSequence_T = typing.TypeVar("System_Linq_Enumerable_InfiniteSequence_T")
+System_Linq_Enumerable_GroupBy_TSource = typing.TypeVar("System_Linq_Enumerable_GroupBy_TSource")
+System_Linq_Enumerable_GroupBy_TKey = typing.TypeVar("System_Linq_Enumerable_GroupBy_TKey")
+System_Linq_Enumerable_GroupBy_TElement = typing.TypeVar("System_Linq_Enumerable_GroupBy_TElement")
+System_Linq_Enumerable_GroupBy_TResult = typing.TypeVar("System_Linq_Enumerable_GroupBy_TResult")
+System_Linq_Enumerable_Contains_TSource = typing.TypeVar("System_Linq_Enumerable_Contains_TSource")
+System_Linq_Enumerable_Union_TSource = typing.TypeVar("System_Linq_Enumerable_Union_TSource")
+System_Linq_Enumerable_UnionBy_TSource = typing.TypeVar("System_Linq_Enumerable_UnionBy_TSource")
+System_Linq_Enumerable_UnionBy_TKey = typing.TypeVar("System_Linq_Enumerable_UnionBy_TKey")
+System_Linq_Enumerable_Any_TSource = typing.TypeVar("System_Linq_Enumerable_Any_TSource")
+System_Linq_Enumerable_All_TSource = typing.TypeVar("System_Linq_Enumerable_All_TSource")
+System_Linq_Enumerable_SelectMany_TSource = typing.TypeVar("System_Linq_Enumerable_SelectMany_TSource")
+System_Linq_Enumerable_SelectMany_TResult = typing.TypeVar("System_Linq_Enumerable_SelectMany_TResult")
+System_Linq_Enumerable_SelectMany_TCollection = typing.TypeVar("System_Linq_Enumerable_SelectMany_TCollection")
+System_Linq_Enumerable_Distinct_TSource = typing.TypeVar("System_Linq_Enumerable_Distinct_TSource")
+System_Linq_Enumerable_DistinctBy_TSource = typing.TypeVar("System_Linq_Enumerable_DistinctBy_TSource")
+System_Linq_Enumerable_DistinctBy_TKey = typing.TypeVar("System_Linq_Enumerable_DistinctBy_TKey")
 System_Linq_Enumerable_ToArray_TSource = typing.TypeVar("System_Linq_Enumerable_ToArray_TSource")
 System_Linq_Enumerable_ToList_TSource = typing.TypeVar("System_Linq_Enumerable_ToList_TSource")
 System_Linq_Enumerable_ToDictionary_TKey = typing.TypeVar("System_Linq_Enumerable_ToDictionary_TKey")
@@ -151,14 +101,64 @@ System_Linq_Enumerable_ToDictionary_TValue = typing.TypeVar("System_Linq_Enumera
 System_Linq_Enumerable_ToDictionary_TSource = typing.TypeVar("System_Linq_Enumerable_ToDictionary_TSource")
 System_Linq_Enumerable_ToDictionary_TElement = typing.TypeVar("System_Linq_Enumerable_ToDictionary_TElement")
 System_Linq_Enumerable_ToHashSet_TSource = typing.TypeVar("System_Linq_Enumerable_ToHashSet_TSource")
+System_Linq_Enumerable_LeftJoin_TOuter = typing.TypeVar("System_Linq_Enumerable_LeftJoin_TOuter")
+System_Linq_Enumerable_LeftJoin_TResult = typing.TypeVar("System_Linq_Enumerable_LeftJoin_TResult")
+System_Linq_Enumerable_LeftJoin_TInner = typing.TypeVar("System_Linq_Enumerable_LeftJoin_TInner")
+System_Linq_Enumerable_LeftJoin_TKey = typing.TypeVar("System_Linq_Enumerable_LeftJoin_TKey")
+System_Linq_Enumerable_SequenceEqual_TSource = typing.TypeVar("System_Linq_Enumerable_SequenceEqual_TSource")
+System_Linq_Enumerable_Take_TSource = typing.TypeVar("System_Linq_Enumerable_Take_TSource")
+System_Linq_Enumerable_TakeWhile_TSource = typing.TypeVar("System_Linq_Enumerable_TakeWhile_TSource")
+System_Linq_Enumerable_TakeLast_TSource = typing.TypeVar("System_Linq_Enumerable_TakeLast_TSource")
+System_Linq_Enumerable_ToLookup_TSource = typing.TypeVar("System_Linq_Enumerable_ToLookup_TSource")
+System_Linq_Enumerable_ToLookup_TKey = typing.TypeVar("System_Linq_Enumerable_ToLookup_TKey")
+System_Linq_Enumerable_ToLookup_TElement = typing.TypeVar("System_Linq_Enumerable_ToLookup_TElement")
+System_Linq_Enumerable_Concat_TSource = typing.TypeVar("System_Linq_Enumerable_Concat_TSource")
+System_Linq_Enumerable_CountBy_TSource = typing.TypeVar("System_Linq_Enumerable_CountBy_TSource")
+System_Linq_Enumerable_CountBy_TKey = typing.TypeVar("System_Linq_Enumerable_CountBy_TKey")
+System_Linq_Enumerable_AggregateBy_TSource = typing.TypeVar("System_Linq_Enumerable_AggregateBy_TSource")
+System_Linq_Enumerable_AggregateBy_TAccumulate = typing.TypeVar("System_Linq_Enumerable_AggregateBy_TAccumulate")
+System_Linq_Enumerable_AggregateBy_TKey = typing.TypeVar("System_Linq_Enumerable_AggregateBy_TKey")
+System_Linq_Enumerable_ElementAt_TSource = typing.TypeVar("System_Linq_Enumerable_ElementAt_TSource")
+System_Linq_Enumerable_ElementAtOrDefault_TSource = typing.TypeVar("System_Linq_Enumerable_ElementAtOrDefault_TSource")
+System_Linq_Enumerable_Cast_TResult = typing.TypeVar("System_Linq_Enumerable_Cast_TResult")
+System_Linq_Enumerable_Max_TSource = typing.TypeVar("System_Linq_Enumerable_Max_TSource")
+System_Linq_Enumerable_Max_TResult = typing.TypeVar("System_Linq_Enumerable_Max_TResult")
+System_Linq_Enumerable_MaxBy_TSource = typing.TypeVar("System_Linq_Enumerable_MaxBy_TSource")
+System_Linq_Enumerable_MaxBy_TKey = typing.TypeVar("System_Linq_Enumerable_MaxBy_TKey")
+System_Linq_Enumerable_Where_TSource = typing.TypeVar("System_Linq_Enumerable_Where_TSource")
+System_Linq_Enumerable_Reverse_TSource = typing.TypeVar("System_Linq_Enumerable_Reverse_TSource")
+System_Linq_Enumerable_Last_TSource = typing.TypeVar("System_Linq_Enumerable_Last_TSource")
+System_Linq_Enumerable_LastOrDefault_TSource = typing.TypeVar("System_Linq_Enumerable_LastOrDefault_TSource")
+System_Linq_Enumerable_Intersect_TSource = typing.TypeVar("System_Linq_Enumerable_Intersect_TSource")
+System_Linq_Enumerable_IntersectBy_TSource = typing.TypeVar("System_Linq_Enumerable_IntersectBy_TSource")
+System_Linq_Enumerable_IntersectBy_TKey = typing.TypeVar("System_Linq_Enumerable_IntersectBy_TKey")
+System_Linq_Enumerable_Repeat_TResult = typing.TypeVar("System_Linq_Enumerable_Repeat_TResult")
+System_Linq_Enumerable_RightJoin_TOuter = typing.TypeVar("System_Linq_Enumerable_RightJoin_TOuter")
+System_Linq_Enumerable_RightJoin_TResult = typing.TypeVar("System_Linq_Enumerable_RightJoin_TResult")
+System_Linq_Enumerable_RightJoin_TInner = typing.TypeVar("System_Linq_Enumerable_RightJoin_TInner")
+System_Linq_Enumerable_RightJoin_TKey = typing.TypeVar("System_Linq_Enumerable_RightJoin_TKey")
+System_Linq_Enumerable_Shuffle_TSource = typing.TypeVar("System_Linq_Enumerable_Shuffle_TSource")
+System_Linq_Enumerable_Aggregate_TSource = typing.TypeVar("System_Linq_Enumerable_Aggregate_TSource")
+System_Linq_Enumerable_Aggregate_TAccumulate = typing.TypeVar("System_Linq_Enumerable_Aggregate_TAccumulate")
+System_Linq_Enumerable_Aggregate_TResult = typing.TypeVar("System_Linq_Enumerable_Aggregate_TResult")
+System_Linq_Enumerable_OfType_TResult = typing.TypeVar("System_Linq_Enumerable_OfType_TResult")
+System_Linq_Enumerable_Except_TSource = typing.TypeVar("System_Linq_Enumerable_Except_TSource")
+System_Linq_Enumerable_ExceptBy_TSource = typing.TypeVar("System_Linq_Enumerable_ExceptBy_TSource")
+System_Linq_Enumerable_ExceptBy_TKey = typing.TypeVar("System_Linq_Enumerable_ExceptBy_TKey")
+System_Linq_Enumerable_Average_TSource = typing.TypeVar("System_Linq_Enumerable_Average_TSource")
+System_Linq_Enumerable_Min_TSource = typing.TypeVar("System_Linq_Enumerable_Min_TSource")
+System_Linq_Enumerable_Min_TResult = typing.TypeVar("System_Linq_Enumerable_Min_TResult")
+System_Linq_Enumerable_MinBy_TSource = typing.TypeVar("System_Linq_Enumerable_MinBy_TSource")
+System_Linq_Enumerable_MinBy_TKey = typing.TypeVar("System_Linq_Enumerable_MinBy_TKey")
 System_Linq_Enumerable_Single_TSource = typing.TypeVar("System_Linq_Enumerable_Single_TSource")
 System_Linq_Enumerable_SingleOrDefault_TSource = typing.TypeVar("System_Linq_Enumerable_SingleOrDefault_TSource")
-System_Linq_Enumerable_Join_TOuter = typing.TypeVar("System_Linq_Enumerable_Join_TOuter")
-System_Linq_Enumerable_Join_TResult = typing.TypeVar("System_Linq_Enumerable_Join_TResult")
-System_Linq_Enumerable_Join_TInner = typing.TypeVar("System_Linq_Enumerable_Join_TInner")
-System_Linq_Enumerable_Join_TKey = typing.TypeVar("System_Linq_Enumerable_Join_TKey")
-System_Linq_IOrderedEnumerable_CreateOrderedEnumerable_TKey = typing.TypeVar("System_Linq_IOrderedEnumerable_CreateOrderedEnumerable_TKey")
+System_Linq_Enumerable_GroupJoin_TOuter = typing.TypeVar("System_Linq_Enumerable_GroupJoin_TOuter")
+System_Linq_Enumerable_GroupJoin_TInner = typing.TypeVar("System_Linq_Enumerable_GroupJoin_TInner")
+System_Linq_Enumerable_GroupJoin_TKey = typing.TypeVar("System_Linq_Enumerable_GroupJoin_TKey")
+System_Linq_Enumerable_GroupJoin_TResult = typing.TypeVar("System_Linq_Enumerable_GroupJoin_TResult")
+System_Linq_Enumerable_DefaultIfEmpty_TSource = typing.TypeVar("System_Linq_Enumerable_DefaultIfEmpty_TSource")
 System_Linq_Lookup_ApplyResultSelector_TResult = typing.TypeVar("System_Linq_Lookup_ApplyResultSelector_TResult")
+System_Linq_IOrderedEnumerable_CreateOrderedEnumerable_TKey = typing.TypeVar("System_Linq_IOrderedEnumerable_CreateOrderedEnumerable_TKey")
 
 
 class _Typed_ImmutableArrayExtensions_Select(typing.Generic[System_Linq_ImmutableArrayExtensions_Select_T]):
@@ -530,327 +530,6 @@ class ImmutableArrayExtensions(System.Object):
     to_array: System.Linq._ImmutableArrayExtensions_ToArray
 
 
-class _Typed_Enumerable_Distinct(typing.Generic[System_Linq_Enumerable_Distinct_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Distinct_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Distinct_TSource]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Distinct_TSource], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_Distinct_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Distinct_TSource]:
-        ...
-
-
-class _Enumerable_Distinct:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Distinct_TSource]) -> System.Linq._Typed_Enumerable_Distinct[System_Linq_Enumerable_Distinct_TSource]:
-        ...
-
-
-class _Typed_Enumerable_DistinctBy(typing.Generic[System_Linq_Enumerable_DistinctBy_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_DistinctBy_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_DistinctBy_TSource], System_Linq_Enumerable_DistinctBy_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_DistinctBy_TSource]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_DistinctBy_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_DistinctBy_TSource], System_Linq_Enumerable_DistinctBy_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_DistinctBy_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_DistinctBy_TSource]:
-        ...
-
-
-class _Enumerable_DistinctBy:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_DistinctBy_TSource]) -> System.Linq._Typed_Enumerable_DistinctBy[System_Linq_Enumerable_DistinctBy_TSource]:
-        ...
-
-
-class _Typed_Enumerable_Index(typing.Generic[System_Linq_Enumerable_Index_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Index_TSource]) -> System.Collections.Generic.IEnumerable[System.ValueTuple[int, System_Linq_Enumerable_Index_TSource]]:
-        ...
-
-
-class _Enumerable_Index:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Index_TSource]) -> System.Linq._Typed_Enumerable_Index[System_Linq_Enumerable_Index_TSource]:
-        ...
-
-
-class _Typed_Enumerable_Chunk(typing.Generic[System_Linq_Enumerable_Chunk_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Chunk_TSource], size: int) -> System.Collections.Generic.IEnumerable[typing.List[System_Linq_Enumerable_Chunk_TSource]]:
-        ...
-
-
-class _Enumerable_Chunk:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Chunk_TSource]) -> System.Linq._Typed_Enumerable_Chunk[System_Linq_Enumerable_Chunk_TSource]:
-        ...
-
-
-class _Typed_Enumerable_SequenceEqual(typing.Generic[System_Linq_Enumerable_SequenceEqual_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SequenceEqual_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SequenceEqual_TSource]) -> bool:
-        ...
-
-    @overload
-    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SequenceEqual_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SequenceEqual_TSource], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_SequenceEqual_TSource]) -> bool:
-        ...
-
-
-class _Enumerable_SequenceEqual:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_SequenceEqual_TSource]) -> System.Linq._Typed_Enumerable_SequenceEqual[System_Linq_Enumerable_SequenceEqual_TSource]:
-        ...
-
-
-class _Typed_Enumerable_Reverse(typing.Generic[System_Linq_Enumerable_Reverse_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Reverse_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Reverse_TSource]:
-        ...
-
-    @overload
-    def __call__(self, source: typing.List[System_Linq_Enumerable_Reverse_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Reverse_TSource]:
-        ...
-
-
-class _Enumerable_Reverse:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Reverse_TSource]) -> System.Linq._Typed_Enumerable_Reverse[System_Linq_Enumerable_Reverse_TSource]:
-        ...
-
-
-class _Typed_Enumerable_DefaultIfEmpty(typing.Generic[System_Linq_Enumerable_DefaultIfEmpty_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_DefaultIfEmpty_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_DefaultIfEmpty_TSource]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_DefaultIfEmpty_TSource], default_value: System_Linq_Enumerable_DefaultIfEmpty_TSource) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_DefaultIfEmpty_TSource]:
-        ...
-
-
-class _Enumerable_DefaultIfEmpty:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_DefaultIfEmpty_TSource]) -> System.Linq._Typed_Enumerable_DefaultIfEmpty[System_Linq_Enumerable_DefaultIfEmpty_TSource]:
-        ...
-
-
-class _Typed_Enumerable_Shuffle(typing.Generic[System_Linq_Enumerable_Shuffle_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Shuffle_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Shuffle_TSource]:
-        ...
-
-
-class _Enumerable_Shuffle:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Shuffle_TSource]) -> System.Linq._Typed_Enumerable_Shuffle[System_Linq_Enumerable_Shuffle_TSource]:
-        ...
-
-
-class _Typed_Enumerable_First(typing.Generic[System_Linq_Enumerable_First_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_First_TSource]) -> System_Linq_Enumerable_First_TSource:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_First_TSource], predicate: typing.Callable[[System_Linq_Enumerable_First_TSource], bool]) -> System_Linq_Enumerable_First_TSource:
-        ...
-
-
-class _Enumerable_First:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_First_TSource]) -> System.Linq._Typed_Enumerable_First[System_Linq_Enumerable_First_TSource]:
-        ...
-
-
-class _Typed_Enumerable_FirstOrDefault(typing.Generic[System_Linq_Enumerable_FirstOrDefault_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_FirstOrDefault_TSource]) -> System_Linq_Enumerable_FirstOrDefault_TSource:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_FirstOrDefault_TSource], default_value: System_Linq_Enumerable_FirstOrDefault_TSource) -> System_Linq_Enumerable_FirstOrDefault_TSource:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_FirstOrDefault_TSource], predicate: typing.Callable[[System_Linq_Enumerable_FirstOrDefault_TSource], bool]) -> System_Linq_Enumerable_FirstOrDefault_TSource:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_FirstOrDefault_TSource], predicate: typing.Callable[[System_Linq_Enumerable_FirstOrDefault_TSource], bool], default_value: System_Linq_Enumerable_FirstOrDefault_TSource) -> System_Linq_Enumerable_FirstOrDefault_TSource:
-        ...
-
-
-class _Enumerable_FirstOrDefault:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_FirstOrDefault_TSource]) -> System.Linq._Typed_Enumerable_FirstOrDefault[System_Linq_Enumerable_FirstOrDefault_TSource]:
-        ...
-
-
-class _Typed_Enumerable_Except(typing.Generic[System_Linq_Enumerable_Except_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Except_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Except_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Except_TSource]:
-        ...
-
-    @overload
-    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Except_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Except_TSource], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_Except_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Except_TSource]:
-        ...
-
-
-class _Enumerable_Except:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Except_TSource]) -> System.Linq._Typed_Enumerable_Except[System_Linq_Enumerable_Except_TSource]:
-        ...
-
-
-class _Typed_Enumerable_ExceptBy(typing.Generic[System_Linq_Enumerable_ExceptBy_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ExceptBy_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ExceptBy_TKey], key_selector: typing.Callable[[System_Linq_Enumerable_ExceptBy_TSource], System_Linq_Enumerable_ExceptBy_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ExceptBy_TSource]:
-        ...
-
-    @overload
-    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ExceptBy_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ExceptBy_TKey], key_selector: typing.Callable[[System_Linq_Enumerable_ExceptBy_TSource], System_Linq_Enumerable_ExceptBy_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_ExceptBy_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ExceptBy_TSource]:
-        ...
-
-
-class _Enumerable_ExceptBy:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_ExceptBy_TSource]) -> System.Linq._Typed_Enumerable_ExceptBy[System_Linq_Enumerable_ExceptBy_TSource]:
-        ...
-
-
-class _Typed_Enumerable_Sum(typing.Generic[System_Linq_Enumerable_Sum_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], int]) -> int:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], int]) -> int:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], float]) -> float:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], float]) -> float:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], float]) -> float:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], typing.Optional[int]]) -> typing.Optional[int]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], typing.Optional[int]]) -> typing.Optional[int]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], typing.Optional[float]]) -> typing.Optional[float]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], typing.Optional[float]]) -> typing.Optional[float]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], typing.Optional[float]]) -> typing.Optional[float]:
-        ...
-
-
-class _Enumerable_Sum:
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[int]) -> int:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[float]) -> float:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[typing.Optional[int]]) -> typing.Optional[int]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[typing.Optional[float]]) -> typing.Optional[float]:
-        ...
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Sum_TSource]) -> System.Linq._Typed_Enumerable_Sum[System_Linq_Enumerable_Sum_TSource]:
-        ...
-
-
-class _Typed_Enumerable_AsEnumerable(typing.Generic[System_Linq_Enumerable_AsEnumerable_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_AsEnumerable_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_AsEnumerable_TSource]:
-        ...
-
-
-class _Enumerable_AsEnumerable:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_AsEnumerable_TSource]) -> System.Linq._Typed_Enumerable_AsEnumerable[System_Linq_Enumerable_AsEnumerable_TSource]:
-        ...
-
-
-class _Typed_Enumerable_Empty(typing.Generic[System_Linq_Enumerable_Empty_TResult]):
-    """"""
-
-    @overload
-    def __call__(self) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Empty_TResult]:
-        ...
-
-
-class _Enumerable_Empty:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Empty_TResult]) -> System.Linq._Typed_Enumerable_Empty[System_Linq_Enumerable_Empty_TResult]:
-        ...
-
-
 class _Typed_Enumerable_Append(typing.Generic[System_Linq_Enumerable_Append_TSource]):
     """"""
 
@@ -881,108 +560,52 @@ class _Enumerable_Prepend:
         ...
 
 
-class _Typed_Enumerable_ElementAt(typing.Generic[System_Linq_Enumerable_ElementAt_TSource]):
+class _Typed_Enumerable_Skip(typing.Generic[System_Linq_Enumerable_Skip_TSource]):
     """"""
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ElementAt_TSource], index: int) -> System_Linq_Enumerable_ElementAt_TSource:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ElementAt_TSource], index: System.Index) -> System_Linq_Enumerable_ElementAt_TSource:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Skip_TSource], count: int) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Skip_TSource]:
         ...
 
 
-class _Enumerable_ElementAt:
+class _Enumerable_Skip:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_ElementAt_TSource]) -> System.Linq._Typed_Enumerable_ElementAt[System_Linq_Enumerable_ElementAt_TSource]:
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Skip_TSource]) -> System.Linq._Typed_Enumerable_Skip[System_Linq_Enumerable_Skip_TSource]:
         ...
 
 
-class _Typed_Enumerable_ElementAtOrDefault(typing.Generic[System_Linq_Enumerable_ElementAtOrDefault_TSource]):
+class _Typed_Enumerable_SkipWhile(typing.Generic[System_Linq_Enumerable_SkipWhile_TSource]):
     """"""
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ElementAtOrDefault_TSource], index: int) -> System_Linq_Enumerable_ElementAtOrDefault_TSource:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SkipWhile_TSource], predicate: typing.Callable[[System_Linq_Enumerable_SkipWhile_TSource], bool]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SkipWhile_TSource]:
         ...
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ElementAtOrDefault_TSource], index: System.Index) -> System_Linq_Enumerable_ElementAtOrDefault_TSource:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SkipWhile_TSource], predicate: typing.Callable[[System_Linq_Enumerable_SkipWhile_TSource, int], bool]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SkipWhile_TSource]:
         ...
 
 
-class _Enumerable_ElementAtOrDefault:
+class _Enumerable_SkipWhile:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_ElementAtOrDefault_TSource]) -> System.Linq._Typed_Enumerable_ElementAtOrDefault[System_Linq_Enumerable_ElementAtOrDefault_TSource]:
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_SkipWhile_TSource]) -> System.Linq._Typed_Enumerable_SkipWhile[System_Linq_Enumerable_SkipWhile_TSource]:
         ...
 
 
-class _Typed_Enumerable_Average(typing.Generic[System_Linq_Enumerable_Average_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], int]) -> float:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], int]) -> float:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], float]) -> float:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], float]) -> float:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], float]) -> float:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], typing.Optional[int]]) -> typing.Optional[float]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], typing.Optional[int]]) -> typing.Optional[float]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], typing.Optional[float]]) -> typing.Optional[float]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], typing.Optional[float]]) -> typing.Optional[float]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], typing.Optional[float]]) -> typing.Optional[float]:
-        ...
-
-
-class _Enumerable_Average:
+class _Typed_Enumerable_SkipLast(typing.Generic[System_Linq_Enumerable_SkipLast_TSource]):
     """"""
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[int]) -> float:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SkipLast_TSource], count: int) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SkipLast_TSource]:
         ...
 
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[float]) -> float:
-        ...
 
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[typing.Optional[int]]) -> typing.Optional[float]:
-        ...
+class _Enumerable_SkipLast:
+    """"""
 
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[typing.Optional[float]]) -> typing.Optional[float]:
-        ...
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Average_TSource]) -> System.Linq._Typed_Enumerable_Average[System_Linq_Enumerable_Average_TSource]:
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_SkipLast_TSource]) -> System.Linq._Typed_Enumerable_SkipLast[System_Linq_Enumerable_SkipLast_TSource]:
         ...
 
 
@@ -1100,140 +723,191 @@ class _Enumerable_ThenByDescending:
         ...
 
 
-class _Typed_Enumerable_GroupJoin(typing.Generic[System_Linq_Enumerable_GroupJoin_TOuter]):
+class _Typed_Enumerable_Sum(typing.Generic[System_Linq_Enumerable_Sum_TSource]):
     """"""
 
     @overload
-    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_GroupJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_GroupJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_GroupJoin_TOuter], System_Linq_Enumerable_GroupJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_GroupJoin_TInner], System_Linq_Enumerable_GroupJoin_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_GroupJoin_TKey] = None) -> System.Collections.Generic.IEnumerable[System.Linq.IGrouping[System_Linq_Enumerable_GroupJoin_TOuter, System_Linq_Enumerable_GroupJoin_TInner]]:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], int]) -> int:
         ...
 
     @overload
-    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_GroupJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_GroupJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_GroupJoin_TOuter], System_Linq_Enumerable_GroupJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_GroupJoin_TInner], System_Linq_Enumerable_GroupJoin_TKey], result_selector: typing.Callable[[System_Linq_Enumerable_GroupJoin_TOuter, typing.List[System_Linq_Enumerable_GroupJoin_TInner]], System_Linq_Enumerable_GroupJoin_TResult]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_GroupJoin_TResult]:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], int]) -> int:
         ...
 
     @overload
-    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_GroupJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_GroupJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_GroupJoin_TOuter], System_Linq_Enumerable_GroupJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_GroupJoin_TInner], System_Linq_Enumerable_GroupJoin_TKey], result_selector: typing.Callable[[System_Linq_Enumerable_GroupJoin_TOuter, typing.List[System_Linq_Enumerable_GroupJoin_TInner]], System_Linq_Enumerable_GroupJoin_TResult], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_GroupJoin_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_GroupJoin_TResult]:
-        ...
-
-
-class _Enumerable_GroupJoin:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_GroupJoin_TOuter]) -> System.Linq._Typed_Enumerable_GroupJoin[System_Linq_Enumerable_GroupJoin_TOuter]:
-        ...
-
-
-class _Typed_Enumerable_AggregateBy(typing.Generic[System_Linq_Enumerable_AggregateBy_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_AggregateBy_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_AggregateBy_TSource], System_Linq_Enumerable_AggregateBy_TKey], seed: System_Linq_Enumerable_AggregateBy_TAccumulate, func: typing.Callable[[System_Linq_Enumerable_AggregateBy_TAccumulate, System_Linq_Enumerable_AggregateBy_TSource], System_Linq_Enumerable_AggregateBy_TAccumulate], key_comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_AggregateBy_TKey] = None) -> System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Linq_Enumerable_AggregateBy_TKey, System_Linq_Enumerable_AggregateBy_TAccumulate]]:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], float]) -> float:
         ...
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_AggregateBy_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_AggregateBy_TSource], System_Linq_Enumerable_AggregateBy_TKey], seed_selector: typing.Callable[[System_Linq_Enumerable_AggregateBy_TKey], System_Linq_Enumerable_AggregateBy_TAccumulate], func: typing.Callable[[System_Linq_Enumerable_AggregateBy_TAccumulate, System_Linq_Enumerable_AggregateBy_TSource], System_Linq_Enumerable_AggregateBy_TAccumulate], key_comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_AggregateBy_TKey] = None) -> System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Linq_Enumerable_AggregateBy_TKey, System_Linq_Enumerable_AggregateBy_TAccumulate]]:
-        ...
-
-
-class _Enumerable_AggregateBy:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_AggregateBy_TSource]) -> System.Linq._Typed_Enumerable_AggregateBy[System_Linq_Enumerable_AggregateBy_TSource]:
-        ...
-
-
-class _Typed_Enumerable_Any(typing.Generic[System_Linq_Enumerable_Any_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Any_TSource]) -> bool:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], float]) -> float:
         ...
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Any_TSource], predicate: typing.Callable[[System_Linq_Enumerable_Any_TSource], bool]) -> bool:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], float]) -> float:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], typing.Optional[int]]) -> typing.Optional[int]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], typing.Optional[int]]) -> typing.Optional[int]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], typing.Optional[float]]) -> typing.Optional[float]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], typing.Optional[float]]) -> typing.Optional[float]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sum_TSource], selector: typing.Callable[[System_Linq_Enumerable_Sum_TSource], typing.Optional[float]]) -> typing.Optional[float]:
         ...
 
 
-class _Enumerable_Any:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Any_TSource]) -> System.Linq._Typed_Enumerable_Any[System_Linq_Enumerable_Any_TSource]:
-        ...
-
-
-class _Typed_Enumerable_All(typing.Generic[System_Linq_Enumerable_All_TSource]):
+class _Enumerable_Sum:
     """"""
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_All_TSource], predicate: typing.Callable[[System_Linq_Enumerable_All_TSource], bool]) -> bool:
-        ...
-
-
-class _Enumerable_All:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_All_TSource]) -> System.Linq._Typed_Enumerable_All[System_Linq_Enumerable_All_TSource]:
-        ...
-
-
-class _Typed_Enumerable_Aggregate(typing.Generic[System_Linq_Enumerable_Aggregate_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Aggregate_TSource], func: typing.Callable[[System_Linq_Enumerable_Aggregate_TSource, System_Linq_Enumerable_Aggregate_TSource], System_Linq_Enumerable_Aggregate_TSource]) -> System_Linq_Enumerable_Aggregate_TSource:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[int]) -> int:
         ...
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Aggregate_TSource], seed: System_Linq_Enumerable_Aggregate_TAccumulate, func: typing.Callable[[System_Linq_Enumerable_Aggregate_TAccumulate, System_Linq_Enumerable_Aggregate_TSource], System_Linq_Enumerable_Aggregate_TAccumulate]) -> System_Linq_Enumerable_Aggregate_TAccumulate:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[float]) -> float:
         ...
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Aggregate_TSource], seed: System_Linq_Enumerable_Aggregate_TAccumulate, func: typing.Callable[[System_Linq_Enumerable_Aggregate_TAccumulate, System_Linq_Enumerable_Aggregate_TSource], System_Linq_Enumerable_Aggregate_TAccumulate], result_selector: typing.Callable[[System_Linq_Enumerable_Aggregate_TAccumulate], System_Linq_Enumerable_Aggregate_TResult]) -> System_Linq_Enumerable_Aggregate_TResult:
-        ...
-
-
-class _Enumerable_Aggregate:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Aggregate_TSource]) -> System.Linq._Typed_Enumerable_Aggregate[System_Linq_Enumerable_Aggregate_TSource]:
-        ...
-
-
-class _Typed_Enumerable_Intersect(typing.Generic[System_Linq_Enumerable_Intersect_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Intersect_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Intersect_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Intersect_TSource]:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[typing.Optional[int]]) -> typing.Optional[int]:
         ...
 
     @overload
-    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Intersect_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Intersect_TSource], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_Intersect_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Intersect_TSource]:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[typing.Optional[float]]) -> typing.Optional[float]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Sum_TSource]) -> System.Linq._Typed_Enumerable_Sum[System_Linq_Enumerable_Sum_TSource]:
         ...
 
 
-class _Enumerable_Intersect:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Intersect_TSource]) -> System.Linq._Typed_Enumerable_Intersect[System_Linq_Enumerable_Intersect_TSource]:
-        ...
-
-
-class _Typed_Enumerable_IntersectBy(typing.Generic[System_Linq_Enumerable_IntersectBy_TSource]):
+class _Typed_Enumerable_Index(typing.Generic[System_Linq_Enumerable_Index_TSource]):
     """"""
 
     @overload
-    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_IntersectBy_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_IntersectBy_TKey], key_selector: typing.Callable[[System_Linq_Enumerable_IntersectBy_TSource], System_Linq_Enumerable_IntersectBy_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_IntersectBy_TSource]:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Index_TSource]) -> System.Collections.Generic.IEnumerable[System.ValueTuple[int, System_Linq_Enumerable_Index_TSource]]:
+        ...
+
+
+class _Enumerable_Index:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Index_TSource]) -> System.Linq._Typed_Enumerable_Index[System_Linq_Enumerable_Index_TSource]:
+        ...
+
+
+class _Typed_Enumerable_Chunk(typing.Generic[System_Linq_Enumerable_Chunk_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Chunk_TSource], size: int) -> System.Collections.Generic.IEnumerable[typing.List[System_Linq_Enumerable_Chunk_TSource]]:
+        ...
+
+
+class _Enumerable_Chunk:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Chunk_TSource]) -> System.Linq._Typed_Enumerable_Chunk[System_Linq_Enumerable_Chunk_TSource]:
+        ...
+
+
+class _Typed_Enumerable_Sequence(typing.Generic[System_Linq_Enumerable_Sequence_T]):
+    """"""
+
+    @overload
+    def __call__(self, start: System_Linq_Enumerable_Sequence_T, end_inclusive: System_Linq_Enumerable_Sequence_T, step: System_Linq_Enumerable_Sequence_T) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sequence_T]:
+        ...
+
+
+class _Enumerable_Sequence:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Sequence_T]) -> System.Linq._Typed_Enumerable_Sequence[System_Linq_Enumerable_Sequence_T]:
+        ...
+
+
+class _Typed_Enumerable_AsEnumerable(typing.Generic[System_Linq_Enumerable_AsEnumerable_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_AsEnumerable_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_AsEnumerable_TSource]:
+        ...
+
+
+class _Enumerable_AsEnumerable:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_AsEnumerable_TSource]) -> System.Linq._Typed_Enumerable_AsEnumerable[System_Linq_Enumerable_AsEnumerable_TSource]:
+        ...
+
+
+class _Typed_Enumerable_Empty(typing.Generic[System_Linq_Enumerable_Empty_TResult]):
+    """"""
+
+    @overload
+    def __call__(self) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Empty_TResult]:
+        ...
+
+
+class _Enumerable_Empty:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Empty_TResult]) -> System.Linq._Typed_Enumerable_Empty[System_Linq_Enumerable_Empty_TResult]:
+        ...
+
+
+class _Typed_Enumerable_First(typing.Generic[System_Linq_Enumerable_First_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_First_TSource]) -> System_Linq_Enumerable_First_TSource:
         ...
 
     @overload
-    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_IntersectBy_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_IntersectBy_TKey], key_selector: typing.Callable[[System_Linq_Enumerable_IntersectBy_TSource], System_Linq_Enumerable_IntersectBy_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_IntersectBy_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_IntersectBy_TSource]:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_First_TSource], predicate: typing.Callable[[System_Linq_Enumerable_First_TSource], bool]) -> System_Linq_Enumerable_First_TSource:
         ...
 
 
-class _Enumerable_IntersectBy:
+class _Enumerable_First:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_IntersectBy_TSource]) -> System.Linq._Typed_Enumerable_IntersectBy[System_Linq_Enumerable_IntersectBy_TSource]:
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_First_TSource]) -> System.Linq._Typed_Enumerable_First[System_Linq_Enumerable_First_TSource]:
+        ...
+
+
+class _Typed_Enumerable_FirstOrDefault(typing.Generic[System_Linq_Enumerable_FirstOrDefault_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_FirstOrDefault_TSource]) -> System_Linq_Enumerable_FirstOrDefault_TSource:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_FirstOrDefault_TSource], default_value: System_Linq_Enumerable_FirstOrDefault_TSource) -> System_Linq_Enumerable_FirstOrDefault_TSource:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_FirstOrDefault_TSource], predicate: typing.Callable[[System_Linq_Enumerable_FirstOrDefault_TSource], bool]) -> System_Linq_Enumerable_FirstOrDefault_TSource:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_FirstOrDefault_TSource], predicate: typing.Callable[[System_Linq_Enumerable_FirstOrDefault_TSource], bool], default_value: System_Linq_Enumerable_FirstOrDefault_TSource) -> System_Linq_Enumerable_FirstOrDefault_TSource:
+        ...
+
+
+class _Enumerable_FirstOrDefault:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_FirstOrDefault_TSource]) -> System.Linq._Typed_Enumerable_FirstOrDefault[System_Linq_Enumerable_FirstOrDefault_TSource]:
         ...
 
 
@@ -1256,207 +930,117 @@ class _Enumerable_Select:
         ...
 
 
-class _Typed_Enumerable_SelectMany(typing.Generic[System_Linq_Enumerable_SelectMany_TSource]):
+class _Typed_Enumerable_Count(typing.Generic[System_Linq_Enumerable_Count_TSource]):
     """"""
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SelectMany_TSource], selector: typing.Callable[[System_Linq_Enumerable_SelectMany_TSource], typing.List[System_Linq_Enumerable_SelectMany_TResult]]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SelectMany_TResult]:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Count_TSource]) -> int:
         ...
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SelectMany_TSource], selector: typing.Callable[[System_Linq_Enumerable_SelectMany_TSource, int], typing.List[System_Linq_Enumerable_SelectMany_TResult]]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SelectMany_TResult]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SelectMany_TSource], collection_selector: typing.Callable[[System_Linq_Enumerable_SelectMany_TSource, int], typing.List[System_Linq_Enumerable_SelectMany_TCollection]], result_selector: typing.Callable[[System_Linq_Enumerable_SelectMany_TSource, System_Linq_Enumerable_SelectMany_TCollection], System_Linq_Enumerable_SelectMany_TResult]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SelectMany_TResult]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SelectMany_TSource], collection_selector: typing.Callable[[System_Linq_Enumerable_SelectMany_TSource], typing.List[System_Linq_Enumerable_SelectMany_TCollection]], result_selector: typing.Callable[[System_Linq_Enumerable_SelectMany_TSource, System_Linq_Enumerable_SelectMany_TCollection], System_Linq_Enumerable_SelectMany_TResult]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SelectMany_TResult]:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Count_TSource], predicate: typing.Callable[[System_Linq_Enumerable_Count_TSource], bool]) -> int:
         ...
 
 
-class _Enumerable_SelectMany:
+class _Enumerable_Count:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_SelectMany_TSource]) -> System.Linq._Typed_Enumerable_SelectMany[System_Linq_Enumerable_SelectMany_TSource]:
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Count_TSource]) -> System.Linq._Typed_Enumerable_Count[System_Linq_Enumerable_Count_TSource]:
         ...
 
 
-class _Typed_Enumerable_Cast(typing.Generic[System_Linq_Enumerable_Cast_TResult]):
+class _Typed_Enumerable_TryGetNonEnumeratedCount(typing.Generic[System_Linq_Enumerable_TryGetNonEnumeratedCount_TSource]):
     """"""
 
     @overload
-    def __call__(self, source: System.Collections.IEnumerable) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Cast_TResult]:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_TryGetNonEnumeratedCount_TSource], count: typing.Optional[int]) -> typing.Tuple[bool, int]:
         ...
 
 
-class _Enumerable_Cast:
+class _Enumerable_TryGetNonEnumeratedCount:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Cast_TResult]) -> System.Linq._Typed_Enumerable_Cast[System_Linq_Enumerable_Cast_TResult]:
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_TryGetNonEnumeratedCount_TSource]) -> System.Linq._Typed_Enumerable_TryGetNonEnumeratedCount[System_Linq_Enumerable_TryGetNonEnumeratedCount_TSource]:
         ...
 
 
-class _Typed_Enumerable_Skip(typing.Generic[System_Linq_Enumerable_Skip_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Skip_TSource], count: int) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Skip_TSource]:
-        ...
-
-
-class _Enumerable_Skip:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Skip_TSource]) -> System.Linq._Typed_Enumerable_Skip[System_Linq_Enumerable_Skip_TSource]:
-        ...
-
-
-class _Typed_Enumerable_SkipWhile(typing.Generic[System_Linq_Enumerable_SkipWhile_TSource]):
+class _Typed_Enumerable_LongCount(typing.Generic[System_Linq_Enumerable_LongCount_TSource]):
     """"""
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SkipWhile_TSource], predicate: typing.Callable[[System_Linq_Enumerable_SkipWhile_TSource], bool]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SkipWhile_TSource]:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LongCount_TSource]) -> int:
         ...
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SkipWhile_TSource], predicate: typing.Callable[[System_Linq_Enumerable_SkipWhile_TSource, int], bool]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SkipWhile_TSource]:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LongCount_TSource], predicate: typing.Callable[[System_Linq_Enumerable_LongCount_TSource], bool]) -> int:
         ...
 
 
-class _Enumerable_SkipWhile:
+class _Enumerable_LongCount:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_SkipWhile_TSource]) -> System.Linq._Typed_Enumerable_SkipWhile[System_Linq_Enumerable_SkipWhile_TSource]:
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_LongCount_TSource]) -> System.Linq._Typed_Enumerable_LongCount[System_Linq_Enumerable_LongCount_TSource]:
         ...
 
 
-class _Typed_Enumerable_SkipLast(typing.Generic[System_Linq_Enumerable_SkipLast_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SkipLast_TSource], count: int) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SkipLast_TSource]:
-        ...
-
-
-class _Enumerable_SkipLast:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_SkipLast_TSource]) -> System.Linq._Typed_Enumerable_SkipLast[System_Linq_Enumerable_SkipLast_TSource]:
-        ...
-
-
-class _Typed_Enumerable_Min(typing.Generic[System_Linq_Enumerable_Min_TSource]):
+class _Typed_Enumerable_Zip(typing.Generic[System_Linq_Enumerable_Zip_TFirst]):
     """"""
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource]) -> System_Linq_Enumerable_Min_TSource:
+    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Zip_TFirst], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Zip_TSecond], result_selector: typing.Callable[[System_Linq_Enumerable_Zip_TFirst, System_Linq_Enumerable_Zip_TSecond], System_Linq_Enumerable_Zip_TResult]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Zip_TResult]:
         ...
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], comparer: System.Collections.Generic.IComparer[System_Linq_Enumerable_Min_TSource]) -> System_Linq_Enumerable_Min_TSource:
+    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Zip_TFirst], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Zip_TSecond]) -> System.Collections.Generic.IEnumerable[System.ValueTuple[System_Linq_Enumerable_Zip_TFirst, System_Linq_Enumerable_Zip_TSecond]]:
         ...
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], int]) -> int:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], typing.Optional[int]]) -> typing.Optional[int]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], int]) -> int:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], typing.Optional[int]]) -> typing.Optional[int]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], float]) -> float:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], typing.Optional[float]]) -> typing.Optional[float]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], float]) -> float:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], typing.Optional[float]]) -> typing.Optional[float]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], float]) -> float:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], typing.Optional[float]]) -> typing.Optional[float]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], System_Linq_Enumerable_Min_TResult]) -> System_Linq_Enumerable_Min_TResult:
+    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Zip_TFirst], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Zip_TSecond], third: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Zip_TThird]) -> System.Collections.Generic.IEnumerable[System.ValueTuple[System_Linq_Enumerable_Zip_TFirst, System_Linq_Enumerable_Zip_TSecond, System_Linq_Enumerable_Zip_TThird]]:
         ...
 
 
-class _Enumerable_Min:
+class _Enumerable_Zip:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Zip_TFirst]) -> System.Linq._Typed_Enumerable_Zip[System_Linq_Enumerable_Zip_TFirst]:
+        ...
+
+
+class _Typed_Enumerable_Join(typing.Generic[System_Linq_Enumerable_Join_TOuter]):
     """"""
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[int]) -> int:
+    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Join_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Join_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_Join_TOuter], System_Linq_Enumerable_Join_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_Join_TInner], System_Linq_Enumerable_Join_TKey], result_selector: typing.Callable[[System_Linq_Enumerable_Join_TOuter, System_Linq_Enumerable_Join_TInner], System_Linq_Enumerable_Join_TResult]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Join_TResult]:
         ...
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[typing.Optional[int]]) -> typing.Optional[int]:
+    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Join_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Join_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_Join_TOuter], System_Linq_Enumerable_Join_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_Join_TInner], System_Linq_Enumerable_Join_TKey], result_selector: typing.Callable[[System_Linq_Enumerable_Join_TOuter, System_Linq_Enumerable_Join_TInner], System_Linq_Enumerable_Join_TResult], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_Join_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Join_TResult]:
         ...
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[float]) -> float:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[typing.Optional[float]]) -> typing.Optional[float]:
-        ...
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Min_TSource]) -> System.Linq._Typed_Enumerable_Min[System_Linq_Enumerable_Min_TSource]:
+    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Join_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Join_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_Join_TOuter], System_Linq_Enumerable_Join_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_Join_TInner], System_Linq_Enumerable_Join_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_Join_TKey] = None) -> System.Collections.Generic.IEnumerable[System.ValueTuple[System_Linq_Enumerable_Join_TOuter, System_Linq_Enumerable_Join_TInner]]:
         ...
 
 
-class _Typed_Enumerable_MinBy(typing.Generic[System_Linq_Enumerable_MinBy_TSource]):
+class _Enumerable_Join:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Join_TOuter]) -> System.Linq._Typed_Enumerable_Join[System_Linq_Enumerable_Join_TOuter]:
+        ...
+
+
+class _Typed_Enumerable_InfiniteSequence(typing.Generic[System_Linq_Enumerable_InfiniteSequence_T]):
     """"""
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_MinBy_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_MinBy_TSource], System_Linq_Enumerable_MinBy_TKey]) -> System_Linq_Enumerable_MinBy_TSource:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_MinBy_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_MinBy_TSource], System_Linq_Enumerable_MinBy_TKey], comparer: System.Collections.Generic.IComparer[System_Linq_Enumerable_MinBy_TKey]) -> System_Linq_Enumerable_MinBy_TSource:
+    def __call__(self, start: System_Linq_Enumerable_InfiniteSequence_T, step: System_Linq_Enumerable_InfiniteSequence_T) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_InfiniteSequence_T]:
         ...
 
 
-class _Enumerable_MinBy:
+class _Enumerable_InfiniteSequence:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_MinBy_TSource]) -> System.Linq._Typed_Enumerable_MinBy[System_Linq_Enumerable_MinBy_TSource]:
-        ...
-
-
-class _Typed_Enumerable_Sequence(typing.Generic[System_Linq_Enumerable_Sequence_T]):
-    """"""
-
-    @overload
-    def __call__(self, start: System_Linq_Enumerable_Sequence_T, end_inclusive: System_Linq_Enumerable_Sequence_T, step: System_Linq_Enumerable_Sequence_T) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Sequence_T]:
-        ...
-
-
-class _Enumerable_Sequence:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Sequence_T]) -> System.Linq._Typed_Enumerable_Sequence[System_Linq_Enumerable_Sequence_T]:
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_InfiniteSequence_T]) -> System.Linq._Typed_Enumerable_InfiniteSequence[System_Linq_Enumerable_InfiniteSequence_T]:
         ...
 
 
@@ -1500,29 +1084,6 @@ class _Enumerable_GroupBy:
     """"""
 
     def __getitem__(self, type: typing.Type[System_Linq_Enumerable_GroupBy_TSource]) -> System.Linq._Typed_Enumerable_GroupBy[System_Linq_Enumerable_GroupBy_TSource]:
-        ...
-
-
-class _Typed_Enumerable_RightJoin(typing.Generic[System_Linq_Enumerable_RightJoin_TOuter]):
-    """"""
-
-    @overload
-    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_RightJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_RightJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_RightJoin_TOuter], System_Linq_Enumerable_RightJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_RightJoin_TInner], System_Linq_Enumerable_RightJoin_TKey], result_selector: typing.Callable[[System_Linq_Enumerable_RightJoin_TOuter, System_Linq_Enumerable_RightJoin_TInner], System_Linq_Enumerable_RightJoin_TResult]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_RightJoin_TResult]:
-        ...
-
-    @overload
-    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_RightJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_RightJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_RightJoin_TOuter], System_Linq_Enumerable_RightJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_RightJoin_TInner], System_Linq_Enumerable_RightJoin_TKey], result_selector: typing.Callable[[System_Linq_Enumerable_RightJoin_TOuter, System_Linq_Enumerable_RightJoin_TInner], System_Linq_Enumerable_RightJoin_TResult], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_RightJoin_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_RightJoin_TResult]:
-        ...
-
-    @overload
-    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_RightJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_RightJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_RightJoin_TOuter], System_Linq_Enumerable_RightJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_RightJoin_TInner], System_Linq_Enumerable_RightJoin_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_RightJoin_TKey] = None) -> System.Collections.Generic.IEnumerable[System.ValueTuple[System_Linq_Enumerable_RightJoin_TOuter, System_Linq_Enumerable_RightJoin_TInner]]:
-        ...
-
-
-class _Enumerable_RightJoin:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_RightJoin_TOuter]) -> System.Linq._Typed_Enumerable_RightJoin[System_Linq_Enumerable_RightJoin_TOuter]:
         ...
 
 
@@ -1580,6 +1141,421 @@ class _Enumerable_UnionBy:
     """"""
 
     def __getitem__(self, type: typing.Type[System_Linq_Enumerable_UnionBy_TSource]) -> System.Linq._Typed_Enumerable_UnionBy[System_Linq_Enumerable_UnionBy_TSource]:
+        ...
+
+
+class _Typed_Enumerable_Any(typing.Generic[System_Linq_Enumerable_Any_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Any_TSource]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Any_TSource], predicate: typing.Callable[[System_Linq_Enumerable_Any_TSource], bool]) -> bool:
+        ...
+
+
+class _Enumerable_Any:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Any_TSource]) -> System.Linq._Typed_Enumerable_Any[System_Linq_Enumerable_Any_TSource]:
+        ...
+
+
+class _Typed_Enumerable_All(typing.Generic[System_Linq_Enumerable_All_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_All_TSource], predicate: typing.Callable[[System_Linq_Enumerable_All_TSource], bool]) -> bool:
+        ...
+
+
+class _Enumerable_All:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_All_TSource]) -> System.Linq._Typed_Enumerable_All[System_Linq_Enumerable_All_TSource]:
+        ...
+
+
+class _Typed_Enumerable_SelectMany(typing.Generic[System_Linq_Enumerable_SelectMany_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SelectMany_TSource], selector: typing.Callable[[System_Linq_Enumerable_SelectMany_TSource], typing.List[System_Linq_Enumerable_SelectMany_TResult]]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SelectMany_TResult]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SelectMany_TSource], selector: typing.Callable[[System_Linq_Enumerable_SelectMany_TSource, int], typing.List[System_Linq_Enumerable_SelectMany_TResult]]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SelectMany_TResult]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SelectMany_TSource], collection_selector: typing.Callable[[System_Linq_Enumerable_SelectMany_TSource, int], typing.List[System_Linq_Enumerable_SelectMany_TCollection]], result_selector: typing.Callable[[System_Linq_Enumerable_SelectMany_TSource, System_Linq_Enumerable_SelectMany_TCollection], System_Linq_Enumerable_SelectMany_TResult]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SelectMany_TResult]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SelectMany_TSource], collection_selector: typing.Callable[[System_Linq_Enumerable_SelectMany_TSource], typing.List[System_Linq_Enumerable_SelectMany_TCollection]], result_selector: typing.Callable[[System_Linq_Enumerable_SelectMany_TSource, System_Linq_Enumerable_SelectMany_TCollection], System_Linq_Enumerable_SelectMany_TResult]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SelectMany_TResult]:
+        ...
+
+
+class _Enumerable_SelectMany:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_SelectMany_TSource]) -> System.Linq._Typed_Enumerable_SelectMany[System_Linq_Enumerable_SelectMany_TSource]:
+        ...
+
+
+class _Typed_Enumerable_Distinct(typing.Generic[System_Linq_Enumerable_Distinct_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Distinct_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Distinct_TSource]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Distinct_TSource], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_Distinct_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Distinct_TSource]:
+        ...
+
+
+class _Enumerable_Distinct:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Distinct_TSource]) -> System.Linq._Typed_Enumerable_Distinct[System_Linq_Enumerable_Distinct_TSource]:
+        ...
+
+
+class _Typed_Enumerable_DistinctBy(typing.Generic[System_Linq_Enumerable_DistinctBy_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_DistinctBy_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_DistinctBy_TSource], System_Linq_Enumerable_DistinctBy_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_DistinctBy_TSource]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_DistinctBy_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_DistinctBy_TSource], System_Linq_Enumerable_DistinctBy_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_DistinctBy_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_DistinctBy_TSource]:
+        ...
+
+
+class _Enumerable_DistinctBy:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_DistinctBy_TSource]) -> System.Linq._Typed_Enumerable_DistinctBy[System_Linq_Enumerable_DistinctBy_TSource]:
+        ...
+
+
+class _Typed_Enumerable_ToArray(typing.Generic[System_Linq_Enumerable_ToArray_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToArray_TSource]) -> typing.List[System_Linq_Enumerable_ToArray_TSource]:
+        ...
+
+
+class _Enumerable_ToArray:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_ToArray_TSource]) -> System.Linq._Typed_Enumerable_ToArray[System_Linq_Enumerable_ToArray_TSource]:
+        ...
+
+
+class _Typed_Enumerable_ToList(typing.Generic[System_Linq_Enumerable_ToList_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToList_TSource]) -> System.Collections.Generic.List[System_Linq_Enumerable_ToList_TSource]:
+        ...
+
+
+class _Enumerable_ToList:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_ToList_TSource]) -> System.Linq._Typed_Enumerable_ToList[System_Linq_Enumerable_ToList_TSource]:
+        ...
+
+
+class _Typed_Enumerable_ToDictionary(typing.Generic[System_Linq_Enumerable_ToDictionary_TKey]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TValue]]) -> System.Collections.Generic.Dictionary[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TValue]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TValue]], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_ToDictionary_TKey]) -> System.Collections.Generic.Dictionary[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TValue]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System.ValueTuple[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TValue]]) -> System.Collections.Generic.Dictionary[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TValue]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System.ValueTuple[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TValue]], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_ToDictionary_TKey]) -> System.Collections.Generic.Dictionary[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TValue]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToDictionary_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_ToDictionary_TSource], System_Linq_Enumerable_ToDictionary_TKey]) -> System.Collections.Generic.Dictionary[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TSource]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToDictionary_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_ToDictionary_TSource], System_Linq_Enumerable_ToDictionary_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_ToDictionary_TKey]) -> System.Collections.Generic.Dictionary[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TSource]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToDictionary_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_ToDictionary_TSource], System_Linq_Enumerable_ToDictionary_TKey], element_selector: typing.Callable[[System_Linq_Enumerable_ToDictionary_TSource], System_Linq_Enumerable_ToDictionary_TElement]) -> System.Collections.Generic.Dictionary[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TElement]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToDictionary_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_ToDictionary_TSource], System_Linq_Enumerable_ToDictionary_TKey], element_selector: typing.Callable[[System_Linq_Enumerable_ToDictionary_TSource], System_Linq_Enumerable_ToDictionary_TElement], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_ToDictionary_TKey]) -> System.Collections.Generic.Dictionary[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TElement]:
+        ...
+
+
+class _Enumerable_ToDictionary:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_ToDictionary_TKey]) -> System.Linq._Typed_Enumerable_ToDictionary[System_Linq_Enumerable_ToDictionary_TKey]:
+        ...
+
+
+class _Typed_Enumerable_ToHashSet(typing.Generic[System_Linq_Enumerable_ToHashSet_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToHashSet_TSource]) -> System.Collections.Generic.HashSet[System_Linq_Enumerable_ToHashSet_TSource]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToHashSet_TSource], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_ToHashSet_TSource]) -> System.Collections.Generic.HashSet[System_Linq_Enumerable_ToHashSet_TSource]:
+        ...
+
+
+class _Enumerable_ToHashSet:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_ToHashSet_TSource]) -> System.Linq._Typed_Enumerable_ToHashSet[System_Linq_Enumerable_ToHashSet_TSource]:
+        ...
+
+
+class _Typed_Enumerable_LeftJoin(typing.Generic[System_Linq_Enumerable_LeftJoin_TOuter]):
+    """"""
+
+    @overload
+    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LeftJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LeftJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_LeftJoin_TOuter], System_Linq_Enumerable_LeftJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_LeftJoin_TInner], System_Linq_Enumerable_LeftJoin_TKey], result_selector: typing.Callable[[System_Linq_Enumerable_LeftJoin_TOuter, System_Linq_Enumerable_LeftJoin_TInner], System_Linq_Enumerable_LeftJoin_TResult]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LeftJoin_TResult]:
+        ...
+
+    @overload
+    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LeftJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LeftJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_LeftJoin_TOuter], System_Linq_Enumerable_LeftJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_LeftJoin_TInner], System_Linq_Enumerable_LeftJoin_TKey], result_selector: typing.Callable[[System_Linq_Enumerable_LeftJoin_TOuter, System_Linq_Enumerable_LeftJoin_TInner], System_Linq_Enumerable_LeftJoin_TResult], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_LeftJoin_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LeftJoin_TResult]:
+        ...
+
+    @overload
+    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LeftJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LeftJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_LeftJoin_TOuter], System_Linq_Enumerable_LeftJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_LeftJoin_TInner], System_Linq_Enumerable_LeftJoin_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_LeftJoin_TKey] = None) -> System.Collections.Generic.IEnumerable[System.ValueTuple[System_Linq_Enumerable_LeftJoin_TOuter, System_Linq_Enumerable_LeftJoin_TInner]]:
+        ...
+
+
+class _Enumerable_LeftJoin:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_LeftJoin_TOuter]) -> System.Linq._Typed_Enumerable_LeftJoin[System_Linq_Enumerable_LeftJoin_TOuter]:
+        ...
+
+
+class _Typed_Enumerable_SequenceEqual(typing.Generic[System_Linq_Enumerable_SequenceEqual_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SequenceEqual_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SequenceEqual_TSource]) -> bool:
+        ...
+
+    @overload
+    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SequenceEqual_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_SequenceEqual_TSource], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_SequenceEqual_TSource]) -> bool:
+        ...
+
+
+class _Enumerable_SequenceEqual:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_SequenceEqual_TSource]) -> System.Linq._Typed_Enumerable_SequenceEqual[System_Linq_Enumerable_SequenceEqual_TSource]:
+        ...
+
+
+class _Typed_Enumerable_Take(typing.Generic[System_Linq_Enumerable_Take_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Take_TSource], count: int) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Take_TSource]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Take_TSource], range: System.Range) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Take_TSource]:
+        ...
+
+
+class _Enumerable_Take:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Take_TSource]) -> System.Linq._Typed_Enumerable_Take[System_Linq_Enumerable_Take_TSource]:
+        ...
+
+
+class _Typed_Enumerable_TakeWhile(typing.Generic[System_Linq_Enumerable_TakeWhile_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_TakeWhile_TSource], predicate: typing.Callable[[System_Linq_Enumerable_TakeWhile_TSource], bool]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_TakeWhile_TSource]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_TakeWhile_TSource], predicate: typing.Callable[[System_Linq_Enumerable_TakeWhile_TSource, int], bool]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_TakeWhile_TSource]:
+        ...
+
+
+class _Enumerable_TakeWhile:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_TakeWhile_TSource]) -> System.Linq._Typed_Enumerable_TakeWhile[System_Linq_Enumerable_TakeWhile_TSource]:
+        ...
+
+
+class _Typed_Enumerable_TakeLast(typing.Generic[System_Linq_Enumerable_TakeLast_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_TakeLast_TSource], count: int) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_TakeLast_TSource]:
+        ...
+
+
+class _Enumerable_TakeLast:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_TakeLast_TSource]) -> System.Linq._Typed_Enumerable_TakeLast[System_Linq_Enumerable_TakeLast_TSource]:
+        ...
+
+
+class _Typed_Enumerable_ToLookup(typing.Generic[System_Linq_Enumerable_ToLookup_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToLookup_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_ToLookup_TSource], System_Linq_Enumerable_ToLookup_TKey]) -> System.Linq.ILookup[System_Linq_Enumerable_ToLookup_TKey, System_Linq_Enumerable_ToLookup_TSource]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToLookup_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_ToLookup_TSource], System_Linq_Enumerable_ToLookup_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_ToLookup_TKey]) -> System.Linq.ILookup[System_Linq_Enumerable_ToLookup_TKey, System_Linq_Enumerable_ToLookup_TSource]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToLookup_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_ToLookup_TSource], System_Linq_Enumerable_ToLookup_TKey], element_selector: typing.Callable[[System_Linq_Enumerable_ToLookup_TSource], System_Linq_Enumerable_ToLookup_TElement]) -> System.Linq.ILookup[System_Linq_Enumerable_ToLookup_TKey, System_Linq_Enumerable_ToLookup_TElement]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToLookup_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_ToLookup_TSource], System_Linq_Enumerable_ToLookup_TKey], element_selector: typing.Callable[[System_Linq_Enumerable_ToLookup_TSource], System_Linq_Enumerable_ToLookup_TElement], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_ToLookup_TKey]) -> System.Linq.ILookup[System_Linq_Enumerable_ToLookup_TKey, System_Linq_Enumerable_ToLookup_TElement]:
+        ...
+
+
+class _Enumerable_ToLookup:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_ToLookup_TSource]) -> System.Linq._Typed_Enumerable_ToLookup[System_Linq_Enumerable_ToLookup_TSource]:
+        ...
+
+
+class _Typed_Enumerable_Concat(typing.Generic[System_Linq_Enumerable_Concat_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Concat_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Concat_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Concat_TSource]:
+        ...
+
+
+class _Enumerable_Concat:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Concat_TSource]) -> System.Linq._Typed_Enumerable_Concat[System_Linq_Enumerable_Concat_TSource]:
+        ...
+
+
+class _Typed_Enumerable_CountBy(typing.Generic[System_Linq_Enumerable_CountBy_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_CountBy_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_CountBy_TSource], System_Linq_Enumerable_CountBy_TKey], key_comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_CountBy_TKey] = None) -> System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Linq_Enumerable_CountBy_TKey, int]]:
+        ...
+
+
+class _Enumerable_CountBy:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_CountBy_TSource]) -> System.Linq._Typed_Enumerable_CountBy[System_Linq_Enumerable_CountBy_TSource]:
+        ...
+
+
+class _Typed_Enumerable_AggregateBy(typing.Generic[System_Linq_Enumerable_AggregateBy_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_AggregateBy_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_AggregateBy_TSource], System_Linq_Enumerable_AggregateBy_TKey], seed: System_Linq_Enumerable_AggregateBy_TAccumulate, func: typing.Callable[[System_Linq_Enumerable_AggregateBy_TAccumulate, System_Linq_Enumerable_AggregateBy_TSource], System_Linq_Enumerable_AggregateBy_TAccumulate], key_comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_AggregateBy_TKey] = None) -> System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Linq_Enumerable_AggregateBy_TKey, System_Linq_Enumerable_AggregateBy_TAccumulate]]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_AggregateBy_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_AggregateBy_TSource], System_Linq_Enumerable_AggregateBy_TKey], seed_selector: typing.Callable[[System_Linq_Enumerable_AggregateBy_TKey], System_Linq_Enumerable_AggregateBy_TAccumulate], func: typing.Callable[[System_Linq_Enumerable_AggregateBy_TAccumulate, System_Linq_Enumerable_AggregateBy_TSource], System_Linq_Enumerable_AggregateBy_TAccumulate], key_comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_AggregateBy_TKey] = None) -> System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Linq_Enumerable_AggregateBy_TKey, System_Linq_Enumerable_AggregateBy_TAccumulate]]:
+        ...
+
+
+class _Enumerable_AggregateBy:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_AggregateBy_TSource]) -> System.Linq._Typed_Enumerable_AggregateBy[System_Linq_Enumerable_AggregateBy_TSource]:
+        ...
+
+
+class _Typed_Enumerable_ElementAt(typing.Generic[System_Linq_Enumerable_ElementAt_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ElementAt_TSource], index: int) -> System_Linq_Enumerable_ElementAt_TSource:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ElementAt_TSource], index: System.Index) -> System_Linq_Enumerable_ElementAt_TSource:
+        ...
+
+
+class _Enumerable_ElementAt:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_ElementAt_TSource]) -> System.Linq._Typed_Enumerable_ElementAt[System_Linq_Enumerable_ElementAt_TSource]:
+        ...
+
+
+class _Typed_Enumerable_ElementAtOrDefault(typing.Generic[System_Linq_Enumerable_ElementAtOrDefault_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ElementAtOrDefault_TSource], index: int) -> System_Linq_Enumerable_ElementAtOrDefault_TSource:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ElementAtOrDefault_TSource], index: System.Index) -> System_Linq_Enumerable_ElementAtOrDefault_TSource:
+        ...
+
+
+class _Enumerable_ElementAtOrDefault:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_ElementAtOrDefault_TSource]) -> System.Linq._Typed_Enumerable_ElementAtOrDefault[System_Linq_Enumerable_ElementAtOrDefault_TSource]:
+        ...
+
+
+class _Typed_Enumerable_Cast(typing.Generic[System_Linq_Enumerable_Cast_TResult]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.IEnumerable) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Cast_TResult]:
+        ...
+
+
+class _Enumerable_Cast:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Cast_TResult]) -> System.Linq._Typed_Enumerable_Cast[System_Linq_Enumerable_Cast_TResult]:
         ...
 
 
@@ -1681,192 +1657,41 @@ class _Enumerable_MaxBy:
         ...
 
 
-class _Typed_Enumerable_CountBy(typing.Generic[System_Linq_Enumerable_CountBy_TSource]):
+class _Typed_Enumerable_Where(typing.Generic[System_Linq_Enumerable_Where_TSource]):
     """"""
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_CountBy_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_CountBy_TSource], System_Linq_Enumerable_CountBy_TKey], key_comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_CountBy_TKey] = None) -> System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Linq_Enumerable_CountBy_TKey, int]]:
-        ...
-
-
-class _Enumerable_CountBy:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_CountBy_TSource]) -> System.Linq._Typed_Enumerable_CountBy[System_Linq_Enumerable_CountBy_TSource]:
-        ...
-
-
-class _Typed_Enumerable_Count(typing.Generic[System_Linq_Enumerable_Count_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Count_TSource]) -> int:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Where_TSource], predicate: typing.Callable[[System_Linq_Enumerable_Where_TSource], bool]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Where_TSource]:
         ...
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Count_TSource], predicate: typing.Callable[[System_Linq_Enumerable_Count_TSource], bool]) -> int:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Where_TSource], predicate: typing.Callable[[System_Linq_Enumerable_Where_TSource, int], bool]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Where_TSource]:
         ...
 
 
-class _Enumerable_Count:
+class _Enumerable_Where:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Count_TSource]) -> System.Linq._Typed_Enumerable_Count[System_Linq_Enumerable_Count_TSource]:
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Where_TSource]) -> System.Linq._Typed_Enumerable_Where[System_Linq_Enumerable_Where_TSource]:
         ...
 
 
-class _Typed_Enumerable_TryGetNonEnumeratedCount(typing.Generic[System_Linq_Enumerable_TryGetNonEnumeratedCount_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_TryGetNonEnumeratedCount_TSource], count: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-
-class _Enumerable_TryGetNonEnumeratedCount:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_TryGetNonEnumeratedCount_TSource]) -> System.Linq._Typed_Enumerable_TryGetNonEnumeratedCount[System_Linq_Enumerable_TryGetNonEnumeratedCount_TSource]:
-        ...
-
-
-class _Typed_Enumerable_LongCount(typing.Generic[System_Linq_Enumerable_LongCount_TSource]):
+class _Typed_Enumerable_Reverse(typing.Generic[System_Linq_Enumerable_Reverse_TSource]):
     """"""
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LongCount_TSource]) -> int:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Reverse_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Reverse_TSource]:
         ...
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LongCount_TSource], predicate: typing.Callable[[System_Linq_Enumerable_LongCount_TSource], bool]) -> int:
+    def __call__(self, source: typing.List[System_Linq_Enumerable_Reverse_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Reverse_TSource]:
         ...
 
 
-class _Enumerable_LongCount:
+class _Enumerable_Reverse:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_LongCount_TSource]) -> System.Linq._Typed_Enumerable_LongCount[System_Linq_Enumerable_LongCount_TSource]:
-        ...
-
-
-class _Typed_Enumerable_Take(typing.Generic[System_Linq_Enumerable_Take_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Take_TSource], count: int) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Take_TSource]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Take_TSource], range: System.Range) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Take_TSource]:
-        ...
-
-
-class _Enumerable_Take:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Take_TSource]) -> System.Linq._Typed_Enumerable_Take[System_Linq_Enumerable_Take_TSource]:
-        ...
-
-
-class _Typed_Enumerable_TakeWhile(typing.Generic[System_Linq_Enumerable_TakeWhile_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_TakeWhile_TSource], predicate: typing.Callable[[System_Linq_Enumerable_TakeWhile_TSource], bool]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_TakeWhile_TSource]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_TakeWhile_TSource], predicate: typing.Callable[[System_Linq_Enumerable_TakeWhile_TSource, int], bool]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_TakeWhile_TSource]:
-        ...
-
-
-class _Enumerable_TakeWhile:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_TakeWhile_TSource]) -> System.Linq._Typed_Enumerable_TakeWhile[System_Linq_Enumerable_TakeWhile_TSource]:
-        ...
-
-
-class _Typed_Enumerable_TakeLast(typing.Generic[System_Linq_Enumerable_TakeLast_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_TakeLast_TSource], count: int) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_TakeLast_TSource]:
-        ...
-
-
-class _Enumerable_TakeLast:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_TakeLast_TSource]) -> System.Linq._Typed_Enumerable_TakeLast[System_Linq_Enumerable_TakeLast_TSource]:
-        ...
-
-
-class _Typed_Enumerable_Repeat(typing.Generic[System_Linq_Enumerable_Repeat_TResult]):
-    """"""
-
-    @overload
-    def __call__(self, element: System_Linq_Enumerable_Repeat_TResult, count: int) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Repeat_TResult]:
-        ...
-
-
-class _Enumerable_Repeat:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Repeat_TResult]) -> System.Linq._Typed_Enumerable_Repeat[System_Linq_Enumerable_Repeat_TResult]:
-        ...
-
-
-class _Typed_Enumerable_OfType(typing.Generic[System_Linq_Enumerable_OfType_TResult]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.IEnumerable) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_OfType_TResult]:
-        ...
-
-
-class _Enumerable_OfType:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_OfType_TResult]) -> System.Linq._Typed_Enumerable_OfType[System_Linq_Enumerable_OfType_TResult]:
-        ...
-
-
-class _Typed_Enumerable_LeftJoin(typing.Generic[System_Linq_Enumerable_LeftJoin_TOuter]):
-    """"""
-
-    @overload
-    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LeftJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LeftJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_LeftJoin_TOuter], System_Linq_Enumerable_LeftJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_LeftJoin_TInner], System_Linq_Enumerable_LeftJoin_TKey], result_selector: typing.Callable[[System_Linq_Enumerable_LeftJoin_TOuter, System_Linq_Enumerable_LeftJoin_TInner], System_Linq_Enumerable_LeftJoin_TResult]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LeftJoin_TResult]:
-        ...
-
-    @overload
-    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LeftJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LeftJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_LeftJoin_TOuter], System_Linq_Enumerable_LeftJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_LeftJoin_TInner], System_Linq_Enumerable_LeftJoin_TKey], result_selector: typing.Callable[[System_Linq_Enumerable_LeftJoin_TOuter, System_Linq_Enumerable_LeftJoin_TInner], System_Linq_Enumerable_LeftJoin_TResult], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_LeftJoin_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LeftJoin_TResult]:
-        ...
-
-    @overload
-    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LeftJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_LeftJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_LeftJoin_TOuter], System_Linq_Enumerable_LeftJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_LeftJoin_TInner], System_Linq_Enumerable_LeftJoin_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_LeftJoin_TKey] = None) -> System.Collections.Generic.IEnumerable[System.ValueTuple[System_Linq_Enumerable_LeftJoin_TOuter, System_Linq_Enumerable_LeftJoin_TInner]]:
-        ...
-
-
-class _Enumerable_LeftJoin:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_LeftJoin_TOuter]) -> System.Linq._Typed_Enumerable_LeftJoin[System_Linq_Enumerable_LeftJoin_TOuter]:
-        ...
-
-
-class _Typed_Enumerable_InfiniteSequence(typing.Generic[System_Linq_Enumerable_InfiniteSequence_T]):
-    """"""
-
-    @overload
-    def __call__(self, start: System_Linq_Enumerable_InfiniteSequence_T, step: System_Linq_Enumerable_InfiniteSequence_T) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_InfiniteSequence_T]:
-        ...
-
-
-class _Enumerable_InfiniteSequence:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_InfiniteSequence_T]) -> System.Linq._Typed_Enumerable_InfiniteSequence[System_Linq_Enumerable_InfiniteSequence_T]:
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Reverse_TSource]) -> System.Linq._Typed_Enumerable_Reverse[System_Linq_Enumerable_Reverse_TSource]:
         ...
 
 
@@ -1916,179 +1741,335 @@ class _Enumerable_LastOrDefault:
         ...
 
 
-class _Typed_Enumerable_Where(typing.Generic[System_Linq_Enumerable_Where_TSource]):
+class _Typed_Enumerable_Intersect(typing.Generic[System_Linq_Enumerable_Intersect_TSource]):
     """"""
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Where_TSource], predicate: typing.Callable[[System_Linq_Enumerable_Where_TSource], bool]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Where_TSource]:
+    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Intersect_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Intersect_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Intersect_TSource]:
         ...
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Where_TSource], predicate: typing.Callable[[System_Linq_Enumerable_Where_TSource, int], bool]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Where_TSource]:
+    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Intersect_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Intersect_TSource], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_Intersect_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Intersect_TSource]:
         ...
 
 
-class _Enumerable_Where:
+class _Enumerable_Intersect:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Where_TSource]) -> System.Linq._Typed_Enumerable_Where[System_Linq_Enumerable_Where_TSource]:
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Intersect_TSource]) -> System.Linq._Typed_Enumerable_Intersect[System_Linq_Enumerable_Intersect_TSource]:
         ...
 
 
-class _Typed_Enumerable_ToLookup(typing.Generic[System_Linq_Enumerable_ToLookup_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToLookup_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_ToLookup_TSource], System_Linq_Enumerable_ToLookup_TKey]) -> System.Linq.ILookup[System_Linq_Enumerable_ToLookup_TKey, System_Linq_Enumerable_ToLookup_TSource]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToLookup_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_ToLookup_TSource], System_Linq_Enumerable_ToLookup_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_ToLookup_TKey]) -> System.Linq.ILookup[System_Linq_Enumerable_ToLookup_TKey, System_Linq_Enumerable_ToLookup_TSource]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToLookup_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_ToLookup_TSource], System_Linq_Enumerable_ToLookup_TKey], element_selector: typing.Callable[[System_Linq_Enumerable_ToLookup_TSource], System_Linq_Enumerable_ToLookup_TElement]) -> System.Linq.ILookup[System_Linq_Enumerable_ToLookup_TKey, System_Linq_Enumerable_ToLookup_TElement]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToLookup_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_ToLookup_TSource], System_Linq_Enumerable_ToLookup_TKey], element_selector: typing.Callable[[System_Linq_Enumerable_ToLookup_TSource], System_Linq_Enumerable_ToLookup_TElement], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_ToLookup_TKey]) -> System.Linq.ILookup[System_Linq_Enumerable_ToLookup_TKey, System_Linq_Enumerable_ToLookup_TElement]:
-        ...
-
-
-class _Enumerable_ToLookup:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_ToLookup_TSource]) -> System.Linq._Typed_Enumerable_ToLookup[System_Linq_Enumerable_ToLookup_TSource]:
-        ...
-
-
-class _Typed_Enumerable_Concat(typing.Generic[System_Linq_Enumerable_Concat_TSource]):
+class _Typed_Enumerable_IntersectBy(typing.Generic[System_Linq_Enumerable_IntersectBy_TSource]):
     """"""
 
     @overload
-    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Concat_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Concat_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Concat_TSource]:
-        ...
-
-
-class _Enumerable_Concat:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Concat_TSource]) -> System.Linq._Typed_Enumerable_Concat[System_Linq_Enumerable_Concat_TSource]:
-        ...
-
-
-class _Typed_Enumerable_Zip(typing.Generic[System_Linq_Enumerable_Zip_TFirst]):
-    """"""
-
-    @overload
-    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Zip_TFirst], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Zip_TSecond], result_selector: typing.Callable[[System_Linq_Enumerable_Zip_TFirst, System_Linq_Enumerable_Zip_TSecond], System_Linq_Enumerable_Zip_TResult]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Zip_TResult]:
+    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_IntersectBy_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_IntersectBy_TKey], key_selector: typing.Callable[[System_Linq_Enumerable_IntersectBy_TSource], System_Linq_Enumerable_IntersectBy_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_IntersectBy_TSource]:
         ...
 
     @overload
-    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Zip_TFirst], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Zip_TSecond]) -> System.Collections.Generic.IEnumerable[System.ValueTuple[System_Linq_Enumerable_Zip_TFirst, System_Linq_Enumerable_Zip_TSecond]]:
-        ...
-
-    @overload
-    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Zip_TFirst], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Zip_TSecond], third: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Zip_TThird]) -> System.Collections.Generic.IEnumerable[System.ValueTuple[System_Linq_Enumerable_Zip_TFirst, System_Linq_Enumerable_Zip_TSecond, System_Linq_Enumerable_Zip_TThird]]:
+    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_IntersectBy_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_IntersectBy_TKey], key_selector: typing.Callable[[System_Linq_Enumerable_IntersectBy_TSource], System_Linq_Enumerable_IntersectBy_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_IntersectBy_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_IntersectBy_TSource]:
         ...
 
 
-class _Enumerable_Zip:
+class _Enumerable_IntersectBy:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Zip_TFirst]) -> System.Linq._Typed_Enumerable_Zip[System_Linq_Enumerable_Zip_TFirst]:
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_IntersectBy_TSource]) -> System.Linq._Typed_Enumerable_IntersectBy[System_Linq_Enumerable_IntersectBy_TSource]:
         ...
 
 
-class _Typed_Enumerable_ToArray(typing.Generic[System_Linq_Enumerable_ToArray_TSource]):
+class _Typed_Enumerable_Repeat(typing.Generic[System_Linq_Enumerable_Repeat_TResult]):
     """"""
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToArray_TSource]) -> typing.List[System_Linq_Enumerable_ToArray_TSource]:
+    def __call__(self, element: System_Linq_Enumerable_Repeat_TResult, count: int) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Repeat_TResult]:
         ...
 
 
-class _Enumerable_ToArray:
+class _Enumerable_Repeat:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_ToArray_TSource]) -> System.Linq._Typed_Enumerable_ToArray[System_Linq_Enumerable_ToArray_TSource]:
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Repeat_TResult]) -> System.Linq._Typed_Enumerable_Repeat[System_Linq_Enumerable_Repeat_TResult]:
         ...
 
 
-class _Typed_Enumerable_ToList(typing.Generic[System_Linq_Enumerable_ToList_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToList_TSource]) -> System.Collections.Generic.List[System_Linq_Enumerable_ToList_TSource]:
-        ...
-
-
-class _Enumerable_ToList:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_ToList_TSource]) -> System.Linq._Typed_Enumerable_ToList[System_Linq_Enumerable_ToList_TSource]:
-        ...
-
-
-class _Typed_Enumerable_ToDictionary(typing.Generic[System_Linq_Enumerable_ToDictionary_TKey]):
+class _Typed_Enumerable_RightJoin(typing.Generic[System_Linq_Enumerable_RightJoin_TOuter]):
     """"""
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TValue]]) -> System.Collections.Generic.Dictionary[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TValue]:
+    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_RightJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_RightJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_RightJoin_TOuter], System_Linq_Enumerable_RightJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_RightJoin_TInner], System_Linq_Enumerable_RightJoin_TKey], result_selector: typing.Callable[[System_Linq_Enumerable_RightJoin_TOuter, System_Linq_Enumerable_RightJoin_TInner], System_Linq_Enumerable_RightJoin_TResult]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_RightJoin_TResult]:
         ...
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TValue]], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_ToDictionary_TKey]) -> System.Collections.Generic.Dictionary[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TValue]:
+    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_RightJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_RightJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_RightJoin_TOuter], System_Linq_Enumerable_RightJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_RightJoin_TInner], System_Linq_Enumerable_RightJoin_TKey], result_selector: typing.Callable[[System_Linq_Enumerable_RightJoin_TOuter, System_Linq_Enumerable_RightJoin_TInner], System_Linq_Enumerable_RightJoin_TResult], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_RightJoin_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_RightJoin_TResult]:
         ...
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System.ValueTuple[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TValue]]) -> System.Collections.Generic.Dictionary[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TValue]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System.ValueTuple[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TValue]], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_ToDictionary_TKey]) -> System.Collections.Generic.Dictionary[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TValue]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToDictionary_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_ToDictionary_TSource], System_Linq_Enumerable_ToDictionary_TKey]) -> System.Collections.Generic.Dictionary[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TSource]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToDictionary_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_ToDictionary_TSource], System_Linq_Enumerable_ToDictionary_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_ToDictionary_TKey]) -> System.Collections.Generic.Dictionary[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TSource]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToDictionary_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_ToDictionary_TSource], System_Linq_Enumerable_ToDictionary_TKey], element_selector: typing.Callable[[System_Linq_Enumerable_ToDictionary_TSource], System_Linq_Enumerable_ToDictionary_TElement]) -> System.Collections.Generic.Dictionary[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TElement]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToDictionary_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_ToDictionary_TSource], System_Linq_Enumerable_ToDictionary_TKey], element_selector: typing.Callable[[System_Linq_Enumerable_ToDictionary_TSource], System_Linq_Enumerable_ToDictionary_TElement], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_ToDictionary_TKey]) -> System.Collections.Generic.Dictionary[System_Linq_Enumerable_ToDictionary_TKey, System_Linq_Enumerable_ToDictionary_TElement]:
+    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_RightJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_RightJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_RightJoin_TOuter], System_Linq_Enumerable_RightJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_RightJoin_TInner], System_Linq_Enumerable_RightJoin_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_RightJoin_TKey] = None) -> System.Collections.Generic.IEnumerable[System.ValueTuple[System_Linq_Enumerable_RightJoin_TOuter, System_Linq_Enumerable_RightJoin_TInner]]:
         ...
 
 
-class _Enumerable_ToDictionary:
+class _Enumerable_RightJoin:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_ToDictionary_TKey]) -> System.Linq._Typed_Enumerable_ToDictionary[System_Linq_Enumerable_ToDictionary_TKey]:
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_RightJoin_TOuter]) -> System.Linq._Typed_Enumerable_RightJoin[System_Linq_Enumerable_RightJoin_TOuter]:
         ...
 
 
-class _Typed_Enumerable_ToHashSet(typing.Generic[System_Linq_Enumerable_ToHashSet_TSource]):
+class _Typed_Enumerable_Shuffle(typing.Generic[System_Linq_Enumerable_Shuffle_TSource]):
     """"""
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToHashSet_TSource]) -> System.Collections.Generic.HashSet[System_Linq_Enumerable_ToHashSet_TSource]:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Shuffle_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Shuffle_TSource]:
+        ...
+
+
+class _Enumerable_Shuffle:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Shuffle_TSource]) -> System.Linq._Typed_Enumerable_Shuffle[System_Linq_Enumerable_Shuffle_TSource]:
+        ...
+
+
+class _Typed_Enumerable_Aggregate(typing.Generic[System_Linq_Enumerable_Aggregate_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Aggregate_TSource], func: typing.Callable[[System_Linq_Enumerable_Aggregate_TSource, System_Linq_Enumerable_Aggregate_TSource], System_Linq_Enumerable_Aggregate_TSource]) -> System_Linq_Enumerable_Aggregate_TSource:
         ...
 
     @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ToHashSet_TSource], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_ToHashSet_TSource]) -> System.Collections.Generic.HashSet[System_Linq_Enumerable_ToHashSet_TSource]:
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Aggregate_TSource], seed: System_Linq_Enumerable_Aggregate_TAccumulate, func: typing.Callable[[System_Linq_Enumerable_Aggregate_TAccumulate, System_Linq_Enumerable_Aggregate_TSource], System_Linq_Enumerable_Aggregate_TAccumulate]) -> System_Linq_Enumerable_Aggregate_TAccumulate:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Aggregate_TSource], seed: System_Linq_Enumerable_Aggregate_TAccumulate, func: typing.Callable[[System_Linq_Enumerable_Aggregate_TAccumulate, System_Linq_Enumerable_Aggregate_TSource], System_Linq_Enumerable_Aggregate_TAccumulate], result_selector: typing.Callable[[System_Linq_Enumerable_Aggregate_TAccumulate], System_Linq_Enumerable_Aggregate_TResult]) -> System_Linq_Enumerable_Aggregate_TResult:
         ...
 
 
-class _Enumerable_ToHashSet:
+class _Enumerable_Aggregate:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_ToHashSet_TSource]) -> System.Linq._Typed_Enumerable_ToHashSet[System_Linq_Enumerable_ToHashSet_TSource]:
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Aggregate_TSource]) -> System.Linq._Typed_Enumerable_Aggregate[System_Linq_Enumerable_Aggregate_TSource]:
+        ...
+
+
+class _Typed_Enumerable_OfType(typing.Generic[System_Linq_Enumerable_OfType_TResult]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.IEnumerable) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_OfType_TResult]:
+        ...
+
+
+class _Enumerable_OfType:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_OfType_TResult]) -> System.Linq._Typed_Enumerable_OfType[System_Linq_Enumerable_OfType_TResult]:
+        ...
+
+
+class _Typed_Enumerable_Except(typing.Generic[System_Linq_Enumerable_Except_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Except_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Except_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Except_TSource]:
+        ...
+
+    @overload
+    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Except_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Except_TSource], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_Except_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Except_TSource]:
+        ...
+
+
+class _Enumerable_Except:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Except_TSource]) -> System.Linq._Typed_Enumerable_Except[System_Linq_Enumerable_Except_TSource]:
+        ...
+
+
+class _Typed_Enumerable_ExceptBy(typing.Generic[System_Linq_Enumerable_ExceptBy_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ExceptBy_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ExceptBy_TKey], key_selector: typing.Callable[[System_Linq_Enumerable_ExceptBy_TSource], System_Linq_Enumerable_ExceptBy_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ExceptBy_TSource]:
+        ...
+
+    @overload
+    def __call__(self, first: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ExceptBy_TSource], second: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ExceptBy_TKey], key_selector: typing.Callable[[System_Linq_Enumerable_ExceptBy_TSource], System_Linq_Enumerable_ExceptBy_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_ExceptBy_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_ExceptBy_TSource]:
+        ...
+
+
+class _Enumerable_ExceptBy:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_ExceptBy_TSource]) -> System.Linq._Typed_Enumerable_ExceptBy[System_Linq_Enumerable_ExceptBy_TSource]:
+        ...
+
+
+class _Typed_Enumerable_Average(typing.Generic[System_Linq_Enumerable_Average_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], int]) -> float:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], int]) -> float:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], float]) -> float:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], float]) -> float:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], float]) -> float:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], typing.Optional[int]]) -> typing.Optional[float]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], typing.Optional[int]]) -> typing.Optional[float]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], typing.Optional[float]]) -> typing.Optional[float]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], typing.Optional[float]]) -> typing.Optional[float]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Average_TSource], selector: typing.Callable[[System_Linq_Enumerable_Average_TSource], typing.Optional[float]]) -> typing.Optional[float]:
+        ...
+
+
+class _Enumerable_Average:
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[int]) -> float:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[float]) -> float:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[typing.Optional[int]]) -> typing.Optional[float]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[typing.Optional[float]]) -> typing.Optional[float]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Average_TSource]) -> System.Linq._Typed_Enumerable_Average[System_Linq_Enumerable_Average_TSource]:
+        ...
+
+
+class _Typed_Enumerable_Min(typing.Generic[System_Linq_Enumerable_Min_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource]) -> System_Linq_Enumerable_Min_TSource:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], comparer: System.Collections.Generic.IComparer[System_Linq_Enumerable_Min_TSource]) -> System_Linq_Enumerable_Min_TSource:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], int]) -> int:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], typing.Optional[int]]) -> typing.Optional[int]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], int]) -> int:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], typing.Optional[int]]) -> typing.Optional[int]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], float]) -> float:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], typing.Optional[float]]) -> typing.Optional[float]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], float]) -> float:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], typing.Optional[float]]) -> typing.Optional[float]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], float]) -> float:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], typing.Optional[float]]) -> typing.Optional[float]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Min_TSource], selector: typing.Callable[[System_Linq_Enumerable_Min_TSource], System_Linq_Enumerable_Min_TResult]) -> System_Linq_Enumerable_Min_TResult:
+        ...
+
+
+class _Enumerable_Min:
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[int]) -> int:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[typing.Optional[int]]) -> typing.Optional[int]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[float]) -> float:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[typing.Optional[float]]) -> typing.Optional[float]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Min_TSource]) -> System.Linq._Typed_Enumerable_Min[System_Linq_Enumerable_Min_TSource]:
+        ...
+
+
+class _Typed_Enumerable_MinBy(typing.Generic[System_Linq_Enumerable_MinBy_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_MinBy_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_MinBy_TSource], System_Linq_Enumerable_MinBy_TKey]) -> System_Linq_Enumerable_MinBy_TSource:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_MinBy_TSource], key_selector: typing.Callable[[System_Linq_Enumerable_MinBy_TSource], System_Linq_Enumerable_MinBy_TKey], comparer: System.Collections.Generic.IComparer[System_Linq_Enumerable_MinBy_TKey]) -> System_Linq_Enumerable_MinBy_TSource:
+        ...
+
+
+class _Enumerable_MinBy:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_MinBy_TSource]) -> System.Linq._Typed_Enumerable_MinBy[System_Linq_Enumerable_MinBy_TSource]:
         ...
 
 
@@ -2138,71 +2119,60 @@ class _Enumerable_SingleOrDefault:
         ...
 
 
-class _Typed_Enumerable_Join(typing.Generic[System_Linq_Enumerable_Join_TOuter]):
+class _Typed_Enumerable_GroupJoin(typing.Generic[System_Linq_Enumerable_GroupJoin_TOuter]):
     """"""
 
     @overload
-    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Join_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Join_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_Join_TOuter], System_Linq_Enumerable_Join_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_Join_TInner], System_Linq_Enumerable_Join_TKey], result_selector: typing.Callable[[System_Linq_Enumerable_Join_TOuter, System_Linq_Enumerable_Join_TInner], System_Linq_Enumerable_Join_TResult]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Join_TResult]:
+    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_GroupJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_GroupJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_GroupJoin_TOuter], System_Linq_Enumerable_GroupJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_GroupJoin_TInner], System_Linq_Enumerable_GroupJoin_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_GroupJoin_TKey] = None) -> System.Collections.Generic.IEnumerable[System.Linq.IGrouping[System_Linq_Enumerable_GroupJoin_TOuter, System_Linq_Enumerable_GroupJoin_TInner]]:
         ...
 
     @overload
-    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Join_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Join_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_Join_TOuter], System_Linq_Enumerable_Join_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_Join_TInner], System_Linq_Enumerable_Join_TKey], result_selector: typing.Callable[[System_Linq_Enumerable_Join_TOuter, System_Linq_Enumerable_Join_TInner], System_Linq_Enumerable_Join_TResult], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_Join_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Join_TResult]:
+    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_GroupJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_GroupJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_GroupJoin_TOuter], System_Linq_Enumerable_GroupJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_GroupJoin_TInner], System_Linq_Enumerable_GroupJoin_TKey], result_selector: typing.Callable[[System_Linq_Enumerable_GroupJoin_TOuter, typing.List[System_Linq_Enumerable_GroupJoin_TInner]], System_Linq_Enumerable_GroupJoin_TResult]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_GroupJoin_TResult]:
         ...
 
     @overload
-    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Join_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_Join_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_Join_TOuter], System_Linq_Enumerable_Join_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_Join_TInner], System_Linq_Enumerable_Join_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_Join_TKey] = None) -> System.Collections.Generic.IEnumerable[System.ValueTuple[System_Linq_Enumerable_Join_TOuter, System_Linq_Enumerable_Join_TInner]]:
+    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_GroupJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_GroupJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_GroupJoin_TOuter], System_Linq_Enumerable_GroupJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_GroupJoin_TInner], System_Linq_Enumerable_GroupJoin_TKey], result_selector: typing.Callable[[System_Linq_Enumerable_GroupJoin_TOuter, typing.List[System_Linq_Enumerable_GroupJoin_TInner]], System_Linq_Enumerable_GroupJoin_TResult], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_GroupJoin_TKey]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_GroupJoin_TResult]:
         ...
 
 
-class _Enumerable_Join:
+class _Enumerable_GroupJoin:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_Join_TOuter]) -> System.Linq._Typed_Enumerable_Join[System_Linq_Enumerable_Join_TOuter]:
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_GroupJoin_TOuter]) -> System.Linq._Typed_Enumerable_GroupJoin[System_Linq_Enumerable_GroupJoin_TOuter]:
+        ...
+
+
+class _Typed_Enumerable_DefaultIfEmpty(typing.Generic[System_Linq_Enumerable_DefaultIfEmpty_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_DefaultIfEmpty_TSource]) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_DefaultIfEmpty_TSource]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_DefaultIfEmpty_TSource], default_value: System_Linq_Enumerable_DefaultIfEmpty_TSource) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_DefaultIfEmpty_TSource]:
+        ...
+
+
+class _Enumerable_DefaultIfEmpty:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_DefaultIfEmpty_TSource]) -> System.Linq._Typed_Enumerable_DefaultIfEmpty[System_Linq_Enumerable_DefaultIfEmpty_TSource]:
         ...
 
 
 class Enumerable(System.Object):
     """This class has no documentation."""
 
-    distinct: System.Linq._Enumerable_Distinct
-
-    distinct_by: System.Linq._Enumerable_DistinctBy
-
-    index: System.Linq._Enumerable_Index
-
-    chunk: System.Linq._Enumerable_Chunk
-
-    sequence_equal: System.Linq._Enumerable_SequenceEqual
-
-    reverse: System.Linq._Enumerable_Reverse
-
-    default_if_empty: System.Linq._Enumerable_DefaultIfEmpty
-
-    shuffle: System.Linq._Enumerable_Shuffle
-
-    first: System.Linq._Enumerable_First
-
-    first_or_default: System.Linq._Enumerable_FirstOrDefault
-
-    Except: System.Linq._Enumerable_Except
-
-    except_by: System.Linq._Enumerable_ExceptBy
-
-    sum: System.Linq._Enumerable_Sum
-
-    as_enumerable: System.Linq._Enumerable_AsEnumerable
-
-    empty: System.Linq._Enumerable_Empty
-
     append: System.Linq._Enumerable_Append
 
     prepend: System.Linq._Enumerable_Prepend
 
-    element_at: System.Linq._Enumerable_ElementAt
+    skip: System.Linq._Enumerable_Skip
 
-    element_at_or_default: System.Linq._Enumerable_ElementAtOrDefault
+    skip_while: System.Linq._Enumerable_SkipWhile
 
-    average: System.Linq._Enumerable_Average
+    skip_last: System.Linq._Enumerable_SkipLast
 
     order: System.Linq._Enumerable_Order
 
@@ -2216,53 +2186,23 @@ class Enumerable(System.Object):
 
     then_by_descending: System.Linq._Enumerable_ThenByDescending
 
-    group_join: System.Linq._Enumerable_GroupJoin
+    sum: System.Linq._Enumerable_Sum
 
-    aggregate_by: System.Linq._Enumerable_AggregateBy
+    index: System.Linq._Enumerable_Index
 
-    any: System.Linq._Enumerable_Any
-
-    all: System.Linq._Enumerable_All
-
-    aggregate: System.Linq._Enumerable_Aggregate
-
-    intersect: System.Linq._Enumerable_Intersect
-
-    intersect_by: System.Linq._Enumerable_IntersectBy
-
-    select: System.Linq._Enumerable_Select
-
-    select_many: System.Linq._Enumerable_SelectMany
-
-    cast: System.Linq._Enumerable_Cast
-
-    skip: System.Linq._Enumerable_Skip
-
-    skip_while: System.Linq._Enumerable_SkipWhile
-
-    skip_last: System.Linq._Enumerable_SkipLast
-
-    min: System.Linq._Enumerable_Min
-
-    min_by: System.Linq._Enumerable_MinBy
+    chunk: System.Linq._Enumerable_Chunk
 
     sequence: System.Linq._Enumerable_Sequence
 
-    group_by: System.Linq._Enumerable_GroupBy
+    as_enumerable: System.Linq._Enumerable_AsEnumerable
 
-    right_join: System.Linq._Enumerable_RightJoin
+    empty: System.Linq._Enumerable_Empty
 
-    contains: System.Linq._Enumerable_Contains
+    first: System.Linq._Enumerable_First
 
-    union: System.Linq._Enumerable_Union
+    first_or_default: System.Linq._Enumerable_FirstOrDefault
 
-    union_by: System.Linq._Enumerable_UnionBy
-
-    max: System.Linq._Enumerable_Max
-
-    max_by: System.Linq._Enumerable_MaxBy
-
-    count_by: System.Linq._Enumerable_CountBy
+    select: System.Linq._Enumerable_Select
 
     count: System.Linq._Enumerable_Count
 
@@ -2270,31 +2210,29 @@ class Enumerable(System.Object):
 
     long_count: System.Linq._Enumerable_LongCount
 
-    take: System.Linq._Enumerable_Take
+    zip: System.Linq._Enumerable_Zip
 
-    take_while: System.Linq._Enumerable_TakeWhile
-
-    take_last: System.Linq._Enumerable_TakeLast
-
-    repeat: System.Linq._Enumerable_Repeat
-
-    of_type: System.Linq._Enumerable_OfType
-
-    left_join: System.Linq._Enumerable_LeftJoin
+    join: System.Linq._Enumerable_Join
 
     infinite_sequence: System.Linq._Enumerable_InfiniteSequence
 
-    last: System.Linq._Enumerable_Last
+    group_by: System.Linq._Enumerable_GroupBy
 
-    last_or_default: System.Linq._Enumerable_LastOrDefault
+    contains: System.Linq._Enumerable_Contains
 
-    where: System.Linq._Enumerable_Where
+    union: System.Linq._Enumerable_Union
 
-    to_lookup: System.Linq._Enumerable_ToLookup
+    union_by: System.Linq._Enumerable_UnionBy
 
-    concat: System.Linq._Enumerable_Concat
+    any: System.Linq._Enumerable_Any
 
-    zip: System.Linq._Enumerable_Zip
+    all: System.Linq._Enumerable_All
+
+    select_many: System.Linq._Enumerable_SelectMany
+
+    distinct: System.Linq._Enumerable_Distinct
+
+    distinct_by: System.Linq._Enumerable_DistinctBy
 
     to_array: System.Linq._Enumerable_ToArray
 
@@ -2304,37 +2242,76 @@ class Enumerable(System.Object):
 
     to_hash_set: System.Linq._Enumerable_ToHashSet
 
+    left_join: System.Linq._Enumerable_LeftJoin
+
+    sequence_equal: System.Linq._Enumerable_SequenceEqual
+
+    take: System.Linq._Enumerable_Take
+
+    take_while: System.Linq._Enumerable_TakeWhile
+
+    take_last: System.Linq._Enumerable_TakeLast
+
+    to_lookup: System.Linq._Enumerable_ToLookup
+
+    concat: System.Linq._Enumerable_Concat
+
+    count_by: System.Linq._Enumerable_CountBy
+
+    aggregate_by: System.Linq._Enumerable_AggregateBy
+
+    element_at: System.Linq._Enumerable_ElementAt
+
+    element_at_or_default: System.Linq._Enumerable_ElementAtOrDefault
+
+    cast: System.Linq._Enumerable_Cast
+
+    max: System.Linq._Enumerable_Max
+
+    max_by: System.Linq._Enumerable_MaxBy
+
+    where: System.Linq._Enumerable_Where
+
+    reverse: System.Linq._Enumerable_Reverse
+
+    last: System.Linq._Enumerable_Last
+
+    last_or_default: System.Linq._Enumerable_LastOrDefault
+
+    intersect: System.Linq._Enumerable_Intersect
+
+    intersect_by: System.Linq._Enumerable_IntersectBy
+
+    repeat: System.Linq._Enumerable_Repeat
+
+    right_join: System.Linq._Enumerable_RightJoin
+
+    shuffle: System.Linq._Enumerable_Shuffle
+
+    aggregate: System.Linq._Enumerable_Aggregate
+
+    of_type: System.Linq._Enumerable_OfType
+
+    Except: System.Linq._Enumerable_Except
+
+    except_by: System.Linq._Enumerable_ExceptBy
+
+    average: System.Linq._Enumerable_Average
+
+    min: System.Linq._Enumerable_Min
+
+    min_by: System.Linq._Enumerable_MinBy
+
     single: System.Linq._Enumerable_Single
 
     single_or_default: System.Linq._Enumerable_SingleOrDefault
 
-    join: System.Linq._Enumerable_Join
+    group_join: System.Linq._Enumerable_GroupJoin
+
+    default_if_empty: System.Linq._Enumerable_DefaultIfEmpty
 
     @staticmethod
     def range(start: int, count: int) -> System.Collections.Generic.IEnumerable[int]:
-        ...
-
-
-class _Typed_IOrderedEnumerable_CreateOrderedEnumerable(typing.Generic[System_Linq_IOrderedEnumerable_CreateOrderedEnumerable_TKey]):
-    """"""
-
-    @overload
-    def __call__(self, key_selector: typing.Callable[[System_Linq_IOrderedEnumerable_TElement], System_Linq_IOrderedEnumerable_CreateOrderedEnumerable_TKey], comparer: System.Collections.Generic.IComparer[System_Linq_IOrderedEnumerable_CreateOrderedEnumerable_TKey], descending: bool) -> System.Linq.IOrderedEnumerable[System_Linq_IOrderedEnumerable_TElement]:
-        ...
-
-
-class _IOrderedEnumerable_CreateOrderedEnumerable:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Linq_IOrderedEnumerable_CreateOrderedEnumerable_TKey]) -> System.Linq._Typed_IOrderedEnumerable_CreateOrderedEnumerable[System_Linq_IOrderedEnumerable_CreateOrderedEnumerable_TKey]:
-        ...
-
-
-class IOrderedEnumerable(typing.Generic[System_Linq_IOrderedEnumerable_TElement], System.Collections.Generic.IEnumerable[System_Linq_IOrderedEnumerable_TElement], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def create_ordered_enumerable(self) -> System.Linq._IOrderedEnumerable_CreateOrderedEnumerable:
         ...
 
 
@@ -2377,6 +2354,29 @@ class Lookup(typing.Generic[System_Linq_Lookup_TKey, System_Linq_Lookup_TElement
         ...
 
     def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System.Linq.IGrouping[System_Linq_Lookup_TKey, System_Linq_Lookup_TElement]]:
+        ...
+
+
+class _Typed_IOrderedEnumerable_CreateOrderedEnumerable(typing.Generic[System_Linq_IOrderedEnumerable_CreateOrderedEnumerable_TKey]):
+    """"""
+
+    @overload
+    def __call__(self, key_selector: typing.Callable[[System_Linq_IOrderedEnumerable_TElement], System_Linq_IOrderedEnumerable_CreateOrderedEnumerable_TKey], comparer: System.Collections.Generic.IComparer[System_Linq_IOrderedEnumerable_CreateOrderedEnumerable_TKey], descending: bool) -> System.Linq.IOrderedEnumerable[System_Linq_IOrderedEnumerable_TElement]:
+        ...
+
+
+class _IOrderedEnumerable_CreateOrderedEnumerable:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_IOrderedEnumerable_CreateOrderedEnumerable_TKey]) -> System.Linq._Typed_IOrderedEnumerable_CreateOrderedEnumerable[System_Linq_IOrderedEnumerable_CreateOrderedEnumerable_TKey]:
+        ...
+
+
+class IOrderedEnumerable(typing.Generic[System_Linq_IOrderedEnumerable_TElement], System.Collections.Generic.IEnumerable[System_Linq_IOrderedEnumerable_TElement], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def create_ordered_enumerable(self) -> System.Linq._IOrderedEnumerable_CreateOrderedEnumerable:
         ...
 
 

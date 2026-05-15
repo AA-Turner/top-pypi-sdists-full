@@ -124,6 +124,18 @@ def test_detect_target_cloud_provider_understands_gcp_and_aws_aliases():
 def test_bootstrap_imports_gcp_cli_context_into_env(tmp_path: Path, monkeypatch):
     import sage.core.credentials as credentials
 
+    # Clear inherited GCP env vars so the bootstrap path actually reaches
+    # the mocked `gcloud config get-value ...` calls instead of pulling
+    # the user's real GOOGLE_CLOUD_PROJECT (e.g. when running locally
+    # with a personal .env loaded). Without this, the test reads the
+    # developer's real project ID and asserts "demo-project" wrongly.
+    for k in (
+        "GOOGLE_CLOUD_PROJECT", "CLOUDSDK_CORE_PROJECT",
+        "GOOGLE_CLOUD_REGION", "CLOUDSDK_COMPUTE_REGION",
+        "GOOGLE_CLOUD_ACCOUNT", "GCP_PROJECT_ID", "GCP_REGION",
+    ):
+        monkeypatch.delenv(k, raising=False)
+
     adc_path = tmp_path / "adc.json"
     adc_path.write_text("{}", encoding="utf-8")
     monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", str(adc_path))

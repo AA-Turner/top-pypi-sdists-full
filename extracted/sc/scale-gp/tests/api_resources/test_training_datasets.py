@@ -24,7 +24,7 @@ class TestTrainingDatasets:
     def test_method_create(self, client: SGPClient) -> None:
         training_dataset = client.training_datasets.create(
             account_id="account_id",
-            file=b"raw file contents",
+            file="file",
             name="name",
             schema_type="GENERATION",
         )
@@ -35,7 +35,7 @@ class TestTrainingDatasets:
     def test_raw_response_create(self, client: SGPClient) -> None:
         response = client.training_datasets.with_raw_response.create(
             account_id="account_id",
-            file=b"raw file contents",
+            file="file",
             name="name",
             schema_type="GENERATION",
         )
@@ -50,7 +50,7 @@ class TestTrainingDatasets:
     def test_streaming_response_create(self, client: SGPClient) -> None:
         with client.training_datasets.with_streaming_response.create(
             account_id="account_id",
-            file=b"raw file contents",
+            file="file",
             name="name",
             schema_type="GENERATION",
         ) as response:
@@ -183,7 +183,7 @@ class TestAsyncTrainingDatasets:
     async def test_method_create(self, async_client: AsyncSGPClient) -> None:
         training_dataset = await async_client.training_datasets.create(
             account_id="account_id",
-            file=b"raw file contents",
+            file="file",
             name="name",
             schema_type="GENERATION",
         )
@@ -194,7 +194,7 @@ class TestAsyncTrainingDatasets:
     async def test_raw_response_create(self, async_client: AsyncSGPClient) -> None:
         response = await async_client.training_datasets.with_raw_response.create(
             account_id="account_id",
-            file=b"raw file contents",
+            file="file",
             name="name",
             schema_type="GENERATION",
         )
@@ -209,7 +209,7 @@ class TestAsyncTrainingDatasets:
     async def test_streaming_response_create(self, async_client: AsyncSGPClient) -> None:
         async with async_client.training_datasets.with_streaming_response.create(
             account_id="account_id",
-            file=b"raw file contents",
+            file="file",
             name="name",
             schema_type="GENERATION",
         ) as response:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snappi
-Version: 1.53.1
+Version: 1.54.0
 Summary: The Snappi Open Traffic Generator Python Package
 Author-email: Keysight Technologies <andy.balogh@keysight.com>
 License-Expression: MIT
@@ -18,11 +18,11 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: <4,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: grpcio-tools~=1.80.0
-Requires-Dist: grpcio~=1.80.0
-Requires-Dist: requests
 Requires-Dist: protobuf~=6.33.6
+Requires-Dist: grpcio~=1.80.0
+Requires-Dist: grpcio-tools~=1.80.0
 Requires-Dist: PyYAML
+Requires-Dist: requests
 Requires-Dist: urllib3
 Requires-Dist: semantic_version
 Provides-Extra: ixnetwork

@@ -32,6 +32,7 @@ class TestRerankings:
             model_deployment_id="model_deployment_id",
             chunks=["string"],
             query="query",
+            instruction="instruction",
             model_request_parameters={"bindings": {"foo": "string"}},
         )
         assert_matches_type(RerankingResponse, reranking, path=["response"])
@@ -94,6 +95,7 @@ class TestAsyncRerankings:
             model_deployment_id="model_deployment_id",
             chunks=["string"],
             query="query",
+            instruction="instruction",
             model_request_parameters={"bindings": {"foo": "string"}},
         )
         assert_matches_type(RerankingResponse, reranking, path=["response"])

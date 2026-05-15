@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._internal import expect
+from ..._internal import expect, expect_callable
 from ...abc import Widget, Shape, Button
 from ...math import Point
 from ...shape import Rect
@@ -21,7 +21,7 @@ class ToggleButton(Button):
         anchor: ancre relative locale
         scale: facteur de redimensionnement
         rotation: angle de rotation        
-        opacity: opacité [0, 1]
+        opacity: opacité *[0, 1]*
         clipping: rendu des widgets enfants strictement dans le AABB de la hitbox
         callback: action au basculement
         condition: condition de basculement
@@ -48,17 +48,20 @@ class ToggleButton(Button):
             id: Any = None,
             give_id: bool = False,
         ):
+        # Transtypage et vérfications
+        state = bool(state)
+
+        if __debug__:
+            expect(on_widget, Widget)
+            expect(off_widget, (Widget, None))
+            expect_callable(callback, include_none=True)
+
         # Attributs publiques
         self._on_widget: Widget = on_widget.deepcopy()
         self._off_widget: Widget = off_widget.deepcopy() if off_widget is not None else self._on_widget.deepcopy()
         self._state: bool = state
         self._toggle_cb: Callable[[bool], Any] | None = callback
         self._current: Widget = self._on_widget if self._state else self._off_widget
-
-        if __debug__:
-            expect(self._on_widget, Widget)
-            expect(self._off_widget, Widget)
-            expect(self._state, bool)
 
         # Initialisation du bouton
         super().__init__(position, anchor, scale, rotation, opacity, clipping, callback=self._toggle, condition=condition, id=id, give_id=give_id)
@@ -77,7 +80,8 @@ class ToggleButton(Button):
     
     @on_widget.setter
     def on_widget(self, value: Widget) -> None:
-        assert isinstance(value, Widget), f"on_widget ({value}) must be a Widget"
+        if __debug__:
+            expect(value, Widget)
         self._on_widget = value.deepcopy()
         if self._state:
             self._set_widget(self._on_widget)
@@ -92,7 +96,8 @@ class ToggleButton(Button):
     
     @off_widget.setter
     def off_widget(self, value: Widget | None) -> None:
-        assert isinstance(value, Widget), f"off_widget ({value}) must be a Widget"
+        if __debug__:
+            expect(value, (Widget, None))
         self._off_widget = value.deepcopy() if value is not None else self._on_widget.deepcopy()
         if not self._state:
             self._set_widget(self._off_widget)
@@ -107,11 +112,11 @@ class ToggleButton(Button):
     
     @state.setter
     def state(self, value: bool) -> None:
-        assert isinstance(value, bool), f"state ({value}) must be a boolean"
+        value = bool(value)
         self._set_state(value)
 
     @property
-    def callback(self) -> Callable[[bool], Any]:
+    def callback(self) -> Callable[[bool], Any] | None:
         """Action au basculement
 
         L'action doit être un objet pouvant être appelé.
@@ -120,8 +125,9 @@ class ToggleButton(Button):
         return self._toggle_cb
     
     @callback.setter
-    def callback(self, value: Callable[[bool], Any]) -> None:
-        assert value is None or callable(value), f"callback ({value}) must be a callable"
+    def callback(self, value: Callable[[bool], Any] | None) -> None:
+        if __debug__:
+            expect_callable(value, include_none=True)
         self._toggle_cb = value
 
     @property
@@ -133,7 +139,11 @@ class ToggleButton(Button):
 
     # ======================================== PREDICATES ========================================
     def collidespoint(self, point) -> bool:
-        """Vérifie la collision avec un point"""
+        """Vérifie la collision avec un point
+        
+        Args:
+            point: ``Point`` à tester
+        """
         return self._current.collidespoint(point)
 
     def is_on(self) -> bool:
@@ -170,16 +180,21 @@ class ToggleButton(Button):
         if self._toggle_cb:
             self._toggle_cb(self._state, *args, **kwargs)
     
-    def _set_state(self, state: bool) -> None:
+    def _set_state(self, value: bool) -> None:
         """Change l'état courant"""
-        self._state = state
+        self._state = value
         widget = self._on_widget if self._state else self._off_widget
         self._set_widget(widget)
     
-    def _set_widget(self, widget: Widget) -> None:
+    def _set_widget(self, value: Widget) -> None:
         """Change le widget actif"""
         if self._current is not None:
             self.remove_child(self._current)
-        self._current = self.add_child(widget, name="background", z=0)
+        self._current = self.add_child(value, name="background", z=0)
         self._invalidate_scissor()
         self._invalidate_geometry()
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "ToggleButton",
+]

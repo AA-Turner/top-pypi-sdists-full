@@ -7,6 +7,7 @@ use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use uuid::Uuid;
 
 /// Monotonic epoch for lock-free timestamps (program start time)
 /// Using Instant ensures monotonic guarantees - time never goes backwards
@@ -134,6 +135,7 @@ const ACTIVITY_TIMEOUT_SECS: u64 = 120;
 pub struct IsolatedWebRTCAPI {
     api: webrtc::api::API,
     tube_id: String,
+    conversation_id: Option<String>,
     created_at: Instant,
     error_count: AtomicUsize,
     turn_failure_count: AtomicUsize,
@@ -145,7 +147,7 @@ pub struct IsolatedWebRTCAPI {
 impl IsolatedWebRTCAPI {
     /// Create completely isolated WebRTC API instance per tube
     /// PERFORMANCE: Only affects connection establishment, not frame processing
-    pub fn new(tube_id: String) -> Self {
+    pub fn new(tube_id: String, conversation_id: Option<String>) -> Self {
         // Configure SettingEngine with extended timeouts for trickle ICE
         let mut setting_engine = SettingEngine::default();
 
@@ -163,8 +165,9 @@ impl IsolatedWebRTCAPI {
         );
 
         debug!(
-            "Configured ICE timeouts for tube {} (disconnected: {}s, failed: {}s, keepalive: {}ms)",
+            "Configured ICE timeouts for tube {} (conversation_id: {}, disconnected: {}s, failed: {}s, keepalive: {}ms)",
             tube_id,
+            conversation_id.as_deref().unwrap_or("-"),
             crate::config::ICE_DISCONNECTED_TIMEOUT_SECS,
             crate::config::ICE_FAILED_TIMEOUT_SECS,
             crate::config::ICE_KEEPALIVE_INTERVAL_MS
@@ -178,6 +181,7 @@ impl IsolatedWebRTCAPI {
         Self {
             api,
             tube_id,
+            conversation_id,
             created_at: Instant::now(),
             error_count: AtomicUsize::new(0),
             turn_failure_count: AtomicUsize::new(0),
@@ -189,7 +193,10 @@ impl IsolatedWebRTCAPI {
     /// Like `new()` but also creates an H.264 video track and registers it with the
     /// MediaEngine + interceptor registry.  Used for GuacamoleWithVideo sessions.
     /// Returns `Err` if codec registration or interceptor setup fails.
-    pub fn new_with_video(tube_id: String) -> Result<Self, String> {
+    pub fn new_with_video(
+        tube_id: String,
+        conversation_id: Option<String>,
+    ) -> Result<Self, String> {
         let mut setting_engine = SettingEngine::default();
         setting_engine.set_ice_timeouts(
             Some(Duration::from_secs(
@@ -257,11 +264,16 @@ impl IsolatedWebRTCAPI {
             "guacr-stream".to_string(),
         ));
 
-        debug!("Created video track for tube {}", tube_id);
+        debug!(
+            "Created video track for tube {} (conversation_id: {})",
+            tube_id,
+            conversation_id.as_deref().unwrap_or("-")
+        );
 
         Ok(Self {
             api,
             tube_id,
+            conversation_id,
             created_at: Instant::now(),
             error_count: AtomicUsize::new(0),
             turn_failure_count: AtomicUsize::new(0),
@@ -301,8 +313,9 @@ impl IsolatedWebRTCAPI {
                 if e.to_string().contains("turn") || e.to_string().contains("TURN") {
                     let turn_failures = self.turn_failure_count.fetch_add(1, Ordering::Relaxed);
                     warn!(
-                        "TURN failure in isolated API for tube {} (failure #{}, total_errors:{})",
+                        "TURN failure in isolated API for tube {} (conversation_id: {}, failure #{}, total_errors:{})",
                         self.tube_id,
+                        self.conversation_id.as_deref().unwrap_or("-"),
                         turn_failures + 1,
                         count + 1
                     );
@@ -310,16 +323,18 @@ impl IsolatedWebRTCAPI {
                     // Circuit breaker: disable after 5 TURN failures
                     if turn_failures >= 4 {
                         error!(
-                            "Circuit breaker OPEN for tube {} after {} TURN failures",
+                            "Circuit breaker OPEN for tube {} (conversation_id: {}) after {} TURN failures",
                             self.tube_id,
+                            self.conversation_id.as_deref().unwrap_or("-"),
                             turn_failures + 1
                         );
                         self.is_healthy.store(false, Ordering::Release);
                     }
                 } else {
                     warn!(
-                        "WebRTC error in isolated API for tube {} (error #{}): {}",
+                        "WebRTC error in isolated API for tube {} (conversation_id: {}, error #{}): {}",
                         self.tube_id,
+                        self.conversation_id.as_deref().unwrap_or("-"),
                         count + 1,
                         e
                     );
@@ -327,8 +342,9 @@ impl IsolatedWebRTCAPI {
             }
             Ok(_) => {
                 debug!(
-                    "Successful peer connection created for tube {}",
-                    self.tube_id
+                    "Successful peer connection created for tube {} (conversation_id: {})",
+                    self.tube_id,
+                    self.conversation_id.as_deref().unwrap_or("-")
                 );
             }
         }
@@ -343,7 +359,11 @@ impl IsolatedWebRTCAPI {
 
     /// Force reset the circuit breaker (for recovery)
     pub fn reset_circuit_breaker(&self) {
-        info!("Resetting circuit breaker for tube {}", self.tube_id);
+        info!(
+            "Resetting circuit breaker for tube {} (conversation_id: {})",
+            self.tube_id,
+            self.conversation_id.as_deref().unwrap_or("-")
+        );
         self.error_count.store(0, Ordering::Release);
         self.turn_failure_count.store(0, Ordering::Release);
         self.is_healthy.store(true, Ordering::Release);
@@ -407,10 +427,10 @@ pub async fn create_peer_connection_isolated(
 pub async fn create_peer_connection(
     config: Option<RTCConfiguration>,
 ) -> webrtc::error::Result<RTCPeerConnection> {
-    warn!("DEPRECATED: Using global API singleton - this may cause TURN client corruption between tubes!");
+    warn!("DEPRECATED: Using global API singleton - this may cause TURN client corruption between tubes! (conversation_id: -)");
 
     // Fallback to a temporary isolated API for backward compatibility
-    let temp_api = IsolatedWebRTCAPI::new("legacy-global".to_string());
+    let temp_api = IsolatedWebRTCAPI::new("legacy-global".to_string(), None);
     create_peer_connection_isolated(&temp_api, config).await
 }
 
@@ -428,7 +448,7 @@ pub async fn create_data_channel(
     };
 
     debug!(
-        "Creating data channel '{}' with config: ordered={:?}, fully reliable with unlimited retransmits",
+        "Creating data channel '{}' with config: ordered={:?}, fully reliable with unlimited retransmits (conversation_id: -)",
         label, config.ordered
     );
 
@@ -611,15 +631,19 @@ impl WebRTCPeerConnection {
         client_version: String,     // For API calls
         enable_video: bool,         // true for GuacamoleWithVideo sessions
     ) -> Result<Self, String> {
-        debug!("Creating isolated WebRTC connection for tube {}", tube_id);
+        debug!(
+            "Creating isolated WebRTC connection for tube {} (conversation_id: {})",
+            tube_id,
+            conversation_id.as_deref().unwrap_or("-")
+        );
 
         // ISOLATION: Create dedicated WebRTC API instance for this tube.
         // For GuacamoleWithVideo sessions use new_with_video() which sets up the
         // MediaEngine and InterceptorRegistry needed for H.264 + TWCC.
         let isolated_api = Arc::new(if enable_video {
-            IsolatedWebRTCAPI::new_with_video(tube_id.clone())?
+            IsolatedWebRTCAPI::new_with_video(tube_id.clone(), conversation_id.clone())?
         } else {
-            IsolatedWebRTCAPI::new(tube_id.clone())
+            IsolatedWebRTCAPI::new(tube_id.clone(), conversation_id.clone())
         });
 
         // ISOLATION: Create circuit breaker for comprehensive failure protection
@@ -627,9 +651,13 @@ impl WebRTCPeerConnection {
 
         // Initialize per-tube network monitor to maintain isolation
         // Each tube gets its own monitor to prevent one failing tube from affecting others
-        let network_monitor = Arc::new(crate::webrtc_network_monitor::NetworkMonitor::new(
-            Default::default(),
-        ));
+        let network_monitor = Arc::new(
+            crate::webrtc_network_monitor::NetworkMonitor::new_with_context(
+                Default::default(),
+                Some(tube_id.clone()),
+                conversation_id.clone(),
+            ),
+        );
         let network_integration = Arc::new(
             crate::webrtc_network_monitor::WebRTCNetworkIntegration::new(Arc::clone(
                 &network_monitor,
@@ -640,8 +668,8 @@ impl WebRTCPeerConnection {
             Ok(guard) => Some(guard),
             Err(ResourceError::Exhausted { resource, limit }) => {
                 warn!(
-                    "ICE agent resource exhausted: {} limit ({}) exceeded (tube_id: {})",
-                    resource, limit, tube_id
+                    "ICE agent resource exhausted: {} limit ({}) exceeded (tube_id: {}, conversation_id: {})",
+                    resource, limit, tube_id, conversation_id.as_deref().unwrap_or("-")
                 );
                 return Err(format!(
                     "Resource exhausted: {resource} limit ({limit}) exceeded"
@@ -649,8 +677,10 @@ impl WebRTCPeerConnection {
             }
             Err(e) => {
                 error!(
-                    "Failed to acquire ICE agent permit: {} (tube_id: {})",
-                    e, tube_id
+                    "Failed to acquire ICE agent permit: {} (tube_id: {}, conversation_id: {})",
+                    e,
+                    tube_id,
+                    conversation_id.as_deref().unwrap_or("-")
                 );
                 return Err(format!("Failed to acquire ICE agent permit: {e}"));
             }
@@ -710,8 +740,9 @@ impl WebRTCPeerConnection {
                 .await
                 .map_err(|e| format!("add_track failed for tube {tube_id}: {e}"))?;
             debug!(
-                "Video track registered with peer connection (tube_id: {})",
-                tube_id
+                "Video track registered with peer connection (tube_id: {}, conversation_id: {})",
+                tube_id,
+                conversation_id.as_deref().unwrap_or("-")
             );
             Some((Arc::clone(track), sender))
         } else {
@@ -719,8 +750,8 @@ impl WebRTCPeerConnection {
         };
 
         debug!(
-            "Successfully created WebRTC peer connection with resource management (tube_id: {})",
-            tube_id
+            "Successfully created WebRTC peer connection with resource management (tube_id: {}, conversation_id: {})",
+            tube_id, conversation_id.as_deref().unwrap_or("-")
         );
 
         // Return the new WebRTCPeerConnection struct with isolated API and keepalive infrastructure
@@ -800,14 +831,15 @@ impl WebRTCPeerConnection {
         // Handle ICE candidates only when using trickle ICE
         if !self.trickle_ice {
             debug!(
-                "Not setting up ICE candidate handler - trickle ICE is disabled (tube_id: {})",
-                self.tube_id
+                "Not setting up ICE candidate handler - trickle ICE is disabled (tube_id: {}, conversation_id: {})",
+                self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
             );
             return;
         }
         debug!(
-            "Setting up ICE candidate handler (tube_id: {})",
-            self.tube_id
+            "Setting up ICE candidate handler (tube_id: {}, conversation_id: {})",
+            self.tube_id,
+            self.conversation_id.as_deref().unwrap_or("-")
         );
 
         // IMPORTANT: To avoid circular references that prevent ICE agent cleanup,
@@ -822,20 +854,20 @@ impl WebRTCPeerConnection {
         let context_signaling = context.clone();
 
         self.peer_connection.on_signaling_state_change(Box::new(move |state| {
-            debug!("Signaling state changed to: {:?} (tube_id: {})", state, context_signaling.tube_id);
+            debug!("Signaling state changed to: {:?} (tube_id: {}, conversation_id: {})", state, context_signaling.tube_id, context_signaling.conversation_id.as_deref().unwrap_or("-"));
             let context_clone = context_signaling.clone();
             Box::pin(async move {
                 // Check if remote description is now set (required to process incoming candidates)
                 let remote_desc = context_clone.peer_connection.remote_description().await;
                 if remote_desc.is_some() {
-                    debug!("Remote description set after signaling state change, flushing buffered INCOMING ICE candidates (tube_id: {})", context_clone.tube_id);
+                    debug!("Remote description set after signaling state change, flushing buffered INCOMING ICE candidates (tube_id: {}, conversation_id: {})", context_clone.tube_id, context_clone.conversation_id.as_deref().unwrap_or("-"));
                     // Flush pending candidates manually (no self reference)
                     let candidates_to_flush = {
                         let mut lock = context_clone.pending_candidates.lock();
                         std::mem::take(&mut *lock)
                     };
                     if !candidates_to_flush.is_empty() {
-                        warn!("Flushing {} buffered incoming ICE candidates (tube_id: {}, count: {})", candidates_to_flush.len(), context_clone.tube_id, candidates_to_flush.len());
+                        warn!("Flushing {} buffered incoming ICE candidates (tube_id: {}, count: {}, conversation_id: {})", candidates_to_flush.len(), context_clone.tube_id, candidates_to_flush.len(), context_clone.conversation_id.as_deref().unwrap_or("-"));
                         for (index, candidate_str) in candidates_to_flush.iter().enumerate() {
                             if !candidate_str.is_empty() {
                                 let candidate_init = RTCIceCandidateInit {
@@ -844,10 +876,10 @@ impl WebRTCPeerConnection {
                                 };
                                 match context_clone.peer_connection.add_ice_candidate(candidate_init).await {
                                     Ok(()) => {
-                                        info!("Successfully added buffered incoming ICE candidate (tube_id: {}, candidate: {}, index: {})", context_clone.tube_id, candidate_str, index);
+                                        info!("Successfully added buffered incoming ICE candidate (tube_id: {}, candidate: {}, index: {}, conversation_id: {})", context_clone.tube_id, candidate_str, index, context_clone.conversation_id.as_deref().unwrap_or("-"));
                                     }
                                     Err(e) => {
-                                        error!("Failed to add buffered incoming ICE candidate (tube_id: {}, candidate: {}, error: {}, index: {})", context_clone.tube_id, candidate_str, e, index);
+                                        error!("Failed to add buffered incoming ICE candidate (tube_id: {}, candidate: {}, error: {}, index: {}, conversation_id: {})", context_clone.tube_id, candidate_str, e, index, context_clone.conversation_id.as_deref().unwrap_or("-"));
                                     }
                                 }
                             }
@@ -861,7 +893,7 @@ impl WebRTCPeerConnection {
         let context_ice = context.clone();
 
         self.peer_connection.on_ice_candidate(Box::new(move |candidate: Option<RTCIceCandidate>| {
-            debug!("on_ice_candidate triggered (tube_id: {})", context_ice.tube_id);
+            debug!("on_ice_candidate triggered (tube_id: {}, conversation_id: {})", context_ice.tube_id, context_ice.conversation_id.as_deref().unwrap_or("-"));
 
             let context_handler = context_ice.clone();
 
@@ -875,7 +907,7 @@ impl WebRTCPeerConnection {
                         if context_handler.ice_gathering_start_millis.compare_exchange(
                             0, now_ms, Ordering::AcqRel, Ordering::Acquire
                         ).is_ok() {
-                            debug!("ICE gathering started (tube_id: {})", context_handler.tube_id);
+                            debug!("ICE gathering started (tube_id: {}, conversation_id: {})", context_handler.tube_id, context_handler.conversation_id.as_deref().unwrap_or("-"));
 
                             // Record metrics for ICE gathering start
                             if let Some(conversation_id) = &context_handler.conversation_id {
@@ -892,13 +924,13 @@ impl WebRTCPeerConnection {
 
                     // Convert the ICE candidate to a string representation
                     let candidate_str = format_ice_candidate(&c);
-                    debug!("ICE candidate gathered (tube_id: {}, candidate: {}, count: {})", context_handler.tube_id, candidate_str, count);
+                    debug!("ICE candidate gathered (tube_id: {}, candidate: {}, count: {}, conversation_id: {})", context_handler.tube_id, candidate_str, count, context_handler.conversation_id.as_deref().unwrap_or("-"));
 
                     // Enhanced debugging: Log detailed candidate information
                     Self::log_candidate_details_static(&candidate_str, "OUTGOING", &context_handler.tube_id);
 
                     // Send immediately - no buffering on send side!
-                    debug!("Sending ICE candidate immediately (trickle ICE) (tube_id: {})", context_handler.tube_id);
+                    debug!("Sending ICE candidate immediately (trickle ICE) (tube_id: {}, conversation_id: {})", context_handler.tube_id, context_handler.conversation_id.as_deref().unwrap_or("-"));
                     // Send ICE candidate manually (no self reference)
                     if let Some(sender) = &context_handler.signal_sender {
                         let message = SignalMessage {
@@ -906,6 +938,7 @@ impl WebRTCPeerConnection {
                             kind: "icecandidate".to_string(),
                             data: candidate_str,
                             conversation_id: context_handler.conversation_id.clone().unwrap_or_else(|| context_handler.tube_id.clone()),
+                            signal_id: Uuid::new_v4().to_string(),
                             progress_flag: Some(if context_handler.trickle_ice { 2 } else { 0 }),
                             progress_status: Some("OK".to_string()),
                             is_ok: Some(true),
@@ -930,8 +963,8 @@ impl WebRTCPeerConnection {
                     };
 
                     debug!(
-                        "ICE gathering complete (tube_id: {}, total_candidates: {}, duration: {:.1}s)",
-                        context_handler.tube_id, final_count, gathering_duration
+                        "ICE gathering complete (tube_id: {}, total_candidates: {}, duration: {:.1}s, conversation_id: {})",
+                        context_handler.tube_id, final_count, gathering_duration, context_handler.conversation_id.as_deref().unwrap_or("-")
                     );
 
                     // Record metrics for ICE gathering complete
@@ -950,6 +983,7 @@ impl WebRTCPeerConnection {
                             kind: "icecandidate".to_string(),
                             data: "".to_string(),
                             conversation_id: context_handler.conversation_id.clone().unwrap_or_else(|| context_handler.tube_id.clone()),
+                            signal_id: Uuid::new_v4().to_string(),
                             progress_flag: Some(if context_handler.trickle_ice { 2 } else { 0 }),
                             progress_status: Some("OK".to_string()),
                             is_ok: Some(true),
@@ -964,8 +998,9 @@ impl WebRTCPeerConnection {
     // Method to flush buffered INCOMING ICE candidates (receive-side buffering)
     async fn flush_buffered_incoming_ice_candidates(&self) {
         debug!(
-            "flush_buffered_incoming_ice_candidates called (tube_id: {})",
-            self.tube_id
+            "flush_buffered_incoming_ice_candidates called (tube_id: {}, conversation_id: {})",
+            self.tube_id,
+            self.conversation_id.as_deref().unwrap_or("-")
         );
 
         // Take the buffered candidates with a single lock operation
@@ -977,10 +1012,10 @@ impl WebRTCPeerConnection {
         // Add any buffered incoming candidates to the peer connection
         if !pending_candidates.is_empty() {
             warn!(
-                "Flushing {} buffered incoming ICE candidates (tube_id: {}, count: {})",
+                "Flushing {} buffered incoming ICE candidates (tube_id: {}, count: {}, conversation_id: {})",
                 pending_candidates.len(),
                 self.tube_id,
-                pending_candidates.len()
+                pending_candidates.len(), self.conversation_id.as_deref().unwrap_or("-")
             );
             for (index, candidate_str) in pending_candidates.iter().enumerate() {
                 if !candidate_str.is_empty() {
@@ -991,16 +1026,16 @@ impl WebRTCPeerConnection {
 
                     match self.peer_connection.add_ice_candidate(candidate_init).await {
                         Ok(()) => {
-                            info!("Successfully added buffered incoming ICE candidate (tube_id: {}, candidate: {}, index: {})", self.tube_id, candidate_str, index);
+                            info!("Successfully added buffered incoming ICE candidate (tube_id: {}, candidate: {}, index: {}, conversation_id: {})", self.tube_id, candidate_str, index, self.conversation_id.as_deref().unwrap_or("-"));
                         }
                         Err(e) => {
-                            error!("Failed to add buffered incoming ICE candidate (tube_id: {}, candidate: {}, error: {}, index: {})", self.tube_id, candidate_str, e, index);
+                            error!("Failed to add buffered incoming ICE candidate (tube_id: {}, candidate: {}, error: {}, index: {}, conversation_id: {})", self.tube_id, candidate_str, e, index, self.conversation_id.as_deref().unwrap_or("-"));
                         }
                     }
                 } else {
                     debug!(
-                        "Skipping empty buffered candidate (tube_id: {}, index: {})",
-                        self.tube_id, index
+                        "Skipping empty buffered candidate (tube_id: {}, index: {}, conversation_id: {})",
+                        self.tube_id, index, self.conversation_id.as_deref().unwrap_or("-")
                     );
                 }
             }
@@ -1009,6 +1044,7 @@ impl WebRTCPeerConnection {
             if self.trickle_ice && !pending_candidates.is_empty() {
                 let peer_conn_clone = self.peer_connection.clone();
                 let tube_id_clone = self.tube_id.clone();
+                let conversation_id_clone = self.conversation_id.clone();
                 let candidate_count = pending_candidates.len();
                 tokio::spawn(async move {
                     // Small delay to allow all candidates to be fully processed
@@ -1021,15 +1057,16 @@ impl WebRTCPeerConnection {
                     let _ = peer_conn_clone.get_stats().await;
 
                     debug!(
-                        "Triggered ICE connectivity check after flushing {} buffered trickle candidates (tube_id: {})",
-                        candidate_count, tube_id_clone
+                        "Triggered ICE connectivity check after flushing {} buffered trickle candidates (tube_id: {}, conversation_id: {})",
+                        candidate_count, tube_id_clone, conversation_id_clone.as_deref().unwrap_or("-")
                     );
                 });
             }
         } else {
             debug!(
-                "No buffered incoming ICE candidates to flush (tube_id: {})",
-                self.tube_id
+                "No buffered incoming ICE candidates to flush (tube_id: {}, conversation_id: {})",
+                self.tube_id,
+                self.conversation_id.as_deref().unwrap_or("-")
             );
         }
     }
@@ -1051,11 +1088,12 @@ impl WebRTCPeerConnection {
             let message = SignalMessage {
                 tube_id: self.tube_id.clone(),
                 kind: "icecandidate".to_string(),
-                data: candidate.to_string(), // Send the candidate string directly
+                data: candidate.to_string(),
                 conversation_id: self
                     .conversation_id
                     .clone()
-                    .unwrap_or_else(|| self.tube_id.clone()), // Use conversation_id if available, otherwise tube_id
+                    .unwrap_or_else(|| self.tube_id.clone()),
+                signal_id: Uuid::new_v4().to_string(),
                 progress_flag: _progress_flag,
                 progress_status: Some("OK".to_string()),
                 is_ok: Some(true),
@@ -1064,14 +1102,15 @@ impl WebRTCPeerConnection {
             // Try to send it, but don't fail if the channel is closed
             if let Err(e) = sender.send(message) {
                 warn!(
-                    "Failed to send ICE candidate signal (tube_id: {}, error: {})",
-                    self.tube_id, e
+                    "Failed to send ICE candidate signal (tube_id: {}, error: {}, conversation_id: {})",
+                    self.tube_id, e, self.conversation_id.as_deref().unwrap_or("-")
                 );
             }
         } else {
             warn!(
-                "Signal sender not available for ICE candidate (tube_id: {})",
-                self.tube_id
+                "Signal sender not available for ICE candidate (tube_id: {}, conversation_id: {})",
+                self.tube_id,
+                self.conversation_id.as_deref().unwrap_or("-")
             );
         }
     }
@@ -1086,11 +1125,12 @@ impl WebRTCPeerConnection {
             let message = SignalMessage {
                 tube_id: self.tube_id.clone(),
                 kind: "answer".to_string(),
-                data: answer_sdp.to_string(), // Send the answer SDP string directly
+                data: answer_sdp.to_string(),
                 conversation_id: self
                     .conversation_id
                     .clone()
-                    .unwrap_or_else(|| self.tube_id.clone()), // Use conversation_id if available, otherwise tube_id
+                    .unwrap_or_else(|| self.tube_id.clone()),
+                signal_id: Uuid::new_v4().to_string(),
                 progress_flag: _progress_flag,
                 progress_status: Some("OK".to_string()),
                 is_ok: Some(true),
@@ -1099,14 +1139,17 @@ impl WebRTCPeerConnection {
             // Try to send it, but don't fail if the channel is closed
             if let Err(e) = sender.send(message) {
                 warn!(
-                    "Failed to send answer signal (tube_id: {}, error: {})",
-                    self.tube_id, e
+                    "Failed to send answer signal (tube_id: {}, error: {}, conversation_id: {})",
+                    self.tube_id,
+                    e,
+                    self.conversation_id.as_deref().unwrap_or("-")
                 );
             }
         } else {
             warn!(
-                "Signal sender not available for answer (tube_id: {})",
-                self.tube_id
+                "Signal sender not available for answer (tube_id: {}, conversation_id: {})",
+                self.tube_id,
+                self.conversation_id.as_deref().unwrap_or("-")
             );
         }
     }
@@ -1125,7 +1168,8 @@ impl WebRTCPeerConnection {
                 conversation_id: self
                     .conversation_id
                     .clone()
-                    .unwrap_or_else(|| self.tube_id.clone()), // Use conversation_id if available, otherwise tube_id
+                    .unwrap_or_else(|| self.tube_id.clone()),
+                signal_id: Uuid::new_v4().to_string(),
                 progress_flag: _progress_flag,
                 progress_status: Some("OK".to_string()),
                 is_ok: Some(true),
@@ -1134,19 +1178,19 @@ impl WebRTCPeerConnection {
             // Try to send it, but don't fail if the channel is closed
             if let Err(e) = sender.send(message) {
                 warn!(
-                    "Failed to send connection state changed signal (tube_id: {}, error: {})",
-                    self.tube_id, e
+                    "Failed to send connection state changed signal (tube_id: {}, error: {}, conversation_id: {})",
+                    self.tube_id, e, self.conversation_id.as_deref().unwrap_or("-")
                 );
             } else {
                 debug!(
-                    "Successfully sent connection state changed signal (tube_id: {}, state: {})",
-                    self.tube_id, state
+                    "Successfully sent connection state changed signal (tube_id: {}, state: {}, conversation_id: {})",
+                    self.tube_id, state, self.conversation_id.as_deref().unwrap_or("-")
                 );
             }
         } else {
             warn!(
-                "Signal sender not available for connection state change (tube_id: {})",
-                self.tube_id
+                "Signal sender not available for connection state change (tube_id: {}, conversation_id: {})",
+                self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
             );
         }
     }
@@ -1167,6 +1211,7 @@ impl WebRTCPeerConnection {
                     .conversation_id
                     .clone()
                     .unwrap_or_else(|| self.tube_id.clone()),
+                signal_id: Uuid::new_v4().to_string(),
                 progress_flag: Some(2), // PROGRESS - waiting for answer
                 progress_status: Some("ICE restart offer sent, awaiting answer".to_string()),
                 is_ok: Some(true),
@@ -1174,20 +1219,20 @@ impl WebRTCPeerConnection {
 
             if let Err(e) = sender.send(signal_msg) {
                 error!(
-                    "Failed to send ICE restart offer signal (tube_id: {}, error: {})",
-                    self.tube_id, e
+                    "Failed to send ICE restart offer signal (tube_id: {}, error: {}, conversation_id: {})",
+                    self.tube_id, e, self.conversation_id.as_deref().unwrap_or("-")
                 );
             } else {
                 info!(
-                    "Sent ICE restart offer to remote peer (tube_id: {}, sdp_length: {})",
+                    "Sent ICE restart offer to remote peer (tube_id: {}, sdp_length: {}, conversation_id: {})",
                     self.tube_id,
-                    offer_sdp.len()
+                    offer_sdp.len(), self.conversation_id.as_deref().unwrap_or("-")
                 );
             }
         } else {
             warn!(
-                "No signal sender available for ICE restart offer (tube_id: {})",
-                self.tube_id
+                "No signal sender available for ICE restart offer (tube_id: {}, conversation_id: {})",
+                self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
             );
         }
     }
@@ -1197,16 +1242,16 @@ impl WebRTCPeerConnection {
     pub fn complete_ice_restart(&self) {
         if self.ice_restart_in_progress.swap(false, Ordering::AcqRel) {
             info!(
-                "ICE restart completed successfully - answer received and applied (tube_id: {})",
-                self.tube_id
+                "ICE restart completed successfully - answer received and applied (tube_id: {}, conversation_id: {})",
+                self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
             );
             // Full restart confirmed: answer received and applied, ICE is reconnecting.
             // Reset the circuit breaker so prior failures don't count against future restarts.
             self.circuit_breaker.record_success_public();
         } else {
             debug!(
-                "complete_ice_restart called but no restart was in progress (tube_id: {})",
-                self.tube_id
+                "complete_ice_restart called but no restart was in progress (tube_id: {}, conversation_id: {})",
+                self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
             );
         }
     }
@@ -1217,8 +1262,8 @@ impl WebRTCPeerConnection {
         // Check if restart already in progress (prevent concurrent restarts)
         if self.ice_restart_in_progress.swap(true, Ordering::AcqRel) {
             debug!(
-                "ICE restart already in progress, skipping duplicate request (tube_id: {})",
-                self.tube_id
+                "ICE restart already in progress, skipping duplicate request (tube_id: {}, conversation_id: {})",
+                self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
             );
             return Ok(());
         }
@@ -1234,8 +1279,8 @@ impl WebRTCPeerConnection {
         }) = restart_result
         {
             error!(
-                "ICE restart circuit breaker tripped after {} failures - closing connection (tube_id: {}, breaker_type: {})",
-                failure_count, tube_id, breaker_type
+                "ICE restart circuit breaker tripped after {} failures - closing connection (tube_id: {}, breaker_type: {}, conversation_id: {})",
+                failure_count, tube_id, breaker_type, self.conversation_id.as_deref().unwrap_or("-")
             );
             self.ice_restart_in_progress.store(false, Ordering::Release);
 
@@ -1246,14 +1291,14 @@ impl WebRTCPeerConnection {
             match self.peer_connection.close().await {
                 Ok(()) => {
                     info!(
-                        "Peer connection closed after circuit breaker trip (tube_id: {})",
-                        tube_id
+                        "Peer connection closed after circuit breaker trip (tube_id: {}, conversation_id: {})",
+                        tube_id, self.conversation_id.as_deref().unwrap_or("-")
                     );
                 }
                 Err(e) => {
                     error!(
-                        "Failed to close peer connection after circuit breaker trip (tube_id: {}): {}",
-                        tube_id, e
+                        "Failed to close peer connection after circuit breaker trip (tube_id: {}): {} (conversation_id: {})",
+                        tube_id, e, self.conversation_id.as_deref().unwrap_or("-")
                     );
                 }
             }
@@ -1268,8 +1313,8 @@ impl WebRTCPeerConnection {
                 .await
             {
                 error!(
-                    "Failed to close tube after circuit breaker trip: {} (tube_id: {})",
-                    e, tube_id
+                    "Failed to close tube after circuit breaker trip: {} (tube_id: {}, conversation_id: {})",
+                    e, tube_id, self.conversation_id.as_deref().unwrap_or("-")
                 );
             }
 
@@ -1286,9 +1331,9 @@ impl WebRTCPeerConnection {
         match restart_result {
             Ok(new_offer_sdp) => {
                 info!(
-                    "ICE restart offer generated, sending to remote peer (tube_id: {}, sdp_length: {})",
+                    "ICE restart offer generated, sending to remote peer (tube_id: {}, sdp_length: {}, conversation_id: {})",
                     self.tube_id,
-                    new_offer_sdp.len()
+                    new_offer_sdp.len(), self.conversation_id.as_deref().unwrap_or("-")
                 );
 
                 // Send the offer to remote peer
@@ -1305,9 +1350,9 @@ impl WebRTCPeerConnection {
                     // If restart still in progress after timeout, assume answer won't come
                     if restart_flag.swap(false, Ordering::AcqRel) {
                         warn!(
-                            "ICE restart answer timeout - no response from remote peer after {:?}. Closing connection. (tube_id: {})",
+                            "ICE restart answer timeout - no response from remote peer after {:?}. Closing connection. (tube_id: {}, conversation_id: {})",
                             crate::config::ice_restart_answer_timeout(),
-                            tube_id
+                            tube_id, "-"
                         );
 
                         // Close the peer connection to trigger cleanup cascade
@@ -1315,14 +1360,14 @@ impl WebRTCPeerConnection {
                         match peer_connection.close().await {
                             Ok(()) => {
                                 info!(
-                                    "Peer connection closed after ICE restart timeout (tube_id: {})",
-                                    tube_id
+                                    "Peer connection closed after ICE restart timeout (tube_id: {}, conversation_id: {})",
+                                    tube_id, "-"
                                 );
                             }
                             Err(e) => {
                                 error!(
-                                    "Failed to close peer connection after ICE restart timeout (tube_id: {}): {}",
-                                    tube_id, e
+                                    "Failed to close peer connection after ICE restart timeout (tube_id: {}): {} (conversation_id: {})",
+                                    tube_id, e, "-"
                                 );
                             }
                         }
@@ -1341,8 +1386,8 @@ impl WebRTCPeerConnection {
                             // close, or probe auto-close).  Downgrade from error to warn so
                             // it does not surface as a false alarm in the CLI output.
                             warn!(
-                                "Failed to close tube after ICE restart timeout: {} (tube_id: {})",
-                                e, tube_id
+                                "Failed to close tube after ICE restart timeout: {} (tube_id: {}, conversation_id: {})",
+                                e, tube_id, "-"
                             );
                         }
                     }
@@ -1352,8 +1397,10 @@ impl WebRTCPeerConnection {
             }
             Err(e) => {
                 warn!(
-                    "ICE restart failed (tube_id: {}, error: {:?})",
-                    self.tube_id, e
+                    "ICE restart failed (tube_id: {}, error: {:?}, conversation_id: {})",
+                    self.tube_id,
+                    e,
+                    self.conversation_id.as_deref().unwrap_or("-")
                 );
                 // Clear the in-progress flag on failure
                 self.ice_restart_in_progress.store(false, Ordering::Release);
@@ -1373,8 +1420,8 @@ impl WebRTCPeerConnection {
         let current_state = self.peer_connection.signaling_state();
         let sdp_type_str = if is_offer { "offer" } else { "answer" };
         debug!(
-            "Current signaling state before create_{} (tube_id: {}, state: {:?})",
-            sdp_type_str, self.tube_id, current_state
+            "Current signaling state before create_{} (tube_id: {}, state: {:?}, conversation_id: {})",
+            sdp_type_str, self.tube_id, current_state, self.conversation_id.as_deref().unwrap_or("-")
         );
 
         if is_offer {
@@ -1384,7 +1431,7 @@ impl WebRTCPeerConnection {
             {
                 return if !self.trickle_ice {
                     if let Some(desc) = self.peer_connection.local_description().await {
-                        debug!("Already have local offer and non-trickle, returning existing SDP (tube_id: {})", self.tube_id);
+                        debug!("Already have local offer and non-trickle, returning existing SDP (tube_id: {}, conversation_id: {})", self.tube_id, self.conversation_id.as_deref().unwrap_or("-"));
                         Ok(desc.sdp)
                     } else {
                         Err("Cannot create offer: already have local offer but failed to retrieve it (non-trickle)".to_string())
@@ -1438,7 +1485,7 @@ impl WebRTCPeerConnection {
         };
 
         let negotiated = remote_max.min(OUR_MAX_MESSAGE_SIZE);
-        debug!("Patching SDP max-message-size: remote={remote_max}, ours={OUR_MAX_MESSAGE_SIZE}, negotiated={negotiated} (tube_id: {})", self.tube_id);
+        debug!("Patching SDP max-message-size: remote={remote_max}, ours={OUR_MAX_MESSAGE_SIZE}, negotiated={negotiated} (tube_id: {}, conversation_id: {})", self.tube_id, self.conversation_id.as_deref().unwrap_or("-"));
 
         let prefix = "a=max-message-size:";
         if let Some(pos) = sdp.find(prefix) {
@@ -1482,8 +1529,8 @@ impl WebRTCPeerConnection {
 
         if !self.trickle_ice {
             debug!(
-                "Non-trickle ICE: gathering candidates before returning {} (tube_id: {})",
-                sdp_type_str, self.tube_id
+                "Non-trickle ICE: gathering candidates before returning {} (tube_id: {}, conversation_id: {})",
+                sdp_type_str, self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
             );
 
             let initial_desc = if is_offer {
@@ -1518,7 +1565,7 @@ impl WebRTCPeerConnection {
                 let tube_id_log = tube_id_clone.clone();
                 let sdp_type_log = sdp_type_str_clone.clone(); // Clone for async block logging
                 Box::pin(async move {
-                    debug!("ICE gathering state changed (non-trickle {}) (tube_id: {}, new_state: {:?})", sdp_type_log, tube_id_log, state);
+                    debug!("ICE gathering state changed (non-trickle {}) (tube_id: {}, new_state: {:?}, conversation_id: {})", sdp_type_log, tube_id_log, state, "-");
                     if state == RTCIceGathererState::Complete {
                         if let Some(sender) = tx_for_handler.lock().take() { // Use the Arc<Mutex<Option<Sender>>>
                             let _ = sender.send(());
@@ -1532,15 +1579,17 @@ impl WebRTCPeerConnection {
             // Use resource manager timeout instead of hardcoded value
             let gather_timeout = RESOURCE_MANAGER.get_limits().ice_gather_timeout;
             debug!(
-                "Waiting for ICE gathering with timeout {:?} (tube_id: {})",
-                gather_timeout, self.tube_id
+                "Waiting for ICE gathering with timeout {:?} (tube_id: {}, conversation_id: {})",
+                gather_timeout,
+                self.tube_id,
+                self.conversation_id.as_deref().unwrap_or("-")
             );
 
             match tokio::time::timeout(gather_timeout, rx).await {
                 Ok(Ok(_)) => {
                     debug!(
-                        "ICE gathering complete for non-trickle {} (tube_id: {})",
-                        sdp_type_str, self.tube_id
+                        "ICE gathering complete for non-trickle {} (tube_id: {}, conversation_id: {})",
+                        sdp_type_str, self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
                     );
                     if let Some(final_desc) = self.peer_connection.local_description().await {
                         let mut sdp_str = final_desc.sdp;
@@ -1569,8 +1618,11 @@ impl WebRTCPeerConnection {
 
             if unlikely!(crate::logger::is_verbose_logging()) {
                 debug!(
-                    "Initial {} SDP (tube_id: {}, sdp: {})",
-                    sdp_type_str, self.tube_id, original_sdp
+                    "Initial {} SDP (tube_id: {}, sdp: {}, conversation_id: {})",
+                    sdp_type_str,
+                    self.tube_id,
+                    original_sdp,
+                    self.conversation_id.as_deref().unwrap_or("-")
                 );
             }
 
@@ -1624,10 +1676,10 @@ impl WebRTCPeerConnection {
 
         if unlikely!(crate::logger::is_verbose_logging()) {
             debug!(
-                "set_remote_description called with {} (length: {} bytes) (tube_id: {})",
+                "set_remote_description called with {} (length: {} bytes) (tube_id: {}, conversation_id: {})",
                 if is_answer { "answer" } else { "offer" },
                 sdp.len(),
-                self.tube_id
+                self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
             );
         }
 
@@ -1637,8 +1689,8 @@ impl WebRTCPeerConnection {
             && sdp.contains("a=max-message-size:")
         {
             debug!(
-                "Incoming offer contains max-message-size attribute (tube_id: {})",
-                self.tube_id
+                "Incoming offer contains max-message-size attribute (tube_id: {}, conversation_id: {})",
+                self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
             );
         }
 
@@ -1673,8 +1725,8 @@ impl WebRTCPeerConnection {
             // Flush buffered candidates now that remote description is set
             if unlikely!(crate::logger::is_verbose_logging()) {
                 debug!(
-                    "Remote description set, flushing buffered incoming ICE candidates (tube_id: {})",
-                    self.tube_id
+                    "Remote description set, flushing buffered incoming ICE candidates (tube_id: {}, conversation_id: {})",
+                    self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
                 );
             }
             self.flush_buffered_incoming_ice_candidates().await;
@@ -1682,8 +1734,8 @@ impl WebRTCPeerConnection {
             // If this is an answer to an ICE restart offer, mark restart as complete
             if is_answer && self.ice_restart_in_progress.load(Ordering::Acquire) {
                 debug!(
-                    "Received ICE restart answer, marking restart complete (tube_id: {})",
-                    self.tube_id
+                    "Received ICE restart answer, marking restart complete (tube_id: {}, conversation_id: {})",
+                    self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
                 );
                 self.complete_ice_restart();
             }
@@ -1700,8 +1752,10 @@ impl WebRTCPeerConnection {
 
         if unlikely!(crate::logger::is_verbose_logging()) {
             debug!(
-                "add_ice_candidate called (tube_id: {}, candidate: {})",
-                self.tube_id, candidate_str
+                "add_ice_candidate called (tube_id: {}, candidate: {}, conversation_id: {})",
+                self.tube_id,
+                candidate_str,
+                self.conversation_id.as_deref().unwrap_or("-")
             );
         }
 
@@ -1725,8 +1779,8 @@ impl WebRTCPeerConnection {
                         .is_ok()
                     {
                         debug!(
-                            "Started receiving remote ICE candidates (tube_id: {})",
-                            self.tube_id
+                            "Started receiving remote ICE candidates (tube_id: {}, conversation_id: {})",
+                            self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
                         );
                     }
                 }
@@ -1752,16 +1806,18 @@ impl WebRTCPeerConnection {
                                 0
                             };
                             warn!(
-                                "[LOW_CANDIDATE_COUNT] Received only {} remote candidates after {}s (tube_id: {}) - connection may fail",
-                                final_count, elapsed, tube_id
+                                "[LOW_CANDIDATE_COUNT] Received only {} remote candidates after {}s (tube_id: {}) - connection may fail (conversation_id: {})",
+                                final_count, elapsed, tube_id, "-"
                             );
                         }
                     });
                 }
 
                 debug!(
-                    "Received remote ICE candidate #{} (tube_id: {})",
-                    remote_count, self.tube_id
+                    "Received remote ICE candidate #{} (tube_id: {}, conversation_id: {})",
+                    remote_count,
+                    self.tube_id,
+                    self.conversation_id.as_deref().unwrap_or("-")
                 );
 
                 {
@@ -1776,8 +1832,8 @@ impl WebRTCPeerConnection {
                         .map(|a| if a.contains(':') { "ipv6" } else { "ipv4" })
                         .unwrap_or("unknown");
                     info!(
-                        "Remote ICE candidate #{}: typ={} family={} (tube_id: {})",
-                        remote_count, typ, addr_family, self.tube_id
+                        "Remote ICE candidate #{}: typ={} family={} (tube_id: {}, conversation_id: {})",
+                        remote_count, typ, addr_family, self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
                     );
                 }
 
@@ -1816,7 +1872,7 @@ impl WebRTCPeerConnection {
                                 )
                                 .await
                                 {
-                                    debug!("Failed to analyze candidate pairs after adding remote candidate (tube_id: {}, error: {})", tube_id_clone, e);
+                                    debug!("Failed to analyze candidate pairs after adding remote candidate (tube_id: {}, error: {}, conversation_id: {})", tube_id_clone, e, "-");
                                 }
                             });
                         }
@@ -1825,8 +1881,8 @@ impl WebRTCPeerConnection {
                     }
                     Err(e) => {
                         error!(
-                            "Failed to add ICE candidate immediately (tube_id: {}, error: {})",
-                            self.tube_id, e
+                            "Failed to add ICE candidate immediately (tube_id: {}, error: {}, conversation_id: {})",
+                            self.tube_id, e, self.conversation_id.as_deref().unwrap_or("-")
                         );
                         Err(format!("Failed to add ICE candidate: {e}"))
                     }
@@ -1845,16 +1901,16 @@ impl WebRTCPeerConnection {
 
                 if unlikely!(crate::logger::is_verbose_logging()) {
                     debug!(
-                        "Remote ICE gathering complete (tube_id: {}, total_remote_candidates: {}, duration: {:.1}s)",
-                        self.tube_id, final_remote_count, receive_duration
+                        "Remote ICE gathering complete (tube_id: {}, total_remote_candidates: {}, duration: {:.1}s, conversation_id: {})",
+                        self.tube_id, final_remote_count, receive_duration, self.conversation_id.as_deref().unwrap_or("-")
                     );
                 }
 
                 // Final warning if very few candidates received
                 if final_remote_count > 0 && final_remote_count < 3 {
                     warn!(
-                        "[LOW_CANDIDATE_COUNT] Remote peer sent only {} candidates - connection quality may be degraded (tube_id: {})",
-                        final_remote_count, self.tube_id
+                        "[LOW_CANDIDATE_COUNT] Remote peer sent only {} candidates - connection quality may be degraded (tube_id: {}, conversation_id: {})",
+                        final_remote_count, self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
                     );
                 }
 
@@ -1867,8 +1923,8 @@ impl WebRTCPeerConnection {
             let buffered_count = candidates_lock.len();
             drop(candidates_lock);
 
-            warn!("Descriptions not ready (local: {}, remote: {}), buffering incoming ICE candidate (total buffered: {}) (tube_id: {}, candidate: {})",
-                   local_desc.is_some(), remote_desc.is_some(), buffered_count, self.tube_id, candidate_str);
+            warn!("Descriptions not ready (local: {}, remote: {}), buffering incoming ICE candidate (total buffered: {}) (tube_id: {}, candidate: {}, conversation_id: {})",
+                   local_desc.is_some(), remote_desc.is_some(), buffered_count, self.tube_id, candidate_str, self.conversation_id.as_deref().unwrap_or("-"));
             Ok(())
         }
     }
@@ -1924,6 +1980,7 @@ impl WebRTCPeerConnection {
             // Resolve conversation_id once (use conversation_id if available, otherwise tube_id)
             let resolved_conversation_id = signal_conversation_id
                 .unwrap_or_else(|| signal_tube_id.clone());
+            let resolved_conversation_id_for_logs = resolved_conversation_id.clone();
             let send_signal = move |state_str: &str| {
                 if let Some(sender) = &signal_sender {
                     let message = crate::tube_registry::SignalMessage {
@@ -1931,6 +1988,7 @@ impl WebRTCPeerConnection {
                         kind: "connection_state_changed".to_string(),
                         data: state_str.to_string(),
                         conversation_id: resolved_conversation_id.clone(),
+                        signal_id: Uuid::new_v4().to_string(),
                         progress_flag: Some(if signal_trickle_ice { 2 } else { 0 }),
                         progress_status: Some("OK".to_string()),
                         is_ok: Some(true),
@@ -1940,7 +1998,7 @@ impl WebRTCPeerConnection {
             };
 
             Box::pin(async move {
-                debug!("Peer connection state changed for tube {}: {:?}", tube_id, state);
+                debug!("Peer connection state changed for tube {}: {:?} (conversation_id: {})", tube_id, state, resolved_conversation_id_for_logs);
 
                 match state {
                     RTCPeerConnectionState::Disconnected => {
@@ -1950,7 +2008,7 @@ impl WebRTCPeerConnection {
                             // intentionally closes the session (e.g. AI threat lockout,
                             // manual termination, RBI session end via guacd 514 error).
                             if is_closing.load(Ordering::Acquire) {
-                                debug!("Connection disconnected for tube {} but already closing - skipping ICE restart", tube_id);
+                                debug!("Connection disconnected for tube {} but already closing - skipping ICE restart (conversation_id: {})", tube_id, resolved_conversation_id_for_logs);
                                 return;
                             }
                             // Stamp all active channels with ConnectionLost before the ICE path
@@ -1962,12 +2020,12 @@ impl WebRTCPeerConnection {
                             if let Some(tube) = crate::tube_registry::REGISTRY.get_tube_fast(&tube_id) {
                                 tube.mark_channels_ice_disconnected().await;
                             }
-                            info!("Connection disconnected for tube {}, considering ICE restart (trickle_ice enabled)", tube_id);
+                            info!("Connection disconnected for tube {}, considering ICE restart (trickle_ice enabled, conversation_id: {})", tube_id, resolved_conversation_id_for_logs);
                             tokio::time::sleep(crate::config::ice_disconnected_wait()).await;
                             // Re-check after the wait - close_tube() may have been called
                             // while we were sleeping (race between Python teardown and ICE event).
                             if is_closing.load(Ordering::Acquire) {
-                                debug!("Connection disconnected for tube {} - tube closed during wait - skipping ICE restart", tube_id);
+                                debug!("Connection disconnected for tube {} - tube closed during wait - skipping ICE restart (conversation_id: {})", tube_id, resolved_conversation_id_for_logs);
                                 return;
                             }
                             network_integration.trigger_ice_restart(&tube_id, "connection disconnected");
@@ -1978,10 +2036,10 @@ impl WebRTCPeerConnection {
                             // timeout (30s). The Failed handler closes the tube. Closing here on
                             // the first Disconnected event kills sessions on brief network hiccups.
                             if is_closing.load(Ordering::Acquire) {
-                                debug!("Connection disconnected for tube {} but already closing - skipping", tube_id);
+                                debug!("Connection disconnected for tube {} but already closing - skipping (conversation_id: {})", tube_id, resolved_conversation_id_for_logs);
                                 return;
                             }
-                            warn!("Connection disconnected for tube {} - waiting for recovery or Failed transition (trickle_ice disabled)", tube_id);
+                            warn!("Connection disconnected for tube {} - waiting for recovery or Failed transition (trickle_ice disabled, conversation_id: {})", tube_id, resolved_conversation_id_for_logs);
                             send_signal("disconnected");
                         }
                     },
@@ -1989,7 +2047,7 @@ impl WebRTCPeerConnection {
                         if trickle_ice {
                             // Skip ICE restart if this tube is already shutting down.
                             if is_closing.load(Ordering::Acquire) {
-                                debug!("Connection failed for tube {} but already closing - skipping ICE restart", tube_id);
+                                debug!("Connection failed for tube {} but already closing - skipping ICE restart (conversation_id: {})", tube_id, resolved_conversation_id_for_logs);
                                 return;
                             }
                             // Stamp all channels with ConnectionLost before ICE restart.
@@ -2001,20 +2059,20 @@ impl WebRTCPeerConnection {
                                 tube.mark_channels_ice_disconnected().await;
                             } else {
                                 // Tube already gone — skip restart
-                                debug!("Connection failed for tube {} but tube not in registry - skipping ICE restart", tube_id);
+                                debug!("Connection failed for tube {} but tube not in registry - skipping ICE restart (conversation_id: {})", tube_id, "-");
                                 return;
                             }
-                            warn!("Connection failed for tube {}, triggering immediate ICE restart (trickle_ice enabled)", tube_id);
+                            warn!("Connection failed for tube {}, triggering immediate ICE restart (trickle_ice enabled, conversation_id: {})", tube_id, "-");
                             network_integration.trigger_ice_restart(&tube_id, "connection failed");
                         } else {
                             // Without trickle ICE, failed is terminal - close the tube
-                            warn!("Connection failed for tube {} - closing tube (trickle_ice disabled)", tube_id);
+                            warn!("Connection failed for tube {} - closing tube (trickle_ice disabled, conversation_id: {})", tube_id, "-");
                             send_signal("failed");
                             is_closing.store(true, Ordering::Release);
 
                             let current_status = *status.read().await;
                             if !matches!(current_status, TubeStatus::Closing | TubeStatus::Closed | TubeStatus::Failed | TubeStatus::Disconnected) {
-                                warn!("WebRTC failed. Initiating tube close. (tube_id: {}, old_status: {:?})", tube_id, current_status);
+                                warn!("WebRTC failed. Initiating tube close. (tube_id: {}, old_status: {:?}, conversation_id: {})", tube_id, current_status, "-");
                                 *status.write().await = TubeStatus::Failed;
 
                                 let tube_id_for_close = tube_id.clone();
@@ -2023,17 +2081,18 @@ impl WebRTCPeerConnection {
                                         .close_tube(&tube_id_for_close, Some(crate::tube_protocol::CloseConnectionReason::ConnectionFailed))
                                         .await
                                     {
-                                        error!("Error closing tube via registry (tube_id: {}, error: {})", tube_id_for_close, e);
+                                        // "Tube not found" is benign — another path already cleaned up.
+                                        warn!("Error closing tube via registry (tube_id: {}, error: {})", tube_id_for_close, e);
                                     }
                                 });
                             } else {
-                                debug!("Peer failed, but tube already terminal (tube_id: {}, status: {:?})", tube_id, current_status);
+                                debug!("Peer failed, but tube already terminal (tube_id: {}, status: {:?}, conversation_id: {})", tube_id, current_status, "-");
                                 *status.write().await = TubeStatus::Failed;
                             }
                         }
                     },
                     RTCPeerConnectionState::Connected => {
-                        debug!("Connection established/restored for tube {}", tube_id);
+                        debug!("Connection established/restored for tube {} (conversation_id: {})", tube_id, "-");
 
                         // Trigger initial network scan now that WebRTC connection is established (idempotent)
                         if !initial_scan_triggered.load(Ordering::Acquire)
@@ -2047,9 +2106,9 @@ impl WebRTCPeerConnection {
                                 let tube_id_clone = tube_id.clone();
                                 tokio::spawn(async move {
                                     if let Err(e) = network_integration_clone.trigger_initial_scan().await {
-                                        warn!("Failed to trigger initial network scan for tube {}: {}", tube_id_clone, e);
+                                        warn!("Failed to trigger initial network scan for tube {}: {} (conversation_id: {})", tube_id_clone, e, "-");
                                     } else {
-                                        debug!("Initial network scan triggered successfully for tube {} (event-driven)", tube_id_clone);
+                                        debug!("Initial network scan triggered successfully for tube {} (event-driven, conversation_id: {})", tube_id_clone, "-");
                                     }
                                 });
                             }
@@ -2059,19 +2118,19 @@ impl WebRTCPeerConnection {
                             let mut status_guard = status.write().await;
                             if !matches!(*status_guard, TubeStatus::Ready) {
                                 *status_guard = TubeStatus::Active;
-                                debug!("Tube connection state changed to Active (tube_id: {})", tube_id);
+                                debug!("Tube connection state changed to Active (tube_id: {}, conversation_id: {})", tube_id, "-");
                             }
                         }
 
                         send_signal("connected");
                     },
                     RTCPeerConnectionState::Closed => {
-                        info!("Connection closed for tube {}", tube_id);
+                        info!("Connection closed for tube {} (conversation_id: {})", tube_id, "-");
                         is_closing.store(true, Ordering::Release);
 
                         let current_status = *status.read().await;
                         if !matches!(current_status, TubeStatus::Closing | TubeStatus::Closed | TubeStatus::Failed | TubeStatus::Disconnected) {
-                            warn!("WebRTC closed. Initiating tube close. (tube_id: {}, old_status: {:?})", tube_id, current_status);
+                            warn!("WebRTC closed. Initiating tube close. (tube_id: {}, old_status: {:?}, conversation_id: {})", tube_id, current_status, "-");
                             *status.write().await = TubeStatus::Closed;
 
                             let tube_id_for_close = tube_id.clone();
@@ -2080,24 +2139,26 @@ impl WebRTCPeerConnection {
                                     .close_tube(&tube_id_for_close, Some(crate::tube_protocol::CloseConnectionReason::Normal))
                                     .await
                                 {
-                                    error!("Error closing tube via registry (tube_id: {}, error: {})", tube_id_for_close, e);
+                                    // "Tube not found" is benign — another path already cleaned up.
+                                    warn!("Error closing tube via registry (tube_id: {}, error: {})", tube_id_for_close, e);
                                 }
                             });
                         } else {
-                            debug!("Peer closed, but tube already terminal (tube_id: {}, status: {:?})", tube_id, current_status);
+                            debug!("Peer closed, but tube already terminal (tube_id: {}, status: {:?}, conversation_id: {})", tube_id, current_status, "-");
                             *status.write().await = TubeStatus::Closed;
                         }
                     },
                     _ => {
-                        debug!("Peer connection state: {:?} for tube {}", state, tube_id);
+                        debug!("Peer connection state: {:?} for tube {} (conversation_id: {})", state, tube_id, "-");
                     }
                 }
             })
         }));
 
         debug!(
-            "Connection state monitoring setup completed for tube {}",
-            self.tube_id
+            "Connection state monitoring setup completed for tube {} (conversation_id: {})",
+            self.tube_id,
+            self.conversation_id.as_deref().unwrap_or("-")
         );
         Ok(())
     }
@@ -2112,8 +2173,10 @@ impl WebRTCPeerConnection {
             .to_string();
 
         debug!(
-            "Connection error reported for tube {} (error: {})",
-            self.tube_id, error_type_str
+            "Connection error reported for tube {} (error: {}, conversation_id: {})",
+            self.tube_id,
+            error_type_str,
+            self.conversation_id.as_deref().unwrap_or("-")
         );
 
         Ok(())
@@ -2125,7 +2188,11 @@ impl WebRTCPeerConnection {
         status: Arc<tokio::sync::RwLock<crate::tube_and_channel_helpers::TubeStatus>>,
     ) -> Result<(), String> {
         // Register this tube with monitoring systems
-        debug!("Registering tube {} with monitoring systems", self.tube_id);
+        debug!(
+            "Registering tube {} with monitoring systems (conversation_id: {})",
+            self.tube_id,
+            self.conversation_id.as_deref().unwrap_or("-")
+        );
 
         // Register with metrics collector for connection health tracking
         if let Some(ref conv_id) = self.conversation_id {
@@ -2142,22 +2209,24 @@ impl WebRTCPeerConnection {
             let ice_restart_callback = {
                 let webrtc_conn = self.clone(); // Clone the entire WebRTCPeerConnection
                 let tube_id = self.tube_id.clone();
+                let conversation_id = self.conversation_id.clone();
 
                 move || {
                     let conn = webrtc_conn.clone();
                     let id = tube_id.clone();
+                    let cid = conversation_id.clone();
 
                     tokio::spawn(async move {
                         info!(
-                            "Network change detected, triggering ICE restart for tube {}",
-                            id
+                            "Network change detected, triggering ICE restart for tube {} (conversation_id: {})",
+                            id, cid.as_deref().unwrap_or("-")
                         );
 
                         // Perform ICE restart with signaling
                         if let Err(e) = conn.handle_ice_restart_with_signaling().await {
                             warn!(
-                                "Failed to restart ICE due to network change (tube_id: {}, error: {:?})",
-                                id, e
+                                "Failed to restart ICE due to network change (tube_id: {}, error: {:?}, conversation_id: {})",
+                                id, e, cid.as_deref().unwrap_or("-")
                             );
                         }
                     });
@@ -2168,23 +2237,29 @@ impl WebRTCPeerConnection {
                 .register_tube(self.tube_id.clone(), ice_restart_callback);
         } else {
             debug!(
-                "Skipping network change ICE restart registration for tube {} (trickle_ice disabled)",
-                self.tube_id
+                "Skipping network change ICE restart registration for tube {} (trickle_ice disabled, conversation_id: {})",
+                self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
             );
         }
 
         // Start network monitoring
         if let Err(e) = self.network_integration.start().await {
             warn!(
-                "Failed to start network integration (tube_id: {}, error: {})",
-                self.tube_id, e
+                "Failed to start network integration (tube_id: {}, error: {}, conversation_id: {})",
+                self.tube_id,
+                e,
+                self.conversation_id.as_deref().unwrap_or("-")
             );
         }
 
         // Enable connection state monitoring with tube lifecycle management
         self.setup_connection_state_monitoring(status).await?;
 
-        debug!("Monitoring systems started for tube {}", self.tube_id);
+        debug!(
+            "Monitoring systems started for tube {} (conversation_id: {})",
+            self.tube_id,
+            self.conversation_id.as_deref().unwrap_or("-")
+        );
         Ok(())
     }
 
@@ -2205,8 +2280,8 @@ impl WebRTCPeerConnection {
             if let Some(handle) = task_guard.take() {
                 handle.abort();
                 info!(
-                    "Stats collection task stopped and cleaned up (tube_id: {})",
-                    self.tube_id
+                    "Stats collection task stopped and cleaned up (tube_id: {}, conversation_id: {})",
+                    self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
                 );
             }
         }
@@ -2216,15 +2291,21 @@ impl WebRTCPeerConnection {
         self.network_integration.unregister_tube(&self.tube_id);
         self.network_integration.stop();
 
-        info!("Monitoring systems stopped for tube {}", self.tube_id);
+        info!(
+            "Monitoring systems stopped for tube {} (conversation_id: {})",
+            self.tube_id,
+            self.conversation_id.as_deref().unwrap_or("-")
+        );
         Ok(())
     }
 
     /// Report successful operation for monitoring systems
     pub async fn report_success(&self, operation: &str) -> Result<(), String> {
         debug!(
-            "Success reported for tube {} operation: {}",
-            self.tube_id, operation
+            "Success reported for tube {} operation: {} (conversation_id: {})",
+            self.tube_id,
+            operation,
+            self.conversation_id.as_deref().unwrap_or("-")
         );
         Ok(())
     }
@@ -2237,8 +2318,8 @@ impl WebRTCPeerConnection {
             Some(cfg) if !cfg.is_empty() && !cfg.starts_with("TEST_MODE") => cfg.clone(),
             _ => {
                 debug!(
-                    "No ksm_config available for credential refresh, skipping (tube_id: {})",
-                    self.tube_id
+                    "No ksm_config available for credential refresh, skipping (tube_id: {}, conversation_id: {})",
+                    self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
                 );
                 return Ok(()); // Not an error, just can't refresh
             }
@@ -2263,13 +2344,15 @@ impl WebRTCPeerConnection {
         };
 
         info!(
-            "Fetched fresh TURN credentials for ICE restart (tube_id: {}, username: {})",
-            self.tube_id, username
+            "Fetched fresh TURN credentials for ICE restart (tube_id: {}, username: {}, conversation_id: {})",
+            self.tube_id, username, self.conversation_id.as_deref().unwrap_or("-")
         );
         if unlikely!(crate::logger::is_verbose_logging()) {
             debug!(
-                "ICE restart TURN credentials (tube_id: {}, username: {}, password: {})",
-                self.tube_id, username, password
+                "ICE restart TURN credentials (tube_id: {}, username: {}, conversation_id: {})",
+                self.tube_id,
+                username,
+                self.conversation_id.as_deref().unwrap_or("-")
             );
         }
 
@@ -2294,15 +2377,16 @@ impl WebRTCPeerConnection {
 
         if updated_count == 0 {
             debug!(
-                "No TURN servers found in configuration (tube_id: {})",
-                self.tube_id
+                "No TURN servers found in configuration (tube_id: {}, conversation_id: {})",
+                self.tube_id,
+                self.conversation_id.as_deref().unwrap_or("-")
             );
             return Ok(());
         }
 
         info!(
-            "Updated {} TURN server(s) with fresh credentials for ICE restart (tube_id: {})",
-            updated_count, self.tube_id
+            "Updated {} TURN server(s) with fresh credentials for ICE restart (tube_id: {}, conversation_id: {})",
+            updated_count, self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
         );
 
         // Apply updated configuration - this will be used for the NEW ICE session
@@ -2313,8 +2397,8 @@ impl WebRTCPeerConnection {
             .map_err(|e| format!("Failed to apply updated configuration: {}", e))?;
 
         info!(
-            "Fresh TURN credentials applied and ready for ICE restart (tube_id: {})",
-            self.tube_id
+            "Fresh TURN credentials applied and ready for ICE restart (tube_id: {}, conversation_id: {})",
+            self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
         );
 
         Ok(())
@@ -2346,8 +2430,8 @@ impl WebRTCPeerConnection {
                 // Check if connection is closing
                 if is_closing.load(Ordering::Acquire) {
                     debug!(
-                        "Stats collection stopping due to connection closing (tube_id: {})",
-                        tube_id
+                        "Stats collection stopping due to connection closing (tube_id: {}, conversation_id: {})",
+                        tube_id, conversation_id.as_deref().unwrap_or("-")
                     );
                     break;
                 }
@@ -2394,8 +2478,8 @@ impl WebRTCPeerConnection {
 
                     if ipv6_failures > 5 {
                         debug!(
-                            "[IPV6_MONITOR] Multiple IPv6 binding failures detected (count: {}) - normal on macOS, may reduce candidate pool (tube_id: {})",
-                            ipv6_failures, tube_id
+                            "[IPV6_MONITOR] Multiple IPv6 binding failures detected (count: {}) - normal on macOS, may reduce candidate pool (tube_id: {}, conversation_id: {})",
+                            ipv6_failures, tube_id, conversation_id.as_deref().unwrap_or("-")
                         );
                     }
                 }
@@ -2418,11 +2502,11 @@ impl WebRTCPeerConnection {
                         webrtc::stats::StatsReportType::DataChannel(dc) => {
                             if unlikely!(crate::logger::is_verbose_logging()) {
                                 debug!(
-                                    "DataChannel stats (tube_id: {}, label: {}): msgs_sent={}, msgs_recv={}, bytes_sent={:.2} KB, bytes_recv={:.2} KB",
+                                    "DataChannel stats (tube_id: {}, label: {}): msgs_sent={}, msgs_recv={}, bytes_sent={:.2} KB, bytes_recv={:.2} KB (conversation_id: {})",
                                     tube_id, dc.label,
                                     dc.messages_sent, dc.messages_received,
                                     dc.bytes_sent as f64 / 1024.0,
-                                    dc.bytes_received as f64 / 1024.0,
+                                    dc.bytes_received as f64 / 1024.0, conversation_id.as_deref().unwrap_or("-")
                                 );
                             }
                         }
@@ -2489,7 +2573,7 @@ impl WebRTCPeerConnection {
                             "Connection Metrics ({}) | tube_id: {} | Uptime: {} | Path: {} | \
                              E2E: {:?}ms | {}<->KRelay: {:?}ms | RTT: {:?}ms | \
                              BW: {:.2}Mbps | Sent: {:.2}MB | Recv: {:.2}MB | \
-                             Pacing: {} pauses {:.0}ms peak={}KB",
+                             Pacing: {} pauses {:.0}ms peak={}KB (conversation_id: {})",
                             side_label,
                             tube_id,
                             uptime_str,
@@ -2504,18 +2588,27 @@ impl WebRTCPeerConnection {
                             pacing_pauses,
                             pacing_paused_us as f64 / 1000.0,
                             peak_sctp / 1024,
+                            conversation_id.as_deref().unwrap_or("-")
                         );
                     }
                 }
             }
 
-            debug!("Stats collection task finished (tube_id: {})", tube_id);
+            debug!(
+                "Stats collection task finished (tube_id: {}, conversation_id: {})",
+                tube_id,
+                conversation_id.as_deref().unwrap_or("-")
+            );
         });
 
         {
             let mut task_guard = self.stats_collection_task.lock();
             *task_guard = Some(stats_task_handle);
-            debug!("Started stats collection task (tube_id: {})", self.tube_id);
+            debug!(
+                "Started stats collection task (tube_id: {}, conversation_id: {})",
+                self.tube_id,
+                self.conversation_id.as_deref().unwrap_or("-")
+            );
         }
 
         Ok(())
@@ -2530,16 +2623,16 @@ impl WebRTCPeerConnection {
         // Stop keepalive task before closing
         if let Err(e) = self.stop_keepalive().await {
             warn!(
-                "Failed to stop keepalive during close (tube_id: {}, error: {})",
-                self.tube_id, e
+                "Failed to stop keepalive during close (tube_id: {}, error: {}, conversation_id: {})",
+                self.tube_id, e, self.conversation_id.as_deref().unwrap_or("-")
             );
         }
 
         // Stop all monitoring systems before closing
         if let Err(e) = self.stop_monitoring_systems().await {
             warn!(
-                "Failed to stop monitoring systems during close (tube_id: {}, error: {})",
-                self.tube_id, e
+                "Failed to stop monitoring systems during close (tube_id: {}, error: {}, conversation_id: {})",
+                self.tube_id, e, self.conversation_id.as_deref().unwrap_or("-")
             );
         }
 
@@ -2561,8 +2654,8 @@ impl WebRTCPeerConnection {
             let mut guard_lock = self._ice_agent_guard.lock();
             if let Some(guard) = guard_lock.take() {
                 info!(
-                    "Explicitly dropping ICE agent guard to ensure resource cleanup (tube_id: {})",
-                    self.tube_id
+                    "Explicitly dropping ICE agent guard to ensure resource cleanup (tube_id: {}, conversation_id: {})",
+                    self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
                 );
                 drop(guard);
             }
@@ -2578,8 +2671,8 @@ impl WebRTCPeerConnection {
             Ok(result) => result.map_err(|e| format!("Failed to close peer connection: {e}")),
             Err(_) => {
                 // The timeout elapsed.
-                warn!("Close operation timed out for peer connection. The underlying webrtc-rs close() did not complete in {:?}. (tube_id: {})",
-                     crate::config::peer_connection_close_timeout(), self.tube_id);
+                warn!("Close operation timed out for peer connection. The underlying webrtc-rs close() did not complete in {:?}. (tube_id: {}, conversation_id: {})",
+                     crate::config::peer_connection_close_timeout(), self.tube_id, self.conversation_id.as_deref().unwrap_or("-"));
                 // Return an error instead of Ok(())
                 Err(format!(
                     "Peer connection close operation timed out for tube {}",
@@ -2606,7 +2699,10 @@ impl WebRTCPeerConnection {
 
         // Check the current signaling state before setting the local description
         let current_state = self.peer_connection.signaling_state();
-        debug!("Current signaling state before set_local_description");
+        debug!(
+            "Current signaling state before set_local_description (conversation_id: {})",
+            "-"
+        );
 
         // Validate the signaling state transition
         Self::validate_signaling_state_transition(current_state, is_answer, true)?;
@@ -2625,7 +2721,7 @@ impl WebRTCPeerConnection {
 
             let remote_desc = self.peer_connection.remote_description().await;
             if remote_desc.is_some() {
-                debug!("Remote description set, flushing buffered incoming ICE candidates (tube_id: {})", self.tube_id);
+                debug!("Remote description set, flushing buffered incoming ICE candidates (tube_id: {}, conversation_id: {})", self.tube_id, self.conversation_id.as_deref().unwrap_or("-"));
                 self.flush_buffered_incoming_ice_candidates().await;
             }
         }
@@ -2660,8 +2756,8 @@ impl WebRTCPeerConnection {
         // Create a lightweight task that ensures periodic activity with quality-aware intervals
         // Quality-aware: More frequent keepalive when connection quality is degraded
         let keepalive_task_handle = tokio::spawn(async move {
-            debug!("NAT timeout prevention active - ensuring periodic activity every {} seconds (tube_id: {}, interval_minutes: {})",
-                  keepalive_interval.as_secs(), tube_id_clone, keepalive_interval.as_secs() / 60);
+            debug!("NAT timeout prevention active - ensuring periodic activity every {} seconds (tube_id: {}, interval_minutes: {}, conversation_id: {})",
+                  keepalive_interval.as_secs(), tube_id_clone, keepalive_interval.as_secs() / 60, "-");
 
             let mut interval = tokio::time::interval(keepalive_interval);
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -2691,8 +2787,8 @@ impl WebRTCPeerConnection {
                     if is_degraded {
                         // Connection degraded - keepalive already running, just log
                         debug!(
-                            "Connection quality degraded - keepalive continues (tube_id: {}, state: {:?})",
-                            tube_id_clone, connection_state
+                            "Connection quality degraded - keepalive continues (tube_id: {}, state: {:?}, conversation_id: {})",
+                            tube_id_clone, connection_state, "-"
                         );
                     }
 
@@ -2702,13 +2798,13 @@ impl WebRTCPeerConnection {
                 // This keepalive task does not send pings directly; instead, it ensures periodic activity
                 // so that the channel's internal ping/pong mechanism (which triggers on activity or timeout)
                 // remains active and prevents NAT timeouts. No additional ping implementation is needed here.
-                debug!("NAT timeout prevention tick - periodic activity to keep channel ping system active (tube_id: {})", tube_id_clone);
+                debug!("NAT timeout prevention tick - periodic activity to keep channel ping system active (tube_id: {}, conversation_id: {})", tube_id_clone, "-");
 
                 // Get current connection state to verify we're still connected
                 let connection_state = pc_clone.connection_state();
                 debug!(
-                    "Connection state check (tube_id: {}, connection_state: {:?})",
-                    tube_id_clone, connection_state
+                    "Connection state check (tube_id: {}, connection_state: {:?}, conversation_id: {})",
+                    tube_id_clone, connection_state, "-"
                 );
 
                 // Self-terminate if connection is in terminal state
@@ -2721,16 +2817,16 @@ impl WebRTCPeerConnection {
                 );
                 if is_terminal {
                     info!(
-                        "NAT timeout prevention stopping - connection {:?} is terminal (tube_id: {})",
-                        connection_state, tube_id_clone
+                        "NAT timeout prevention stopping - connection {:?} is terminal (tube_id: {}, conversation_id: {})",
+                        connection_state, tube_id_clone, "-"
                     );
                     break;
                 }
             }
 
             info!(
-                "NAT timeout prevention stopped (tube_id: {})",
-                tube_id_clone
+                "NAT timeout prevention stopped (tube_id: {}, conversation_id: {})",
+                tube_id_clone, "-"
             );
         });
 
@@ -2743,7 +2839,7 @@ impl WebRTCPeerConnection {
             *task_guard = Some(keepalive_task_handle);
         }
 
-        debug!("NAT timeout prevention started - integrated with existing channel ping system (tube_id: {})", self.tube_id);
+        debug!("NAT timeout prevention started - integrated with existing channel ping system (tube_id: {}, conversation_id: {})", self.tube_id, self.conversation_id.as_deref().unwrap_or("-"));
         Ok(())
     }
 
@@ -2758,8 +2854,9 @@ impl WebRTCPeerConnection {
             // HOT PATH: Activity update happens
             if unlikely!(crate::logger::is_verbose_logging()) {
                 debug!(
-                    "Activity updated - connection active (tube_id: {})",
-                    self.tube_id
+                    "Activity updated - connection active (tube_id: {}, conversation_id: {})",
+                    self.tube_id,
+                    self.conversation_id.as_deref().unwrap_or("-")
                 );
             }
         }
@@ -2780,18 +2877,24 @@ impl WebRTCPeerConnection {
             if let Some(task) = task_guard.take() {
                 task.abort();
                 info!(
-                    "Keepalive task stopped and cleaned up (tube_id: {})",
-                    self.tube_id
+                    "Keepalive task stopped and cleaned up (tube_id: {}, conversation_id: {})",
+                    self.tube_id,
+                    self.conversation_id.as_deref().unwrap_or("-")
                 );
             } else {
                 debug!(
-                    "No active keepalive task to stop (tube_id: {})",
-                    self.tube_id
+                    "No active keepalive task to stop (tube_id: {}, conversation_id: {})",
+                    self.tube_id,
+                    self.conversation_id.as_deref().unwrap_or("-")
                 );
             }
         }
 
-        info!("NAT timeout prevention stopped (tube_id: {})", self.tube_id);
+        info!(
+            "NAT timeout prevention stopped (tube_id: {}, conversation_id: {})",
+            self.tube_id,
+            self.conversation_id.as_deref().unwrap_or("-")
+        );
         Ok(())
     }
 
@@ -2804,8 +2907,9 @@ impl WebRTCPeerConnection {
     // ISOLATION: Reset the circuit breaker for this tube's WebRTC API
     pub fn reset_api_circuit_breaker(&self) {
         info!(
-            "Resetting WebRTC API circuit breaker for tube {}",
-            self.tube_id
+            "Resetting WebRTC API circuit breaker for tube {} (conversation_id: {})",
+            self.tube_id,
+            self.conversation_id.as_deref().unwrap_or("-")
         );
         self.isolated_api.reset_circuit_breaker();
     }
@@ -2839,8 +2943,9 @@ impl WebRTCPeerConnection {
     // CIRCUIT BREAKER: Execute ICE restart with circuit breaker protection
     pub async fn restart_ice_protected(&self) -> WebRTCResult<String> {
         info!(
-            "ICE restart with circuit breaker protection for tube {}",
-            self.tube_id
+            "ICE restart with circuit breaker protection for tube {} (conversation_id: {})",
+            self.tube_id,
+            self.conversation_id.as_deref().unwrap_or("-")
         );
 
         let tube_id = self.tube_id.clone();
@@ -2851,7 +2956,10 @@ impl WebRTCPeerConnection {
 
         match result {
             Ok(sdp) => {
-                info!("Protected ICE restart successful for tube {}", tube_id);
+                info!(
+                    "Protected ICE restart successful for tube {} (conversation_id: {})",
+                    tube_id, "-"
+                );
                 Ok(sdp)
             }
 
@@ -2861,8 +2969,8 @@ impl WebRTCPeerConnection {
             | Err(crate::webrtc_circuit_breaker::CircuitError::TooManyTestRequests) => {
                 let (_, _, failed_requests, _, _, _) = self.circuit_breaker.get_metrics();
                 error!(
-                    "Protected ICE restart blocked — circuit open after {} failures (tube_id: {})",
-                    failed_requests, tube_id
+                    "Protected ICE restart blocked — circuit open after {} failures (tube_id: {}, conversation_id: {})",
+                    failed_requests, tube_id, "-"
                 );
                 Err(WebRTCError::CircuitBreakerOpen {
                     tube_id,
@@ -2878,8 +2986,8 @@ impl WebRTCPeerConnection {
             // recovers before the disconnected timeout expires.
             Err(crate::webrtc_circuit_breaker::CircuitError::OperationFailed(e)) => {
                 warn!(
-                    "Protected ICE restart operation failed (retryable, tube_id: {}, error: {})",
-                    tube_id, e
+                    "Protected ICE restart operation failed (retryable, tube_id: {}, error: {}, conversation_id: {})",
+                    tube_id, e, "-"
                 );
                 Err(WebRTCError::IceRestartFailed {
                     tube_id,
@@ -2890,8 +2998,8 @@ impl WebRTCPeerConnection {
 
             Err(crate::webrtc_circuit_breaker::CircuitError::Timeout) => {
                 warn!(
-                    "Protected ICE restart timed out in circuit breaker (retryable, tube_id: {})",
-                    tube_id
+                    "Protected ICE restart timed out in circuit breaker (retryable, tube_id: {}, conversation_id: {})",
+                    tube_id, "-"
                 );
                 Err(WebRTCError::IceRestartFailed {
                     tube_id,
@@ -2907,8 +3015,8 @@ impl WebRTCPeerConnection {
         // ICE restart requires trickle ICE for proper signaling coordination
         if !self.trickle_ice {
             warn!(
-                "ICE restart blocked: trickle ICE is required but disabled (tube_id: {})",
-                self.tube_id
+                "ICE restart blocked: trickle ICE is required but disabled (tube_id: {}, conversation_id: {})",
+                self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
             );
             return Err(
                 "ICE restart requires trickle ICE to be enabled for proper signaling".to_string(),
@@ -2917,8 +3025,9 @@ impl WebRTCPeerConnection {
 
         // This is the existing restart_ice logic, renamed to be internal
         info!(
-            "ICE restart initiated for connection recovery (tube_id: {})",
-            self.tube_id
+            "ICE restart initiated for connection recovery (tube_id: {}, conversation_id: {})",
+            self.tube_id,
+            self.conversation_id.as_deref().unwrap_or("-")
         );
 
         // Update restart tracking in single lock acquisition (deadlock-safe)
@@ -2928,8 +3037,11 @@ impl WebRTCPeerConnection {
             restart_state.record_attempt(now);
             let count = restart_state.attempts;
             info!(
-                "ICE restart attempt #{} (tube_id: {}, attempt: {})",
-                count, self.tube_id, count
+                "ICE restart attempt #{} (tube_id: {}, attempt: {}, conversation_id: {})",
+                count,
+                self.tube_id,
+                count,
+                self.conversation_id.as_deref().unwrap_or("-")
             );
         }
 
@@ -2940,13 +3052,14 @@ impl WebRTCPeerConnection {
         // Always fetch fresh TURN credentials before ICE restart (industry-standard pattern)
         // This ensures the new ICE session uses the freshest possible credentials
         info!(
-            "Fetching fresh TURN credentials for ICE restart (tube_id: {})",
-            self.tube_id
+            "Fetching fresh TURN credentials for ICE restart (tube_id: {}, conversation_id: {})",
+            self.tube_id,
+            self.conversation_id.as_deref().unwrap_or("-")
         );
         if let Err(e) = self.fetch_fresh_turn_credentials_for_restart().await {
             warn!(
-                "Failed to refresh TURN credentials before ICE restart: {} (tube_id: {}) - continuing with existing credentials",
-                e, self.tube_id
+                "Failed to refresh TURN credentials before ICE restart: {} (tube_id: {}) - continuing with existing credentials (conversation_id: {})",
+                e, self.tube_id, self.conversation_id.as_deref().unwrap_or("-")
             );
             // Continue with existing credentials - not a fatal error
         }
@@ -2955,9 +3068,9 @@ impl WebRTCPeerConnection {
         match self.peer_connection.create_offer(None).await {
             Ok(offer) => {
                 info!(
-                    "Successfully generated ICE restart offer (tube_id: {}, sdp_length: {})",
+                    "Successfully generated ICE restart offer (tube_id: {}, sdp_length: {}, conversation_id: {})",
                     self.tube_id,
-                    offer.sdp.len()
+                    offer.sdp.len(), self.conversation_id.as_deref().unwrap_or("-")
                 );
 
                 // Set the new local description to trigger ICE restart
@@ -2966,7 +3079,7 @@ impl WebRTCPeerConnection {
 
                 match self.peer_connection.set_local_description(offer_desc).await {
                     Ok(()) => {
-                        info!("ICE restart offer set as local description - new ICE session will begin (tube_id: {})", self.tube_id);
+                        info!("ICE restart offer set as local description - new ICE session will begin (tube_id: {}, conversation_id: {})", self.tube_id, self.conversation_id.as_deref().unwrap_or("-"));
 
                         // Update activity since we just performed a successful SDP operation
                         self.update_activity();
@@ -2978,7 +3091,7 @@ impl WebRTCPeerConnection {
                         Ok(offer.sdp)
                     }
                     Err(e) => {
-                        warn!("Failed to set ICE restart offer as local description (tube_id: {}, error: {})", self.tube_id, e);
+                        warn!("Failed to set ICE restart offer as local description (tube_id: {}, error: {}, conversation_id: {})", self.tube_id, e, self.conversation_id.as_deref().unwrap_or("-"));
                         Err(format!(
                             "Failed to set local description for ICE restart: {e}"
                         ))
@@ -2987,8 +3100,8 @@ impl WebRTCPeerConnection {
             }
             Err(e) => {
                 warn!(
-                    "Failed to create ICE restart offer (tube_id: {}, error: {})",
-                    self.tube_id, e
+                    "Failed to create ICE restart offer (tube_id: {}, error: {}, conversation_id: {})",
+                    self.tube_id, e, self.conversation_id.as_deref().unwrap_or("-")
                 );
                 Err(format!("Failed to create ICE restart offer: {e}"))
             }
@@ -3033,11 +3146,11 @@ impl WebRTCPeerConnection {
             connection_degraded && activity_timeout && enough_time_passed && not_too_many_attempts;
 
         if should_restart {
-            debug!("ICE restart conditions met (tube_id: {}, connection_state: {:?}, time_since_success_secs: {}, restart_attempts: {}, min_interval_secs: {})",
-                   self.tube_id, current_state, time_since_success.as_secs(), attempts, min_interval.as_secs());
+            debug!("ICE restart conditions met (tube_id: {}, connection_state: {:?}, time_since_success_secs: {}, restart_attempts: {}, min_interval_secs: {}, conversation_id: {})",
+                   self.tube_id, current_state, time_since_success.as_secs(), attempts, min_interval.as_secs(), self.conversation_id.as_deref().unwrap_or("-"));
         } else {
-            debug!("ICE restart conditions not met (tube_id: {}, connection_state: {:?}, connection_degraded: {}, activity_timeout: {}, enough_time_passed: {}, not_too_many_attempts: {})",
-                   self.tube_id, current_state, connection_degraded, activity_timeout, enough_time_passed, not_too_many_attempts);
+            debug!("ICE restart conditions not met (tube_id: {}, connection_state: {:?}, connection_degraded: {}, activity_timeout: {}, enough_time_passed: {}, not_too_many_attempts: {}, conversation_id: {})",
+                   self.tube_id, current_state, connection_degraded, activity_timeout, enough_time_passed, not_too_many_attempts, self.conversation_id.as_deref().unwrap_or("-"));
         }
 
         should_restart
@@ -3119,8 +3232,10 @@ impl WebRTCPeerConnection {
     fn log_candidate_details(&self, candidate: &str, direction: &str) {
         if candidate.is_empty() {
             debug!(
-                "[CANDIDATE_DEBUG] {} end-of-candidates signal (tube_id: {})",
-                direction, self.tube_id
+                "[CANDIDATE_DEBUG] {} end-of-candidates signal (tube_id: {}, conversation_id: {})",
+                direction,
+                self.tube_id,
+                self.conversation_id.as_deref().unwrap_or("-")
             );
             return;
         }
@@ -3135,15 +3250,15 @@ impl WebRTCPeerConnection {
             let priority = parts.get(3).unwrap_or(&"unknown");
 
             debug!(
-                "[CANDIDATE_DEBUG] {} candidate (tube_id: {}, type: {}, ip: {}, port: {}, protocol: {}, priority: {})",
-                direction, self.tube_id, candidate_type, ip_addr, port, protocol, priority
+                "[CANDIDATE_DEBUG] {} candidate (tube_id: {}, type: {}, ip: {}, port: {}, protocol: {}, priority: {}, conversation_id: {})",
+                direction, self.tube_id, candidate_type, ip_addr, port, protocol, priority, self.conversation_id.as_deref().unwrap_or("-")
             );
 
             // Special logging for TURN candidates
             if candidate_type == &"relay" {
                 debug!(
-                    "[TURN_DEBUG] TURN relay candidate {} (tube_id: {}, relay_ip: {}, relay_port: {})",
-                    direction, self.tube_id, ip_addr, port
+                    "[TURN_DEBUG] TURN relay candidate {} (tube_id: {}, relay_ip: {}, relay_port: {}, conversation_id: {})",
+                    direction, self.tube_id, ip_addr, port, self.conversation_id.as_deref().unwrap_or("-")
                 );
             }
 
@@ -3151,8 +3266,8 @@ impl WebRTCPeerConnection {
             if direction == "INCOMING" {
                 if unlikely!(crate::logger::is_verbose_logging()) {
                     debug!(
-                        "[PAIR_TEST] Testing connectivity to remote candidate (tube_id: {}, remote: {}:{})",
-                        self.tube_id, ip_addr, port
+                        "[PAIR_TEST] Testing connectivity to remote candidate (tube_id: {}, remote: {}:{}, conversation_id: {})",
+                        self.tube_id, ip_addr, port, self.conversation_id.as_deref().unwrap_or("-")
                     );
                 }
 
@@ -3166,14 +3281,14 @@ impl WebRTCPeerConnection {
                         Ok(_) => {
                             // Use println! to ensure log shows up immediately
                             if unlikely!(crate::logger::is_verbose_logging()) {
-                                debug!("[PAIR_TEST] Candidate pair viable (tube_id: {}, result: Reachable)", tube_id_clone);
+                                debug!("[PAIR_TEST] Candidate pair viable (tube_id: {}, result: Reachable, conversation_id: {})", tube_id_clone, "-");
                             }
                         }
                         Err(e) => {
                             if unlikely!(crate::logger::is_verbose_logging()) {
                                 debug!(
-                                    "[PAIR_TEST] Candidate pair not viable (tube_id: {}, result: {:?})",
-                                    tube_id_clone, e
+                                    "[PAIR_TEST] Candidate pair not viable (tube_id: {}, result: {:?}, conversation_id: {})",
+                                    tube_id_clone, e, "-"
                                 );
                             }
                         }
@@ -3182,8 +3297,8 @@ impl WebRTCPeerConnection {
             }
         } else {
             debug!(
-                "[CANDIDATE_DEBUG] {} malformed candidate (tube_id: {}, candidate: {})",
-                direction, self.tube_id, candidate
+                "[CANDIDATE_DEBUG] {} malformed candidate (tube_id: {}, candidate: {}, conversation_id: {})",
+                direction, self.tube_id, candidate, self.conversation_id.as_deref().unwrap_or("-")
             );
         }
     }
@@ -3192,8 +3307,8 @@ impl WebRTCPeerConnection {
     fn log_candidate_details_static(candidate: &str, direction: &str, tube_id: &str) {
         if candidate.is_empty() {
             debug!(
-                "[CANDIDATE_DEBUG] {} end-of-candidates signal (tube_id: {})",
-                direction, tube_id
+                "[CANDIDATE_DEBUG] {} end-of-candidates signal (tube_id: {}, conversation_id: {})",
+                direction, tube_id, "-"
             );
             return;
         }
@@ -3208,21 +3323,21 @@ impl WebRTCPeerConnection {
             let priority = parts.get(3).unwrap_or(&"unknown");
 
             debug!(
-                "[CANDIDATE_DEBUG] {} candidate (tube_id: {}, type: {}, ip: {}, port: {}, protocol: {}, priority: {})",
-                direction, tube_id, candidate_type, ip_addr, port, protocol, priority
+                "[CANDIDATE_DEBUG] {} candidate (tube_id: {}, type: {}, ip: {}, port: {}, protocol: {}, priority: {}, conversation_id: {})",
+                direction, tube_id, candidate_type, ip_addr, port, protocol, priority, "-"
             );
 
             // Special logging for TURN candidates
             if candidate_type == &"relay" {
                 debug!(
-                    "[TURN_DEBUG] TURN relay candidate {} (tube_id: {}, relay_ip: {}, relay_port: {})",
-                    direction, tube_id, ip_addr, port
+                    "[TURN_DEBUG] TURN relay candidate {} (tube_id: {}, relay_ip: {}, relay_port: {}, conversation_id: {})",
+                    direction, tube_id, ip_addr, port, "-"
                 );
             }
         } else {
             debug!(
-                "[CANDIDATE_DEBUG] {} malformed candidate (tube_id: {}, candidate: {})",
-                direction, tube_id, candidate
+                "[CANDIDATE_DEBUG] {} malformed candidate (tube_id: {}, candidate: {}, conversation_id: {})",
+                direction, tube_id, candidate, "-"
             );
         }
     }
@@ -3253,8 +3368,8 @@ impl WebRTCPeerConnection {
                     // Log detailed pair info for debugging
                     if unlikely!(crate::logger::is_verbose_logging()) {
                         debug!(
-                            "Candidate pair (tube_id: {}, pair_id: {:?}, state: {:?})",
-                            tube_id, pair_stats.id, pair_stats.state
+                            "Candidate pair (tube_id: {}, pair_id: {:?}, state: {:?}, conversation_id: {})",
+                            tube_id, pair_stats.id, pair_stats.state, "-"
                         );
                     }
                 }
@@ -3275,15 +3390,15 @@ impl WebRTCPeerConnection {
 
         // Log data channel connectivity analysis with real WebRTC data - use println! to ensure visibility
         debug!(
-            "[CONNECTIVITY_DEBUG] Data channel connectivity (tube_id: {}, candidate_pairs: {}, data_channels: {}, ice_state: {:?}, peer_state: {:?})",
-            tube_id, total_pairs, data_channel_count, ice_connection_state, peer_connection_state
+            "[CONNECTIVITY_DEBUG] Data channel connectivity (tube_id: {}, candidate_pairs: {}, data_channels: {}, ice_state: {:?}, peer_state: {:?}, conversation_id: {})",
+            tube_id, total_pairs, data_channel_count, ice_connection_state, peer_connection_state, "-"
         );
 
         // Critical warnings for your specific "no candidate pairs" issue
         if total_pairs == 0 {
             debug!(
-                "[CONNECTIVITY_DEBUG] NO CANDIDATE PAIRS FORMED! Data channel connectivity impossible. Check that both local and remote candidates are being added. (tube_id: {})",
-                tube_id
+                "[CONNECTIVITY_DEBUG] NO CANDIDATE PAIRS FORMED! Data channel connectivity impossible. Check that both local and remote candidates are being added. (tube_id: {}, conversation_id: {})",
+                tube_id, "-"
             );
         }
 

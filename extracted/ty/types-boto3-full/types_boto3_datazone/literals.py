@@ -53,6 +53,7 @@ __all__ = (
     "EnableSettingType",
     "EntityTypeType",
     "EnvironmentStatusType",
+    "FileFormatType",
     "FilterExpressionTypeType",
     "FilterOperatorType",
     "FilterStatusType",
@@ -95,6 +96,7 @@ __all__ = (
     "ListLineageNodeHistoryPaginatorName",
     "ListMetadataGenerationRunsPaginatorName",
     "ListNotebookRunsPaginatorName",
+    "ListNotebooksPaginatorName",
     "ListNotificationsPaginatorName",
     "ListPolicyGrantsPaginatorName",
     "ListProjectMembershipsPaginatorName",
@@ -112,7 +114,9 @@ __all__ = (
     "MetadataGenerationRunTypeType",
     "MetadataGenerationTargetTypeType",
     "NetworkAccessTypeType",
+    "NotebookExportStatusType",
     "NotebookRunStatusType",
+    "NotebookStatusType",
     "NotificationResourceTypeType",
     "NotificationRoleType",
     "NotificationTypeType",
@@ -276,6 +280,7 @@ EnvironmentStatusType = Literal[
     "UPDATING",
     "VALIDATION_FAILED",
 ]
+FileFormatType = Literal["IPYNB", "PDF"]
 FilterExpressionTypeType = Literal["EXCLUDE", "INCLUDE"]
 FilterOperatorType = Literal["EQ", "GE", "GT", "LE", "LT", "TEXT_SEARCH"]
 FilterStatusType = Literal["INVALID", "VALID"]
@@ -343,6 +348,7 @@ ListLineageEventsPaginatorName = Literal["list_lineage_events"]
 ListLineageNodeHistoryPaginatorName = Literal["list_lineage_node_history"]
 ListMetadataGenerationRunsPaginatorName = Literal["list_metadata_generation_runs"]
 ListNotebookRunsPaginatorName = Literal["list_notebook_runs"]
+ListNotebooksPaginatorName = Literal["list_notebooks"]
 ListNotificationsPaginatorName = Literal["list_notifications"]
 ListPolicyGrantsPaginatorName = Literal["list_policy_grants"]
 ListProjectMembershipsPaginatorName = Literal["list_project_memberships"]
@@ -379,9 +385,11 @@ MetadataGenerationRunTypeType = Literal[
 ]
 MetadataGenerationTargetTypeType = Literal["ASSET"]
 NetworkAccessTypeType = Literal["PUBLIC_INTERNET_ONLY", "VPC_ONLY"]
+NotebookExportStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 NotebookRunStatusType = Literal[
     "FAILED", "QUEUED", "RUNNING", "STARTING", "STOPPED", "STOPPING", "SUCCEEDED"
 ]
+NotebookStatusType = Literal["ACTIVE", "ARCHIVED"]
 NotificationResourceTypeType = Literal["PROJECT"]
 NotificationRoleType = Literal[
     "DOMAIN_OWNER", "PROJECT_CONTRIBUTOR", "PROJECT_OWNER", "PROJECT_SUBSCRIBER", "PROJECT_VIEWER"
@@ -993,6 +1001,7 @@ PaginatorName = Literal[
     "list_lineage_node_history",
     "list_metadata_generation_runs",
     "list_notebook_runs",
+    "list_notebooks",
     "list_notifications",
     "list_policy_grants",
     "list_project_memberships",

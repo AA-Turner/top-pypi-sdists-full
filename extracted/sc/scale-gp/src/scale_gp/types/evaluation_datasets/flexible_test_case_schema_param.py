@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Union, Iterable
+from typing import Dict, Union, Iterable, Optional
 from typing_extensions import Literal, Required, TypeAlias, TypedDict
 
 from .flexible_message_param import FlexibleMessageParam
@@ -73,8 +73,8 @@ ExpectedOutputAdditionalObjectExpectedOutputAdditionalObjectItem: TypeAlias = Un
 
 
 class FlexibleTestCaseSchemaParam(TypedDict, total=False):
-    input: Required[Union[str, Dict[str, InputAdditionalObjectInputAdditionalObjectItem]]]
+    input: Required[Union[str, Dict[str, Optional[InputAdditionalObjectInputAdditionalObjectItem]]]]
 
     expected_extra_info: ExpectedExtraInfo
 
-    expected_output: Union[str, Dict[str, ExpectedOutputAdditionalObjectExpectedOutputAdditionalObjectItem]]
+    expected_output: Union[str, Dict[str, Optional[ExpectedOutputAdditionalObjectExpectedOutputAdditionalObjectItem]]]

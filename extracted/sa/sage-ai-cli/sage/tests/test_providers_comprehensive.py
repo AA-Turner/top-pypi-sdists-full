@@ -557,8 +557,14 @@ class TestModelLists:
         assert all(m.provider == "groq" for m in GROQ_MODELS)
 
     def test_openrouter_models(self):
-        """OPENROUTER_MODELS is populated."""
-        assert len(OPENROUTER_MODELS) > 0
+        """OPENROUTER_MODELS is the static catalog — may be empty.
+
+        The static list was emptied when sage moved to a live OpenRouter
+        catalog fetcher (`providers/openrouter_catalog.py`). list_models()
+        unions this list with the live fetch at runtime, so an empty
+        static list is the correct state. Whatever IS present must still
+        be tagged as `provider="openrouter"`.
+        """
         assert all(m.provider == "openrouter" for m in OPENROUTER_MODELS)
 
     def test_cerebras_models(self):

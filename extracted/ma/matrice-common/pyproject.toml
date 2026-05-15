@@ -1,0 +1,106 @@
+[build-system]
+requires = [
+    "setuptools>=65.0.0",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "matrice_common"
+dynamic = ["version"]
+description = "Common server utilities for Matrice.ai services"
+readme = "README.md"
+authors = [{ name = "Matrice.ai", email = "dipendra@matrice.ai" }]
+license = {text = "MIT"}
+requires-python = ">=3.8"
+# Dependencies removed to avoid TestPyPI backtracking issues.
+# These packages are pre-installed in Docker images via requirements.txt.
+# Runtime deps: requests, Pillow, python-dateutil, redis, aioredis,
+# confluent-kafka, aiokafka, imagehash, kafka-python, msgpack
+keywords = ["matrice", "common", "utilities", "mypyc", "compiled"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.5",
+    "pytest-cov==6.0.0",
+    "pytest-asyncio>=0.21.0",
+    "ruff==0.11.12",
+    "bandit[toml]==1.9.4",
+    "mypy==1.13.0",
+    "pre-commit==4.2.0",
+    "pip-audit==2.7.3",
+    "safety==3.2.11",
+]
+
+[tool.mypy]
+follow_imports = "skip"
+ignore_missing_imports = true
+warn_unused_ignores = false
+show_error_codes = true
+exclude = ['\.pyi$']
+
+[[tool.mypy.overrides]]
+module = "matrice_common.*"
+ignore_errors = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py38"
+extend-exclude = [
+    "build",
+    "dist",
+    "*.egg-info",
+    ".venv",
+    "venv",
+    "src/matrice_common/stream/matrice_stream_usage_example.py",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "E402",  # module level import not at top (needed for lazy imports)
+    "E731",  # do not assign a lambda expression
+    "E741",  # ambiguous variable name
+    "F401",  # unused imports (allowed in __init__.py and type stubs)
+    "F403",  # star imports
+    "F405",  # may be undefined from star imports
+    "F811",  # redefinition (common in optional imports)
+    "F821",  # undefined name (optional deps)
+    "F841",  # unused local variable (in test try/except blocks)
+    "W605",  # invalid escape sequence
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]
+"tests/**/*.py" = ["F401", "F811", "F841", "E402"]
+"**/*.pyi" = ["F401", "F403", "F405", "E501"]
+
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.bandit]
+exclude_dirs = ["tests", "build", "dist", ".venv", "venv"]
+skips = [
+    "B101",  # assert_used (common in dev/debug code)
+    "B110",  # try_except_pass (acceptable for best-effort cleanup)
+    "B311",  # random not for security
+    "B404",  # subprocess import (used for FFmpeg)
+    "B603",  # subprocess without shell=True (args are controlled)
+    "B607",  # start_process_with_partial_path
+]

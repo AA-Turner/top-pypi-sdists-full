@@ -121,6 +121,7 @@ tsk_generate_uuid(char *dest, int TSK_UNUSED(flags))
 out:
     return ret;
 }
+
 static const char *
 tsk_strerror_internal(int err)
 {

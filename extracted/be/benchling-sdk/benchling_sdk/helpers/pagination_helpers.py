@@ -1,10 +1,19 @@
 import threading
-from typing import Any, Iterable, Iterator, List, Optional, Protocol, TypeVar
+from typing import Any, Dict, Iterable, Iterator, List, MutableMapping, Optional, Protocol, TypeVar
 
 from benchling_api_client.v2.types import Response
 
 from benchling_sdk.helpers.logging_helpers import sdk_logger
-from benchling_sdk.helpers.response_helpers import model_from_detailed
+from benchling_sdk.helpers.response_helpers import (
+    LEGACY_RATE_LIMIT_LIMIT_HEADER,
+    LEGACY_RATE_LIMIT_REMAINING_HEADER,
+    LEGACY_RATE_LIMIT_RESET_HEADER,
+    model_from_detailed,
+    RATE_LIMIT_LIMIT_HEADER,
+    RATE_LIMIT_REMAINING_HEADER,
+    RATE_LIMIT_RESET_HEADER,
+    read_header_value,
+)
 
 # TODO BNCH-15439 Make bounded if we can inherit from a common model
 ResultsBody = TypeVar("ResultsBody")
@@ -104,6 +113,7 @@ class PageIterator(Iterable[List[Model]]):
     _first_page: Optional[List[Model]]
     _iterations_count: int
     _forced_iteration: bool
+    _last_page_response_headers: MutableMapping[str, str]
     # Hold a lock since we are relying on internal state that circumvents standard next() behavior
     _lock: threading.Lock
 
@@ -133,6 +143,7 @@ class PageIterator(Iterable[List[Model]]):
         self._iterations_count = 0
         self._forced_iteration = False
         self._lock = threading.Lock()
+        self._last_page_response_headers = {}
 
     def _fetch_data(self) -> List[Model]:
         with self._lock:
@@ -145,6 +156,7 @@ class PageIterator(Iterable[List[Model]]):
             next_token = self._next_token if self._next_token else ""
             response: Response[Model] = self._api_call(next_token)
             result_body: Model = model_from_detailed(response)
+            self._last_page_response_headers = response.headers
             self._approximate_length = self._length_extractor(response)
             self._next_token = self._token_extractor(result_body)
             sdk_logger.debug(
@@ -202,3 +214,69 @@ class PageIterator(Iterable[List[Model]]):
         ):
             return self._fetch_data()
         raise StopIteration
+
+    @property
+    def rate_limit_limit(self) -> Optional[str]:
+        """Return the current page's x-rate-limit-limit header value if available."""
+        return read_header_value(
+            self._last_page_response_headers, RATE_LIMIT_LIMIT_HEADER, LEGACY_RATE_LIMIT_LIMIT_HEADER
+        )
+
+    @property
+    def rate_limit_remaining(self) -> Optional[str]:
+        """Return the current page's x-rate-limit-remaining header value if available."""
+        return read_header_value(
+            self._last_page_response_headers,
+            RATE_LIMIT_REMAINING_HEADER,
+            LEGACY_RATE_LIMIT_REMAINING_HEADER,
+        )
+
+    @property
+    def rate_limit_reset(self) -> Optional[str]:
+        """Return the current page's x-rate-limit-reset header value if available."""
+        return read_header_value(
+            self._last_page_response_headers, RATE_LIMIT_RESET_HEADER, LEGACY_RATE_LIMIT_RESET_HEADER
+        )
+
+    @property
+    def x_rate_limit_limit(self) -> Optional[str]:
+        """Alias for rate_limit_limit."""
+        return self.rate_limit_limit
+
+    @property
+    def x_rate_limit_remaining(self) -> Optional[str]:
+        """Alias for rate_limit_remaining."""
+        return self.rate_limit_remaining
+
+    @property
+    def x_rate_limit_reset(self) -> Optional[str]:
+        """Alias for rate_limit_reset."""
+        return self.rate_limit_reset
+
+    @property
+    def rate_limit_headers(self) -> Dict[str, str]:
+        """Return available x-rate-limit-* headers for the current page."""
+        headers: Dict[str, str] = {}
+        if not self._last_page_response_headers:
+            return headers
+
+        limit = read_header_value(
+            self._last_page_response_headers, RATE_LIMIT_LIMIT_HEADER, LEGACY_RATE_LIMIT_LIMIT_HEADER
+        )
+        if limit is not None:
+            headers[RATE_LIMIT_LIMIT_HEADER] = limit
+
+        remaining = read_header_value(
+            self._last_page_response_headers,
+            RATE_LIMIT_REMAINING_HEADER,
+            LEGACY_RATE_LIMIT_REMAINING_HEADER,
+        )
+        if remaining is not None:
+            headers[RATE_LIMIT_REMAINING_HEADER] = remaining
+
+        reset = read_header_value(
+            self._last_page_response_headers, RATE_LIMIT_RESET_HEADER, LEGACY_RATE_LIMIT_RESET_HEADER
+        )
+        if reset is not None:
+            headers[RATE_LIMIT_RESET_HEADER] = reset
+        return headers

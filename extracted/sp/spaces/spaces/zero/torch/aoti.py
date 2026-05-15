@@ -22,6 +22,7 @@ if version.parse(torch.__version__) < version.parse('2.8'): # pragma: no cover
 
 import torch._inductor.codecache # https://github.com/pytorch/pytorch/pull/165157
 from torch._functorch._aot_autograd.subclass_parametrization import unwrap_tensor_subclass_parameters
+from torch._inductor.cpu_vec_isa import valid_vec_isa_list
 from torch._inductor.package.package import package_aoti
 from torch.export.pt2_archive._package import AOTICompiledModel
 from torch.export.pt2_archive._package_weights import Weights
@@ -36,6 +37,7 @@ INDUCTOR_CONFIGS_OVERRIDES: dict[str, Any] = {
     'aot_inductor.package_constants_on_disk': True,
     'aot_inductor.package': True,
     'always_keep_tensor_constants': True,
+    'joint_graph_constant_folding': False,
 }
 
 if version.parse(version.parse(torch.__version__).base_version) >= version.parse('2.10'): # pragma: no cover
@@ -83,6 +85,7 @@ class ZeroGPUCompiledModel:
         self.archive_file = archive_file
         self.weights = weights
         self.compiled_model: ContextVar[AOTICompiledModel | None] = ContextVar('compiled_model', default=None)
+        valid_vec_isa_list() # pre-warm functools.cache
     def __call__(self, *args, **kwargs):
         if (compiled_model := self.compiled_model.get()) is None:
             with _register_aoti_cleanup():
@@ -195,6 +198,7 @@ class LazyAOTIModel:
         self.archive_file = archive_file
         self.compiled_model: ContextVar[AOTICompiledModel | None] = ContextVar('compiled_model', default=None)
         self.loaded_weights: ContextVar[dict[str, torch.Tensor] | None] = ContextVar('loaded_weights', default=None)
+        valid_vec_isa_list() # pre-warm functools.cache
     def __call__(self, weights: dict[str, torch.Tensor], check_full_update: bool, *args, **kwargs):
         if (compiled_model := self.compiled_model.get()) is None:
             with _register_aoti_cleanup():
@@ -204,6 +208,7 @@ class LazyAOTIModel:
         if (loaded_weights := self.loaded_weights.get()) is None or loaded_weights is not weights:
             constant_fqns = compiled_model.get_constant_fqns()
             constant_map = {name: tensor for name, tensor in weights.items() if name in constant_fqns}
+            # TODO: Explicit warn on missing / unexpected fqns
             compiled_model.load_constants(constant_map, check_full_update=check_full_update, user_managed=True)
             self.loaded_weights.set(weights)
         return compiled_model(*args, **kwargs)

@@ -140,3 +140,8 @@ class Transformable:
         Cette propriété est incrémentée à chaque modification de la transformation monde.
         """
         return self._transform.version
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Transformable",
+]

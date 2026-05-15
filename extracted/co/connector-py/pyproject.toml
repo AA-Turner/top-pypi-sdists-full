@@ -17,7 +17,7 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "connector-sdk-types == 0.50.0",
+    "connector-sdk-types == 0.51.0",
     "gql[httpx]~=3.5.3",
     "httpx~=0.28.1",
     "msgpack~=1.1.2",
@@ -50,6 +50,9 @@ Documentation = "https://developers.lumos.com/reference/the-lumos-connector-api"
 
 [project.scripts]
 connector = "connector.main:main"
+
+[project.entry-points."pytest11"]
+connector-sdk-fixtures = "connector.tests.pytest_plugin"
 
 [build-system]
 requires = ["setuptools >= 77.0.3"]

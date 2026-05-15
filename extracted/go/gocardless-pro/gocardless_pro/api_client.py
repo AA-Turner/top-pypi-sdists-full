@@ -126,13 +126,35 @@ class ApiClient(object):
             response_body = response.json()
         except ValueError:
             msg = 'Malformed response received from server'
-            raise errors.MalformedResponseError(msg, response.text)
+            raise errors.MalformedResponseError(msg, response.text, response.status_code)
 
         if response.status_code < 400:
             return
 
-        error = response.json()['error']
-        exception_class = errors.ApiError.exception_for(response.status_code, error['type'], error.get('errors'))
+        if not isinstance(response_body, dict):
+            raise errors.MalformedResponseError(
+                'Malformed response received from server',
+                response.text,
+                response.status_code,
+            )
+
+        error = response_body.get('error', response_body)
+
+        if isinstance(error, str):
+            error = {
+                'code': response.status_code,
+                'message': error,
+            }
+            exception_class = errors.ApiError
+        elif isinstance(error, dict) and 'type' in error:
+            exception_class = errors.ApiError.exception_for(response.status_code, error['type'], error.get('errors'))
+        else:
+            raise errors.MalformedResponseError(
+                'Malformed response received from server',
+                response.text,
+                response.status_code,
+            )
+
         raise exception_class(error)
 
     def _url_for(self, path):
@@ -150,7 +172,7 @@ class ApiClient(object):
             'Authorization': 'Bearer {0}'.format(self.access_token),
             'Content-Type': 'application/json',
             'GoCardless-Client-Library': 'gocardless-pro-python',
-            'GoCardless-Client-Version': '3.3.0',
+            'GoCardless-Client-Version': '3.4.0',
             'User-Agent': self._user_agent(),
             'GoCardless-Version': '2015-07-06',
         }
@@ -159,7 +181,7 @@ class ApiClient(object):
         python_version = '.'.join(platform.python_version_tuple()[0:2])
         vm_version = '{}.{}.{}-{}{}'.format(*sys.version_info)
         return ' '.join([
-            'gocardless-pro-python/3.3.0',
+            'gocardless-pro-python/3.4.0',
             'python/{0}'.format(python_version),
             '{0}/{1}'.format(platform.python_implementation(), vm_version),
             '{0}/{1}'.format(platform.system(), platform.release()),

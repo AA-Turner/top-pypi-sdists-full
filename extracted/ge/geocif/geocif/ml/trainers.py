@@ -332,6 +332,25 @@ def auto_train(
                 outlier_threshold=5.0,
                 random_state=seed,
             )
+        elif model_name == "tabicl_ft":
+            from tabicl import FinetunedTabICLRegressor
+
+            # Fine-tuned variant of TabICL. Needs X_val/y_val for early
+            # stopping — wired in the TabICLFTFitter class in geocif.py.
+            # GPU-friendly; falls back to CPU when no CUDA device is
+            # available — expect ~5-10x slower per task on CPU. Defaults
+            # come from the tabicl tutorial.
+            model = FinetunedTabICLRegressor(
+                epochs=60,
+                learning_rate=1e-5,
+                n_estimators_finetune=2,
+                n_estimators_validation=2,
+                n_estimators_inference=4,
+                early_stopping=True,
+                patience=10,
+                random_state=seed,
+                verbose=False,
+            )
         elif model_name == "desreg":
             from desReg.des.DESRegression import DESRegression
             from tabpfn_extensions.post_hoc_ensembles.sklearn_interface import AutoTabPFNRegressor
@@ -458,7 +477,7 @@ def estimate_ci(model_type, model_name, model, alpha=0.05, ci_method="crepes"):
     Returns:
         Wrapped model for confidence interval estimation
     """
-    if model_name in ["ngboost", "tabpfn", "tabicl"]:
+    if model_name in ["ngboost", "tabpfn", "tabicl", "tabicl_ft"]:
         return model
     elif model_type == "CLASSIFICATION" and model_name == "catboost":
         return model

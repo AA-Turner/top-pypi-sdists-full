@@ -298,3 +298,8 @@ class _Canvas:
         self.y = y
         self.width = width
         self.height = height
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Window",
+]

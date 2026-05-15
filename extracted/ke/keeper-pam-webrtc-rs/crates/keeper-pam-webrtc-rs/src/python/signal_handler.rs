@@ -43,6 +43,12 @@ pub fn setup_signal_handler(
                         success = false;
                     }
                 }
+                if success {
+                    if let Err(e) = py_dict.set_item("signal_id", &signal.signal_id) {
+                        warn!("Failed to set 'signal_id' in signal dict for {}: {:?}", task_tube_id, e);
+                        success = false;
+                    }
+                }
 
                 if success {
                     let result = callback_pyobj.call1(py, (py_dict,));

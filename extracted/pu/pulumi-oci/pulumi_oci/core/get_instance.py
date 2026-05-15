@@ -385,6 +385,7 @@ class GetInstanceResult:
         * `NATIVE` - VM instances launch with iSCSI boot and VFIO devices. The default value for platform images.
         * `EMULATED` - VM instances launch with emulated devices, such as the E1000 network driver and emulated SCSI disk controller.
         * `PARAVIRTUALIZED` - VM instances launch with paravirtualized devices using VirtIO drivers.
+        * `ACCELERATEDPV` - VM instances launch with accelerated paravirtualized networking type.
         * `CUSTOM` - VM instances launch with custom configuration settings specified in the `LaunchOptions` parameter.
         """
         return pulumi.get(self, "launch_mode")
@@ -634,7 +635,7 @@ def get_instance(instance_id: Optional[_builtins.str] = None,
     import pulumi
     import pulumi_oci as oci
 
-    test_instance = oci.Core.get_instance(instance_id=test_instance_oci_core_instance["id"])
+    test_instance = oci.core.get_instance(instance_id=test_instance_oci_core_instance["id"])
     ```
 
 
@@ -696,7 +697,7 @@ def get_instance(instance_id: Optional[_builtins.str] = None,
         time_created=pulumi.get(__ret__, 'time_created'),
         time_maintenance_reboot_due=pulumi.get(__ret__, 'time_maintenance_reboot_due'),
         update_operation_constraint=pulumi.get(__ret__, 'update_operation_constraint'))
-def get_instance_output(instance_id: Optional[pulumi.Input[_builtins.str]] = None,
+def get_instance_output(instance_id: pulumi.Input[Optional[_builtins.str]] = None,
                         opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetInstanceResult]:
     """
     This data source provides details about a specific Instance resource in Oracle Cloud Infrastructure Core service.
@@ -712,7 +713,7 @@ def get_instance_output(instance_id: Optional[pulumi.Input[_builtins.str]] = Non
     import pulumi
     import pulumi_oci as oci
 
-    test_instance = oci.Core.get_instance(instance_id=test_instance_oci_core_instance["id"])
+    test_instance = oci.core.get_instance(instance_id=test_instance_oci_core_instance["id"])
     ```
 
 

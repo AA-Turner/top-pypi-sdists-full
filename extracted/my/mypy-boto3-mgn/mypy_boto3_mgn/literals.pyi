@@ -306,7 +306,7 @@ ReplicationConfigurationReplicatedDiskStagingDiskTypeType = Literal[
     "AUTO", "GP2", "GP3", "IO1", "IO2", "SC1", "ST1", "STANDARD"
 ]
 ReplicationTypeType = Literal["AGENT_BASED", "SNAPSHOT_SHIPPING"]
-SecurityGroupMappingStrategyType = Literal["MAP", "SKIP"]
+SecurityGroupMappingStrategyType = Literal["MAP", "MAP_DHCP", "SKIP"]
 SourceEnvironmentType = Literal[
     "CISCO_ACI",
     "FORTIGATE_FIREWALL",

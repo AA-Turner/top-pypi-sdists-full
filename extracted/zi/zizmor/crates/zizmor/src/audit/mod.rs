@@ -12,7 +12,7 @@ use crate::{
     },
     models::{
         AsDocument,
-        action::{Action, CompositeStep},
+        action::{Action, CompositeStep, DockerAction},
         dependabot::Dependabot,
         workflow::{Job, NormalJob, ReusableWorkflowCallJob, Step, Workflow},
     },
@@ -31,6 +31,7 @@ pub(crate) mod dependabot_cooldown;
 pub(crate) mod dependabot_execution;
 pub(crate) mod excessive_permissions;
 pub(crate) mod forbidden_uses;
+pub(crate) mod github_app;
 pub(crate) mod github_env;
 pub(crate) mod hardcoded_container_credentials;
 pub(crate) mod impostor_commit;
@@ -49,6 +50,7 @@ pub(crate) mod superfluous_actions;
 pub(crate) mod template_injection;
 pub(crate) mod undocumented_permissions;
 pub(crate) mod unpinned_images;
+pub(crate) mod unpinned_tools;
 pub(crate) mod unpinned_uses;
 pub(crate) mod unredacted_secrets;
 pub(crate) mod unsound_condition;
@@ -305,6 +307,14 @@ pub(crate) trait Audit: AuditCore {
         Ok(results)
     }
 
+    async fn audit_docker_action<'doc>(
+        &self,
+        _docker: &DockerAction<'doc>,
+        _config: &Config,
+    ) -> Result<Vec<Finding<'doc>>, AuditError> {
+        Ok(vec![])
+    }
+
     async fn audit_composite_step<'doc>(
         &self,
         _step: &CompositeStep<'doc>,
@@ -319,6 +329,10 @@ pub(crate) trait Audit: AuditCore {
         config: &Config,
     ) -> Result<Vec<Finding<'doc>>, AuditError> {
         let mut results = vec![];
+
+        if let Some(docker) = action.docker() {
+            results.extend(self.audit_docker_action(&docker, config).await?);
+        }
 
         if let Some(steps) = action.steps() {
             for step in steps {

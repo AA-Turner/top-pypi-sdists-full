@@ -86,3 +86,8 @@ class ConeEmitter(ParticleEmitter):
         positions = np.full((count, 2), self._position.to_tuple(), dtype=np.float32)
         velocities = np.stack([speeds * np.cos(angles), speeds * np.sin(angles)], axis=1).astype(np.float32)
         return positions, velocities
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "ConeEmitter",
+]

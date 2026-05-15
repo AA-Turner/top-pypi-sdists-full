@@ -41,6 +41,7 @@ class ConnectorErrorCode(str, Enum):
     RATE_LIMIT = 'rate_limit'
     BAD_GATEWAY = 'bad_gateway'
     SERVICE_ERROR = 'service_error'
+    BUDGET_EXHAUSTED = 'budget_exhausted'
     CONNECTION_TIMEOUT = 'connection_timeout'
     REQUEST_TIMEOUT = 'request_timeout'
     CONNECTION_REJECTED = 'connection_rejected'

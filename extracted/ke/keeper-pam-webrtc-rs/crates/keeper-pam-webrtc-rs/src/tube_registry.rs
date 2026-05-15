@@ -15,6 +15,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc::{self, UnboundedSender};
 use tokio::sync::oneshot;
+use uuid::Uuid;
 use webrtc::ice_transport::ice_server::RTCIceServer;
 use webrtc::peer_connection::configuration::RTCConfiguration;
 use webrtc::peer_connection::policy::ice_transport_policy::RTCIceTransportPolicy;
@@ -34,6 +35,7 @@ pub struct SignalMessage {
     pub kind: String, // "icecandidate", "answer", etc.
     pub data: String,
     pub conversation_id: String,
+    pub signal_id: String, // UUID4, unique per signal — used by Python for dedup
     pub progress_flag: Option<i32>, // Progress flag for gateway responses (0=COMPLETE, 1=FAIL, 2=PROGRESS, 3=SKIP, 4=ABSENT)
     pub progress_status: Option<String>, // Progress status message
     pub is_ok: Option<bool>,        // Success/failure indicator
@@ -152,7 +154,14 @@ async fn close_tube_async(
     stale_counter: Arc<AtomicUsize>,
     timeout_counter: Arc<AtomicUsize>,
 ) -> Result<()> {
-    debug!("Spawned task closing tube: {}", tube_id);
+    debug!(
+        "Spawned task closing tube: {} (conversation_id: {})",
+        tube_id,
+        tubes
+            .get(&tube_id)
+            .and_then(|e| e.value().original_conversation_id.clone())
+            .unwrap_or_else(|| "-".to_string())
+    );
 
     // Get tube to do graceful shutdown
     let tube = tubes
@@ -161,11 +170,13 @@ async fn close_tube_async(
         .ok_or_else(|| {
             // Tube already removed - idempotent close is OK
             debug!(
-                "Tube {} already removed from registry (idempotent close)",
+                "Tube {} already removed from registry (idempotent close) (conversation_id: -)",
                 tube_id
             );
             anyhow!("Tube not found: {}", tube_id)
         })?;
+
+    let conv_id = tube.original_conversation_id.as_deref().unwrap_or("-");
 
     // CONCURRENT CLOSE PROTECTION: Check if already closing
     // Use compare_exchange to atomically check-and-set
@@ -199,8 +210,8 @@ async fn close_tube_async(
 
             if inactive_5min {
                 warn!(
-                    "Tube {} is already closing but stuck in terminal state ({:?}) for 5+ min - forcing removal",
-                    tube_id, state
+                    "Tube {} is already closing but stuck in terminal state ({:?}) for 5+ min - forcing removal (conversation_id: {})",
+                    tube_id, state, conv_id
                 );
 
                 // Force remove from registry - this is a stale tube
@@ -211,16 +222,16 @@ async fn close_tube_async(
                 stale_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
                 info!(
-                    "Forced removal of stale tube {} (state: {:?})",
-                    tube_id, state
+                    "Forced removal of stale tube {} (state: {:?}, conversation_id: {})",
+                    tube_id, state, conv_id
                 );
                 return Ok(());
             }
         }
 
         debug!(
-            "Tube {} is already being closed by another task - returning success (idempotent)",
-            tube_id
+            "Tube {} is already being closed by another task - returning success (idempotent, conversation_id: {})",
+            tube_id, conv_id
         );
         // Idempotent: Another task is closing it, that's fine.
         // Don't wait - just return success immediately.
@@ -234,7 +245,10 @@ async fn close_tube_async(
     {
         let mut status = tube.status.write().await;
         *status = TubeStatus::Closed;
-        debug!("Status set to Closed (tube_id: {})", tube_id);
+        debug!(
+            "Status set to Closed (tube_id: {}, conversation_id: {})",
+            tube_id, conv_id
+        );
     }
 
     // 2. Send connection_close callbacks for channels (graceful shutdown)
@@ -245,16 +259,35 @@ async fn close_tube_async(
     for channel_name in &channel_names {
         if let Err(e) = tube.send_connection_close_callback(channel_name).await {
             warn!(
-                "Failed to send close callback: {} (tube_id: {}, channel: {})",
-                e, tube_id, channel_name
+                "Failed to send close callback: {} (tube_id: {}, conversation_id: {}, channel: {})",
+                e, tube_id, conv_id, channel_name
             );
         }
     }
 
-    // 2b. Send "channel_closed" signals to Python (CRITICAL for Python integration!)
+    // 2b. Send "channel_closed" signals to Python for channels still in active_channels.
+    //
+    // Channels that already closed naturally have deregistered from active_channels and sent
+    // their own signal via the channel runner task; re-sending here produces a duplicate that
+    // Python receives as a PyKeyError (silenced in signal_handler.rs) and can leave the
+    // session slot un-released (observed: stalled sessions after rapid connect + GUACD_ERROR).
+    //
+    // Channels still in active_channels have NOT yet sent their signal — they are mid-run
+    // when close_tube is called.  tube.close() will notify them to exit, and once channel.run()
+    // returns the runner task checks tube.closing and skips its own send (see tube.rs).
     if let Some(ref signal_sender) = tube.signal_sender {
+        let active_labels: std::collections::HashSet<String> =
+            { tube.active_channels.read().await.keys().cloned().collect() };
         let data_channels_snapshot = tube.data_channels.read().await.clone();
         for (label, _dc) in data_channels_snapshot.iter() {
+            if !active_labels.contains(label) {
+                // Channel already closed naturally and sent its own signal.
+                debug!(
+                    "Skipping channel_closed for already-deregistered channel (tube_id: {}, label: {})",
+                    tube_id, label
+                );
+                continue;
+            }
             let conversation_id = if label == "control" {
                 tube.original_conversation_id
                     .clone()
@@ -281,6 +314,7 @@ async fn close_tube_async(
                 kind: "channel_closed".to_string(),
                 data: signal_data,
                 conversation_id: conversation_id.clone(),
+                signal_id: Uuid::new_v4().to_string(),
                 progress_flag: Some(0), // COMPLETE
                 progress_status: Some("Tube closed".to_string()),
                 is_ok: Some(true),
@@ -288,10 +322,11 @@ async fn close_tube_async(
 
             if let Err(e) = signal_sender.send(signal_msg) {
                 error!(
-                    "Failed to send channel_closed signal: {} (tube_id: {}, label: {})",
+                    "Failed to send channel_closed signal: {} (tube_id: {}, label: {}, conversation_id: {})",
                     e,
                     tube.id(),
-                    label
+                    label,
+                    conv_id
                 );
             } else {
                 debug!(
@@ -304,8 +339,8 @@ async fn close_tube_async(
         }
     } else {
         warn!(
-            "No signal sender on tube - cannot notify Python of channel closures (tube_id: {})",
-            tube_id
+            "No signal sender on tube - cannot notify Python of channel closures (tube_id: {}, conversation_id: {})",
+            tube_id, conv_id
         );
     }
 
@@ -316,18 +351,21 @@ async fn close_tube_async(
 
     match close_result {
         Ok(Ok(_)) => {
-            info!("Tube {} explicit close completed successfully", tube_id);
+            info!(
+                "Tube {} explicit close completed successfully (conversation_id: {})",
+                tube_id, conv_id
+            );
         }
         Ok(Err(e)) => {
             warn!(
-                "Error during explicit tube close: {} (tube_id: {}) - proceeding with removal",
-                e, tube_id
+                "Error during explicit tube close: {} (tube_id: {}, conversation_id: {}) - proceeding with removal",
+                e, tube_id, conv_id
             );
         }
         Err(_) => {
             error!(
-                "Tube close timed out after 30s (tube_id: {}) - forcing removal to prevent stale tube",
-                tube_id
+                "Tube close timed out after 30s (tube_id: {}, conversation_id: {}) - forcing removal to prevent stale tube",
+                tube_id, conv_id
             );
             // Track timeout for monitoring
             timeout_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -339,8 +377,8 @@ async fn close_tube_async(
     conversations.retain(|_, tid| tid != &tube_id);
 
     info!(
-        "Tube {} removed from registry - Drop will verify cleanup",
-        tube_id
+        "Tube {} removed from registry - Drop will verify cleanup (conversation_id: {})",
+        tube_id, conv_id
     );
 
     // closing flag remains true (tube is being dropped anyway)
@@ -372,7 +410,7 @@ impl RegistryActor {
     /// Main actor event loop
     async fn run(mut self) {
         debug!(
-            "Registry actor started (max_concurrent: {})",
+            "Registry actor started (max_concurrent: {}, conversation_id: -)",
             self.max_concurrent_creates
         );
 
@@ -384,8 +422,8 @@ impl RegistryActor {
                     // BACKPRESSURE: Reject if overloaded
                     if active >= self.max_concurrent_creates {
                         warn!(
-                            "Registry at capacity: {}/{} creates active - rejecting new request",
-                            active, self.max_concurrent_creates
+                            "Registry at capacity: {}/{} creates active - rejecting new request (conversation_id: {})",
+                            active, self.max_concurrent_creates, req.conversation_id
                         );
                         let _ = resp.send(Err(anyhow!(
                             "System overloaded: {} active creates (max {}). Please retry with backoff.",
@@ -398,6 +436,7 @@ impl RegistryActor {
                     // Accept and process
                     self.active_creates.fetch_add(1, Ordering::Release);
                     let start = Instant::now();
+                    let conversation_id_for_timeout_log = req.conversation_id.clone();
 
                     // Timeout tube creation to prevent actor freeze on slow I/O (router, DNS, etc)
                     let timeout_duration = crate::config::tube_creation_timeout();
@@ -414,8 +453,8 @@ impl RegistryActor {
                         Ok(Err(e)) => Err(e),
                         Err(_) => {
                             warn!(
-                                "Tube creation timed out after {:?} - likely router slowness or network issues",
-                                timeout_duration
+                                "Tube creation timed out after {:?} - likely router slowness or network issues (conversation_id: {})",
+                                timeout_duration, conversation_id_for_timeout_log
                             );
                             Err(anyhow!(
                                 "Tube creation timed out after {:?} - check router connectivity and network",
@@ -475,7 +514,7 @@ impl RegistryActor {
 
                         if unlikely!(crate::logger::is_verbose_logging()) {
                             debug!(
-                                "Close task completed for tube {} (spawned task)",
+                                "Close task completed for tube {} (spawned task, conversation_id: -)",
                                 tube_id_clone
                             );
                         }
@@ -525,7 +564,7 @@ impl RegistryActor {
                 }
 
                 RegistryCommand::Shutdown => {
-                    info!("Registry actor received shutdown command - exiting gracefully");
+                    info!("Registry actor received shutdown command - exiting gracefully (conversation_id: -)");
                     break; // Exit the while loop
                 }
             }
@@ -544,6 +583,22 @@ impl RegistryActor {
         if let Some(ref provided_tube_id) = tube_id_opt {
             if let Some(existing_tube) = self.tubes.get(provided_tube_id).map(|e| e.value().clone())
             {
+                // Verify the caller is already associated with this tube.
+                // Without this check any caller that learns a tube_id (a UUIDv4) can
+                // attach to it and redirect its Python handler channel.
+                let existing_tokens = existing_tube.get_callback_tokens().await;
+                if !existing_tokens.is_empty() && !existing_tokens.contains(&req.callback_token) {
+                    warn!(
+                        "CreateTube rejected: callback_token does not match any existing channel \
+                         on tube (tube_id: {}, conversation_id: {})",
+                        provided_tube_id, conversation_id
+                    );
+                    return Err(anyhow::anyhow!(
+                        "Unauthorized: callback_token does not match tube {}",
+                        provided_tube_id
+                    ));
+                }
+
                 info!(
                     "Using existing tube for conversation (tube_id: {}, conversation_id: {})",
                     provided_tube_id, conversation_id
@@ -680,6 +735,7 @@ impl RegistryActor {
         let ice_servers = self
             .prepare_ice_servers_unlocked(
                 &tube_id,
+                &req.conversation_id,
                 &req.krelay_server,
                 &req.ksm_config,
                 &req.client_version,
@@ -758,8 +814,8 @@ impl RegistryActor {
                 .await?
         } else {
             debug!(
-                "Client tube will receive data channel via on_data_channel (tube_id: {})",
-                tube_id
+                "Client tube will receive data channel via on_data_channel (tube_id: {}, conversation_id: {})",
+                tube_id, conversation_id
             );
             // Client tube doesn't create a data channel - it will receive one via on_data_channel
             // The logical channel will be created in the on_data_channel callback
@@ -786,8 +842,8 @@ impl RegistryActor {
                     format!("{}:{}", host, port),
                 );
                 debug!(
-                    "Server tube listening on: {}:{} (tube_id: {})",
-                    host, port, tube_id
+                    "Server tube listening on: {}:{} (tube_id: {}, conversation_id: {})",
+                    host, port, tube_id, conversation_id
                 );
             }
         }
@@ -836,6 +892,7 @@ impl RegistryActor {
     async fn prepare_ice_servers_unlocked(
         &self,
         tube_id: &str,
+        conversation_id: &str,
         krelay_server: &str,
         ksm_config: &Option<String>,
         client_version: &str,
@@ -857,14 +914,17 @@ impl RegistryActor {
             // they're unreachable from the test environment, significantly slowing ICE
             // gathering.  Empty ice_servers → ICE uses local host candidates only.
             info!(
-                "TEST_MODE_KSM_CONFIG active: using host candidates only, no STUN (tube_id: {})",
-                tube_id
+                "TEST_MODE_KSM_CONFIG active: using host candidates only, no STUN (tube_id: {}, conversation_id: {})",
+                tube_id, conversation_id
             );
             return Ok(ice_servers);
         }
 
         if krelay_server.is_empty() {
-            warn!("No krelay_server provided (tube_id: {})", tube_id);
+            warn!(
+                "No krelay_server provided (tube_id: {}, conversation_id: {})",
+                tube_id, conversation_id
+            );
             return Ok(ice_servers);
         }
 
@@ -877,8 +937,8 @@ impl RegistryActor {
                 credential: String::new(),
             });
             debug!(
-                "Added STUN server (tube_id: {}, url: {})",
-                tube_id, stun_url
+                "Added STUN server (tube_id: {}, conversation_id: {}, url: {})",
+                tube_id, conversation_id, stun_url
             );
         }
 
@@ -894,8 +954,8 @@ impl RegistryActor {
                 settings.get("turn_password").and_then(|v| v.as_str()),
             ) {
                 debug!(
-                    "Using explicit TURN credentials (tube_id: {}, url: {})",
-                    tube_id, turn_url
+                    "Using explicit TURN credentials (tube_id: {}, conversation_id: {}, url: {})",
+                    tube_id, conversation_id, turn_url
                 );
                 ice_servers.push(RTCIceServer {
                     urls: vec![turn_url.to_string()],
@@ -910,13 +970,13 @@ impl RegistryActor {
                     if let Some(existing_conn) = RESOURCE_MANAGER.get_turn_connection(krelay_server)
                     {
                         debug!(
-                            "Reusing pooled TURN connection (tube_id: {}, username: {})",
-                            tube_id, existing_conn.username
+                            "Reusing pooled TURN connection (tube_id: {}, conversation_id: {}, username: {})",
+                            tube_id, conversation_id, existing_conn.username
                         );
                         if unlikely!(crate::logger::is_verbose_logging()) {
                             debug!(
-                                "Pooled TURN credentials (tube_id: {}, username: {}, password: {})",
-                                tube_id, existing_conn.username, existing_conn.password
+                                "Pooled TURN credentials (tube_id: {}, conversation_id: {}, username: {})",
+                                tube_id, conversation_id, existing_conn.username
                             );
                         }
                         ice_servers.push(RTCIceServer {
@@ -930,17 +990,18 @@ impl RegistryActor {
                         match get_relay_access_creds(ksm_cfg, Some(3600), client_version).await {
                             Ok(creds) => {
                                 let turn_duration_ms = turn_start.elapsed().as_millis() as f64;
-                                debug!("Successfully fetched TURN credentials (tube_id: {}, duration: {:.1}ms)",
-                                       tube_id, turn_duration_ms);
+                                debug!("Successfully fetched TURN credentials (tube_id: {}, conversation_id: {}, duration: {:.1}ms)",
+                                       tube_id, conversation_id, turn_duration_ms);
 
                                 let ttl_seconds =
                                     creds.get("ttl").and_then(|v| v.as_u64()).unwrap_or(3600);
                                 if unlikely!(crate::logger::is_verbose_logging()) {
                                     debug!(
-                                        "TURN credentials TTL: {}s ({:.1}h) (tube_id: {})",
+                                        "TURN credentials TTL: {}s ({:.1}h) (tube_id: {}, conversation_id: {})",
                                         ttl_seconds,
                                         ttl_seconds as f64 / 3600.0,
-                                        tube_id
+                                        tube_id,
+                                        conversation_id
                                     );
                                 }
 
@@ -961,12 +1022,12 @@ impl RegistryActor {
                                         password.to_string(),
                                     );
 
-                                    debug!("Created new TURN connection in pool (tube_id: {}, username: {})",
-                                           tube_id, username);
+                                    debug!("Created new TURN connection in pool (tube_id: {}, conversation_id: {}, username: {})",
+                                           tube_id, conversation_id, username);
                                     if unlikely!(crate::logger::is_verbose_logging()) {
                                         debug!(
-                                            "Fresh TURN credentials (tube_id: {}, username: {}, password: {})",
-                                            tube_id, username, password
+                                            "Fresh TURN credentials (tube_id: {}, conversation_id: {}, username: {})",
+                                            tube_id, conversation_id, username
                                         );
                                     }
                                     ice_servers.push(RTCIceServer {
@@ -975,13 +1036,13 @@ impl RegistryActor {
                                         credential: password.to_string(),
                                     });
                                 } else {
-                                    warn!("Invalid TURN credentials format (tube_id: {})", tube_id);
+                                    warn!("Invalid TURN credentials format (tube_id: {}, conversation_id: {})", tube_id, conversation_id);
                                 }
                             }
                             Err(e) => {
                                 let turn_duration_ms = turn_start.elapsed().as_millis() as f64;
-                                error!("Failed to get TURN credentials: {} (tube_id: {}, duration: {:.1}ms)",
-                                       e, tube_id, turn_duration_ms);
+                                error!("Failed to get TURN credentials: {} (tube_id: {}, conversation_id: {}, duration: {:.1}ms)",
+                                       e, tube_id, conversation_id, turn_duration_ms);
 
                                 crate::metrics::METRICS_COLLECTOR.record_turn_allocation(
                                     tube_id,
@@ -1006,8 +1067,8 @@ impl RegistryActor {
                 let username = std::env::var("KEEPER_GATEWAY_TURN_USERNAME").unwrap_or_default();
                 let password = std::env::var("KEEPER_GATEWAY_TURN_PASSWORD").unwrap_or_default();
                 info!(
-                    "Adding extra TURN server from KEEPER_GATEWAY_TURN_URL (tube_id: {}, url: {})",
-                    tube_id, extra_turn_url
+                    "Adding extra TURN server from KEEPER_GATEWAY_TURN_URL (tube_id: {}, conversation_id: {}, url: {})",
+                    tube_id, conversation_id, extra_turn_url
                 );
                 ice_servers.push(RTCIceServer {
                     urls: vec![extra_turn_url],
@@ -1019,8 +1080,8 @@ impl RegistryActor {
         if let Ok(extra_stun_url) = std::env::var("KEEPER_GATEWAY_STUN_URL") {
             if !extra_stun_url.is_empty() {
                 info!(
-                    "Adding extra STUN server from KEEPER_GATEWAY_STUN_URL (tube_id: {}, url: {})",
-                    tube_id, extra_stun_url
+                    "Adding extra STUN server from KEEPER_GATEWAY_STUN_URL (tube_id: {}, conversation_id: {}, url: {})",
+                    tube_id, conversation_id, extra_stun_url
                 );
                 ice_servers.push(RTCIceServer {
                     urls: vec![extra_stun_url],
@@ -1294,8 +1355,12 @@ impl RegistryHandle {
         for entry in self.tubes.iter() {
             let (tube_id, tube) = (entry.key(), entry.value());
 
+            let tube_conv_id = tube.original_conversation_id.as_deref().unwrap_or("-");
             if tube.is_stale().await {
-                debug!("Detected stale tube (tube_id: {})", tube_id);
+                debug!(
+                    "Detected stale tube (tube_id: {}, conversation_id: {})",
+                    tube_id, tube_conv_id
+                );
                 stale_tube_ids.push(tube_id.clone());
                 continue;
             }
@@ -1311,7 +1376,10 @@ impl RegistryHandle {
                     .is_inactive_for_duration(std::time::Duration::from_secs(300))
                     .await
             {
-                debug!("Detected empty+inactive tube (tube_id: {})", tube_id);
+                debug!(
+                    "Detected empty+inactive tube (tube_id: {}, conversation_id: {})",
+                    tube_id, tube_conv_id
+                );
                 stale_tube_ids.push(tube_id.clone());
             }
         }
@@ -1319,19 +1387,30 @@ impl RegistryHandle {
         // Close stale tubes via actor (coordinated)
         let mut closed_tubes = Vec::new();
         for tube_id in stale_tube_ids {
-            debug!("Auto-closing stale tube (tube_id: {})", tube_id);
+            let conv_id_for_log = self
+                .tubes
+                .get(&tube_id)
+                .and_then(|e| e.value().original_conversation_id.clone())
+                .unwrap_or_else(|| "-".to_string());
+            debug!(
+                "Auto-closing stale tube (tube_id: {}, conversation_id: {})",
+                tube_id, conv_id_for_log
+            );
             match self
                 .close_tube(&tube_id, Some(CloseConnectionReason::Timeout))
                 .await
             {
                 Ok(_) => {
-                    info!("Successfully auto-closed stale tube (tube_id: {})", tube_id);
+                    info!(
+                        "Successfully auto-closed stale tube (tube_id: {}, conversation_id: {})",
+                        tube_id, conv_id_for_log
+                    );
                     closed_tubes.push(tube_id);
                 }
                 Err(e) => {
                     warn!(
-                        "Failed to auto-close stale tube: {} (tube_id: {})",
-                        e, tube_id
+                        "Failed to auto-close stale tube: {} (tube_id: {}, conversation_id: {})",
+                        e, tube_id, conv_id_for_log
                     );
                 }
             }
@@ -1350,7 +1429,7 @@ pub(crate) static REGISTRY: Lazy<RegistryHandle> = Lazy::new(|| {
     let max_concurrent = crate::config::max_concurrent_creates();
 
     debug!(
-        "Registry configured with max_concurrent_creates: {} (KEEPER_GATEWAY_MAX_CONCURRENT_CREATES)",
+        "Registry configured with max_concurrent_creates: {} (KEEPER_GATEWAY_MAX_CONCURRENT_CREATES, conversation_id: -)",
         max_concurrent
     );
 
@@ -1371,8 +1450,8 @@ pub(crate) static REGISTRY: Lazy<RegistryHandle> = Lazy::new(|| {
         rt.spawn(async move {
             actor.run().await;
             // If actor exits, this is catastrophic
-            error!("CRITICAL: Registry actor event loop terminated!");
-            error!("All future tube operations will fail!");
+            error!("CRITICAL: Registry actor event loop terminated! (conversation_id: -)");
+            error!("All future tube operations will fail! (conversation_id: -)");
         });
     });
 

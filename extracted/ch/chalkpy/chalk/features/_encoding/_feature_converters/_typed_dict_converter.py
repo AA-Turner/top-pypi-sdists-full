@@ -133,13 +133,13 @@ def _build_td_to_dict(td_class: type) -> "Callable[[Any], Any]":
                 return null_prim
             if v is ...:
                 return v
-            return {f: v[f] for f in field_names}
+            return {f: v.get(f) for f in field_names}
         return _convert_flat
     else:
         def _convert_nested(v: Any) -> Any:
             if v is None:
                 return {f: sub[f](None) if f in sub else None for f in field_names}
-            return {f: sub[f](v[f]) if f in sub else v[f] for f in field_names}
+            return {f: sub[f](v.get(f)) if f in sub else v.get(f) for f in field_names}
         return _convert_nested
 
 
@@ -164,13 +164,13 @@ def _build_dict_to_td(td_class: type) -> "Callable[[Any], Any]":
         def _reconstruct_flat(d: Any) -> Any:
             if d is None:
                 return null_prim
-            return {f: d[f] for f in field_names}
+            return {f: d.get(f) for f in field_names}
         return _reconstruct_flat
     else:
         def _reconstruct_nested(d: Any) -> Any:
             if d is None:
                 return {f: sub[f](None) if f in sub else None for f in field_names}
-            return {f: sub[f](d[f]) if f in sub else d[f] for f in field_names}
+            return {f: sub[f](d.get(f)) if f in sub else d.get(f) for f in field_names}
         return _reconstruct_nested
 
 
@@ -320,7 +320,7 @@ class TypedDictFeatureConverter(
         arrays: list = []
         for pa_field in self._struct_fields_list:
             fname = pa_field.name
-            col = [None if d is None else d[fname] for d in dicts]
+            col = [None if d is None else d.get(fname) for d in dicts]
             if fname in self._sub_td_converters:
                 arrays.append(self._sub_td_converters[fname]._to_pyarrow_flat_from_dicts(col))
             elif fname in self._field_prim_convs:

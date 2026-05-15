@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024, Matthew Broadway
+# Copyright (c) 2020-2025, Matthew Broadway
 # License: MIT License
 from __future__ import annotations
 from typing import (
@@ -67,6 +67,7 @@ from ezdxf.tools import clipping_portal
 from ezdxf.entities.attrib import BaseAttrib
 from ezdxf.entities.polygon import DXFPolygon
 from ezdxf.entities.boundary_paths import AbstractBoundaryPath
+from ezdxf.entities.textstyle import get_textstyle
 from ezdxf.layouts import Layout
 from ezdxf.math import Vec2, Vec3, OCS, NULLVEC, Matrix44
 from ezdxf.path import (
@@ -79,7 +80,7 @@ from ezdxf.render import MeshBuilder, TraceBuilder
 from ezdxf import reorder
 from ezdxf.proxygraphic import ProxyGraphic, ProxyGraphicError
 from ezdxf.protocols import SupportsVirtualEntities, virtual_entities
-from ezdxf.tools.text import has_inline_formatting_codes
+from ezdxf.tools.text import has_inline_formatting_codes, MIN_CAP_HEIGHT
 from ezdxf.tools import text_layout
 from ezdxf.lldxf import const
 from ezdxf.render import hatching
@@ -410,6 +411,10 @@ class UniversalFrontend:
     def draw_text_entity(self, entity: DXFGraphic, properties: Properties) -> None:
         if self.config.text_policy == TextPolicy.IGNORE:
             return
+        # fixed text height set by associated text-style is ignored
+        if entity.dxf.height < MIN_CAP_HEIGHT:
+            self.skip_entity(entity, "text height too small")
+            return
         # Draw embedded MTEXT entity as virtual MTEXT entity:
         if isinstance(entity, BaseAttrib) and entity.has_embedded_mtext_entity:
             self.draw_mtext_entity(entity.virtual_mtext_entity(), properties)
@@ -439,13 +444,16 @@ class UniversalFrontend:
         self.skip_entity(entity, "3D text not supported")
 
     def draw_mtext_entity(self, entity: DXFGraphic, properties: Properties) -> None:
+        # fixed text height set by associated text-style is ignored
         if self.config.text_policy == TextPolicy.IGNORE:
             return
+        # Do not skip MTEXT entities with char height 0.
+        # Text height is maybe changed by inline-codes.
         mtext = cast(MText, entity)
         if is_spatial_text(Vec3(mtext.dxf.extrusion)):
             self.skip_entity(mtext, "3D MTEXT not supported")
             return
-        if mtext.has_columns or has_inline_formatting_codes(mtext.text):
+        if is_complex_mtext(mtext):
             try:
                 self.draw_complex_mtext(mtext, properties)
             except text_layout.LayoutError as e:
@@ -896,11 +904,12 @@ class UniversalFrontend:
                 )
             )
 
-            if is_clipping_active and clip.get_xclip_frame_policy():
-                self.pipeline.draw_path(
-                    path=from_vertices(boundary_path.inner_polygon(), close=True),
-                    properties=properties,
-                )
+            if is_clipping_active:
+                if clip.get_xclip_frame_policy():
+                    self.pipeline.draw_path(
+                        path=from_vertices(boundary_path.inner_polygon(), close=True),
+                        properties=properties,
+                    )
                 self.pipeline.pop_clipping_shape()
 
             # Draw ATTRIB entities at last, see #1321
@@ -1099,3 +1108,14 @@ def _find_image_path(document_dir: pathlib.Path, filename: str) -> pathlib.Path:
     # try document dir:
     filepath = document_dir / pathlib.Path(filename).name  # stem + suffix
     return filepath
+
+
+def is_complex_mtext(mtext: MText) -> bool:
+    if mtext.has_columns:
+        return True
+    if has_inline_formatting_codes(mtext.text):
+        return True
+    if mtext.doc is None:  # cannot determine textstyle
+        return False
+    textstyle = get_textstyle(mtext)
+    return textstyle.dxf.width != 1 or textstyle.dxf.oblique != 0

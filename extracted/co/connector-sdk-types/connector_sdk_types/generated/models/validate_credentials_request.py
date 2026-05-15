@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from typing import Any, ClassVar, Dict, List, Optional
 from connector_sdk_types.generated.models.auth_credential import AuthCredential
 from connector_sdk_types.generated.models.page import Page
+from connector_sdk_types.generated.models.rate_limit_request_info import RateLimitRequestInfo
 from connector_sdk_types.generated.models.validate_credentials import ValidateCredentials
 from typing import Optional, Set
 from typing_extensions import Self
@@ -35,7 +36,8 @@ class ValidateCredentialsRequest(BaseModel):
     include_raw_data: Optional[StrictBool] = Field(default=None, description="Whether to include raw data in the response.")
     page: Optional[Page] = Field(default=None, description="Pagination information for the request.")
     settings: Optional[Dict[str, Any]] = Field(default=None, description="Connector-specific settings for the request.  These are settings that are shared across all capabilities.  Usually contain additional required configuration options not specified by the capability schema.")
-    __properties: ClassVar[List[str]] = ["request", "include_raw_data", "page", "settings"]
+    rate_limit: Optional[RateLimitRequestInfo] = Field(default=None, description="Rate limit state from the previous call for this connector+capability. Seeds the connector's rate limiter so adaptive state survives across page calls. Callers should pass back the `rate_limit.current_state` from the prior response.")
+    __properties: ClassVar[List[str]] = ["request", "include_raw_data", "page", "settings", "rate_limit"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -82,6 +84,9 @@ class ValidateCredentialsRequest(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of page
         if self.page:
             _dict['page'] = self.page.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of rate_limit
+        if self.rate_limit:
+            _dict['rate_limit'] = self.rate_limit.to_dict()
         return _dict
 
     @classmethod
@@ -97,7 +102,8 @@ class ValidateCredentialsRequest(BaseModel):
             "request": ValidateCredentials.from_dict(obj["request"]) if obj.get("request") is not None else None,
             "include_raw_data": obj.get("include_raw_data"),
             "page": Page.from_dict(obj["page"]) if obj.get("page") is not None else None,
-            "settings": obj.get("settings")
+            "settings": obj.get("settings"),
+            "rate_limit": RateLimitRequestInfo.from_dict(obj["rate_limit"]) if obj.get("rate_limit") is not None else None
         })
         return _obj
 

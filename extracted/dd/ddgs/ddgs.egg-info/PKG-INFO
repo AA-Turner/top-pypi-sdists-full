@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ddgs
-Version: 9.14.2
+Version: 9.14.3
 Summary: Dux Distributed Global Search. A metasearch library that aggregates results from diverse web search services.
 Author: deedy5
 License-Expression: MIT
@@ -282,7 +282,7 @@ ___
 
 | DDGS function | Available backends |
 | --------------|:-------------------|
-| text()        | `bing`, `brave`, `duckduckgo`, `google`, `grokipedia`, `mojeek`, `yandex`, `yahoo`, `wikipedia`|
+| text()        | `bing`, `brave`, `duckduckgo`, `google`, `grokipedia`, `mojeek`, `startpage`, `yandex`, `yahoo`, `wikipedia`|
 | images()      | `bing`, `duckduckgo` |
 | videos()      | `duckduckgo` |
 | news()        | `bing`, `duckduckgo`, `yahoo` |

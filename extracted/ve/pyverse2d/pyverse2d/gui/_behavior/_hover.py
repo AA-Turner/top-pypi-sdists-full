@@ -7,16 +7,19 @@ from ...math import Point
 
 from pyverse2d import mouse, ui
 
+from typing import ClassVar
+
 # ======================================== BEHAVIOR ========================================
 class HoverBehavior(Behavior):
-    """Behavior gérant le survol"""
+    """Comportement gérant le survol"""
     __slots__ = (
         "_hovered",
         "_on_enter", "_on_leave",
         "_when_hovered", "_when_unhovered",
     )
-    _ID: str = "hover"
-    _PRIORITY: int = 1
+
+    _ID: ClassVar[str] = "hover"
+    _PRIORITY: ClassVar[int] = 1
 
     def __init__(self):
         # Initialisation du comportement
@@ -28,8 +31,8 @@ class HoverBehavior(Behavior):
         # Hooks
         self._on_enter: CallbackList = CallbackList()
         self._on_leave: CallbackList = CallbackList()
-        self._when_hovered: CallbackList = CallbackList()
-        self._when_unhovered: CallbackList = CallbackList()
+        self._when_hovered: CallbackList | None = None
+        self._when_unhovered: CallbackList | None = None
 
         # Tweens
         self._on_enter(self._play_tweens)
@@ -49,11 +52,15 @@ class HoverBehavior(Behavior):
     @property
     def when_hovered(self) -> CallbackList:
         """Fonctions appelées durant le survol"""
+        if self._when_hovered is None:
+            self._when_hovered = CallbackList()
         return self._when_hovered
     
     @property
     def when_unhovered(self) -> CallbackList:
         """Fonctions appelées durant le non-survol"""
+        if self._when_unhovered is None:
+            self._when_unhovered = CallbackList()
         return self._when_unhovered
 
     # ======================================== PREDICATES ========================================
@@ -95,14 +102,25 @@ class HoverBehavior(Behavior):
         if hovered:
             if not self._hovered:
                 self.on_enter.trigger()
-            self.when_hovered.trigger()
+            if self._when_hovered:
+                self._when_hovered.trigger()
         else:
             if self._hovered:
                 self.on_leave.trigger()
-            self.when_unhovered.trigger()
+            if self._when_unhovered:
+                self._when_unhovered.trigger()
         self._hovered = hovered
 
     # ======================================== HELPERS ========================================
     def _collides(self, point: Point) -> bool:
-        """Vérifie si un point est dans le widget"""
+        """Vérifie si un point est dans le widget
+
+        Args:
+            point: ``Point`` à vérifier        
+        """
         return self._owner.collidespoint(point)
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "HoverBehavior",
+]

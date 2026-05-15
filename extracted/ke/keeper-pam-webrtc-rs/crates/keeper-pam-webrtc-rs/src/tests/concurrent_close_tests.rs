@@ -597,3 +597,76 @@ async fn test_stress_50_concurrent_closes() {
 
     println!("✓ TEST 5 PASSED\n");
 }
+
+/// Prove that close_tube emits exactly one "channel_closed" signal per channel.
+///
+/// Before the fix, two signals fire:
+///   1. close_tube_async step 2b sends explicitly before calling tube.close()
+///   2. The channel runner task sends again after channel.run() exits
+///
+/// A server-mode tunnel channel keeps channel.run() alive in its TCP accept loop,
+/// so both paths race and Python receives a duplicate.  The duplicate causes a
+/// PyKeyError in Python's session handler which is silently suppressed
+/// (signal_handler.rs), but the session slot can be left un-released.
+#[tokio::test]
+async fn test_close_tube_emits_exactly_one_channel_closed_signal() {
+    let (signal_tx, mut signal_rx) = mpsc::unbounded_channel::<SignalMessage>();
+
+    // Server-mode tunnel: channel.run() stays alive in the TCP accept loop.
+    let mut settings = HashMap::new();
+    settings.insert("conversationType".to_string(), serde_json::json!("tunnel"));
+    settings.insert(
+        "local_listen_addr".to_string(),
+        serde_json::json!("127.0.0.1:0"),
+    );
+
+    let req = CreateTubeRequest {
+        conversation_id: "signal-dedup-test".to_string(),
+        settings,
+        initial_offer_sdp: None, // server mode
+        trickle_ice: true,
+        callback_token: "test_token".to_string(),
+        krelay_server: String::new(),
+        ksm_config: Some("TEST_MODE_KSM_CONFIG".to_string()),
+        client_version: "test-1.0".to_string(),
+        signal_sender: signal_tx,
+        tube_id: Some("signal-dedup-tube".to_string()),
+        capabilities: crate::tube_protocol::Capabilities::NONE,
+        python_handler_tx: None,
+    };
+
+    let tube_id = match REGISTRY.create_tube(req).await {
+        Ok(result) => result.get("tube_id").cloned().unwrap_or_default(),
+        Err(e) => {
+            panic!("tube creation failed: {}", e);
+        }
+    };
+
+    // Let the channel runner task actually start before closing.
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    // Drain any pre-close signals (connection_open, etc.).
+    while signal_rx.try_recv().is_ok() {}
+
+    REGISTRY
+        .close_tube(&tube_id, Some(CloseConnectionReason::AdminClosed))
+        .await
+        .expect("close_tube failed");
+
+    // Allow both signal paths time to fire.
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    let mut count = 0;
+    while let Ok(msg) = signal_rx.try_recv() {
+        if msg.kind == "channel_closed" {
+            count += 1;
+        }
+    }
+
+    assert_eq!(
+        count, 1,
+        "expected 1 channel_closed signal, got {} \
+         (duplicate causes Python slot leak — see close_tube_async step 2b vs tube.rs runner task)",
+        count
+    );
+}

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-enterprise
-Version: 8.0.10
+Version: 8.0.13
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -167,7 +167,19 @@ Unreleased
 
 * nothing unreleased
 
-[8.0.10] - 2026-05-07
+[8.0.13] - 2026-05-14
+---------------------
+* feat: own OPEN_EDX_FILTERS_CONFIG injection in enterprise and consent plugin_settings (ENT-11830)
+
+[8.0.12] - 2026-05-13
+---------------------
+* fix: dashboard filter step now fetches the live request via crum instead of expecting it in the filter context (ENT-11569)
+
+[8.0.11] - 2026-05-12
+---------------------
+* fix: populate name as blank in Invite Admin list view for pending customer admin (ENT-11811)
+
+[8.0.10] - 2026-05-11
 ---------------------
 * feat: account for data sharing consent settings and mark unenrolled courses in admin enrollment viewset
 

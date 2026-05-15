@@ -192,6 +192,12 @@ class DeviceHandle:
         self._properties_bus: EventBus[ThingPropertiesMessage] = EventBus()
         self._event_bus: EventBus[ThingEventMessage] = EventBus()
         self._prefer_ble: bool = prefer_ble
+        # MQTT-only saga gates. When False AND the saga would run over MQTT
+        # (no actively-connected BLE), the saga is suppressed (mow path) or
+        # downgraded to area-names-only (map). Bypassed entirely while BLE
+        # is connected — local link, no cloud quota concern.
+        self._mow_path_fetch_enabled: bool = True
+        self._full_map_fetch_enabled: bool = True
         # Pick a reducer matching the device kind. PoolCleanerDevice instances
         # get a PoolStateReducer (currently a stub); everything else gets the
         # full mower reducer. Decided once at construction so the per-message
@@ -230,7 +236,6 @@ class DeviceHandle:
         self._last_report_at: float = 0.0
         #: Timer handle for the transient continuous-stream auto-stop.
         self._report_stream_timer: asyncio.TimerHandle | None = None
-
         # Wire up critical error propagation from queue
         self.queue.on_critical_error = self._on_critical_error
 
@@ -462,6 +467,10 @@ class DeviceHandle:
         so that the state reducer and broker can process it (same path as a
         ``thing/model/down_raw`` delivery).  All other event types are stored
         as ``device_event`` on the device model.
+
+        Staleness filtering (dropping buffered messages older than the wall
+        clock) is handled upstream in ``AliyunMQTTTransport._dispatch_aliyun_event``
+        where the raw envelope timestamp is available before deserialization.
         """
         if isinstance(event.params, DeviceProtobufMsgEventParams):
             try:
@@ -1236,6 +1245,30 @@ class DeviceHandle:
         self._prefer_ble = value
 
     @property
+    def mow_path_fetch_enabled(self) -> bool:
+        """When False, MowPathSaga is suppressed for sends that would go over MQTT.
+
+        BLE-routed mow path fetches always run regardless — local link, no cloud cost.
+        """
+        return self._mow_path_fetch_enabled
+
+    def set_mow_path_fetch_enabled(self, *, value: bool) -> None:
+        """Toggle the MQTT-side mow path fetch gate at runtime."""
+        self._mow_path_fetch_enabled = value
+
+    @property
+    def full_map_fetch_enabled(self) -> bool:
+        """When False, MapFetchSaga over MQTT runs in area-names-only mode.
+
+        BLE-routed map fetches always run the full sync regardless.
+        """
+        return self._full_map_fetch_enabled
+
+    def set_full_map_fetch_enabled(self, *, value: bool) -> None:
+        """Toggle the MQTT-side full map fetch gate at runtime (False ⇒ names-only)."""
+        self._full_map_fetch_enabled = value
+
+    @property
     def ble_stream_active(self) -> bool:
         """True when the BLE polling loop is renewing a continuous count=0 report stream.
 
@@ -1312,7 +1345,7 @@ class DeviceHandle:
                 mqtt = t
                 break
         mqtt_registered = mqtt is not None
-        mqtt_usable = mqtt_registered and not mqtt_reported_offline
+        mqtt_usable = mqtt is not None and not mqtt_reported_offline and mqtt.is_usable
 
         _logger.debug(
             "active_transport '%s': prefer_ble=%s ble_connected=%s ble_usable=%s"

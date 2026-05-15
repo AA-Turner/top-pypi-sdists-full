@@ -74,31 +74,68 @@ class BaseResultsAnalysis(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
-class PortfolioValueIsNotPositiveAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
-    """Flags backtests whose ending equity is zero or negative."""
+class MonteCarloPercentileAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
+    """
+    Block-bootstrap Monte Carlo test: flags strategies whose total return
+    is in the top 10 % of simulated outcomes (potentially lucky).
+    """
 
     @property
     def issue(self) -> str:
-        """Gets the description of the non-positive portfolio equity issue."""
+        """Gets the description of the overly optimistic equity curve issue."""
         ...
 
     @property
     def weight(self) -> int:
-        """Gets the severity weight for this portfolio value analysis."""
+        """Gets the severity weight for the Monte Carlo percentile analysis."""
         ...
 
     @overload
     def run(self, parameters: QuantConnect.Lean.Engine.Results.Analysis.ResultsAnalysisRunParameters) -> typing.Sequence[QuantConnect.Analysis]:
-        """Runs the portfolio value positivity analysis against the provided backtest parameters."""
+        """Runs the Monte Carlo percentile analysis against the provided backtest parameters."""
         ...
 
     @overload
-    def run(self, result: QuantConnect.Result) -> typing.Sequence[QuantConnect.Analysis]:
+    def run(self, backtest_equity: System.Collections.Generic.SortedList[datetime.datetime, float]) -> typing.Sequence[QuantConnect.Analysis]:
         """
-        Checks whether the backtest's ending equity is positive.
+        Runs the Monte Carlo percentile test against the given equity curve.
         
-        :param result: The backtest result containing portfolio statistics.
-        :returns: Analysis results flagging the issue when ending equity is zero or negative.
+        :param backtest_equity: Daily equity values from the backtest, keyed by date.
+        :returns: Analysis results indicating whether the strategy's return is suspiciously high.
+        """
+        ...
+
+
+class TakeProfitAndStopLossOrdersAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
+    """
+    Detects TP/SL order pairs where both filled, or where the surviving leg
+    was not cancelled when the other filled.
+    """
+
+    @property
+    def issue(self) -> str:
+        """Gets the description of the TP/SL order handling issue."""
+        ...
+
+    @property
+    def weight(self) -> int:
+        """Gets the severity weight for this TP/SL orders analysis."""
+        ...
+
+    @overload
+    def run(self, parameters: QuantConnect.Lean.Engine.Results.Analysis.ResultsAnalysisRunParameters) -> typing.Sequence[QuantConnect.Analysis]:
+        """Runs the take-profit and stop-loss orders analysis against the provided backtest parameters."""
+        ...
+
+    @overload
+    def run(self, orders: System.Collections.Generic.ICollection[QuantConnect.Orders.Order], language: QuantConnect.Language) -> typing.Sequence[QuantConnect.Analysis]:
+        """
+        Groups orders into TP/SL pairs by symbol, quantity, and creation time, then
+        delegates to sub-analyses that check for both-filled and dangling-order scenarios.
+        
+        :param orders: All orders from the backtest result.
+        :param language: The programming language the algorithm is written in.
+        :returns: Aggregated analysis results from all sub-analyses that detected issues.
         """
         ...
 
@@ -139,38 +176,6 @@ class CrisisEventsAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Ba
         ...
 
 
-class MonteCarloPercentileAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
-    """
-    Block-bootstrap Monte Carlo test: flags strategies whose total return
-    is in the top 10 % of simulated outcomes (potentially lucky).
-    """
-
-    @property
-    def issue(self) -> str:
-        """Gets the description of the overly optimistic equity curve issue."""
-        ...
-
-    @property
-    def weight(self) -> int:
-        """Gets the severity weight for the Monte Carlo percentile analysis."""
-        ...
-
-    @overload
-    def run(self, parameters: QuantConnect.Lean.Engine.Results.Analysis.ResultsAnalysisRunParameters) -> typing.Sequence[QuantConnect.Analysis]:
-        """Runs the Monte Carlo percentile analysis against the provided backtest parameters."""
-        ...
-
-    @overload
-    def run(self, backtest_equity: System.Collections.Generic.SortedList[datetime.datetime, float]) -> typing.Sequence[QuantConnect.Analysis]:
-        """
-        Runs the Monte Carlo percentile test against the given equity curve.
-        
-        :param backtest_equity: Daily equity values from the backtest, keyed by date.
-        :returns: Analysis results indicating whether the strategy's return is suspiciously high.
-        """
-        ...
-
-
 class FlatEquityCurveAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
     """Detects prolonged flat (zero-change) segments in the equity curve."""
 
@@ -200,53 +205,23 @@ class FlatEquityCurveAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses
         ...
 
 
-class StaleOrderFillsAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
-    """Detects orders filled at stale (outdated) prices."""
+class MarginCallsAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects margin-call events in the backtest logs."""
 
     @property
     def issue(self) -> str:
-        """Gets the description of the stale order fill issue."""
+        """Description of the margin-call issue detected by this analysis."""
         ...
 
     @property
     def weight(self) -> int:
-        """Gets the severity weight for this stale fills analysis."""
-        ...
-
-    @overload
-    def run(self, parameters: QuantConnect.Lean.Engine.Results.Analysis.ResultsAnalysisRunParameters) -> typing.Sequence[QuantConnect.Analysis]:
-        """Runs the stale order fills analysis against the provided backtest parameters."""
-        ...
-
-    @overload
-    def run(self, order_events: typing.Sequence[QuantConnect.Orders.OrderEvent], language: QuantConnect.Language) -> typing.Sequence[QuantConnect.Analysis]:
-        """
-        Searches order events for fill messages that contain a stale-price warning.
-        
-        :param order_events: The list of order events from the backtest result.
-        :param language: The programming language the algorithm is written in.
-        :returns: Analysis results when stale fill events are detected.
-        """
-        ...
-
-
-class InsightsEmittedForDelistedSecuritiesAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects the QC warning about emitting insights for delisted securities."""
-
-    @property
-    def issue(self) -> str:
-        """Description of the delisted-security insight emission issue detected by this analysis."""
-        ...
-
-    @property
-    def weight(self) -> int:
-        """Relative weight indicating the severity of emitting insights for delisted securities."""
+        """Relative weight indicating the severity of margin-call events."""
         ...
 
     @property
     def expected_message_text(self) -> typing.List[str]:
         """
-        Log messages indicating that insights were emitted for delisted securities.
+        Log messages indicating that a margin-call order was executed.
         
         
         This Property is protected.
@@ -255,7 +230,7 @@ class InsightsEmittedForDelistedSecuritiesAnalysis(QuantConnect.Lean.Engine.Resu
 
     def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
         """
-        Returns suggested solutions for avoiding insight emissions on delisted securities.
+        Returns suggested solutions for preventing or handling margin calls.
         
         
         This Class is protected.
@@ -298,33 +273,93 @@ class StatisticalSignificanceOfDailyReturnsAnalysis(QuantConnect.Lean.Engine.Res
         ...
 
 
-class OrderFillsDuringExtendedMarketHoursAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
-    """Detects order fills that occurred outside regular market hours."""
+class ExecutionSpeedAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
+    """
+    Detects slow execution by parsing the last log line.
+    Benchmark speeds: https://www.quantconnect.com/performance
+    """
 
     @property
     def issue(self) -> str:
-        """Gets the description of the extended market hours fill issue."""
+        """Gets the description of the slow execution issue."""
         ...
 
     @property
     def weight(self) -> int:
-        """Gets the severity weight for the extended market hours analysis."""
+        """Gets the severity weight for the execution speed analysis."""
         ...
 
     @overload
     def run(self, parameters: QuantConnect.Lean.Engine.Results.Analysis.ResultsAnalysisRunParameters) -> typing.Sequence[QuantConnect.Analysis]:
-        """Runs the extended market hours order fill analysis against the provided backtest parameters."""
+        """Runs the execution speed analysis against the provided backtest parameters."""
         ...
 
     @overload
-    def run(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, order_events: typing.Sequence[QuantConnect.Orders.OrderEvent], language: QuantConnect.Language) -> typing.Sequence[QuantConnect.Analysis]:
+    def run(self, logs: typing.Sequence[str]) -> typing.Sequence[QuantConnect.Analysis]:
         """
-        Iterates filled order events and flags those that occurred when the exchange was not open.
+        Parses the backtest logs to determine execution speed and flags backtests that ran slowly.
         
-        :param algorithm: The algorithm instance used to check market-open status at the fill time.
+        :param logs: The full list of log lines produced by the backtest.
+        :returns: Analysis results flagging slow execution when below 40k data points per second and runtime is at least 10 seconds.
+        """
+        ...
+
+
+class PortfolioValueIsNotPositiveAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
+    """Flags backtests whose ending equity is zero or negative."""
+
+    @property
+    def issue(self) -> str:
+        """Gets the description of the non-positive portfolio equity issue."""
+        ...
+
+    @property
+    def weight(self) -> int:
+        """Gets the severity weight for this portfolio value analysis."""
+        ...
+
+    @overload
+    def run(self, parameters: QuantConnect.Lean.Engine.Results.Analysis.ResultsAnalysisRunParameters) -> typing.Sequence[QuantConnect.Analysis]:
+        """Runs the portfolio value positivity analysis against the provided backtest parameters."""
+        ...
+
+    @overload
+    def run(self, result: QuantConnect.Result) -> typing.Sequence[QuantConnect.Analysis]:
+        """
+        Checks whether the backtest's ending equity is positive.
+        
+        :param result: The backtest result containing portfolio statistics.
+        :returns: Analysis results flagging the issue when ending equity is zero or negative.
+        """
+        ...
+
+
+class StaleOrderFillsAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
+    """Detects orders filled at stale (outdated) prices."""
+
+    @property
+    def issue(self) -> str:
+        """Gets the description of the stale order fill issue."""
+        ...
+
+    @property
+    def weight(self) -> int:
+        """Gets the severity weight for this stale fills analysis."""
+        ...
+
+    @overload
+    def run(self, parameters: QuantConnect.Lean.Engine.Results.Analysis.ResultsAnalysisRunParameters) -> typing.Sequence[QuantConnect.Analysis]:
+        """Runs the stale order fills analysis against the provided backtest parameters."""
+        ...
+
+    @overload
+    def run(self, order_events: typing.Sequence[QuantConnect.Orders.OrderEvent], language: QuantConnect.Language) -> typing.Sequence[QuantConnect.Analysis]:
+        """
+        Searches order events for fill messages that contain a stale-price warning.
+        
         :param order_events: The list of order events from the backtest result.
         :param language: The programming language the algorithm is written in.
-        :returns: Analysis results when fills outside regular hours are detected.
+        :returns: Analysis results when stale fill events are detected.
         """
         ...
 
@@ -393,39 +428,6 @@ class PortfolioMarginUsageAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Ana
         ...
 
 
-class MarginCallsAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects margin-call events in the backtest logs."""
-
-    @property
-    def issue(self) -> str:
-        """Description of the margin-call issue detected by this analysis."""
-        ...
-
-    @property
-    def weight(self) -> int:
-        """Relative weight indicating the severity of margin-call events."""
-        ...
-
-    @property
-    def expected_message_text(self) -> typing.List[str]:
-        """
-        Log messages indicating that a margin-call order was executed.
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
-        """
-        Returns suggested solutions for preventing or handling margin calls.
-        
-        
-        This Class is protected.
-        """
-        ...
-
-
 class ParameterCountAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
     """Warns when too many numeric parameters are detected in the algorithm."""
 
@@ -456,125 +458,54 @@ class ParameterCountAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.
         ...
 
 
-class TakeProfitAndStopLossOrdersAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
-    """
-    Detects TP/SL order pairs where both filled, or where the surviving leg
-    was not cancelled when the other filled.
-    """
+class OrderFillsDuringExtendedMarketHoursAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
+    """Detects order fills that occurred outside regular market hours."""
 
     @property
     def issue(self) -> str:
-        """Gets the description of the TP/SL order handling issue."""
+        """Gets the description of the extended market hours fill issue."""
         ...
 
     @property
     def weight(self) -> int:
-        """Gets the severity weight for this TP/SL orders analysis."""
+        """Gets the severity weight for the extended market hours analysis."""
         ...
 
     @overload
     def run(self, parameters: QuantConnect.Lean.Engine.Results.Analysis.ResultsAnalysisRunParameters) -> typing.Sequence[QuantConnect.Analysis]:
-        """Runs the take-profit and stop-loss orders analysis against the provided backtest parameters."""
+        """Runs the extended market hours order fill analysis against the provided backtest parameters."""
         ...
 
     @overload
-    def run(self, orders: System.Collections.Generic.ICollection[QuantConnect.Orders.Order], language: QuantConnect.Language) -> typing.Sequence[QuantConnect.Analysis]:
+    def run(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, order_events: typing.Sequence[QuantConnect.Orders.OrderEvent], language: QuantConnect.Language) -> typing.Sequence[QuantConnect.Analysis]:
         """
-        Groups orders into TP/SL pairs by symbol, quantity, and creation time, then
-        delegates to sub-analyses that check for both-filled and dangling-order scenarios.
+        Iterates filled order events and flags those that occurred when the exchange was not open.
         
-        :param orders: All orders from the backtest result.
+        :param algorithm: The algorithm instance used to check market-open status at the fill time.
+        :param order_events: The list of order events from the backtest result.
         :param language: The programming language the algorithm is written in.
-        :returns: Aggregated analysis results from all sub-analyses that detected issues.
+        :returns: Analysis results when fills outside regular hours are detected.
         """
         ...
 
 
-class ExecutionSpeedAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
-    """
-    Detects slow execution by parsing the last log line.
-    Benchmark speeds: https://www.quantconnect.com/performance
-    """
+class InsightsEmittedForDelistedSecuritiesAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects the QC warning about emitting insights for delisted securities."""
 
     @property
     def issue(self) -> str:
-        """Gets the description of the slow execution issue."""
+        """Description of the delisted-security insight emission issue detected by this analysis."""
         ...
 
     @property
     def weight(self) -> int:
-        """Gets the severity weight for the execution speed analysis."""
-        ...
-
-    @overload
-    def run(self, parameters: QuantConnect.Lean.Engine.Results.Analysis.ResultsAnalysisRunParameters) -> typing.Sequence[QuantConnect.Analysis]:
-        """Runs the execution speed analysis against the provided backtest parameters."""
-        ...
-
-    @overload
-    def run(self, logs: typing.Sequence[str]) -> typing.Sequence[QuantConnect.Analysis]:
-        """
-        Parses the backtest logs to determine execution speed and flags backtests that ran slowly.
-        
-        :param logs: The full list of log lines produced by the backtest.
-        :returns: Analysis results flagging slow execution when below 40k data points per second and runtime is at least 10 seconds.
-        """
-        ...
-
-
-class OrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis, metaclass=abc.ABCMeta):
-    """
-    Abstract base class for analyses that detect specific order-response errors
-    by inspecting invalid order events for known message text fragments.
-    """
-
-    def get_matching_order_events_messages(self, order_events: typing.List[QuantConnect.Orders.OrderEvent]) -> typing.Sequence[str]:
-        """
-        Filters order_events to those with OrderStatus.INVALID status
-        whose message contains all MessageAnalysis.expected_message_text fragments.
-        
-        
-        This Class is protected.
-        
-        :param order_events: The order events to inspect.
-        :returns: An enumerable of matching message strings.
-        """
-        ...
-
-    @overload
-    def run(self, parameters: QuantConnect.Lean.Engine.Results.Analysis.ResultsAnalysisRunParameters) -> typing.Sequence[QuantConnect.Analysis]:
-        ...
-
-    @overload
-    def run(self, order_events: typing.List[QuantConnect.Orders.OrderEvent], language: QuantConnect.Language) -> typing.Sequence[QuantConnect.Analysis]:
-        """
-        Runs the analysis against a list of order events, extracting matching invalid-event messages
-        and delegating to the message-based MessageAnalysis.run(IReadOnlyList{string}, Language) overload.
-        
-        :param order_events: The order events from the backtest result.
-        :param language: The programming language the algorithm is written in.
-        :returns: Analysis results when any matching order response errors are found.
-        """
-        ...
-
-
-class ForexConversionRateZeroOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects zero Forex conversion rate errors."""
-
-    @property
-    def issue(self) -> str:
-        """Gets a description of the zero Forex conversion rate issue."""
-        ...
-
-    @property
-    def weight(self) -> int:
-        """Gets the priority weight for this analysis."""
+        """Relative weight indicating the severity of emitting insights for delisted securities."""
         ...
 
     @property
     def expected_message_text(self) -> typing.List[str]:
         """
-        Gets the message fragments that identify a zero conversion rate error.
+        Log messages indicating that insights were emitted for delisted securities.
         
         
         This Property is protected.
@@ -583,40 +514,7 @@ class ForexConversionRateZeroOrderResponseErrorAnalysis(QuantConnect.Lean.Engine
 
     def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
         """
-        Gets solutions suggesting investigation of missing data.
-        
-        
-        This Class is protected.
-        """
-        ...
-
-
-class UnsupportedOptionShortPositionExerciseAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects attempts to exercise an Option contract while holding a short position."""
-
-    @property
-    def issue(self) -> str:
-        """Gets a description of the short-position option exercise issue."""
-        ...
-
-    @property
-    def weight(self) -> int:
-        """Gets the priority weight for this analysis."""
-        ...
-
-    @property
-    def expected_message_text(self) -> typing.List[str]:
-        """
-        Gets the message fragments that identify a short-position option exercise error.
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
-        """
-        Gets solutions for verifying the position direction before exercising an Option contract.
+        Returns suggested solutions for avoiding insight emissions on delisted securities.
         
         
         This Class is protected.
@@ -657,12 +555,48 @@ class MarketOnOpenNotAllowedDuringRegularHoursOrderResponseErrorAnalysis(QuantCo
         ...
 
 
-class OrderQuantityZeroOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects zero-quantity order errors."""
+class OrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis, metaclass=abc.ABCMeta):
+    """
+    Abstract base class for analyses that detect specific order-response errors
+    by inspecting invalid order events for known message text fragments.
+    """
+
+    def get_matching_order_events_messages(self, order_events: typing.List[QuantConnect.Orders.OrderEvent]) -> typing.Sequence[str]:
+        """
+        Filters order_events to those with OrderStatus.INVALID status
+        whose message contains all MessageAnalysis.expected_message_text fragments.
+        
+        
+        This Class is protected.
+        
+        :param order_events: The order events to inspect.
+        :returns: An enumerable of matching message strings.
+        """
+        ...
+
+    @overload
+    def run(self, parameters: QuantConnect.Lean.Engine.Results.Analysis.ResultsAnalysisRunParameters) -> typing.Sequence[QuantConnect.Analysis]:
+        ...
+
+    @overload
+    def run(self, order_events: typing.List[QuantConnect.Orders.OrderEvent], language: QuantConnect.Language) -> typing.Sequence[QuantConnect.Analysis]:
+        """
+        Runs the analysis against a list of order events, extracting matching invalid-event messages
+        and delegating to the message-based MessageAnalysis.run(IReadOnlyList{string}, Language) overload.
+        
+        :param order_events: The order events from the backtest result.
+        :param language: The programming language the algorithm is written in.
+        :returns: Analysis results when any matching order response errors are found.
+        """
+        ...
+
+
+class BrokerageModelRefusedToUpdateOrderOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.OrderResponseErrorAnalysis):
+    """Detects brokerage-model-refused-to-update-order errors."""
 
     @property
     def issue(self) -> str:
-        """Gets a description of the zero order quantity issue."""
+        """Gets a description of the brokerage-refused-to-update-order issue."""
         ...
 
     @property
@@ -673,7 +607,51 @@ class OrderQuantityZeroOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Resul
     @property
     def expected_message_text(self) -> typing.List[str]:
         """
-        Gets the message fragments that identify a zero-quantity order error.
+        Gets the message fragment that identifies a brokerage update-order refusal.
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    def run(self, order_events: typing.List[QuantConnect.Orders.OrderEvent], language: QuantConnect.Language) -> typing.Sequence[QuantConnect.Analysis]:
+        """
+        Filters order events for brokerage-refused-to-update errors and dispatches the matched
+        messages to each per-brokerage sub-analysis to surface specific solutions.
+        
+        :param order_events: The order events from the backtest result.
+        :param language: The programming language the algorithm is written in.
+        :returns: Aggregated analysis results from all sub-analyses that detected a matching message.
+        """
+        ...
+
+    def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
+        """
+        Returns an empty list because solutions are provided by the per-brokerage sub-analyses.
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class InsufficientBuyingPowerOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.OrderResponseErrorAnalysis):
+    """Detects insufficient-buying-power order rejections."""
+
+    @property
+    def issue(self) -> str:
+        """Gets a description of the insufficient buying power issue."""
+        ...
+
+    @property
+    def weight(self) -> int:
+        """Gets the priority weight for this analysis."""
+        ...
+
+    @property
+    def expected_message_text(self) -> typing.List[str]:
+        """
+        Gets the message fragment that identifies an insufficient buying power error.
         
         
         This Property is protected.
@@ -682,7 +660,7 @@ class OrderQuantityZeroOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Resul
 
     def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
         """
-        Gets solutions for ensuring non-zero order quantities or increasing starting cash.
+        Gets solutions for ensuring sufficient margin or adjusting the buying power buffer.
         
         
         This Class is protected.
@@ -737,6 +715,141 @@ class BrokerageModelRefusedToSubmitOrderOrderResponseErrorAnalysis(QuantConnect.
         ...
 
 
+class AlgorithmWarmingUpOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """
+    Detects orders placed during the algorithm warm-up period.
+    Error code: OrderResponseErrorCode.ALGORITHM_WARMING_UP (-24)
+    """
+
+    @property
+    def issue(self) -> str:
+        """Gets a description of the warm-up period ordering violation."""
+        ...
+
+    @property
+    def weight(self) -> int:
+        """Gets the priority weight for this analysis."""
+        ...
+
+    @property
+    def expected_message_text(self) -> typing.List[str]:
+        """
+        Gets the message fragments that identify a warm-up period order error.
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
+        """
+        Gets solutions suggesting moving orders out of the warm-up period.
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class NonTradableSecurityOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects orders placed for non-tradable securities."""
+
+    @property
+    def issue(self) -> str:
+        """Gets a description of the non-tradable security ordering issue."""
+        ...
+
+    @property
+    def weight(self) -> int:
+        """Gets the priority weight for this analysis."""
+        ...
+
+    @property
+    def expected_message_text(self) -> typing.List[str]:
+        """
+        Gets the message fragments that identify a non-tradable security error.
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
+        """
+        Gets solutions for checking the IsTradable flag before placing orders.
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class UnsupportedOptionExerciseQuantityAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects attempts to exercise more Option contracts than are currently held in the portfolio."""
+
+    @property
+    def issue(self) -> str:
+        """Gets a description of the excess-quantity option exercise issue."""
+        ...
+
+    @property
+    def weight(self) -> int:
+        """Gets the priority weight for this analysis."""
+        ...
+
+    @property
+    def expected_message_text(self) -> typing.List[str]:
+        """
+        Gets the message fragments that identify an excess-quantity option exercise error.
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
+        """
+        Gets solutions for capping the exercise quantity to what is actually held.
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class ForexConversionRateZeroOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects zero Forex conversion rate errors."""
+
+    @property
+    def issue(self) -> str:
+        """Gets a description of the zero Forex conversion rate issue."""
+        ...
+
+    @property
+    def weight(self) -> int:
+        """Gets the priority weight for this analysis."""
+        ...
+
+    @property
+    def expected_message_text(self) -> typing.List[str]:
+        """
+        Gets the message fragments that identify a zero conversion rate error.
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
+        """
+        Gets solutions suggesting investigation of missing data.
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
 class MarketOnCloseOrderTooLateOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
     """Detects MarketOnClose orders submitted too early in the day."""
 
@@ -763,6 +876,106 @@ class MarketOnCloseOrderTooLateOrderResponseErrorAnalysis(QuantConnect.Lean.Engi
     def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
         """
         Gets solutions for adjusting MOC order timing or the submission time buffer.
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class SecurityPriceZeroOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects orders placed when the security price is zero."""
+
+    @property
+    def issue(self) -> str:
+        """Gets a description of the zero security price ordering issue."""
+        ...
+
+    @property
+    def weight(self) -> int:
+        """Gets the priority weight for this analysis."""
+        ...
+
+    @property
+    def expected_message_text(self) -> typing.List[str]:
+        """
+        Gets the message fragment that identifies a zero security price error.
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
+        """
+        Gets solutions for seeding initial prices or investigating missing data.
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class ExchangeNotOpenOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
+    """
+    Detects "exchange not open" order response errors.
+    Returns the first sub-test that fires.
+    """
+
+    @property
+    def issue(self) -> str:
+        """Gets a description of the exchange-not-open ordering issue."""
+        ...
+
+    @property
+    def weight(self) -> int:
+        """Gets the priority weight for this analysis."""
+        ...
+
+    @overload
+    def run(self, parameters: QuantConnect.Lean.Engine.Results.Analysis.ResultsAnalysisRunParameters) -> typing.Sequence[QuantConnect.Analysis]:
+        """Runs the exchange not open analysis against the provided backtest parameters."""
+        ...
+
+    @overload
+    def run(self, logs: typing.Sequence[str], language: QuantConnect.Language) -> typing.Sequence[QuantConnect.Analysis]:
+        """
+        Runs the first sub-analysis that produces a match, covering exercise-while-closed
+        and MOC-on-Futures scenarios.
+        
+        :param logs: The log lines produced by the backtest.
+        :param language: The programming language the algorithm is written in.
+        :returns: The results of the first matching sub-analysis, or a single empty response when none match.
+        """
+        ...
+
+
+class ExceededMaximumOrdersOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects the "exceeded maximum orders" error."""
+
+    @property
+    def issue(self) -> str:
+        """Gets a description of the exceeded maximum orders issue."""
+        ...
+
+    @property
+    def weight(self) -> int:
+        """Gets the priority weight for this analysis."""
+        ...
+
+    @property
+    def expected_message_text(self) -> typing.List[str]:
+        """
+        Gets the message fragments that identify the exceeded-maximum-orders error.
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
+        """
+        Gets solutions for upgrading the account tier or reducing order count.
         
         
         This Class is protected.
@@ -806,12 +1019,12 @@ class EuropeanOptionNotExpiredOnExerciseOrderResponseErrorAnalysis(QuantConnect.
         ...
 
 
-class InsufficientBuyingPowerOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.OrderResponseErrorAnalysis):
-    """Detects insufficient-buying-power order rejections."""
+class OrderQuantityZeroOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects zero-quantity order errors."""
 
     @property
     def issue(self) -> str:
-        """Gets a description of the insufficient buying power issue."""
+        """Gets a description of the zero order quantity issue."""
         ...
 
     @property
@@ -822,7 +1035,7 @@ class InsufficientBuyingPowerOrderResponseErrorAnalysis(QuantConnect.Lean.Engine
     @property
     def expected_message_text(self) -> typing.List[str]:
         """
-        Gets the message fragment that identifies an insufficient buying power error.
+        Gets the message fragments that identify a zero-quantity order error.
         
         
         This Property is protected.
@@ -831,172 +1044,7 @@ class InsufficientBuyingPowerOrderResponseErrorAnalysis(QuantConnect.Lean.Engine
 
     def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
         """
-        Gets solutions for ensuring sufficient margin or adjusting the buying power buffer.
-        
-        
-        This Class is protected.
-        """
-        ...
-
-
-class UnsupportedOptionExerciseQuantityAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects attempts to exercise more Option contracts than are currently held in the portfolio."""
-
-    @property
-    def issue(self) -> str:
-        """Gets a description of the excess-quantity option exercise issue."""
-        ...
-
-    @property
-    def weight(self) -> int:
-        """Gets the priority weight for this analysis."""
-        ...
-
-    @property
-    def expected_message_text(self) -> typing.List[str]:
-        """
-        Gets the message fragments that identify an excess-quantity option exercise error.
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
-        """
-        Gets solutions for capping the exercise quantity to what is actually held.
-        
-        
-        This Class is protected.
-        """
-        ...
-
-
-class NonTradableSecurityOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects orders placed for non-tradable securities."""
-
-    @property
-    def issue(self) -> str:
-        """Gets a description of the non-tradable security ordering issue."""
-        ...
-
-    @property
-    def weight(self) -> int:
-        """Gets the priority weight for this analysis."""
-        ...
-
-    @property
-    def expected_message_text(self) -> typing.List[str]:
-        """
-        Gets the message fragments that identify a non-tradable security error.
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
-        """
-        Gets solutions for checking the IsTradable flag before placing orders.
-        
-        
-        This Class is protected.
-        """
-        ...
-
-
-class ExceedsShortableQuantityOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
-    """Detects orders rejected because they exceed the available shortable quantity."""
-
-    @property
-    def issue(self) -> str:
-        """Gets a description of the exceeded shortable quantity issue."""
-        ...
-
-    @property
-    def weight(self) -> int:
-        """Gets the priority weight for this analysis."""
-        ...
-
-    @overload
-    def run(self, parameters: QuantConnect.Lean.Engine.Results.Analysis.ResultsAnalysisRunParameters) -> typing.Sequence[QuantConnect.Analysis]:
-        """Runs the exceeds shortable quantity analysis against the provided backtest parameters."""
-        ...
-
-    @overload
-    def run(self, order_events: typing.Sequence[QuantConnect.Orders.OrderEvent], language: QuantConnect.Language) -> typing.Sequence[QuantConnect.Analysis]:
-        """
-        Searches order events for exceeds-shortable-quantity rejection messages.
-        
-        :param order_events: The order events from the backtest result.
-        :param language: The programming language the algorithm is written in.
-        :returns: Analysis results when shortable quantity violations are detected.
-        """
-        ...
-
-
-class AlgorithmWarmingUpOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """
-    Detects orders placed during the algorithm warm-up period.
-    Error code: OrderResponseErrorCode.ALGORITHM_WARMING_UP (-24)
-    """
-
-    @property
-    def issue(self) -> str:
-        """Gets a description of the warm-up period ordering violation."""
-        ...
-
-    @property
-    def weight(self) -> int:
-        """Gets the priority weight for this analysis."""
-        ...
-
-    @property
-    def expected_message_text(self) -> typing.List[str]:
-        """
-        Gets the message fragments that identify a warm-up period order error.
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
-        """
-        Gets solutions suggesting moving orders out of the warm-up period.
-        
-        
-        This Class is protected.
-        """
-        ...
-
-
-class ExceededMaximumOrdersOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects the "exceeded maximum orders" error."""
-
-    @property
-    def issue(self) -> str:
-        """Gets a description of the exceeded maximum orders issue."""
-        ...
-
-    @property
-    def weight(self) -> int:
-        """Gets the priority weight for this analysis."""
-        ...
-
-    @property
-    def expected_message_text(self) -> typing.List[str]:
-        """
-        Gets the message fragments that identify the exceeded-maximum-orders error.
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
-        """
-        Gets solutions for upgrading the account tier or reducing order count.
+        Gets solutions for ensuring non-zero order quantities or increasing starting cash.
         
         
         This Class is protected.
@@ -1037,46 +1085,12 @@ class OptionOrderOnStockSplitOrderResponseErrorAnalysis(QuantConnect.Lean.Engine
         ...
 
 
-class ExchangeNotOpenOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
-    """
-    Detects "exchange not open" order response errors.
-    Returns the first sub-test that fires.
-    """
+class UnsupportedOptionShortPositionExerciseAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects attempts to exercise an Option contract while holding a short position."""
 
     @property
     def issue(self) -> str:
-        """Gets a description of the exchange-not-open ordering issue."""
-        ...
-
-    @property
-    def weight(self) -> int:
-        """Gets the priority weight for this analysis."""
-        ...
-
-    @overload
-    def run(self, parameters: QuantConnect.Lean.Engine.Results.Analysis.ResultsAnalysisRunParameters) -> typing.Sequence[QuantConnect.Analysis]:
-        """Runs the exchange not open analysis against the provided backtest parameters."""
-        ...
-
-    @overload
-    def run(self, logs: typing.Sequence[str], language: QuantConnect.Language) -> typing.Sequence[QuantConnect.Analysis]:
-        """
-        Runs the first sub-analysis that produces a match, covering exercise-while-closed
-        and MOC-on-Futures scenarios.
-        
-        :param logs: The log lines produced by the backtest.
-        :param language: The programming language the algorithm is written in.
-        :returns: The results of the first matching sub-analysis, or a single empty response when none match.
-        """
-        ...
-
-
-class SecurityPriceZeroOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects orders placed when the security price is zero."""
-
-    @property
-    def issue(self) -> str:
-        """Gets a description of the zero security price ordering issue."""
+        """Gets a description of the short-position option exercise issue."""
         ...
 
     @property
@@ -1087,7 +1101,7 @@ class SecurityPriceZeroOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Resul
     @property
     def expected_message_text(self) -> typing.List[str]:
         """
-        Gets the message fragment that identifies a zero security price error.
+        Gets the message fragments that identify a short-position option exercise error.
         
         
         This Property is protected.
@@ -1096,51 +1110,7 @@ class SecurityPriceZeroOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Resul
 
     def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
         """
-        Gets solutions for seeding initial prices or investigating missing data.
-        
-        
-        This Class is protected.
-        """
-        ...
-
-
-class BrokerageModelRefusedToUpdateOrderOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.OrderResponseErrorAnalysis):
-    """Detects brokerage-model-refused-to-update-order errors."""
-
-    @property
-    def issue(self) -> str:
-        """Gets a description of the brokerage-refused-to-update-order issue."""
-        ...
-
-    @property
-    def weight(self) -> int:
-        """Gets the priority weight for this analysis."""
-        ...
-
-    @property
-    def expected_message_text(self) -> typing.List[str]:
-        """
-        Gets the message fragment that identifies a brokerage update-order refusal.
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    def run(self, order_events: typing.List[QuantConnect.Orders.OrderEvent], language: QuantConnect.Language) -> typing.Sequence[QuantConnect.Analysis]:
-        """
-        Filters order events for brokerage-refused-to-update errors and dispatches the matched
-        messages to each per-brokerage sub-analysis to surface specific solutions.
-        
-        :param order_events: The order events from the backtest result.
-        :param language: The programming language the algorithm is written in.
-        :returns: Aggregated analysis results from all sub-analyses that detected a matching message.
-        """
-        ...
-
-    def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
-        """
-        Returns an empty list because solutions are provided by the per-brokerage sub-analyses.
+        Gets solutions for verifying the position direction before exercising an Option contract.
         
         
         This Class is protected.
@@ -1177,6 +1147,36 @@ class OrderQuantityLessThanLotSizeOrderResponseErrorAnalysis(QuantConnect.Lean.E
         
         
         This Class is protected.
+        """
+        ...
+
+
+class ExceedsShortableQuantityOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
+    """Detects orders rejected because they exceed the available shortable quantity."""
+
+    @property
+    def issue(self) -> str:
+        """Gets a description of the exceeded shortable quantity issue."""
+        ...
+
+    @property
+    def weight(self) -> int:
+        """Gets the priority weight for this analysis."""
+        ...
+
+    @overload
+    def run(self, parameters: QuantConnect.Lean.Engine.Results.Analysis.ResultsAnalysisRunParameters) -> typing.Sequence[QuantConnect.Analysis]:
+        """Runs the exceeds shortable quantity analysis against the provided backtest parameters."""
+        ...
+
+    @overload
+    def run(self, order_events: typing.Sequence[QuantConnect.Orders.OrderEvent], language: QuantConnect.Language) -> typing.Sequence[QuantConnect.Analysis]:
+        """
+        Searches order events for exceeds-shortable-quantity rejection messages.
+        
+        :param order_events: The order events from the backtest result.
+        :param language: The programming language the algorithm is written in.
+        :returns: Analysis results when shortable quantity violations are detected.
         """
         ...
 

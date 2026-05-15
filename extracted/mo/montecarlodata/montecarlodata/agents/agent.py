@@ -34,6 +34,7 @@ from montecarlodata.agents.fields import (
     AWS_ASSUMABLE_ROLE,
     AZURE_FUNCTION_APP_KEY,
     AZURE_STORAGE_ACCOUNT_KEYS,
+    AZURE_STORAGE_SERVICE_PRINCIPAL,
     GCP_JSON_SERVICE_ACCOUNT_KEY,
     OAUTH2_CLIENT_CREDENTIALS,
     OAUTH2_PASSWORD,
@@ -152,6 +153,14 @@ class AgentService:
                 agent_request["credentials"] = json.dumps(creds)
         elif auth_type == AZURE_STORAGE_ACCOUNT_KEYS:
             creds = {"azure_connection_string": kwargs["connection_string"]}
+            agent_request["credentials"] = json.dumps(creds)
+        elif auth_type == AZURE_STORAGE_SERVICE_PRINCIPAL:
+            creds = {
+                "tenant_id": kwargs["tenant_id"],
+                "client_id": kwargs["client_id"],
+                "client_secret": kwargs["client_secret"],
+                "account_url": kwargs["account_url"],
+            }
             agent_request["credentials"] = json.dumps(creds)
         elif auth_type == AZURE_FUNCTION_APP_KEY:
             creds = {"app_key": kwargs["app_key"]}

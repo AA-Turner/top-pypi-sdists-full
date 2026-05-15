@@ -85,8 +85,8 @@ impl PyTubeRegistry {
                 // LOCK-FREE: Get all tube IDs from DashMap
                 let tube_ids = REGISTRY.all_tube_ids_sync();
                 debug!(
-                    "Starting explicit cleanup of all tubes (tube_count: {})",
-                    tube_ids.len()
+                    "Starting explicit cleanup of all tubes (tube_count: {}, conversation_id: {})",
+                    tube_ids.len(), "-"
                 );
 
                 // Close all tubes via actor (coordinated)
@@ -96,19 +96,22 @@ impl PyTubeRegistry {
                         .await
                     {
                         error!(
-                            "Failed to close tube during cleanup: {} (tube_id: {})",
-                            e, tube_id
+                            "Failed to close tube during cleanup: {} (tube_id: {}, conversation_id: {})",
+                            e, tube_id, "-"
                         );
                     }
                 }
 
-                debug!("Registry cleanup complete (actor handles all cleanup)");
+                debug!("Registry cleanup complete (actor handles all cleanup, conversation_id: {})", "-");
             })
         });
 
         // Runtime is kept alive for reuse (enables test isolation and service restart)
         // For explicit runtime shutdown, call shutdown_runtime() before process exit
-        debug!("Registry cleanup complete (runtime kept alive for reuse)");
+        debug!(
+            "Registry cleanup complete (runtime kept alive for reuse, conversation_id: {})",
+            "-"
+        );
 
         Ok(())
     }
@@ -122,8 +125,8 @@ impl PyTubeRegistry {
         Python::detach(py, || {
             master_runtime.clone().block_on(async move {
                 debug!(
-                    "Starting cleanup of specific tubes (tube_count: {})",
-                    tube_ids.len()
+                    "Starting cleanup of specific tubes (tube_count: {}, conversation_id: {})",
+                    tube_ids.len(), "-"
                 );
 
                 // LOCK-FREE: Close tubes via actor
@@ -133,8 +136,8 @@ impl PyTubeRegistry {
                         .await
                     {
                         error!(
-                            "Failed to close tube during selective cleanup: {} (tube_id: {})",
-                            e, tube_id
+                            "Failed to close tube during selective cleanup: {} (tube_id: {}, conversation_id: {})",
+                            e, tube_id, "-"
                         );
                     }
                 }
@@ -146,12 +149,15 @@ impl PyTubeRegistry {
     /// Python destructor - safety net cleanup
     fn __del__(&self, py: Python<'_>) {
         if !self.explicit_cleanup_called.load(Ordering::SeqCst) {
-            warn!("PyTubeRegistry.__del__ called without explicit cleanup! Consider using cleanup_all() explicitly or using a context manager.");
+            warn!("PyTubeRegistry.__del__ called without explicit cleanup! Consider using cleanup_all() explicitly or using a context manager. (conversation_id: {})", "-");
 
             // Attempt force cleanup - ignore errors since we're in destructor
             let _ = self.do_force_cleanup(py);
         } else {
-            debug!("PyTubeRegistry.__del__ called after explicit cleanup - OK");
+            debug!(
+                "PyTubeRegistry.__del__ called after explicit cleanup - OK (conversation_id: {})",
+                "-"
+            );
         }
     }
 
@@ -163,8 +169,8 @@ impl PyTubeRegistry {
                 // LOCK-FREE: Get all tube IDs
                 let tube_ids = REGISTRY.all_tube_ids_sync();
                 warn!(
-                    "Force cleanup in __del__ - {} tubes to close",
-                    tube_ids.len()
+                    "Force cleanup in __del__ - {} tubes to close (conversation_id: {})",
+                    tube_ids.len(), "-"
                 );
 
                 // Close all tubes via actor - ignore individual errors
@@ -174,33 +180,39 @@ impl PyTubeRegistry {
                         .await
                     {
                         error!(
-                            "Failed to close tube during force cleanup: {} (tube_id: {})",
-                            e, tube_id
+                            "Failed to close tube during force cleanup: {} (tube_id: {}, conversation_id: {})",
+                            e, tube_id, "-"
                         );
                     }
                 }
 
-                debug!("Force cleanup complete (actor handles all cleanup)");
+                debug!("Force cleanup complete (actor handles all cleanup, conversation_id: {})", "-");
 
                 // Shutdown METRICS_COLLECTOR to save memory (~900KB + CPU)
                 // NOTE: DON'T shutdown REGISTRY actor - it's a process-level singleton!
                 // Shutting down the actor prevents all subsequent tube operations.
                 // The actor is lightweight and designed to live for process lifetime.
-                debug!("Shutting down METRICS_COLLECTOR background tasks in __del__");
+                debug!("Shutting down METRICS_COLLECTOR background tasks in __del__ (conversation_id: {})", "-");
                 crate::metrics::METRICS_COLLECTOR.shutdown();
             })
         });
 
         // Runtime is kept alive even in __del__ (enables test isolation)
         // Python process termination will clean up runtime automatically
-        debug!("Force cleanup complete in __del__ (runtime kept alive)");
+        debug!(
+            "Force cleanup complete in __del__ (runtime kept alive, conversation_id: {})",
+            "-"
+        );
 
         Ok(())
     }
 
     /// Shutdown the runtime - useful for clean process termination
     fn shutdown_runtime(&self, _py: Python<'_>) -> PyResult<()> {
-        debug!("Python requested runtime shutdown");
+        debug!(
+            "Python requested runtime shutdown (conversation_id: {})",
+            "-"
+        );
         shutdown_runtime_from_python();
         Ok(())
     }
@@ -517,8 +529,8 @@ impl PyTubeRegistry {
 
             if let Err(e) = result {
                 warn!(
-                    "Error adding ICE candidate for tube {}: {}",
-                    tube_id_owned, e
+                    "Error adding ICE candidate for tube {}: {} (conversation_id: {})",
+                    tube_id_owned, e, "-"
                 );
             }
         });
@@ -583,7 +595,10 @@ impl PyTubeRegistry {
             master_runtime.clone().block_on(async move {
                 // LOCK-FREE: Direct call to registry via actor (no locks!)
                 REGISTRY.set_server_mode(server_mode).await.map_err(|e| {
-                    error!("Failed to set server mode: {}", e);
+                    error!(
+                        "Failed to set server mode: {} (conversation_id: {})",
+                        e, "-"
+                    );
                     PyRuntimeError::new_err(format!("Failed to set server mode: {}", e))
                 })
             })
@@ -767,7 +782,8 @@ impl PyTubeRegistry {
                 // The post_connection_state function handles TEST_MODE_KSM_CONFIG internally.
                 // It will also error out if ksm_config_from_python is empty and not a test string.
                 debug!(
-                    "Preparing to send refresh_connections (open_connections) connection count {} with KSM config from Python. python_direct_arg", callback_tokens.len()
+                    "Preparing to send refresh_connections (open_connections) connection count {} with KSM config from Python.",
+                    callback_tokens.len()
                 );
 
                 let tokens_json = serde_json::Value::Array(
@@ -797,7 +813,7 @@ impl PyTubeRegistry {
         // LOCK-FREE: Direct calls to registry (no locks!)
         debug!("=== Tube Registry Status ===");
         debug!("Total tubes: {}", REGISTRY.tube_count());
-        debug!("Has tubes: {}\n", REGISTRY.has_tubes());
+        debug!("Has tubes: {}", REGISTRY.has_tubes());
 
         if !REGISTRY.has_tubes() {
             debug!("No active tubes.");
@@ -828,21 +844,30 @@ impl PyTubeRegistry {
             // Check if there's a signal channel for this tube (via Tube.signal_sender)
             let has_signal_channel = REGISTRY.get_signal_sender(&tube_id).is_some();
             debug!(
-                "  └─ Signal channel: {}\n",
-                if has_signal_channel { "Active" } else { "None" }
+                "  └─ Signal channel: {} (conversation_id: {})",
+                if has_signal_channel { "Active" } else { "None" },
+                "-"
             );
         }
 
         // Show reverse mapping summary
-        debug!("=== Conversation Mappings ===");
+        debug!("=== Conversation Mappings === (conversation_id: {})", "-");
         let conversation_count = REGISTRY.conversations().len();
-        debug!("Total mappings: {}", conversation_count);
+        debug!(
+            "Total mappings: {} (conversation_id: {})",
+            conversation_count, "-"
+        );
         if conversation_count > 0 {
             for entry in REGISTRY.conversations().iter() {
-                debug!("  {} → {}", entry.key(), entry.value());
+                debug!(
+                    "  {} → {} (conversation_id: {})",
+                    entry.key(),
+                    entry.value(),
+                    "-"
+                );
             }
         }
-        debug!("============================");
+        debug!("============================ (conversation_id: {})", "-");
 
         Ok(())
     }
@@ -879,11 +904,9 @@ impl PyTubeRegistry {
         dict.set_item("total_failures", metrics_result.total_failures)?;
 
         // Calculate suggested backoff delay based on load
-        let load_pct = if metrics_result.max_concurrent > 0 {
-            (metrics_result.active_creates * 100) / metrics_result.max_concurrent
-        } else {
-            0
-        };
+        let load_pct = (metrics_result.active_creates * 100)
+            .checked_div(metrics_result.max_concurrent)
+            .unwrap_or(0);
 
         let suggested_delay_ms: u64 = match load_pct {
             0..=50 => 0,     // No delay - plenty of capacity

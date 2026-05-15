@@ -76,3 +76,8 @@ class LogicalScreen(Space):
     def ratio(self) -> float:
         """Ratio ``largeur / hauteur`` """
         return self._width / self._height
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "LogicalScreen",
+]

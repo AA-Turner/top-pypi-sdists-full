@@ -7,8 +7,10 @@ from typing import Any
 import numpy as np
 import xarray as xr
 
-from pytensor import Mode, Variable, config
+from pytensor import config
 from pytensor import tensor as pt
+from pytensor.compile.mode import Mode
+from pytensor.graph.basic import Variable
 
 from pymc_extras.statespace.core.properties import (
     Coord,
@@ -239,11 +241,12 @@ class StructuralTimeSeries(PyMCStateSpace):
         self.ssm = ssm.copy()
 
         if k_posdef == 0:
+            # Components without shocks degrade to a one-shock placeholder so the filter has
+            # consistent dims; the placeholder selection/state_cov are zero, so the shock has
+            # no effect.
             self.ssm.k_posdef = self.k_posdef
-            self.ssm.shapes["state_cov"] = (1, 1, 1)
-            self.ssm["state_cov"] = pt.zeros((1, 1, 1))
-            self.ssm.shapes["selection"] = (1, self.k_states, 1)
-            self.ssm["selection"] = pt.zeros((1, self.k_states, 1))
+            self.ssm["state_cov"] = pt.zeros((1, 1))
+            self.ssm["selection"] = pt.zeros((self.k_states, 1))
 
         P0 = self.make_and_register_variable("P0", shape=(self.k_states, self.k_states))
         self.ssm["initial_state_cov"] = P0
@@ -367,7 +370,7 @@ class StructuralTimeSeries(PyMCStateSpace):
 
     def extract_components_from_idata(self, idata: xr.Dataset) -> xr.Dataset:
         r"""
-        Extract interpretable hidden states from an InferenceData returned by a PyMCStateSpace sampling method
+        Extract interpretable hidden states from a DataTree returned by a PyMCStateSpace sampling method
 
         Parameters
         ----------
@@ -534,6 +537,8 @@ class Component:
         self._k_posdef = k_posdef
         self._k_endog = len(base_observed_state_names) or k_endog
         self._k_states = k_states
+        self._n_timesteps_placeholder = pt.iscalar("n_timesteps")
+
         self.base_state_names = base_state_names
         self.base_observed_state_names = base_observed_state_names
 
@@ -720,6 +725,10 @@ class Component:
     def _name_to_data(self):
         return self._tensor_data_info.to_dict()
 
+    @property
+    def n_timesteps(self) -> Variable:
+        return self._n_timesteps_placeholder
+
     def make_and_register_variable(self, name, shape, dtype=floatX) -> Variable:
         r"""
         Helper function to create a pytensor symbolic variable and register it in the _name_to_variable dictionary
@@ -818,25 +827,14 @@ class Component:
         return k_states, k_posdef, k_endog
 
     def _combine_statespace_representations(self, other):
-        def make_slice(name, x, o_x):
-            ndim = max(x.ndim, o_x.ndim)
-            return (name,) + (slice(None, None, None),) * ndim
-
         k_states, k_posdef, k_endog = self._get_combined_shapes(other)
-
-        self_matrices = [self.ssm[name] for name in LONG_MATRIX_NAMES]
-        other_matrices = [other.ssm[name] for name in LONG_MATRIX_NAMES]
 
         self_observed_states = self.observed_state_names
         other_observed_states = other.observed_state_names
 
-        x0, P0, c, d, T, Z, R, H, Q = (
-            self.ssm[make_slice(name, x, o_x)]
-            for name, x, o_x in zip(LONG_MATRIX_NAMES, self_matrices, other_matrices)
-        )
+        x0, P0, c, d, T, Z, R, H, Q = (self.ssm[name] for name in LONG_MATRIX_NAMES)
         o_x0, o_P0, o_c, o_d, o_T, o_Z, o_R, o_H, o_Q = (
-            other.ssm[make_slice(name, x, o_x)]
-            for name, x, o_x in zip(LONG_MATRIX_NAMES, self_matrices, other_matrices)
+            other.ssm[name] for name in LONG_MATRIX_NAMES
         )
 
         initial_state = pt.concatenate(conform_time_varying_and_time_invariant_matrices(x0, o_x0))
@@ -858,13 +856,6 @@ class Component:
         obs_intercept.name = d.name
 
         transition = pt.linalg.block_diag(T, o_T)
-        transition = pt.specify_shape(
-            transition,
-            shape=[
-                sum(shapes) if not any([s is None for s in shapes]) else None
-                for shapes in zip(*[T.type.shape, o_T.type.shape])
-            ],
-        )
         transition.name = T.name
 
         design = join_tensors_by_dim_labels(
@@ -877,13 +868,6 @@ class Component:
         design.name = Z.name
 
         selection = pt.linalg.block_diag(R, o_R)
-        selection = pt.specify_shape(
-            selection,
-            shape=[
-                sum(shapes) if not any([s is None for s in shapes]) else None
-                for shapes in zip(*[R.type.shape, o_R.type.shape])
-            ],
-        )
         selection.name = R.name
 
         obs_cov = add_tensors_by_dim_labels(
@@ -912,6 +896,7 @@ class Component:
             obs_cov=obs_cov,
             state_cov=state_cov,
         )
+        new_ssm.declare_time_varying(*(self.ssm.time_varying_names | other.ssm.time_varying_names))
 
         return new_ssm
 

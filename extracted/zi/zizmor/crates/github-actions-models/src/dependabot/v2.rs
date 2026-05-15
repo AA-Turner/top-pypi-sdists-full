@@ -43,6 +43,11 @@ pub struct MultiEcosystemGroup {
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "kebab-case", tag = "type")]
 pub enum Registry {
+    CargoRegistry {
+        url: String,
+        registry: String,
+        token: String,
+    },
     ComposerRepository {
         url: String,
         username: Option<String>,
@@ -361,6 +366,8 @@ pub enum PackageEcosystem {
     Composer,
     /// `conda`
     Conda,
+    /// `deno`
+    Deno,
     /// `devcontainers`
     Devcontainers,
     /// `docker`

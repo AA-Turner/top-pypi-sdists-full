@@ -315,11 +315,9 @@ fn test_fragment_header_performance() {
     let duration = start.elapsed();
 
     let ns_per_op = duration.as_nanos() / iterations as u128;
-    let ops_per_sec = if ns_per_op > 0 {
-        1_000_000_000 / ns_per_op
-    } else {
-        u128::MAX // Essentially infinite
-    };
+    let ops_per_sec = 1_000_000_000u128
+        .checked_div(ns_per_op)
+        .unwrap_or(u128::MAX);
 
     println!(
         "Fragment header encode: {}ns per operation ({} ops/sec)",
@@ -355,11 +353,9 @@ fn test_fragment_parse_performance() {
     let duration = start.elapsed();
 
     let ns_per_op = duration.as_nanos() / iterations as u128;
-    let ops_per_sec = if ns_per_op > 0 {
-        1_000_000_000 / ns_per_op
-    } else {
-        u128::MAX // Essentially infinite
-    };
+    let ops_per_sec = 1_000_000_000u128
+        .checked_div(ns_per_op)
+        .unwrap_or(u128::MAX);
 
     println!(
         "Fragment header decode: {}ns per operation ({} ops/sec)",

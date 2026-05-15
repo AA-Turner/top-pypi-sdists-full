@@ -8,24 +8,26 @@ from typing_extensions import Literal, Required, TypeAlias, TypedDict
 __all__ = [
     "FlexibleMessageParam",
     "UserMessage",
-    "UserMessageContentUserMessageContentPart",
-    "UserMessageContentUserMessageContentPartTextUserMessageContentParts",
-    "UserMessageContentUserMessageContentPartImageURLUserMessageContentParts",
-    "UserMessageContentUserMessageContentPartImageURLUserMessageContentPartsImageURL",
-    "UserMessageContentUserMessageContentPartImageDataUserMessageContentParts",
-    "UserMessageContentUserMessageContentPartImageDataUserMessageContentPartsImageData",
+    "UserMessageContentUnionMember1",
+    "UserMessageContentUnionMember1TextUserMessageContentParts",
+    "UserMessageContentUnionMember1ImageURLUserMessageContentParts",
+    "UserMessageContentUnionMember1ImageURLUserMessageContentPartsImageURL",
+    "UserMessageContentUnionMember1ImageDataUserMessageContentParts",
+    "UserMessageContentUnionMember1ImageDataUserMessageContentPartsImageData",
     "AssistantMessage",
     "SystemMessage",
 ]
 
 
-class UserMessageContentUserMessageContentPartTextUserMessageContentParts(TypedDict, total=False):
+class UserMessageContentUnionMember1TextUserMessageContentParts(TypedDict, total=False):
     text: Required[str]
 
     type: Literal["text"]
 
 
-class UserMessageContentUserMessageContentPartImageURLUserMessageContentPartsImageURL(TypedDict, total=False):
+class UserMessageContentUnionMember1ImageURLUserMessageContentPartsImageURL(TypedDict, total=False):
+    """Specifies the image URL and level of detail. Only supported by OpenAI models"""
+
     url: Required[str]
     """The URL of the image. Note: only OpenAI supports this."""
 
@@ -33,13 +35,16 @@ class UserMessageContentUserMessageContentPartImageURLUserMessageContentPartsIma
     """Only used for OpenAI. Corresponds to OpenAI's image detail parameter."""
 
 
-class UserMessageContentUserMessageContentPartImageURLUserMessageContentParts(TypedDict, total=False):
-    image_url: Required[UserMessageContentUserMessageContentPartImageURLUserMessageContentPartsImageURL]
+class UserMessageContentUnionMember1ImageURLUserMessageContentParts(TypedDict, total=False):
+    image_url: Required[UserMessageContentUnionMember1ImageURLUserMessageContentPartsImageURL]
+    """Specifies the image URL and level of detail. Only supported by OpenAI models"""
 
     type: Literal["image_url"]
 
 
-class UserMessageContentUserMessageContentPartImageDataUserMessageContentPartsImageData(TypedDict, total=False):
+class UserMessageContentUnionMember1ImageDataUserMessageContentPartsImageData(TypedDict, total=False):
+    """Specifies inline image data"""
+
     data: Required[str]
     """The base64-encoded image data."""
 
@@ -57,35 +62,62 @@ class UserMessageContentUserMessageContentPartImageDataUserMessageContentPartsIm
     """The type of the image data. Only base64 is supported."""
 
 
-class UserMessageContentUserMessageContentPartImageDataUserMessageContentParts(TypedDict, total=False):
-    image_data: Required[UserMessageContentUserMessageContentPartImageDataUserMessageContentPartsImageData]
+class UserMessageContentUnionMember1ImageDataUserMessageContentParts(TypedDict, total=False):
+    image_data: Required[UserMessageContentUnionMember1ImageDataUserMessageContentPartsImageData]
+    """Specifies inline image data"""
 
     type: Literal["image_data"]
 
 
-UserMessageContentUserMessageContentPart: TypeAlias = Union[
-    UserMessageContentUserMessageContentPartTextUserMessageContentParts,
-    UserMessageContentUserMessageContentPartImageURLUserMessageContentParts,
-    UserMessageContentUserMessageContentPartImageDataUserMessageContentParts,
+UserMessageContentUnionMember1: TypeAlias = Union[
+    UserMessageContentUnionMember1TextUserMessageContentParts,
+    UserMessageContentUnionMember1ImageURLUserMessageContentParts,
+    UserMessageContentUnionMember1ImageDataUserMessageContentParts,
 ]
 
 
 class UserMessage(TypedDict, total=False):
-    content: Required[Union[str, Iterable[UserMessageContentUserMessageContentPart]]]
+    content: Required[Union[str, Iterable[UserMessageContentUnionMember1]]]
+    """Input from the user.
+
+    Can either be text or a list of content parts. Not all models support image
+    content parts, or multiple parts.
+    """
 
     role: Literal["user"]
+    """The role of the message. Must be set to 'user'.
+
+    A user message is a message from the user to the AI. This should be the message
+    used to send end user input to the AI.
+    """
 
 
 class AssistantMessage(TypedDict, total=False):
     content: Required[str]
+    """Text response from the assistant"""
 
     role: Literal["assistant"]
+    """The role of the message. Must be set to 'assistant'.
+
+    An assistant message is a message from the AI to the client. It is different
+    from an agent message in that it cannot contain a tool request. It is simply a
+    direct response from the AI to the client.
+    """
 
 
 class SystemMessage(TypedDict, total=False):
     content: Required[str]
+    """Text input from the system."""
 
     role: Literal["system"]
+    """The role of the message. Must be set to 'system'.
+
+    A system message is different from other messages in that it does not originate
+    from a party engaged in a user/AI conversation. Instead, it is a message that is
+    injected by either the application or system to guide the conversation. For
+    example, a system message may be used as initial instructions for an AI entity
+    or to tell the AI that it did not do something correctly.
+    """
 
 
 FlexibleMessageParam: TypeAlias = Union[UserMessage, AssistantMessage, SystemMessage]

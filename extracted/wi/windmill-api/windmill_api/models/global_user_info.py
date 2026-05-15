@@ -26,6 +26,7 @@ class GlobalUserInfo:
         company (Union[Unset, str]):
         username (Union[Unset, str]):
         operator_only (Union[Unset, bool]):
+        workspace_id (Union[Unset, str]):
     """
 
     email: str
@@ -40,6 +41,7 @@ class GlobalUserInfo:
     company: Union[Unset, str] = UNSET
     username: Union[Unset, str] = UNSET
     operator_only: Union[Unset, bool] = UNSET
+    workspace_id: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -57,6 +59,7 @@ class GlobalUserInfo:
         company = self.company
         username = self.username
         operator_only = self.operator_only
+        workspace_id = self.workspace_id
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -81,6 +84,8 @@ class GlobalUserInfo:
             field_dict["username"] = username
         if operator_only is not UNSET:
             field_dict["operator_only"] = operator_only
+        if workspace_id is not UNSET:
+            field_dict["workspace_id"] = workspace_id
 
         return field_dict
 
@@ -111,6 +116,8 @@ class GlobalUserInfo:
 
         operator_only = d.pop("operator_only", UNSET)
 
+        workspace_id = d.pop("workspace_id", UNSET)
+
         global_user_info = cls(
             email=email,
             login_type=login_type,
@@ -124,6 +131,7 @@ class GlobalUserInfo:
             company=company,
             username=username,
             operator_only=operator_only,
+            workspace_id=workspace_id,
         )
 
         global_user_info.additional_properties = d

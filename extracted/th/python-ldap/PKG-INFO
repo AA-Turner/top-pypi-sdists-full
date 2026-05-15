@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-ldap
-Version: 3.4.5
+Version: 3.4.6
 Summary: Python modules for implementing LDAP clients
 Author-email: python-ldap project <python-ldap@python.org>
 License: python-ldap

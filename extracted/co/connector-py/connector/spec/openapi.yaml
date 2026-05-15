@@ -241,6 +241,14 @@ paths:
                   raw_data: {}
                   page:
                     $ref: '#/components/schemas/Page'
+                  rate_limit:
+                    allOf:
+                      - $ref: '#/components/schemas/RateLimitResponseInfo'
+                    description: |-
+                      Rate limit state after executing this operation.
+                      Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                      to preserve adaptive rate limit continuity across page calls.
+                      `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
                   execution_summary:
                     allOf:
                       - $ref: '#/components/schemas/ExecutionSummary'
@@ -328,6 +336,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/app_info:
@@ -437,6 +452,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/assign_application_entitlement:
@@ -510,6 +532,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/assign_entitlement:
@@ -583,6 +612,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/connected_info:
@@ -664,6 +700,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/create_account:
@@ -738,6 +781,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/deactivate_account:
@@ -810,6 +860,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/delete_account:
@@ -876,6 +933,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/downgrade_license:
@@ -945,6 +1009,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/find_entitlement_assignments:
@@ -1011,6 +1082,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/find_entitlement_associations:
@@ -1083,6 +1161,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/find_entitlement_graph:
@@ -1154,6 +1239,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/find_resource_graph:
@@ -1224,6 +1316,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/get_account:
@@ -1294,6 +1393,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/get_account_entitlement_associations:
@@ -1366,6 +1472,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/get_application:
@@ -1435,6 +1548,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/get_application_account:
@@ -1506,6 +1626,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/get_authorization_url:
@@ -1637,6 +1764,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/get_last_activity:
@@ -1708,6 +1842,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/handle_authorization_callback:
@@ -1873,6 +2014,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/list_activity_records:
@@ -1941,6 +2089,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/list_applications:
@@ -2009,6 +2164,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/list_applications_accounts:
@@ -2078,6 +2240,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/list_applications_activity_records:
@@ -2146,6 +2315,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/list_applications_entitlement_associations:
@@ -2220,6 +2396,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/list_applications_entitlements:
@@ -2290,6 +2473,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/list_applications_resources:
@@ -2363,6 +2553,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/list_custom_attributes_schema:
@@ -2427,6 +2624,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/list_entitlements:
@@ -2497,6 +2701,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/list_expenses:
@@ -2566,6 +2777,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/list_resources:
@@ -2639,6 +2857,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/list_updated_accounts:
@@ -2742,6 +2967,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/refresh_access_token:
@@ -2800,6 +3032,13 @@ paths:
 
                     Usually contain additional required configuration options
                     not specified by the capability schema.
+                rate_limit:
+                  allOf:
+                    - $ref: '#/components/schemas/RateLimitRequestInfo'
+                  description: |-
+                    Rate limit state from the previous call for this connector+capability.
+                    Seeds the connector's rate limiter so adaptive state survives across page calls.
+                    Callers should pass back the `rate_limit.current_state` from the prior response.
               description: Generic request model.
   /{connector_id}/release_resources:
     post:
@@ -2865,6 +3104,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/transfer_data:
@@ -2935,6 +3181,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/unassign_application:
@@ -2999,6 +3252,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/unassign_application_entitlement:
@@ -3066,6 +3326,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/unassign_entitlement:
@@ -3133,6 +3400,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/update_account:
@@ -3203,6 +3477,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
   /{connector_id}/validate_credential_config:
@@ -3269,6 +3550,13 @@ paths:
 
                     Usually contain additional required configuration options
                     not specified by the capability schema.
+                rate_limit:
+                  allOf:
+                    - $ref: '#/components/schemas/RateLimitRequestInfo'
+                  description: |-
+                    Rate limit state from the previous call for this connector+capability.
+                    Seeds the connector's rate limiter so adaptive state survives across page calls.
+                    Callers should pass back the `rate_limit.current_state` from the prior response.
               description: Generic request model.
   /{connector_id}/validate_credentials:
     post:
@@ -3348,6 +3636,13 @@ paths:
 
                         Usually contain additional required configuration options
                         not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
 components:
@@ -3702,6 +3997,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -3916,6 +4219,13 @@ components:
 
                 Usually contain additional required configuration options
                 not specified by the capability schema.
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitRequestInfo'
+              description: |-
+                Rate limit state from the previous call for this connector+capability.
+                Seeds the connector's rate limiter so adaptive state survives across page calls.
+                Callers should pass back the `rate_limit.current_state` from the prior response.
           description: Generic request model.
       description: |-
         Optionally authenticated app_info request.
@@ -3937,6 +4247,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -4151,6 +4469,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -4177,6 +4503,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -4231,6 +4565,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -4421,6 +4763,7 @@ components:
         - rate_limit
         - bad_gateway
         - service_error
+        - budget_exhausted
         - connection_timeout
         - request_timeout
         - connection_rejected
@@ -4479,6 +4822,9 @@ components:
         refreshable:
           type: boolean
           description: True if a token refresh or re-authentication may restore access.
+        retry_after_seconds:
+          type: integer
+          description: Recommended wait time (seconds) before the next call to this connector/capability.
       description: |-
         Automatically-populated enrichment attached to every error response by the SDK pipeline.
         Connector authors should prefer changing these fields through the ConnectorError constructor arguments.
@@ -4555,6 +4901,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -4734,6 +5088,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -4786,6 +5148,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -4913,6 +5283,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -5435,6 +5813,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -5471,6 +5857,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -5509,6 +5903,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -5547,6 +5949,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -5758,6 +6168,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -5784,6 +6202,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -5837,6 +6263,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -5863,6 +6297,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -5937,6 +6379,13 @@ components:
 
                 Usually contain additional required configuration options
                 not specified by the capability schema.
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitRequestInfo'
+              description: |-
+                Rate limit state from the previous call for this connector+capability.
+                Seeds the connector's rate limiter so adaptive state survives across page calls.
+                Callers should pass back the `rate_limit.current_state` from the prior response.
           description: Generic request model.
     GetAuthorizationUrlResponse:
       type: object
@@ -5950,6 +6399,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -5981,6 +6438,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -6020,6 +6485,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -6064,6 +6537,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -6135,6 +6616,13 @@ components:
 
                 Usually contain additional required configuration options
                 not specified by the capability schema.
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitRequestInfo'
+              description: |-
+                Rate limit state from the previous call for this connector+capability.
+                Seeds the connector's rate limiter so adaptive state survives across page calls.
+                Callers should pass back the `rate_limit.current_state` from the prior response.
           description: Generic request model.
     HandleAuthorizationCallbackResponse:
       type: object
@@ -6148,6 +6636,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -6213,6 +6709,13 @@ components:
 
                 Usually contain additional required configuration options
                 not specified by the capability schema.
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitRequestInfo'
+              description: |-
+                Rate limit state from the previous call for this connector+capability.
+                Seeds the connector's rate limiter so adaptive state survives across page calls.
+                Callers should pass back the `rate_limit.current_state` from the prior response.
           description: Generic request model.
     HandleClientCredentialsResponse:
       type: object
@@ -6226,6 +6729,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -6361,6 +6872,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -6570,6 +7089,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -6613,6 +7140,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -6653,6 +7188,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -6687,6 +7230,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -6723,6 +7274,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -6757,6 +7316,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -6791,6 +7358,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -6819,6 +7394,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -6853,6 +7436,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -6894,6 +7485,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -6930,6 +7529,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -6964,6 +7571,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -7091,6 +7706,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -7509,6 +8132,102 @@ components:
             Number of items to return per page.
             This should remain consistent throughout a pagination sequence.
       description: Pagination parameters for requests and responses.
+    RateLimitMode:
+      type: string
+      enum:
+        - enforce
+        - retry_only
+        - bypass
+    RateLimitRequestInfo:
+      type: object
+      properties:
+        caller_retry_attempt:
+          type: integer
+          format: int32
+          description: |-
+            How many times the caller has already retried this specific operation.
+            The connector can use this to avoid double-retrying when the caller is managing retries.
+        last_known_state:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/RateLimitStateSnapshot'
+          description: |-
+            Rate limit state from the last response for this connector+capability combination.
+            Seeds the connector's rate limiter so adaptive state is not lost between page calls.
+        caller_override_mode:
+          allOf:
+            - $ref: '#/components/schemas/RateLimitMode'
+          description: |-
+            The mode that the caller has requested for this operation.
+            By default, the connector will use the mode specified in the capability metadata,
+            secondarily it will use the mode specified for the whole connector. If both are not set,
+            the connector will use either this argument or the default SDK mode for the capability.
+        max_execution_time:
+          type: integer
+          format: int32
+          description: |-
+            Caller's timeout deadline in seconds.
+            When set, the connector will raise BudgetExhaustedError pre-emptively rather than
+            sleeping past this deadline and getting cancelled externally with no response.
+      description: |-
+        Rate limit metadata the caller supplies on each request.
+        Used to seed the connector's rate limiter with state from a previous response,
+        enabling ADAPTIVE rate limiting to survive across page calls.
+    RateLimitResponseInfo:
+      type: object
+      properties:
+        current_state:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/RateLimitStateSnapshot'
+          description: Current rate limit state after executing this operation.
+      description: |-
+        Rate limit state the connector returns after each execution.
+        Callers can use this to observe the connector's current rate limit standing
+        and schedule future calls accordingly.
+    RateLimitStateSnapshot:
+      type: object
+      properties:
+        remaining:
+          type: integer
+          format: int32
+          description: Remaining requests allowed in the current window.
+        limit:
+          type: integer
+          format: int32
+          description: Total requests allowed in the current window.
+        reset:
+          type: integer
+          format: int64
+          description: |-
+            Unix timestamp (seconds) when the current window resets.
+            Callers can use this to schedule the next call precisely.
+        window_seconds:
+          type: integer
+          format: int32
+          description: Window size in seconds.
+        current_delay:
+          type: integer
+          format: int32
+          description: |-
+            The connector's current internal delay between requests (seconds, rounded).
+            Reflects adaptive backoff state — useful for seeding the next call's rate limiter.
+        source:
+          allOf:
+            - $ref: '#/components/schemas/RateLimitStateSnapshotSource'
+          description: |-
+            The source of the rate limit state snapshot.
+            The data for rate limiting is not guaranteed and can be coming from:
+            - The external API, like headers from the API response
+            - The Connector SDK, by managing static rate limiting state (in-connector config)
+      description: |-
+        A snapshot of rate limit state — passed between caller and connector to preserve
+        adaptive state across page calls and give callers visibility into current standing.
+    RateLimitStateSnapshotSource:
+      type: string
+      enum:
+        - api_headers
+        - sdk_counter
     Reference:
       type: object
       required:
@@ -7566,6 +8285,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -7603,6 +8330,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -7851,6 +8586,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -7942,6 +8685,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -7968,6 +8719,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -8023,6 +8782,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -8085,6 +8852,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -8197,6 +8972,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'
@@ -8229,6 +9012,14 @@ components:
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
             execution_summary:
               allOf:
                 - $ref: '#/components/schemas/ExecutionSummary'

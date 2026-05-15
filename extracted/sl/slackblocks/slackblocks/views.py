@@ -4,10 +4,13 @@ Views are app-customized visual areas within modals and Home tabs.
 See: <https://api.slack.com/reference/surfaces/views>.
 """
 
+from __future__ import annotations
+
 from enum import Enum
 from json import dumps
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
+from slackblocks._core import resolve
 from slackblocks.blocks import Block
 from slackblocks.objects import Text, TextLike
 from slackblocks.utils import coerce_to_list, validate_string
@@ -19,15 +22,41 @@ class ViewType(Enum):
 
 
 class View:
-    """ """
+    """
+    Base class for Slack app surfaces -- the visual areas an app can populate
+    with blocks. Concrete subclasses are
+    [`ModalView`](/slackblocks/latest/reference/views/#views.ModalView) (for
+    pop-up modals) and
+    [`HomeTabView`](/slackblocks/latest/reference/views/#views.HomeTabView)
+    (for the per-user App Home tab).
+
+    See: <https://api.slack.com/reference/surfaces/views>.
+
+    Args:
+        type: one of the `ViewType` enum members. Concrete subclasses set
+            this for you; in practice you should construct `ModalView` or
+            `HomeTabView` rather than `View` directly.
+        blocks: 1-100 blocks that make up the contents of the view.
+        private_metadata: a string (max 3000 characters) that will be sent
+            back to your app in any view-related interaction payloads.
+            Useful for stashing per-view server-side context.
+        callback_id: an identifier (max 255 characters) for distinguishing
+            this view's submissions from other views your app exposes.
+        external_id: a custom identifier that is unique within the views of
+            a given Slack team. Slack uses it to find views your app has
+            previously published.
+
+    Throws:
+        InvalidUsageError: if any of the validation checks fail.
+    """
 
     def __init__(
         self,
         type: ViewType,
-        blocks: Union[Block, List[Block]],
-        private_metadata: Optional[str] = None,
-        callback_id: Optional[str] = None,
-        external_id: Optional[str] = None,
+        blocks: Block | list[Block],
+        private_metadata: str | None = None,
+        callback_id: str | None = None,
+        external_id: str | None = None,
     ) -> None:
         self.type_ = type.value
         self.blocks = coerce_to_list(blocks, class_=Block, min_size=1, max_size=100)
@@ -42,20 +71,18 @@ class View:
         )
         self.external_id = external_id
 
-    def _resolve(self) -> Dict[str, Any]:
-        view: Dict[str, Any] = {}
-        view["type"] = self.type_
-        if self.blocks is not None:
-            view["blocks"] = [block._resolve() for block in self.blocks]
-        if self.private_metadata:
-            view["private_metadata"] = self.private_metadata
-        if self.callback_id:
-            view["callback_id"] = self.callback_id
-        if self.external_id:
-            view["external_id"] = self.external_id
-        return view
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                "type": self.type_,
+                "blocks": self.blocks,
+                "private_metadata": self.private_metadata if self.private_metadata else None,
+                "callback_id": self.callback_id if self.callback_id else None,
+                "external_id": self.external_id if self.external_id else None,
+            }
+        )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return self._resolve()
 
     def __repr__(self) -> str:
@@ -93,15 +120,15 @@ class ModalView(View):
     def __init__(
         self,
         title: TextLike,
-        blocks: Union[Block, List[Block]],
-        close: Optional[TextLike] = None,
-        submit: Optional[TextLike] = None,
-        private_metadata: Optional[str] = None,
-        callback_id: Optional[str] = None,
-        clear_on_close: Optional[bool] = False,
-        notify_on_close: Optional[bool] = False,
-        external_id: Optional[str] = None,
-        submit_disabled: Optional[bool] = False,
+        blocks: Block | list[Block],
+        close: TextLike | None = None,
+        submit: TextLike | None = None,
+        private_metadata: str | None = None,
+        callback_id: str | None = None,
+        clear_on_close: bool | None = False,
+        notify_on_close: bool | None = False,
+        external_id: str | None = None,
+        submit_disabled: bool | None = False,
     ) -> None:
         super().__init__(
             type=ViewType.MODAL,
@@ -111,30 +138,24 @@ class ModalView(View):
             external_id=external_id,
         )
         self.title = Text.to_text_nonnull(title, force_plaintext=True, max_length=24)
-        self.close = Text.to_text(
-            close, force_plaintext=True, max_length=24, allow_none=True
-        )
-        self.submit = Text.to_text(
-            submit, force_plaintext=True, max_length=24, allow_none=True
-        )
+        self.close = Text.to_text(close, force_plaintext=True, max_length=24, allow_none=True)
+        self.submit = Text.to_text(submit, force_plaintext=True, max_length=24, allow_none=True)
         self.clear_on_close = clear_on_close
         self.notify_on_close = notify_on_close
         self.submit_disabled = submit_disabled
 
-    def _resolve(self) -> Dict[str, Any]:
-        modal_view = super()._resolve()
-        modal_view["title"] = self.title._resolve()
-        if self.close:
-            modal_view["close"] = self.close._resolve()
-        if self.submit:
-            modal_view["submit"] = self.submit._resolve()
-        if self.clear_on_close:
-            modal_view["clear_on_close"] = self.clear_on_close
-        if self.notify_on_close:
-            modal_view["notify_on_close"] = self.notify_on_close
-        if self.submit_disabled:
-            modal_view["submit_disabled"] = self.submit_disabled
-        return modal_view
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **super()._resolve(),
+                "title": self.title,
+                "close": self.close if self.close else None,
+                "submit": self.submit if self.submit else None,
+                "clear_on_close": self.clear_on_close if self.clear_on_close else None,
+                "notify_on_close": self.notify_on_close if self.notify_on_close else None,
+                "submit_disabled": self.submit_disabled if self.submit_disabled else None,
+            }
+        )
 
 
 class HomeTabView(View):
@@ -154,10 +175,10 @@ class HomeTabView(View):
 
     def __init__(
         self,
-        blocks: Union[Block, List[Block]],
-        private_metadata: Optional[str] = None,
-        callback_id: Optional[str] = None,
-        external_id: Optional[str] = None,
+        blocks: Block | list[Block],
+        private_metadata: str | None = None,
+        callback_id: str | None = None,
+        external_id: str | None = None,
     ) -> None:
         super().__init__(
             type=ViewType.HOME,

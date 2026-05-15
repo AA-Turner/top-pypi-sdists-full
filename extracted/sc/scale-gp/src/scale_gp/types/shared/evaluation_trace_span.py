@@ -43,6 +43,7 @@ OperationInput: TypeAlias = Union[
     Dict[str, object],
     OperationInputExternalFile,
     OperationInputInternalFile,
+    None,
 ]
 
 
@@ -67,6 +68,7 @@ OperationOutput: TypeAlias = Union[
     Dict[str, object],
     OperationOutputExternalFile,
     OperationOutputInternalFile,
+    None,
 ]
 
 
@@ -91,6 +93,7 @@ OperationExpected: TypeAlias = Union[
     Dict[str, object],
     OperationExpectedExternalFile,
     OperationExpectedInternalFile,
+    None,
 ]
 
 
@@ -104,10 +107,10 @@ class EvaluationTraceSpan(BaseModel):
     node_id: str
     """The id of the node in the application_variant config that emitted this insight"""
 
-    operation_input: Dict[str, OperationInput]
+    operation_input: Dict[str, Optional[OperationInput]]
     """The JSON representation of the input that this step received."""
 
-    operation_output: Dict[str, OperationOutput]
+    operation_output: Dict[str, Optional[OperationOutput]]
     """The JSON representation of the output that this step emitted."""
 
     operation_status: Literal["SUCCESS", "ERROR", "CANCELED"]
@@ -135,6 +138,7 @@ class EvaluationTraceSpan(BaseModel):
         "KB_ADD_CHUNK",
         "KB_MANAGEMENT",
         "GUARDRAIL",
+        "OUTPUT_GUARDRAIL",
         "TRACER",
         "AGENT_TRACER",
         "AGENT_WORKFLOW",
@@ -169,7 +173,7 @@ class EvaluationTraceSpan(BaseModel):
     group_id: Optional[str] = None
     """The ID of the group this span belongs to"""
 
-    operation_expected: Optional[Dict[str, OperationExpected]] = None
+    operation_expected: Optional[Dict[str, Optional[OperationExpected]]] = None
     """The JSON representation of the expected output for this step"""
 
     operation_metadata: Optional[Dict[str, object]] = None

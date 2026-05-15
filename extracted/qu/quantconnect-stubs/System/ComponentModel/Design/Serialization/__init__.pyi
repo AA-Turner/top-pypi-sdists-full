@@ -18,6 +18,33 @@ System_ComponentModel_Design_Serialization__EventContainer_Callable = typing.Typ
 System_ComponentModel_Design_Serialization__EventContainer_ReturnType = typing.TypeVar("System_ComponentModel_Design_Serialization__EventContainer_ReturnType")
 
 
+class IDesignerLoaderHost(System.ComponentModel.Design.IDesignerHost, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def end_load(self, base_class_name: str, successful: bool, error_collection: System.Collections.ICollection) -> None:
+        ...
+
+    def reload(self) -> None:
+        ...
+
+
+class DesignerLoader(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def loading(self) -> bool:
+        ...
+
+    def begin_load(self, host: System.ComponentModel.Design.Serialization.IDesignerLoaderHost) -> None:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+    def flush(self) -> None:
+        ...
+
+
 class ContextStack(System.Object):
     """This class has no documentation."""
 
@@ -40,6 +67,22 @@ class ContextStack(System.Object):
         ...
 
     def push(self, context: typing.Any) -> None:
+        ...
+
+
+class DefaultSerializationProviderAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def provider_type_name(self) -> str:
+        ...
+
+    @overload
+    def __init__(self, provider_type: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, provider_type_name: str) -> None:
         ...
 
 
@@ -128,30 +171,78 @@ class IDesignerSerializationManager(IServiceProvider, metaclass=abc.ABCMeta):
         ...
 
 
-class IDesignerLoaderHost(System.ComponentModel.Design.IDesignerHost, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def end_load(self, base_class_name: str, successful: bool, error_collection: System.Collections.ICollection) -> None:
-        ...
-
-    def reload(self) -> None:
-        ...
-
-
-class DesignerLoader(System.Object, metaclass=abc.ABCMeta):
+class IDesignerLoaderHost2(System.ComponentModel.Design.Serialization.IDesignerLoaderHost, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     @property
-    def loading(self) -> bool:
+    @abc.abstractmethod
+    def ignore_errors_during_reload(self) -> bool:
         ...
 
-    def begin_load(self, host: System.ComponentModel.Design.Serialization.IDesignerLoaderHost) -> None:
+    @ignore_errors_during_reload.setter
+    def ignore_errors_during_reload(self, value: bool) -> None:
         ...
 
-    def dispose(self) -> None:
+    @property
+    @abc.abstractmethod
+    def can_reload_with_errors(self) -> bool:
         ...
 
-    def flush(self) -> None:
+    @can_reload_with_errors.setter
+    def can_reload_with_errors(self, value: bool) -> None:
+        ...
+
+
+class InstanceDescriptor(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def arguments(self) -> System.Collections.ICollection:
+        ...
+
+    @property
+    def is_complete(self) -> bool:
+        ...
+
+    @property
+    def member_info(self) -> System.Reflection.MemberInfo:
+        ...
+
+    @overload
+    def __init__(self, member: System.Reflection.MemberInfo, arguments: System.Collections.ICollection) -> None:
+        ...
+
+    @overload
+    def __init__(self, member: System.Reflection.MemberInfo, arguments: System.Collections.ICollection, is_complete: bool) -> None:
+        ...
+
+    def invoke(self) -> System.Object:
+        ...
+
+
+class IDesignerLoaderService(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def add_load_dependency(self) -> None:
+        ...
+
+    def dependent_load_complete(self, successful: bool, error_collection: System.Collections.ICollection) -> None:
+        ...
+
+    def reload(self) -> bool:
+        ...
+
+
+class INameCreationService(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def create_name(self, container: System.ComponentModel.IContainer, data_type: typing.Type) -> str:
+        ...
+
+    def is_valid_name(self, name: str) -> bool:
+        ...
+
+    def validate_name(self, name: str) -> None:
         ...
 
 
@@ -250,16 +341,35 @@ class SerializationStore(System.Object, System.IDisposable, metaclass=abc.ABCMet
         ...
 
 
-class IDesignerLoaderService(metaclass=abc.ABCMeta):
+class RootDesignerSerializerAttribute(System.Attribute):
     """This class has no documentation."""
 
-    def add_load_dependency(self) -> None:
+    @property
+    def reloadable(self) -> bool:
         ...
 
-    def dependent_load_complete(self, successful: bool, error_collection: System.Collections.ICollection) -> None:
+    @property
+    def serializer_type_name(self) -> str:
         ...
 
-    def reload(self) -> bool:
+    @property
+    def serializer_base_type_name(self) -> str:
+        ...
+
+    @property
+    def type_id(self) -> System.Object:
+        ...
+
+    @overload
+    def __init__(self, serializer_type: typing.Type, base_serializer_type: typing.Type, reloadable: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, serializer_type_name: str, base_serializer_type: typing.Type, reloadable: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, serializer_type_name: str, base_serializer_type_name: str, reloadable: bool) -> None:
         ...
 
 
@@ -302,116 +412,6 @@ class ComponentSerializationService(System.Object, metaclass=abc.ABCMeta):
         ...
 
     def serialize_member_absolute(self, store: System.ComponentModel.Design.Serialization.SerializationStore, owning_object: typing.Any, member: System.ComponentModel.MemberDescriptor) -> None:
-        ...
-
-
-class InstanceDescriptor(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def arguments(self) -> System.Collections.ICollection:
-        ...
-
-    @property
-    def is_complete(self) -> bool:
-        ...
-
-    @property
-    def member_info(self) -> System.Reflection.MemberInfo:
-        ...
-
-    @overload
-    def __init__(self, member: System.Reflection.MemberInfo, arguments: System.Collections.ICollection) -> None:
-        ...
-
-    @overload
-    def __init__(self, member: System.Reflection.MemberInfo, arguments: System.Collections.ICollection, is_complete: bool) -> None:
-        ...
-
-    def invoke(self) -> System.Object:
-        ...
-
-
-class DefaultSerializationProviderAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def provider_type_name(self) -> str:
-        ...
-
-    @overload
-    def __init__(self, provider_type: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, provider_type_name: str) -> None:
-        ...
-
-
-class IDesignerLoaderHost2(System.ComponentModel.Design.Serialization.IDesignerLoaderHost, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def ignore_errors_during_reload(self) -> bool:
-        ...
-
-    @ignore_errors_during_reload.setter
-    def ignore_errors_during_reload(self, value: bool) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def can_reload_with_errors(self) -> bool:
-        ...
-
-    @can_reload_with_errors.setter
-    def can_reload_with_errors(self, value: bool) -> None:
-        ...
-
-
-class RootDesignerSerializerAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def reloadable(self) -> bool:
-        ...
-
-    @property
-    def serializer_type_name(self) -> str:
-        ...
-
-    @property
-    def serializer_base_type_name(self) -> str:
-        ...
-
-    @property
-    def type_id(self) -> System.Object:
-        ...
-
-    @overload
-    def __init__(self, serializer_type: typing.Type, base_serializer_type: typing.Type, reloadable: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, serializer_type_name: str, base_serializer_type: typing.Type, reloadable: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, serializer_type_name: str, base_serializer_type_name: str, reloadable: bool) -> None:
-        ...
-
-
-class INameCreationService(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def create_name(self, container: System.ComponentModel.IContainer, data_type: typing.Type) -> str:
-        ...
-
-    def is_valid_name(self, name: str) -> bool:
-        ...
-
-    def validate_name(self, name: str) -> None:
         ...
 
 

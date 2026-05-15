@@ -7,7 +7,7 @@ from typing import Optional
 import httpx
 
 from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from ..._utils import maybe_transform
+from ..._utils import path_template, maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -73,7 +73,11 @@ class ContributorMetricsResource(SyncAPIResource):
         if not contributor_id:
             raise ValueError(f"Expected a non-empty value for `contributor_id` but received {contributor_id!r}")
         return self._get(
-            f"/v4/evaluations/{evaluation_id}/contributor-metrics/{contributor_id}",
+            path_template(
+                "/v4/evaluations/{evaluation_id}/contributor-metrics/{contributor_id}",
+                evaluation_id=evaluation_id,
+                contributor_id=contributor_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -114,7 +118,7 @@ class ContributorMetricsResource(SyncAPIResource):
         if not evaluation_id:
             raise ValueError(f"Expected a non-empty value for `evaluation_id` but received {evaluation_id!r}")
         return self._get_api_list(
-            f"/v4/evaluations/{evaluation_id}/contributor-metrics",
+            path_template("/v4/evaluations/{evaluation_id}/contributor-metrics", evaluation_id=evaluation_id),
             page=SyncPageResponse[ContributorMetrics],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -182,7 +186,11 @@ class AsyncContributorMetricsResource(AsyncAPIResource):
         if not contributor_id:
             raise ValueError(f"Expected a non-empty value for `contributor_id` but received {contributor_id!r}")
         return await self._get(
-            f"/v4/evaluations/{evaluation_id}/contributor-metrics/{contributor_id}",
+            path_template(
+                "/v4/evaluations/{evaluation_id}/contributor-metrics/{contributor_id}",
+                evaluation_id=evaluation_id,
+                contributor_id=contributor_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -223,7 +231,7 @@ class AsyncContributorMetricsResource(AsyncAPIResource):
         if not evaluation_id:
             raise ValueError(f"Expected a non-empty value for `evaluation_id` but received {evaluation_id!r}")
         return self._get_api_list(
-            f"/v4/evaluations/{evaluation_id}/contributor-metrics",
+            path_template("/v4/evaluations/{evaluation_id}/contributor-metrics", evaluation_id=evaluation_id),
             page=AsyncPageResponse[ContributorMetrics],
             options=make_request_options(
                 extra_headers=extra_headers,

@@ -2,7 +2,7 @@
 
 use std::{
     collections::HashSet,
-    env,
+    env, fmt,
     io::{Write, stdout},
     process::ExitCode,
 };
@@ -179,6 +179,10 @@ struct AuditArgs {
     /// Filter all results below this confidence.
     #[arg(long, value_name = "LEVEL")]
     min_confidence: Option<CliConfidence>,
+
+    /// Don't honor ignore comments or ignore rules in configuration.
+    #[arg(long)]
+    no_ignores: bool,
 }
 
 #[derive(Debug, Args)]
@@ -687,6 +691,16 @@ pub(crate) enum FixMode {
     All,
 }
 
+impl fmt::Display for FixMode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            FixMode::Safe => write!(f, "safe"),
+            FixMode::UnsafeOnly => write!(f, "unsafe-only"),
+            FixMode::All => write!(f, "all"),
+        }
+    }
+}
+
 /// State used when collecting input groups.
 pub(crate) struct CollectionOptions {
     pub(crate) mode_set: CollectionModeSet,
@@ -761,7 +775,10 @@ enum Error {
 async fn run(app: &mut App) -> Result<ExitCode, Error> {
     #[cfg(feature = "lsp")]
     if app.args.lsp.lsp {
-        lsp::run().await?;
+        lsp::run(lsp::LspOptions {
+            persona: app.audit.persona,
+        })
+        .await?;
         return Ok(ExitCode::SUCCESS);
     }
 
@@ -955,8 +972,13 @@ async fn run(app: &mut App) -> Result<ExitCode, Error> {
 
     let audit_registry = AuditRegistry::default_audits(&state).map_err(Error::AuditLoad)?;
 
-    let mut results =
-        FindingRegistry::new(&registry, min_severity, min_confidence, app.audit.persona);
+    let mut results = FindingRegistry::new(
+        &registry,
+        min_severity,
+        min_confidence,
+        app.audit.persona,
+        app.audit.no_ignores,
+    );
     {
         // Note: block here so that we drop the span here at the right time.
         let span = info_span!("audit");

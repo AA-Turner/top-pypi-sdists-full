@@ -401,16 +401,18 @@ class TestTerminalRateLimiting:
 
     def test_terminal_websocket_enforces_rate_limit(self):
         """Terminal WebSocket endpoint should enforce rate limiting."""
-        from backend.terminal_ws import _check_terminal_rate_limit
+        from backend.terminal_ws import _check_terminal_rate_limit, _get_terminal_rate_limiter
 
-        client_ip = "192.168.1.100"
+        # Use a unique IP so other tests don't pollute the counter window.
+        client_ip = "192.168.1.231"
+        limit = _get_terminal_rate_limiter().max_connections_per_ip
 
-        # First few connections should be allowed
-        for i in range(5):
+        # Up to limit connections should be allowed
+        for _ in range(limit):
             allowed, _ = _check_terminal_rate_limit(client_ip)
             assert allowed is True
 
-        # After limit, should be rejected
+        # The next connection should be rejected
         allowed, reason = _check_terminal_rate_limit(client_ip)
         assert allowed is False
         assert "rate limit" in reason.lower()

@@ -19,7 +19,11 @@ from ._types import (
     RequestOptions,
     not_given,
 )
-from ._utils import is_given, get_async_library
+from ._utils import (
+    is_given,
+    is_mapping_t,
+    get_async_library,
+)
 from ._compat import cached_property
 from ._version import __version__
 from ._streaming import Stream as Stream, AsyncStream as AsyncStream
@@ -208,6 +212,15 @@ class SGPClient(SyncAPIClient):
             except KeyError as exc:
                 raise ValueError(f"Unknown environment: {environment}") from exc
 
+        custom_headers_env = os.environ.get("SGP_CLIENT_CUSTOM_HEADERS")
+        if custom_headers_env is not None:
+            parsed: dict[str, str] = {}
+            for line in custom_headers_env.split("\n"):
+                colon = line.find(":")
+                if colon >= 0:
+                    parsed[line[:colon].strip()] = line[colon + 1 :].strip()
+            default_headers = {**parsed, **(default_headers if is_mapping_t(default_headers) else {})}
+
         super().__init__(
             version=__version__,
             base_url=base_url,
@@ -259,12 +272,14 @@ class SGPClient(SyncAPIClient):
 
     @cached_property
     def models(self) -> ModelsResource:
+        """Model API."""
         from .resources.models import ModelsResource
 
         return ModelsResource(self)
 
     @cached_property
     def model_groups(self) -> ModelGroupsResource:
+        """Model API."""
         from .resources.model_groups import ModelGroupsResource
 
         return ModelGroupsResource(self)
@@ -619,6 +634,15 @@ class AsyncSGPClient(AsyncAPIClient):
             except KeyError as exc:
                 raise ValueError(f"Unknown environment: {environment}") from exc
 
+        custom_headers_env = os.environ.get("SGP_CLIENT_CUSTOM_HEADERS")
+        if custom_headers_env is not None:
+            parsed: dict[str, str] = {}
+            for line in custom_headers_env.split("\n"):
+                colon = line.find(":")
+                if colon >= 0:
+                    parsed[line[:colon].strip()] = line[colon + 1 :].strip()
+            default_headers = {**parsed, **(default_headers if is_mapping_t(default_headers) else {})}
+
         super().__init__(
             version=__version__,
             base_url=base_url,
@@ -670,12 +694,14 @@ class AsyncSGPClient(AsyncAPIClient):
 
     @cached_property
     def models(self) -> AsyncModelsResource:
+        """Model API."""
         from .resources.models import AsyncModelsResource
 
         return AsyncModelsResource(self)
 
     @cached_property
     def model_groups(self) -> AsyncModelGroupsResource:
+        """Model API."""
         from .resources.model_groups import AsyncModelGroupsResource
 
         return AsyncModelGroupsResource(self)
@@ -1000,12 +1026,14 @@ class SGPClientWithRawResponse:
 
     @cached_property
     def models(self) -> models.ModelsResourceWithRawResponse:
+        """Model API."""
         from .resources.models import ModelsResourceWithRawResponse
 
         return ModelsResourceWithRawResponse(self._client.models)
 
     @cached_property
     def model_groups(self) -> model_groups.ModelGroupsResourceWithRawResponse:
+        """Model API."""
         from .resources.model_groups import ModelGroupsResourceWithRawResponse
 
         return ModelGroupsResourceWithRawResponse(self._client.model_groups)
@@ -1217,12 +1245,14 @@ class AsyncSGPClientWithRawResponse:
 
     @cached_property
     def models(self) -> models.AsyncModelsResourceWithRawResponse:
+        """Model API."""
         from .resources.models import AsyncModelsResourceWithRawResponse
 
         return AsyncModelsResourceWithRawResponse(self._client.models)
 
     @cached_property
     def model_groups(self) -> model_groups.AsyncModelGroupsResourceWithRawResponse:
+        """Model API."""
         from .resources.model_groups import AsyncModelGroupsResourceWithRawResponse
 
         return AsyncModelGroupsResourceWithRawResponse(self._client.model_groups)
@@ -1434,12 +1464,14 @@ class SGPClientWithStreamedResponse:
 
     @cached_property
     def models(self) -> models.ModelsResourceWithStreamingResponse:
+        """Model API."""
         from .resources.models import ModelsResourceWithStreamingResponse
 
         return ModelsResourceWithStreamingResponse(self._client.models)
 
     @cached_property
     def model_groups(self) -> model_groups.ModelGroupsResourceWithStreamingResponse:
+        """Model API."""
         from .resources.model_groups import ModelGroupsResourceWithStreamingResponse
 
         return ModelGroupsResourceWithStreamingResponse(self._client.model_groups)
@@ -1651,12 +1683,14 @@ class AsyncSGPClientWithStreamedResponse:
 
     @cached_property
     def models(self) -> models.AsyncModelsResourceWithStreamingResponse:
+        """Model API."""
         from .resources.models import AsyncModelsResourceWithStreamingResponse
 
         return AsyncModelsResourceWithStreamingResponse(self._client.models)
 
     @cached_property
     def model_groups(self) -> model_groups.AsyncModelGroupsResourceWithStreamingResponse:
+        """Model API."""
         from .resources.model_groups import AsyncModelGroupsResourceWithStreamingResponse
 
         return AsyncModelGroupsResourceWithStreamingResponse(self._client.model_groups)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aws-sam-cli
-Version: 1.160.0
+Version: 1.160.1
 Summary: AWS SAM CLI is a CLI tool for local development and testing of Serverless applications
 Author-email: Amazon Web Services <aws-sam-developers@amazon.com>
 License-Expression: Apache-2.0
@@ -30,7 +30,7 @@ License-File: NOTICE
 Requires-Dist: chevron~=0.12
 Requires-Dist: click==8.1.8
 Requires-Dist: Flask<3.2
-Requires-Dist: boto3[crt]==1.43.6
+Requires-Dist: boto3[crt]==1.43.7
 Requires-Dist: jmespath~=1.1.0
 Requires-Dist: ruamel_yaml~=0.19.1
 Requires-Dist: PyYAML~=6.0
@@ -57,17 +57,17 @@ Provides-Extra: dev
 Requires-Dist: aws-sam-cli[pre-dev]; extra == "dev"
 Requires-Dist: coverage==7.14.0; extra == "dev"
 Requires-Dist: pytest-cov==7.1.0; extra == "dev"
-Requires-Dist: mypy==1.19.1; extra == "dev"
+Requires-Dist: mypy==2.1.0; extra == "dev"
 Requires-Dist: types-pywin32==311.0.0.20260508; extra == "dev"
-Requires-Dist: types-PyYAML==6.0.12.20250915; extra == "dev"
-Requires-Dist: types-chevron==0.14.2.20250103; extra == "dev"
+Requires-Dist: types-PyYAML==6.0.12.20260510; extra == "dev"
+Requires-Dist: types-chevron==0.14.2.20260408; extra == "dev"
 Requires-Dist: types-psutil==7.2.2.20260508; extra == "dev"
-Requires-Dist: types-setuptools==82.0.0.20260408; extra == "dev"
+Requires-Dist: types-setuptools==82.0.0.20260508; extra == "dev"
 Requires-Dist: types-Pygments==2.20.0.20260508; extra == "dev"
 Requires-Dist: types-colorama==0.4.15.20260508; extra == "dev"
 Requires-Dist: types-dateparser==1.4.0.20260508; extra == "dev"
 Requires-Dist: types-docutils==0.22.3.20260508; extra == "dev"
-Requires-Dist: types-jsonschema==4.26.0.20260202; extra == "dev"
+Requires-Dist: types-jsonschema==4.26.0.20260508; extra == "dev"
 Requires-Dist: types-pyOpenSSL==24.1.0.20240722; extra == "dev"
 Requires-Dist: types-requests==2.33.0.20260513; extra == "dev"
 Requires-Dist: types-urllib3==1.26.25.14; extra == "dev"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: valyu
-Version: 2.9.7
+Version: 2.9.10
 Summary: Deepsearch API for AI.
 Home-page: https://valyu.ai
 Author: Valyu
@@ -12,11 +12,9 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
-Requires-Dist: requests==2.33.1
-Requires-Dist: httpx==0.28.1
-Requires-Dist: pydantic==2.12.5
-Requires-Dist: openai==2.30.0
-Requires-Dist: anthropic==0.86.0
+Requires-Dist: requests>=2.31.0
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: pydantic>=2.0.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

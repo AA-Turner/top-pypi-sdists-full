@@ -34,14 +34,14 @@ class TestFiles:
     @parametrize
     def test_method_create(self, client: SGPClient) -> None:
         file = client.beta.files.create(
-            file=b"raw file contents",
+            file="file",
         )
         assert_matches_type(FileCreateResponse, file, path=["response"])
 
     @parametrize
     def test_raw_response_create(self, client: SGPClient) -> None:
         response = client.beta.files.with_raw_response.create(
-            file=b"raw file contents",
+            file="file",
         )
 
         assert response.is_closed is True
@@ -52,7 +52,7 @@ class TestFiles:
     @parametrize
     def test_streaming_response_create(self, client: SGPClient) -> None:
         with client.beta.files.with_streaming_response.create(
-            file=b"raw file contents",
+            file="file",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -108,6 +108,7 @@ class TestFiles:
     @parametrize
     def test_method_list_with_all_params(self, client: SGPClient) -> None:
         file = client.beta.files.list(
+            account_id="account_id",
             ending_before="ending_before",
             filename="filename",
             limit=1,
@@ -234,14 +235,14 @@ class TestAsyncFiles:
     @parametrize
     async def test_method_create(self, async_client: AsyncSGPClient) -> None:
         file = await async_client.beta.files.create(
-            file=b"raw file contents",
+            file="file",
         )
         assert_matches_type(FileCreateResponse, file, path=["response"])
 
     @parametrize
     async def test_raw_response_create(self, async_client: AsyncSGPClient) -> None:
         response = await async_client.beta.files.with_raw_response.create(
-            file=b"raw file contents",
+            file="file",
         )
 
         assert response.is_closed is True
@@ -252,7 +253,7 @@ class TestAsyncFiles:
     @parametrize
     async def test_streaming_response_create(self, async_client: AsyncSGPClient) -> None:
         async with async_client.beta.files.with_streaming_response.create(
-            file=b"raw file contents",
+            file="file",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -308,6 +309,7 @@ class TestAsyncFiles:
     @parametrize
     async def test_method_list_with_all_params(self, async_client: AsyncSGPClient) -> None:
         file = await async_client.beta.files.list(
+            account_id="account_id",
             ending_before="ending_before",
             filename="filename",
             limit=1,

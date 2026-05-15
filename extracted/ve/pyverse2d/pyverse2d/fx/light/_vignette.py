@@ -34,3 +34,8 @@ class Vignette(LightEffect):
         if __debug__:
             clamped(self.radius)
             clamped(self.strength)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Vignette",
+]

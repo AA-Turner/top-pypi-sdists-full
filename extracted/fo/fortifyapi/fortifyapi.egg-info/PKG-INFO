@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: fortifyapi
-Version: 3.1.25
+Version: 3.1.26
 Summary: Python library for Fortify Software Security Center (SSC) RESTFul API
 Home-page: https://github.com/fortifyadmin/fortifyapi
-Download-URL: https://github.com/fortifyadmin/fortifyapi/tarball/3.1.25
+Download-URL: https://github.com/fortifyadmin/fortifyapi/tarball/3.1.26
 Author: Brandon Spruth, Matthew Gill
 Author-email: brandon@spruth.co, mgill@c0ffee.me
 License: MIT
@@ -24,6 +24,18 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: requests
 Requires-Dist: requests-toolbelt
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 .. image:: https://img.shields.io/pypi/v/fortifyapi.svg
 .. image:: https://img.shields.io/pypi/pyversions/fortifyapi.svg

@@ -66,3 +66,8 @@ class Gravity(ParticleModifier):
         rad = math.radians(self._direction)
         self._ax = self._strength * math.cos(rad)
         self._ay = self._strength * math.sin(rad)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Gravity",
+]

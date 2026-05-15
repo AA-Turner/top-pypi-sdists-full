@@ -1007,7 +1007,7 @@ class PKAssetsManager:
                     return False
         
         # Use ThreadPoolExecutor for parallel processing
-        max_workers = min(32, len(tick_lookup) // 10 + 1)
+        max_workers = max(2,min(32, len(tick_lookup) // 10 + 1))
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {executor.submit(process_stock, symbol): symbol for symbol in tick_lookup.keys()}

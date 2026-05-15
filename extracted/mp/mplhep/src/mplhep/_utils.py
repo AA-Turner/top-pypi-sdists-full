@@ -270,7 +270,7 @@ def _get_plottables(
         xoffsets = parsed_offsets
     else:
         xoffsets = [None] * len(hists)
-    for h, xoffset in zip(hists, xoffsets):
+    for h, xoffset in zip(hists, xoffsets, strict=True):
         value, variance = np.copy(h.values()), h.variances()
         if has_variances := variance is not None:
             variance = np.copy(variance)
@@ -359,11 +359,11 @@ def _get_plottables(
         elif flow == "sum":
             if underflow > 0:
                 value[0] += underflow
-                if has_variances:
+                if variance is not None:
                     variance[0] += underflowv
             if overflow > 0:
                 value[-1] += overflow
-                if has_variances:
+                if variance is not None:
                     variance[-1] += overflowv
             plottables.append(
                 EnhancedPlottableHistogram(
@@ -379,7 +379,9 @@ def _get_plottables(
 
     if w2 is not None:
         for _w2, _plottable in zip(
-            np.array(w2).reshape(len(plottables), len(final_bins) - 1), plottables
+            np.array(w2).reshape(len(plottables), len(final_bins) - 1),
+            plottables,
+            strict=True,
         ):
             _plottable.set_variances(_w2)
             _plottable.method = w2method
@@ -462,7 +464,7 @@ def _yerr_plottables(plottables, bins, yerr=None):
             raise ValueError(msg)
 
         assert _yerr is not None
-        for yrs, _plottable in zip(_yerr, plottables):
+        for yrs, _plottable in zip(_yerr, plottables, strict=True):
             _plottable.fixed_errors(*yrs)
 
 
@@ -514,7 +516,7 @@ def _norm_stack_plottables(plottables, bins, stack=False, density=False, binwnor
                 plottable.density()
     elif binwnorm is not None:
         for plottable, norm in zip(
-            plottables, np.broadcast_to(binwnorm, (len(plottables),))
+            plottables, np.broadcast_to(binwnorm, (len(plottables),)), strict=True
         ):
             plottable.flat_scale(norm)
             plottable.binwnorm()
@@ -1548,13 +1550,26 @@ def _draw_text_bbox(ax):
         (bboxes, text_objects) - List of bboxes and corresponding text objects
     """
     fig = ax.figure
-    textboxes = [k for k in ax.get_children() if isinstance(k, (AnchoredText, Text))]
+    textboxes = [
+        k
+        for k in ax.get_children()
+        if isinstance(k, (AnchoredText, Text))
+        and (isinstance(k, AnchoredText) or k.get_text())
+    ]
     logger.debug(f"_draw_text_bbox: Found {len(textboxes)} text objects")
     logger.debug(f"_draw_text_bbox: Found {textboxes}")
     if not textboxes:
         return [], []
 
     fig.canvas.draw()
-    bboxes = [box.get_tightbbox(fig.canvas.renderer) for box in textboxes]
+    # Drop null/empty bboxes (mpl >= 3.12 returns Bbox(inf, inf, -inf, -inf)
+    # for unrenderable text, which would propagate as NaN through transforms).
+    bboxes = []
+    kept = []
+    for box in textboxes:
+        bbox = box.get_tightbbox(fig.canvas.renderer)
+        if np.isfinite(bbox.x0) and np.isfinite(bbox.y0):
+            bboxes.append(bbox)
+            kept.append(box)
     logger.debug(f"_draw_text_bbox: Returning {len(bboxes)} bboxes")
-    return bboxes, textboxes
+    return bboxes, kept

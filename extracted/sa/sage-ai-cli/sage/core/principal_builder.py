@@ -43,8 +43,14 @@ from sage.core.dynamic_builder import (
 )
 from sage.core.code_doctors import DoctorReport, run_code_doctors
 from sage.core.feature_files import files_for_feature
+from sage.core.final_polish import PolishReport, run_final_polish
 from sage.core.install_verify import VerifyReport
+from sage.core.integration_check import IntegrationReport, run_integration_check
 from sage.core.integrity_pass import IntegrityReport, run_integrity_pass
+from sage.core.pre_write_validator import (
+    ValidationResult,
+    validated_generate,
+)
 from sage.core.principal_engineer import (
     CURRENT_VERSIONS,
     FileSpec,
@@ -76,8 +82,11 @@ class PrincipalBuildReport:
     feature_count: int
     bootstrap_results: list[dict] = field(default_factory=list)
     review_scores: dict[str, float] = field(default_factory=dict)
+    validation_failures: list[dict] = field(default_factory=list)
     doctors: dict = field(default_factory=dict)
     integrity: dict = field(default_factory=dict)
+    integration: dict = field(default_factory=dict)
+    polish: dict = field(default_factory=dict)
     verify_reports: list[dict] = field(default_factory=list)
     install_ok: bool | None = None
     tests_ok: bool | None = None
@@ -173,14 +182,29 @@ def _generate_one_file(
     stack_label: str,
     sibling_excerpts: dict[str, str],
     generate: GenerateFn,
-) -> str:
+    is_rn_frontend: bool = False,
+    log: ProgressFn | None = None,
+) -> tuple[str, ValidationResult]:
+    """Generate one file with PRE-WRITE validation + retry.
+
+    Returns (final_content, validation_result). If validation fails after
+    `max_attempts`, returns the best-effort content + the failing result —
+    the caller decides whether to write it anyway or skip.
+    """
     spec = _file_slot_to_spec(slot)
-    prompt = build_specialized_prompt(
+    initial_prompt = build_specialized_prompt(
         task, spec, tree, stack_label,
         sibling_excerpts=sibling_excerpts,
     )
-    raw = generate(prompt)
-    return strip_code_fences(raw)
+    return validated_generate(
+        initial_prompt=initial_prompt,
+        path=slot.path,
+        generate=generate,
+        sanitize=strip_code_fences,
+        max_attempts=3,
+        is_rn_frontend=is_rn_frontend,
+        log=log,
+    )
 
 
 # ──────────────────────── public entry ─────────────────────────────────
@@ -329,27 +353,39 @@ def build_project_principal(
 
     review_scores: dict[str, float] = {}
     sibling_excerpts_by_feature: dict[str | None, list[str]] = {}
+    validation_failures: list[dict] = []  # files that failed validation after 3 attempts
+    is_rn = plan.stack.frontend == "react-native-web"
 
     for idx, slot in enumerate(to_generate, start=1):
-        # Cross-file context: include the last 3 files in the same feature
-        # (or the cross-cutting siblings if no feature)
         feature_key = slot.feature
         siblings_so_far = sibling_excerpts_by_feature.get(feature_key, [])
         excerpts = _read_sibling_context(out_dir, siblings_so_far)
 
-        content = _generate_one_file(
+        # Pre-write validation: LLM output is parsed + checked for undefined
+        # names + truncation + framework collisions BEFORE we touch disk.
+        # On failure, validated_generate retries up to 3 times with the
+        # specific defects fed back into the prompt.
+        is_rn_file = is_rn and slot.path.startswith("frontend/")
+        content, vresult = _generate_one_file(
             slot,
-            task=brief,  # ← brief, not full task — the big speedup
+            task=brief,
             tree=tree,
             stack_label=stack_label,
             sibling_excerpts=excerpts,
             generate=generate,
+            is_rn_frontend=is_rn_file,
+            log=log,
         )
 
         target = out_dir / slot.path
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
         sibling_excerpts_by_feature.setdefault(feature_key, []).append(slot.path)
+
+        if not vresult.ok:
+            validation_failures.append(
+                {"path": slot.path, "errors": vresult.errors}
+            )
 
         if idx % 10 == 0 or idx == len(to_generate):
             log(f"      [{idx}/{len(to_generate)}] {slot.path}")
@@ -406,6 +442,17 @@ def build_project_principal(
         enable_lint_pass=True,
     )
 
+    # ── 7.6 Cross-file integration check ───────────────────────────────
+    # Catches `from app.main import X` where main.py doesn't export X.
+    # This is the class of bug the per-file validator can't see — it
+    # needs full-project context. Closed the gap that caused tests_ok=
+    # False in the previous build (conftest imported `settings` that
+    # main.py never defined).
+    log("[7.6/8] running cross-file integration check...")
+    integration = run_integration_check(
+        out_dir, generate=generate, log=log,
+    )
+
     # ── 8. Install + verify (iterate-until-green) ──
     log("[8/8] installing and verifying...")
     verify_reports = _verify_iterate_until_green(
@@ -417,6 +464,18 @@ def build_project_principal(
 
     install_ok = all(r.install_ok in (True, None) for r in verify_reports)
     tests_ok = all(r.tests_ok in (True, None) for r in verify_reports)
+
+    # ── 9. Final polish — types/* deps + ruff/eslint --fix + final verify ──
+    # Catches the trailing issues: missing @types/jest etc. (typecheck
+    # failure cause in last build), and the 44 auto-fixable ruff errors
+    # that doctor missed because integrity regenerated files AFTER
+    # the doctor ran.
+    log("[9/9] final polish...")
+    polish = run_final_polish(out_dir, log=log)
+    if polish.final_install_ok is not None:
+        install_ok = polish.final_install_ok
+    if polish.final_tests_ok is not None:
+        tests_ok = polish.final_tests_ok
 
     log(f"complete. install_ok={install_ok} tests_ok={tests_ok}")
 
@@ -433,8 +492,11 @@ def build_project_principal(
             for r in bootstrap_results
         ],
         review_scores=review_scores,
+        validation_failures=validation_failures,
         doctors=asdict(doctors),
         integrity=asdict(integrity),
+        integration=asdict(integration),
+        polish=asdict(polish),
         verify_reports=[
             {
                 "project": {"kind": r.project.kind, "root": str(r.project.root)},

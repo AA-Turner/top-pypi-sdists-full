@@ -26,11 +26,6 @@ from ._actions import (
     previous_config,
 )
 from ._common import (
-    ClassType,
-    InstantiatorCallable,
-    InstantiatorsDictType,
-    LoggerProperty,
-    class_instantiators,
     debug_mode_active,
     get_optionals_as_positionals_actions,
     is_subclasses_disabled,
@@ -45,6 +40,7 @@ from ._completions import (
 )
 from ._deprecated import ParserDeprecations, deprecated_skip_check, deprecated_yaml_comments
 from ._formatters import DefaultHelpFormatter, get_env_var
+from ._instantiation import InstantiateMethod
 from ._jsonnet import ActionJsonnet
 from ._jsonschema import ActionJsonSchema
 from ._link_arguments import ActionLink, ArgumentLinking
@@ -58,11 +54,10 @@ from ._loaders_dumpers import (
 from ._namespace import (
     Namespace,
     NSKeyError,
+    get_non_meta_sorted_keys,
     is_meta_key,
-    patch_namespace,
     recreate_branches,
     remove_meta,
-    split_key,
     split_key_leaf,
     split_key_root,
 )
@@ -100,16 +95,17 @@ from ._util import (
     get_argument_group_class,
     get_private_kwargs,
     identity,
+    load_config_path_context,
     return_parser_if_captured,
 )
 
-__all__ = ["ArgumentParser", "ActionsContainer"]
+__all__ = ["ArgumentParser"]
 
 
 _parse_known_has_intermixed = "intermixed" in inspect.signature(argparse.ArgumentParser._parse_known_args).parameters
 
 
-class ActionsContainer(SignatureArguments, argparse._ActionsContainer):
+class ActionsContainer(ArgumentLinking, InstantiateMethod, SignatureArguments, argparse._ActionsContainer):
     """Extension of ``argparse._ActionsContainer`` to support additional functionalities."""
 
     _action_groups: Sequence["ArgumentGroup"]  # type: ignore[assignment]
@@ -121,7 +117,7 @@ class ActionsContainer(SignatureArguments, argparse._ActionsContainer):
         self.register("action", "parsers", ActionSubCommands)
         self.register("action", "config", ActionConfigFile)
 
-    def add_argument(self, *args, enable_path: bool = False, **kwargs):
+    def add_argument(self, *args, sub_configs: bool = False, **kwargs):
         """Adds an argument to the parser or argument group.
 
         All the arguments from `argparse.ArgumentParser.add_argument
@@ -129,8 +125,13 @@ class ActionsContainer(SignatureArguments, argparse._ActionsContainer):
         are supported. Additionally it accepts:
 
         Args:
-            enable_path: Whether to try parsing path/subconfig when argument is a complex type.
+            sub_configs: Whether to try parsing a sub-config when argument is a complex type.
         """
+        from ._deprecated import add_argument_enable_path_deprecation
+
+        deprecated_val = add_argument_enable_path_deprecation(kwargs)
+        if deprecated_val is not None:
+            sub_configs = deprecated_val
         parser = self.parser if hasattr(self, "parser") else self
         if kwargs.get("action") is not None:
             if ActionParser._is_valid_action_parser(parser, kwargs["action"]):
@@ -139,13 +140,13 @@ class ActionsContainer(SignatureArguments, argparse._ActionsContainer):
         if "type" in kwargs:
             if is_subclasses_disabled(kwargs["type"]):
                 nested_key = args[0].lstrip("-")
-                self.add_class_arguments(kwargs.pop("type"), nested_key, **kwargs)
+                self.add_class_arguments(kwargs.pop("type"), nested_key, sub_configs=sub_configs, **kwargs)
                 return find_action(parser, nested_key)
             if ActionTypeHint.is_supported_typehint(kwargs["type"]):
                 args = ActionTypeHint.prepare_add_argument(
                     args=args,
                     kwargs=kwargs,
-                    enable_path=enable_path,
+                    enable_path=sub_configs,
                     container=super(),
                     logger=self._logger,
                 )
@@ -230,14 +231,13 @@ class ArgumentGroup(ActionsContainer, argparse._ArgumentGroup):
     parser: Optional[Union["ArgumentParser", ActionsContainer]] = None
 
 
-class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, LoggerProperty, argparse.ArgumentParser):
+class ArgumentParser(ParserDeprecations, ActionsContainer, argparse.ArgumentParser):
     """Parser for command line, configuration files and environment variables."""
 
     formatter_class: type[argparse.HelpFormatter]
     groups: Optional[dict[str, ArgumentGroup]] = None
     _group_class: type[ArgumentGroup]
     _subcommands_action: Optional[ActionSubCommands] = None
-    _instantiators: Optional[InstantiatorsDictType] = None
 
     def __init__(
         self,
@@ -289,16 +289,11 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
 
     ## Parsing methods ##
 
-    def parse_known_args(self, *args, **kwargs) -> NoReturn:
-        """Raises ``NotImplementedError``, not supported since typos in configs would go unnoticed."""
-        raise NotImplementedError("parse_known_args not supported because typos in configs would go unnoticed.")
-
     def _parse_known_args_internal(self, args=None, namespace=None, *, argcomplete: bool = False):
         if argcomplete:
             namespace = get_argcomplete_namespace(self, namespace)
         try:
             with (
-                patch_namespace(),
                 parser_context(parent_parser=self, lenient_check=True),
                 ActionTypeHint.subclass_arg_context(self),
                 suppress_required_actions(self),
@@ -627,8 +622,8 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
             ArgumentError: If the parsing fails and ``exit_on_error=False``.
         """
         fpath = Path(cfg_path, mode=_get_config_read_mode())
-        with change_to_path_dir(fpath):
-            cfg_str = fpath.get_content()
+        with load_config_path_context(fpath), change_to_path_dir(fpath):
+            cfg_str = fpath.read_text()
             parsed_cfg = self.parse_string(
                 cfg_str=cfg_str,
                 cfg_path=os.path.basename(cfg_path),
@@ -718,9 +713,13 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
 
     ## Methods for adding to the parser ##
 
-    def add_subparsers(self, *args, **kwargs) -> NoReturn:
-        """Raises a ``NotImplementedError`` since jsonargparse uses ``add_subcommands``."""
-        raise NotImplementedError("In jsonargparse subcommands are added using the add_subcommands method.")
+    add_argument = ActionsContainer.add_argument
+    add_argument_group = ActionsContainer.add_argument_group
+    add_function_arguments = SignatureArguments.add_function_arguments
+    add_method_arguments = SignatureArguments.add_method_arguments
+    add_class_arguments = SignatureArguments.add_class_arguments
+    add_subclass_arguments = SignatureArguments.add_subclass_arguments
+    link_arguments = ArgumentLinking.link_arguments
 
     def add_subcommands(self, required: bool = True, dest: str = "subcommand", **kwargs) -> ActionSubCommands:
         """Adds subcommand parsers to the ArgumentParser.
@@ -943,7 +942,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
                 return os.path.basename(val_path)
 
             def save_paths(cfg):
-                for key in cfg.get_sorted_keys():
+                for key in get_non_meta_sorted_keys(cfg):
                     val = cfg[key]
                     if isinstance(val, (Namespace, dict)) and "__path__" in val:
                         if is_path_action(key):
@@ -957,7 +956,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
                         val_path = Path(os.path.basename(val.absolute), mode="fc")
                         check_overwrite(val_path)
                         with open(val_path.absolute, "w") as f:
-                            f.write(val.get_content())
+                            f.write(val.read_text())
                         cfg[key] = type(val)(str(val_path))
 
             with change_to_path_dir(path_fc), parser_context(parent_parser=self):
@@ -1031,10 +1030,14 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
 
         default_config_files = self._get_default_config_files()
         for default_config_file in default_config_files:
-            default_config_file_content = default_config_file.get_content()
-            if not default_config_file_content.strip():
-                continue
-            with change_to_path_dir(default_config_file), parser_context(parent_parser=self, parsing_defaults=True):
+            with (
+                load_config_path_context(default_config_file),
+                change_to_path_dir(default_config_file),
+                parser_context(parent_parser=self, parsing_defaults=True),
+            ):
+                default_config_file_content = default_config_file.read_text()
+                if not default_config_file_content.strip():
+                    continue
                 cfg_file = self._load_config_parser_mode(default_config_file_content, prev_cfg=cfg)
                 cfg = self.merge_config(cfg_file, cfg)
                 try:
@@ -1065,6 +1068,8 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
             ActionTypeHint.add_sub_defaults(self, cfg)
 
         return cfg
+
+    set_defaults = ActionsContainer.set_defaults
 
     ## Completion script methods ##
 
@@ -1160,7 +1165,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
             return missing
 
         def check_values(cfg):
-            sorted_keys = {k: find_action(self, k) for k in cfg.get_sorted_keys()}
+            sorted_keys = {k: find_action(self, k) for k in get_non_meta_sorted_keys(cfg)}
             for key, action in sorted_keys.items():
                 parent_action = None
                 if action is None:
@@ -1204,118 +1209,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
         if not skip_required and not lenient_check.get():
             check_required(cfg, self, prefix)
 
-    def add_instantiator(
-        self,
-        instantiator: InstantiatorCallable,
-        class_type: type[ClassType],
-        subclasses: bool = True,
-        prepend: bool = False,
-    ) -> None:
-        """Adds a custom instantiator for a class type. Used by ``instantiate_classes``.
-
-        Instantiator functions are expected to have as signature ``(class_type:
-        Type[ClassType], *args, **kwargs) -> ClassType``.
-
-        For reference, the default instantiator is ``return class_type(*args,
-        **kwargs)``.
-
-        In some use cases, the instantiator function might need access to values
-        applied by instantiation links. For this, the instantiator function can
-        have an additional keyword parameter ``applied_instantiation_links:
-        dict``. This parameter will be populated with a dictionary having as
-        keys the targets of the instantiation links and corresponding values
-        that were applied.
-
-        Args:
-            instantiator: Function that instantiates a class.
-            class_type: The class type to instantiate.
-            subclasses: Whether to instantiate subclasses of ``class_type``.
-            prepend: Whether to prepend the instantiator to the existing instantiators.
-        """
-        if self._instantiators is None:
-            self._instantiators = {}
-        key = (class_type, subclasses)
-        instantiators = {k: v for k, v in self._instantiators.items() if k != key}
-        if prepend:
-            self._instantiators = {key: instantiator, **instantiators}
-        else:
-            instantiators[key] = instantiator
-            self._instantiators = instantiators
-
-    def _get_instantiators(self):
-        instantiators = self._instantiators or {}
-        if hasattr(self, "parent_parser"):
-            parent_instantiators = self.parent_parser._get_instantiators()
-            instantiators = instantiators.copy()
-            instantiators.update({k: v for k, v in parent_instantiators.items() if k not in instantiators})
-        context_instantiators = class_instantiators.get()
-        if context_instantiators:
-            instantiators = instantiators.copy()
-            instantiators.update({k: v for k, v in context_instantiators.items() if k not in instantiators})
-        return instantiators
-
-    def instantiate_classes(
-        self,
-        cfg: Namespace,
-        instantiate_groups: bool = True,
-    ) -> Namespace:
-        """Recursively instantiates all subclasses defined by ``class_path`` + ``init_args`` and class groups.
-
-        Args:
-            cfg: The configuration object to use.
-            instantiate_groups: Whether class groups should be instantiated.
-
-        Returns:
-            A configuration object with all subclasses and class groups instantiated.
-        """
-        components: list[Union[ActionTypeHint, _ActionConfigLoad, ArgumentGroup]] = []
-        for action in filter_non_parsing_actions(self._actions):
-            if isinstance(action, ActionTypeHint):
-                components.append(action)
-            elif isinstance(action, ActionLink) and isinstance(action.target[1], ActionTypeHint):
-                components.append(action.target[1])
-
-        if instantiate_groups:
-            skip = {c.dest for c in components}
-            groups = [g for g in self._action_groups if hasattr(g, "instantiate_class") and g.dest not in skip]
-            components.extend(groups)
-
-        components.sort(key=lambda x: -len(split_key(x.dest)))  # type: ignore[arg-type]
-        order = ActionLink.instantiation_order(self)
-        components = ActionLink.reorder(order, components)
-
-        cfg = cfg.clone(with_meta=False)
-        for component in components:
-            ActionLink.apply_instantiation_links(self, cfg, target=component.dest)
-            if isinstance(component, ActionTypeHint):
-                try:
-                    value, parent, key = cfg.get_value_and_parent(component.dest)
-                except (KeyError, AttributeError):
-                    pass
-                else:
-                    if value is not None:
-                        with parser_context(
-                            parent_parser=self,
-                            nested_links=ActionLink.get_nested_links(self, component),
-                            class_instantiators=self._get_instantiators(),
-                            applied_instantiation_links=cfg.get("__applied_instantiation_links__"),
-                        ):
-                            parent[key] = component.instantiate_classes(value)
-            else:
-                with parser_context(
-                    load_value_mode=self.parser_mode,
-                    class_instantiators=self._get_instantiators(),
-                    applied_instantiation_links=cfg.get("__applied_instantiation_links__"),
-                ):
-                    component.instantiate_class(component, cfg)
-
-        ActionLink.apply_instantiation_links(self, cfg, order=order)
-
-        subcommand, subparser = get_subcommand(self, cfg, fail_no_subcommand=False)
-        if subcommand is not None and subparser is not None:
-            cfg[subcommand] = subparser.instantiate_classes(cfg[subcommand], instantiate_groups=instantiate_groups)
-
-        return cfg
+    instantiate = InstantiateMethod.instantiate
 
     def strip_unknown(self, cfg: Namespace) -> Namespace:
         """Removes all unknown keys from a configuration object.
@@ -1607,8 +1501,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
 
     @property
     def parser_mode(self) -> str:
-        """Mode for parsing configuration files: ``yaml``, ``json``, ``jsonnet`` or ones added via
-        :func:`.set_loader`.
+        """Mode for parsing config files, ``yaml``, ``json``, ``jsonnet`` or ones added via :func:`.set_loader`.
 
         :getter: Returns the current parser mode.
         :setter: Sets the parser mode.
@@ -1649,6 +1542,16 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
         ):
             raise ValueError("Expected dump_header to be None or a list of strings.")
         self._dump_header = dump_header
+
+    # Not supported methods
+
+    def parse_known_args(self, *args, **kwargs) -> NoReturn:
+        """Raises ``NotImplementedError`` since typos in configs would go unnoticed."""
+        raise NotImplementedError("parse_known_args not supported because typos in configs would go unnoticed.")
+
+    def add_subparsers(self, *args, **kwargs) -> NoReturn:
+        """Raises ``NotImplementedError`` since jsonargparse uses ``add_subcommands``."""
+        raise NotImplementedError("In jsonargparse subcommands are added using the add_subcommands method.")
 
 
 from ._deprecated import parse_as_dict_patch  # noqa: E402

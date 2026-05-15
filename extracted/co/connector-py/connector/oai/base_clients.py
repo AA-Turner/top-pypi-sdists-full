@@ -1,5 +1,4 @@
 import json
-import logging
 import typing as t
 from abc import abstractmethod
 from collections.abc import Callable
@@ -17,13 +16,21 @@ from typing_extensions import Self
 from connector.httpx_rewrite import AsyncClient, HTTPXAsyncTransport
 from connector.oai.capability import Request
 from connector.oai.errors import InvalidResponseError
+from connector.utils.rate_limit_context import (
+    RATE_LIMIT_RESULT_CONTEXT,
+)
+from connector.utils.rate_limit_utils import (
+    ResolvedRateLimit,
+    rate_limit_mode_guard,
+)
 from connector.utils.rate_limiting import RateLimitConfig, RateLimiter
-
-logger = logging.getLogger(__name__)
 
 # Type alias for batch requests
 BatchRequest = tuple[tuple[Any, ...], dict[str, Any]]
 BatchRequests = list[BatchRequest]
+
+
+# -- Rate Limited Clients (AsyncClient / GqlHTTPXAsyncTransport wrappers)
 
 
 class RateLimitedClient(AsyncClient):
@@ -56,7 +63,7 @@ class RateLimitedClient(AsyncClient):
                         self.rate_limiter.config.rate_limit_error_check
                         or RateLimiter.is_rate_limit_error
                     )
-                    if error_check(e):
+                    if error_check(e) or RateLimiter.is_transient_error(e):
                         raise e
                     else:
                         return response
@@ -128,7 +135,7 @@ class RateLimitedClient(AsyncClient):
                                 self.rate_limiter.config.rate_limit_error_check
                                 or RateLimiter.is_rate_limit_error
                             )
-                            if error_check(e):
+                            if error_check(e) or RateLimiter.is_transient_error(e):
                                 raise e
                             else:
                                 return response
@@ -143,7 +150,7 @@ class RateLimitedClient(AsyncClient):
 
         return responses
 
-    def get_state(self) -> tuple[RateLimitConfig, float]:
+    def get_current_rate_limits(self) -> tuple[RateLimitConfig, float]:
         """
         Get the current rate limit state.
 
@@ -188,19 +195,13 @@ class RateLimitedHTTPXAsyncTransport(HTTPXAsyncTransport):
         self.rate_limiter = RateLimiter[Callable[[], Any], Any](rate_limit_config)
 
     async def connect(self):
-        """Connect the underlying transport and replace its client with a rate-limited one."""
+        """Connect the underlying transport."""
         await self.base_transport.connect()
-
-        # Replace the base transport's client with a rate-limited version
-        if hasattr(self.base_transport, "client") and self.base_transport.client:
-            # The transport's client should be our AsyncClient type, but we need to handle the type
-            if isinstance(self.base_transport.client, AsyncClient):
-                self.base_transport.client = RateLimitedClient(
-                    self.base_transport.client, self.rate_limiter.config
-                )
-
-        # Copy the client reference
-        self.client = self.base_transport.client
+        # Copy the client reference.
+        # Rate limiting is enforced at the execute() level, not the httpx client level, to avoid
+        # two independent RateLimiter instances tracking the same window separately.
+        if hasattr(self.base_transport, "client"):
+            self.client = self.base_transport.client
 
     async def execute(
         self,
@@ -231,7 +232,7 @@ class RateLimitedHTTPXAsyncTransport(HTTPXAsyncTransport):
             message="No response from GraphQL API",
         )
 
-    def get_state(self) -> tuple[RateLimitConfig, float]:
+    def get_current_rate_limits(self) -> tuple[RateLimitConfig, float]:
         """Get the current rate limit state."""
         return self.rate_limiter.config, self.rate_limiter.current_delay
 
@@ -243,6 +244,9 @@ class RateLimitedHTTPXAsyncTransport(HTTPXAsyncTransport):
     def __getattr__(self, name):
         """Delegate attribute access to the underlying base_transport."""
         return getattr(self.base_transport, name)
+
+
+# -- Base Clients
 
 
 class BaseIntegrationClient:
@@ -265,7 +269,7 @@ class BaseIntegrationClient:
         Returns a tuple of the rate limit config and the current delay. (or None if the client is not rate limited)
         """
         if isinstance(self._http_client, RateLimitedClient):
-            return self._http_client.get_state()
+            return self._http_client.get_current_rate_limits()
         return None, 0
 
     async def batch_request(
@@ -296,19 +300,45 @@ class BaseIntegrationClient:
                 responses.append(response)
             return responses
 
+    @rate_limit_mode_guard()
+    def _apply_rate_limiting(
+        self,
+        base_client: AsyncClient,
+        *,
+        rate_limit_config: RateLimitConfig,
+        resolved: ResolvedRateLimit,
+    ):
+        """Apply rate limiting to the client."""
+        # Switch the client to a RateLimitedClient
+        self._http_client = RateLimitedClient(base_client, resolved.config)
+
+        # Seed from caller-supplied state so ADAPTIVE strategy survives across page calls
+        if resolved.ctx is not None and resolved.ctx.last_known_state is not None:
+            config_id = resolved.config.effective_config_id
+            config_state = resolved.ctx.last_known_state.get(config_id)
+            if config_state is not None:
+                self._http_client.rate_limiter.seed_from_state(config_state)
+
     def __init__(self, args: Request, rate_limit_config: RateLimitConfig | None = None) -> None:
         base_client = self.build_client(args)
         self._http_client = base_client
 
         rate_limiting = rate_limit_config or self._rate_limit_config
         if rate_limiting is not None:
-            self._http_client = RateLimitedClient(base_client, rate_limiting)
+            self._apply_rate_limiting(base_client, rate_limit_config=rate_limiting)
 
     async def __aenter__(self):
         await self._http_client.__aenter__()
         return self
 
     async def __aexit__(self, exc_type=None, exc_val=None, exc_tb=None):
+        # Snapshot state before closing so the executor can attach it to the response
+        if isinstance(self._http_client, RateLimitedClient):
+            state = self._http_client.rate_limiter.get_current_state()
+            if state is not None:
+                config_id = self._http_client.rate_limiter.config.effective_config_id
+                existing = RATE_LIMIT_RESULT_CONTEXT.get() or {}
+                RATE_LIMIT_RESULT_CONTEXT.set({**existing, config_id: state})
         await self._http_client.__aexit__(exc_type, exc_val, exc_tb)
         if exc_val is not None:
             raise exc_val
@@ -326,6 +356,15 @@ class BaseGraphQLSession(AsyncClientSession):
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
+        if hasattr(self.client, "transport") and isinstance(
+            self.client.transport, RateLimitedHTTPXAsyncTransport
+        ):
+            state = self.client.transport.rate_limiter.get_current_state()
+            if state is not None:
+                config_id = self.client.transport.rate_limiter.config.effective_config_id
+                existing = RATE_LIMIT_RESULT_CONTEXT.get() or {}
+                RATE_LIMIT_RESULT_CONTEXT.set({**existing, config_id: state})
+
         await self.client.__aexit__(exc_type=exc_type, exc=exc, tb=tb)
 
         if exc_type is not None:
@@ -337,19 +376,35 @@ class BaseGraphQLSession(AsyncClientSession):
         pass
 
     @classmethod
+    @rate_limit_mode_guard()
+    def _apply_rate_limiting(
+        cls,
+        client_args: dict[str, Any],
+        *,
+        rate_limit_config: RateLimitConfig,
+        resolved: ResolvedRateLimit,
+    ):
+        """Apply rate limiting to the graphql client."""
+        transport = client_args.get("transport")
+        if isinstance(transport, GqlHTTPXAsyncTransport):
+            client_args["transport"] = RateLimitedHTTPXAsyncTransport(transport, resolved.config)
+
+        # Seed from state
+        if resolved.ctx is not None and resolved.ctx.last_known_state is not None:
+            config_id = resolved.config.effective_config_id
+            config_state = resolved.ctx.last_known_state.get(config_id)
+            if config_state is not None:
+                client_args["transport"].rate_limiter.seed_from_state(config_state)
+
+    @classmethod
     def build_client(
         cls, args: Request, rate_limit_config: RateLimitConfig | None = None
     ) -> Client:
         client_args = cls.prepare_client_args(args)
 
-        # Apply rate limiting if configured
         rate_limiting = rate_limit_config or cls._rate_limit_config
         if rate_limiting is not None and "transport" in client_args:
-            transport = client_args["transport"]
-            # wrap any gql HTTPX transport (tests use the GqlHTTPXAsyncTransport, client uses the SDK's HTTPXAsyncTransport)
-            if isinstance(transport, GqlHTTPXAsyncTransport):
-                client_args["transport"] = RateLimitedHTTPXAsyncTransport(transport, rate_limiting)
-
+            cls._apply_rate_limiting(client_args, rate_limit_config=rate_limiting)
         return Client(**client_args)
 
     def get_current_rate_limits(self) -> tuple[RateLimitConfig | None, float]:
@@ -361,7 +416,7 @@ class BaseGraphQLSession(AsyncClientSession):
         if hasattr(self.client, "transport") and isinstance(
             self.client.transport, RateLimitedHTTPXAsyncTransport
         ):
-            return self.client.transport.get_state()
+            return self.client.transport.get_current_rate_limits()
         return None, 0
 
     @classmethod

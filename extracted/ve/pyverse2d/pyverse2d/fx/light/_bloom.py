@@ -34,3 +34,8 @@ class Bloom(LightEffect):
             not_null(self.radius)
             clamped(self.threshold)
             positive(self.intensity)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Bloom",
+]

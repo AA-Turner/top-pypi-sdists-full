@@ -569,3 +569,8 @@ def _step_position(start_x: float, start_y: float, end_x: float, end_y: float, t
     x = start_x + (end_x - start_x) * t
     y = start_y + (end_y - start_y) * t
     return (x, y)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Camera",
+]

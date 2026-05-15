@@ -99,7 +99,9 @@ fn test_realistic_frame_processing_performance() {
 
         for _ in 0..parse_iterations {
             let mut buf = bytes::BytesMut::from(&encoded[..]);
-            let _parsed = try_parse_frame(&mut buf).expect("Should parse");
+            let _parsed = try_parse_frame(&mut buf)
+                .expect("no parse error")
+                .expect("Should parse");
         }
 
         let parse_duration = parse_start.elapsed();
@@ -125,7 +127,9 @@ fn test_realistic_frame_processing_performance() {
         for _ in 0..roundtrip_iterations {
             let encoded = frame.encode_with_pool(&pool);
             let mut buf = bytes::BytesMut::from(&encoded[..]);
-            let _parsed = try_parse_frame(&mut buf).expect("Should parse");
+            let _parsed = try_parse_frame(&mut buf)
+                .expect("no parse error")
+                .expect("Should parse");
         }
 
         let roundtrip_duration = roundtrip_start.elapsed();

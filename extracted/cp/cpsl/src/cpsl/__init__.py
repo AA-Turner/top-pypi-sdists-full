@@ -2,6 +2,7 @@
 
 from . import ui as ui
 from .app import App as App
+from .app import PageRef as PageRef
 from .channels import API as API
 from .channels import Channel as Channel
 from .channels import ChannelRef as ChannelRef

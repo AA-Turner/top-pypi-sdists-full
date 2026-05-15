@@ -24,6 +24,7 @@ from .data import RunActivityNotificationPolicy
 from .errors import FlowsAPIError
 from .response import (
     IterableFlowsResponse,
+    IterableRegisteredAPIsResponse,
     IterableRunLogsResponse,
     IterableRunsResponse,
 )
@@ -887,6 +888,97 @@ class FlowsClient(client.BaseClient):
         """
 
         return self.post(f"/runs/{run_id}/release")
+
+    def get_registered_api(
+        self,
+        registered_api_id: uuid.UUID | str,
+        *,
+        query_params: dict[str, t.Any] | None = None,
+    ) -> GlobusHTTPResponse:
+        """
+        Retrieve a registered API by ID.
+
+        :param registered_api_id: The ID of the registered API to fetch
+        :param query_params: Any additional parameters to be passed through
+            as query params.
+
+        .. tab-set::
+
+            .. tab-item:: Example Usage
+
+                .. code-block:: python
+
+                    from globus_sdk import FlowsClient
+
+                    flows = FlowsClient(...)
+                    flows.get_registered_api("a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+
+            .. tab-item:: Example Response Data
+
+                .. expandtestfixture:: flows.get_registered_api
+
+            .. tab-item:: API Info
+
+                .. extdoclink:: Get Registered API
+                    :service: flows
+                    :ref: Registered APIs/paths/~1registered_apis~1
+                          {registered_api_id}/get
+        """
+        return self.get(
+            f"/registered_apis/{registered_api_id}", query_params=query_params
+        )
+
+    @paging.has_paginator(paging.MarkerPaginator, items_key="registered_apis")
+    def list_registered_apis(
+        self,
+        *,
+        filter_roles: str | t.Iterable[str] | MissingType = MISSING,
+        orderby: str | t.Iterable[str] | MissingType = MISSING,
+        marker: str | MissingType = MISSING,
+        query_params: dict[str, t.Any] | None = None,
+    ) -> IterableRegisteredAPIsResponse:
+        """
+        List registered APIs.
+
+        :param filter_roles: Role names to filter results (owner, administrator, viewer)
+        :param orderby: Field and order for sorting results
+        :param marker: Pagination marker for continuing results
+        :param query_params: Any additional parameters to be passed through
+            as query params.
+
+        .. tab-set::
+
+            .. tab-item:: Example Usage
+
+                .. code-block:: python
+
+                    from globus_sdk import FlowsClient
+
+                    flows = FlowsClient(...)
+                    for api in flows.list_registered_apis(filter_roles="owner"):
+                        print(f"API: {api['name']}")
+
+            .. tab-item:: Paginated Usage
+
+                .. paginatedusage:: list_registered_apis
+
+            .. tab-item:: API Info
+
+                .. extdoclink:: List Registered APIs
+                    :service: flows
+                    :ref: Registered APIs/paths/~1registered_apis/get
+        """
+        query_params = {
+            "filter_roles": commajoin(filter_roles),
+            "orderby": (
+                orderby if isinstance(orderby, (str, MissingType)) else list(orderby)
+            ),
+            "marker": marker,
+            **(query_params or {}),
+        }
+        return IterableRegisteredAPIsResponse(
+            self.get("/registered_apis", query_params=query_params)
+        )
 
 
 class SpecificFlowClient(client.BaseClient):

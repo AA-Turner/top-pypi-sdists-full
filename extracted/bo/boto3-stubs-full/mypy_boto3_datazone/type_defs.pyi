@@ -50,6 +50,7 @@ from .literals import (
     EnableSettingType,
     EntityTypeType,
     EnvironmentStatusType,
+    FileFormatType,
     FilterExpressionTypeType,
     FilterOperatorType,
     FilterStatusType,
@@ -71,7 +72,9 @@ from .literals import (
     MetadataGenerationRunStatusType,
     MetadataGenerationRunTypeType,
     NetworkAccessTypeType,
+    NotebookExportStatusType,
     NotebookRunStatusType,
+    NotebookStatusType,
     NotificationRoleType,
     NotificationTypeType,
     OAuth2GrantTypeType,
@@ -245,6 +248,8 @@ __all__ = (
     "CreateGroupProfileOutputTypeDef",
     "CreateListingChangeSetInputTypeDef",
     "CreateListingChangeSetOutputTypeDef",
+    "CreateNotebookInputTypeDef",
+    "CreateNotebookOutputTypeDef",
     "CreateProjectFromProjectProfilePolicyGrantDetailOutputTypeDef",
     "CreateProjectFromProjectProfilePolicyGrantDetailTypeDef",
     "CreateProjectInputTypeDef",
@@ -303,6 +308,7 @@ __all__ = (
     "DeleteGlossaryInputTypeDef",
     "DeleteGlossaryTermInputTypeDef",
     "DeleteListingInputTypeDef",
+    "DeleteNotebookInputTypeDef",
     "DeleteProjectInputTypeDef",
     "DeleteProjectMembershipInputTypeDef",
     "DeleteProjectProfileInputTypeDef",
@@ -420,6 +426,10 @@ __all__ = (
     "GetListingOutputTypeDef",
     "GetMetadataGenerationRunInputTypeDef",
     "GetMetadataGenerationRunOutputTypeDef",
+    "GetNotebookExportInputTypeDef",
+    "GetNotebookExportOutputTypeDef",
+    "GetNotebookInputTypeDef",
+    "GetNotebookOutputTypeDef",
     "GetNotebookRunInputTypeDef",
     "GetNotebookRunOutputTypeDef",
     "GetProjectInputTypeDef",
@@ -561,6 +571,9 @@ __all__ = (
     "ListNotebookRunsInputPaginateTypeDef",
     "ListNotebookRunsInputTypeDef",
     "ListNotebookRunsOutputTypeDef",
+    "ListNotebooksInputPaginateTypeDef",
+    "ListNotebooksInputTypeDef",
+    "ListNotebooksOutputTypeDef",
     "ListNotificationsInputPaginateTypeDef",
     "ListNotificationsInputTypeDef",
     "ListNotificationsOutputTypeDef",
@@ -627,8 +640,11 @@ __all__ = (
     "NotInExpressionOutputTypeDef",
     "NotInExpressionTypeDef",
     "NotLikeExpressionTypeDef",
+    "NotebookErrorTypeDef",
+    "NotebookExportErrorTypeDef",
     "NotebookRunErrorTypeDef",
     "NotebookRunSummaryTypeDef",
+    "NotebookSummaryTypeDef",
     "NotificationOutputTypeDef",
     "NotificationResourceTypeDef",
     "OAuth2ClientApplicationTypeDef",
@@ -636,6 +652,7 @@ __all__ = (
     "OAuth2PropertiesTypeDef",
     "OAuth2PropertiesUnionTypeDef",
     "OpenLineageRunEventSummaryTypeDef",
+    "OutputLocationTypeDef",
     "OverrideDomainUnitOwnersPolicyGrantDetailTypeDef",
     "OverrideProjectOwnersPolicyGrantDetailTypeDef",
     "OwnerGroupPropertiesOutputTypeDef",
@@ -734,6 +751,7 @@ __all__ = (
     "RuleSummaryTypeDef",
     "RuleTargetTypeDef",
     "RunStatisticsForAssetsTypeDef",
+    "S3DestinationTypeDef",
     "S3PropertiesInputTypeDef",
     "S3PropertiesOutputTypeDef",
     "S3PropertiesPatchTypeDef",
@@ -763,6 +781,7 @@ __all__ = (
     "SelfGrantStatusDetailTypeDef",
     "SelfGrantStatusOutputTypeDef",
     "SingleSignOnTypeDef",
+    "SourceLocationTypeDef",
     "SparkEmrPropertiesInputTypeDef",
     "SparkEmrPropertiesOutputTypeDef",
     "SparkEmrPropertiesPatchTypeDef",
@@ -774,6 +793,10 @@ __all__ = (
     "StartDataSourceRunOutputTypeDef",
     "StartMetadataGenerationRunInputTypeDef",
     "StartMetadataGenerationRunOutputTypeDef",
+    "StartNotebookExportInputTypeDef",
+    "StartNotebookExportOutputTypeDef",
+    "StartNotebookImportInputTypeDef",
+    "StartNotebookImportOutputTypeDef",
     "StartNotebookRunInputTypeDef",
     "StartNotebookRunOutputTypeDef",
     "StopNotebookRunInputTypeDef",
@@ -839,6 +862,8 @@ __all__ = (
     "UpdateGlossaryTermOutputTypeDef",
     "UpdateGroupProfileInputTypeDef",
     "UpdateGroupProfileOutputTypeDef",
+    "UpdateNotebookInputTypeDef",
+    "UpdateNotebookOutputTypeDef",
     "UpdateProjectInputTypeDef",
     "UpdateProjectOutputTypeDef",
     "UpdateProjectProfileInputTypeDef",
@@ -1322,6 +1347,18 @@ class CreateListingChangeSetInputTypeDef(TypedDict):
     entityRevision: NotRequired[str]
     clientToken: NotRequired[str]
 
+class CreateNotebookInputTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    name: str
+    description: NotRequired[str]
+    metadata: NotRequired[Mapping[str, str]]
+    parameters: NotRequired[Mapping[str, str]]
+    clientToken: NotRequired[str]
+
+class NotebookErrorTypeDef(TypedDict):
+    message: str
+
 class CreateProjectFromProjectProfilePolicyGrantDetailOutputTypeDef(TypedDict):
     includeChildDomainUnits: NotRequired[bool]
     projectProfiles: NotRequired[list[str]]
@@ -1482,6 +1519,10 @@ class DeleteGlossaryTermInputTypeDef(TypedDict):
     identifier: str
 
 class DeleteListingInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+
+class DeleteNotebookInputTypeDef(TypedDict):
     domainIdentifier: str
     identifier: str
 
@@ -1805,6 +1846,17 @@ MetadataGenerationRunTypeStatTypeDef = TypedDict(
         "errorMessage": NotRequired[str],
     },
 )
+
+class GetNotebookExportInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+
+class NotebookExportErrorTypeDef(TypedDict):
+    message: str
+
+class GetNotebookInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
 
 class GetNotebookRunInputTypeDef(TypedDict):
     domainIdentifier: str
@@ -2194,6 +2246,31 @@ class ListNotebookRunsInputTypeDef(TypedDict):
     sortOrder: NotRequired[SortOrderType]
     nextToken: NotRequired[str]
 
+class ListNotebooksInputTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    maxResults: NotRequired[int]
+    sortOrder: NotRequired[SortOrderType]
+    sortBy: NotRequired[SortKeyType]
+    status: NotRequired[NotebookStatusType]
+    nextToken: NotRequired[str]
+
+NotebookSummaryTypeDef = TypedDict(
+    "NotebookSummaryTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "owningProjectId": str,
+        "domainId": str,
+        "status": NotebookStatusType,
+        "description": NotRequired[str],
+        "createdAt": NotRequired[datetime],
+        "createdBy": NotRequired[str],
+        "updatedAt": NotRequired[datetime],
+        "updatedBy": NotRequired[str],
+    },
+)
+
 class ListPolicyGrantsInputTypeDef(TypedDict):
     domainIdentifier: str
     entityType: TargetEntityTypeType
@@ -2378,6 +2455,9 @@ class OAuth2ClientApplicationTypeDef(TypedDict):
     userManagedClientApplicationClientId: NotRequired[str]
     aWSManagedClientApplicationReference: NotRequired[str]
 
+class S3DestinationTypeDef(TypedDict):
+    uri: NotRequired[str]
+
 class OverrideDomainUnitOwnersPolicyGrantDetailTypeDef(TypedDict):
     includeChildDomainUnits: NotRequired[bool]
 
@@ -2483,6 +2563,9 @@ class SearchUserProfilesInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
+class SourceLocationTypeDef(TypedDict):
+    s3: NotRequired[str]
+
 class SparkGlueArgsTypeDef(TypedDict):
     connection: NotRequired[str]
 
@@ -2494,6 +2577,13 @@ class SsoUserProfileDetailsTypeDef(TypedDict):
 class StartDataSourceRunInputTypeDef(TypedDict):
     domainIdentifier: str
     dataSourceIdentifier: str
+    clientToken: NotRequired[str]
+
+class StartNotebookExportInputTypeDef(TypedDict):
+    domainIdentifier: str
+    notebookIdentifier: str
+    owningProjectIdentifier: str
+    fileFormat: FileFormatType
     clientToken: NotRequired[str]
 
 class StopNotebookRunInputTypeDef(TypedDict):
@@ -2742,6 +2832,20 @@ StartMetadataGenerationRunOutputTypeDef = TypedDict(
         "createdAt": datetime,
         "createdBy": str,
         "owningProjectId": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+StartNotebookExportOutputTypeDef = TypedDict(
+    "StartNotebookExportOutputTypeDef",
+    {
+        "id": str,
+        "domainId": str,
+        "owningProjectId": str,
+        "notebookId": str,
+        "fileFormat": FileFormatType,
+        "status": NotebookExportStatusType,
+        "createdAt": datetime,
+        "createdBy": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -4066,6 +4170,14 @@ class ListNotebookRunsInputPaginateTypeDef(TypedDict):
     sortOrder: NotRequired[SortOrderType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListNotebooksInputPaginateTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    sortOrder: NotRequired[SortOrderType]
+    sortBy: NotRequired[SortKeyType]
+    status: NotRequired[NotebookStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 ListNotificationsInputPaginateTypeDef = TypedDict(
     "ListNotificationsInputPaginateTypeDef",
     {
@@ -4189,6 +4301,11 @@ class SearchUserProfilesInputPaginateTypeDef(TypedDict):
     searchText: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListNotebooksOutputTypeDef(TypedDict):
+    items: list[NotebookSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class ListProjectProfilesOutputTypeDef(TypedDict):
     items: list[ProjectProfileSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -4272,6 +4389,9 @@ class OAuth2PropertiesTypeDef(TypedDict):
     tokenUrlParametersMap: NotRequired[Mapping[str, str]]
     authorizationCodeProperties: NotRequired[AuthorizationCodePropertiesTypeDef]
     oAuth2Credentials: NotRequired[GlueOAuth2CredentialsTypeDef]
+
+class OutputLocationTypeDef(TypedDict):
+    s3: NotRequired[S3DestinationTypeDef]
 
 class OwnerPropertiesOutputTypeDef(TypedDict):
     user: NotRequired[OwnerUserPropertiesOutputTypeDef]
@@ -4383,6 +4503,26 @@ class RejectPredictionsInputTypeDef(TypedDict):
     rejectRule: NotRequired[RejectRuleTypeDef]
     rejectChoices: NotRequired[Sequence[RejectChoiceTypeDef]]
     clientToken: NotRequired[str]
+
+class StartNotebookImportInputTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    sourceLocation: SourceLocationTypeDef
+    name: str
+    description: NotRequired[str]
+    clientToken: NotRequired[str]
+
+class StartNotebookImportOutputTypeDef(TypedDict):
+    notebookId: str
+    status: NotebookStatusType
+    domainId: str
+    owningProjectId: str
+    name: str
+    description: str
+    sourceLocation: SourceLocationTypeDef
+    createdAt: datetime
+    createdBy: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class SparkGluePropertiesInputTypeDef(TypedDict):
     additionalArgs: NotRequired[SparkGlueArgsTypeDef]
@@ -4906,6 +5046,56 @@ UpdateDomainUnitOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+CreateNotebookOutputTypeDef = TypedDict(
+    "CreateNotebookOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "owningProjectId": str,
+        "domainId": str,
+        "cellOrder": list[dict[str, Any]],
+        "status": NotebookStatusType,
+        "description": str,
+        "createdAt": datetime,
+        "createdBy": str,
+        "updatedAt": datetime,
+        "updatedBy": str,
+        "lockedBy": str,
+        "lockedAt": datetime,
+        "lockExpiresAt": datetime,
+        "computeId": str,
+        "metadata": dict[str, str],
+        "parameters": dict[str, str],
+        "environmentConfiguration": EnvironmentConfigTypeDef,
+        "error": NotebookErrorTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+GetNotebookOutputTypeDef = TypedDict(
+    "GetNotebookOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "owningProjectId": str,
+        "domainId": str,
+        "cellOrder": list[dict[str, Any]],
+        "status": NotebookStatusType,
+        "description": str,
+        "createdAt": datetime,
+        "createdBy": str,
+        "updatedAt": datetime,
+        "updatedBy": str,
+        "lockedBy": str,
+        "lockedAt": datetime,
+        "lockExpiresAt": datetime,
+        "computeId": str,
+        "metadata": dict[str, str],
+        "parameters": dict[str, str],
+        "environmentConfiguration": EnvironmentConfigTypeDef,
+        "error": NotebookErrorTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 GetNotebookRunOutputTypeDef = TypedDict(
     "GetNotebookRunOutputTypeDef",
     {
@@ -4959,6 +5149,44 @@ StartNotebookRunOutputTypeDef = TypedDict(
         "updatedBy": str,
         "startedAt": datetime,
         "completedAt": datetime,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+class UpdateNotebookInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+    description: NotRequired[str]
+    status: NotRequired[NotebookStatusType]
+    name: NotRequired[str]
+    cellOrder: NotRequired[Sequence[Mapping[str, Any]]]
+    metadata: NotRequired[Mapping[str, str]]
+    parameters: NotRequired[Mapping[str, str]]
+    environmentConfiguration: NotRequired[EnvironmentConfigTypeDef]
+    clientToken: NotRequired[str]
+
+UpdateNotebookOutputTypeDef = TypedDict(
+    "UpdateNotebookOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "owningProjectId": str,
+        "domainId": str,
+        "cellOrder": list[dict[str, Any]],
+        "status": NotebookStatusType,
+        "description": str,
+        "createdAt": datetime,
+        "createdBy": str,
+        "updatedAt": datetime,
+        "updatedBy": str,
+        "lockedBy": str,
+        "lockedAt": datetime,
+        "lockExpiresAt": datetime,
+        "computeId": str,
+        "metadata": dict[str, str],
+        "parameters": dict[str, str],
+        "environmentConfiguration": EnvironmentConfigTypeDef,
+        "error": NotebookErrorTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -5293,6 +5521,23 @@ class AuthenticationConfigurationTypeDef(TypedDict):
     oAuth2Properties: NotRequired[OAuth2PropertiesOutputTypeDef]
 
 OAuth2PropertiesUnionTypeDef = Union[OAuth2PropertiesTypeDef, OAuth2PropertiesOutputTypeDef]
+GetNotebookExportOutputTypeDef = TypedDict(
+    "GetNotebookExportOutputTypeDef",
+    {
+        "id": str,
+        "domainId": str,
+        "owningProjectId": str,
+        "notebookId": str,
+        "fileFormat": FileFormatType,
+        "status": NotebookExportStatusType,
+        "outputLocation": OutputLocationTypeDef,
+        "error": NotebookExportErrorTypeDef,
+        "completedAt": datetime,
+        "createdAt": datetime,
+        "createdBy": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 class ListEntityOwnersOutputTypeDef(TypedDict):
     owners: list[OwnerPropertiesOutputTypeDef]

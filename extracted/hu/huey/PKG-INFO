@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: huey
-Version: 3.0.0
+Version: 3.0.1
 Summary: a little task queue
 Author-email: Charles Leifer <coleifer@gmail.com>
 Project-URL: Repository, https://github.com/coleifer/huey
 Project-URL: Documentation, https://huey.readthedocs.io/
 Project-URL: Changelog, https://github.com/coleifer/huey/blob/master/CHANGELOG.md
-Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Description-Content-Type: text/x-rst
@@ -15,7 +14,7 @@ Provides-Extra: backends
 Requires-Dist: redis>=3.0.0; extra == "backends"
 Dynamic: license-file
 
-.. image:: http://media.charlesleifer.com/blog/photos/huey2-logo.png
+.. image:: https://media.charlesleifer.com/blog/photos/huey3-logo.png
 
 *a lightweight alternative*.
 
@@ -24,7 +23,7 @@ huey is:
 * a task queue
 * written in python
 * clean and simple API
-* redis, sqlite, file-system, or in-memory storage
+* redis (or valkey/redict), sqlite, file-system, or in-memory storage
 * `example code <https://github.com/coleifer/huey/tree/master/examples/>`_.
 * `read the documentation <https://huey.readthedocs.io/>`_.
 

@@ -1,14 +1,5 @@
 """
-Tests for the typed ConnectorError hierarchy introduced in Step 2 of the
-exception class system overhaul.
-
-Coverage:
-- ConnectorError class-var defaults and optional-arg behaviour
-- Each typed subclass carries the correct DEFAULT_CODE
-- Subclasses are proper ConnectorError instances (isinstance checks)
-- Raising without any arguments uses class defaults
-- Raising with explicit overrides uses provided values
-- DefaultHandler handles typed subclasses the same as plain ConnectorError
+Tests for the typed ConnectorError hierarchy
 """
 
 import pytest
@@ -16,6 +7,7 @@ from connector.oai.errors import (
     AuthenticationError,
     AuthenticationExpiredError,
     AuthorizationError,
+    BudgetExhaustedError,
     ClientError,
     ConflictError,
     ConnectionClosedError,
@@ -88,6 +80,7 @@ def test_connector_error_str_returns_default_message_when_no_message():
         (AuthorizationError, ConnectorErrorCode.PERMISSION_DENIED),
         (TransientError, ConnectorErrorCode.SERVICE_ERROR),
         (RateLimitError, ConnectorErrorCode.RATE_LIMIT),
+        (BudgetExhaustedError, ConnectorErrorCode.BUDGET_EXHAUSTED),
         (UpstreamError, ConnectorErrorCode.BAD_GATEWAY),
         (NetworkError, ConnectorErrorCode.CONNECTION_TIMEOUT),
         (ConnectionRejectedError, ConnectorErrorCode.CONNECTION_REJECTED),
@@ -142,6 +135,7 @@ def test_all_typed_errors_are_connector_errors():
         AuthorizationError,
         TransientError,
         RateLimitError,
+        BudgetExhaustedError,
         UpstreamError,
         NetworkError,
         ConnectionRejectedError,
@@ -179,6 +173,7 @@ def test_network_is_transient():
     assert isinstance(NetworkError(), TransientError)
     assert isinstance(RateLimitError(), TransientError)
     assert isinstance(UpstreamError(), TransientError)
+    assert isinstance(BudgetExhaustedError(), TransientError)
 
 
 def test_client_subclasses_are_client_errors():
@@ -244,6 +239,7 @@ def test_every_sdk_error_code_covered_by_a_typed_class():
         AuthorizationError,
         TransientError,
         RateLimitError,
+        BudgetExhaustedError,
         UpstreamError,
         NetworkError,
         ConnectionRejectedError,

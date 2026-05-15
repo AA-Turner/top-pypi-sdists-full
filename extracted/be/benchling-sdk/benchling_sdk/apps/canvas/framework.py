@@ -353,14 +353,13 @@ class CanvasBuilder:
         - Insert Before
         - Append
 
-    Sample usage:
-        ```
+    Sample usage::
+
         canvas: Canvas = benchling.apps.get_canvas_by_id("canvas_id")
         builder = CanvasBuilder.from_canvas(canvas).blocks
             .filter(lambda block: isinstance(block, TextInputUiBlock))
             .remove()
         updated_canvas = benchling.apps.update_canvas("canvas_id", builder.to_update())
-        ```
     """
 
     _source_canvas: AppCanvas

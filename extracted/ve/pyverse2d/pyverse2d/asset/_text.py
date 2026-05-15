@@ -78,3 +78,8 @@ class Text(Asset):
             suffix: suffixe à ajouter pour indiquer que le texte est coupé
         """
         self._text = Text(self._font.clip_text(self._text, max_width=width, suffix=suffix), font=self._font)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Text",
+]

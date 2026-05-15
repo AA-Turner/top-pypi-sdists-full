@@ -242,7 +242,7 @@ pub enum Error {
 
 /// Identify tags for a file at the given path.
 pub fn tags_from_path(path: &Path) -> Result<TagSet, Error> {
-    let metadata = std::fs::symlink_metadata(path)?;
+    let metadata = fs_err::symlink_metadata(path)?;
     if metadata.is_dir() {
         return Ok(tags::TAG_SET_DIRECTORY);
     } else if metadata.is_symlink() {
@@ -317,12 +317,9 @@ fn tags_from_filename(filename: &Path) -> TagSet {
         .unwrap_or_default();
 
     if let Some(ext) = ext {
-        // Check if extension is already lowercase to avoid allocation
-        if ext.chars().all(|c| c.is_ascii_lowercase()) {
-            if let Some(tags) = tags::EXTENSIONS.get(ext) {
-                result |= tags;
-            }
-        } else {
+        if let Some(tags) = tags::EXTENSIONS.get(ext) {
+            result |= tags;
+        } else if ext.as_bytes().iter().any(u8::is_ascii_uppercase) {
             let ext_lower = ext.to_ascii_lowercase();
             if let Some(tags) = tags::EXTENSIONS.get(ext_lower.as_str()) {
                 result |= tags;
@@ -417,7 +414,7 @@ fn parse_nix_shebang<R: BufRead>(reader: &mut R, mut cmd: Vec<String>) -> Vec<St
 }
 
 pub fn parse_shebang(path: &Path) -> Result<Vec<String>, ShebangError> {
-    let file = std::fs::File::open(path)?;
+    let file = fs_err::File::open(path)?;
     let mut reader = std::io::BufReader::new(file);
     let mut line = String::new();
     reader.read_line(&mut line)?;
@@ -521,7 +518,7 @@ mod tests {
         let src = dir.path().join("source.txt");
         let dest = dir.path().join("link.txt");
         fs_err::File::create(&src)?;
-        std::os::unix::fs::symlink(&src, &dest)?;
+        fs_err::os::unix::fs::symlink(&src, &dest)?;
 
         let tags = super::tags_from_path(dir.path())?;
         assert_tagset(&tags, &["directory"]);

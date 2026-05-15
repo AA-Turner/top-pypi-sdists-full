@@ -8,7 +8,18 @@ from pyglet.graphics import Group
 # ======================================== RENDER CONTEXT ========================================
 @dataclass(slots=True)
 class RenderContext:
-    """Contexte de rendu des widgets"""
+    """Contexte de rendu des widgets
+    
+    Args:
+        pipeline: ``Pipeline``de rendu courant
+        x: position horizontal
+        y: position verticale
+        scale: facteur de redimensionnement
+        rotation: angle de rotation
+        opacity: facteur d'opacité
+        group: ``Group``courant
+        z: z-order
+    """
     pipeline: Pipeline      # pipeline de rendu
     x: float                # ancre horizontale
     y: float                # ancre verticale
@@ -17,3 +28,8 @@ class RenderContext:
     opacity: float          # opacité cumulée
     group: Group            # groupe courant
     z: int                  # z-order relatif
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "RenderContext",
+]

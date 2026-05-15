@@ -2397,6 +2397,53 @@ def render_markdown(text: str) -> None:
     console.print(Markdown(content))
 
 
+def _synthesize_model_description(m: dict) -> str:
+    """Build a best-effort description from name + provider when none is set.
+
+    Used for Ollama tags and llama_cpp local files — both have a useful
+    family/size embedded in the name (e.g. "Qwen 2.5 Coder (0.5b-32b)") so
+    we can produce a meaningful line without hardcoding a catalog.
+    """
+    name = (m.get("name") or "").strip()
+    provider = (m.get("provider") or "").lower()
+    is_local = bool(m.get("local"))
+
+    # Extract size hint like "(7b)" or "(0.5b-32b)" from the name
+    import re
+    size_match = re.search(r"\(([^)]*\b\d[\d.bB\-x +mMkK]*[bB]?[^)]*)\)", name)
+    size_hint = size_match.group(1) if size_match else ""
+
+    pieces = []
+    if provider == "ollama":
+        pieces.append("Local Ollama model" if is_local else "Pullable via Ollama")
+    elif provider == "llama_cpp":
+        pieces.append("Local GGUF (llama.cpp)")
+    elif provider:
+        pieces.append(provider.capitalize() + (" model" if not provider.endswith("e") else ""))
+
+    if size_hint:
+        pieces.append(size_hint)
+
+    # Detect well-known family keywords for an extra hint
+    lower_name = name.lower()
+    family_hints = {
+        "coder": "code generation",
+        "instruct": "instruction-tuned",
+        "vision": "multimodal (image + text)",
+        "embed": "embedding model",
+        "thinking": "step-by-step reasoning",
+        "reasoning": "step-by-step reasoning",
+        "math": "math + reasoning focus",
+        "ocr": "OCR",
+    }
+    for kw, label in family_hints.items():
+        if kw in lower_name:
+            pieces.append(label)
+            break
+
+    return " · ".join(pieces) if pieces else ""
+
+
 def print_model_table(
     models: list[dict],
     *,
@@ -2433,6 +2480,13 @@ def print_model_table(
     shown = models[:effective_max]
     for m in shown:
         desc = m.get("description", "")
+        # Synthesize a description for catalog entries that don't ship one
+        # (Ollama tags + llama_cpp local files). Without this, the table
+        # shows a wall of empty Description cells for the local-capable
+        # models, which is confusing — the column is wide for OpenRouter
+        # descriptions, then blank for everything else.
+        if not desc:
+            desc = _synthesize_model_description(m)
         if show_details and (m.get("pros") or m.get("cons")):
             # Expanded view with pros/cons
             pros = m.get("pros", "")
@@ -2625,23 +2679,25 @@ def print_agent_help() -> None:
     """Print agent-mode command reference."""
     help_text = (
         "[bold #6ea4ff]Workspace commands[/bold #6ea4ff]\n"
-        "  [#8bb8ff]/help[/#8bb8ff]             Show this help\n"
-        "  [#8bb8ff]/models[/#8bb8ff]           List all available AI models\n"
-        "  [#8bb8ff]/model[/#8bb8ff] \\[id]       Show or change the active model\n"
-        "  [#8bb8ff]/think[/#8bb8ff] \\[on|off]  Enable/disable thinking blocks visibility\n"
-        "  [#8bb8ff]/read[/#8bb8ff] <file>      Read a file into conversation context\n"
-        "  [#8bb8ff]/test[/#8bb8ff] \\[cmd]      Run tests (default: pytest -v --tb=short)\n"
-        "  [#8bb8ff]/files[/#8bb8ff]            Show written files from this session\n"
-        "  [#8bb8ff]/undo[/#8bb8ff]             Restore files to previous state\n"
-        "  [#8bb8ff]/compact[/#8bb8ff]          Trim conversation state to free context\n"
-        "  [#8bb8ff]/clear[/#8bb8ff]            Clear conversation and file history\n"
-        "  [#8bb8ff]/system[/#8bb8ff] \\[text]   Show or set system prompt\n"
-        "  [#8bb8ff]/status[/#8bb8ff]           Show agent status (model, files, plan)\n"
-        "  [#8bb8ff]/autoorg[/#8bb8ff] \\[task]  Run multi-step AI orchestration\n"
-        "  [#8bb8ff]/update[/#8bb8ff]           Update SAGE AI to the latest CLI version\n"
-        "  [#8bb8ff]/version[/#8bb8ff]          Show current version and check for updates\n"
-        "  [#8bb8ff]/history[/#8bb8ff]          Show conversation turn count\n"
-        "  [#8bb8ff]/exit[/#8bb8ff]             Quit\n"
+        "  [#8bb8ff]/help[/#8bb8ff]                              Show this help\n"
+        "  [#8bb8ff]/models[/#8bb8ff] \\[--all] \\[--details]      List AI models (default top 45)\n"
+        "         \\[-p PROVIDER] \\[-f KEYWORD]      Filter by provider or keyword\n"
+        "  [#8bb8ff]/model[/#8bb8ff] \\[id]                       Show or change the active model\n"
+        "  [#8bb8ff]/think[/#8bb8ff] \\[on|off]                   Enable/disable thinking blocks visibility\n"
+        "  [#8bb8ff]/read[/#8bb8ff] <file>                       Read a file into conversation context\n"
+        "  [#8bb8ff]/test[/#8bb8ff] \\[cmd]                       Run tests (default: pytest -v --tb=short)\n"
+        "  [#8bb8ff]/files[/#8bb8ff]                             Show written files from this session\n"
+        "  [#8bb8ff]/undo[/#8bb8ff]                              Restore files to previous state\n"
+        "  [#8bb8ff]/compact[/#8bb8ff]                           Trim conversation state to free context\n"
+        "  [#8bb8ff]/clear[/#8bb8ff]                             Clear conversation and file history\n"
+        "  [#8bb8ff]/system[/#8bb8ff] \\[text]                    Show or set system prompt\n"
+        "  [#8bb8ff]/status[/#8bb8ff]                            Show agent status (model, files, plan)\n"
+        "  [#8bb8ff]/autoorg[/#8bb8ff] \\[task]                   Run multi-step AI orchestration\n"
+        "  [#8bb8ff]/autofleet[/#8bb8ff] \\[task]                 Run fleet (multi-agent) orchestration\n"
+        "  [#8bb8ff]/update[/#8bb8ff]                            Update SAGE AI to the latest CLI version\n"
+        "  [#8bb8ff]/version[/#8bb8ff]                           Show current version and check for updates\n"
+        "  [#8bb8ff]/history[/#8bb8ff]                           Show conversation turn count\n"
+        "  [#8bb8ff]/exit[/#8bb8ff] (also /quit, /q)             Quit the REPL\n"
         "\n[bold #6ea4ff]Shell[/bold #6ea4ff]\n"
         "  [#8bb8ff]!<command>[/#8bb8ff]        Run a shell command (e.g. !ls -la)\n"
         "\n[bold #6ea4ff]SAGE phases[/bold #6ea4ff]\n"

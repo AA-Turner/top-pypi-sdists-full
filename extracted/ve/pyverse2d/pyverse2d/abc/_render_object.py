@@ -7,3 +7,8 @@ from abc import ABC
 class RenderObject(ABC):
     """Classe abstraite des formes de rendu"""
     __slots__ = tuple()
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "RenderObject",
+]

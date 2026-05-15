@@ -6,7 +6,7 @@ import httpx
 
 from ...types import model_server_create_params, model_server_execute_params, model_server_update_backend_params
 from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from .deployment import (
     DeploymentResource,
@@ -124,7 +124,7 @@ class ModelServersResource(SyncAPIResource):
         if not model_server_id:
             raise ValueError(f"Expected a non-empty value for `model_server_id` but received {model_server_id!r}")
         return self._get(
-            f"/v4/serving/{model_server_id}",
+            path_template("/v4/serving/{model_server_id}", model_server_id=model_server_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -180,7 +180,7 @@ class ModelServersResource(SyncAPIResource):
         if not model_server_id:
             raise ValueError(f"Expected a non-empty value for `model_server_id` but received {model_server_id!r}")
         return self._post(
-            f"/v4/serving/{model_server_id}/execute",
+            path_template("/v4/serving/{model_server_id}/execute", model_server_id=model_server_id),
             body=maybe_transform({"stream": stream}, model_server_execute_params.ModelServerExecuteParams),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -214,7 +214,7 @@ class ModelServersResource(SyncAPIResource):
         if not model_server_id:
             raise ValueError(f"Expected a non-empty value for `model_server_id` but received {model_server_id!r}")
         return self._post(
-            f"/v4/serving/{model_server_id}/rollback",
+            path_template("/v4/serving/{model_server_id}/rollback", model_server_id=model_server_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -248,7 +248,7 @@ class ModelServersResource(SyncAPIResource):
         if not model_server_id:
             raise ValueError(f"Expected a non-empty value for `model_server_id` but received {model_server_id!r}")
         return self._put(
-            f"/v4/serving/{model_server_id}/backend",
+            path_template("/v4/serving/{model_server_id}/backend", model_server_id=model_server_id),
             body=maybe_transform(
                 {"new_model_deployment_id": new_model_deployment_id},
                 model_server_update_backend_params.ModelServerUpdateBackendParams,
@@ -351,7 +351,7 @@ class AsyncModelServersResource(AsyncAPIResource):
         if not model_server_id:
             raise ValueError(f"Expected a non-empty value for `model_server_id` but received {model_server_id!r}")
         return await self._get(
-            f"/v4/serving/{model_server_id}",
+            path_template("/v4/serving/{model_server_id}", model_server_id=model_server_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -407,7 +407,7 @@ class AsyncModelServersResource(AsyncAPIResource):
         if not model_server_id:
             raise ValueError(f"Expected a non-empty value for `model_server_id` but received {model_server_id!r}")
         return await self._post(
-            f"/v4/serving/{model_server_id}/execute",
+            path_template("/v4/serving/{model_server_id}/execute", model_server_id=model_server_id),
             body=await async_maybe_transform({"stream": stream}, model_server_execute_params.ModelServerExecuteParams),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -441,7 +441,7 @@ class AsyncModelServersResource(AsyncAPIResource):
         if not model_server_id:
             raise ValueError(f"Expected a non-empty value for `model_server_id` but received {model_server_id!r}")
         return await self._post(
-            f"/v4/serving/{model_server_id}/rollback",
+            path_template("/v4/serving/{model_server_id}/rollback", model_server_id=model_server_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -475,7 +475,7 @@ class AsyncModelServersResource(AsyncAPIResource):
         if not model_server_id:
             raise ValueError(f"Expected a non-empty value for `model_server_id` but received {model_server_id!r}")
         return await self._put(
-            f"/v4/serving/{model_server_id}/backend",
+            path_template("/v4/serving/{model_server_id}/backend", model_server_id=model_server_id),
             body=await async_maybe_transform(
                 {"new_model_deployment_id": new_model_deployment_id},
                 model_server_update_backend_params.ModelServerUpdateBackendParams,

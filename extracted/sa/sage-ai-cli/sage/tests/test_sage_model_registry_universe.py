@@ -18,8 +18,10 @@ class TestSageModelIdentifierUniverse:
 
     def test_declared_id_count_exceeds_threshold(self) -> None:
         ids = collect_all_sage_model_identifiers()
-        # Remote catalog, GGUF + Ollama + OpenAI-compat + Gemini - expect 500+
-        assert len(ids) >= 500, f"only {len(ids)} ids - catalog sync issue?"
+        # Static catalogs only: groq + together + openrouter (curated) + gemini +
+        # ollama placeholders + gguf. OpenRouter free models are fetched at runtime
+        # via /free-models (cached 24h) and are NOT counted here. Expect ~40+.
+        assert len(ids) >= 40, f"only {len(ids)} ids - catalog sync issue?"
 
     def test_all_ids_unique(self) -> None:
         raw = collect_all_sage_model_identifiers()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonargparse
-Version: 4.48.0
+Version: 4.49.0
 Summary: Minimal effort CLIs derived from type hints and parse from command line, config files and environment variables.
 Author-email: Mauricio Villegas <mauricio@omnius.com>
 License-Expression: MIT
@@ -71,7 +71,8 @@ Requires-Dist: jsonargparse[test-no-urls]; extra == "test"
 Requires-Dist: jsonargparse[shtab]; extra == "test"
 Requires-Dist: jsonargparse[argcomplete]; extra == "test"
 Requires-Dist: types-PyYAML>=6.0.11; extra == "test"
-Requires-Dist: types-requests>=2.28.9; extra == "test"
+Requires-Dist: types-requests<2.34,>=2.28.9; extra == "test"
+Requires-Dist: requests<2.34; extra == "test"
 Requires-Dist: responses>=0.12.0; extra == "test"
 Requires-Dist: pydantic>=2.3.0; extra == "test"
 Requires-Dist: attrs>=22.2.0; extra == "test"
@@ -165,7 +166,7 @@ Powerful argparse-like low level parsers:
     parser.add_class_arguments(SomeClass, "class")  # add class parameters
     ...
     cfg = parser.parse_args()
-    init = parser.instantiate_classes(cfg)
+    init = parser.instantiate(cfg)
     ...
 
 

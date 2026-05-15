@@ -11,6 +11,7 @@ from montecarlodata.agents.fields import (
     AZURE_BLOB,
     AZURE_FUNCTION_APP_KEY,
     AZURE_STORAGE_ACCOUNT_KEYS,
+    AZURE_STORAGE_SERVICE_PRINCIPAL,
     DATA_STORE_AGENT,
     GCP,
     GCP_JSON_SERVICE_ACCOUNT_KEY,
@@ -104,9 +105,20 @@ def agents():
 @agents.command(help="Register a Data Store Agent with remote Azure Blob storage container.")
 @click.pass_obj
 @click.option(
+    "--authentication",
+    help="Authentication type.",
+    required=False,
+    type=click.Choice(["connection-string", "service-principal"], case_sensitive=False),
+    default="connection-string",
+    show_default=True,
+)
+@click.option(
     "--connection-string",
-    help=f"A connection string to an Azure Storage account. {PASSWORD_VERBIAGE}",
-    required=True,
+    help=(
+        f"[connection-string auth] Connection string for the Azure storage account."
+        f" {PASSWORD_VERBIAGE}"
+    ),
+    required=False,
     cls=AdvancedOptions,
     prompt_if_requested=True,
 )
@@ -115,10 +127,47 @@ def agents():
     help="Name of Azure Storage container for data store.",
     required=True,
 )
+@click.option(
+    "--tenant-id",
+    help="[service-principal auth] Azure Active Directory tenant ID.",
+    required=False,
+)
+@click.option(
+    "--client-id",
+    help="[service-principal auth] Application (client) ID of the service principal.",
+    required=False,
+)
+@click.option(
+    "--client-secret",
+    help=f"[service-principal auth] Client secret for the service principal. {PASSWORD_VERBIAGE}",
+    required=False,
+    cls=AdvancedOptions,
+    prompt_if_requested=True,
+)
+@click.option(
+    "--account-url",
+    help="[service-principal auth] URL of the Azure storage account.",
+    required=False,
+)
 @add_common_options(DRY_RUN_OPTIONS)
 @add_common_options(AGENT_REGISTER_DC_ID_OPTION)
 @add_common_options(UPDATE_AGENT_OPTIONS)
-def register_azure_blob_store(ctx, container_name, **kwargs):
+def register_azure_blob_store(ctx, container_name, authentication, **kwargs):
+    if authentication == "service-principal":
+        auth_type = AZURE_STORAGE_SERVICE_PRINCIPAL
+        for field in ("tenant_id", "client_id", "client_secret", "account_url"):
+            if not kwargs.get(field):
+                raise click.BadParameter(
+                    f"--{field.replace('_', '-')} is required when using "
+                    f"service principal authentication."
+                )
+    else:
+        auth_type = AZURE_STORAGE_ACCOUNT_KEYS
+        if not kwargs.get("connection_string"):
+            raise click.BadParameter(
+                "--connection-string is required when using connection string authentication."
+            )
+
     AgentService(
         config=ctx["config"],
         mc_client=create_mc_client(ctx),
@@ -127,7 +176,7 @@ def register_azure_blob_store(ctx, container_name, **kwargs):
         agent_type=DATA_STORE_AGENT,
         platform=AZURE,
         storage=AZURE_BLOB,
-        auth_type=AZURE_STORAGE_ACCOUNT_KEYS,
+        auth_type=auth_type,
         endpoint=container_name,
         **kwargs,
     )

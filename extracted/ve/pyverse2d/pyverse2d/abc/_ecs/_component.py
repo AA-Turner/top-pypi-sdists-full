@@ -39,3 +39,8 @@ class Component(ABC):
         if isinstance(other, Component):
             return self.get_attributes() == other.get_attributes()
         return NotImplemented
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Component",
+]

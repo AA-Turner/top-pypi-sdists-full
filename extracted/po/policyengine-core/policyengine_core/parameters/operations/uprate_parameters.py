@@ -6,6 +6,7 @@ from dateutil import rrule
 from dateutil.relativedelta import relativedelta
 from dateutil.parser import parse
 from datetime import datetime
+from typing import Optional, Union
 
 from policyengine_core.parameters.operations.get_parameter import get_parameter
 from policyengine_core.parameters.parameter import Parameter
@@ -13,8 +14,7 @@ from policyengine_core.parameters.parameter_at_instant import (
     ParameterAtInstant,
 )
 from policyengine_core.parameters.parameter_node import ParameterNode
-from policyengine_core.parameters.parameter_scale import ParameterScale
-from policyengine_core.periods import instant, Instant
+from policyengine_core.periods import instant
 
 
 def uprate_parameters(root: ParameterNode) -> ParameterNode:
@@ -27,133 +27,353 @@ def uprate_parameters(root: ParameterNode) -> ParameterNode:
         ParameterNode: The same root, with uprating applied to descendants.
     """
 
-    descendants = list(root.get_descendants())
+    parameters = [
+        parameter
+        for parameter in root.get_descendants()
+        if isinstance(parameter, Parameter)
+    ]
+    parameter_paths = get_parameter_paths(root)
 
-    scales = list(filter(lambda p: isinstance(p, ParameterScale), descendants))
-    for scale in scales:
-        for bracket in scale.brackets:
-            for allowed_key in bracket._allowed_keys:
-                if hasattr(bracket, allowed_key):
-                    descendants.append(getattr(bracket, allowed_key))
-
-    for parameter in descendants:
-        if isinstance(parameter, Parameter):
-            if parameter.metadata.get("uprating") is not None:
-                # Pull the uprating definition dict
-                meta = parameter.metadata["uprating"]
-
-                # If defined in short method (i.e. "uprating: PARAM"),
-                # redefine this as dict with param key
-                if meta == "self":
-                    meta = dict(parameter="self")
-                elif isinstance(meta, str):
-                    meta = dict(parameter=meta)
-
-                # If param is "self", construct the uprating table
-                if meta["parameter"] == "self":
-                    uprating_parameter = construct_uprater_self(
-                        parameter,
-                        meta,
-                    )
-                # Otherwise, pull uprating table from YAML
-                else:
-                    uprating_parameter = get_parameter(root, meta["parameter"])
-
-                # If uprating with a set candence, ensure that all
-                # required values are present
-                cadence_meta = meta.get("at_defined_interval")
-                cadence_options = {}
-                if cadence_meta:
-                    cadence_options_test = [
-                        cadence_meta.get("start"),
-                        cadence_meta.get("end"),
-                        cadence_meta.get("enactment"),
-                    ]
-
-                    # Ensure that all options are properly defined
-                    if not all(cadence_options_test):
-                        raise SyntaxError(
-                            f"Failed to uprate {parameter.name} using cadence; start, end, and enactment must all be provided"
-                        )
-
-                    # Construct cadence options object
-                    cadence_options = construct_cadence_options(cadence_meta, parameter)
-
-                    # Ensure that end comes after start and enactment comes after end
-                    if cadence_options["end"] <= cadence_options["start"]:
-                        raise ValueError(
-                            f"Failed to uprate {parameter.name} using {uprating_parameter.name}: end must come after start"
-                        )
-                    if cadence_options["enactment"] <= cadence_options["end"]:
-                        raise ValueError(
-                            f"Failed to uprate {parameter.name} using {uprating_parameter.name}: enactment must come after end"
-                        )
-
-                    # Determine the first date from which to start uprating -
-                    # this should be the first application date (month, day)
-                    # following the last defined param value (not including the
-                    # final value)
-                    uprating_first_date: datetime = find_cadence_first(
-                        parameter, cadence_options
-                    )
-                    uprating_last_date: datetime = find_cadence_last(
-                        uprating_parameter, cadence_options
-                    )
-
-                    # Uprate data
-                    uprated_data = uprate_by_cadence(
-                        parameter,
-                        uprating_parameter,
-                        cadence_options,
-                        uprating_first_date,
-                        uprating_last_date,
-                        meta,
-                    )
-
-                    # Append uprated data to parameter values list
-                    parameter.values_list.extend(uprated_data)
-
-                else:
-                    # Start from the latest value
-                    if "start_instant" in meta:
-                        last_instant = instant(meta["start_instant"])
-                    else:
-                        last_instant = instant(parameter.values_list[0].instant_str)
-
-                    # Pre-compute values that don't change in the loop
-                    last_instant_str = str(last_instant)
-                    value_at_start = parameter(last_instant)
-                    uprater_at_start = uprating_parameter(last_instant)
-
-                    if uprater_at_start is None:
-                        raise ValueError(
-                            f"Failed to uprate using {uprating_parameter.name} at {last_instant} for {parameter.name} because the uprating parameter is not defined at {last_instant}."
-                        )
-
-                    # Pre-compute uprater values for all entries to avoid repeated lookups
-                    has_rounding = "rounding" in meta
-
-                    # For each defined instant in the uprating parameter
-                    for entry in uprating_parameter.values_list[::-1]:
-                        entry_instant = instant(entry.instant_str)
-                        # If the uprater instant is defined after the last parameter instant
-                        if entry_instant > last_instant:
-                            # Apply the uprater and add to the parameter
-                            uprater_at_entry = uprating_parameter(entry_instant)
-                            uprater_change = uprater_at_entry / uprater_at_start
-                            uprated_value = value_at_start * uprater_change
-                            if has_rounding:
-                                uprated_value = round_uprated_value(meta, uprated_value)
-                            parameter.values_list.append(
-                                ParameterAtInstant(
-                                    parameter.name,
-                                    entry.instant_str,
-                                    data=uprated_value,
-                                )
-                            )
-                # Whether using cadence or not, sort the parameter values_list
-                parameter.values_list.sort(key=lambda x: x.instant_str, reverse=True)
+    for parameter in sort_parameters_by_uprating_dependencies(
+        parameters,
+        parameter_paths,
+    ):
+        uprate_parameter(parameter, root, parameter_paths)
     return root
+
+
+def normalize_uprating_metadata(meta: Union[dict, str]) -> dict:
+    if meta == "self":
+        return dict(parameter="self")
+    if isinstance(meta, str):
+        return dict(parameter=meta)
+    return meta
+
+
+def get_uprating_dependency_name(parameter: Parameter) -> Optional[str]:
+    meta = parameter.metadata.get("uprating")
+    if meta is None:
+        return None
+    meta = normalize_uprating_metadata(meta)
+    dependency_name = meta["parameter"]
+    if dependency_name == "self":
+        return None
+    return dependency_name
+
+
+def get_parameter_paths(root: ParameterNode) -> dict[int, str]:
+    paths = {}
+
+    def visit_parameter_node(node: ParameterNode, path: str) -> None:
+        for child_name, child in node.children.items():
+            child_path = f"{path}.{child_name}" if path else child_name
+            visit_child(child, child_path)
+
+    def visit_child(child, path: str) -> None:
+        if isinstance(child, Parameter):
+            paths[id(child)] = path
+        elif isinstance(child, ParameterNode):
+            visit_parameter_node(child, path)
+        else:
+            brackets = getattr(child, "__dict__", {}).get("brackets")
+            if brackets is not None:
+                for index, bracket in enumerate(brackets):
+                    visit_parameter_node(bracket, f"{path}[{index}]")
+
+    visit_parameter_node(root, "")
+    return paths
+
+
+def join_parameter_path(prefix: str, suffix: str) -> str:
+    if not prefix:
+        return suffix
+    if not suffix:
+        return prefix
+    return f"{prefix}.{suffix}"
+
+
+def get_parameter_scope_prefixes(
+    parameter: Parameter,
+    parameter_paths: dict[int, str],
+) -> Optional[tuple[str, str]]:
+    parameter_path = parameter_paths.get(id(parameter))
+    if parameter_path is None or parameter_path == parameter.name:
+        return None
+    parameter_name_parts = parameter.name.split(".")
+    parameter_path_parts = parameter_path.split(".")
+    common_suffix_length = 0
+    max_common_suffix_length = min(
+        len(parameter_name_parts),
+        len(parameter_path_parts),
+    )
+    while (
+        common_suffix_length < max_common_suffix_length
+        and parameter_name_parts[-common_suffix_length - 1]
+        == parameter_path_parts[-common_suffix_length - 1]
+    ):
+        common_suffix_length += 1
+    if common_suffix_length == 0:
+        return None
+    original_prefix = ".".join(parameter_name_parts[:-common_suffix_length])
+    current_prefix = ".".join(parameter_path_parts[:-common_suffix_length])
+    return original_prefix, current_prefix
+
+
+def map_original_parameter_path(
+    parameter_path: str,
+    original_prefix: str,
+    current_prefix: str,
+) -> Optional[str]:
+    if not original_prefix:
+        return join_parameter_path(current_prefix, parameter_path)
+    if parameter_path == original_prefix:
+        return current_prefix
+    original_prefix_with_separator = f"{original_prefix}."
+    if parameter_path.startswith(original_prefix_with_separator):
+        return join_parameter_path(
+            current_prefix,
+            parameter_path[len(original_prefix_with_separator) :],
+        )
+    return None
+
+
+def get_scoped_uprating_dependency_names(
+    parameter: Parameter,
+    dependency_name: str,
+    parameter_paths: dict[int, str],
+) -> list[str]:
+    parameter_path = parameter_paths.get(id(parameter))
+    if parameter_path is None or parameter_path == parameter.name:
+        return [dependency_name]
+
+    dependency_names = []
+
+    def add_dependency_name(candidate: Optional[str]) -> None:
+        if candidate and candidate not in dependency_names:
+            dependency_names.append(candidate)
+
+    scope_prefixes = get_parameter_scope_prefixes(parameter, parameter_paths)
+    if scope_prefixes is not None:
+        original_prefix, current_prefix = scope_prefixes
+        add_dependency_name(
+            map_original_parameter_path(
+                dependency_name,
+                original_prefix,
+                current_prefix,
+            )
+        )
+
+    add_dependency_name(dependency_name)
+    return dependency_names
+
+
+def get_parameter_lookup_names(
+    parameter: Parameter,
+    parameter_paths: dict[int, str],
+) -> set[str]:
+    parameter_path = parameter_paths.get(id(parameter))
+    if parameter_path is None:
+        return {parameter.name}
+    return {parameter_path}
+
+
+def get_uprating_parameter(
+    root: ParameterNode,
+    parameter: Parameter,
+    dependency_name: str,
+    parameter_paths: dict[int, str],
+) -> Parameter:
+    for scoped_dependency_name in get_scoped_uprating_dependency_names(
+        parameter,
+        dependency_name,
+        parameter_paths,
+    ):
+        try:
+            return get_parameter(root, scoped_dependency_name)
+        except ValueError:
+            continue
+    return get_parameter(root, dependency_name)
+
+
+def sort_parameters_by_uprating_dependencies(
+    parameters: list[Parameter],
+    parameter_paths: Optional[dict[int, str]] = None,
+) -> list[Parameter]:
+    if parameter_paths is None:
+        parameter_paths = {}
+    parameters_to_uprate = [
+        parameter
+        for parameter in parameters
+        if parameter.metadata.get("uprating") is not None
+    ]
+    parameters_by_name = {}
+    for parameter in parameters_to_uprate:
+        for name in get_parameter_lookup_names(parameter, parameter_paths):
+            parameters_by_name.setdefault(name, []).append(parameter)
+    ordered_parameters = []
+    visited = set()
+    visiting = []
+    visiting_ids = set()
+
+    def visit(parameter: Parameter):
+        parameter_id = id(parameter)
+        if parameter_id in visited:
+            return
+        if parameter_id in visiting_ids:
+            cycle_start = next(
+                index
+                for index, visiting_parameter in enumerate(visiting)
+                if id(visiting_parameter) == parameter_id
+            )
+            cycle = visiting[cycle_start:] + [parameter]
+            raise ValueError(
+                "Cyclic uprating dependency detected: "
+                + " -> ".join(parameter.name for parameter in cycle)
+            )
+        visiting.append(parameter)
+        visiting_ids.add(parameter_id)
+        dependency_name = get_uprating_dependency_name(parameter)
+        dependency_parameters = []
+        if dependency_name is not None:
+            for scoped_dependency_name in get_scoped_uprating_dependency_names(
+                parameter,
+                dependency_name,
+                parameter_paths,
+            ):
+                dependency_parameters = parameters_by_name.get(
+                    scoped_dependency_name,
+                    [],
+                )
+                if dependency_parameters:
+                    break
+        for dependency in dependency_parameters:
+            visit(dependency)
+        visiting.pop()
+        visiting_ids.remove(parameter_id)
+        visited.add(parameter_id)
+        ordered_parameters.append(parameter)
+
+    for parameter in sorted(parameters_to_uprate, key=lambda p: p.name):
+        visit(parameter)
+
+    return ordered_parameters
+
+
+def uprate_parameter(
+    parameter: Parameter,
+    root: ParameterNode,
+    parameter_paths: Optional[dict[int, str]] = None,
+) -> None:
+    if parameter_paths is None:
+        parameter_paths = {}
+    # Pull the uprating definition dict
+    meta = normalize_uprating_metadata(parameter.metadata["uprating"])
+
+    # If param is "self", construct the uprating table
+    if meta["parameter"] == "self":
+        uprating_parameter = construct_uprater_self(
+            parameter,
+            meta,
+        )
+    # Otherwise, pull uprating table from YAML
+    else:
+        uprating_parameter = get_uprating_parameter(
+            root,
+            parameter,
+            meta["parameter"],
+            parameter_paths,
+        )
+
+    # If uprating with a set candence, ensure that all
+    # required values are present
+    cadence_meta = meta.get("at_defined_interval")
+    cadence_options = {}
+    if cadence_meta:
+        cadence_options_test = [
+            cadence_meta.get("start"),
+            cadence_meta.get("end"),
+            cadence_meta.get("enactment"),
+        ]
+
+        # Ensure that all options are properly defined
+        if not all(cadence_options_test):
+            raise SyntaxError(
+                f"Failed to uprate {parameter.name} using cadence; start, end, and enactment must all be provided"
+            )
+
+        # Construct cadence options object
+        cadence_options = construct_cadence_options(cadence_meta, parameter)
+
+        # Ensure that end comes after start and enactment comes after end
+        if cadence_options["end"] <= cadence_options["start"]:
+            raise ValueError(
+                f"Failed to uprate {parameter.name} using {uprating_parameter.name}: end must come after start"
+            )
+        if cadence_options["enactment"] <= cadence_options["end"]:
+            raise ValueError(
+                f"Failed to uprate {parameter.name} using {uprating_parameter.name}: enactment must come after end"
+            )
+
+        # Determine the first date from which to start uprating -
+        # this should be the first application date (month, day)
+        # following the last defined param value (not including the
+        # final value)
+        uprating_first_date: datetime = find_cadence_first(parameter, cadence_options)
+        uprating_last_date: datetime = find_cadence_last(
+            uprating_parameter, cadence_options
+        )
+
+        # Uprate data
+        uprated_data = uprate_by_cadence(
+            parameter,
+            uprating_parameter,
+            cadence_options,
+            uprating_first_date,
+            uprating_last_date,
+            meta,
+        )
+
+        # Append uprated data to parameter values list
+        parameter.values_list.extend(uprated_data)
+
+    else:
+        # Start from the latest value
+        if "start_instant" in meta:
+            last_instant = instant(meta["start_instant"])
+        else:
+            last_instant = instant(parameter.values_list[0].instant_str)
+
+        # Pre-compute values that don't change in the loop
+        value_at_start = parameter(last_instant)
+        uprater_at_start = uprating_parameter(last_instant)
+
+        if uprater_at_start is None:
+            raise ValueError(
+                f"Failed to uprate using {uprating_parameter.name} at {last_instant} for {parameter.name} because the uprating parameter is not defined at {last_instant}."
+            )
+
+        has_rounding = "rounding" in meta
+
+        # For each defined instant in the uprating parameter
+        for entry in uprating_parameter.values_list[::-1]:
+            entry_instant = instant(entry.instant_str)
+            # If the uprater instant is defined after the last parameter instant
+            if entry_instant > last_instant:
+                # Apply the uprater and add to the parameter
+                uprater_at_entry = uprating_parameter(entry_instant)
+                uprater_change = uprater_at_entry / uprater_at_start
+                uprated_value = value_at_start * uprater_change
+                if has_rounding:
+                    uprated_value = round_uprated_value(meta, uprated_value)
+                parameter.values_list.append(
+                    ParameterAtInstant(
+                        parameter.name,
+                        entry.instant_str,
+                        data=uprated_value,
+                    )
+                )
+    # Whether using cadence or not, sort the parameter values_list
+    parameter.values_list.sort(key=lambda x: x.instant_str, reverse=True)
 
 
 def round_uprated_value(meta: dict, uprated_value: float) -> float:

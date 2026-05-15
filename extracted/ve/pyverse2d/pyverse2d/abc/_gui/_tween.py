@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from ..._internal import positive, expect_callable
-from ...math.easing import EasingFunc
+from ...typing import EasingFunc
 
 from abc import ABC
 from typing import TYPE_CHECKING
@@ -179,3 +179,8 @@ class Tween(ABC):
             if self._t >= self._duration:
                 self._direction = 0
         setattr(self._widget, self._attribut, value)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Tween",
+]

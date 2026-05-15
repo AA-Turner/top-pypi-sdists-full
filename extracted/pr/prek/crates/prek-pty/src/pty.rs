@@ -1,5 +1,4 @@
-#![allow(clippy::module_name_repetitions)]
-use std::io::Write as _;
+use std::io::{Read, Write};
 
 type AsyncPty = tokio::io::unix::AsyncFd<crate::sys::Pty>;
 
@@ -40,6 +39,14 @@ impl Pty {
     /// Returns an error if we were unable to set the terminal size.
     pub fn resize(&self, size: crate::Size) -> crate::Result<()> {
         self.0.get_ref().set_term_size(size)
+    }
+
+    /// Read bytes currently available from the pty without waiting for readiness.
+    ///
+    /// # Errors
+    /// Returns an error if the underlying nonblocking read fails.
+    pub fn try_read(&self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.0.get_ref().read(buf)
     }
 
     /// Splits a `Pty` into a read half and a write half, which can be used to

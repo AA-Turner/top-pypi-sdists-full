@@ -7,6 +7,7 @@ from typing_extensions import Literal
 import httpx
 
 from ..._types import Body, Query, Headers, NotGiven, not_given
+from ..._utils import path_template
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -74,7 +75,11 @@ class DashboardsResource(SyncAPIResource):
         if not dashboard_id:
             raise ValueError(f"Expected a non-empty value for `dashboard_id` but received {dashboard_id!r}")
         return self._get(
-            f"/v4/applications/{application_spec_id}/dashboards/{dashboard_id}",
+            path_template(
+                "/v4/applications/{application_spec_id}/dashboards/{dashboard_id}",
+                application_spec_id=application_spec_id,
+                dashboard_id=dashboard_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -135,7 +140,11 @@ class AsyncDashboardsResource(AsyncAPIResource):
         if not dashboard_id:
             raise ValueError(f"Expected a non-empty value for `dashboard_id` but received {dashboard_id!r}")
         return await self._get(
-            f"/v4/applications/{application_spec_id}/dashboards/{dashboard_id}",
+            path_template(
+                "/v4/applications/{application_spec_id}/dashboards/{dashboard_id}",
+                application_spec_id=application_spec_id,
+                dashboard_id=dashboard_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

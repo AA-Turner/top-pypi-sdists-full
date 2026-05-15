@@ -42,3 +42,8 @@ class Drag(ParticleModifier):
     # ======================================== INTERFACE ========================================
     def apply(self, dt: float, alive: np.ndarray, positions: np.ndarray, velocities: np.ndarray) -> None:
         velocities[alive] *= max(0.0, 1.0 - self._coefficient * dt)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Drag",
+]

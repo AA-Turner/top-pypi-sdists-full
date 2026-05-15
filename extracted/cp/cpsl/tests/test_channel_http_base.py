@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+import unittest.mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -92,6 +93,16 @@ class ChannelHttpBaseTests(unittest.TestCase):
         )
 
         self.assertEqual(client_http_base(ctx), "https://api.capsule.new")
+
+    def test_programmatic_client_uses_gateway_http_port_when_configured(self):
+        ctx = ConfigContext(
+            token="token",
+            gateway_host="localhost",
+            gateway_port=50051,
+            gateway_http_port=8080,
+        )
+
+        self.assertEqual(client_http_base(ctx), "http://localhost:8080")
 
     def test_programmatic_client_uses_next_port_for_local_grpc_gateway(self):
         ctx = ConfigContext(

@@ -13,7 +13,7 @@ from ..types import (
     application_test_case_output_retrieve_params,
 )
 from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from .._utils import maybe_transform, async_maybe_transform
+from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -92,7 +92,10 @@ class ApplicationTestCaseOutputsResource(SyncAPIResource):
         return cast(
             ApplicationTestCaseOutputRetrieveResponse,
             self._get(
-                f"/v4/application-test-case-outputs/{application_test_case_output_id}",
+                path_template(
+                    "/v4/application-test-case-outputs/{application_test_case_output_id}",
+                    application_test_case_output_id=application_test_case_output_id,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,
@@ -282,7 +285,10 @@ class AsyncApplicationTestCaseOutputsResource(AsyncAPIResource):
         return cast(
             ApplicationTestCaseOutputRetrieveResponse,
             await self._get(
-                f"/v4/application-test-case-outputs/{application_test_case_output_id}",
+                path_template(
+                    "/v4/application-test-case-outputs/{application_test_case_output_id}",
+                    application_test_case_output_id=application_test_case_output_id,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,

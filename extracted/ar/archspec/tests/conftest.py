@@ -4,9 +4,6 @@
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 import pytest
 
-import archspec
-import archspec.cli
-import archspec.cpu
 import archspec.cpu.detect
 import archspec.cpu.microarchitecture
 import archspec.cpu.schema
@@ -48,3 +45,12 @@ def reset_global_state(monkeypatch):
         )
 
     return _func
+
+
+@pytest.fixture(autouse=True)
+def clear_host_cache():
+    """Clears the cache for `archspec.cpu.host()`, `archspec.cpu.detect._machine()`, and
+    `archspec.cpu.detect._darwin_sysctl_data()` before each test."""
+    archspec.cpu.detect.host.cache_clear()
+    archspec.cpu.detect._machine.cache_clear()
+    archspec.cpu.detect._darwin_sysctl_data.cache_clear()

@@ -1,21 +1,21 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._internal import CallbackList
+from ..._internal import CallbackList, expect
 from ..._managers._inputs import Listener
 from ...abc import Behavior
 from ...math import Point
 
 from pyverse2d import mouse, inputs
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
     from .._selection_group import SelectionGroup
 
 # ======================================== BEHAVIOR ========================================
 class SelectBehavior(Behavior):
-    """Behavior gérant la sélection
+    """Comportement gérant la sélection
     
     Ce ``Behavior`` s'associe automatiquement au ``HoverBehavior`` si le ``Widget`` en possède un.
     """
@@ -25,12 +25,17 @@ class SelectBehavior(Behavior):
         "_when_selected", "_when_deselected",
         "_listener",
     )
-    _ID: str = "select"
-    _PRIORITY: int = 2
+
+    _ID: ClassVar[str] = "select"
+    _PRIORITY: ClassVar[int] = 2
 
     def __init__(self, selection_group: SelectionGroup = None):
         # Initialisation du comportement
         super().__init__()
+
+        # Vérifications
+        if __debug__:
+            expect(selection_group, (SelectionGroup, None))
 
         # Selection
         self._selection_group: SelectionGroup = selection_group
@@ -39,8 +44,8 @@ class SelectBehavior(Behavior):
         # Hooks
         self._on_select: CallbackList = CallbackList()
         self._on_deselect: CallbackList = CallbackList()
-        self._when_selected: CallbackList = CallbackList()
-        self._when_deselected: CallbackList = CallbackList()
+        self._when_selected: CallbackList | None = None
+        self._when_deselected: CallbackList | None = None
 
         # Listeners
         self._listener: Listener = None
@@ -68,11 +73,15 @@ class SelectBehavior(Behavior):
     @property
     def when_selected(self) -> CallbackList:
         """Fonctions appelées durant la sélection"""
+        if self._when_selected is None:
+            self._when_selected = CallbackList()
         return self._when_selected
 
     @property
     def when_deselected(self) -> CallbackList:
         """Fonctions appelées durant la désélection"""
+        if self._when_deselected is None:
+            self._when_deselected = CallbackList()
         return self._when_deselected
 
     # ======================================== PREDICATES ========================================
@@ -134,11 +143,17 @@ class SelectBehavior(Behavior):
 
     # ======================================== LIFE CYCLE ========================================
     def _update(self, dt: float) -> None:
-        """Actualisation"""
+        """Actualisation
+        
+        Args:
+            dt: delta-time
+        """
         if self._selected:
-            self.when_selected.trigger()
+            if self._when_selected:
+                self._when_selected.trigger()
         else:
-            self.when_deselected.trigger()
+            if self._when_deselected:
+                self._when_deselected.trigger()
 
     # ======================================== INTERNALS ========================================
     def _register(self) ->  bool:
@@ -154,5 +169,14 @@ class SelectBehavior(Behavior):
         return self._owner.hover.is_hovered()
 
     def _collides(self, point: Point) -> bool:
-        """Vérifie si un point est dans le widget"""
+        """Vérifie si un point est dans le widget
+        
+        Args:
+            point: ``Point`` à vérifier
+        """
         return self._owner.collidespoint(point)
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "SelectBehavior",
+]

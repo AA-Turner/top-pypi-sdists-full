@@ -115,3 +115,8 @@ class AudioHandle(ABC):
         """Actualise le volume du player"""
         if self._active:
             self.player.volume = self.get_volume()
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "AudioHandle",
+]

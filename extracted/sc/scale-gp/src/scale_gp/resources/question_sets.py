@@ -9,7 +9,7 @@ import httpx
 
 from ..types import question_set_list_params, question_set_create_params, question_set_update_params
 from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
-from .._utils import maybe_transform, async_maybe_transform
+from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -139,7 +139,7 @@ class QuestionSetsResource(SyncAPIResource):
         if not question_set_id:
             raise ValueError(f"Expected a non-empty value for `question_set_id` but received {question_set_id!r}")
         return self._get(
-            f"/v4/question-sets/{question_set_id}",
+            path_template("/v4/question-sets/{question_set_id}", question_set_id=question_set_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -249,7 +249,7 @@ class QuestionSetsResource(SyncAPIResource):
         if not question_set_id:
             raise ValueError(f"Expected a non-empty value for `question_set_id` but received {question_set_id!r}")
         return self._patch(
-            f"/v4/question-sets/{question_set_id}",
+            path_template("/v4/question-sets/{question_set_id}", question_set_id=question_set_id),
             body=maybe_transform(
                 {
                     "instructions": instructions,
@@ -362,7 +362,7 @@ class QuestionSetsResource(SyncAPIResource):
         if not question_set_id:
             raise ValueError(f"Expected a non-empty value for `question_set_id` but received {question_set_id!r}")
         return self._delete(
-            f"/v4/question-sets/{question_set_id}",
+            path_template("/v4/question-sets/{question_set_id}", question_set_id=question_set_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -480,7 +480,7 @@ class AsyncQuestionSetsResource(AsyncAPIResource):
         if not question_set_id:
             raise ValueError(f"Expected a non-empty value for `question_set_id` but received {question_set_id!r}")
         return await self._get(
-            f"/v4/question-sets/{question_set_id}",
+            path_template("/v4/question-sets/{question_set_id}", question_set_id=question_set_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -590,7 +590,7 @@ class AsyncQuestionSetsResource(AsyncAPIResource):
         if not question_set_id:
             raise ValueError(f"Expected a non-empty value for `question_set_id` but received {question_set_id!r}")
         return await self._patch(
-            f"/v4/question-sets/{question_set_id}",
+            path_template("/v4/question-sets/{question_set_id}", question_set_id=question_set_id),
             body=await async_maybe_transform(
                 {
                     "instructions": instructions,
@@ -703,7 +703,7 @@ class AsyncQuestionSetsResource(AsyncAPIResource):
         if not question_set_id:
             raise ValueError(f"Expected a non-empty value for `question_set_id` but received {question_set_id!r}")
         return await self._delete(
-            f"/v4/question-sets/{question_set_id}",
+            path_template("/v4/question-sets/{question_set_id}", question_set_id=question_set_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

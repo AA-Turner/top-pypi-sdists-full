@@ -42,6 +42,8 @@ struct WebRtcEventCallback {
     conn_no: u32,
     /// Channel ID for logging
     channel_id: String,
+    /// Conversation ID for logging
+    conversation_id: String,
     /// Notify when connection closes
     conn_closed_tx: mpsc::UnboundedSender<(u32, String)>,
     /// Buffer pool for frame encoding
@@ -62,8 +64,8 @@ impl EventCallback for WebRtcEventCallback {
         match event {
             HandlerEvent::Error { message, code } => {
                 error!(
-                    "Handler error (channel: {}, conn: {}): {} (code: {:?})",
-                    self.channel_id, self.conn_no, message, code
+                    "Handler error (channel: {}, conversation_id: {}, conn: {}): {} (code: {:?})",
+                    self.channel_id, self.conversation_id, self.conn_no, message, code
                 );
 
                 // Send CloseConnection control message with error reason
@@ -73,6 +75,7 @@ impl EventCallback for WebRtcEventCallback {
 
                 let webrtc = self.webrtc.clone();
                 let channel_id = self.channel_id.clone();
+                let conversation_id = self.conversation_id.clone();
                 let conn_no = self.conn_no;
                 let buffer_pool = self.buffer_pool.clone();
 
@@ -85,8 +88,8 @@ impl EventCallback for WebRtcEventCallback {
                     let encoded = frame.encode_with_pool(&buffer_pool);
                     if let Err(e) = webrtc.send(encoded).await {
                         error!(
-                            "Failed to send CloseConnection for handler error (channel: {}, conn: {}): {}",
-                            channel_id, conn_no, e
+                            "Failed to send CloseConnection for handler error (channel: {}, conversation_id: {}, conn: {}): {}",
+                            channel_id, conversation_id, conn_no, e
                         );
                     }
                 });
@@ -99,8 +102,8 @@ impl EventCallback for WebRtcEventCallback {
 
             HandlerEvent::Disconnect { reason } => {
                 info!(
-                    "Handler disconnect (channel: {}, conn: {}): {}",
-                    self.channel_id, self.conn_no, reason
+                    "Handler disconnect (channel: {}, conversation_id: {}, conn: {}): {}",
+                    self.channel_id, self.conversation_id, self.conn_no, reason
                 );
 
                 // Send CloseConnection control message with normal reason
@@ -110,6 +113,7 @@ impl EventCallback for WebRtcEventCallback {
 
                 let webrtc = self.webrtc.clone();
                 let channel_id = self.channel_id.clone();
+                let conversation_id = self.conversation_id.clone();
                 let conn_no = self.conn_no;
                 let buffer_pool = self.buffer_pool.clone();
 
@@ -122,8 +126,8 @@ impl EventCallback for WebRtcEventCallback {
                     let encoded = frame.encode_with_pool(&buffer_pool);
                     if let Err(e) = webrtc.send(encoded).await {
                         error!(
-                            "Failed to send CloseConnection for disconnect (channel: {}, conn: {}): {}",
-                            channel_id, conn_no, e
+                            "Failed to send CloseConnection for disconnect (channel: {}, conversation_id: {}, conn: {}): {}",
+                            channel_id, conversation_id, conn_no, e
                         );
                     }
                 });
@@ -136,8 +140,8 @@ impl EventCallback for WebRtcEventCallback {
 
             HandlerEvent::ThreatDetected { level, description } => {
                 error!(
-                    "THREAT DETECTED (channel: {}, conn: {}): [{}] {}",
-                    self.channel_id, self.conn_no, level, description
+                    "THREAT DETECTED (channel: {}, conversation_id: {}, conn: {}): [{}] {}",
+                    self.channel_id, self.conversation_id, self.conn_no, level, description
                 );
 
                 // Immediate termination for security threats
@@ -147,6 +151,7 @@ impl EventCallback for WebRtcEventCallback {
 
                 let webrtc = self.webrtc.clone();
                 let channel_id = self.channel_id.clone();
+                let conversation_id = self.conversation_id.clone();
                 let conn_no = self.conn_no;
                 let buffer_pool = self.buffer_pool.clone();
 
@@ -159,8 +164,8 @@ impl EventCallback for WebRtcEventCallback {
                     let encoded = frame.encode_with_pool(&buffer_pool);
                     if let Err(e) = webrtc.send(encoded).await {
                         error!(
-                            "Failed to send CloseConnection for threat (channel: {}, conn: {}): {}",
-                            channel_id, conn_no, e
+                            "Failed to send CloseConnection for threat (channel: {}, conversation_id: {}, conn: {}): {}",
+                            channel_id, conversation_id, conn_no, e
                         );
                     }
                 });
@@ -179,15 +184,16 @@ impl EventCallback for WebRtcEventCallback {
 
             HandlerEvent::Ready { connection_id } => {
                 debug!(
-                    "Handler ready (channel: {}, conn: {}, connection_id: {})",
-                    self.channel_id, self.conn_no, connection_id
+                    "Handler ready (channel: {}, conversation_id: {}, conn: {}, connection_id: {})",
+                    self.channel_id, self.conversation_id, self.conn_no, connection_id
                 );
             }
 
             HandlerEvent::Size { width, height } => {
                 trace!(
-                    "Handler size change (channel: {}, conn: {}): {}x{}",
+                    "Handler size change (channel: {}, conversation_id: {}, conn: {}): {}x{}",
                     self.channel_id,
+                    self.conversation_id,
                     self.conn_no,
                     width,
                     height
@@ -197,18 +203,20 @@ impl EventCallback for WebRtcEventCallback {
             HandlerEvent::Instruction(bytes) => {
                 // This shouldn't happen in normal flow - send_instruction is the hot path
                 warn!(
-                    "Received Instruction event (should use send_instruction): {} bytes",
-                    bytes.len()
+                    "Received Instruction event (should use send_instruction): {} bytes (channel: {}, conversation_id: {}, conn: {})",
+                    bytes.len(), self.channel_id, self.conversation_id, self.conn_no
                 );
                 // Spawn to call async from sync context (rare path, only for HandlerEvent::Instruction)
                 let send_queue_tx = self.send_queue_tx.clone();
                 let channel_id = self.channel_id.clone();
+                let conversation_id = self.conversation_id.clone();
                 let conn_no = self.conn_no;
                 tokio::spawn(async move {
                     if let Err(e) = send_queue_tx.send(bytes).await {
                         trace!(
-                            "Send queue closed (channel: {}, conn: {}): {}",
+                            "Send queue closed (channel: {}, conversation_id: {}, conn: {}): {}",
                             channel_id,
+                            conversation_id,
                             conn_no,
                             e
                         );
@@ -236,8 +244,9 @@ impl EventCallback for WebRtcEventCallback {
         if let Err(e) = self.send_queue_tx.send(instruction).await {
             // Channel closed - sender task died, connection is closing
             trace!(
-                "Send queue closed (expected during shutdown) (channel: {}, conn: {}): {}",
+                "Send queue closed (expected during shutdown) (channel: {}, conversation_id: {}, conn: {}): {}",
                 self.channel_id,
+                self.conversation_id,
                 self.conn_no,
                 e
             );
@@ -278,8 +287,8 @@ pub async fn invoke_builtin_handler(
     let protocol_name = conversation_type.to_string();
 
     info!(
-        "Channel({}): Invoking built-in handler for protocol '{}' (conn_no: {})",
-        channel.channel_id, protocol_name, conn_no
+        "Channel({}): Invoking built-in handler for protocol '{}' (conversation_id: {}, conn_no: {})",
+        channel.channel_id, protocol_name, channel.conversation_id, conn_no
     );
 
     // Get handler from registry
@@ -288,24 +297,25 @@ pub async fn invoke_builtin_handler(
         .ok_or_else(|| anyhow!("No handler registered for protocol: {}", protocol_name))?;
 
     debug!(
-        "Channel({}): Found handler for protocol: {}",
-        channel.channel_id, protocol_name
+        "Channel({}): Found handler for protocol: {} (conversation_id: {})",
+        channel.channel_id, protocol_name, channel.conversation_id
     );
 
     // Get connection parameters
     let params = channel.guacd_params.lock().await.clone();
 
     debug!(
-        "Channel({}): Handler params: {:?}",
+        "Channel({}): Handler params: {:?} (conversation_id: {})",
         channel.channel_id,
-        params.keys().collect::<Vec<_>>()
+        params.keys().collect::<Vec<_>>(),
+        channel.conversation_id
     );
 
     // Check if handler supports event-based interface (zero-copy path)
     if handler.as_event_based().is_some() {
         info!(
-            "Channel({}): Using event-based zero-copy interface for protocol: {}",
-            channel.channel_id, protocol_name
+            "Channel({}): Using event-based zero-copy interface for protocol: {} (conversation_id: {})",
+            channel.channel_id, protocol_name, channel.conversation_id
         );
 
         // Clone the Arc so we can move it into the spawn
@@ -320,12 +330,13 @@ pub async fn invoke_builtin_handler(
         let webrtc_for_sender = channel.webrtc.clone();
         let buffer_pool_for_sender = channel.buffer_pool.clone();
         let channel_id_for_sender = channel.channel_id.clone();
+        let conversation_id_for_sender = channel.conversation_id.clone();
         let conn_no_for_sender = conn_no;
 
         let sender_handle = tokio::spawn(async move {
             debug!(
-                "Dedicated sender task started (channel: {}, conn: {})",
-                channel_id_for_sender, conn_no_for_sender
+                "Dedicated sender task started (channel: {}, conversation_id: {}, conn: {})",
+                channel_id_for_sender, conversation_id_for_sender, conn_no_for_sender
             );
 
             while let Some(instruction) = send_queue_rx.recv().await {
@@ -342,8 +353,8 @@ pub async fn invoke_builtin_handler(
                 // Send directly to WebRTC (no spawn - we're already in a dedicated task)
                 if let Err(e) = webrtc_for_sender.send(encoded).await {
                     error!(
-                        "Failed to send instruction (channel: {}, conn: {}): {}",
-                        channel_id_for_sender, conn_no_for_sender, e
+                        "Failed to send instruction (channel: {}, conversation_id: {}, conn: {}): {}",
+                        channel_id_for_sender, conversation_id_for_sender, conn_no_for_sender, e
                     );
                     // Break on send error - connection is likely dead
                     break;
@@ -351,22 +362,24 @@ pub async fn invoke_builtin_handler(
             }
 
             debug!(
-                "Dedicated sender task ended (channel: {}, conn: {})",
-                channel_id_for_sender, conn_no_for_sender
+                "Dedicated sender task ended (channel: {}, conversation_id: {}, conn: {})",
+                channel_id_for_sender, conversation_id_for_sender, conn_no_for_sender
             );
         });
 
         // Spawn monitor task to track sender task completion
         let sender_completion_tx = Arc::clone(&spawned_task_completion_tx);
+        let sender_monitor_channel_id = channel.channel_id.clone();
+        let sender_monitor_conversation_id = channel.conversation_id.clone();
         tokio::spawn(async move {
             match sender_handle.await {
                 Ok(()) => {
                     if unlikely!(crate::logger::is_verbose_logging()) {
-                        debug!("Handler sender task completed normally");
+                        debug!("Handler sender task completed normally (channel: {}, conversation_id: {})", sender_monitor_channel_id, sender_monitor_conversation_id);
                     }
                 }
                 Err(e) => {
-                    error!("Handler sender task panicked or was cancelled: {}", e);
+                    error!("Handler sender task panicked or was cancelled: {} (channel: {}, conversation_id: {})", e, sender_monitor_channel_id, sender_monitor_conversation_id);
                 }
             }
             let _ = sender_completion_tx.send(());
@@ -377,6 +390,7 @@ pub async fn invoke_builtin_handler(
             webrtc: channel.webrtc.clone(),
             conn_no,
             channel_id: channel.channel_id.clone(),
+            conversation_id: channel.conversation_id.clone(),
             conn_closed_tx: channel.conn_closed_tx.clone(),
             buffer_pool: channel.buffer_pool.clone(),
             channel_close_reason: channel.channel_close_reason.clone(),
@@ -395,12 +409,13 @@ pub async fn invoke_builtin_handler(
         let handler_senders = channel.handler_senders.clone();
         let conn_closed_tx_clone = channel.conn_closed_tx.clone();
         let channel_id_clone = channel.channel_id.clone();
+        let conversation_id_clone = channel.conversation_id.clone();
         // Clone video_output before the spawn — channel is a borrow, can't cross spawn boundary
         let video_tx_for_handler: Option<Arc<dyn VideoOutput>> = channel.video_output.clone();
         let handler_handle = tokio::spawn(async move {
             debug!(
-                "Event-based handler task started for protocol: {}",
-                protocol_for_task
+                "Event-based handler task started for protocol: {} (channel: {}, conversation_id: {})",
+                protocol_for_task, channel_id_clone, conversation_id_clone
             );
 
             // Get event handler inside the task (where handler_arc lives)
@@ -411,12 +426,12 @@ pub async fn invoke_builtin_handler(
                 {
                     Ok(()) => {
                         info!(
-                            "Event-based handler completed successfully: {}",
-                            protocol_for_task
+                            "Event-based handler completed successfully: {} (channel: {}, conversation_id: {})",
+                            protocol_for_task, channel_id_clone, conversation_id_clone
                         );
                     }
                     Err(e) => {
-                        error!("Event-based handler failed: {} - {}", protocol_for_task, e);
+                        error!("Event-based handler failed: {} - {} (channel: {}, conversation_id: {})", protocol_for_task, e, channel_id_clone, conversation_id_clone);
                     }
                 }
             }
@@ -426,25 +441,29 @@ pub async fn invoke_builtin_handler(
 
             // Notify main Channel run loop that connection has closed
             // This triggers cleanup of backend connection and signals to WebRTC client
-            conn_closed_tx_clone.send((conn_no, channel_id_clone)).ok();
+            conn_closed_tx_clone
+                .send((conn_no, channel_id_clone.clone()))
+                .ok();
 
             info!(
-                "Event-based handler session ended for protocol: {}",
-                protocol_for_task
+                "Event-based handler session ended for protocol: {} (channel: {}, conversation_id: {})",
+                protocol_for_task, channel_id_clone, conversation_id_clone
             );
         });
 
         // Spawn monitor task to track event-based handler task completion
         let handler_completion_tx = Arc::clone(&spawned_task_completion_tx);
+        let handler_monitor_channel_id = channel.channel_id.clone();
+        let handler_monitor_conversation_id = channel.conversation_id.clone();
         tokio::spawn(async move {
             match handler_handle.await {
                 Ok(()) => {
                     if unlikely!(crate::logger::is_verbose_logging()) {
-                        debug!("Event-based handler task completed normally");
+                        debug!("Event-based handler task completed normally (channel: {}, conversation_id: {})", handler_monitor_channel_id, handler_monitor_conversation_id);
                     }
                 }
                 Err(e) => {
-                    error!("Event-based handler task panicked or was cancelled: {}", e);
+                    error!("Event-based handler task panicked or was cancelled: {} (channel: {}, conversation_id: {})", e, handler_monitor_channel_id, handler_monitor_conversation_id);
                 }
             }
             let _ = handler_completion_tx.send(());
@@ -455,8 +474,8 @@ pub async fn invoke_builtin_handler(
 
     // Fallback to channel-based interface (for handlers that don't implement EventBasedHandler yet)
     info!(
-        "Channel({}): Using channel-based interface (fallback) for protocol: {}",
-        channel.channel_id, protocol_name
+        "Channel({}): Using channel-based interface (fallback) for protocol: {} (conversation_id: {})",
+        channel.channel_id, protocol_name, channel.conversation_id
     );
 
     // Create channels for bidirectional communication
@@ -471,14 +490,16 @@ pub async fn invoke_builtin_handler(
 
     let protocol_for_handler = protocol_name.clone();
     let protocol_for_outbound = protocol_name.clone();
+    let channel_id_for_handler_task = channel.channel_id.clone();
+    let conversation_id_for_handler_task = channel.conversation_id.clone();
     // Clone before spawn — channel is a borrow, can't cross spawn boundary
     let video_tx_for_handler: Option<Arc<dyn VideoOutput>> = channel.video_output.clone();
 
     // Spawn protocol handler task
     let handler_task = tokio::spawn(async move {
         debug!(
-            "Channel-based handler task started for protocol: {}",
-            protocol_for_handler
+            "Channel-based handler task started for protocol: {} (channel: {}, conversation_id: {})",
+            protocol_for_handler, channel_id_for_handler_task, conversation_id_for_handler_task
         );
 
         match handler
@@ -492,15 +513,18 @@ pub async fn invoke_builtin_handler(
         {
             Ok(()) => {
                 info!(
-                    "Channel-based handler completed successfully: {}",
-                    protocol_for_handler
+                    "Channel-based handler completed successfully: {} (channel: {}, conversation_id: {})",
+                    protocol_for_handler, channel_id_for_handler_task, conversation_id_for_handler_task
                 );
                 Ok(())
             }
             Err(e) => {
                 error!(
-                    "Channel-based handler failed: {} - {}",
-                    protocol_for_handler, e
+                    "Channel-based handler failed: {} - {} (channel: {}, conversation_id: {})",
+                    protocol_for_handler,
+                    e,
+                    channel_id_for_handler_task,
+                    conversation_id_for_handler_task
                 );
                 Err(anyhow!("Handler error: {}", e))
             }
@@ -510,6 +534,7 @@ pub async fn invoke_builtin_handler(
     // Clone needed fields for forwarding tasks
     let dc = channel.webrtc.clone();
     let channel_id_for_outbound = channel.channel_id.clone();
+    let conversation_id_for_outbound = channel.conversation_id.clone();
     let conn_closed_tx = channel.conn_closed_tx.clone();
     let buffer_pool = channel.buffer_pool.clone();
 
@@ -517,8 +542,8 @@ pub async fn invoke_builtin_handler(
     // Read messages from handler and send to WebRTC data channel
     let outbound_task = tokio::spawn(async move {
         debug!(
-            "Handler outbound task started (channel: {}, protocol: {})",
-            channel_id_for_outbound, protocol_for_outbound
+            "Handler outbound task started (channel: {}, conversation_id: {}, protocol: {})",
+            channel_id_for_outbound, conversation_id_for_outbound, protocol_for_outbound
         );
 
         let mut message_count = 0u64;
@@ -533,10 +558,12 @@ pub async fn invoke_builtin_handler(
             if crate::logger::is_verbose_logging() {
                 let msg_preview = String::from_utf8_lossy(&msg[..msg.len().min(60)]);
                 trace!(
-                    "Handler → WebRTC: message #{} ({} bytes): {}...",
+                    "Handler → WebRTC: message #{} ({} bytes): {}... (channel: {}, conversation_id: {})",
                     message_count,
                     msg_len,
-                    msg_preview
+                    msg_preview,
+                    channel_id_for_outbound,
+                    conversation_id_for_outbound
                 );
             }
 
@@ -555,15 +582,15 @@ pub async fn invoke_builtin_handler(
                 Ok(_) => {
                     if crate::logger::is_verbose_logging() {
                         debug!(
-                            "Handler message #{} sent to WebRTC successfully",
-                            message_count
+                            "Handler message #{} sent to WebRTC successfully (channel: {}, conversation_id: {})",
+                            message_count, channel_id_for_outbound, conversation_id_for_outbound
                         );
                     }
                 }
                 Err(e) => {
                     error!(
-                        "Failed to send handler message #{} to WebRTC: {}",
-                        message_count, e
+                        "Failed to send handler message #{} to WebRTC: {} (channel: {}, conversation_id: {})",
+                        message_count, e, channel_id_for_outbound, conversation_id_for_outbound
                     );
                     break;
                 }
@@ -571,8 +598,8 @@ pub async fn invoke_builtin_handler(
         }
 
         info!(
-            "Handler outbound task ended (total messages: {}, total bytes: {})",
-            message_count, total_bytes
+            "Handler outbound task ended (total messages: {}, total bytes: {}, channel: {}, conversation_id: {})",
+            message_count, total_bytes, channel_id_for_outbound, conversation_id_for_outbound
         );
 
         // Notify that connection closed
@@ -581,11 +608,16 @@ pub async fn invoke_builtin_handler(
 
     // Task 2: WebRTC → Handler (inbound)
     // This is already wired through handler_senders in frame_handling.rs
-    debug!("Handler inbound path ready (conn_no: {})", conn_no);
+    debug!(
+        "Handler inbound path ready (conn_no: {}, channel: {}, conversation_id: {})",
+        conn_no, channel.channel_id, channel.conversation_id
+    );
 
     // Spawn cleanup task that waits for handler completion (RAII)
     let protocol_for_cleanup = protocol_name.clone();
     let handler_senders = channel.handler_senders.clone();
+    let channel_id_for_cleanup = channel.channel_id.clone();
+    let conversation_id_for_cleanup = channel.conversation_id.clone();
     let cleanup_handle = tokio::spawn(async move {
         // Wait for handler to complete
         let _ = handler_task.await;
@@ -595,25 +627,27 @@ pub async fn invoke_builtin_handler(
         handler_senders.remove(&conn_no);
 
         info!(
-            "Channel-based handler session ended for protocol: {}",
-            protocol_for_cleanup
+            "Channel-based handler session ended for protocol: {} (channel: {}, conversation_id: {})",
+            protocol_for_cleanup, channel_id_for_cleanup, conversation_id_for_cleanup
         );
     });
 
     // Spawn monitor task to track channel-based handler cleanup task completion
     // This ensures both handler_task and outbound_task are tracked
     let cleanup_completion_tx = Arc::clone(&spawned_task_completion_tx);
+    let cleanup_monitor_channel_id = channel.channel_id.clone();
+    let cleanup_monitor_conversation_id = channel.conversation_id.clone();
     tokio::spawn(async move {
         match cleanup_handle.await {
             Ok(()) => {
                 if unlikely!(crate::logger::is_verbose_logging()) {
-                    debug!("Channel-based handler cleanup task completed normally");
+                    debug!("Channel-based handler cleanup task completed normally (channel: {}, conversation_id: {})", cleanup_monitor_channel_id, cleanup_monitor_conversation_id);
                 }
             }
             Err(e) => {
                 error!(
-                    "Channel-based handler cleanup task panicked or was cancelled: {}",
-                    e
+                    "Channel-based handler cleanup task panicked or was cancelled: {} (channel: {}, conversation_id: {})",
+                    e, cleanup_monitor_channel_id, cleanup_monitor_conversation_id
                 );
             }
         }
@@ -622,8 +656,8 @@ pub async fn invoke_builtin_handler(
 
     // Return immediately to allow ConnectionOpened to be sent
     debug!(
-        "Handler spawned successfully for protocol: {}, conn_no: {}",
-        protocol_name, conn_no
+        "Handler spawned successfully for protocol: {}, conn_no: {} (channel: {}, conversation_id: {})",
+        protocol_name, conn_no, channel.channel_id, channel.conversation_id
     );
     Ok(())
 }

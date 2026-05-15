@@ -85,6 +85,16 @@ This value is also used as the default level for :class:`VerbosityOption` .
 """
 
 
+_RESET_REGISTERED: str = f"{context.META_NAMESPACE}_verbosity_reset_registered"
+"""Internal sentinel marking that ``reset_loggers`` was queued on the context.
+
+Lives in ``ctx.meta`` so the verbosity inheritance chain
+(``ExtraVerbosity`` / ``VerbosityOption`` / ``VerboseOption``) registers the
+close callback at most once per invocation, even when both ``--verbosity``
+and ``-v`` are passed.
+"""
+
+
 class ExtraStreamHandler(StreamHandler):
     """A handler to output logs to the console.
 
@@ -382,19 +392,30 @@ class ExtraVerbosity(ExtraOption):
         ``ctx.meta[click_extra.context.VERBOSITY_LEVEL]``. This context entry
         served as a kind of global state shared by all verbosity-related options.
         """
+        # Skip logger reconfiguration during help rendering, shell completion,
+        # and any ``make_context(resilient_parsing=True)`` path.
+        if ctx.resilient_parsing:
+            return
+
         # Skip setting the level if another option has already sets it or is at an equal
         # or lower level.
-        current_level = ctx.meta.get(context.VERBOSITY_LEVEL)
+        current_level = context.get(ctx, context.VERBOSITY_LEVEL)
         if current_level and current_level <= level:
             return
 
-        ctx.meta[context.VERBOSITY_LEVEL] = level
+        context.set(ctx, context.VERBOSITY_LEVEL, level)
 
         for logger in self.all_loggers:
             logger.setLevel(level.value)
             getLogger("click_extra").debug(f"Set {logger} to {level}.")
 
-        ctx.call_on_close(self.reset_loggers)
+        # Register the close callback at most once per ctx. Both ``--verbosity``
+        # and ``-v`` flow through this method, so without a guard the same
+        # ``reset_loggers`` would be queued twice on Context._close_callbacks
+        # when both options are passed.
+        if not context.get(ctx, _RESET_REGISTERED):
+            ctx.call_on_close(self.reset_loggers)
+            context.set(ctx, _RESET_REGISTERED, True)
 
     def __init__(
         self,
@@ -444,7 +465,7 @@ class VerbosityOption(ExtraVerbosity):
         """The value passed to ``--verbosity`` will be saved in
         ``ctx.meta[click_extra.context.VERBOSITY]``.
         """
-        ctx.meta[context.VERBOSITY] = value
+        context.set(ctx, context.VERBOSITY, value)
         super().set_level(ctx, param, value)
 
     def __init__(
@@ -532,7 +553,7 @@ class VerboseOption(ExtraVerbosity):
         The value passed to ``--verbose``/``-v`` will be saved in
         ``ctx.meta[click_extra.context.VERBOSE]``.
         """
-        ctx.meta[context.VERBOSE] = value
+        context.set(ctx, context.VERBOSE, value)
 
         # No -v option has been called, skip meddling with log levels.
         if value == 0:

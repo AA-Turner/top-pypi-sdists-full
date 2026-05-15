@@ -9,10 +9,10 @@ mod tui;
 mod utils;
 
 use clap::{ArgAction, Parser, Subcommand};
-use std::ffi::OsString;
 use config::Config;
 use error::Result;
 use output::OutputFormat;
+use std::ffi::OsString;
 
 /// CLI context shared across commands
 #[derive(Debug, Clone)]
@@ -378,6 +378,9 @@ enum Commands {
         /// Only include results on or before this time (e.g. 24h, 2026-03-15, ISO-8601)
         #[arg(long = "before")]
         before: Option<String>,
+        /// Only include results with specific level(s) (0=abstract, 1=overview, 2=file)
+        #[arg(short = 'L', long = "level", value_delimiter = ',')]
+        level: Option<Vec<i32>>,
     },
     /// [Experimental][Data] Run context-aware retrieval
     Search {
@@ -406,6 +409,9 @@ enum Commands {
         /// Only include results on or before this time (e.g. 24h, 2026-03-15, ISO-8601)
         #[arg(long = "before")]
         before: Option<String>,
+        /// Only include results with specific level(s) (0=abstract, 1=overview, 2=file)
+        #[arg(short = 'L', long = "level", value_delimiter = ',')]
+        level: Option<Vec<i32>>,
     },
     /// [Data] Run content pattern search
     Grep {
@@ -493,6 +499,17 @@ enum Commands {
         uri: String,
         /// Output .ovpack file path
         to: String,
+        /// Include dense vector snapshot when compatible metadata is available
+        #[arg(long, default_value_t = false)]
+        include_vectors: bool,
+    },
+    /// [Data] Back up public OpenViking scopes as a restore-only .ovpack
+    Backup {
+        /// Output .ovpack file path
+        to: String,
+        /// Include dense vector snapshot when compatible metadata is available
+        #[arg(long, default_value_t = false)]
+        include_vectors: bool,
     },
     /// [Data] Import .ovpack into target URI
     Import {
@@ -500,12 +517,23 @@ enum Commands {
         file_path: String,
         /// Target parent URI
         target_uri: String,
-        /// Overwrite when conflicts exist
-        #[arg(long)]
-        force: bool,
-        /// Disable vectorization after import
-        #[arg(long)]
-        no_vectorize: bool,
+        /// Conflict policy: fail, overwrite, or skip
+        #[arg(long, value_parser = ["fail", "overwrite", "skip"])]
+        on_conflict: Option<String>,
+        /// Vector handling: auto restores compatible snapshots, recompute ignores them, require fails if unavailable
+        #[arg(long, value_parser = ["auto", "recompute", "require"])]
+        vector_mode: Option<String>,
+    },
+    /// [Data] Restore a backup .ovpack to original public scope roots
+    Restore {
+        /// Input backup .ovpack file path
+        file_path: String,
+        /// Conflict policy: fail, overwrite, or skip
+        #[arg(long, value_parser = ["fail", "overwrite", "skip"])]
+        on_conflict: Option<String>,
+        /// Vector handling: auto restores compatible snapshots, recompute ignores them, require fails if unavailable
+        #[arg(long, value_parser = ["auto", "recompute", "require"])]
+        vector_mode: Option<String>,
     },
     // --- Interactive Tools ---
     /// [Interactive] Interactive TUI file explorer
@@ -593,9 +621,7 @@ impl Commands {
     /// Returns true if this is an admin command that supports --sudo
     fn is_admin_command(&self) -> bool {
         match self {
-            Self::Admin { .. }
-            | Self::System { .. }
-            | Self::Reindex { .. } => true,
+            Self::Admin { .. } | Self::System { .. } | Self::Reindex { .. } => true,
             _ => false,
         }
     }
@@ -631,6 +657,11 @@ enum SystemCommands {
     Status,
     /// Quick health check
     Health,
+    /// Check filesystem and vector-index consistency for a URI subtree
+    Consistency {
+        /// Viking URI to check
+        uri: String,
+    },
     /// Cryptographic key management commands
     Crypto {
         #[command(subcommand)]
@@ -650,6 +681,8 @@ enum ObserverCommands {
     Transaction,
     /// Get retrieval quality metrics
     Retrieval,
+    /// Get filesystem operation metrics
+    Filesystem,
     /// Get overall system status
     System,
 }
@@ -907,7 +940,11 @@ fn preprocess_privacy_upsert_key_flags(args: Vec<OsString>) -> Vec<OsString> {
     if args[cmd_idx].to_string_lossy() != "privacy" {
         return args;
     }
-    if args.get(cmd_idx + 1).map(|s| s.to_string_lossy().to_string()) != Some("upsert".to_string()) {
+    if args
+        .get(cmd_idx + 1)
+        .map(|s| s.to_string_lossy().to_string())
+        != Some("upsert".to_string())
+    {
         return args;
     }
 
@@ -999,7 +1036,9 @@ async fn main() {
 
     // Check if --sudo is used but root_api_key is not configured
     if ctx.sudo && ctx.config.root_api_key.is_none() {
-        eprintln!("Error: --sudo requires root_api_key to be configured in ~/.openviking/ovcli.conf");
+        eprintln!(
+            "Error: --sudo requires root_api_key to be configured in ~/.openviking/ovcli.conf"
+        );
         std::process::exit(2);
     }
 
@@ -1056,14 +1095,29 @@ async fn main() {
             to_uris,
             reason,
         } => handlers::handle_link(from_uri, to_uris, reason, ctx).await,
-        Commands::Unlink { from_uri, to_uri } => handlers::handle_unlink(from_uri, to_uri, ctx).await,
-        Commands::Export { uri, to } => handlers::handle_export(uri, to, ctx).await,
+        Commands::Unlink { from_uri, to_uri } => {
+            handlers::handle_unlink(from_uri, to_uri, ctx).await
+        }
+        Commands::Export {
+            uri,
+            to,
+            include_vectors,
+        } => handlers::handle_export(uri, to, include_vectors, ctx).await,
+        Commands::Backup {
+            to,
+            include_vectors,
+        } => handlers::handle_backup(to, include_vectors, ctx).await,
         Commands::Import {
             file_path,
             target_uri,
-            force,
-            no_vectorize,
-        } => handlers::handle_import(file_path, target_uri, force, no_vectorize, ctx).await,
+            on_conflict,
+            vector_mode,
+        } => handlers::handle_import(file_path, target_uri, on_conflict, vector_mode, ctx).await,
+        Commands::Restore {
+            file_path,
+            on_conflict,
+            vector_mode,
+        } => handlers::handle_restore(file_path, on_conflict, vector_mode, ctx).await,
         Commands::Wait { timeout } => {
             let client = ctx.get_client();
             commands::system::wait(&client, timeout, ctx.output_format, ctx.compact).await
@@ -1186,13 +1240,12 @@ async fn main() {
             } else {
                 "replace".to_string()
             };
-            handlers::handle_write(uri, content, from_file, effective_mode, wait, timeout, ctx).await
+            handlers::handle_write(uri, content, from_file, effective_mode, wait, timeout, ctx)
+                .await
         }
-        Commands::Reindex {
-            uri,
-            mode,
-            wait,
-        } => handlers::handle_reindex(uri, mode, wait, ctx).await,
+        Commands::Reindex { uri, mode, wait } => {
+            handlers::handle_reindex(uri, mode, wait, ctx).await
+        }
         Commands::Get { uri, local_path } => handlers::handle_get(uri, local_path, ctx).await,
         Commands::Find {
             query,
@@ -1201,7 +1254,8 @@ async fn main() {
             threshold,
             after,
             before,
-        } => handlers::handle_find(query, uri, node_limit, threshold, after, before, ctx).await,
+            level,
+        } => handlers::handle_find(query, uri, node_limit, threshold, after, before, level, ctx).await,
         Commands::Search {
             query,
             uri,
@@ -1210,9 +1264,10 @@ async fn main() {
             threshold,
             after,
             before,
+            level,
         } => {
             handlers::handle_search(
-                query, uri, session_id, node_limit, threshold, after, before, ctx,
+                query, uri, session_id, node_limit, threshold, after, before, level, ctx,
             )
             .await
         }
@@ -1374,6 +1429,38 @@ mod tests {
         ]);
 
         assert!(result.is_err(), "removed write flags should not parse");
+    }
+
+    #[test]
+    fn cli_import_rejects_removed_vectorize_flag() {
+        let result = Cli::try_parse_from([
+            "ov",
+            "import",
+            "./exports/demo.ovpack",
+            "viking://resources/imported/",
+            "--no-vectorize",
+        ]);
+
+        assert!(
+            result.is_err(),
+            "removed import vectorize flag should not parse"
+        );
+    }
+
+    #[test]
+    fn cli_import_rejects_removed_force_flag() {
+        let result = Cli::try_parse_from([
+            "ov",
+            "import",
+            "./exports/demo.ovpack",
+            "viking://resources/imported/",
+            "--force",
+        ]);
+
+        assert!(
+            result.is_err(),
+            "removed import force flag should not parse"
+        );
     }
 
     #[test]

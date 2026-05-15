@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking
-Version: 0.3.16
+Version: 0.3.17
 Summary: An Agent-native context database
 Author-email: ByteDance <noreply@bytedance.com>
 License: AGPL-3.0
@@ -44,11 +44,11 @@ Requires-Dist: uvicorn>=0.39.0
 Requires-Dist: xxhash>=3.0.0
 Requires-Dist: jinja2>=3.1.6
 Requires-Dist: tabulate>=0.9.0
-Requires-Dist: urllib3>=2.6.3
+Requires-Dist: urllib3>=2.7.0
 Requires-Dist: protobuf>=6.33.5
 Requires-Dist: pdfminer-six>=20251230
 Requires-Dist: typer>=0.12.0
-Requires-Dist: litellm<1.83.13,>=1.83.7
+Requires-Dist: litellm<1.84.1,>=1.83.7
 Requires-Dist: python-multipart>=0.0.27
 Requires-Dist: tree-sitter>=0.23.0
 Requires-Dist: tree-sitter-python>=0.23.0
@@ -75,6 +75,7 @@ Requires-Dist: pathspec>=1.1.1
 Provides-Extra: test
 Requires-Dist: pytest>=7.0.0; extra == "test"
 Requires-Dist: pytest-asyncio>=0.21.0; extra == "test"
+Requires-Dist: pytest-xdist>=3.5.0; extra == "test"
 Requires-Dist: boto3>=1.42.44; extra == "test"
 Requires-Dist: pytest-cov>=4.0.0; extra == "test"
 Requires-Dist: ragas>=0.1.0; extra == "test"
@@ -157,6 +158,12 @@ Requires-Dist: langchain-openai>=1.0.0; extra == "benchmark"
 Requires-Dist: tiktoken>=0.5.0; extra == "benchmark"
 Requires-Dist: datasets>=2.0.0; extra == "benchmark"
 Requires-Dist: pandas>=2.0.0; extra == "benchmark"
+Provides-Extra: langchain
+Requires-Dist: langchain-core<2.0.0,>=1.0.0; extra == "langchain"
+Provides-Extra: langgraph
+Requires-Dist: langchain<2.0.0,>=1.0.0; extra == "langgraph"
+Requires-Dist: langchain-core<2.0.0,>=1.0.0; extra == "langgraph"
+Requires-Dist: langgraph<2.0.0,>=1.0.0; extra == "langgraph"
 Provides-Extra: local-embed
 Requires-Dist: llama-cpp-python>=0.3.0; extra == "local-embed"
 Dynamic: license-file
@@ -243,7 +250,7 @@ pip install openviking --upgrade --force-reinstall
 #### Rust CLI (Optional)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/volcengine/OpenViking/main/crates/ov_cli/install.sh | bash
+npm i -g @openviking/cli
 ```
 
 Or build from source:
@@ -794,6 +801,8 @@ To ensure optimal storage performance and data security, we recommend deploying 
 👉 **[View: OpenCode Memory Plugin Example](examples/opencode-memory-plugin/README.md)**
 
 👉 **[View: Claude Code Memory Plugin Example](examples/claude-code-memory-plugin/README.md)**
+
+👉 **[View: LangChain / LangGraph Integration](./docs/en/agent-integrations/05-langchain-langgraph.md)**
 
 \--
 

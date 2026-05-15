@@ -16,6 +16,19 @@ QuantConnect_Algorithm_Framework_NotifiedSecurityChanges_UpdateDictionary_TValue
 QuantConnect_Algorithm_Framework_NotifiedSecurityChanges_UpdateDictionary_TKey = typing.TypeVar("QuantConnect_Algorithm_Framework_NotifiedSecurityChanges_UpdateDictionary_TKey")
 
 
+class INotifiedSecurityChanges(metaclass=abc.ABCMeta):
+    """Types implementing this interface will be called when the algorithm's set of securities changes"""
+
+    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
+        """
+        Event fired each time the we add/remove securities from the data feed
+        
+        :param algorithm: The algorithm instance that experienced the change in securities
+        :param changes: The security additions and removals from the algorithm
+        """
+        ...
+
+
 class _Typed_NotifiedSecurityChanges_UpdateCollection(typing.Generic[QuantConnect_Algorithm_Framework_NotifiedSecurityChanges_UpdateCollection_TValue]):
     """"""
 
@@ -108,19 +121,6 @@ class NotifiedSecurityChanges(System.Object):
         :param changes: The security changes to process
         :param add: Function called for each added security
         :param remove: Function called for each removed security
-        """
-        ...
-
-
-class INotifiedSecurityChanges(metaclass=abc.ABCMeta):
-    """Types implementing this interface will be called when the algorithm's set of securities changes"""
-
-    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
-        """
-        Event fired each time the we add/remove securities from the data feed
-        
-        :param algorithm: The algorithm instance that experienced the change in securities
-        :param changes: The security additions and removals from the algorithm
         """
         ...
 

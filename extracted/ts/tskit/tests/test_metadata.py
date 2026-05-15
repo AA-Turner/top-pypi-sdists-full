@@ -627,6 +627,237 @@ class TestJSONCodec:
         assert ms.decode_row(b"") == {}
 
 
+class TestJSONStructCodec:
+    def test_requires_subschemas(self):
+        with pytest.raises(
+            tskit.MetadataSchemaValidationError,
+            match="requires 'json' and 'struct' schema mappings",
+        ):
+            tskit.MetadataSchema({"codec": "json+struct"})
+
+    def test_disallow_duplicate_keys(self):
+        schema = {
+            "codec": "json+struct",
+            "json": {"type": "object", "properties": {"x": {"type": "number"}}},
+            "struct": {
+                "type": "object",
+                "properties": {"x": {"type": "number", "binaryFormat": "i"}},
+            },
+        }
+        with pytest.raises(
+            tskit.MetadataSchemaValidationError, match="must not share property names"
+        ):
+            tskit.MetadataSchema(schema)
+
+    def test_round_trip_with_struct_and_json(self):
+        schema = {
+            "codec": "json+struct",
+            "json": {
+                "type": "object",
+                "properties": {
+                    "label": {"type": "string"},
+                    "count": {"type": "number"},
+                    "stuff": {"type": "array"},
+                },
+                "required": ["label"],
+            },
+            "struct": {
+                "type": "object",
+                "properties": {
+                    "b0": {"type": "number", "binaryFormat": "i"},
+                    "b1": {"type": "number", "binaryFormat": "i"},
+                    "xyz": {
+                        "type": "array",
+                        "arrayLengthFormat": "H",
+                        "items": {"type": "number", "binaryFormat": "i"},
+                    },
+                },
+            },
+        }
+        ms = tskit.MetadataSchema(schema)
+        for v in [[], [0, 2, 12], [5] * 1000]:
+            row = {
+                "label": "abcdef xyz",
+                "count": 7,
+                "b0": 123,
+                "b1": 0,
+                "stuff": [1, 3, 2, -1.5, "abc", None],
+                "xyz": v,
+                "another_thing": "since JSON is permissive this is allowed",
+            }
+            encoded = ms.validate_and_encode_row(row)
+            out = ms.decode_row(encoded)
+            assert out == row
+
+    def schema_with_binary(self, num_binary_ints):
+        # produces a json+struct schema having num_binary_ints integers
+        # encoded in binary, labeled b0, ... bX
+        schema = {
+            "codec": "json+struct",
+            "json": {
+                "type": "object",
+                "properties": {
+                    "label": {"type": "string"},
+                    "count": {"type": "number"},
+                },
+                "required": ["label"],
+            },
+            "struct": {
+                "type": "object",
+                "properties": {
+                    f"b{j}": {
+                        "type": "integer",
+                        "binaryFormat": "i",
+                    }
+                    for j in range(num_binary_ints)
+                },
+            },
+        }
+        return tskit.MetadataSchema(schema)
+
+    @pytest.mark.parametrize("k", (0, 1, 5, 1001))
+    def test_byte_alignment(self, k):
+        # We want to test whether the binary portion begins byte-aligned.
+        # To verify this, we (somewhat pedantically) let:
+        # X = (bytes to encode the json without any binary)
+        # Y = (bytes to encode the same json with k ints in binary)
+        # and then:
+        # (a) if padding is correct, X should be divisible by 8;
+        # but to make sure that in fact the binary portion starts after X bytes,
+        # we also check that:
+        # (b) Y-X is equal to k * (bytes per int)
+        ms = self.schema_with_binary(k)
+        ms0 = self.schema_with_binary(0)
+        bytes_per_int = len(struct.pack("i", 0))
+        for s in [
+            "",
+            "a",
+            "ab",
+            "abc",
+            "abcd",
+            "abcde",
+            "abcdef",
+            "abcdefg",
+            "abcdefgh",
+            " " * 1000 + "foo" + " " * 1000,
+        ]:
+            row = {"label": s, "count": 7}
+            encoded0 = ms0.validate_and_encode_row(row)
+            row.update({f"b{j}": j for j in range(k)})
+            encoded = ms.validate_and_encode_row(row)
+            out = ms.decode_row(encoded)
+            assert out == row
+            # validate byte alignment
+            assert len(encoded0) % 8 == 0
+            assert len(encoded) - len(encoded0) == k * bytes_per_int
+
+    def test_json_defaults_applied(self):
+        schema = {
+            "codec": "json+struct",
+            "json": {
+                "type": "object",
+                "properties": {"number": {"type": "number", "default": 5}},
+            },
+            "struct": {"type": "object", "properties": {}},
+        }
+        ms = tskit.MetadataSchema(schema)
+        assert ms.decode_row(ms.validate_and_encode_row({})) == {"number": 5}
+        assert ms.decode_row(ms.validate_and_encode_row({"number": 9})) == {"number": 9}
+
+    def test_nested_default_error(self):
+        schema = {
+            "codec": "json+struct",
+            "json": {
+                "type": "object",
+                "properties": {
+                    "obj": {
+                        "type": "object",
+                        "properties": {
+                            "nested_obj_no_default": {
+                                "type": "object",
+                                "properties": {},
+                            },
+                            "nested_obj": {
+                                "type": "object",
+                                "properties": {},
+                                "default": {"foo": "bar"},
+                            },
+                        },
+                    }
+                },
+            },
+            "struct": {"type": "object", "properties": {}},
+        }
+        with pytest.raises(
+            tskit.MetadataSchemaValidationError,
+            match="Defaults can only be specified at the top level for JSON codec",
+        ):
+            tskit.MetadataSchema(schema)
+
+    def test_decode_without_magic_errors(self):
+        ms = tskit.MetadataSchema(
+            {
+                "codec": "json+struct",
+                "json": {"type": "object", "properties": {}},
+                "struct": {"type": "object", "properties": {}},
+            }
+        )
+        with pytest.raises(ValueError, match="missing magic header"):
+            ms.decode_row(b"{}")
+
+    def test_decode_version_mismatch(self):
+        ms = tskit.MetadataSchema(
+            {
+                "codec": "json+struct",
+                "json": {"type": "object", "properties": {}},
+                "struct": {"type": "object", "properties": {}},
+            }
+        )
+        header = metadata.JSONStructCodec._HDR.pack(
+            metadata.JSONStructCodec.MAGIC,
+            metadata.JSONStructCodec.VERSION + 1,
+            len(b"{}"),
+            0,
+        )
+        with pytest.raises(
+            ValueError,
+            match="Unsupported json\\+struct version",
+        ):
+            ms.decode_row(header + b"{}")
+
+    def test_decode_truncated_lengths(self):
+        schema = {
+            "codec": "json+struct",
+            "json": {"type": "object", "properties": {}},
+            "struct": {"type": "object", "properties": {}},
+        }
+        ms = tskit.MetadataSchema(schema)
+        header = metadata.JSONStructCodec._HDR.pack(
+            metadata.JSONStructCodec.MAGIC, metadata.JSONStructCodec.VERSION, 5, 0
+        )
+        with pytest.raises(ValueError, match="declared lengths exceed buffer size"):
+            ms.decode_row(header + b"abc")
+
+        header = metadata.JSONStructCodec._HDR.pack(
+            metadata.JSONStructCodec.MAGIC, metadata.JSONStructCodec.VERSION, 1, 3
+        )
+        with pytest.raises(ValueError, match="declared lengths exceed buffer size"):
+            ms.decode_row(header + b"a")
+
+    def test_missing_struct_property_fails_validation(self):
+        schema = {
+            "codec": "json+struct",
+            "json": {"type": "object", "properties": {}},
+            "struct": {
+                "type": "object",
+                "properties": {"payload": {"type": "integer", "binaryFormat": "i"}},
+            },
+        }
+        ms = tskit.MetadataSchema(schema)
+        with pytest.raises(tskit.MetadataValidationError, match="required property"):
+            ms.validate_and_encode_row({})
+
+
 class TestStructCodec:
     def encode_decode(self, method_name, sub_schema, obj, buffer):
         assert (

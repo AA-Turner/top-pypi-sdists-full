@@ -136,9 +136,14 @@ class TestListDownloaded:
     def test_empty(self, tmp_path, monkeypatch):
         """Returns empty list when no models."""
         from sage.models import downloader
-        from sage import config
 
-        # Mock config
+        # Isolate MODELS_DIR to tmp so the test doesn't pick up real GGUFs
+        # already on the user's machine. Without this, any real ~/.sage/models/
+        # file pollutes the result and makes "empty" testing impossible.
+        empty_dir = tmp_path / "models"
+        empty_dir.mkdir()
+        monkeypatch.setattr(downloader, "MODELS_DIR", empty_dir)
+
         mock_config = MagicMock()
         mock_config.models = {}
 
@@ -149,6 +154,11 @@ class TestListDownloaded:
     def test_with_models(self, tmp_path, monkeypatch):
         """Returns list of downloaded models."""
         from sage.models import downloader
+
+        # Isolate disk scan to tmp (see test_empty)
+        models_dir = tmp_path / "models"
+        models_dir.mkdir()
+        monkeypatch.setattr(downloader, "MODELS_DIR", models_dir)
 
         # Create a model file
         model_path = tmp_path / "test.gguf"
@@ -168,6 +178,11 @@ class TestListDownloaded:
     def test_missing_file(self, tmp_path, monkeypatch):
         """Excludes models with missing files."""
         from sage.models import downloader
+
+        # Isolate disk scan to tmp (see test_empty)
+        empty_dir = tmp_path / "models"
+        empty_dir.mkdir()
+        monkeypatch.setattr(downloader, "MODELS_DIR", empty_dir)
 
         mock_config = MagicMock()
         mock_config.models = {

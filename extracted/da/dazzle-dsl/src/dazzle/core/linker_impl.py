@@ -141,6 +141,7 @@ class SymbolTable:
 
     # Remaining symbols managed directly
     apis: dict[str, ir.APISpec] = field(default_factory=dict)
+    domain_services: dict[str, ir.DomainServiceSpec] = field(default_factory=dict)  # #1070
     integrations: dict[str, ir.IntegrationSpec] = field(default_factory=dict)
     tests: dict[str, ir.TestSpec] = field(default_factory=dict)
     archetypes: dict[str, ir.ArchetypeSpec] = field(default_factory=dict)  # v0.10.3
@@ -253,6 +254,17 @@ class SymbolTable:
     def add_api(self, api: ir.APISpec, module_name: str) -> None:
         """Add external API to symbol table, checking for duplicates."""
         _add_symbol(self.apis, api.name, api, "API", module_name, self.symbol_sources)
+
+    def add_domain_service(self, domain_service: ir.DomainServiceSpec, module_name: str) -> None:
+        """Add domain service to symbol table, checking for duplicates (#1070)."""
+        _add_symbol(
+            self.domain_services,
+            domain_service.name,
+            domain_service,
+            "domain service",
+            module_name,
+            self.symbol_sources,
+        )
 
     def add_foreign_model(self, foreign_model: ir.ForeignModelSpec, module_name: str) -> None:
         """Add foreign model to symbol table, checking for duplicates."""
@@ -556,6 +568,10 @@ def build_symbol_table(modules: list[ir.ModuleIR]) -> SymbolTable:
         # Add external APIs
         for api in module.fragment.apis:
             symbols.add_api(api, module.name)
+
+        # Add domain services (#1070 — previously dropped on the floor)
+        for domain_service in module.fragment.domain_services:
+            symbols.add_domain_service(domain_service, module.name)
 
         # Add foreign models
         for foreign_model in module.fragment.foreign_models:
@@ -1403,20 +1419,20 @@ def merge_fragments(modules: list[ir.ModuleIR], symbols: SymbolTable) -> ir.Modu
     # nav_groups expanded by prepending the named definition's groups
     # so explicit per-workspace `nav_group` blocks append after the
     # inherited ones (composition semantics from the issue).
-    nav_definitions: list[ir.NavDefinitionSpec] = []
-    nav_def_index: dict[str, ir.NavDefinitionSpec] = {}
+    navs: list[ir.NavSpec] = []
+    nav_index: dict[str, ir.NavSpec] = {}
     for module in modules:
-        for nav_def in module.fragment.nav_definitions:
-            if nav_def.name not in nav_def_index:
-                nav_def_index[nav_def.name] = nav_def
-                nav_definitions.append(nav_def)
+        for nav_def in module.fragment.navs:
+            if nav_def.name not in nav_index:
+                nav_index[nav_def.name] = nav_def
+                navs.append(nav_def)
 
     resolved_workspaces: list[ir.WorkspaceSpec] = []
     for workspace in symbols.workspaces.values():
         if workspace.nav_ref is None:
             resolved_workspaces.append(workspace)
             continue
-        resolved_def = nav_def_index.get(workspace.nav_ref)
+        resolved_def = nav_index.get(workspace.nav_ref)
         if resolved_def is None:
             # Unresolved reference — keep workspace as-is. Validation
             # surfaces this separately so the parse path stays simple.
@@ -1425,12 +1441,31 @@ def merge_fragments(modules: list[ir.ModuleIR], symbols: SymbolTable) -> ir.Modu
         merged_groups = [*resolved_def.groups, *workspace.nav_groups]
         resolved_workspaces.append(workspace.model_copy(update={"nav_groups": merged_groups}))
 
+    # #1075 — collect fields not tracked by SymbolTable directly from
+    # per-module fragments. Using `sum(..., [])` would be O(n^2); flatten
+    # via list-comprehension. First-occurrence wins for scalar fields
+    # (matches the convention used for llm_config / feedback_widget /
+    # analytics / tenancy elsewhere in this function).
+    def _flatten_list(field: str) -> list[Any]:
+        out: list[Any] = []
+        for m in modules:
+            out.extend(getattr(m.fragment, field, []) or [])
+        return out
+
+    def _first_scalar(field: str) -> Any:
+        for m in modules:
+            v = getattr(m.fragment, field, None)
+            if v is not None:
+                return v
+        return None
+
     return ir.ModuleFragment(
         entities=list(symbols.entities.values()),
         surfaces=list(symbols.surfaces.values()),
         workspaces=resolved_workspaces,
         experiences=list(symbols.experiences.values()),
         apis=list(symbols.apis.values()),
+        domain_services=list(symbols.domain_services.values()),  # #1070
         foreign_models=list(symbols.foreign_models.values()),
         integrations=list(symbols.integrations.values()),
         tests=list(symbols.tests.values()),
@@ -1459,6 +1494,26 @@ def merge_fragments(modules: list[ir.ModuleIR], symbols: SymbolTable) -> ir.Modu
         feedback_widget=symbols.feedback_widget,  # Feedback Widget
         subprocessors=list(symbols.subprocessors.values()),  # v0.61.0
         analytics=symbols.analytics,  # v0.61.0 Phase 3
-        nav_definitions=nav_definitions,  # v0.61.95 (#926)
+        navs=navs,  # v0.61.95 (#926)
         tenancy=symbols.tenancy,  # #957 cycle 3
+        # #1075 — fields not previously routed through the symbol table.
+        # Flattened across modules; first-occurrence wins for scalars.
+        archetypes=_flatten_list("archetypes"),
+        assets=_flatten_list("assets"),
+        channels=_flatten_list("channels"),
+        documents=_flatten_list("documents"),
+        e2e_flows=_flatten_list("e2e_flows"),
+        fixtures=_flatten_list("fixtures"),
+        interfaces=_first_scalar("interfaces"),
+        messages=_flatten_list("messages"),
+        params=_flatten_list("params"),
+        policies=_first_scalar("policies"),
+        projections=_flatten_list("projections"),
+        rules=_flatten_list("rules"),
+        streams=_flatten_list("streams"),
+        subscriptions=_flatten_list("subscriptions"),
+        templates=_flatten_list("templates"),
+        event_model=_first_scalar("event_model"),
+        hless_pragma=_first_scalar("hless_pragma"),
+        data_products=_first_scalar("data_products"),
     )

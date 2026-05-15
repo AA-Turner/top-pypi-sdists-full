@@ -126,3 +126,8 @@ class Color(tuple, Asset):
             return v
         else:
             raise TypeError(f"{argument}: invalid {name} type {type(v).__name__}")
+        
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Color",
+]

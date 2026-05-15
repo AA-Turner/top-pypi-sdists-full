@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-monitor-opentelemetry
-Version: 1.8.7
+Version: 1.8.8
 Summary: Microsoft Azure Monitor Opentelemetry Distro Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/monitor/azure-monitor-opentelemetry
 Author: Microsoft Corporation
@@ -11,7 +11,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -24,7 +23,7 @@ License-File: LICENSE
 License-File: NOTICE.txt
 Requires-Dist: azure-core<2.0.0,>=1.28.0
 Requires-Dist: azure-core-tracing-opentelemetry~=1.0.0b11
-Requires-Dist: azure-monitor-opentelemetry-exporter~=1.0.0b49
+Requires-Dist: azure-monitor-opentelemetry-exporter~=1.0.0b52
 Requires-Dist: opentelemetry-sdk==1.40
 Requires-Dist: opentelemetry-instrumentation-django==0.61b0
 Requires-Dist: opentelemetry-instrumentation-fastapi==0.61b0
@@ -93,7 +92,7 @@ To use this package, you must have:
 * Azure subscription - [Create a free account][azure_sub]
 * Azure Monitor - [How to use application insights][application_insights_namespace]
 * Opentelemetry SDK - [Opentelemetry SDK for Python][ot_sdk_python]
-* Python 3.9 or later - [Install Python][python]
+* Python 3.10 or later - [Install Python][python]
 
 ### Install the package
 

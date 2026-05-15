@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymc-extras
-Version: 0.10.0
+Version: 0.11.0
 Summary: A home for new additions to PyMC, which may include unusual probability distribitions, advanced model fitting algorithms, or any code that may be inappropriate to include in the pymc repository, but may want to be made available to users.
 Project-URL: Documentation, https://pymc-extras.readthedocs.io/
 Project-URL: Repository, https://github.com/pymc-devs/pymc-extras.git
@@ -226,18 +226,17 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Mathematics
-Requires-Python: >=3.11
-Requires-Dist: better-optimize>=0.1.5
-Requires-Dist: preliz>=0.20.0
+Requires-Python: >=3.12
+Requires-Dist: arviz>=1.1
+Requires-Dist: better-optimize<1.0,>=0.4.1
+Requires-Dist: preliz>=0.25.0
 Requires-Dist: pydantic>=2.0.0
-Requires-Dist: pymc>=5.28.1
-Requires-Dist: pytensor>=2.38.1
-Requires-Dist: scikit-learn
+Requires-Dist: pymc<7.0,>=6.0
 Provides-Extra: complete
 Requires-Dist: dask[complete]<2025.1.1; extra == 'complete'
 Requires-Dist: xhistogram; extra == 'complete'

@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: soniox
-Version: 2.3.2
+Version: 2.4.0
 Summary: The official Python SDK for the Soniox API (STT, REST)
-Project-URL: Homepage, https://sonoix.com
+Project-URL: Homepage, https://soniox.com
 Project-URL: Documentation, https://soniox.com/docs
 Project-URL: Repository, https://github.com/soniox/soniox-python
 Author-email: Soniox <support@soniox.com>
@@ -31,13 +31,20 @@ Requires-Dist: pydantic>2
 Requires-Dist: websockets>11.0
 Provides-Extra: dev
 Requires-Dist: griffe>=1.15.0; extra == 'dev'
-Requires-Dist: pyright>=1.1.0; extra == 'dev'
+Requires-Dist: polyfactory>=2.15.0; extra == 'dev'
+Requires-Dist: pyright>=1.1.409; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.23; extra == 'dev'
+Requires-Dist: pytest-cov>=5.0; extra == 'dev'
+Requires-Dist: pytest-timeout>=2.3; extra == 'dev'
+Requires-Dist: pytest>=8.0.0; extra == 'dev'
+Requires-Dist: respx>=0.21.1; extra == 'dev'
 Requires-Dist: ruff>=0.0.0; extra == 'dev'
 Description-Content-Type: text/markdown
 
 # Soniox Python SDK
 
 The SDK exposes two clients: `SonioxClient` (sync) and `AsyncSonioxClient` (async). Each client supports:
+
 - STT over REST (`client.stt`) and realtime WebSocket (`client.realtime.stt`)
 - TTS over REST (`client.tts`) and realtime WebSocket (`client.realtime.tts`)
 - auth, file uploads, model listing, webhooks, and typed request/response models
@@ -53,20 +60,23 @@ export SONIOX_API_KEY=<your-key>
 
 Get your API key from the [Soniox Console](https://console.soniox.com) and inject it once per shell session. Both clients read `SONIOX_API_KEY` by default, but you can override it per-client if needed.
 
+> **Avoid Python 3.13.6** - it has a regression in `ssl` that hangs realtime STT/TTS (CPython issue [#137583](https://github.com/python/cpython/issues/137583)). Use any other 3.10-3.13.x.
+
 ## Quick run (STT + TTS, REST + realtime)
 
-1. **REST STT transcription**: copy this snippet or run [`examples/soniox_client/api_example.py`](https://github.com/soniox/soniox-python/blob/main/examples/soniox_client/api_example.py).
+1. **REST STT transcription**: transcribe a local file end-to-end in one call. Full example: [`examples/soniox_client/api_example.py`](https://github.com/soniox/soniox-python/blob/main/examples/soniox_client/api_example.py).
 
 ```python
 from soniox import SonioxClient
 
 client = SonioxClient()
-transcription = client.stt.transcribe(
-    audio_url="https://soniox.com/media/examples/coffee_shop.mp3",
-    client_reference_id="docs-quick-start",
+transcript = client.stt.transcribe_and_wait_with_tokens(
+    file="path/to/audio.mp3",                # local file
+    # audio_url="https://example.com/audio.mp3",  # or remote URL
+    delete_after=True,                        # auto-cleanup file + transcription
 )
-client.stt.wait(transcription.id, timeout_sec=60)
-print(client.stt.get_transcript(transcription.id).text[:200])
+print(transcript.text)
+client.close()
 ```
 
 2. **REST TTS generation**: convert text to an audio file.
@@ -118,17 +128,19 @@ def realtime():
             non_final_tokens.clear()
 
 realtime()
+client.close()
 ```
 
 See [`examples/soniox_client/realtime_example.py`](https://github.com/soniox/soniox-python/blob/main/examples/soniox_client/realtime_example.py) for the full flow.
 
-4. **Realtime TTS streaming**: send text chunks and read generated audio chunks from the session.
+4. **Realtime TTS streaming**: send text chunks and write audio to a file as it arrives.
 
 ```python
 from uuid import uuid4
 
 from soniox import SonioxClient
 from soniox.types import RealtimeTTSConfig
+from soniox.utils import output_file_for_audio_format
 
 client = SonioxClient()
 config = RealtimeTTSConfig(
@@ -139,17 +151,18 @@ config = RealtimeTTSConfig(
     audio_format="wav",
 )
 
-audio_chunks: list[bytes] = []
-with client.realtime.tts.connect(config=config) as session:
-    session.keep_alive()
+output_file = output_file_for_audio_format("wav", "tts_realtime_output")
+bytes_written = 0
+with client.realtime.tts.connect(config=config) as session, output_file.open("wb") as f:
     session.send_text_chunks(
         ["Hello from realtime TTS. ", "This is the final chunk."],
         text_end=True,
     )
     for chunk in session.receive_audio_chunks():
-        audio_chunks.append(chunk)
+        f.write(chunk)
+        bytes_written += len(chunk)
 
-print(f"Collected {sum(len(c) for c in audio_chunks)} bytes of audio")
+print(f"Wrote {bytes_written} bytes to {output_file.resolve()}")
 ```
 
 Run the full example at [`examples/soniox_client/tts_realtime_example.py`](https://github.com/soniox/soniox-python/blob/main/examples/soniox_client/tts_realtime_example.py) or async version at [`examples/async_soniox_client/tts_realtime_example.py`](https://github.com/soniox/soniox-python/blob/main/examples/async_soniox_client/tts_realtime_example.py).

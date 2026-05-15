@@ -8,6 +8,7 @@ import collections.abc
 import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
+import sentry_protos.billing.v1.common.v1.address_pb2
 import sentry_protos.billing.v1.services.contract.v1.invoice_pb2
 import sentry_protos.billing.v1.services.contract.v1.pricing_config_pb2
 import typing
@@ -22,12 +23,15 @@ class CreateContractRequest(google.protobuf.message.Message):
     PACKAGE_UID_FIELD_NUMBER: builtins.int
     USER_CONFIGS_FIELD_NUMBER: builtins.int
     LINE_ITEMS_FIELD_NUMBER: builtins.int
+    ADDRESS_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
     package_uid: builtins.str
     @property
     def user_configs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.services.contract.v1.pricing_config_pb2.UserConfig]: ...
     @property
     def line_items(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.services.contract.v1.invoice_pb2.InvoiceLineItem]: ...
+    @property
+    def address(self) -> sentry_protos.billing.v1.common.v1.address_pb2.Address: ...
     def __init__(
         self,
         *,
@@ -35,8 +39,10 @@ class CreateContractRequest(google.protobuf.message.Message):
         package_uid: builtins.str = ...,
         user_configs: collections.abc.Iterable[sentry_protos.billing.v1.services.contract.v1.pricing_config_pb2.UserConfig] | None = ...,
         line_items: collections.abc.Iterable[sentry_protos.billing.v1.services.contract.v1.invoice_pb2.InvoiceLineItem] | None = ...,
+        address: sentry_protos.billing.v1.common.v1.address_pb2.Address | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["line_items", b"line_items", "organization_id", b"organization_id", "package_uid", b"package_uid", "user_configs", b"user_configs"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["address", b"address"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["address", b"address", "line_items", b"line_items", "organization_id", b"organization_id", "package_uid", b"package_uid", "user_configs", b"user_configs"]) -> None: ...
 
 global___CreateContractRequest = CreateContractRequest
 

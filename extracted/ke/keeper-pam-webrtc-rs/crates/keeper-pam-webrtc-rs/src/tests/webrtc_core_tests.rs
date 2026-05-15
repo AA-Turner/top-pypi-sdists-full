@@ -336,6 +336,7 @@ fn test_signal_message_creation() {
         kind: "keepalive".to_string(),
         data: "ping".to_string(),
         conversation_id: "test_conversation".to_string(),
+        signal_id: uuid::Uuid::new_v4().to_string(),
         progress_flag: Some(1),
         progress_status: Some("KEEPALIVE".to_string()),
         is_ok: Some(true),

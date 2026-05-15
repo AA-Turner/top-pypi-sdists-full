@@ -42,7 +42,7 @@ license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 name = "wllegal"
 requires-python = ">=3.11"
-version = "2026.3"
+version = "2026.4"
 
 [[project.authors]]
 email = "michal@weblate.org"
@@ -53,11 +53,11 @@ dev = [
   "wllegal[lint,test]"
 ]
 lint = [
-  "prek==0.3.8"
+  "prek==0.4.0"
 ]
 test = [
   "wllegal[weblate]",
-  "coverage==7.13.5",
+  "coverage==7.14.0",
   "translate-toolkit"
 ]
 weblate = [
@@ -156,6 +156,20 @@ select = ["ALL"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 16
+
+[tool.rumdl]
+disable = [
+  # We do not enforce heading
+  "first-line-heading",
+  # Avoid length limit checks
+  "line-length"
+]
+
+[tool.rumdl.per-file-ignores]
+"README.md" = [
+  # Allow HTML
+  "MD033"
+]
 
 [tool.setuptools]
 include-package-data = true

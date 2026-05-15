@@ -181,3 +181,8 @@ class Layer(ABC):
     def _clear_context(self) -> None:
         """Nettoie le contexte du layer"""
         self._get_coordinates().unbind_temporary_camera()
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Layer",
+]

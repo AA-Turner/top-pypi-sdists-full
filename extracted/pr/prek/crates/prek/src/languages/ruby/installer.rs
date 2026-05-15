@@ -223,7 +223,7 @@ impl RubyInstaller {
             }
         };
 
-        let Some(version) = versions.into_iter().find(|v| request.matches(v, None)) else {
+        let Some(version) = versions.into_iter().find(|v| request.matches(v)) else {
             anyhow::bail!(ruby_not_found_error(
                 request,
                 &format!("No rv-ruby release found matching: {request}")
@@ -251,7 +251,7 @@ impl RubyInstaller {
             })
             .sorted_unstable_by(|(a, _), (b, _)| b.cmp(a)) // descending
             .find_map(|(version, ruby_bin)| {
-                if request.matches(&version, Some(&ruby_bin)) {
+                if request.matches(&version) {
                     Some(RubyResult {
                         ruby_bin,
                         version,
@@ -400,7 +400,7 @@ async fn try_ruby_path(ruby_path: &Path, request: &RubyRequest) -> Option<RubyRe
                 engine,
             };
 
-            if request.matches(&result.version, Some(&result.ruby_bin)) {
+            if request.matches(&result.version) {
                 Some(result)
             } else {
                 None
@@ -459,7 +459,7 @@ async fn search_version_managers(request: &RubyRequest) -> Option<RubyResult> {
 /// Search a version manager directory for Ruby installations
 #[cfg(not(target_os = "windows"))]
 async fn search_ruby_installations(dir: &Path, request: &RubyRequest) -> Option<RubyResult> {
-    let entries = std::fs::read_dir(dir).ok()?;
+    let entries = fs_err::read_dir(dir).ok()?;
 
     for entry in entries.flatten() {
         let path = entry.path();
@@ -555,7 +555,7 @@ pub(crate) async fn query_ruby_info(ruby_path: &Path) -> Result<(semver::Version
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
+    use fs_err as fs;
     use std::str::FromStr;
     use target_lexicon::Triple;
     use tempfile::TempDir;

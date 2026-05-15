@@ -63,6 +63,8 @@ class Choice(BaseModel):
 
 
 class UsageCompletionTokensDetails(BaseModel):
+    """Breakdown of tokens used in a completion."""
+
     accepted_prediction_tokens: Optional[int] = None
 
     audio_tokens: Optional[int] = None
@@ -85,6 +87,8 @@ class UsageCompletionTokensDetails(BaseModel):
 
 
 class UsagePromptTokensDetails(BaseModel):
+    """Breakdown of tokens used in the prompt."""
+
     audio_tokens: Optional[int] = None
 
     cached_tokens: Optional[int] = None
@@ -103,6 +107,8 @@ class UsagePromptTokensDetails(BaseModel):
 
 
 class Usage(BaseModel):
+    """Usage statistics for the completion request."""
+
     completion_tokens: int
 
     prompt_tokens: int
@@ -110,8 +116,10 @@ class Usage(BaseModel):
     total_tokens: int
 
     completion_tokens_details: Optional[UsageCompletionTokensDetails] = None
+    """Breakdown of tokens used in a completion."""
 
     prompt_tokens_details: Optional[UsagePromptTokensDetails] = None
+    """Breakdown of tokens used in the prompt."""
 
     if TYPE_CHECKING:
         # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
@@ -140,6 +148,7 @@ class CompletionV5(BaseModel):
     system_fingerprint: Optional[str] = None
 
     usage: Optional[Usage] = None
+    """Usage statistics for the completion request."""
 
     if TYPE_CHECKING:
         # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a

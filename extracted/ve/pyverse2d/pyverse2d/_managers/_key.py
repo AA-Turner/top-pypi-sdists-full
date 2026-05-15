@@ -3,11 +3,12 @@ from __future__ import annotations
 
 from .._internal import profile_section
 from ..abc import Manager
+from ..typing import Key
 
 from ._context import ContextManager
 
 import pyglet.window.key as _key
-from typing import TypeAlias
+from typing import ClassVar
 
 # ======================================== STR ========================================
 _NAMES: dict[KeyManager.Key, str] = {
@@ -60,98 +61,95 @@ class KeyManager(Manager):
     """
     __slots__ = ("_step", "_pressed", "_released_this_frame")
 
-    _ID: str = "key"
-
-    # Alias
-    Key: TypeAlias = int
+    _ID: ClassVar[str] = "key"
 
     # Lettres
-    K_A = _key.A
-    K_B = _key.B
-    K_C = _key.C
-    K_D = _key.D
-    K_E = _key.E
-    K_F = _key.F
-    K_G = _key.G
-    K_H = _key.H
-    K_I = _key.I
-    K_J = _key.J
-    K_K = _key.K
-    K_L = _key.L
-    K_M = _key.M
-    K_N = _key.N
-    K_O = _key.O
-    K_P = _key.P
-    K_Q = _key.Q
-    K_R = _key.R
-    K_S = _key.S
-    K_T = _key.T
-    K_U = _key.U
-    K_V = _key.V
-    K_W = _key.W
-    K_X = _key.X
-    K_Y = _key.Y
-    K_Z = _key.Z
+    K_A: ClassVar[int] = _key.A
+    K_B: ClassVar[int] = _key.B
+    K_C: ClassVar[int] = _key.C
+    K_D: ClassVar[int] = _key.D
+    K_E: ClassVar[int] = _key.E
+    K_F: ClassVar[int] = _key.F
+    K_G: ClassVar[int] = _key.G
+    K_H: ClassVar[int] = _key.H
+    K_I: ClassVar[int] = _key.I
+    K_J: ClassVar[int] = _key.J
+    K_K: ClassVar[int] = _key.K
+    K_L: ClassVar[int] = _key.L
+    K_M: ClassVar[int] = _key.M
+    K_N: ClassVar[int] = _key.N
+    K_O: ClassVar[int] = _key.O
+    K_P: ClassVar[int] = _key.P
+    K_Q: ClassVar[int] = _key.Q
+    K_R: ClassVar[int] = _key.R
+    K_S: ClassVar[int] = _key.S
+    K_T: ClassVar[int] = _key.T
+    K_U: ClassVar[int] = _key.U
+    K_V: ClassVar[int] = _key.V
+    K_W: ClassVar[int] = _key.W
+    K_X: ClassVar[int] = _key.X
+    K_Y: ClassVar[int] = _key.Y
+    K_Z: ClassVar[int] = _key.Z
 
     # Rangée de chiffres
-    K_0 = _key._0
-    K_1 = _key._1
-    K_2 = _key._2
-    K_3 = _key._3
-    K_4 = _key._4
-    K_5 = _key._5
-    K_6 = _key._6
-    K_7 = _key._7
-    K_8 = _key._8
-    K_9 = _key._9
+    K_0: ClassVar[int] = _key._0
+    K_1: ClassVar[int] = _key._1
+    K_2: ClassVar[int] = _key._2
+    K_3: ClassVar[int] = _key._3
+    K_4: ClassVar[int] = _key._4
+    K_5: ClassVar[int] = _key._5
+    K_6: ClassVar[int] = _key._6
+    K_7: ClassVar[int] = _key._7
+    K_8: ClassVar[int] = _key._8
+    K_9: ClassVar[int] = _key._9
 
     # Numpad
-    K_NUM_0 = _key.NUM_0
-    K_NUM_1 = _key.NUM_1
-    K_NUM_2 = _key.NUM_2
-    K_NUM_3 = _key.NUM_3
-    K_NUM_4 = _key.NUM_4
-    K_NUM_5 = _key.NUM_5
-    K_NUM_6 = _key.NUM_6
-    K_NUM_7 = _key.NUM_7
-    K_NUM_8 = _key.NUM_8
-    K_NUM_9 = _key.NUM_9
+    K_NUM_0: ClassVar[int] = _key.NUM_0
+    K_NUM_1: ClassVar[int] = _key.NUM_1
+    K_NUM_2: ClassVar[int] = _key.NUM_2
+    K_NUM_3: ClassVar[int] = _key.NUM_3
+    K_NUM_4: ClassVar[int] = _key.NUM_4
+    K_NUM_5: ClassVar[int] = _key.NUM_5
+    K_NUM_6: ClassVar[int] = _key.NUM_6
+    K_NUM_7: ClassVar[int] = _key.NUM_7
+    K_NUM_8: ClassVar[int] = _key.NUM_8
+    K_NUM_9: ClassVar[int] = _key.NUM_9
 
     # Navigation
-    K_UP = _key.UP
-    K_DOWN = _key.DOWN
-    K_LEFT = _key.LEFT
-    K_RIGHT = _key.RIGHT
+    K_UP: ClassVar[int] = _key.UP
+    K_DOWN: ClassVar[int] = _key.DOWN
+    K_LEFT: ClassVar[int] = _key.LEFT
+    K_RIGHT: ClassVar[int] = _key.RIGHT
 
     # Modificateurs
-    K_LSHIFT = _key.LSHIFT
-    K_RSHIFT = _key.RSHIFT
-    K_LCTRL = _key.LCTRL
-    K_RCTRL = _key.RCTRL
-    K_LALT = _key.LALT
-    K_RALT = _key.RALT
+    K_LSHIFT: ClassVar[int] = _key.LSHIFT
+    K_RSHIFT: ClassVar[int] = _key.RSHIFT
+    K_LCTRL: ClassVar[int] = _key.LCTRL
+    K_RCTRL: ClassVar[int] = _key.RCTRL
+    K_LALT: ClassVar[int] = _key.LALT
+    K_RALT: ClassVar[int] = _key.RALT
 
     # Actions
-    K_SPACE = _key.SPACE
-    K_ENTER = _key.RETURN
-    K_BACKSPACE = _key.BACKSPACE
-    K_TAB = _key.TAB
-    K_ESCAPE = _key.ESCAPE
-    K_DELETE = _key.DELETE
+    K_SPACE: ClassVar[int] = _key.SPACE
+    K_ENTER: ClassVar[int] = _key.RETURN
+    K_BACKSPACE: ClassVar[int] = _key.BACKSPACE
+    K_TAB: ClassVar[int] = _key.TAB
+    K_ESCAPE: ClassVar[int] = _key.ESCAPE
+    K_DELETE: ClassVar[int] = _key.DELETE
 
     # Fonctions
-    K_F1 = _key.F1
-    K_F2 = _key.F2
-    K_F3 = _key.F3
-    K_F4 = _key.F4
-    K_F5 = _key.F5
-    K_F6 = _key.F6
-    K_F7 = _key.F7
-    K_F8 = _key.F8
-    K_F9 = _key.F9
-    K_F10 = _key.F10
-    K_F11 = _key.F11
-    K_F12 = _key.F12
+    K_F1: ClassVar[int] = _key.F1
+    K_F2: ClassVar[int] = _key.F2
+    K_F3: ClassVar[int] = _key.F3
+    K_F4: ClassVar[int] = _key.F4
+    K_F5: ClassVar[int] = _key.F5
+    K_F6: ClassVar[int] = _key.F6
+    K_F7: ClassVar[int] = _key.F7
+    K_F8: ClassVar[int] = _key.F8
+    K_F9: ClassVar[int] = _key.F9
+    K_F10: ClassVar[int] = _key.F10
+    K_F11: ClassVar[int] = _key.F11
+    K_F12: ClassVar[int] = _key.F12
 
     def __init__(self, context_manager: ContextManager):
         # Initialisation du gestionnaire

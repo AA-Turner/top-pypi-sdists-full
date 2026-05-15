@@ -8,7 +8,7 @@ from typing_extensions import Literal
 import httpx
 
 from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -87,7 +87,11 @@ class ChunksResource(SyncAPIResource):
         if not artifact_id:
             raise ValueError(f"Expected a non-empty value for `artifact_id` but received {artifact_id!r}")
         return self._post(
-            f"/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks",
+                knowledge_base_id=knowledge_base_id,
+                artifact_id=artifact_id,
+            ),
             body=maybe_transform(
                 {
                     "chunk_position": chunk_position,
@@ -134,7 +138,12 @@ class ChunksResource(SyncAPIResource):
         if not chunk_id:
             raise ValueError(f"Expected a non-empty value for `chunk_id` but received {chunk_id!r}")
         return self._get(
-            f"/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks/{chunk_id}",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks/{chunk_id}",
+                knowledge_base_id=knowledge_base_id,
+                artifact_id=artifact_id,
+                chunk_id=chunk_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -186,7 +195,11 @@ class ChunksResource(SyncAPIResource):
         if not artifact_id:
             raise ValueError(f"Expected a non-empty value for `artifact_id` but received {artifact_id!r}")
         return self._get_api_list(
-            f"/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks",
+                knowledge_base_id=knowledge_base_id,
+                artifact_id=artifact_id,
+            ),
             page=SyncPageResponse[ChunkListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -237,7 +250,12 @@ class ChunksResource(SyncAPIResource):
         if not chunk_id:
             raise ValueError(f"Expected a non-empty value for `chunk_id` but received {chunk_id!r}")
         return self._delete(
-            f"/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks/{chunk_id}",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks/{chunk_id}",
+                knowledge_base_id=knowledge_base_id,
+                artifact_id=artifact_id,
+                chunk_id=chunk_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -285,7 +303,12 @@ class ChunksResource(SyncAPIResource):
         if not chunk_id:
             raise ValueError(f"Expected a non-empty value for `chunk_id` but received {chunk_id!r}")
         return self._put(
-            f"/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks/{chunk_id}",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks/{chunk_id}",
+                knowledge_base_id=knowledge_base_id,
+                artifact_id=artifact_id,
+                chunk_id=chunk_id,
+            ),
             body=maybe_transform(
                 {
                     "chunk_position": chunk_position,
@@ -359,7 +382,11 @@ class AsyncChunksResource(AsyncAPIResource):
         if not artifact_id:
             raise ValueError(f"Expected a non-empty value for `artifact_id` but received {artifact_id!r}")
         return await self._post(
-            f"/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks",
+                knowledge_base_id=knowledge_base_id,
+                artifact_id=artifact_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "chunk_position": chunk_position,
@@ -406,7 +433,12 @@ class AsyncChunksResource(AsyncAPIResource):
         if not chunk_id:
             raise ValueError(f"Expected a non-empty value for `chunk_id` but received {chunk_id!r}")
         return await self._get(
-            f"/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks/{chunk_id}",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks/{chunk_id}",
+                knowledge_base_id=knowledge_base_id,
+                artifact_id=artifact_id,
+                chunk_id=chunk_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -458,7 +490,11 @@ class AsyncChunksResource(AsyncAPIResource):
         if not artifact_id:
             raise ValueError(f"Expected a non-empty value for `artifact_id` but received {artifact_id!r}")
         return self._get_api_list(
-            f"/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks",
+                knowledge_base_id=knowledge_base_id,
+                artifact_id=artifact_id,
+            ),
             page=AsyncPageResponse[ChunkListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -509,7 +545,12 @@ class AsyncChunksResource(AsyncAPIResource):
         if not chunk_id:
             raise ValueError(f"Expected a non-empty value for `chunk_id` but received {chunk_id!r}")
         return await self._delete(
-            f"/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks/{chunk_id}",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks/{chunk_id}",
+                knowledge_base_id=knowledge_base_id,
+                artifact_id=artifact_id,
+                chunk_id=chunk_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -557,7 +598,12 @@ class AsyncChunksResource(AsyncAPIResource):
         if not chunk_id:
             raise ValueError(f"Expected a non-empty value for `chunk_id` but received {chunk_id!r}")
         return await self._put(
-            f"/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks/{chunk_id}",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/artifacts/{artifact_id}/chunks/{chunk_id}",
+                knowledge_base_id=knowledge_base_id,
+                artifact_id=artifact_id,
+                chunk_id=chunk_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "chunk_position": chunk_position,

@@ -8,7 +8,7 @@ import httpx
 
 from ..types import deployment_package_install_params, deployment_package_install_async_params
 from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from .._utils import maybe_transform, async_maybe_transform
+from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -86,7 +86,7 @@ class DeploymentPackagesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/v4/deployment-packages/{account_id}/install",
+            path_template("/v4/deployment-packages/{account_id}/install", account_id=account_id),
             body=maybe_transform(
                 {
                     "deployment_package_id": deployment_package_id,
@@ -144,7 +144,7 @@ class DeploymentPackagesResource(SyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
-            f"/v4/deployment-packages/{account_id}/install_async",
+            path_template("/v4/deployment-packages/{account_id}/install_async", account_id=account_id),
             body=maybe_transform(
                 {
                     "deployment_package_id": deployment_package_id,
@@ -223,7 +223,7 @@ class AsyncDeploymentPackagesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/v4/deployment-packages/{account_id}/install",
+            path_template("/v4/deployment-packages/{account_id}/install", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "deployment_package_id": deployment_package_id,
@@ -281,7 +281,7 @@ class AsyncDeploymentPackagesResource(AsyncAPIResource):
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
-            f"/v4/deployment-packages/{account_id}/install_async",
+            path_template("/v4/deployment-packages/{account_id}/install_async", account_id=account_id),
             body=await async_maybe_transform(
                 {
                     "deployment_package_id": deployment_package_id,

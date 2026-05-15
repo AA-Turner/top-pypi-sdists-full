@@ -7,6 +7,7 @@ import platform
 import shutil
 import subprocess
 import tarfile
+import threading
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,6 +22,10 @@ BUNDLE_HEADERS = {
 }
 
 ESBUILD_VERSION = "0.25.12"
+
+_esbuild_lock = threading.Lock()
+_bundle_locks_guard = threading.Lock()
+_bundle_locks: dict[str, threading.Lock] = {}
 
 
 @dataclass(frozen=True)
@@ -122,24 +127,28 @@ def cached_esbuild_binary() -> Path:
     if bin_path.exists():
         return bin_path
 
-    bin_path.parent.mkdir(parents=True, exist_ok=True)
-    meta_url = f"https://registry.npmjs.org/{package.replace('/', '%2f')}/{ESBUILD_VERSION}"
-    with urllib.request.urlopen(meta_url, timeout=20) as resp:
-        meta = json.loads(resp.read().decode())
-    tarball_url = meta["dist"]["tarball"]
-    tar_path = bin_path.with_suffix(".tgz")
-    urllib.request.urlretrieve(tarball_url, tar_path)
+    with _esbuild_lock:
+        if bin_path.exists():
+            return bin_path
 
-    with tarfile.open(tar_path) as tar:
-        member = next((m for m in tar.getmembers() if m.name.endswith("/bin/esbuild")), None)
-        if member is None:
-            raise RuntimeError("esbuild tarball did not contain bin/esbuild")
-        extracted = tar.extractfile(member)
-        if extracted is None:
-            raise RuntimeError("failed to extract esbuild binary")
-        bin_path.write_bytes(extracted.read())
-    tar_path.unlink(missing_ok=True)
-    bin_path.chmod(0o755)
+        bin_path.parent.mkdir(parents=True, exist_ok=True)
+        meta_url = f"https://registry.npmjs.org/{package.replace('/', '%2f')}/{ESBUILD_VERSION}"
+        with urllib.request.urlopen(meta_url, timeout=20) as resp:
+            meta = json.loads(resp.read().decode())
+        tarball_url = meta["dist"]["tarball"]
+        tar_path = bin_path.with_suffix(".tgz")
+        urllib.request.urlretrieve(tarball_url, tar_path)
+
+        with tarfile.open(tar_path) as tar:
+            member = next((m for m in tar.getmembers() if m.name.endswith("/bin/esbuild")), None)
+            if member is None:
+                raise RuntimeError("esbuild tarball did not contain bin/esbuild")
+            extracted = tar.extractfile(member)
+            if extracted is None:
+                raise RuntimeError("failed to extract esbuild binary")
+            bin_path.write_bytes(extracted.read())
+        tar_path.unlink(missing_ok=True)
+        bin_path.chmod(0o755)
     return bin_path
 
 
@@ -148,6 +157,15 @@ def esbuild_binary() -> str:
     if found:
         return found
     return str(cached_esbuild_binary())
+
+
+def bundle_lock(cache_key: str) -> threading.Lock:
+    with _bundle_locks_guard:
+        lock = _bundle_locks.get(cache_key)
+        if lock is None:
+            lock = threading.Lock()
+            _bundle_locks[cache_key] = lock
+        return lock
 
 
 def build_page_bundle(component_path: str, packages: list[str]) -> BundleResult:
@@ -160,32 +178,52 @@ def build_page_bundle(component_path: str, packages: list[str]) -> BundleResult:
     if out_path.exists():
         return BundleResult(path=out_path, cache_key=key, cached=True)
 
-    cmd = [
-        esbuild_binary(),
-        str(entry),
-        "--bundle",
-        "--format=esm",
-        "--platform=browser",
-        "--jsx=automatic",
-        "--log-level=warning",
-        f"--outfile={out_path}",
-        *external_args(packages),
-    ]
-    proc = subprocess.run(cmd, cwd=Path.cwd(), capture_output=True, text=True)
-    if proc.returncode != 0:
-        raise RuntimeError((proc.stderr or proc.stdout or "esbuild failed").strip())
+    with bundle_lock(key):
+        if out_path.exists():
+            return BundleResult(path=out_path, cache_key=key, cached=True)
+
+        tmp_path = out_path.with_name(
+            f"{out_path.stem}.{os.getpid()}.{threading.get_ident()}.tmp.js"
+        )
+        cmd = [
+            esbuild_binary(),
+            str(entry),
+            "--bundle",
+            "--format=esm",
+            "--platform=browser",
+            "--jsx=automatic",
+            "--log-level=warning",
+            f"--outfile={tmp_path}",
+            *external_args(packages),
+        ]
+        proc = subprocess.run(cmd, cwd=Path.cwd(), capture_output=True, text=True)
+        if proc.returncode != 0:
+            tmp_path.unlink(missing_ok=True)
+            raise RuntimeError((proc.stderr or proc.stdout or "esbuild failed").strip())
+        tmp_path.replace(out_path)
     return BundleResult(path=out_path, cache_key=key, cached=False)
 
 
+def bundle_cache_control(version: str | None, env: str | None = None) -> str:
+    if env == "serve":
+        return BUNDLE_HEADERS["Cache-Control"]
+    if version and version != "latest":
+        return "public, max-age=31536000, immutable"
+    return BUNDLE_HEADERS["Cache-Control"]
+
+
 def page_bundle_handler(component_path: str, packages: list[str] | None = None):
-    async def handler(_request: web.Request) -> web.StreamResponse:
+    async def handler(request: web.Request) -> web.StreamResponse:
         try:
             result = build_page_bundle(component_path, packages or [])
         except Exception as exc:
             return web.json_response({"error": "bundle_failed", "message": str(exc)}, status=503)
 
+        version = request.query.get("version") or request.query.get("version_id")
+        env = request.query.get("env")
         headers = {
             **BUNDLE_HEADERS,
+            "Cache-Control": bundle_cache_control(version, env),
             "ETag": result.cache_key,
             "X-Capsule-Bundle-Cache": "hit" if result.cached else "miss",
         }

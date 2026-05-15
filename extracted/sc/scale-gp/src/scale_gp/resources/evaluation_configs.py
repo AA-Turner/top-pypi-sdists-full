@@ -8,7 +8,7 @@ import httpx
 
 from ..types import evaluation_config_list_params, evaluation_config_create_params
 from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from .._utils import required_args, maybe_transform, async_maybe_transform
+from .._utils import path_template, required_args, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -61,6 +61,11 @@ class EvaluationConfigsResource(SyncAPIResource):
             "gpt-4.1",
             "gpt-4.1-mini",
             "gpt-4.1-nano",
+            "gpt-5-nano",
+            "gpt-5-mini",
+            "gpt-5",
+            "gpt-5.1",
+            "gpt-5.2",
             "o1",
             "o3",
             "o3-mini",
@@ -170,6 +175,11 @@ class EvaluationConfigsResource(SyncAPIResource):
             "gpt-4.1",
             "gpt-4.1-mini",
             "gpt-4.1-nano",
+            "gpt-5-nano",
+            "gpt-5-mini",
+            "gpt-5",
+            "gpt-5.1",
+            "gpt-5.2",
             "o1",
             "o3",
             "o3-mini",
@@ -244,7 +254,7 @@ class EvaluationConfigsResource(SyncAPIResource):
                 f"Expected a non-empty value for `evaluation_config_id` but received {evaluation_config_id!r}"
             )
         return self._get(
-            f"/v4/evaluation-configs/{evaluation_config_id}",
+            path_template("/v4/evaluation-configs/{evaluation_config_id}", evaluation_config_id=evaluation_config_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -346,7 +356,7 @@ class EvaluationConfigsResource(SyncAPIResource):
                 f"Expected a non-empty value for `evaluation_config_id` but received {evaluation_config_id!r}"
             )
         return self._delete(
-            f"/v4/evaluation-configs/{evaluation_config_id}",
+            path_template("/v4/evaluation-configs/{evaluation_config_id}", evaluation_config_id=evaluation_config_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -389,6 +399,11 @@ class AsyncEvaluationConfigsResource(AsyncAPIResource):
             "gpt-4.1",
             "gpt-4.1-mini",
             "gpt-4.1-nano",
+            "gpt-5-nano",
+            "gpt-5-mini",
+            "gpt-5",
+            "gpt-5.1",
+            "gpt-5.2",
             "o1",
             "o3",
             "o3-mini",
@@ -498,6 +513,11 @@ class AsyncEvaluationConfigsResource(AsyncAPIResource):
             "gpt-4.1",
             "gpt-4.1-mini",
             "gpt-4.1-nano",
+            "gpt-5-nano",
+            "gpt-5-mini",
+            "gpt-5",
+            "gpt-5.1",
+            "gpt-5.2",
             "o1",
             "o3",
             "o3-mini",
@@ -572,7 +592,7 @@ class AsyncEvaluationConfigsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `evaluation_config_id` but received {evaluation_config_id!r}"
             )
         return await self._get(
-            f"/v4/evaluation-configs/{evaluation_config_id}",
+            path_template("/v4/evaluation-configs/{evaluation_config_id}", evaluation_config_id=evaluation_config_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -674,7 +694,7 @@ class AsyncEvaluationConfigsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `evaluation_config_id` but received {evaluation_config_id!r}"
             )
         return await self._delete(
-            f"/v4/evaluation-configs/{evaluation_config_id}",
+            path_template("/v4/evaluation-configs/{evaluation_config_id}", evaluation_config_id=evaluation_config_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

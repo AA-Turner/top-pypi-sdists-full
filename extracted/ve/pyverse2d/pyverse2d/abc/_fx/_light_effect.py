@@ -15,3 +15,8 @@ class LightEffect(ABC):
     def id(cls) -> str:
         """Renvoie l'identifiant de l'effet"""
         return cls._ID
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "LightEffect",
+]

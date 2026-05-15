@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing_extensions import Required, TypedDict
 
-from .._types import FileTypes, SequenceNotStr
+from .._types import SequenceNotStr
 
 __all__ = ["ApplicationUploadFilesParams"]
 
 
 class ApplicationUploadFilesParams(TypedDict, total=False):
-    files: Required[SequenceNotStr[FileTypes]]
+    files: Required[SequenceNotStr[str]]
     """Upload files to be used in an application."""
 
     account_id: str

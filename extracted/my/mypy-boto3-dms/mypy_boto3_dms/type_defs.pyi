@@ -195,6 +195,7 @@ __all__ = (
     "DescribeEventsMessageTypeDef",
     "DescribeEventsResponseTypeDef",
     "DescribeExtensionPackAssociationsMessageTypeDef",
+    "DescribeExtensionPackAssociationsMessageWaitTypeDef",
     "DescribeExtensionPackAssociationsResponseTypeDef",
     "DescribeFleetAdvisorCollectorsRequestTypeDef",
     "DescribeFleetAdvisorCollectorsResponseTypeDef",
@@ -209,20 +210,28 @@ __all__ = (
     "DescribeInstanceProfilesMessageTypeDef",
     "DescribeInstanceProfilesResponseTypeDef",
     "DescribeMetadataModelAssessmentsMessageTypeDef",
+    "DescribeMetadataModelAssessmentsMessageWaitTypeDef",
     "DescribeMetadataModelAssessmentsResponseTypeDef",
     "DescribeMetadataModelChildrenMessagePaginateTypeDef",
     "DescribeMetadataModelChildrenMessageTypeDef",
     "DescribeMetadataModelChildrenResponseTypeDef",
     "DescribeMetadataModelConversionsMessageTypeDef",
+    "DescribeMetadataModelConversionsMessageWaitExtraTypeDef",
+    "DescribeMetadataModelConversionsMessageWaitTypeDef",
     "DescribeMetadataModelConversionsResponseTypeDef",
     "DescribeMetadataModelCreationsMessagePaginateTypeDef",
     "DescribeMetadataModelCreationsMessageTypeDef",
+    "DescribeMetadataModelCreationsMessageWaitExtraTypeDef",
+    "DescribeMetadataModelCreationsMessageWaitTypeDef",
     "DescribeMetadataModelCreationsResponseTypeDef",
     "DescribeMetadataModelExportsAsScriptMessageTypeDef",
+    "DescribeMetadataModelExportsAsScriptMessageWaitTypeDef",
     "DescribeMetadataModelExportsAsScriptResponseTypeDef",
     "DescribeMetadataModelExportsToTargetMessageTypeDef",
+    "DescribeMetadataModelExportsToTargetMessageWaitTypeDef",
     "DescribeMetadataModelExportsToTargetResponseTypeDef",
     "DescribeMetadataModelImportsMessageTypeDef",
+    "DescribeMetadataModelImportsMessageWaitTypeDef",
     "DescribeMetadataModelImportsResponseTypeDef",
     "DescribeMetadataModelMessageTypeDef",
     "DescribeMetadataModelResponseTypeDef",
@@ -2307,6 +2316,69 @@ class DescribeEndpointsMessageWaitTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
     MaxRecords: NotRequired[int]
     Marker: NotRequired[str]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeExtensionPackAssociationsMessageWaitTypeDef(TypedDict):
+    MigrationProjectIdentifier: str
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    Marker: NotRequired[str]
+    MaxRecords: NotRequired[int]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeMetadataModelAssessmentsMessageWaitTypeDef(TypedDict):
+    MigrationProjectIdentifier: str
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    Marker: NotRequired[str]
+    MaxRecords: NotRequired[int]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeMetadataModelConversionsMessageWaitExtraTypeDef(TypedDict):
+    MigrationProjectIdentifier: str
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    Marker: NotRequired[str]
+    MaxRecords: NotRequired[int]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeMetadataModelConversionsMessageWaitTypeDef(TypedDict):
+    MigrationProjectIdentifier: str
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    Marker: NotRequired[str]
+    MaxRecords: NotRequired[int]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeMetadataModelCreationsMessageWaitExtraTypeDef(TypedDict):
+    MigrationProjectIdentifier: str
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    Marker: NotRequired[str]
+    MaxRecords: NotRequired[int]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeMetadataModelCreationsMessageWaitTypeDef(TypedDict):
+    MigrationProjectIdentifier: str
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    Marker: NotRequired[str]
+    MaxRecords: NotRequired[int]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeMetadataModelExportsAsScriptMessageWaitTypeDef(TypedDict):
+    MigrationProjectIdentifier: str
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    Marker: NotRequired[str]
+    MaxRecords: NotRequired[int]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeMetadataModelExportsToTargetMessageWaitTypeDef(TypedDict):
+    MigrationProjectIdentifier: str
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    Marker: NotRequired[str]
+    MaxRecords: NotRequired[int]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeMetadataModelImportsMessageWaitTypeDef(TypedDict):
+    MigrationProjectIdentifier: str
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    Marker: NotRequired[str]
+    MaxRecords: NotRequired[int]
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 class DescribeReplicationInstancesMessageWaitExtraTypeDef(TypedDict):

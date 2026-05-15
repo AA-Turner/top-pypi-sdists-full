@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._internal import expect
+from ..._internal import expect, over
 from ..._rendering import Pipeline, PygletShapeRenderer
 from ...typing import BorderAlign
 from ...asset import Color
@@ -10,7 +10,7 @@ from ...math import Point
 
 from .._context import RenderContext
 
-from numbers import Real
+from numbers import Real, Integral
 
 # ======================================== WIDGET ========================================
 class Border(Widget):
@@ -23,7 +23,7 @@ class Border(Widget):
         width: largeur de la bodure
         align: alignement de la bordure
         color: couleur de la bordure
-        opacité: opacité [0; 1]
+        opacité: opacité *[0, 1]*
         clipping: rendu des widgets enfants strictement dans le AABB de la hitbox
     """
     __slots__ = (
@@ -38,24 +38,28 @@ class Border(Widget):
             anchor: Point = (0.5, 0.5),
             scale: Real = 1.0,
             rotation: Real = 0.0,
-            width: int = 1,
+            width: Integral = 1,
             align: BorderAlign = "center",
             color: Color = (0, 0, 0),
             opacity: Real = 1.0,
             clipping: bool = False
         ):
+        # Transtypage et vérifications
+        color = Color(color)
+        width = int(width)
+
+        if __debug__:
+            expect(self._shape, Shape)
+            over(width, 0, include=False)
+            expect(self._align, BorderAlign)
+
         # Attributs publiques
         self._shape: Shape = shape
         self._width: int = width
         self._align: BorderAlign = align
         self._color: Color = Color(color)
 
-        if __debug__:
-            expect(self._shape, Shape)
-            expect(self._width, int)
-            expect(self._align, str)
-
-        # Attributs privés
+        # Attributs internes
         self._shape_renderer: PygletShapeRenderer = None
 
         # Initialisation du widget
@@ -73,20 +77,23 @@ class Border(Widget):
     
     @shape.setter
     def shape(self, value: Shape) -> None:
-        assert isinstance(value, Shape), f"shape ({value}) must be a Shape object"
+        if __debug__:
+            expect(value, Shape)
         self._shape = value.copy()
         self._invalidate_geometry()
         self._invalidate_scissor()
     
     @property
     def width(self) -> int:
-        """Largeur de la bordure"""
+        """Largeur de la bordure
+        
+        La largeur doit être un ``Integral`` strictement positif.
+        """
         return self._width
     
     @width.setter
-    def width(self, value: int) -> None:
-        if __debug__:
-            expect(value, int)
+    def width(self, value: Integral) -> None:
+        value = int(value)
         self._width = value
     
     @property
@@ -100,12 +107,16 @@ class Border(Widget):
     
     @property
     def color(self) -> Color:
-        """Couleur de la bordure"""
+        """Couleur de la bordure
+
+        La couleur peut être un objet ``Color`` ou n'importe quel tuple ``(r, g, b)`` ou ``(r, g, b, a)``
+        """
         return self._color
     
     @color.setter
     def color(self, value: Color) -> None:
-        self._color = Color(value)
+        value = Color(value)
+        self._color = value
     
     @property
     def hitbox(self) -> Shape:
@@ -151,7 +162,12 @@ class Border(Widget):
         ...
     
     def _draw(self, pipeline: Pipeline, context: RenderContext) -> None:
-        """Affichage"""
+        """Affichage
+        
+        Args:
+            pipeline: ``Pipeline`` de rendu courant
+            context: courant de rendu courant
+        """
         # Construction du renderer
         if self._shape_renderer is None:
             self._shape_renderer = PygletShapeRenderer(
@@ -180,10 +196,12 @@ class Border(Widget):
             )
  
     def _destroy(self) -> None:
-        """
-        Libère les ressources pyglet et se détache de son parent.
-        À appeler explicitement quand le widget n'est plus utilisé.
-        """
+        """Libère les ressources pyglet et se détache de son parent"""
         if self._shape_renderer is not None:
             self._shape_renderer.delete()
             self._shape_renderer = None
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Border",
+]

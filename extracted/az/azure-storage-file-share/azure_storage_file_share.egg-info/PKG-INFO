@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-storage-file-share
-Version: 12.24.0
+Version: 12.25.0
 Summary: Microsoft Azure Azure File Share Storage Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/storage/azure-storage-file-share
 Author: Microsoft Corporation
@@ -21,12 +21,12 @@ Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: azure-core>=1.30.0
+Requires-Dist: azure-core>=1.37.0
 Requires-Dist: cryptography>=2.1.4
 Requires-Dist: typing-extensions>=4.6.0
 Requires-Dist: isodate>=0.6.1
 Provides-Extra: aio
-Requires-Dist: azure-core[aio]>=1.30.0; extra == "aio"
+Requires-Dist: azure-core[aio]>=1.37.0; extra == "aio"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -60,7 +60,7 @@ Azure file shares can be used to:
 ## Getting started
 
 ### Prerequisites
-* Python 3.9 or later is required to use this package. For more details, please read our page on [Azure SDK for Python version support policy](https://github.com/Azure/azure-sdk-for-python/wiki/Azure-SDKs-Python-version-support-policy).
+* Python 3.9 or later is required to use this package. For more details, please read our page on [Azure SDK for Python version support policy](https://github.com/Azure/azure-sdk-for-python/blob/main/doc/python_version_support_policy.md).
 * You must have an [Azure subscription](https://azure.microsoft.com/free/) and an
 [Azure storage account](https://learn.microsoft.com/azure/storage/common/storage-account-overview) to use this package.
 
@@ -172,7 +172,7 @@ The following components make up the Azure File Share Service:
 The Azure Storage File Share client library for Python allows you to interact with each of these components through the
 use of a dedicated client object.
 
-### Async Clients 
+### Async Clients
 This library includes a complete async API supported on Python 3.5+. To use it, you must
 first install an async transport, such as [aiohttp](https://pypi.org/project/aiohttp/).
 See
@@ -332,7 +332,7 @@ Other optional configuration keyword arguments that can be specified on the clie
 * __connection_timeout__ (int): The number of seconds the client will wait to establish a connection to the server.
 Defaults to 20 seconds.
 * __read_timeout__ (int): The number of seconds the client will wait, between consecutive read operations, for a
-response from the server. This is a socket level timeout and is not affected by overall data size. Client-side read 
+response from the server. This is a socket level timeout and is not affected by overall data size. Client-side read
 timeouts will be automatically retried. Defaults to 60 seconds.
 * __transport__ (Any): User-provided transport to send the HTTP request.
 
@@ -436,6 +436,42 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 
 
 # Release History
+
+## 12.25.0 (2026-05-14)
+
+### Features Added
+- Stable release of features from 12.25.0b1
+
+### Bugs Fixed
+- Fixed various issues with configuring logging via `logging_enable` and `logging_body` keywords on a per-request
+basis and with retries. Prior to this fix logging may have not behaved as expected, especially on retries.
+- Fix a potential memory leak caused by improper exception handling that could occur under rare circumstances.
+
+## 12.26.0b1 (2026-04-01)
+
+### Features Added
+- Added support for service version 2026-06-06.
+- Added support for the keyword `file_property_semantics` in `ShareClient`'s `create_directory` and `DirectoryClient`'s
+`create_directory` APIs, which specifies permissions to be configured upon directory creation.
+- Added support for the keyword `data` to `FileClient`'s `create_file` API, which specifies the
+optional initial data to be uploaded (up to 4MB).
+- Added support for connection strings and `account_url`s to accept URLs with `-ipv6` and `-dualstack` suffixes 
+for `ShareClient`, `ShareDirectoryClient`, and `ShareFileClient`.
+
+### Other Changes
+- Consolidated the behavior of `max_concurrency=None` by defaulting to the shared `DEFAULT_MAX_CONCURRENCY` constant.
+
+## 12.25.0b1 (2026-01-27)
+
+### Features Added
+- Added support for service version 2026-04-06.
+- Added support for improved error handling for file share provisioning.
+- Added support for the keyword `user_delegation_tid` to `ShareServiceClient.get_user_delegation_key` API, which
+can be used in `generate_share_sas` and `generate_file_sas` to specify the Tenant ID that is authorized
+to use the generated SAS URL. Note that `user_delegation_tid` must be used together with `user_delegation_oid`.
+
+### Other Changes
+- Bumped minimum `azure-core` dependency to 1.37.0.
 
 ## 12.24.0 (2026-01-06)
 

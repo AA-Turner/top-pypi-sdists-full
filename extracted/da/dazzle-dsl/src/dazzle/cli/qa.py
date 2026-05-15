@@ -42,7 +42,7 @@ def _resolve_project_dir(app: str | None) -> Path:
     raise typer.Exit(code=1)
 
 
-def _seed_demo_data_for_trial(project_dir: Path, site_url: str, test_secret: str) -> None:
+def _seed_demo_data_for_trial(project_dir: Path, site_url: str, test_secret: str) -> bool:
     """Seed demo data after the trial server is up (#817, #820).
 
     ``--fresh-db`` truncates the DB, which left every trial running
@@ -60,6 +60,14 @@ def _seed_demo_data_for_trial(project_dir: Path, site_url: str, test_secret: str
 
     The test-secret gate keeps the seed endpoint safe; non-dev servers
     don't enable test routes.
+
+    Returns:
+        ``True`` if seeding succeeded, was skipped harmlessly (no
+        blueprint, no rows, soft failure inside the loop), or partially
+        succeeded under the circuit breaker. ``False`` only when the
+        hard-gate blueprint verifier flagged validation errors — the
+        outer trial flow must abort in that case rather than run the
+        LLM agent against an empty DB (#1077).
     """
     import json as _json
     import tempfile
@@ -75,13 +83,13 @@ def _seed_demo_data_for_trial(project_dir: Path, site_url: str, test_secret: str
     existing_data = _find_data_dir(project_dir)
 
     if not blueprint.exists() and existing_data is None:
-        return  # nothing to seed
+        return True  # nothing to seed — harmless skip
 
     try:
         appspec = load_project_appspec(project_dir)
     except Exception as exc:
         typer.echo(f"Seed skipped: could not load appspec ({exc})", err=True)
-        return
+        return True
 
     # Hard-gate (#826): verify the blueprint up front and abort the
     # trial when there are errors. Previously this was a soft-gate —
@@ -119,7 +127,7 @@ def _seed_demo_data_for_trial(project_dir: Path, site_url: str, test_secret: str
                         )
                     if len(errors) > 5:
                         typer.echo(f"  ... and {len(errors) - 5} more.", err=True)
-                    return
+                    return False  # hard-gate abort — outer flow must bail (#1077)
         except Exception:
             # A bug in the verifier must never block a trial — fall through
             # to the seed attempt with whatever blueprint exists (#smells-1.1).
@@ -139,11 +147,11 @@ def _seed_demo_data_for_trial(project_dir: Path, site_url: str, test_secret: str
                     f"Seed skipped: demo_generate_impl returned {result.get('status')}",
                     err=True,
                 )
-                return
+                return True
             data_dir = Path(result["output_dir"])
         except Exception as exc:
             typer.echo(f"Seed skipped: demo data generation failed ({exc})", err=True)
-            return
+            return True
     else:
         data_dir = existing_data
 
@@ -173,7 +181,7 @@ def _seed_demo_data_for_trial(project_dir: Path, site_url: str, test_secret: str
 
     if not fixtures:
         typer.echo("Seed skipped: no rows to seed", err=True)
-        return
+        return True
 
     headers = {"Content-Type": "application/json"}
     if test_secret:
@@ -223,7 +231,7 @@ def _seed_demo_data_for_trial(project_dir: Path, site_url: str, test_secret: str
                         break
     except Exception as exc:
         typer.echo(f"Seed skipped: POST /__test__/seed raised {exc}", err=True)
-        return
+        return True
 
     typer.echo(
         f"Seeded demo data: {created_count} of {len(fixtures)} fixture(s) "
@@ -238,6 +246,7 @@ def _seed_demo_data_for_trial(project_dir: Path, site_url: str, test_secret: str
             f"likely cause — run `dazzle demo verify` to see full details.",
             err=True,
         )
+    return True
 
 
 def _reset_db_for_trial(project_dir: Path) -> None:
@@ -276,102 +285,6 @@ def _reset_db_for_trial(project_dir: Path) -> None:
         os.chdir(old_cwd)
 
 
-@qa_app.command("visual")
-def qa_visual(
-    url: str | None = typer.Option(None, "--url", "-u", help="URL of a running app"),
-    app: str | None = typer.Option(None, "--app", "-a", help="Example app name (e.g. simple_task)"),
-    as_json: bool = typer.Option(False, "--json", help="Output as JSON"),
-) -> None:
-    """Run visual QA: capture screenshots and evaluate with Claude Vision."""
-    from dazzle.cli.utils import load_project_appspec
-    from dazzle.qa.capture import build_capture_plan, capture_screenshots
-    from dazzle.qa.evaluate import ClaudeEvaluator
-    from dazzle.qa.models import QAReport
-    from dazzle.qa.report import deduplicate, format_json, format_table
-    from dazzle.qa.server import AppConnection, wait_for_ready
-
-    project_dir = _resolve_project_dir(app)
-
-    # Load AppSpec
-    try:
-        appspec = load_project_appspec(project_dir)
-    except Exception as e:
-        typer.echo(f"Failed to load AppSpec: {e}", err=True)
-        raise typer.Exit(code=1)
-
-    app_name: str = str(getattr(appspec, "name", None) or project_dir.name)
-
-    # Build capture plan
-    targets = build_capture_plan(appspec)
-    if not targets:
-        typer.echo("No capture targets found (no workspaces or personas defined).", err=True)
-        raise typer.Exit(code=1)
-
-    if url is None:
-        typer.echo(
-            "--url is required. Start the app in another terminal first:\n"
-            f"  dazzle e2e env start {app or '<example>'}\n"
-            "Then pass its URL:\n"
-            "  dazzle qa visual --url http://localhost:8981 ...",
-            err=True,
-        )
-        raise typer.Exit(code=2)
-
-    api_url_resolved = url.replace(":3000", ":8000") if ":3000" in url else url
-    connection = AppConnection(
-        site_url=url,
-        api_url=api_url_resolved,
-        process=None,
-    )
-
-    all_findings = []
-    try:
-        typer.echo("Waiting for server to be ready…")
-        ready = asyncio.run(wait_for_ready(connection.api_url))
-        if not ready:
-            typer.echo("Server did not become ready in time.", err=True)
-            raise typer.Exit(code=1)
-
-        # Capture screenshots
-        typer.echo(f"Capturing {len(targets)} screen(s)…")
-        screens = asyncio.run(
-            capture_screenshots(
-                targets,
-                site_url=connection.site_url,
-                api_url=connection.api_url,
-                project_dir=project_dir,
-            )
-        )
-
-        if not screens:
-            typer.echo("No screenshots captured.", err=True)
-            raise typer.Exit(code=1)
-
-        # Evaluate each screen
-        evaluator = ClaudeEvaluator()
-        typer.echo(f"Evaluating {len(screens)} screen(s) with Claude Vision…")
-        for screen in screens:
-            findings = evaluator.evaluate(screen)
-            all_findings.extend(findings)
-
-    finally:
-        connection.stop()
-
-    # Deduplicate findings and build report
-    deduped = deduplicate(all_findings)
-    report = QAReport(app=app_name, findings=deduped)
-
-    # Format output
-    if as_json:
-        typer.echo(format_json(report))
-    else:
-        typer.echo(format_table(report))
-
-    # Exit code 1 if any high findings
-    if report.high_count > 0:
-        raise typer.Exit(code=1)
-
-
 @qa_app.command("capture")
 def qa_capture(
     url: str | None = typer.Option(None, "--url", "-u", help="URL of a running app"),
@@ -379,10 +292,21 @@ def qa_capture(
     persona: str | None = typer.Option(
         None, "--persona", "-p", help="Restrict capture to a single persona"
     ),
+    manifest: Path | None = typer.Option(
+        None,
+        "--manifest",
+        "-m",
+        help=(
+            "Path to a fleet-wide JSON manifest. Captured screens are appended "
+            "under the app's entry (replacing any prior entry for this app — "
+            "re-runs overwrite). Used by the /improve example-apps Tier 2 "
+            "sub-strategy to hand a multi-app manifest to a CC subagent."
+        ),
+    ),
 ) -> None:
     """Capture screenshots only — no LLM evaluation needed."""
     from dazzle.cli.utils import load_project_appspec
-    from dazzle.qa.capture import build_capture_plan, capture_screenshots
+    from dazzle.qa.capture import build_capture_plan, capture_screenshots, write_manifest
     from dazzle.qa.server import AppConnection, wait_for_ready
 
     project_dir = _resolve_project_dir(app)
@@ -452,6 +376,11 @@ def qa_capture(
     # Print paths of captured screenshots
     for screen in screens:
         typer.echo(str(screen.screenshot))
+
+    if manifest is not None:
+        app_name = str(getattr(appspec, "name", None) or project_dir.name)
+        write_manifest(screens, app_name=app_name, manifest_path=manifest)
+        typer.echo(f"Manifest: {manifest}")
 
 
 @qa_app.command("trial")
@@ -580,7 +509,19 @@ def qa_trial(
             test_secret_val = ""
 
         if fresh_db:
-            _seed_demo_data_for_trial(project_dir, site_url, test_secret_val)
+            seed_ok = _seed_demo_data_for_trial(project_dir, site_url, test_secret_val)
+            if not seed_ok:
+                # #1077: seed helper hard-aborted on blueprint drift.
+                # Without this guard the outer flow would continue and
+                # run the LLM agent against an empty DB, producing a
+                # misleading "I cannot recommend this app" verdict that
+                # is actually about data emptiness, not framework UX.
+                typer.echo(
+                    "Trial aborted: blueprint drift detected. "
+                    "Fix the blueprint and re-run (no LLM agent dispatched).",
+                    err=True,
+                )
+                raise typer.Exit(code=3)
 
         async def _run_trial() -> tuple[Any, Any]:
             """Full async path: start browser, authenticate via POST +

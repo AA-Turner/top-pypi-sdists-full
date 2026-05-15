@@ -70,3 +70,8 @@ class MusicBundle(Bundle):
             self._cache[cache_key] = music
 
         return self._cache[cache_key]
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "MusicBundle",
+]

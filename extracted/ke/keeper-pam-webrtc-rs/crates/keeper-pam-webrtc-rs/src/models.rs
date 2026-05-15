@@ -519,12 +519,20 @@ impl NetworkAccessChecker {
                 let cache = self.dns_cache.read().await;
                 if let Some(entry) = cache.get(domain_name_or_ip) {
                     if entry.expires_at > Instant::now() {
-                        // Check if any cached IP is allowed
-                        let allowed = entry.ips.iter().any(|&ip| self.is_ip_allowed_fast(ip));
-                        return if allowed {
-                            Some(entry.ips.clone())
-                        } else {
+                        // Return only the IPs that pass the allowlist.
+                        // Returning all IPs when any one is allowed enables DNS rebinding:
+                        // a poisoned DNS response that mixes an allowed IP with an internal
+                        // one would grant access to the internal address.
+                        let allowed_ips: smallvec::SmallVec<[std::net::IpAddr; 4]> = entry
+                            .ips
+                            .iter()
+                            .copied()
+                            .filter(|&ip| self.is_ip_allowed_fast(ip))
+                            .collect();
+                        return if allowed_ips.is_empty() {
                             None
+                        } else {
+                            Some(allowed_ips)
                         };
                     }
                 }
@@ -536,9 +544,7 @@ impl NetworkAccessChecker {
                 .await
             {
                 Ok(ips) => {
-                    let allowed = ips.iter().any(|&ip| self.is_ip_allowed_fast(ip));
-
-                    // Cache the result
+                    // Cache the full DNS result so future lookups can re-filter.
                     {
                         let mut cache = self.dns_cache.write().await;
                         let domain_key: Arc<str> = domain_name_or_ip.into();
@@ -557,10 +563,16 @@ impl NetworkAccessChecker {
                         }
                     }
 
-                    if allowed {
-                        Some(ips)
-                    } else {
+                    // Return only the IPs that pass the allowlist.
+                    // Returning all IPs when any one is allowed enables DNS rebinding.
+                    let allowed_ips: smallvec::SmallVec<[std::net::IpAddr; 4]> = ips
+                        .into_iter()
+                        .filter(|&ip| self.is_ip_allowed_fast(ip))
+                        .collect();
+                    if allowed_ips.is_empty() {
                         None
+                    } else {
+                        Some(allowed_ips)
                     }
                 }
                 Err(_) => None,

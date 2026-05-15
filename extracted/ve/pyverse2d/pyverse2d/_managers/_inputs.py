@@ -3,10 +3,11 @@ from __future__ import annotations
 
 from .._internal import profile_section
 from ..abc import Manager
+from ..typing import Input
 
 from ._context import ContextManager
 
-from typing import Any, Callable, TypeAlias, Type, ClassVar, Iterable
+from typing import Any, Callable, Type, ClassVar, Iterable
 
 # ======================================== LISTENER ========================================
 class Listener:
@@ -121,7 +122,6 @@ class InputsManager(Manager):
 
     _ID: ClassVar[str] = "inputs"
 
-    Input: TypeAlias = int
     Listener: Type[Listener] = Listener
 
     def __init__(self, context_manager: ContextManager):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tskit
-Version: 1.0.2
+Version: 1.0.3
 Summary: The tree sequence toolkit.
 Author-email: Tskit Developers <admin@tskit.dev>
 License-Expression: MIT

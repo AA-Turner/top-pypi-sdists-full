@@ -22,6 +22,7 @@ from typing import Any, ClassVar, Dict, List, Optional
 from connector_sdk_types.generated.models.execution_summary import ExecutionSummary
 from connector_sdk_types.generated.models.found_entitlement_association import FoundEntitlementAssociation
 from connector_sdk_types.generated.models.page import Page
+from connector_sdk_types.generated.models.rate_limit_response_info import RateLimitResponseInfo
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -32,8 +33,9 @@ class GetAccountEntitlementAssociationsResponse(BaseModel):
     response: List[FoundEntitlementAssociation]
     raw_data: Optional[Any] = None
     page: Optional[Page] = None
+    rate_limit: Optional[RateLimitResponseInfo] = Field(default=None, description="Rate limit state after executing this operation. Callers should pass `current_state` back in the next request's `rate_limit.last_known_state` to preserve adaptive rate limit continuity across page calls. `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.")
     execution_summary: Optional[ExecutionSummary] = Field(default=None, description="Summary of how the operation executed from the connector's perspective.  This model provides metadata about the execution of the operation, including what effect the operation had, whether it's safe to retry, and any non-fatal errors that occurred during execution.  This field is typically included for write operations (create, update, delete) to provide detailed information about what actually happened in the target system.")
-    __properties: ClassVar[List[str]] = ["response", "raw_data", "page", "execution_summary"]
+    __properties: ClassVar[List[str]] = ["response", "raw_data", "page", "rate_limit", "execution_summary"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -84,6 +86,9 @@ class GetAccountEntitlementAssociationsResponse(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of page
         if self.page:
             _dict['page'] = self.page.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of rate_limit
+        if self.rate_limit:
+            _dict['rate_limit'] = self.rate_limit.to_dict()
         # override the default output from pydantic by calling `to_dict()` of execution_summary
         if self.execution_summary:
             _dict['execution_summary'] = self.execution_summary.to_dict()
@@ -107,6 +112,7 @@ class GetAccountEntitlementAssociationsResponse(BaseModel):
             "response": [FoundEntitlementAssociation.from_dict(_item) for _item in obj["response"]] if obj.get("response") is not None else None,
             "raw_data": obj.get("raw_data"),
             "page": Page.from_dict(obj["page"]) if obj.get("page") is not None else None,
+            "rate_limit": RateLimitResponseInfo.from_dict(obj["rate_limit"]) if obj.get("rate_limit") is not None else None,
             "execution_summary": ExecutionSummary.from_dict(obj["execution_summary"]) if obj.get("execution_summary") is not None else None
         })
         return _obj

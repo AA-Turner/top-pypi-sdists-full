@@ -215,6 +215,7 @@ namespace Python.Runtime
             ClassInfo info = GetClassInfo(type, impl, bindingOptions);
 
             impl.indexer = info.indexer;
+            impl.del = info.del;
             impl.richcompare.Clear();
 
 
@@ -598,11 +599,27 @@ namespace Python.Runtime
 
                 ob = new MethodObject(type, name, mlist);
                 ci.members[name] = ob.AllocObject();
+
                 if (bindingOptions.Pep8Aliases)
                 {
                     string pep8Name = ToSnakeCase(name);
                     if (pep8Name != null && pep8Name != name)
                         ci.members[pep8Name] = ob.AllocObject();
+                }
+
+                if (name == nameof(IDictionary<int, int>.Remove)
+                    && mlist.Any(m => m.DeclaringType?.GetInterfaces()
+                        .Any(i => i.TryGetGenericDefinition() == typeof(IDictionary<,>)) is true))
+                {
+                    ci.del = new();
+                    ci.del.AddRange(mlist.Where(m => !m.IsStatic));
+                }
+                else if (name == nameof(IList<int>.RemoveAt)
+                         && mlist.Any(m => m.DeclaringType?.GetInterfaces()
+                             .Any(i => i.TryGetGenericDefinition() == typeof(IList<>)) is true))
+                {
+                    ci.del = new();
+                    ci.del.AddRange(mlist.Where(m => !m.IsStatic));
                 }
 
                 if (mlist.Any(OperatorMethod.IsOperatorMethod))
@@ -648,6 +665,7 @@ namespace Python.Runtime
         private class ClassInfo
         {
             public Indexer? indexer;
+            public MethodBinder? del;
             public readonly Dictionary<string, PyObject> members = new();
 
             internal ClassInfo()

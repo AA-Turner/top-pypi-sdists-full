@@ -10,13 +10,13 @@ import System.Globalization
 import System.Numerics
 import System.Numerics.Colors
 
-System_Drawing_Point = typing.Any
-System_Drawing_SizeF = typing.Any
-System_Drawing_Rectangle = typing.Any
-System_Drawing_Color = typing.Any
 System_Drawing_PointF = typing.Any
-System_Drawing_Size = typing.Any
+System_Drawing_SizeF = typing.Any
 System_Drawing_RectangleF = typing.Any
+System_Drawing_Point = typing.Any
+System_Drawing_Rectangle = typing.Any
+System_Drawing_Size = typing.Any
+System_Drawing_Color = typing.Any
 
 
 class Size(System.IEquatable[System_Drawing_Size]):
@@ -153,6 +153,119 @@ class Size(System.IEquatable[System_Drawing_Size]):
         ...
 
 
+class SizeF(System.IEquatable[System_Drawing_SizeF]):
+    """This class has no documentation."""
+
+    EMPTY: System.Drawing.SizeF
+
+    @property
+    def is_empty(self) -> bool:
+        ...
+
+    @property
+    def width(self) -> float:
+        ...
+
+    @width.setter
+    def width(self, value: float) -> None:
+        ...
+
+    @property
+    def height(self) -> float:
+        ...
+
+    @height.setter
+    def height(self, value: float) -> None:
+        ...
+
+    def __add__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        ...
+
+    def __eq__(self, sz_2: System.Drawing.SizeF) -> bool:
+        ...
+
+    def __iadd__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        ...
+
+    @overload
+    def __imul__(self, right: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        ...
+
+    @overload
+    def __imul__(self, right: float) -> System.Drawing.SizeF:
+        ...
+
+    @overload
+    def __init__(self, size: System.Drawing.SizeF) -> None:
+        ...
+
+    @overload
+    def __init__(self, pt: System.Drawing.PointF) -> None:
+        ...
+
+    @overload
+    def __init__(self, vector: System.Numerics.Vector2) -> None:
+        ...
+
+    @overload
+    def __init__(self, width: float, height: float) -> None:
+        ...
+
+    def __isub__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        ...
+
+    def __itruediv__(self, right: float) -> System.Drawing.SizeF:
+        ...
+
+    @overload
+    def __mul__(self, right: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        ...
+
+    @overload
+    def __mul__(self, right: float) -> System.Drawing.SizeF:
+        ...
+
+    def __ne__(self, sz_2: System.Drawing.SizeF) -> bool:
+        ...
+
+    def __sub__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        ...
+
+    def __truediv__(self, right: float) -> System.Drawing.SizeF:
+        ...
+
+    @staticmethod
+    def add(sz_1: System.Drawing.SizeF, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Drawing.SizeF) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def subtract(sz_1: System.Drawing.SizeF, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        ...
+
+    def to_point_f(self) -> System.Drawing.PointF:
+        ...
+
+    def to_size(self) -> System.Drawing.Size:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+    def to_vector_2(self) -> System.Numerics.Vector2:
+        ...
+
+
 class PointF(System.IEquatable[System_Drawing_PointF]):
     """This class has no documentation."""
 
@@ -259,104 +372,6 @@ class PointF(System.IEquatable[System_Drawing_PointF]):
         ...
 
     def to_vector_2(self) -> System.Numerics.Vector2:
-        ...
-
-
-class Point(System.IEquatable[System_Drawing_Point]):
-    """This class has no documentation."""
-
-    EMPTY: System.Drawing.Point
-
-    @property
-    def is_empty(self) -> bool:
-        ...
-
-    @property
-    def x(self) -> int:
-        ...
-
-    @x.setter
-    def x(self, value: int) -> None:
-        ...
-
-    @property
-    def y(self) -> int:
-        ...
-
-    @y.setter
-    def y(self, value: int) -> None:
-        ...
-
-    def __add__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
-        ...
-
-    def __eq__(self, right: System.Drawing.Point) -> bool:
-        ...
-
-    def __iadd__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
-        ...
-
-    @overload
-    def __init__(self, x: int, y: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, sz: System.Drawing.Size) -> None:
-        ...
-
-    @overload
-    def __init__(self, dw: int) -> None:
-        ...
-
-    def __isub__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
-        ...
-
-    def __ne__(self, right: System.Drawing.Point) -> bool:
-        ...
-
-    def __sub__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
-        ...
-
-    @staticmethod
-    def add(pt: System.Drawing.Point, sz: System.Drawing.Size) -> System.Drawing.Point:
-        ...
-
-    @staticmethod
-    def ceiling(value: System.Drawing.PointF) -> System.Drawing.Point:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Drawing.Point) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @overload
-    def offset(self, dx: int, dy: int) -> None:
-        ...
-
-    @overload
-    def offset(self, p: System.Drawing.Point) -> None:
-        ...
-
-    @staticmethod
-    def round(value: System.Drawing.PointF) -> System.Drawing.Point:
-        ...
-
-    @staticmethod
-    def subtract(pt: System.Drawing.Point, sz: System.Drawing.Size) -> System.Drawing.Point:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-    @staticmethod
-    def truncate(value: System.Drawing.PointF) -> System.Drawing.Point:
         ...
 
 
@@ -712,6 +727,266 @@ class KnownColor(IntEnum):
     MENU_HIGHLIGHT = 173
 
     REBECCA_PURPLE = 174
+
+
+class RectangleF(System.IEquatable[System_Drawing_RectangleF]):
+    """This class has no documentation."""
+
+    EMPTY: System.Drawing.RectangleF
+
+    @property
+    def location(self) -> System.Drawing.PointF:
+        ...
+
+    @location.setter
+    def location(self, value: System.Drawing.PointF) -> None:
+        ...
+
+    @property
+    def size(self) -> System.Drawing.SizeF:
+        ...
+
+    @size.setter
+    def size(self, value: System.Drawing.SizeF) -> None:
+        ...
+
+    @property
+    def x(self) -> float:
+        ...
+
+    @x.setter
+    def x(self, value: float) -> None:
+        ...
+
+    @property
+    def y(self) -> float:
+        ...
+
+    @y.setter
+    def y(self, value: float) -> None:
+        ...
+
+    @property
+    def width(self) -> float:
+        ...
+
+    @width.setter
+    def width(self, value: float) -> None:
+        ...
+
+    @property
+    def height(self) -> float:
+        ...
+
+    @height.setter
+    def height(self, value: float) -> None:
+        ...
+
+    @property
+    def left(self) -> float:
+        ...
+
+    @property
+    def top(self) -> float:
+        ...
+
+    @property
+    def right(self) -> float:
+        ...
+
+    @property
+    def bottom(self) -> float:
+        ...
+
+    @property
+    def is_empty(self) -> bool:
+        ...
+
+    def __eq__(self, right: System.Drawing.RectangleF) -> bool:
+        ...
+
+    @overload
+    def __init__(self, x: float, y: float, width: float, height: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, location: System.Drawing.PointF, size: System.Drawing.SizeF) -> None:
+        ...
+
+    @overload
+    def __init__(self, vector: System.Numerics.Vector4) -> None:
+        ...
+
+    def __ne__(self, right: System.Drawing.RectangleF) -> bool:
+        ...
+
+    @overload
+    def contains(self, x: float, y: float) -> bool:
+        ...
+
+    @overload
+    def contains(self, pt: System.Drawing.PointF) -> bool:
+        ...
+
+    @overload
+    def contains(self, rect: System.Drawing.RectangleF) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Drawing.RectangleF) -> bool:
+        ...
+
+    @staticmethod
+    def from_ltrb(left: float, top: float, right: float, bottom: float) -> System.Drawing.RectangleF:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @overload
+    def inflate(self, x: float, y: float) -> None:
+        ...
+
+    @overload
+    def inflate(self, size: System.Drawing.SizeF) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def inflate(rect: System.Drawing.RectangleF, x: float, y: float) -> System.Drawing.RectangleF:
+        ...
+
+    @overload
+    def intersect(self, rect: System.Drawing.RectangleF) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def intersect(a: System.Drawing.RectangleF, b: System.Drawing.RectangleF) -> System.Drawing.RectangleF:
+        ...
+
+    def intersects_with(self, rect: System.Drawing.RectangleF) -> bool:
+        ...
+
+    @overload
+    def offset(self, pos: System.Drawing.PointF) -> None:
+        ...
+
+    @overload
+    def offset(self, x: float, y: float) -> None:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+    def to_vector_4(self) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def union(a: System.Drawing.RectangleF, b: System.Drawing.RectangleF) -> System.Drawing.RectangleF:
+        ...
+
+
+class Point(System.IEquatable[System_Drawing_Point]):
+    """This class has no documentation."""
+
+    EMPTY: System.Drawing.Point
+
+    @property
+    def is_empty(self) -> bool:
+        ...
+
+    @property
+    def x(self) -> int:
+        ...
+
+    @x.setter
+    def x(self, value: int) -> None:
+        ...
+
+    @property
+    def y(self) -> int:
+        ...
+
+    @y.setter
+    def y(self, value: int) -> None:
+        ...
+
+    def __add__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
+        ...
+
+    def __eq__(self, right: System.Drawing.Point) -> bool:
+        ...
+
+    def __iadd__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
+        ...
+
+    @overload
+    def __init__(self, x: int, y: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, sz: System.Drawing.Size) -> None:
+        ...
+
+    @overload
+    def __init__(self, dw: int) -> None:
+        ...
+
+    def __isub__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
+        ...
+
+    def __ne__(self, right: System.Drawing.Point) -> bool:
+        ...
+
+    def __sub__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
+        ...
+
+    @staticmethod
+    def add(pt: System.Drawing.Point, sz: System.Drawing.Size) -> System.Drawing.Point:
+        ...
+
+    @staticmethod
+    def ceiling(value: System.Drawing.PointF) -> System.Drawing.Point:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Drawing.Point) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @overload
+    def offset(self, dx: int, dy: int) -> None:
+        ...
+
+    @overload
+    def offset(self, p: System.Drawing.Point) -> None:
+        ...
+
+    @staticmethod
+    def round(value: System.Drawing.PointF) -> System.Drawing.Point:
+        ...
+
+    @staticmethod
+    def subtract(pt: System.Drawing.Point, sz: System.Drawing.Size) -> System.Drawing.Point:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+    @staticmethod
+    def truncate(value: System.Drawing.PointF) -> System.Drawing.Point:
+        ...
 
 
 class Color(System.IEquatable[System_Drawing_Color]):
@@ -1183,281 +1458,6 @@ class SystemColors(System.Object):
     use_alternative_color_set: bool
 
 
-class SizeF(System.IEquatable[System_Drawing_SizeF]):
-    """This class has no documentation."""
-
-    EMPTY: System.Drawing.SizeF
-
-    @property
-    def is_empty(self) -> bool:
-        ...
-
-    @property
-    def width(self) -> float:
-        ...
-
-    @width.setter
-    def width(self, value: float) -> None:
-        ...
-
-    @property
-    def height(self) -> float:
-        ...
-
-    @height.setter
-    def height(self, value: float) -> None:
-        ...
-
-    def __add__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
-        ...
-
-    def __eq__(self, sz_2: System.Drawing.SizeF) -> bool:
-        ...
-
-    def __iadd__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
-        ...
-
-    @overload
-    def __imul__(self, right: System.Drawing.SizeF) -> System.Drawing.SizeF:
-        ...
-
-    @overload
-    def __imul__(self, right: float) -> System.Drawing.SizeF:
-        ...
-
-    @overload
-    def __init__(self, size: System.Drawing.SizeF) -> None:
-        ...
-
-    @overload
-    def __init__(self, pt: System.Drawing.PointF) -> None:
-        ...
-
-    @overload
-    def __init__(self, vector: System.Numerics.Vector2) -> None:
-        ...
-
-    @overload
-    def __init__(self, width: float, height: float) -> None:
-        ...
-
-    def __isub__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
-        ...
-
-    def __itruediv__(self, right: float) -> System.Drawing.SizeF:
-        ...
-
-    @overload
-    def __mul__(self, right: System.Drawing.SizeF) -> System.Drawing.SizeF:
-        ...
-
-    @overload
-    def __mul__(self, right: float) -> System.Drawing.SizeF:
-        ...
-
-    def __ne__(self, sz_2: System.Drawing.SizeF) -> bool:
-        ...
-
-    def __sub__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
-        ...
-
-    def __truediv__(self, right: float) -> System.Drawing.SizeF:
-        ...
-
-    @staticmethod
-    def add(sz_1: System.Drawing.SizeF, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Drawing.SizeF) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    def subtract(sz_1: System.Drawing.SizeF, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
-        ...
-
-    def to_point_f(self) -> System.Drawing.PointF:
-        ...
-
-    def to_size(self) -> System.Drawing.Size:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-    def to_vector_2(self) -> System.Numerics.Vector2:
-        ...
-
-
-class RectangleF(System.IEquatable[System_Drawing_RectangleF]):
-    """This class has no documentation."""
-
-    EMPTY: System.Drawing.RectangleF
-
-    @property
-    def location(self) -> System.Drawing.PointF:
-        ...
-
-    @location.setter
-    def location(self, value: System.Drawing.PointF) -> None:
-        ...
-
-    @property
-    def size(self) -> System.Drawing.SizeF:
-        ...
-
-    @size.setter
-    def size(self, value: System.Drawing.SizeF) -> None:
-        ...
-
-    @property
-    def x(self) -> float:
-        ...
-
-    @x.setter
-    def x(self, value: float) -> None:
-        ...
-
-    @property
-    def y(self) -> float:
-        ...
-
-    @y.setter
-    def y(self, value: float) -> None:
-        ...
-
-    @property
-    def width(self) -> float:
-        ...
-
-    @width.setter
-    def width(self, value: float) -> None:
-        ...
-
-    @property
-    def height(self) -> float:
-        ...
-
-    @height.setter
-    def height(self, value: float) -> None:
-        ...
-
-    @property
-    def left(self) -> float:
-        ...
-
-    @property
-    def top(self) -> float:
-        ...
-
-    @property
-    def right(self) -> float:
-        ...
-
-    @property
-    def bottom(self) -> float:
-        ...
-
-    @property
-    def is_empty(self) -> bool:
-        ...
-
-    def __eq__(self, right: System.Drawing.RectangleF) -> bool:
-        ...
-
-    @overload
-    def __init__(self, x: float, y: float, width: float, height: float) -> None:
-        ...
-
-    @overload
-    def __init__(self, location: System.Drawing.PointF, size: System.Drawing.SizeF) -> None:
-        ...
-
-    @overload
-    def __init__(self, vector: System.Numerics.Vector4) -> None:
-        ...
-
-    def __ne__(self, right: System.Drawing.RectangleF) -> bool:
-        ...
-
-    @overload
-    def contains(self, x: float, y: float) -> bool:
-        ...
-
-    @overload
-    def contains(self, pt: System.Drawing.PointF) -> bool:
-        ...
-
-    @overload
-    def contains(self, rect: System.Drawing.RectangleF) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Drawing.RectangleF) -> bool:
-        ...
-
-    @staticmethod
-    def from_ltrb(left: float, top: float, right: float, bottom: float) -> System.Drawing.RectangleF:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @overload
-    def inflate(self, x: float, y: float) -> None:
-        ...
-
-    @overload
-    def inflate(self, size: System.Drawing.SizeF) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def inflate(rect: System.Drawing.RectangleF, x: float, y: float) -> System.Drawing.RectangleF:
-        ...
-
-    @overload
-    def intersect(self, rect: System.Drawing.RectangleF) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def intersect(a: System.Drawing.RectangleF, b: System.Drawing.RectangleF) -> System.Drawing.RectangleF:
-        ...
-
-    def intersects_with(self, rect: System.Drawing.RectangleF) -> bool:
-        ...
-
-    @overload
-    def offset(self, pos: System.Drawing.PointF) -> None:
-        ...
-
-    @overload
-    def offset(self, x: float, y: float) -> None:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-    def to_vector_4(self) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def union(a: System.Drawing.RectangleF, b: System.Drawing.RectangleF) -> System.Drawing.RectangleF:
-        ...
-
-
 class Rectangle(System.IEquatable[System_Drawing_Rectangle]):
     """This class has no documentation."""
 
@@ -1653,7 +1653,7 @@ class ColorTranslator(System.Object):
         ...
 
 
-class RectangleConverter(System.ComponentModel.TypeConverter):
+class PointConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
@@ -1706,7 +1706,7 @@ class ColorConverter(System.ComponentModel.TypeConverter):
         ...
 
 
-class SizeConverter(System.ComponentModel.TypeConverter):
+class RectangleConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
@@ -1762,7 +1762,7 @@ class SizeFConverter(System.ComponentModel.TypeConverter):
         ...
 
 
-class PointConverter(System.ComponentModel.TypeConverter):
+class SizeConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:

@@ -59,13 +59,21 @@ class ChunkRankParams(TypedDict, total=False):
 class RankStrategyCrossEncoderRankStrategyParams(TypedDict, total=False):
     """The parameters needed for ranking."""
 
-    cross_encoder_model: Literal["cross-encoder/ms-marco-MiniLM-L-12-v2", "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"]
+    cross_encoder_model: Literal[
+        "cross-encoder/ms-marco-MiniLM-L-12-v2",
+        "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1",
+        "Qwen/Qwen3-Reranker-0.6B",
+        "Qwen/Qwen3-Reranker-4B",
+        "Qwen/Qwen3-Reranker-8B",
+    ]
     """Cross encoder model to use when ranking.
 
-    Currently supports
-    [cross-encoder/ms-marco-MiniLM-L-12-v2](https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-12-v2)
-    and
-    [cross-encoder/mmarco-mMiniLMv2-L12-H384-v1](https://huggingface.co/cross-encoder/mmarco-mMiniLMv2-L12-H384-v1).
+    Supports
+    [cross-encoder/ms-marco-MiniLM-L-12-v2](https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-12-v2),
+    [cross-encoder/mmarco-mMiniLMv2-L12-H384-v1](https://huggingface.co/cross-encoder/mmarco-mMiniLMv2-L12-H384-v1),
+    [Qwen/Qwen3-Reranker-0.6B](https://huggingface.co/Qwen/Qwen3-Reranker-0.6B),
+    [Qwen/Qwen3-Reranker-4B](https://huggingface.co/Qwen/Qwen3-Reranker-4B), and
+    [Qwen/Qwen3-Reranker-8B](https://huggingface.co/Qwen/Qwen3-Reranker-8B).
     """
 
 

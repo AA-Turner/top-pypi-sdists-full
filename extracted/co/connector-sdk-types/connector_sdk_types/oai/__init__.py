@@ -2,7 +2,10 @@ from .capability import AuthRequest, Request
 from .fingerprint import request_fingerprint
 from .modules import (
     AUTH_TYPE_MAP,
+    LIMIT_CEILING,
+    MAXIMUM_RETRIES,
     OAUTH_FLOW_TYPE_CAPABILITIES,
+    REQUESTS_PER_WINDOW_CEILING,
     AccessGraphEntitlementRule,
     AccessGraphImpliedAccessRule,
     AccessGraphRulesSettings,
@@ -17,16 +20,23 @@ from .modules import (
     OAuthFlowType,
     OAuthRequest,
     OAuthSettings,
+    RateLimitConfig,
+    RateLimitConfigBase,
+    RateLimitExtractor,
+    RateLimitExtractorResponse,
+    RateLimitStrategy,
     RequestDataType,
     RequestMethod,
     ValidateCredentialConfigCallable,
 )
+from .utils import get_capability_level_from_name
 
 __all__ = [
     "AccessGraphEntitlementRule",
     "AccessGraphRulesSettings",
     "AccessGraphImpliedAccessRule",
     "AuthModel",
+    "get_capability_level_from_name",
     "request_fingerprint",
     "OAuthFlowType",
     "ClientAuthenticationMethod",
@@ -45,4 +55,12 @@ __all__ = [
     "OAUTH_FLOW_TYPE_CAPABILITIES",
     "CredentialsSettings",
     "AUTH_TYPE_MAP",
+    "RateLimitConfig",
+    "RateLimitConfigBase",
+    "RateLimitExtractor",
+    "RateLimitExtractorResponse",
+    "RateLimitStrategy",
+    "REQUESTS_PER_WINDOW_CEILING",
+    "LIMIT_CEILING",
+    "MAXIMUM_RETRIES",
 ]

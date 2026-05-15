@@ -28,7 +28,10 @@ from .sslcompat import _match_has_ipaddress
 from thrift.transport import TSocket
 from thrift.transport.TTransport import TTransportException
 
-_match_hostname = lambda cert, hostname: True
+
+def _match_hostname(cert, hostname):
+    return True
+
 
 logger = logging.getLogger(__name__)
 warnings.filterwarnings(
@@ -47,8 +50,13 @@ class TSSLBase(object):
     # SSL 2.0 and 3.0 are disabled via ssl.OP_NO_SSLv2 and ssl.OP_NO_SSLv3.
     # For python < 2.7.9, use TLS 1.0 since TLSv1_X nor OP_NO_SSLvX is
     # unavailable.
-    _default_protocol = ssl.PROTOCOL_TLS_CLIENT if _has_ssl_context else \
-        ssl.PROTOCOL_TLSv1
+    # For python < 3.6, use SSLv23 since TLS is not available
+    if sys.version_info < (3, 6):
+        _default_protocol = ssl.PROTOCOL_SSLv23 if _has_ssl_context else \
+            ssl.PROTOCOL_TLSv1
+    else:
+        _default_protocol = ssl.PROTOCOL_TLS_CLIENT if _has_ssl_context else \
+            ssl.PROTOCOL_TLSv1
 
     def _init_context(self, ssl_version):
         if self._has_ssl_context:
@@ -351,7 +359,7 @@ class TSSLServerSocket(TSocket.TServerSocket, TSSLBase):
             # Preserve existing behaviors for default values
             if 'cert_reqs' not in kwargs:
                 kwargs['cert_reqs'] = ssl.CERT_NONE
-            if'certfile' not in kwargs:
+            if 'certfile' not in kwargs:
                 kwargs['certfile'] = 'cert.pem'
 
         unix_socket = kwargs.pop('unix_socket', None)

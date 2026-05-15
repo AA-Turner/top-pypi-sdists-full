@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Mapping, cast
+from typing import Dict, List
 from typing_extensions import Literal
 
 import httpx
@@ -31,18 +31,8 @@ from .uploads import (
     UploadsResourceWithStreamingResponse,
     AsyncUploadsResourceWithStreamingResponse,
 )
-from ..._types import (
-    Body,
-    Omit,
-    Query,
-    Headers,
-    NotGiven,
-    FileTypes,
-    SequenceNotStr,
-    omit,
-    not_given,
-)
-from ..._utils import extract_files, maybe_transform, deepcopy_minimal, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from .async_jobs import (
     AsyncJobsResource,
@@ -59,7 +49,7 @@ from ..._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from ...pagination import SyncPageResponse, AsyncPageResponse, SyncChunkPagination, AsyncChunkPagination
+from ...pagination import SyncPageResponse, AsyncPageResponse
 from ..._base_client import AsyncPaginator, make_request_options
 from .upload_schedules import (
     UploadSchedulesResource,
@@ -77,7 +67,6 @@ from .artifacts.artifacts import (
     ArtifactsResourceWithStreamingResponse,
     AsyncArtifactsResourceWithStreamingResponse,
 )
-from ...types.shared.chunk import Chunk
 from ...types.knowledge_base import KnowledgeBase
 from .data_source_connections import (
     DataSourceConnectionsResource,
@@ -87,6 +76,7 @@ from .data_source_connections import (
     DataSourceConnectionsResourceWithStreamingResponse,
     AsyncDataSourceConnectionsResourceWithStreamingResponse,
 )
+from ...types.knowledge_base_query_response import KnowledgeBaseQueryResponse
 from ...types.create_knowledge_base_response import CreateKnowledgeBaseResponse
 from ...types.delete_knowledge_base_response import DeleteKnowledgeBaseResponse
 from ...types.knowledge_base_update_response import KnowledgeBaseUpdateResponse
@@ -235,7 +225,7 @@ class KnowledgeBasesResource(SyncAPIResource):
         knowledge_base_id: str,
         *,
         include_artifacts_status: bool | Omit = omit,
-        view: List[Literal["Connections", "ArtifactCount"]] | Omit = omit,
+        view: List[Literal["Connections", "ArtifactCount", "IndexConfiguration"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -279,7 +269,7 @@ class KnowledgeBasesResource(SyncAPIResource):
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
         return self._get(
-            f"/v4/knowledge-bases/{knowledge_base_id}",
+            path_template("/v4/knowledge-bases/{knowledge_base_id}", knowledge_base_id=knowledge_base_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -328,7 +318,7 @@ class KnowledgeBasesResource(SyncAPIResource):
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
         return self._patch(
-            f"/v4/knowledge-bases/{knowledge_base_id}",
+            path_template("/v4/knowledge-bases/{knowledge_base_id}", knowledge_base_id=knowledge_base_id),
             body=maybe_transform(
                 {
                     "knowledge_base_name": knowledge_base_name,
@@ -349,7 +339,7 @@ class KnowledgeBasesResource(SyncAPIResource):
         limit: int | Omit = omit,
         name: str | Omit = omit,
         page: int | Omit = omit,
-        view: List[Literal["Connections", "ArtifactCount"]] | Omit = omit,
+        view: List[Literal["Connections", "ArtifactCount", "IndexConfiguration"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -457,7 +447,7 @@ class KnowledgeBasesResource(SyncAPIResource):
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
         return self._delete(
-            f"/v4/knowledge-bases/{knowledge_base_id}",
+            path_template("/v4/knowledge-bases/{knowledge_base_id}", knowledge_base_id=knowledge_base_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -480,7 +470,7 @@ class KnowledgeBasesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SyncChunkPagination[Chunk]:
+    ) -> KnowledgeBaseQueryResponse:
         """
         ### Description
 
@@ -542,9 +532,8 @@ class KnowledgeBasesResource(SyncAPIResource):
         """
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
-        return self._get_api_list(
-            f"/v4/knowledge-bases/{knowledge_base_id}/query",
-            page=SyncChunkPagination[Chunk],
+        return self._post(
+            path_template("/v4/knowledge-bases/{knowledge_base_id}/query", knowledge_base_id=knowledge_base_id),
             body=maybe_transform(
                 {
                     "query": query,
@@ -559,8 +548,7 @@ class KnowledgeBasesResource(SyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            model=Chunk,
-            method="post",
+            cast_to=KnowledgeBaseQueryResponse,
         )
 
     def upload_files(
@@ -569,8 +557,9 @@ class KnowledgeBasesResource(SyncAPIResource):
         *,
         chunking_strategy_config: str,
         data_source_config: str,
-        files: SequenceNotStr[FileTypes],
+        files: SequenceNotStr[str],
         force_reupload: bool,
+        custom_metadata: str | Omit = omit,
         tagging_information: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -583,6 +572,10 @@ class KnowledgeBasesResource(SyncAPIResource):
         Submit Upload Job with local files
 
         Args:
+          custom_metadata: JSON-encoded dictionary of custom metadata to attach to all chunks generated
+              from the uploaded files. These metadata fields become queryable via
+              metadata_filters on the chunks query endpoint.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -593,24 +586,23 @@ class KnowledgeBasesResource(SyncAPIResource):
         """
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
-        body = deepcopy_minimal(
-            {
-                "chunking_strategy_config": chunking_strategy_config,
-                "data_source_config": data_source_config,
-                "files": files,
-                "force_reupload": force_reupload,
-                "tagging_information": tagging_information,
-            }
-        )
-        extracted_files = extract_files(cast(Mapping[str, object], body), paths=[["files", "<array>"]])
         # It should be noted that the actual Content-Type header that will be
         # sent to the server will contain a `boundary` parameter, e.g.
         # multipart/form-data; boundary=---abc--
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return self._post(
-            f"/v4/knowledge-bases/{knowledge_base_id}/upload_files",
-            body=maybe_transform(body, knowledge_base_upload_files_params.KnowledgeBaseUploadFilesParams),
-            files=extracted_files,
+            path_template("/v4/knowledge-bases/{knowledge_base_id}/upload_files", knowledge_base_id=knowledge_base_id),
+            body=maybe_transform(
+                {
+                    "chunking_strategy_config": chunking_strategy_config,
+                    "data_source_config": data_source_config,
+                    "files": files,
+                    "force_reupload": force_reupload,
+                    "custom_metadata": custom_metadata,
+                    "tagging_information": tagging_information,
+                },
+                knowledge_base_upload_files_params.KnowledgeBaseUploadFilesParams,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -758,7 +750,7 @@ class AsyncKnowledgeBasesResource(AsyncAPIResource):
         knowledge_base_id: str,
         *,
         include_artifacts_status: bool | Omit = omit,
-        view: List[Literal["Connections", "ArtifactCount"]] | Omit = omit,
+        view: List[Literal["Connections", "ArtifactCount", "IndexConfiguration"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -802,7 +794,7 @@ class AsyncKnowledgeBasesResource(AsyncAPIResource):
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
         return await self._get(
-            f"/v4/knowledge-bases/{knowledge_base_id}",
+            path_template("/v4/knowledge-bases/{knowledge_base_id}", knowledge_base_id=knowledge_base_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -851,7 +843,7 @@ class AsyncKnowledgeBasesResource(AsyncAPIResource):
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
         return await self._patch(
-            f"/v4/knowledge-bases/{knowledge_base_id}",
+            path_template("/v4/knowledge-bases/{knowledge_base_id}", knowledge_base_id=knowledge_base_id),
             body=await async_maybe_transform(
                 {
                     "knowledge_base_name": knowledge_base_name,
@@ -872,7 +864,7 @@ class AsyncKnowledgeBasesResource(AsyncAPIResource):
         limit: int | Omit = omit,
         name: str | Omit = omit,
         page: int | Omit = omit,
-        view: List[Literal["Connections", "ArtifactCount"]] | Omit = omit,
+        view: List[Literal["Connections", "ArtifactCount", "IndexConfiguration"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -980,14 +972,14 @@ class AsyncKnowledgeBasesResource(AsyncAPIResource):
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
         return await self._delete(
-            f"/v4/knowledge-bases/{knowledge_base_id}",
+            path_template("/v4/knowledge-bases/{knowledge_base_id}", knowledge_base_id=knowledge_base_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
             cast_to=DeleteKnowledgeBaseResponse,
         )
 
-    def query(
+    async def query(
         self,
         knowledge_base_id: str,
         *,
@@ -1003,7 +995,7 @@ class AsyncKnowledgeBasesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AsyncPaginator[Chunk, AsyncChunkPagination[Chunk]]:
+    ) -> KnowledgeBaseQueryResponse:
         """
         ### Description
 
@@ -1065,10 +1057,9 @@ class AsyncKnowledgeBasesResource(AsyncAPIResource):
         """
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
-        return self._get_api_list(
-            f"/v4/knowledge-bases/{knowledge_base_id}/query",
-            page=AsyncChunkPagination[Chunk],
-            body=maybe_transform(
+        return await self._post(
+            path_template("/v4/knowledge-bases/{knowledge_base_id}/query", knowledge_base_id=knowledge_base_id),
+            body=await async_maybe_transform(
                 {
                     "query": query,
                     "top_k": top_k,
@@ -1082,8 +1073,7 @@ class AsyncKnowledgeBasesResource(AsyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            model=Chunk,
-            method="post",
+            cast_to=KnowledgeBaseQueryResponse,
         )
 
     async def upload_files(
@@ -1092,8 +1082,9 @@ class AsyncKnowledgeBasesResource(AsyncAPIResource):
         *,
         chunking_strategy_config: str,
         data_source_config: str,
-        files: SequenceNotStr[FileTypes],
+        files: SequenceNotStr[str],
         force_reupload: bool,
+        custom_metadata: str | Omit = omit,
         tagging_information: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -1106,6 +1097,10 @@ class AsyncKnowledgeBasesResource(AsyncAPIResource):
         Submit Upload Job with local files
 
         Args:
+          custom_metadata: JSON-encoded dictionary of custom metadata to attach to all chunks generated
+              from the uploaded files. These metadata fields become queryable via
+              metadata_filters on the chunks query endpoint.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -1116,24 +1111,23 @@ class AsyncKnowledgeBasesResource(AsyncAPIResource):
         """
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
-        body = deepcopy_minimal(
-            {
-                "chunking_strategy_config": chunking_strategy_config,
-                "data_source_config": data_source_config,
-                "files": files,
-                "force_reupload": force_reupload,
-                "tagging_information": tagging_information,
-            }
-        )
-        extracted_files = extract_files(cast(Mapping[str, object], body), paths=[["files", "<array>"]])
         # It should be noted that the actual Content-Type header that will be
         # sent to the server will contain a `boundary` parameter, e.g.
         # multipart/form-data; boundary=---abc--
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return await self._post(
-            f"/v4/knowledge-bases/{knowledge_base_id}/upload_files",
-            body=await async_maybe_transform(body, knowledge_base_upload_files_params.KnowledgeBaseUploadFilesParams),
-            files=extracted_files,
+            path_template("/v4/knowledge-bases/{knowledge_base_id}/upload_files", knowledge_base_id=knowledge_base_id),
+            body=await async_maybe_transform(
+                {
+                    "chunking_strategy_config": chunking_strategy_config,
+                    "data_source_config": data_source_config,
+                    "files": files,
+                    "force_reupload": force_reupload,
+                    "custom_metadata": custom_metadata,
+                    "tagging_information": tagging_information,
+                },
+                knowledge_base_upload_files_params.KnowledgeBaseUploadFilesParams,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

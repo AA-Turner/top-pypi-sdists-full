@@ -30,3 +30,8 @@ class Ambient(LightEffect):
 
         if __debug__:
             clamped(self.level)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Ambient",
+]

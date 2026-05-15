@@ -1,6 +1,267 @@
 import pytest
 
 
+def test_parameter_uprating_processes_dependencies_before_dependents():
+    from policyengine_core.parameters import ParameterNode, uprate_parameters
+
+    root = ParameterNode(
+        data={
+            "target": {
+                "values": {"2025-01-01": 100},
+                "metadata": {"uprating": "middle"},
+            },
+            "middle": {
+                "values": {"2025-01-01": 100},
+                "metadata": {"uprating": "base"},
+            },
+            "base": {
+                "values": {"2025-01-01": 100, "2026-01-01": 110},
+            },
+        }
+    )
+
+    uprated = uprate_parameters(root)
+
+    assert uprated.middle("2026-01-01") == pytest.approx(110)
+    assert uprated.target("2026-01-01") == pytest.approx(110)
+
+
+def test_parameter_uprating_processes_cloned_subtrees_with_duplicate_names():
+    from policyengine_core.parameters import ParameterNode, uprate_parameters
+
+    root = ParameterNode(
+        data={
+            "target": {
+                "values": {"2025-01-01": 100},
+                "metadata": {"uprating": "middle"},
+            },
+            "middle": {
+                "values": {"2025-01-01": 100},
+                "metadata": {"uprating": "base"},
+            },
+            "base": {
+                "values": {"2025-01-01": 100, "2026-01-01": 110},
+            },
+        }
+    )
+    root.add_child("baseline", root.clone())
+
+    uprated = uprate_parameters(root)
+
+    assert uprated.middle("2026-01-01") == pytest.approx(110)
+    assert uprated.target("2026-01-01") == pytest.approx(110)
+    assert uprated.baseline.middle("2026-01-01") == pytest.approx(110)
+    assert uprated.baseline.target("2026-01-01") == pytest.approx(110)
+
+
+def test_parameter_uprating_uses_cloned_subtree_upraters():
+    from policyengine_core.parameters import ParameterNode, uprate_parameters
+
+    root = ParameterNode(
+        data={
+            "target": {
+                "values": {"2025-01-01": 100},
+                "metadata": {"uprating": "middle"},
+            },
+            "middle": {
+                "values": {"2025-01-01": 100},
+                "metadata": {"uprating": "base"},
+            },
+            "base": {
+                "values": {"2025-01-01": 100, "2026-01-01": 110},
+            },
+        }
+    )
+    root.add_child("baseline", root.clone())
+    root.base.update(start="2026-01-01", value=120)
+
+    uprated = uprate_parameters(root)
+
+    assert uprated.middle("2026-01-01") == pytest.approx(120)
+    assert uprated.target("2026-01-01") == pytest.approx(120)
+    assert uprated.baseline.middle("2026-01-01") == pytest.approx(110)
+    assert uprated.baseline.target("2026-01-01") == pytest.approx(110)
+
+
+def test_parameter_uprating_uses_reattached_cloned_subtree_upraters():
+    from policyengine_core.parameters import ParameterNode, uprate_parameters
+
+    root = ParameterNode(
+        data={
+            "gov": {
+                "target": {
+                    "values": {"2025-01-01": 100},
+                    "metadata": {"uprating": "gov.middle"},
+                },
+                "middle": {
+                    "values": {"2025-01-01": 100},
+                    "metadata": {"uprating": "gov.base"},
+                },
+                "base": {
+                    "values": {"2025-01-01": 100, "2026-01-01": 110},
+                },
+            },
+        }
+    )
+    root.add_child("baseline", root.gov.clone())
+    root.gov.base.update(start="2026-01-01", value=120)
+
+    uprated = uprate_parameters(root)
+
+    assert uprated.gov.middle("2026-01-01") == pytest.approx(120)
+    assert uprated.gov.target("2026-01-01") == pytest.approx(120)
+    assert uprated.baseline.middle("2026-01-01") == pytest.approx(110)
+    assert uprated.baseline.target("2026-01-01") == pytest.approx(110)
+
+
+def test_parameter_uprating_keeps_external_upraters_root_scoped_in_clones():
+    from policyengine_core.parameters import ParameterNode, uprate_parameters
+
+    root = ParameterNode(
+        data={
+            "external": {
+                "uprater": {
+                    "values": {"2025-01-01": 100, "2026-01-01": 120},
+                },
+            },
+            "gov": {
+                "target": {
+                    "values": {"2025-01-01": 100},
+                    "metadata": {"uprating": "external.uprater"},
+                },
+                "external": {
+                    "uprater": {
+                        "values": {"2025-01-01": 100, "2026-01-01": 110},
+                    },
+                },
+            },
+        }
+    )
+    root.add_child("baseline", root.gov.clone())
+
+    uprated = uprate_parameters(root)
+
+    assert uprated.gov.target("2026-01-01") == pytest.approx(120)
+    assert uprated.baseline.target("2026-01-01") == pytest.approx(120)
+
+
+def test_parameter_uprating_handles_nodes_with_brackets_child_name():
+    from policyengine_core.parameters import (
+        ParameterNode,
+        ParameterScale,
+        uprate_parameters,
+    )
+
+    root = ParameterNode(
+        data={
+            "container": {
+                "uprater": {
+                    "values": {"2025-01-01": 100, "2026-01-01": 110},
+                },
+            },
+        }
+    )
+    root.container.add_child(
+        "brackets",
+        ParameterScale(
+            "container.brackets",
+            data={
+                "brackets": [
+                    {
+                        "threshold": {"values": {"2025-01-01": 0}},
+                        "amount": {
+                            "values": {"2025-01-01": 100},
+                            "metadata": {"uprating": "container.uprater"},
+                        },
+                    },
+                ],
+            },
+            file_path=None,
+        ),
+    )
+
+    uprated = uprate_parameters(root)
+
+    assert uprated.container.brackets.brackets[0].amount("2026-01-01") == pytest.approx(
+        110
+    )
+
+
+def test_scale_bracket_uprating_processes_dependencies_before_dependents():
+    from policyengine_core.parameters import ParameterNode, uprate_parameters
+
+    root = ParameterNode(
+        data={
+            "scale": {
+                "metadata": {
+                    "uprating": "middle",
+                    "uprate_thresholds": True,
+                },
+                "brackets": [
+                    {
+                        "threshold": {"values": {"2025-01-01": 100}},
+                        "rate": {"values": {"2025-01-01": 0.1}},
+                    },
+                ],
+            },
+            "middle": {
+                "values": {"2025-01-01": 100},
+                "metadata": {"uprating": "base"},
+            },
+            "base": {
+                "values": {"2025-01-01": 100, "2026-01-01": 110},
+            },
+        }
+    )
+
+    uprated = uprate_parameters(root)
+
+    assert uprated.middle("2026-01-01") == pytest.approx(110)
+    assert uprated.scale.brackets[0].threshold("2026-01-01") == pytest.approx(110)
+
+
+def test_parameter_uprating_rejects_cyclic_dependencies():
+    from policyengine_core.parameters import ParameterNode, uprate_parameters
+
+    root = ParameterNode(
+        data={
+            "a": {
+                "values": {"2025-01-01": 100},
+                "metadata": {"uprating": "b"},
+            },
+            "b": {
+                "values": {"2025-01-01": 100},
+                "metadata": {"uprating": "a"},
+            },
+        }
+    )
+
+    with pytest.raises(ValueError, match="Cyclic uprating dependency"):
+        uprate_parameters(root)
+
+
+def test_parameter_node_loads_directory_children_deterministically(
+    tmp_path,
+    monkeypatch,
+):
+    from policyengine_core.parameters import ParameterNode
+
+    for child_name in ("zeta.yaml", "alpha.yaml"):
+        (tmp_path / child_name).write_text(
+            "values:\n  2025-01-01:\n    value: 1\n",
+            encoding="utf-8",
+        )
+
+    monkeypatch.setattr(
+        "os.listdir",
+        lambda directory_path: ["zeta.yaml", "alpha.yaml"],
+    )
+
+    root = ParameterNode(directory_path=str(tmp_path))
+
+    assert list(root.children) == ["alpha", "zeta"]
+
+
 def test_parameter_uprating():
     from policyengine_core.parameters import ParameterNode
 

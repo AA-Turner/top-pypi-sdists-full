@@ -171,6 +171,20 @@ class RuntimeSessionTests(unittest.TestCase):
         self.assertEqual(decoded["bytes"], "hello")
         self.assertEqual(decoded["opaque"], "opaque")
 
+    def test_session_data_checksum_matches_go_canonical_json_escaping(self):
+        checksum = session_data_checksum(
+            {"text": "vendor pings… <tag>&", "nested": {"z": 1, "a": True}}
+        )
+
+        self.assertEqual(
+            checksum,
+            "sha256:0b119df6ce7585d5f92a95721421025c18957f0422259a6ac240d85fa94d47d9",
+        )
+        self.assertEqual(
+            session_data_checksum({"id": 12345678901234567890}),
+            "sha256:974d46d9988f7cf0225d863e703c3072aa9fadd989bc62f23933a99650a6c5e5",
+        )
+
 
 class RuntimeSessionPersistenceTests(unittest.IsolatedAsyncioTestCase):
     class StubSessionService:

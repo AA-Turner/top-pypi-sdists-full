@@ -1163,6 +1163,7 @@ class FileFormatType(IntEnum):
     NUMBERS = 56,
     NUMBERS_09 = 56,
     NUMBERS_35 = 62,
+    ODB = 1026,
     ODF = 49,
     ODG = 50,
     ODP = 48,
@@ -1172,6 +1173,7 @@ class FileFormatType(IntEnum):
     OLE_10_NATIVE = 35,
     ONE_NOTE = 772,
     OOXML = 46,
+    OTG = 1025,
     OTP = 61,
     OTS = 55,
     OTT = 53,
@@ -1486,6 +1488,9 @@ class HtmlVersion(IntEnum):
     DEFAULT = 0,
     HTML_5 = 2,
     X_HTML = 1,
+class HyperlinkLoadMode(IntEnum):
+    ALLOW_MULTIPLE = 1,
+    NORMAL = 0,
 class IconSetType(IntEnum):
     ARROWS_3 = 0,
     ARROWS_4 = 8,
@@ -2705,6 +2710,7 @@ class SaveFormat(IntEnum):
     MARKDOWN = 57,
     NUMBERS = 56,
     ODS = 14,
+    OFD = 1026,
     OTS = 31,
     PCL = 1025,
     PDF = 13,
@@ -3444,6 +3450,7 @@ from com.aspose.cells import NumbersLoadOptions
 from com.aspose.cells import OdsLoadOptions
 from com.aspose.cells import OdsPageBackground
 from com.aspose.cells import OdsSaveOptions
+from com.aspose.cells import OfdSaveOptions
 from com.aspose.cells import OoxmlSaveOptions
 from com.aspose.cells import PasteOptions
 from com.aspose.cells import PclSaveOptions

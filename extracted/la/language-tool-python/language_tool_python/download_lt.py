@@ -1,6 +1,8 @@
 """LanguageTool download module."""
 
 import contextlib
+import hashlib
+import importlib.resources
 import logging
 import os
 import re
@@ -14,8 +16,10 @@ from pathlib import Path
 from shutil import which
 from typing import IO, Dict, List, Optional, Tuple, Union
 from urllib.parse import urljoin
+from warnings import warn
 
 import requests
+import toml
 import tqdm
 from packaging import version
 from packaging.version import Version
@@ -23,8 +27,10 @@ from packaging.version import Version
 from ._deprecated import deprecated
 from .config_file import LanguageToolConfig
 from .exceptions import JavaError, PathError
+from .safe_zip import SafeZipExtractor
 from .utils import (
     LTP_JAR_DIR_PATH_ENV_VAR,
+    get_env_int,
     get_language_tool_download_path,
 )
 
@@ -37,6 +43,10 @@ BASE_URL_SNAPSHOT = os.environ.get(
     "https://internal1.languagetool.org/snapshots/",
 )
 FILENAME_SNAPSHOT = "LanguageTool-{version}-snapshot.zip"
+BASE_URL_NEW_RELEASES = os.environ.get(
+    "LTP_DOWNLOAD_HOST_NEW_RELEASES",
+    "https://github.com/jxmorris12/language_tool_python/releases/download/LanguageTool-{version}/",
+)
 BASE_URL_RELEASE = os.environ.get(
     "LTP_DOWNLOAD_HOST_RELEASE",
     "https://languagetool.org/download/",
@@ -47,8 +57,21 @@ BASE_URL_ARCHIVE = os.environ.get(
 )
 FILENAME_RELEASE = "LanguageTool-{version}.zip"
 
-LTP_DOWNLOAD_VERSION = "latest"
-LT_SNAPSHOT_CURRENT_VERSION = "6.9-SNAPSHOT"
+LTP_DOWNLOAD_VERSION = "6.8"
+LT_SNAPSHOT_LATEST_VERSION = "latest"
+LTP_DOWNLOAD_SHA256_ENV_VAR = "LTP_DOWNLOAD_SHA256"
+LTP_BYPASS_VERIFIED_DOWNLOADS_ENV_VAR = "LTP_BYPASS_VERIFIED_DOWNLOADS"
+LTP_MAX_DOWNLOAD_BYTES_ENV_VAR = "LTP_MAX_DOWNLOAD_BYTES"
+DOWNLOAD_CHUNK_BYTES = 1024 * 1024
+_SAFE_ZIP_EXTRACTOR = SafeZipExtractor()
+
+with (
+    importlib.resources.as_file(
+        importlib.resources.files("language_tool_python").joinpath("integrity.toml")
+    ) as hashes_path,
+    open(hashes_path, "rb") as f,
+):
+    EXPECTED_DOWNLOAD_SHA256 = toml.loads(f.read().decode("utf-8"))
 
 JAVA_VERSION_REGEX = re.compile(
     r'^(?:java|openjdk) version "(?P<major1>\d+)(|\.(?P<major2>\d+)\.[^"]+)"',
@@ -60,6 +83,78 @@ JAVA_VERSION_REGEX_UPDATED = re.compile(
     r"^(?:java|openjdk) [version ]?(?P<major1>\d+)\.(?P<major2>\d+)",
     re.MULTILINE,
 )
+
+
+MAX_DOWNLOAD_BYTES = get_env_int(
+    LTP_MAX_DOWNLOAD_BYTES_ENV_VAR,
+    512 * 1024 * 1024,
+)  # 512 MiB, latest snapshot: 246.58 MiB archive
+
+
+def _get_zip_hash(version_name: str) -> Optional[str]:
+    """Get the expected SHA-256 hash for a given version of LanguageTool.
+    This function checks for environment variables that may specify the expected hash for the given version. It normalizes the version name to construct the environment variable name. If no specific environment variable is found for the version, it falls back to a general environment variable or a manifest lookup. If the bypass environment variable is set, it will skip verification and return None.
+
+    :param version_name: The version name of LanguageTool (e.g., '6.0', '20240101', or 'latest').
+    :type version_name: str
+    :return: The expected SHA-256 hash for the given version, or None if verification is bypassed or no hash is configured.
+    :rtype: Optional[str]
+    """
+    if os.environ.get(LTP_BYPASS_VERIFIED_DOWNLOADS_ENV_VAR, "").lower() == "true":
+        err = (
+            f"Verified downloads are bypassed. No SHA-256 checksum will be used for "
+            f"LanguageTool {version_name}. Set {LTP_BYPASS_VERIFIED_DOWNLOADS_ENV_VAR}=false to re-enable verification."
+        )
+        warn(err, RuntimeWarning, stacklevel=2)
+        return None
+    suffix = re.sub(r"[^A-Za-z0-9]+", "_", version_name).strip("_").upper()
+    version_env_var = f"LTP_DOWNLOAD_SHA256_{suffix}"
+    configured = (
+        (os.environ.get(version_env_var), version_env_var),
+        (os.environ.get(LTP_DOWNLOAD_SHA256_ENV_VAR), LTP_DOWNLOAD_SHA256_ENV_VAR),
+        (EXPECTED_DOWNLOAD_SHA256.get(version_name), f"manifest:{version_name}"),
+    )
+    for checksum, source in configured:
+        if checksum:
+            normalized = checksum.strip().lower()
+            if not re.fullmatch(r"[0-9a-f]{64}", normalized):
+                err = f"Invalid SHA-256 checksum configured by {source}."
+                raise PathError(err)
+            return normalized
+    return None
+
+
+def _validate_download_size(content_length: Optional[str]) -> Optional[int]:
+    """
+    Validate the HTTP Content-Length header before downloading a ZIP file.
+
+    :param content_length: The Content-Length header value, if present.
+    :type content_length: Optional[str]
+    :return: The parsed content length, or None when the header is missing.
+    :rtype: Optional[int]
+    :raises PathError: If the header is invalid or exceeds the download size limit.
+    """
+    if content_length is None:
+        return None
+
+    try:
+        total = int(content_length)
+    except ValueError as e:
+        err = f"Invalid Content-Length header: {content_length!r}."
+        raise PathError(err) from e
+
+    if total < 0:
+        err = f"Invalid Content-Length header: {content_length!r}."
+        raise PathError(err)
+
+    if total > MAX_DOWNLOAD_BYTES:
+        err = (
+            f"Refusing to download {total} bytes. "
+            f"Maximum allowed download size is {MAX_DOWNLOAD_BYTES} bytes."
+        )
+        raise PathError(err)
+
+    return total
 
 
 def parse_java_version(version_text: str) -> Tuple[int, int]:
@@ -214,8 +309,15 @@ def unzip_file(temp_file_name: str, directory_to_extract_to: Path) -> None:
     """
 
     logger.info("Unzipping %s to %s", temp_file_name, directory_to_extract_to)
-    with zipfile.ZipFile(temp_file_name, "r") as zip_ref:
-        zip_ref.extractall(directory_to_extract_to)
+    with (
+        tempfile.TemporaryDirectory(dir=directory_to_extract_to.parent) as temp_dir,
+        zipfile.ZipFile(temp_file_name, "r") as zip_ref,
+    ):
+        _SAFE_ZIP_EXTRACTOR.extractall(
+            zip_ref,
+            directory_to_extract_to,
+            work_dir=Path(temp_dir),
+        )
 
 
 @deprecated(
@@ -297,13 +399,16 @@ class LocalLanguageTool(ABC):
         This factory method determines the appropriate subclass (ReleaseLocalLanguageTool
         or SnapshotLocalLanguageTool) based on the version name format.
 
-        :param version_name: The version name (e.g., '6.0', '20240101', or 'latest').
+        :param version_name: The version name (e.g., '6.8', '20240101', or 'latest').
         :type version_name: str
         :return: An instance of the appropriate LocalLanguageTool subclass.
         :rtype: LocalLanguageTool
         :raises ValueError: If the version name format is not recognized.
         """
-        if re.match(r"^\d{8}$", version_name) or version_name == LTP_DOWNLOAD_VERSION:
+        if (
+            re.match(r"^\d{8}$", version_name)
+            or version_name == LT_SNAPSHOT_LATEST_VERSION
+        ):
             return SnapshotLocalLanguageTool(version_name)
         if re.match(r"^\d+\.\d+$", version_name):
             return ReleaseLocalLanguageTool(version_name)
@@ -328,11 +433,7 @@ class LocalLanguageTool(ABC):
             err = f"Could not determine LanguageTool version from path: {path}"
             raise ValueError(err)
         version_name = match.group(1)
-        return cls.from_version_name(
-            version_name
-            if version_name != LT_SNAPSHOT_CURRENT_VERSION
-            else LTP_DOWNLOAD_VERSION
-        )
+        return cls.from_version_name(version_name)
 
     @abstractmethod
     def download(self) -> None:
@@ -360,9 +461,11 @@ class LocalLanguageTool(ABC):
         :return: A ZipFile object of the downloaded archive.
         :rtype: zipfile.ZipFile
         :raises TimeoutError: If the download request times out.
-        :raises PathError: If the download fails due to HTTP errors (404, 403, etc.).
+        :raises PathError: If the download fails due to HTTP errors (404, 403, etc.) or if the checksum does not match.
         """
         logger.info("Starting download from %s", self.download_url)
+        expected_sha256 = _get_zip_hash(self.version_name)
+        sha256 = hashlib.sha256()
         try:
             req = requests.get(
                 self.download_url, stream=True, proxies=proxies, timeout=60
@@ -370,8 +473,6 @@ class LocalLanguageTool(ABC):
         except requests.exceptions.Timeout as e:
             err = f"Request to {self.download_url} timed out."
             raise TimeoutError(err) from e
-        content_length = req.headers.get("Content-Length")
-        total = int(content_length) if content_length is not None else None
         if req.status_code == 404:
             err = f"Could not find at URL {self.download_url}. The given version may not exist or is no longer available."
             raise PathError(err)
@@ -381,17 +482,38 @@ class LocalLanguageTool(ABC):
         if req.status_code != 200:
             err = f"Failed to download from {self.download_url}. HTTP status code: {req.status_code}."
             raise PathError(err)
+        content_length = req.headers.get("Content-Length")
+        total = _validate_download_size(content_length)
         progress = tqdm.tqdm(
             unit="B",
             unit_scale=True,
             total=total,
             desc=f"Downloading LanguageTool {self.version_name}",
         )
-        for chunk in req.iter_content(chunk_size=1024):
+        downloaded_bytes = 0
+        for chunk in req.iter_content(chunk_size=DOWNLOAD_CHUNK_BYTES):
             if chunk:  # filter out keep-alive new chunks
+                downloaded_bytes += len(chunk)
+                if downloaded_bytes > MAX_DOWNLOAD_BYTES:
+                    progress.close()
+                    err = (
+                        f"Refusing to download more than {MAX_DOWNLOAD_BYTES} bytes "
+                        f"from {self.download_url}."
+                    )
+                    raise PathError(err)
+                sha256.update(chunk)
                 progress.update(len(chunk))
                 downloaded_file.write(chunk)
         progress.close()
+        actual_sha256 = sha256.hexdigest()
+        logger.debug("Download completed. SHA-256: %s", actual_sha256)
+        if expected_sha256 is not None and actual_sha256 != expected_sha256:
+            err = (
+                f"Downloaded LanguageTool archive checksum mismatch. "
+                f"Expected {expected_sha256}, got {actual_sha256}."
+            )
+            raise PathError(err)
+        downloaded_file.seek(0)
         return zipfile.ZipFile(downloaded_file)
 
     @classmethod
@@ -649,13 +771,17 @@ class ReleaseLocalLanguageTool(LocalLanguageTool):
 
         if self not in self.get_installed_versions():
             with (
-                tempfile.TemporaryDirectory() as temp_dir,
+                tempfile.TemporaryDirectory(dir=download_folder) as temp_dir,
                 tempfile.NamedTemporaryFile(
                     suffix=".zip", dir=temp_dir
                 ) as downloaded_file,
                 self._get_remote_zip(downloaded_file) as zip_file,
             ):
-                zip_file.extractall(download_folder)
+                _SAFE_ZIP_EXTRACTOR.extractall(
+                    zip_file,
+                    download_folder,
+                    work_dir=Path(temp_dir),
+                )
 
     @property
     def version_name(self) -> str:
@@ -683,7 +809,8 @@ class ReleaseLocalLanguageTool(LocalLanguageTool):
         Get the download URL for this release version.
 
         URLs are constructed based on version:
-        - Versions >= 6.0 are downloaded from the main release page
+        - Versions >= 6.7 are downloaded from the new release page
+        - Versions 6.0 - 6.6 are downloaded from the main release page
         - Versions 4.0 - 5.9 are downloaded from the archive
         - Versions < 4.0 are not supported
 
@@ -692,9 +819,13 @@ class ReleaseLocalLanguageTool(LocalLanguageTool):
         :raises PathError: If the version is below 4.0 (unsupported).
         """
         version_num = Version(self._version_name)
+        filename = FILENAME_RELEASE.format(version=self._version_name)
+        # Versions >= 6.7 from new release page
+        if version_num >= Version("6.7"):
+            base_url = BASE_URL_NEW_RELEASES.format(version=self._version_name)
+            return urljoin(base_url, filename)
         # Versions >= 6.0 from main download page
         if version_num >= Version("6.0"):
-            filename = FILENAME_RELEASE.format(version=self._version_name)
             return urljoin(BASE_URL_RELEASE, filename)
         if version_num < Version("4.0"):
             err = (
@@ -703,7 +834,6 @@ class ReleaseLocalLanguageTool(LocalLanguageTool):
             )
             raise PathError(err)
         # Versions < 6.0 from archive
-        filename = FILENAME_RELEASE.format(version=self._version_name)
         return urljoin(BASE_URL_ARCHIVE, filename)
 
 
@@ -725,14 +855,18 @@ class SnapshotLocalLanguageTool(LocalLanguageTool):
         Initialize a SnapshotLocalLanguageTool instance.
         """
         self._version_name = version_name
+        self._install_version_name = (
+            datetime.now().strftime("%Y%m%d")
+            if version_name == LT_SNAPSHOT_LATEST_VERSION
+            else version_name
+        )
 
     def download(self) -> None:
         """
         Download and install this snapshot version of LanguageTool.
 
         This method checks Java compatibility, downloads the snapshot ZIP file,
-        and extracts it to the download folder. For snapshots, the extracted
-        directory is renamed to match the expected version name if necessary.
+        and extracts it to the download folder using the requested snapshot name.
         """
         confirm_java_compatibility(self._version_name)
 
@@ -744,48 +878,54 @@ class SnapshotLocalLanguageTool(LocalLanguageTool):
             return
 
         if self not in self.get_installed_versions():
-            # For snapshots, pass expected_dirname to rename the extracted folder
             with (
-                tempfile.TemporaryDirectory() as temp_dir,
+                tempfile.TemporaryDirectory(dir=download_folder) as temp_dir,
                 tempfile.NamedTemporaryFile(
                     suffix=".zip", dir=temp_dir
                 ) as downloaded_file,
                 self._get_remote_zip(downloaded_file) as zip_file,
             ):
-                lt_dir = zip_file.infolist()[0].filename
-                expected_dirname = f"LanguageTool-{self.version_name}/"
-                if lt_dir != expected_dirname:
-                    with (
-                        tempfile.NamedTemporaryFile(
-                            suffix=".zip", dir=temp_dir
-                        ) as temp_file,
-                        zipfile.ZipFile(temp_file, "w") as renamed_zip,
-                    ):
-                        for item in zip_file.infolist():
-                            buffer = zip_file.read(item.filename)
-                            new_name = item.filename.replace(
-                                lt_dir, expected_dirname, 1
-                            )
-                            renamed_zip.writestr(new_name, buffer)
-                        temp_file.seek(0)
-                        renamed_zip.extractall(download_folder)
-                else:
-                    zip_file.extractall(download_folder)
+                snapshot_extract_dir = Path(temp_dir) / "snapshot"
+                _SAFE_ZIP_EXTRACTOR.extractall(
+                    zip_file,
+                    snapshot_extract_dir,
+                    work_dir=Path(temp_dir),
+                )
+                extracted_roots = list(snapshot_extract_dir.iterdir())
+                if len(extracted_roots) != 1 or not extracted_roots[0].is_dir():
+                    err = (
+                        "Expected snapshot archive to contain exactly one "
+                        "root directory."
+                    )
+                    raise PathError(err)
+
+                expected_dir = download_folder / f"LanguageTool-{self.version_name}"
+                if expected_dir.exists() or expected_dir.is_symlink():
+                    err = (
+                        "Refusing to overwrite existing LanguageTool snapshot "
+                        f"directory: {expected_dir}."
+                    )
+                    raise PathError(err)
+
+                logger.debug(
+                    "Renaming extracted snapshot directory %s to %s",
+                    extracted_roots[0],
+                    expected_dir,
+                )
+                extracted_roots[0].rename(expected_dir)
 
     @property
     def version_name(self) -> str:
         """
         Get the snapshot version name.
 
-        Returns the current snapshot version string if 'latest' was specified,
-        otherwise returns the specified date string.
+        Returns the current date if 'latest' was specified, otherwise returns the
+        specified date string.
 
         :return: The snapshot version string.
         :rtype: str
         """
-        if self._version_name == LTP_DOWNLOAD_VERSION:
-            return LT_SNAPSHOT_CURRENT_VERSION
-        return self._version_name
+        return self._install_version_name
 
     @property
     def version_into(self) -> datetime:
@@ -798,11 +938,7 @@ class SnapshotLocalLanguageTool(LocalLanguageTool):
         :return: A datetime object representing the snapshot date.
         :rtype: datetime
         """
-        if self._version_name == LTP_DOWNLOAD_VERSION:
-            date_str = datetime.now().strftime("%Y%m%d")
-        else:
-            date_str = self._version_name
-        return datetime.strptime(date_str, "%Y%m%d")
+        return datetime.strptime(self.version_name, "%Y%m%d")
 
     @property
     def download_url(self) -> str:

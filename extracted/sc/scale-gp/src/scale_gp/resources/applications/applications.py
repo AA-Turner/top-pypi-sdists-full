@@ -2,24 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Dict, Mapping, Iterable, cast
+from typing import Dict, Iterable
 from typing_extensions import Literal
 
 import httpx
 
 from ...types import application_process_params, application_validate_params, application_upload_files_params
-from ..._types import (
-    Body,
-    Omit,
-    Query,
-    Headers,
-    NotGiven,
-    FileTypes,
-    SequenceNotStr,
-    omit,
-    not_given,
-)
-from ..._utils import extract_files, maybe_transform, deepcopy_minimal, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ..._utils import maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from .dashboards import (
     DashboardsResource,
@@ -36,6 +26,14 @@ from ..._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
+from .chat_threads import (
+    ChatThreadsResource,
+    AsyncChatThreadsResource,
+    ChatThreadsResourceWithRawResponse,
+    AsyncChatThreadsResourceWithRawResponse,
+    ChatThreadsResourceWithStreamingResponse,
+    AsyncChatThreadsResourceWithStreamingResponse,
+)
 from ..._base_client import make_request_options
 from .metrics.metrics import (
     MetricsResource,
@@ -44,14 +42,6 @@ from .metrics.metrics import (
     AsyncMetricsResourceWithRawResponse,
     MetricsResourceWithStreamingResponse,
     AsyncMetricsResourceWithStreamingResponse,
-)
-from .chat_threads.chat_threads import (
-    ChatThreadsResource,
-    AsyncChatThreadsResource,
-    ChatThreadsResourceWithRawResponse,
-    AsyncChatThreadsResourceWithRawResponse,
-    ChatThreadsResourceWithStreamingResponse,
-    AsyncChatThreadsResourceWithStreamingResponse,
 )
 from ...types.application_edge_param import ApplicationEdgeParam
 from ...types.application_node_param import ApplicationNodeParam
@@ -165,7 +155,7 @@ class ApplicationsResource(SyncAPIResource):
     def upload_files(
         self,
         *,
-        files: SequenceNotStr[FileTypes],
+        files: SequenceNotStr[str],
         account_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -191,16 +181,13 @@ class ApplicationsResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        body = deepcopy_minimal({"files": files})
-        extracted_files = extract_files(cast(Mapping[str, object], body), paths=[["files", "<array>"]])
         # It should be noted that the actual Content-Type header that will be
         # sent to the server will contain a `boundary` parameter, e.g.
         # multipart/form-data; boundary=---abc--
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return self._post(
             "/v4/applications/upload-files",
-            body=maybe_transform(body, application_upload_files_params.ApplicationUploadFilesParams),
-            files=extracted_files,
+            body=maybe_transform({"files": files}, application_upload_files_params.ApplicationUploadFilesParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -370,7 +357,7 @@ class AsyncApplicationsResource(AsyncAPIResource):
     async def upload_files(
         self,
         *,
-        files: SequenceNotStr[FileTypes],
+        files: SequenceNotStr[str],
         account_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -396,16 +383,15 @@ class AsyncApplicationsResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        body = deepcopy_minimal({"files": files})
-        extracted_files = extract_files(cast(Mapping[str, object], body), paths=[["files", "<array>"]])
         # It should be noted that the actual Content-Type header that will be
         # sent to the server will contain a `boundary` parameter, e.g.
         # multipart/form-data; boundary=---abc--
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return await self._post(
             "/v4/applications/upload-files",
-            body=await async_maybe_transform(body, application_upload_files_params.ApplicationUploadFilesParams),
-            files=extracted_files,
+            body=await async_maybe_transform(
+                {"files": files}, application_upload_files_params.ApplicationUploadFilesParams
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

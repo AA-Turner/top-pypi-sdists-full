@@ -261,7 +261,17 @@ def detect_target_cloud_provider(request_text: str, preferred_cloud: str = "") -
 
 
 def parse_env_file(path: Path) -> dict[str, str]:
-    """Parse a simple dotenv file into a dictionary."""
+    """Parse a simple dotenv file into a dictionary.
+
+    Mirrors python-dotenv's behavior for the common cases:
+      - Skips blank lines and #-prefixed comments
+      - Strips `export ` prefix
+      - Removes balanced surrounding single/double quotes
+      - Strips trailing ` # comment` (whitespace + #) on UNQUOTED values
+        (python-dotenv does this; without it, a line like
+        `PORT=8090  # local` ends up with value `'8090  # local'`, which
+        breaks any downstream code that expects a clean integer.)
+    """
     if not path.exists():
         return {}
 
@@ -284,7 +294,19 @@ def parse_env_file(path: Path) -> dict[str, str]:
         value = raw_value.strip()
         if not key:
             continue
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        # Strip inline comment from an unquoted value. We only treat `#` as a
+        # comment when there's whitespace before it; `#` inside a value like
+        # `password=ab#cd` shouldn't be split. Don't strip if the value is
+        # quoted — the `#` is then part of the string.
+        is_quoted = (len(value) >= 2 and value[0] == value[-1]
+                     and value[0] in {'"', "'"})
+        if not is_quoted:
+            # Find the first `#` that's preceded by whitespace
+            for i, ch in enumerate(value):
+                if ch == "#" and i > 0 and value[i - 1].isspace():
+                    value = value[:i].rstrip()
+                    break
+        if is_quoted:
             value = value[1:-1]
         values[key] = value
     return values

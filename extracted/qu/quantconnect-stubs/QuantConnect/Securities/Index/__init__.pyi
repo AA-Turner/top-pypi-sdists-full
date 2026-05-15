@@ -105,6 +105,10 @@ class IndexSymbol(System.Object):
         ...
 
 
+class IndexCache(QuantConnect.Securities.SecurityCache):
+    """INDEX specific caching support"""
+
+
 class IndexHolding(QuantConnect.Securities.SecurityHolding):
     """Index holdings implementation of the base securities class"""
 
@@ -116,9 +120,5 @@ class IndexHolding(QuantConnect.Securities.SecurityHolding):
         :param currency_converter: A currency converter instance
         """
         ...
-
-
-class IndexCache(QuantConnect.Securities.SecurityCache):
-    """INDEX specific caching support"""
 
 

@@ -15,7 +15,7 @@ from ..types import (
     application_variant_process_params,
 )
 from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from .._utils import required_args, maybe_transform, async_maybe_transform
+from .._utils import path_template, required_args, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -292,7 +292,9 @@ class ApplicationVariantsResource(SyncAPIResource):
         return cast(
             ApplicationVariantRetrieveResponse,
             self._get(
-                f"/v4/application-variants/{application_variant_id}",
+                path_template(
+                    "/v4/application-variants/{application_variant_id}", application_variant_id=application_variant_id
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
                 ),
@@ -399,7 +401,9 @@ class ApplicationVariantsResource(SyncAPIResource):
                 f"Expected a non-empty value for `application_variant_id` but received {application_variant_id!r}"
             )
         return self._delete(
-            f"/v4/application-variants/{application_variant_id}",
+            path_template(
+                "/v4/application-variants/{application_variant_id}", application_variant_id=application_variant_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -449,7 +453,9 @@ class ApplicationVariantsResource(SyncAPIResource):
         return cast(
             ApplicationVariantPatchResponse,
             self._patch(
-                f"/v4/application-variants/{application_variant_id}",
+                path_template(
+                    "/v4/application-variants/{application_variant_id}", application_variant_id=application_variant_id
+                ),
                 body=maybe_transform(
                     {
                         "configuration": configuration,
@@ -517,7 +523,9 @@ class ApplicationVariantsResource(SyncAPIResource):
                 f"Expected a non-empty value for `application_variant_id` but received {application_variant_id!r}"
             )
         return self._post(
-            f"/v4/applications/{application_variant_id}/process",
+            path_template(
+                "/v4/applications/{application_variant_id}/process", application_variant_id=application_variant_id
+            ),
             body=maybe_transform(
                 {
                     "inputs": inputs,
@@ -789,7 +797,9 @@ class AsyncApplicationVariantsResource(AsyncAPIResource):
         return cast(
             ApplicationVariantRetrieveResponse,
             await self._get(
-                f"/v4/application-variants/{application_variant_id}",
+                path_template(
+                    "/v4/application-variants/{application_variant_id}", application_variant_id=application_variant_id
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
                 ),
@@ -896,7 +906,9 @@ class AsyncApplicationVariantsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `application_variant_id` but received {application_variant_id!r}"
             )
         return await self._delete(
-            f"/v4/application-variants/{application_variant_id}",
+            path_template(
+                "/v4/application-variants/{application_variant_id}", application_variant_id=application_variant_id
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -946,7 +958,9 @@ class AsyncApplicationVariantsResource(AsyncAPIResource):
         return cast(
             ApplicationVariantPatchResponse,
             await self._patch(
-                f"/v4/application-variants/{application_variant_id}",
+                path_template(
+                    "/v4/application-variants/{application_variant_id}", application_variant_id=application_variant_id
+                ),
                 body=await async_maybe_transform(
                     {
                         "configuration": configuration,
@@ -1014,7 +1028,9 @@ class AsyncApplicationVariantsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `application_variant_id` but received {application_variant_id!r}"
             )
         return await self._post(
-            f"/v4/applications/{application_variant_id}/process",
+            path_template(
+                "/v4/applications/{application_variant_id}/process", application_variant_id=application_variant_id
+            ),
             body=await async_maybe_transform(
                 {
                     "inputs": inputs,

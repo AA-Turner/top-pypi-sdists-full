@@ -6,11 +6,12 @@ mod artipacked;
 mod bot_conditions;
 mod cache_poisoning;
 mod concurrency_limits;
-// mod dangerous_triggers; // TODO
+mod dangerous_triggers;
 mod dependabot_cooldown;
 mod dependabot_execution;
 mod excessive_permissions;
 mod forbidden_uses;
+mod github_app;
 mod github_env;
 // mod hardcoded_container_credentials; // TODO
 mod impostor_commit;
@@ -29,6 +30,7 @@ mod superfluous_actions;
 mod template_injection;
 mod undocumented_permissions;
 mod unpinned_images;
+mod unpinned_tools;
 mod unpinned_uses;
 mod unredacted_secrets;
 mod unsound_condition;

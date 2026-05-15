@@ -6,7 +6,7 @@ import httpx
 
 from ..types import studio_project_list_params, studio_project_create_params, studio_project_update_params
 from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from .._utils import maybe_transform, async_maybe_transform
+from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -138,7 +138,7 @@ class StudioProjectsResource(SyncAPIResource):
         if not studio_project_id:
             raise ValueError(f"Expected a non-empty value for `studio_project_id` but received {studio_project_id!r}")
         return self._get(
-            f"/v4/studio-projects/{studio_project_id}",
+            path_template("/v4/studio-projects/{studio_project_id}", studio_project_id=studio_project_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -190,7 +190,7 @@ class StudioProjectsResource(SyncAPIResource):
         if not studio_project_id:
             raise ValueError(f"Expected a non-empty value for `studio_project_id` but received {studio_project_id!r}")
         return self._patch(
-            f"/v4/studio-projects/{studio_project_id}",
+            path_template("/v4/studio-projects/{studio_project_id}", studio_project_id=studio_project_id),
             body=maybe_transform(
                 {
                     "description": description,
@@ -298,7 +298,7 @@ class StudioProjectsResource(SyncAPIResource):
         if not studio_project_id:
             raise ValueError(f"Expected a non-empty value for `studio_project_id` but received {studio_project_id!r}")
         return self._delete(
-            f"/v4/studio-projects/{studio_project_id}",
+            path_template("/v4/studio-projects/{studio_project_id}", studio_project_id=studio_project_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -421,7 +421,7 @@ class AsyncStudioProjectsResource(AsyncAPIResource):
         if not studio_project_id:
             raise ValueError(f"Expected a non-empty value for `studio_project_id` but received {studio_project_id!r}")
         return await self._get(
-            f"/v4/studio-projects/{studio_project_id}",
+            path_template("/v4/studio-projects/{studio_project_id}", studio_project_id=studio_project_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -473,7 +473,7 @@ class AsyncStudioProjectsResource(AsyncAPIResource):
         if not studio_project_id:
             raise ValueError(f"Expected a non-empty value for `studio_project_id` but received {studio_project_id!r}")
         return await self._patch(
-            f"/v4/studio-projects/{studio_project_id}",
+            path_template("/v4/studio-projects/{studio_project_id}", studio_project_id=studio_project_id),
             body=await async_maybe_transform(
                 {
                     "description": description,
@@ -581,7 +581,7 @@ class AsyncStudioProjectsResource(AsyncAPIResource):
         if not studio_project_id:
             raise ValueError(f"Expected a non-empty value for `studio_project_id` but received {studio_project_id!r}")
         return await self._delete(
-            f"/v4/studio-projects/{studio_project_id}",
+            path_template("/v4/studio-projects/{studio_project_id}", studio_project_id=studio_project_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

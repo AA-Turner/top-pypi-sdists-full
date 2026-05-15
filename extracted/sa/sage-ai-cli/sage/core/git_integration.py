@@ -56,15 +56,23 @@ class Git:
         self.is_repo = self._check_is_repo()
 
     def _check_is_repo(self) -> bool:
-        """Check if the path is a git repository."""
+        """Check if the path is a git repository.
+
+        Bug history: this used `capture_output=True` together with
+        `stderr=subprocess.DEVNULL`, which raises `ValueError: stdout and
+        stderr arguments may not be used with capture_output`. The bare
+        `except` swallowed the error, making every Git instance report
+        is_repo=False and silently turning all git ops into no-ops. Tests
+        that depended on real git state then saw empty results.
+        """
         try:
             result = subprocess.run(
                 ["git", "rev-parse", "--is-inside-work-tree"],
                 cwd=str(self.repo_path),
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
                 text=True,
                 timeout=5,
-                stderr=subprocess.DEVNULL,
             )
             return result.returncode == 0
         except Exception:

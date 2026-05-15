@@ -43,6 +43,7 @@ InputAdditionalObjectInputAdditionalObjectItem: TypeAlias = Union[
     Dict[str, object],
     InputAdditionalObjectInputAdditionalObjectItemExternalFile,
     InputAdditionalObjectInputAdditionalObjectItemInternalFile,
+    None,
 ]
 
 ExpectedExtraInfo: TypeAlias = Annotated[
@@ -71,14 +72,15 @@ ExpectedOutputAdditionalObjectExpectedOutputAdditionalObjectItem: TypeAlias = Un
     Dict[str, object],
     ExpectedOutputAdditionalObjectExpectedOutputAdditionalObjectItemExternalFile,
     ExpectedOutputAdditionalObjectExpectedOutputAdditionalObjectItemInternalFile,
+    None,
 ]
 
 
 class FlexibleTestCaseSchema(BaseModel):
-    input: Union[str, Dict[str, InputAdditionalObjectInputAdditionalObjectItem]]
+    input: Union[str, Dict[str, Optional[InputAdditionalObjectInputAdditionalObjectItem]]]
 
     expected_extra_info: Optional[ExpectedExtraInfo] = None
 
-    expected_output: Union[str, Dict[str, ExpectedOutputAdditionalObjectExpectedOutputAdditionalObjectItem], None] = (
-        None
-    )
+    expected_output: Union[
+        str, Dict[str, Optional[ExpectedOutputAdditionalObjectExpectedOutputAdditionalObjectItem]], None
+    ] = None

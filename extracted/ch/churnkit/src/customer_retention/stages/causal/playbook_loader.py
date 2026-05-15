@@ -125,6 +125,15 @@ def _parse_catalog(catalog: Any) -> Dict[str, Any]:
         # playbook has been found useful". Authored by CS leadership. No
         # feature column names.
         "when_applicable": _as_optional_str(catalog.get("when_applicable")),
+        # Enriched-prompt slots consumed by EnrichedPlaybook /
+        # llm_prompt._playbook_payload. ``policy_summary`` narrates what the
+        # CSM actually does (action sequence, cadence, channels);
+        # ``expected_effect`` narrates what the playbook is designed to
+        # achieve (saved ARR, NRR, dissatisfaction-signal capture). Both
+        # columns are declared on ``playbook_catalog_schema`` so c01 writes
+        # them through to the Delta table.
+        "policy_summary": _as_optional_str(catalog.get("policy_summary")),
+        "expected_effect": _as_optional_str(catalog.get("expected_effect")),
     }
 
 

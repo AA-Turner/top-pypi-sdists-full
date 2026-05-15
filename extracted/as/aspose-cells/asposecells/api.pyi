@@ -6760,7 +6760,7 @@ class ChartArea:
 
 
 class ChartCalculateOptions:
-    '''Represents the options for calculating the chart.'''
+    '''Represents the options for calculating a chart.'''
 
     def getUpdateAllPoints(self) -> bool:
         '''Whether update all data points when performing the chart calculation. Default: False.
@@ -7727,7 +7727,7 @@ class ChartTextFrame:
         raise NotImplementedError()
 
     def isDeleted(self) -> bool:
-        '''Indicates whether this data labels are deleted.'''
+        '''Indicates whether this data label is deleted.'''
         raise NotImplementedError()
 
     def setTextDirection(self, value : int) -> None:
@@ -7750,7 +7750,7 @@ class ChartTextFrame:
         raise NotImplementedError()
 
     def setDeleted(self, value : bool) -> None:
-        '''Indicates whether this data labels are deleted.
+        '''Indicates whether this data label is deleted.
         :param value: '''
         raise NotImplementedError()
 
@@ -13838,7 +13838,7 @@ class ErrorCellValueType:
     '''Represents the value of a cell containing a #NAME? error.'''
 
     NA : ErrorCellValueType
-    '''Represents the value of a cell containing a #NAME? error.'''
+    '''Represents the value of a cell containing a #N/A error.'''
 
     BLOCKED : ErrorCellValueType
     '''Represents the value of a cell containing a #BLOCKED! error.'''
@@ -14987,6 +14987,12 @@ class FileFormatType:
 
     G_ZIP : FileFormatType
     '''Rrepesents GZip file.'''
+
+    OTG : FileFormatType
+    '''Represents an OTG file.'''
+
+    ODB : FileFormatType
+    '''Represents an Odb file.'''
 
 
 class FileFormatUtil:
@@ -17917,6 +17923,11 @@ class HtmlLoadOptions:
         :param value: '''
         raise NotImplementedError()
 
+    def getHyperlinkLoadMode(self) -> int:
+        '''Specifies how hyperlinks are loaded when loading HTML.
+        See :class:`HyperlinkLoadMode`'''
+        raise NotImplementedError()
+
     def setConvertFormulasData(self, value : bool) -> None:
         ''':deprecated: Use HtmlLoadOptions.HasFormula property instead.'''
         raise NotImplementedError()
@@ -18001,6 +18012,12 @@ class HtmlLoadOptions:
 
     def setAttachedFilesDirectory(self, value : str) -> None:
         ''':deprecated: Use HtmlLoadOptions.StreamProvider property instead.'''
+        raise NotImplementedError()
+
+    def setHyperlinkLoadMode(self, value : int) -> None:
+        '''Specifies how hyperlinks are loaded when loading HTML.
+        See :class:`HyperlinkLoadMode`
+        :param value: '''
         raise NotImplementedError()
 
     def setParagrahLayoutMode(self, value : int) -> None:
@@ -19099,6 +19116,18 @@ class HyperlinkCollection:
         :param screenTip: The screenTip text for the specified hyperlink.
         :returns: :class:`Hyperlink` object index.'''
         raise NotImplementedError()
+
+
+class HyperlinkLoadMode:
+    '''Specifies how hyperlinks are handled when loading HTML.'''
+
+    NORMAL : HyperlinkLoadMode
+    '''Only the first hyperlink in a cell is loaded, subsequent ones are ignored.'''
+
+    ALLOW_MULTIPLE : HyperlinkLoadMode
+    '''All hyperlinks in a cell are added to :meth:`Worksheet.getHyperlinks()`.
+    Note that MS Excel itself supports only one hyperlink per cell,
+    so this option may produce files that Excel cannot fully render.'''
 
 
 
@@ -20794,7 +20823,7 @@ class LabelPositionType:
     '''Applies only to bar, 2D/3D pie charts'''
 
     INSIDE_BASE : LabelPositionType
-    '''Applies only to bar, 2d/3d pie charts'''
+    '''Applies only to bar, 2D/3D pie charts'''
 
     INSIDE_END : LabelPositionType
     '''Applies only to bar charts'''
@@ -20818,7 +20847,7 @@ class LabelPositionType:
     '''Applies only to 2D/3D pie charts'''
 
     MOVED : LabelPositionType
-    '''User moved the data labels only for reading the chart from the template file.'''
+    '''User moved the data labels. This is only for reading chart from template file.'''
 
 
 class Legend:
@@ -23162,13 +23191,13 @@ class MapChartLabelLayout:
     '''Represents the layout of map chart's labels.'''
 
     BEST_FIT_ONLY : MapChartLabelLayout
-    '''Only the best fit.'''
+    '''Only the best fit is used.'''
 
     SHOW_ALL : MapChartLabelLayout
     '''Shows all labels.'''
 
     NONE : MapChartLabelLayout
-    '''No labels.'''
+    '''There are no labels.'''
 
 
 class MapChartProjectionType:
@@ -23194,7 +23223,7 @@ class MapChartRegionType:
     '''Automatic'''
 
     DATA_ONLY : MapChartRegionType
-    '''Only Data.'''
+    '''Only data.'''
 
     COUNTRY_REGION_LIST : MapChartRegionType
     '''Country region list.'''
@@ -25251,6 +25280,10 @@ class OdsSaveOptions:
         '''Indicates whether saving pivot tables.
         :param value: '''
         raise NotImplementedError()
+
+
+class OfdSaveOptions:
+    '''Represents the options for saving a OFD(Open Fixed-layout Document) file.'''
 
 
 class OLEDBCommandType:
@@ -28113,6 +28146,11 @@ class PivotAreaFilter:
         :param value: '''
         raise NotImplementedError()
 
+    def getFieldIndex(self) -> int:
+        '''Gets the index of the field to which this filter refers.
+        A value of -2 indicates the values field.'''
+        raise NotImplementedError()
+
 
 class PivotAreaFilterCollection:
     '''Represents the list of filters for :class:`PivotArea`'''
@@ -30021,12 +30059,12 @@ class PivotOptions:
         raise NotImplementedError()
 
     def setShowExpandCollapseFieldButtons(self, value : bool) -> None:
-        '''Sets a value indicating whether to show expand/collapse field buttons
+        '''Sets a value indicating whether to show expand or collapse field buttons
         :param value: '''
         raise NotImplementedError()
 
     def getShowExpandCollapseFieldButtons(self) -> bool:
-        '''Gets a value indicating whether to show expand/collapse field buttons'''
+        '''Gets a value indicating whether to show expand or collapse field buttons'''
         raise NotImplementedError()
 
     def getDropZoneData(self) -> bool:
@@ -30264,8 +30302,7 @@ class PivotTable:
         raise NotImplementedError()
 
     def getShowRowHeaderCaption(self) -> bool:
-        '''Indicates whether row header caption is shown in the PivotTable report
-        Indicates whether Display field captions and filter drop downs'''
+        ''':deprecated: Use PivotTable.ShowHeaders property instead.'''
         raise NotImplementedError()
 
     def getNullString(self) -> str:
@@ -30300,7 +30337,7 @@ class PivotTable:
         raise NotImplementedError()
 
     def setMergeLabels(self, value : bool) -> None:
-        '''True if the specified PivotTable report's outer-row item, column item, subtotal, and grand total labels use merged cells.
+        '''Indicates whether row or column titles that span multiple cells should be merged into a single cell.
         :param value: '''
         raise NotImplementedError()
 
@@ -30421,9 +30458,7 @@ class PivotTable:
         raise NotImplementedError()
 
     def setHasBlankRows(self, value : bool) -> None:
-        '''Indicates whether to add blank rows.
-        This property only applies for the PivotTable auto format types which needs to add blank rows.
-        :param value: '''
+        ''':deprecated: Use PivotField.InsertBlankRow property instead.'''
         raise NotImplementedError()
 
     def setSubtotalHiddenPageItems(self, value : bool) -> None:
@@ -30519,7 +30554,7 @@ class PivotTable:
         raise NotImplementedError()
 
     def getShowDataTips(self) -> bool:
-        '''Specifies a boolean value that indicates whether tooltips should be displayed for PivotTable data cells.'''
+        '''Indicates whether tooltips should be displayed for PivotTable data cells.'''
         raise NotImplementedError()
 
     def getAutofitColumnWidthOnUpdate(self) -> bool:
@@ -30528,6 +30563,10 @@ class PivotTable:
 
     def getHorizontalBreaks(self) -> list[Any]:
         ''':deprecated: Use ivotTable.GetHorizontalPageBreaks() method instead.'''
+        raise NotImplementedError()
+
+    def getDependentPivotTables(self) -> list[PivotTable]:
+        '''Gets all :class:`PivotTable`s that use this PivotTable as their data source.'''
         raise NotImplementedError()
 
     def setExcel2003Compatible(self, value : bool) -> None:
@@ -30584,7 +30623,7 @@ class PivotTable:
         raise NotImplementedError()
 
     def getChildren(self) -> list[PivotTable]:
-        '''Gets the Children Pivot Tables which use this PivotTable data as data source.'''
+        ''':deprecated: Use PivotTable.GetDependentPivotTables() method instead.'''
         raise NotImplementedError()
 
     def getShowPivotStyleColumnStripes(self) -> bool:
@@ -30596,7 +30635,7 @@ class PivotTable:
         raise NotImplementedError()
 
     def setShowDataTips(self, value : bool) -> None:
-        '''Specifies a boolean value that indicates whether tooltips should be displayed for PivotTable data cells.
+        '''Indicates whether tooltips should be displayed for PivotTable data cells.
         :param value: '''
         raise NotImplementedError()
 
@@ -30683,8 +30722,7 @@ class PivotTable:
         raise NotImplementedError()
 
     def hasBlankRows(self) -> bool:
-        '''Indicates whether to add blank rows.
-        This property only applies for the PivotTable auto format types which needs to add blank rows.'''
+        ''':deprecated: Use PivotField.InsertBlankRow property instead.'''
         raise NotImplementedError()
 
     def getEnableDrilldown(self) -> bool:
@@ -30761,6 +30799,10 @@ class PivotTable:
         '''Gets the string displayed in cells that contain errors
         when the DisplayErrorString property is true.The default value is an empty string.
         :param value: '''
+        raise NotImplementedError()
+
+    def clearAll(self) -> None:
+        '''Remove all fields from regions.'''
         raise NotImplementedError()
 
     def setShowColumnGrandTotals(self, value : bool) -> None:
@@ -30902,9 +30944,7 @@ class PivotTable:
         raise NotImplementedError()
 
     def setShowRowHeaderCaption(self, value : bool) -> None:
-        '''Indicates whether row header caption is shown in the PivotTable report
-        Indicates whether Display field captions and filter drop downs
-        :param value: '''
+        ''':deprecated: Use PivotTable.ShowHeaders property instead.'''
         raise NotImplementedError()
 
     def setPivotTableStyleType(self, value : int) -> None:
@@ -30948,6 +30988,10 @@ class PivotTable:
         :param fieldType: :class:`PivotFieldType`. the fields area type.
         :param pivotField: the field in the base fields.
         :returns: the field position in the specific fields.'''
+        raise NotImplementedError()
+
+    def clearFilters(self) -> None:
+        '''Clears all filters of this pivot table.'''
         raise NotImplementedError()
 
     def getItemPrintTitles(self) -> bool:
@@ -31127,7 +31171,7 @@ class PivotTable:
         raise NotImplementedError()
 
     def getMergeLabels(self) -> bool:
-        '''True if the specified PivotTable report's outer-row item, column item, subtotal, and grand total labels use merged cells.'''
+        '''Indicates whether row or column titles that span multiple cells should be merged into a single cell.'''
         raise NotImplementedError()
 
     def setShowPivotStyleColumnHeader(self, value : bool) -> None:
@@ -31968,7 +32012,7 @@ class PlotDataByType:
     '''Represents the type of data plot by row or column.'''
 
     ROW : PlotDataByType
-    '''By row.'''
+    '''Sorted by row.'''
 
     COLUMN : PlotDataByType
     '''By column.'''
@@ -34704,6 +34748,9 @@ class SaveFormat:
     PCL : SaveFormat
     '''PCL (Printer Command Language)'''
 
+    OFD : SaveFormat
+    '''OFD (Open Fixed-layout Document)'''
+
     DBF : SaveFormat
     '''Xbase Data file'''
 
@@ -35186,7 +35233,7 @@ class Series:
 
     def setFirstSliceAngle(self, value : int) -> None:
         '''Sets the angle of the first pie-chart or doughnut-chart slice, in degrees (clockwise from vertical).
-        Applies only to pie, 3-D pie, and doughnut charts, 0 to 360.
+        Applies only to pie, 3-D pie, and doughnut charts, with values from 0 to 360.
         :param value: '''
         raise NotImplementedError()
 
@@ -35225,7 +35272,7 @@ class Series:
         raise NotImplementedError()
 
     def isColorVaried(self) -> bool:
-        '''Represents if the color of points is varied.
+        '''Represents whether the color of points is varied.
         The chart must contain only one series or this chart is a pie chart.'''
         raise NotImplementedError()
 
@@ -35256,7 +35303,7 @@ class Series:
     def getSmooth(self) -> bool:
         '''Represents curve smoothing.
         True if curve smoothing is turned on for the line chart or scatter chart.
-        Applies only to line and scatter connected by lines charts.'''
+        Applies only to line charts and scatter charts with lines.'''
         raise NotImplementedError()
 
     def setHasRadarAxisLabels(self, value : bool) -> None:
@@ -35286,7 +35333,7 @@ class Series:
         raise NotImplementedError()
 
     def setValuesFormatCode(self, value : str) -> None:
-        '''Represents format code of Values' NumberList.
+        '''Represents the format code of the Values NumberList.
         :param value: '''
         raise NotImplementedError()
 
@@ -35296,7 +35343,7 @@ class Series:
 
     def setFiltered(self, value : bool) -> None:
         '''Indicates whether the series is selected or filtered.
-        True represents that this series is filtered, and it will not be displayed on the chart.
+        True indicates that this series is filtered, and it will not be displayed on the chart.
         :param value: '''
         raise NotImplementedError()
 
@@ -35317,11 +35364,11 @@ class Series:
 
     def getFirstSliceAngle(self) -> int:
         '''Gets the angle of the first pie-chart or doughnut-chart slice, in degrees (clockwise from vertical).
-        Applies only to pie, 3-D pie, and doughnut charts, 0 to 360.'''
+        Applies only to pie, 3-D pie, and doughnut charts, with values from 0 to 360.'''
         raise NotImplementedError()
 
     def setColorVaried(self, value : bool) -> None:
-        '''Represents if the color of points is varied.
+        '''Represents whether the color of points is varied.
         The chart must contain only one series or this chart is a pie chart.
         :param value: '''
         raise NotImplementedError()
@@ -35336,7 +35383,7 @@ class Series:
         raise NotImplementedError()
 
     def setPlotOnSecondAxis(self, value : bool) -> None:
-        '''Indicates if this series is plotted on second value axis.
+        '''Indicates if this series is plotted on the second value axis.
         :param value: '''
         raise NotImplementedError()
 
@@ -35346,7 +35393,7 @@ class Series:
         raise NotImplementedError()
 
     def getValuesFormatCode(self) -> str:
-        '''Represents format code of Values' NumberList.'''
+        '''Represents the format code of the Values NumberList.'''
         raise NotImplementedError()
 
     def setXValuesFormatCode(self, value : str) -> None:
@@ -35359,7 +35406,7 @@ class Series:
         raise NotImplementedError()
 
     def getPlotOnSecondAxis(self) -> bool:
-        '''Indicates if this series is plotted on second value axis.'''
+        '''Indicates if this series is plotted on the second value axis.'''
         raise NotImplementedError()
 
     def getBar3DShapeType(self) -> int:
@@ -35378,7 +35425,7 @@ class Series:
         raise NotImplementedError()
 
     def getUpBars(self) -> DropBars:
-        '''Returns an DropBars object that represents the up bars on a line chart.
+        '''Returns a DropBars object that represents the up bars on a line chart.
         Applies only to line charts.'''
         raise NotImplementedError()
 
@@ -35396,7 +35443,7 @@ class Series:
 
     def isFiltered(self) -> bool:
         '''Indicates whether the series is selected or filtered.
-        True represents that this series is filtered, and it will not be displayed on the chart.'''
+        True indicates that this series is filtered, and it will not be displayed on the chart.'''
         raise NotImplementedError()
 
     def setBar3DShapeType(self, value : int) -> None:
@@ -35406,7 +35453,7 @@ class Series:
         raise NotImplementedError()
 
     def setBubbleSizes(self, value : str) -> None:
-        '''Sets the bubble sizes values of the chart series.
+        '''Sets the bubble size values of the chart series.
         :param value: '''
         raise NotImplementedError()
 
@@ -35441,12 +35488,12 @@ class Series:
         raise NotImplementedError()
 
     def getBubbleSizes(self) -> str:
-        '''Gets the bubble sizes values of the chart series.'''
+        '''Gets the bubble size values of the chart series.'''
         raise NotImplementedError()
 
     def getDropLines(self) -> Line:
         '''Returns a :class:`Line` object that represents the drop lines for a series on the line chart or area chart.
-        Applies only to line chart or area charts.'''
+        Applies only to line charts or area charts.'''
         raise NotImplementedError()
 
     def getLeaderLines(self) -> Line:
@@ -35522,7 +35569,7 @@ class Series:
     def setSmooth(self, value : bool) -> None:
         '''Represents curve smoothing.
         True if curve smoothing is turned on for the line chart or scatter chart.
-        Applies only to line and scatter connected by lines charts.
+        Applies only to line charts and scatter charts with lines.
         :param value: '''
         raise NotImplementedError()
 
@@ -35744,7 +35791,7 @@ class SeriesLayoutProperties:
         raise NotImplementedError()
 
     def getShowConnectorLines(self) -> bool:
-        '''Indicates whether connector lines are shown between data points.'''
+        '''Indicates whether connector lines are displayed between data points.'''
         raise NotImplementedError()
 
     def getSubtotals(self) -> list[int]:
@@ -35789,7 +35836,7 @@ class SeriesLayoutProperties:
         raise NotImplementedError()
 
     def setShowConnectorLines(self, value : bool) -> None:
-        '''Indicates whether connector lines are shown between data points.
+        '''Indicates whether connector lines are displayed between data points.
         :param value: '''
         raise NotImplementedError()
 
@@ -39483,6 +39530,14 @@ class SparklineGroup:
         :param value: '''
         raise NotImplementedError()
 
+    @overload
+    def setVerticalAxisMinValue(self, type : int, value : float) -> None:
+        '''Sets the custom minimum value for the sparkline vertical axis with the specified axis value type.
+        :param type: :class:`SparklineAxisMinMaxType`. Type that specifies how the axis minimum value is applied.
+        :param value: Custom minimum value of the vertical axis.'''
+        raise NotImplementedError()
+
+    @overload
     def setVerticalAxisMinValue(self, value : float) -> None:
         '''Sets the custom minimum value for the vertical axis.
         :param value: '''
@@ -39519,9 +39574,17 @@ class SparklineGroup:
         '''Indicates whether to highlight the negative values on the sparkline group with a different color or marker.'''
         raise NotImplementedError()
 
+    @overload
     def setVerticalAxisMaxValue(self, value : float) -> None:
         '''Sets the custom maximum value for the vertical axis.
         :param value: '''
+        raise NotImplementedError()
+
+    @overload
+    def setVerticalAxisMaxValue(self, type : int, value : float) -> None:
+        '''Sets the custom maximum value for the sparkline vertical axis with the specified axis value type.
+        :param type: :class:`SparklineAxisMinMaxType`. Type that specifies how the axis maximum value is applied.
+        :param value: Custom maximum value of the vertical axis.'''
         raise NotImplementedError()
 
     def setHighPointColor(self, value : CellsColor) -> None:
@@ -40553,6 +40616,10 @@ class Style:
         :param value: '''
         raise NotImplementedError()
 
+    def getLeftBorder(self) -> Border:
+        '''Gets the left border.'''
+        raise NotImplementedError()
+
     def isAlignmentApplied(self) -> bool:
         '''Indicate whether the alignment formatting should be applied.'''
         raise NotImplementedError()
@@ -40576,6 +40643,10 @@ class Style:
         '''Represents text reading order.
         See :class:`TextDirectionType`
         :param value: '''
+        raise NotImplementedError()
+
+    def getTopBorder(self) -> Border:
+        '''Gets the top border.'''
         raise NotImplementedError()
 
     def setIndentLevel(self, value : int) -> None:
@@ -40675,6 +40746,10 @@ class Style:
         '''Indicate whether the fill formatting should be applied.'''
         raise NotImplementedError()
 
+    def getRightBorder(self) -> Border:
+        '''Gets the right border.'''
+        raise NotImplementedError()
+
     @overload
     def setBorder(self, borderType : int, borderStyle : int, borderColor : Color) -> bool:
         '''Sets the borders of the style.
@@ -40755,6 +40830,10 @@ class Style:
     def setShrinkToFit(self, value : bool) -> None:
         '''Represents if text automatically shrinks to fit in the available column width.
         :param value: '''
+        raise NotImplementedError()
+
+    def getBottomBorder(self) -> Border:
+        '''Gets the bottom border.'''
         raise NotImplementedError()
 
     def isGradient(self) -> bool:
@@ -43668,13 +43747,13 @@ class TickLabelAlignmentType:
     '''Represents the text alignment type for the tick labels on the axis'''
 
     CENTER : TickLabelAlignmentType
-    '''Represents that the text shall be centered.'''
+    '''Specifies that the text is centered.'''
 
     LEFT : TickLabelAlignmentType
-    '''Represents the text that shall be left justified.'''
+    '''Specifies that the text is left-aligned..'''
 
     RIGHT : TickLabelAlignmentType
-    '''Represents that the text shall be right justified.'''
+    '''Specifies that the text is right-aligned..'''
 
 
 class TickLabelItem:
@@ -46886,6 +46965,10 @@ class Workbook:
         '''Removes personal information.'''
         raise NotImplementedError()
 
+    def refreshAll(self) -> None:
+        '''Refresh linked shapes, all pivot tables and charts with pivot source.'''
+        raise NotImplementedError()
+
     def copyTheme(self, source : Workbook) -> None:
         '''Copies the theme from another workbook.
         :param source: Source workbook.'''
@@ -48868,7 +48951,7 @@ class WorksheetCollection:
         raise NotImplementedError()
 
     def refreshAll(self) -> None:
-        '''Refresh all pivot tables and charts with pivot source.'''
+        ''':deprecated: Use Workbook.RefreshAll() method instead.'''
         raise NotImplementedError()
 
     def swapSheet(self, sheetIndex1 : int, sheetIndex2 : int) -> None:

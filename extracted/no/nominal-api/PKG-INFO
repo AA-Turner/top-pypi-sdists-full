@@ -1,8 +1,0 @@
-Metadata-Version: 2.4
-Name: nominal-api
-Version: 0.1239.0
-Requires-Python: >=3.8
-Requires-Dist: requests
-Requires-Dist: conjure-python-client<4,>=2.8.0
-Dynamic: requires-dist
-Dynamic: requires-python

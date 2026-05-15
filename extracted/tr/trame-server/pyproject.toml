@@ -1,12 +1,12 @@
 [project]
 name = "trame-server"
-version = "3.12.1"
+version = "3.12.2"
 description = "Internal server side implementation of trame"
 authors = [
     {name = "Kitware Inc."},
 ]
 dependencies = [
-    "wslink>=2.5,<3",
+    "wslink>=2.5.7,<3",
     "trame-common>=1.2.3",
     "more-itertools",
 ]

@@ -8,7 +8,7 @@ requires = [
 
 [dependency-groups]
 build = [
-  "translate-toolkit==3.19.3"
+  "translate-toolkit==3.19.9"
 ]
 dev = [
   {include-group = "build"},
@@ -20,14 +20,14 @@ lint = [
   {include-group = "pre-commit"}
 ]
 pre-commit = [
-  "prek==0.3.8"
+  "prek==0.4.0"
 ]
 test = [
 ]
 types = [
-  "django-types==0.23.0",
-  "mypy==1.19.1",
-  "types-setuptools==82.0.0.20260210"
+  "django-types==0.24.0",
+  "mypy==2.1.0",
+  "types-setuptools==82.0.0.20260508"
 ]
 
 [project]
@@ -62,7 +62,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 name = "weblate-language-data"
 requires-python = ">=3.11"
-version = "2026.7"
+version = "2026.8"
 
 [project.optional-dependencies]
 django = [
@@ -147,6 +147,20 @@ max-complexity = 16
 
 [tool.ruff.lint.per-file-ignores]
 "scripts/*" = ["ANN", "S310", "S603", "S607"]
+
+[tool.rumdl]
+disable = [
+  # We do not enforce heading
+  "first-line-heading",
+  # Avoid length limit checks
+  "line-length"
+]
+
+[tool.rumdl.per-file-ignores]
+"README.md" = [
+  # Allow HTML
+  "MD033"
+]
 
 [tool.setuptools]
 include-package-data = true

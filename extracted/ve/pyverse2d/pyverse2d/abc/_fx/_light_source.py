@@ -1,11 +1,11 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._internal import HasPosition, expect, clamped, expect_callable
+from ..._internal import HasPosition, clamped, expect_callable
 from ..._flag import Activity
 from ..._core import Positionable
 from ...math import Vector, Point
-from ...math.easing import EasingFunc
+from ...typing import EasingFunc
 from ...asset import Color
 
 from abc import ABC
@@ -218,3 +218,8 @@ class LightSource(ABC, Positionable):
         # Mise à jour de la position
         self._position.x = x
         self._position.y = y
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "LightSource",
+]

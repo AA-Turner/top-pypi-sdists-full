@@ -43,6 +43,7 @@ class TestDeployments:
                 "per_worker": 0,
                 "vendor": "LAUNCH",
             },
+            wait_for_ready=True,
         )
         assert_matches_type(ModelDeployment, deployment, path=["response"])
 
@@ -150,6 +151,7 @@ class TestDeployments:
                 "per_worker": 0,
                 "vendor": "LAUNCH",
             },
+            wait_for_ready=True,
         )
         assert_matches_type(ModelDeployment, deployment, path=["response"])
 
@@ -410,6 +412,7 @@ class TestAsyncDeployments:
                 "per_worker": 0,
                 "vendor": "LAUNCH",
             },
+            wait_for_ready=True,
         )
         assert_matches_type(ModelDeployment, deployment, path=["response"])
 
@@ -517,6 +520,7 @@ class TestAsyncDeployments:
                 "per_worker": 0,
                 "vendor": "LAUNCH",
             },
+            wait_for_ready=True,
         )
         assert_matches_type(ModelDeployment, deployment, path=["response"])
 

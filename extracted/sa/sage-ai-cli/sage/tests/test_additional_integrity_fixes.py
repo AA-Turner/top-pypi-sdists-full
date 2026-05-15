@@ -32,6 +32,10 @@ import pytest
 # =============================================================================
 
 
+@pytest.mark.skip(
+    reason="Tests `_detect_code_repetition` which was removed from sage.main "
+           "in a refactor. Behavior is now in test_integrity_pass.py."
+)
 class TestAutopilotRepetitionDetection:
     """Tests that autopilot detects and prevents code repetition loops."""
 
@@ -437,6 +441,10 @@ class TestListGenerationValidation:
 # =============================================================================
 
 
+@pytest.mark.skip(
+    reason="Tests `IntelligentExecutionEngine._validate_learning_entry` "
+           "and `_check_learning_db_corruption` — removed in a refactor."
+)
 class TestLearningDatabaseSchemaValidation:
     """Tests that learning DB enforces schema validation."""
 
@@ -561,6 +569,10 @@ test_auth.py::test_logout FAILED
 # =============================================================================
 
 
+@pytest.mark.skip(
+    reason="Tests `IntelligentExecutionEngine.create_execution_batches` "
+           "and `.determine_execution_order` — removed in a refactor."
+)
 class TestExecutionBatchingPriorities:
     """Tests that execution engine batches tasks by priority."""
 

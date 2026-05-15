@@ -1820,7 +1820,10 @@ UNSAFE_HEADER_HANDLING_SCENARIOS: list[dict[str, Any]] = [
                 "httpResponseBody": True,
                 "httpResponseHeaders": True,
             },
-            [],
+            [
+                "ban-sensitive header User-Agent",
+                "for example in Request.headers, USER_AGENT, or DEFAULT_REQUEST_HEADERS",
+            ],
         ),
         (
             {"User-Agent": ""},
@@ -1830,7 +1833,10 @@ UNSAFE_HEADER_HANDLING_SCENARIOS: list[dict[str, Any]] = [
                 "httpResponseBody": True,
                 "httpResponseHeaders": True,
             },
-            [],
+            [
+                "ban-sensitive header User-Agent",
+                "for example in Request.headers, USER_AGENT, or DEFAULT_REQUEST_HEADERS",
+            ],
         ),
         # Proxy mode and Smart Proxy Manager header handling.
         *(
@@ -2338,7 +2344,10 @@ async def test_automap_headers(headers, meta, expected, warnings, caplog):
                     {"name": "User-Agent", "value": ""},
                 ],
             },
-            [],
+            [
+                "ban-sensitive header User-Agent",
+                "for example in Request.headers, USER_AGENT, or DEFAULT_REQUEST_HEADERS",
+            ],
         ),
         # You may update the ZYTE_API_BROWSER_HEADERS setting to extend support
         # for new fields that the requestHeaders parameter may support in the
@@ -2356,7 +2365,10 @@ async def test_automap_headers(headers, meta, expected, warnings, caplog):
                 "browserHtml": True,
                 "requestHeaders": {"userAgent": ""},
             },
-            [],
+            [
+                "ban-sensitive header User-Agent",
+                "for example in Request.headers, USER_AGENT, or DEFAULT_REQUEST_HEADERS",
+            ],
         ),
     ],
 )
@@ -2366,6 +2378,103 @@ async def test_automap_header_settings(
 ):
     await _test_param_processing(
         settings, {"headers": headers}, meta, expected, warnings, caplog
+    )
+
+
+@deferred_f_from_coro_f
+async def test_ban_sensitive_header_warning_user_agent_setting(caplog):
+    await _test_param_processing(
+        {
+            "USER_AGENT": "foo/1.2.3",
+            "ZYTE_API_WARN_ON_BAN_SENSITIVE_HEADERS": True,
+        },
+        {},
+        {},
+        {
+            "httpResponseBody": True,
+            "httpResponseHeaders": True,
+            "customHttpRequestHeaders": [{"name": "User-Agent", "value": "foo/1.2.3"}],
+        },
+        [
+            "ban-sensitive header User-Agent",
+            "for example in Request.headers, USER_AGENT, or DEFAULT_REQUEST_HEADERS",
+            "ZYTE_API_WARN_ON_BAN_SENSITIVE_HEADERS",
+        ],
+        caplog,
+    )
+
+
+@deferred_f_from_coro_f
+async def test_ban_sensitive_header_warning_request_headers(caplog):
+    await _test_param_processing(
+        {
+            "ZYTE_API_WARN_ON_BAN_SENSITIVE_HEADERS": True,
+        },
+        {
+            "headers": {
+                "Accept-Language": "es",
+            }
+        },
+        {},
+        {
+            "httpResponseBody": True,
+            "httpResponseHeaders": True,
+            "customHttpRequestHeaders": [
+                {"name": "Accept-Language", "value": "es"},
+            ],
+        },
+        [
+            "ban-sensitive header Accept-Language",
+            "for example in Request.headers, USER_AGENT, or DEFAULT_REQUEST_HEADERS",
+            "ZYTE_API_WARN_ON_BAN_SENSITIVE_HEADERS",
+        ],
+        caplog,
+    )
+
+
+@deferred_f_from_coro_f
+async def test_ban_sensitive_header_warning_zyte_api_meta(caplog):
+    await _test_param_processing(
+        {
+            "ZYTE_API_WARN_ON_BAN_SENSITIVE_HEADERS": True,
+        },
+        {},
+        {
+            "customHttpRequestHeaders": [
+                {"name": "User-Agent", "value": "foo/1.2.3"},
+            ],
+        },
+        {
+            "customHttpRequestHeaders": [
+                {"name": "User-Agent", "value": "foo/1.2.3"},
+            ],
+        },
+        [
+            "ban-sensitive header User-Agent",
+            "for example in Request.headers, USER_AGENT, or DEFAULT_REQUEST_HEADERS",
+            "ZYTE_API_WARN_ON_BAN_SENSITIVE_HEADERS",
+        ],
+        caplog,
+        meta_key="zyte_api",
+    )
+
+
+@deferred_f_from_coro_f
+async def test_ban_sensitive_header_warning_disabled(caplog):
+    await _test_param_processing(
+        {
+            "USER_AGENT": "foo/1.2.3",
+            "ZYTE_API_WARN_ON_BAN_SENSITIVE_HEADERS": False,
+        },
+        {},
+        {},
+        {
+            "httpResponseBody": True,
+            "httpResponseHeaders": True,
+            "customHttpRequestHeaders": [{"name": "User-Agent", "value": "foo/1.2.3"}],
+        },
+        [],
+        caplog,
     )
 
 
@@ -2945,7 +3054,7 @@ async def test_automap_all_cookies(meta):
         "ZYTE_API_EXPERIMENTAL_COOKIES_ENABLED": True,
         "ZYTE_API_TRANSPARENT_MODE": True,
     }
-    crawler = await get_crawler(settings)
+    crawler = await get_crawler(settings, start_handler=True)
     cookie_middleware = get_downloader_middleware(crawler, CookiesMiddleware)
     handler = get_download_handler(crawler, "https")
     param_parser = handler._param_parser
@@ -3029,6 +3138,7 @@ async def test_automap_all_cookies(meta):
             # {"name": "c", "value": "d", "domain": "b.example"},
         ]
     )
+    await handler._close()
 
 
 @pytest.mark.parametrize(
@@ -3053,7 +3163,7 @@ async def test_automap_cookie_jar(meta):
         "ZYTE_API_EXPERIMENTAL_COOKIES_ENABLED": True,
         "ZYTE_API_TRANSPARENT_MODE": True,
     }
-    crawler = await get_crawler(settings)
+    crawler = await get_crawler(settings, start_handler=True)
     cookie_middleware = get_downloader_middleware(crawler, CookiesMiddleware)
     handler = get_download_handler(crawler, "https")
     param_parser = handler._param_parser
@@ -3090,6 +3200,7 @@ async def test_automap_cookie_jar(meta):
             {"name": "z", "value": "y", "domain": "example.com"},
         ]
     )
+    await handler._close()
 
 
 @pytest.mark.parametrize(
@@ -3106,7 +3217,7 @@ async def test_automap_cookie_limit(meta, caplog):
         "ZYTE_API_MAX_COOKIES": 1,
         "ZYTE_API_TRANSPARENT_MODE": True,
     }
-    crawler = await get_crawler(settings)
+    crawler = await get_crawler(settings, start_handler=True)
     cookie_middleware = get_downloader_middleware(crawler, CookiesMiddleware)
     handler = get_download_handler(crawler, "https")
     param_parser = handler._param_parser
@@ -3196,6 +3307,7 @@ async def test_automap_cookie_limit(meta, caplog):
     assert "would get 2 cookies" in caplog.text
     assert "limited to 1 cookies" in caplog.text
     caplog.clear()
+    await handler._close()
 
 
 class CustomCookieJar(CookieJar):
@@ -3241,7 +3353,7 @@ async def test_automap_custom_cookie_middleware():
         "ZYTE_API_EXPERIMENTAL_COOKIES_ENABLED": True,
         "ZYTE_API_TRANSPARENT_MODE": True,
     }
-    crawler = await get_crawler(settings)
+    crawler = await get_crawler(settings, start_handler=True)
     cookie_middleware = get_downloader_middleware(crawler, mw_cls)
     handler = get_download_handler(crawler, "https")
     param_parser = handler._param_parser
@@ -3252,6 +3364,7 @@ async def test_automap_custom_cookie_middleware():
     assert api_params["experimental"]["requestCookies"] == [
         {"name": "z", "value": "y", "domain": "example.com"}
     ]
+    await handler._close()
 
 
 @pytest.mark.parametrize(

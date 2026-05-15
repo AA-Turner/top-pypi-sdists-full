@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Dict, Union, Iterable
 from datetime import datetime
-from typing_extensions import Literal, Required, Annotated, TypeAlias, TypedDict
+from typing_extensions import Literal, Required, Annotated, TypedDict
 
 from .._utils import PropertyInfo
 
@@ -50,17 +50,14 @@ class InteractionCreateParams(TypedDict, total=False):
     """
 
 
-class InputTyped(TypedDict, total=False):
+class Input(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
     """The input data for the interaction."""
 
     query: Required[str]
     """The query or input text for the interaction."""
 
 
-Input: TypeAlias = Union[InputTyped, Dict[str, object]]
-
-
-class OutputContextTyped(TypedDict, total=False):
+class OutputContext(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
     text: Required[str]
     """The text of the context entry."""
 
@@ -68,10 +65,7 @@ class OutputContextTyped(TypedDict, total=False):
     """The score of the context entry."""
 
 
-OutputContext: TypeAlias = Union[OutputContextTyped, Dict[str, object]]
-
-
-class OutputTyped(TypedDict, total=False):
+class Output(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
     """The output data from the interaction."""
 
     response: Required[str]
@@ -79,9 +73,6 @@ class OutputTyped(TypedDict, total=False):
 
     context: Iterable[OutputContext]
     """Optional context information provided with the response."""
-
-
-Output: TypeAlias = Union[OutputTyped, Dict[str, object]]
 
 
 class TraceSpan(TypedDict, total=False):

@@ -59,6 +59,7 @@ class TestAgents:
                                 "examples": ["string"],
                             }
                         },
+                        "required": ["string"],
                     },
                     "description": "description",
                     "name": "name",
@@ -180,6 +181,7 @@ class TestAsyncAgents:
                                 "examples": ["string"],
                             }
                         },
+                        "required": ["string"],
                     },
                     "description": "description",
                     "name": "name",

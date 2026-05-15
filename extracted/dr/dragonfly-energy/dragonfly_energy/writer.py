@@ -174,17 +174,7 @@ def model_to_urbanopt(
         with open(sys_p_json, 'w') as fp:
             des_dict = des_loop.to_des_param_dict(model.buildings, tolerance=tolerance)
             json.dump(des_dict, fp, indent=2)
-        if hasattr(des_loop, 'heat_rejection_type'):
-            geojson_dict['project']['heat_rejection_type'] = des_loop.heat_rejection_type
-        if hasattr(des_loop, 'supplemental_heat_type'):
-            geojson_dict['project']['supplemental_heat_type'] = \
-                des_loop.supplemental_heat_type
-        if hasattr(des_loop, 'economizer_type'):
-            geojson_dict['project']['economizer_type'] = des_loop.economizer_type
-        if hasattr(des_loop, 'heating_type'):
-            geojson_dict['project']['heating_type'] = des_loop.heating_type
-        if hasattr(des_loop, 'heat_recovery_chiller'):
-            geojson_dict['project']['heat_recovery_chiller'] = des_loop.heat_recovery_chiller
+        des_loop.add_geojson_attributes(geojson_dict)
         if conversion_factor is not None:
             des_loop.scale(1 / conversion_factor)
 
@@ -307,14 +297,43 @@ def model_to_des(
             folders.default_simulation_folder,
             re.sub(r'[^.A-Za-z0-9_-]', '_', model.display_name)
         )
-    nukedir(folder, True)  # get rid of anything that exists in the folder already
-    preparedir(folder)  # create the directory if it's not there
 
-    # create GeoJSON dictionary
+    # get rid of all DES simulation files that exist in the folder already
+    run_dir_to_delete = ('ghe_dir', 'des_modelica', 'des_energyplus')
+    ext_to_delete = ('.bat', '.geojson', '.epw', '.mos')
+    file_to_delete = ('honeybee_scenario.csv', 'system_params.json')
+    if os.path.isdir(folder):
+        files = os.listdir(folder)
+        for f in files:
+            path = os.path.join(folder, f)
+            if os.path.isfile(path):
+                if f in file_to_delete:
+                    os.remove(path)
+                elif f.endswith(ext_to_delete):
+                    os.remove(path)
+            elif f == 'run':
+                sim_dir = path = os.path.join(path, 'honeybee_scenario')
+                if os.path.isdir(sim_dir):
+                    sim_dirs = os.listdir(sim_dir)
+                    for d in sim_dirs:
+                        s_path = os.path.join(sim_dir, d)
+                        if d in run_dir_to_delete:
+                            nukedir(s_path, True)
+                        elif os.path.isdir(s_path):
+                            for m in os.listdir(s_path):
+                                if m.endswith('export_modelica_loads'):
+                                    nukedir(os.path.join(s_path, m), True)
+                                elif m == 'results.json':
+                                    os.remove(os.path.join(s_path, m))
+    else:
+        preparedir(folder)  # create the directory if it's not there
+
+    # create GeoJSON dictionary and add DES attributes
     epw_obj = EPW(epw_file)
     if location is None:
         location = epw_obj.location
     geojson_dict = model.to_geojson_dict(location, point, tolerance=tolerance)
+    des_loop.add_geojson_attributes(geojson_dict)
 
     # create the scenario CSV file
     scenario_matrix = [['Feature Id', 'Feature Name', 'Mapper Class']]
@@ -339,7 +358,7 @@ def model_to_des(
         json_data = bldg.properties.energy.to_building_load_json()
         mos_data = bldg.properties.energy.to_building_load_mos()
         bldg_dir = os.path.join(scn_dir, bldg.identifier)
-        measure_dir = os.path.join(bldg_dir, '004_export_modelica_loads')
+        measure_dir = os.path.join(bldg_dir, '100_export_modelica_loads')
         preparedir(measure_dir)
         csv_path = os.path.join(measure_dir, 'building_loads.csv')
         json_path = os.path.join(bldg_dir, 'results.json')

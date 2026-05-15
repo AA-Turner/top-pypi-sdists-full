@@ -15,6 +15,8 @@ python = "3.12"
 # UV - Fast Python package and tool manager
 uv = "latest"
 
+actionlint = "latest"
+
 # Development tools installed via cargo
 "cargo:cargo-nextest" = "latest"
 "cargo:cargo-watch" = "latest"
@@ -38,9 +40,6 @@ zig = "0.13"
 # separately. maturin is already installed via cargo above.
 
 [settings]
-# Use cargo-binstall when available for faster installations
-cargo_binstall = true
-
 # Experimental features
 experimental = true
 
@@ -50,6 +49,10 @@ idiomatic_version_file_enable_tools = ["rust"]
 # Configure rust/cargo homes if you want isolation from system rust
 # rust_cache_dir = "./.mise/rust"
 # cargo_home = "./.mise/cargo"
+
+[settings.cargo]
+# Use cargo-binstall when available for faster installations
+binstall = true
 
 [tasks.setup]
 description = "Set up the complete development environment"

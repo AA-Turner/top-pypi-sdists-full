@@ -157,13 +157,18 @@ std::string preview_stream_data(QPDFObjectHandle h, uint recursion_depth)
         return "<...>";
     }
 
-    auto buffer = h.getStreamData();
+    std::shared_ptr<Buffer> buffer;
+    try {
+        buffer = h.getStreamData();
+    } catch (QPDFExc &) {
+        return "<...>";
+    }
     auto data = buffer->getBuffer();
 
     // Use py::bytes to format output like Python does
     py::bytes pydata(reinterpret_cast<const char *>(data),
         std::min(MAX_PEEK_BYTES, buffer->getSize()));
-    s = std::string(py::repr(pydata));
+    s = py::cast<std::string>(py::repr(pydata));
     if (buffer->getSize() > MAX_PEEK_BYTES) {
         s += "...";
     }
@@ -223,7 +228,9 @@ static std::string objecthandle_repr_inner(QPDFObjectHandle h,
         // Inline image objects are automatically promoted to higher level objects
         // in parse_content_stream, so objects of this type should not be returned
         // directly.
-        ss << objecthandle_pythonic_typename(h) << "(" << "data=<...>" << ")";
+        ss << objecthandle_pythonic_typename(h) << "("
+           << "data=<...>"
+           << ")";
         break;
     // LCOV_EXCL_STOP
     case qpdf_object_type_e::ot_array:
@@ -279,7 +286,8 @@ static std::string objecthandle_repr_inner(QPDFObjectHandle h,
         break;
     case qpdf_object_type_e::ot_stream:
         pure_expr = false;
-        ss << objecthandle_pythonic_typename(h) << "(" << "owner=<...>, "
+        ss << objecthandle_pythonic_typename(h) << "("
+           << "owner=<...>, "
            << "data=" << preview_stream_data(h, recursion_depth) << ", "
            << objecthandle_repr_inner(h.getDict(),
                   recursion_depth + 1,

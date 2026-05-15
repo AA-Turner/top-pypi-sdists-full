@@ -22,6 +22,7 @@ from jsonpath_ng.jsonpath import Fields, Index
 from sempy._utils._log import log
 from os import PathLike
 import sempy_labs._utils as utils
+import unicodedata
 
 
 def _build_url(url: str, params: dict) -> str:
@@ -1008,12 +1009,12 @@ def save_as_delta_table(
             "table_or_uri": file_path,
             "data": spark_df,
             "mode": write_mode,
-            "schema": schema_map,
+            # "schema": schema_map,
         }
 
         if merge_schema:
             write_args["schema_mode"] = "merge"
-            write_args["engine"] = "rust"
+            # write_args["engine"] = "rust"
 
         write_deltalake(**write_args)
     else:
@@ -1169,7 +1170,10 @@ def resolve_workspace_name_and_id(
 
 @log
 def resolve_item_id(
-    item: str | UUID, type: Optional[str] = None, workspace: Optional[str | UUID] = None
+    item: str | UUID,
+    type: Optional[str] = None,
+    workspace: Optional[str | UUID] = None,
+    error_out: bool = True,
 ) -> UUID:
 
     (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
@@ -1184,9 +1188,12 @@ def resolve_item_id(
                 client="fabric_sp",
             )
         except FabricHTTPException:
-            raise ValueError(
-                f"{icons.red_dot} The '{item_id}' item was not found in the '{workspace_name}' workspace."
-            )
+            if error_out:
+                raise ValueError(
+                    f"{icons.red_dot} The '{item_id}' item was not found in the '{workspace_name}' workspace."
+                )
+            else:
+                return None
     else:
         if type is None:
             raise ValueError(
@@ -1204,7 +1211,7 @@ def resolve_item_id(
                     item_id = v.get("id")
                     break
 
-    if item_id is None:
+    if item_id is None and error_out:
         raise ValueError(
             f"{icons.red_dot} There's no item '{item}' of type '{type}' in the '{workspace_name}' workspace."
         )
@@ -1214,7 +1221,9 @@ def resolve_item_id(
 
 @log
 def resolve_item_name_and_id(
-    item: str | UUID, type: Optional[str] = None, workspace: Optional[str | UUID] = None
+    item: str | UUID,
+    type: Optional[str] = None,
+    workspace: Optional[str | UUID] = None,
 ) -> Tuple[str, UUID]:
 
     workspace_id = resolve_workspace_id(workspace)
@@ -1405,7 +1414,7 @@ def resolve_workspace_capacity(
     """
     from sempy_labs._capacities import list_capacities
 
-    (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
+    workspace_id = resolve_workspace_id(workspace)
     filter_condition = urllib.parse.quote(workspace_id)
     dfW = fabric.list_workspaces(filter=f"id eq '{filter_condition}'")
     capacity_id = dfW["Capacity Id"].iloc[0]
@@ -1634,16 +1643,7 @@ def pagination(client, response):
         if not continuation_token:
             break
 
-        try:
-            response = client.get(continuation_uri)
-
-        except FabricHTTPException as e:
-            # Handle FabricHTTPException (404)
-            if e.status_code == 404:
-                return responses
-
-            # If it's something else, re-raise
-            raise FabricHTTPException(response)
+        response = client.get(continuation_uri)
 
     return responses
 
@@ -2282,6 +2282,8 @@ def _base_api(
         "kusto",
         "blob",
         "keyvault",
+        "databricks",
+        "snowflake",
     ]:
         raise NotImplementedError(
             f"{icons.red_dot} The '{client}' client is not supported."
@@ -2308,17 +2310,16 @@ def _base_api(
         url = f"https://onelake.table.fabric.microsoft.com/delta/{request}"
     elif client in ["azure", "graph"]:
         headers = _get_headers(auth.token_provider.get(), audience=client)
-        url = (
-            f"https://graph.microsoft.com/v1.0/{request}"
-            if client == "graph"
-            else request
-        )
-    elif client in ["kusto", "blob", "keyvault"]:
-        url = (
-            f"https://onelake.blob.fabric.microsoft.com/{request}"
-            if client == "blob"
-            else request
-        )
+        if client == "graph":
+            url = f"https://graph.microsoft.com/v1.0/{request}"
+        elif client == "azure":
+            url = request
+    elif client == "kusto":
+        url = request
+    elif client == "blob":
+        url = f"https://onelake.blob.fabric.microsoft.com/{request}"
+    elif client in ["databricks", "snowflake"]:
+        url = request
     elif client == "internal":
         headers = get_pbi_token_headers()
         prefix = _get_url_prefix()
@@ -2474,7 +2475,7 @@ def _pure_python_notebook() -> bool:
 def _create_spark_session():
 
     if _pure_python_notebook():
-        raise ValueError(
+        raise EnvironmentError(
             f"{icons.red_dot} This function is only available in a PySpark notebook."
         )
 
@@ -2906,3 +2907,141 @@ def get_model_id(item_id: UUID, prefix: str = None, headers: dict = None):
     response = _base_api(request=f"metadata/models/{item_id}", client="internal")
 
     return response.json().get("model", {}).get("id")
+
+
+def normalize_filter(f, alias=None):
+    """Normalize a user-supplied filter expression.
+
+    When ``alias`` is provided, bracketed column references ``[Col]`` are
+    rewritten as ```alias`.`Col``` so the filter is unambiguous in a
+    multi-table (joined) query. When no alias is given the brackets are
+    simply stripped to preserve the original single-table behavior.
+    """
+
+    # Remove extra whitespace
+    f = f.strip()
+
+    # Replace == with =
+    f = re.sub(r"==", "=", f)
+
+    # Square bracketed column references
+    if alias:
+        f = re.sub(r"\[(.*?)\]", rf"`{alias}`.`\1`", f)
+    else:
+        f = re.sub(r"\[(.*?)\]", r"\1", f)
+
+    # Convert double quotes to single quotes
+    f = re.sub(r'"(.*?)"', r"'\1'", f)
+
+    return f
+
+
+def _table_ref(schema_name, entity_name):
+    """Return a fully-qualified, safely quoted table reference."""
+
+    entity_sql = f"`{entity_name}`" if " " in entity_name else entity_name
+    if schema_name:
+        return f"{schema_name}.{entity_sql}"
+    return entity_sql
+
+
+def to_delta_table_name(name: str, max_length: int = 128) -> str:
+    """
+    Convert an arbitrary string into a Fabric Lakehouse-safe Delta table name.
+
+    Rules enforced:
+    - lowercase
+    - only a-z, 0-9, underscore
+    - no leading digit
+    - no consecutive underscores
+    - trimmed to max_length
+    """
+    if not name or not isinstance(name, str):
+        raise ValueError("Name must be a non-empty string")
+
+    # Normalize unicode (e.g., é → e)
+    name = unicodedata.normalize("NFKD", name)
+    name = name.encode("ascii", "ignore").decode("ascii")
+
+    # Lowercase
+    name = name.lower()
+
+    # Replace invalid characters with underscore
+    name = re.sub(r"[^a-z0-9_]", "_", name)
+
+    # Collapse multiple underscores
+    name = re.sub(r"_+", "_", name)
+
+    # Trim underscores from ends
+    name = name.strip("_")
+
+    # Ensure not empty after cleaning
+    if not name:
+        name = "table"
+
+    # Prevent leading digit
+    if name[0].isdigit():
+        name = f"t_{name}"
+
+    # Enforce max length
+    name = name[:max_length]
+
+    return name
+
+
+@log
+def list_columns_from_path(path: str) -> pd.DataFrame:
+
+    columns = {
+        "Column Name": "str",
+        "Data Type": "str",
+    }
+    df = _create_dataframe(columns=columns)
+
+    rows = []
+    if _pure_python_notebook():
+        from deltalake import DeltaTable
+
+        try:
+            dt = DeltaTable(path)
+            table_schema = dt.schema()
+
+            for field in table_schema.fields:
+                col_name = field.name
+                match = re.search(r'"(.*?)"', str(field.type))
+                if not match:
+                    raise ValueError(
+                        f"{icons.red_dot} Could not find data type for column {col_name}."
+                    )
+                data_type = match.group(1)
+                rows.append(
+                    {
+                        "Column Name": col_name,
+                        "Data Type": data_type,
+                    }
+                )
+        except Exception:
+            raise ValueError(
+                f"{icons.red_dot} The '{path}' table is not a valid delta table."
+            )
+    else:
+        try:
+            delta_table = _get_delta_table(path=path)
+            table_df = delta_table.toDF()
+
+            for col_name, data_type in table_df.dtypes:
+                rows.append(
+                    {
+                        "Column Name": col_name,
+                        "Data Type": data_type,
+                    }
+                )
+        except Exception:
+            raise ValueError(
+                f"{icons.red_dot} The '{path}' table is not a valid delta table."
+            )
+
+    if rows:
+        df = pd.DataFrame(rows, columns=list(columns.keys()))
+
+    return df

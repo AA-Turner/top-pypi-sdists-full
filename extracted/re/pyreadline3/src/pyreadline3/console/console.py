@@ -25,7 +25,7 @@ import traceback
 
 import pyreadline3.unicode_helper as unicode_helper
 from pyreadline3.console.ansi import AnsiState, AnsiWriter
-from pyreadline3.keysyms import KeyPress, make_KeyPress
+from pyreadline3.keysyms import KeyPress, make_key_press
 from pyreadline3.logger import log
 from pyreadline3.unicode_helper import ensure_str, ensure_unicode
 
@@ -166,6 +166,7 @@ funcs = [
     "GetConsoleMode",
     "GetConsoleScreenBufferInfo",
     "GetConsoleTitleW",
+    "GetNumberOfConsoleInputEvents",
     "GetProcAddress",
     "GetStdHandle",
     "PeekConsoleInputW",
@@ -535,12 +536,15 @@ class Console(object):
         Cevent = INPUT_RECORD()
         count = DWORD(0)
         while True:
+            event_count = DWORD(0)
             if inputHookFunc:
                 call_function(inputHookFunc, ())
-            status = self.ReadConsoleInputW(self.hin, byref(Cevent), 1, byref(count))
-            if status and count.value == 1:
-                e = event(self, Cevent)
-                return e
+            self.GetNumberOfConsoleInputEvents(self.hin, byref(event_count))
+            if event_count:
+                status = self.ReadConsoleInputW(self.hin, byref(Cevent), 1, byref(count))
+                if status and count.value == 1:
+                    e = event(self, Cevent)
+                    return e
 
     def getkeypress(self):
         """Return next key press event from the queue, ignoring others."""
@@ -548,15 +552,14 @@ class Console(object):
             e = self.get()
             if e.type == "KeyPress" and e.keycode not in key_modifiers:
                 log("console.getkeypress %s" % e)
-                if e.keyinfo.keyname == "next":
+                if e.keyinfo.key_name == "next":
                     self.scroll_window(12)
-                elif e.keyinfo.keyname == "prior":
+                elif e.keyinfo.key_name == "prior":
                     self.scroll_window(-12)
                 else:
                     return e
             elif (e.type == "KeyRelease") and (
                 e.keyinfo == KeyPress("S", False, True, False, "S")
-                or e.keyinfo == KeyPress("C", False, True, False, "C")
             ):
                 log("getKeypress:%s,%s,%s" % (e.keyinfo, e.keycode, e.type))
                 return e
@@ -690,6 +693,8 @@ Console.GetConsoleScreenBufferInfo.argtypes = [
 ]  # HANDLE, PCONSOLE_SCREEN_BUFFER_INFO
 Console.GetConsoleTitleW.restype = DWORD
 Console.GetConsoleTitleW.argtypes = [c_wchar_p, DWORD]  # LPTSTR , DWORD
+Console.GetNumberOfConsoleInputEvents.restype = BOOL
+Console.GetNumberOfConsoleInputEvents.argtypes = [HANDLE, LPDWORD] # HANDLE , LPDWORD
 Console.GetProcAddress.restype = FARPROC
 Console.GetProcAddress.argtypes = [HMODULE, c_char_p]  # HMODULE , LPCSTR
 Console.GetStdHandle.restype = HANDLE
@@ -776,7 +781,7 @@ class event(Event):
             self.char = input.Event.KeyEvent.uChar.UnicodeChar
             self.keycode = input.Event.KeyEvent.wVirtualKeyCode
             self.state = input.Event.KeyEvent.dwControlKeyState
-            self.keyinfo = make_KeyPress(self.char, self.state, self.keycode)
+            self.keyinfo = make_key_press(self.char, self.state, self.keycode)
 
         elif input.EventType == MOUSE_EVENT:
             if input.Event.MouseEvent.dwEventFlags & MOUSE_MOVED:

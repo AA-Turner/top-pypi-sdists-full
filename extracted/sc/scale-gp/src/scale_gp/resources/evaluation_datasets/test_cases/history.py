@@ -7,7 +7,7 @@ from typing import Any, cast
 import httpx
 
 from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from ...._utils import maybe_transform
+from ...._utils import path_template, maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -83,7 +83,12 @@ class HistoryResource(SyncAPIResource):
         return cast(
             TestCase,
             self._get(
-                f"/v4/evaluation-datasets/{evaluation_dataset_id}/test-cases/{test_case_id}/history/{num}",
+                path_template(
+                    "/v4/evaluation-datasets/{evaluation_dataset_id}/test-cases/{test_case_id}/history/{num}",
+                    evaluation_dataset_id=evaluation_dataset_id,
+                    test_case_id=test_case_id,
+                    num=num,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
                 ),
@@ -133,7 +138,11 @@ class HistoryResource(SyncAPIResource):
         if not num:
             raise ValueError(f"Expected a non-empty value for `num` but received {num!r}")
         return self._get_api_list(
-            f"/v4/evaluation-datasets/{evaluation_dataset_id}/test-cases/history/{num}",
+            path_template(
+                "/v4/evaluation-datasets/{evaluation_dataset_id}/test-cases/history/{num}",
+                evaluation_dataset_id=evaluation_dataset_id,
+                num=num,
+            ),
             page=SyncPageResponse[TestCase],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -186,7 +195,11 @@ class HistoryResource(SyncAPIResource):
         if not test_case_id:
             raise ValueError(f"Expected a non-empty value for `test_case_id` but received {test_case_id!r}")
         return self._delete(
-            f"/v4/evaluation-datasets/{evaluation_dataset_id}/test-cases/{test_case_id}/history",
+            path_template(
+                "/v4/evaluation-datasets/{evaluation_dataset_id}/test-cases/{test_case_id}/history",
+                evaluation_dataset_id=evaluation_dataset_id,
+                test_case_id=test_case_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -252,7 +265,12 @@ class AsyncHistoryResource(AsyncAPIResource):
         return cast(
             TestCase,
             await self._get(
-                f"/v4/evaluation-datasets/{evaluation_dataset_id}/test-cases/{test_case_id}/history/{num}",
+                path_template(
+                    "/v4/evaluation-datasets/{evaluation_dataset_id}/test-cases/{test_case_id}/history/{num}",
+                    evaluation_dataset_id=evaluation_dataset_id,
+                    test_case_id=test_case_id,
+                    num=num,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
                 ),
@@ -302,7 +320,11 @@ class AsyncHistoryResource(AsyncAPIResource):
         if not num:
             raise ValueError(f"Expected a non-empty value for `num` but received {num!r}")
         return self._get_api_list(
-            f"/v4/evaluation-datasets/{evaluation_dataset_id}/test-cases/history/{num}",
+            path_template(
+                "/v4/evaluation-datasets/{evaluation_dataset_id}/test-cases/history/{num}",
+                evaluation_dataset_id=evaluation_dataset_id,
+                num=num,
+            ),
             page=AsyncPageResponse[TestCase],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -355,7 +377,11 @@ class AsyncHistoryResource(AsyncAPIResource):
         if not test_case_id:
             raise ValueError(f"Expected a non-empty value for `test_case_id` but received {test_case_id!r}")
         return await self._delete(
-            f"/v4/evaluation-datasets/{evaluation_dataset_id}/test-cases/{test_case_id}/history",
+            path_template(
+                "/v4/evaluation-datasets/{evaluation_dataset_id}/test-cases/{test_case_id}/history",
+                evaluation_dataset_id=evaluation_dataset_id,
+                test_case_id=test_case_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

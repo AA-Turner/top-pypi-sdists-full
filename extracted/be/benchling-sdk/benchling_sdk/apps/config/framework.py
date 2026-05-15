@@ -235,7 +235,7 @@ class ConfigItemStore:
         Initialize Dependency Link Store.
 
         :param configuration_provider: A ConfigProvider that will be invoked to provide the
-        underlying config from which to organize dependency links.
+            underlying config from which to organize dependency links.
         """
         self._configuration_provider = configuration_provider
         self._array_path_row_names = dict()

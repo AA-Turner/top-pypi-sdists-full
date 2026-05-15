@@ -40,6 +40,7 @@ GenerationOutputAdditionalObjectGenerationOutputAdditionalObjectItem: TypeAlias 
     Dict[str, object],
     GenerationOutputAdditionalObjectGenerationOutputAdditionalObjectItemExternalFile,
     GenerationOutputAdditionalObjectGenerationOutputAdditionalObjectItemInternalFile,
+    None,
 ]
 
 GenerationExtraInfo: TypeAlias = Annotated[
@@ -48,6 +49,8 @@ GenerationExtraInfo: TypeAlias = Annotated[
 
 
 class ResultSchemaFlexible(BaseModel):
-    generation_output: Union[str, Dict[str, GenerationOutputAdditionalObjectGenerationOutputAdditionalObjectItem]]
+    generation_output: Union[
+        str, Dict[str, Optional[GenerationOutputAdditionalObjectGenerationOutputAdditionalObjectItem]]
+    ]
 
     generation_extra_info: Optional[GenerationExtraInfo] = None

@@ -4,12 +4,20 @@ Composition objects are the lowest-level primitives used inside of Block objects
 See: <https://api.slack.com/reference/block-kit/composition-objects>.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from enum import Enum
 from json import dumps
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Literal, TypeAlias, cast, overload
 
-from slackblocks.errors import InvalidUsageError
+from slackblocks._core import RenderableMixin, omit_none, resolve
+from slackblocks.errors import (
+    LengthError,
+    MissingRequiredError,
+    MutualExclusivityError,
+    TypeMismatchError,
+)
 from slackblocks.utils import (
     coerce_to_list,
     coerce_to_list_nonnull,
@@ -35,7 +43,7 @@ class CompositionObjectType(Enum):
     WORKFLOW = "workflow"
 
 
-class CompositionObject(ABC):
+class CompositionObject(RenderableMixin, ABC):
     """
     Basis element containing attributes and behaviour common to all
     composition objects.
@@ -47,22 +55,19 @@ class CompositionObject(ABC):
         super().__init__()
         self.type = type_
 
-    def _attributes(self) -> Dict[str, Any]:
+    def _attributes(self) -> dict[str, Any]:
         return {"type": self.type.value}
 
     @abstractmethod
-    def _resolve(self) -> Dict[str, Any]:
+    def _resolve(self) -> dict[str, Any]:
         pass
-
-    def __repr__(self) -> str:
-        return dumps(self._resolve(), indent=4)
 
 
 class TextType(Enum):
     """
     Allowable types for Slack Text objects.
 
-    MARKDOWN: tradional markdown formatting, see
+    MARKDOWN: traditional markdown formatting, see
         <https://api.slack.com/reference/surfaces/formatting#basic-formatting>
     PLAINTEXT: simple Unicode text with no formatting (e.g. bold) features.
 
@@ -99,9 +104,7 @@ class Text(CompositionObject):
     ) -> None:
         super().__init__(type_=CompositionObjectType.TEXT)
         self.text_type = type_
-        self.text = validate_string_nonnull(
-            text, field_name="text", min_length=1, max_length=3000
-        )
+        self.text = validate_string_nonnull(text, field_name="text", min_length=1, max_length=3000)
         if self.text_type == TextType.MARKDOWN:
             self.verbatim = verbatim
             self.emoji = False
@@ -109,23 +112,57 @@ class Text(CompositionObject):
             self.verbatim = False
             self.emoji = emoji
 
-    def _resolve(self) -> Dict[str, Any]:
-        text = self._attributes()
-        text["type"] = self.text_type.value
-        text["text"] = self.text
-        if self.text_type == TextType.MARKDOWN and self.verbatim:
-            text["verbatim"] = self.verbatim
-        elif self.text_type == TextType.PLAINTEXT and self.emoji:
-            text["emoji"] = self.emoji
-        return text
+    def _resolve(self) -> dict[str, Any]:
+        return omit_none(
+            {
+                "type": self.text_type.value,
+                "text": self.text,
+                "verbatim": self.verbatim
+                if self.text_type == TextType.MARKDOWN and self.verbatim
+                else None,
+                "emoji": self.emoji
+                if self.text_type == TextType.PLAINTEXT and self.emoji
+                else None,
+            }
+        )
+
+    @overload
+    @staticmethod
+    def to_text(
+        text: str | Text | None,
+        force_plaintext: bool = False,
+        max_length: int | None = None,
+        *,
+        allow_none: Literal[False] = False,
+    ) -> Text: ...
+
+    @overload
+    @staticmethod
+    def to_text(
+        text: str | Text | None,
+        force_plaintext: bool = False,
+        max_length: int | None = None,
+        *,
+        allow_none: Literal[True],
+    ) -> Text | None: ...
+
+    @overload
+    @staticmethod
+    def to_text(
+        text: str | Text | None,
+        force_plaintext: bool = False,
+        max_length: int | None = None,
+        *,
+        allow_none: bool,
+    ) -> Text | None: ...
 
     @staticmethod
     def to_text(
-        text: Optional[Union[str, "Text"]],
+        text: str | Text | None,
         force_plaintext: bool = False,
-        max_length: Optional[int] = None,
+        max_length: int | None = None,
         allow_none: bool = False,
-    ) -> Optional["Text"]:
+    ) -> Text | None:
         """
         Coerces `str` or `Text` objects into `Text` objects.
 
@@ -136,11 +173,15 @@ class Text(CompositionObject):
             max_length: `text` will be checked against this length in addition
                 to the standard `Text` limit of 3000 characters.
             allow_none: whether to accept `None` as a valid value for `text`.
+                The return type narrows based on this value:
+
+                - ``allow_none=False`` (the default) -> always returns ``Text``.
+                - ``allow_none=True`` -> returns ``Text | None``.
         """
         if text is None:
             if allow_none:
                 return None
-            raise InvalidUsageError("This field cannot have the value None or ''")
+            raise MissingRequiredError("This field cannot have the value None or ''")
         return Text.to_text_nonnull(
             text,
             force_plaintext,
@@ -149,10 +190,10 @@ class Text(CompositionObject):
 
     @staticmethod
     def to_text_nonnull(
-        text: Union[str, "Text"],
+        text: str | Text,
         force_plaintext: bool = False,
-        max_length: Optional[int] = None,
-    ) -> "Text":
+        max_length: int | None = None,
+    ) -> Text:
         """
         Coerces `str` or `Text` objects into `Text` objects, but does not allow `None` values.
 
@@ -170,23 +211,50 @@ class Text(CompositionObject):
             InvalidUsageError: if the text length exceeds the specified max_length.
         """
         original_type = text.text_type if isinstance(text, Text) else None
-        type_ = (
-            TextType.PLAINTEXT
-            if force_plaintext
-            else original_type or TextType.MARKDOWN
-        )
+        type_ = TextType.PLAINTEXT if force_plaintext else original_type or TextType.MARKDOWN
         if text and max_length and len(text) > max_length:
-            raise InvalidUsageError(
-                f"`text` length ({len(text)}) exceeds `max_length` ({max_length})"
-            )
+            raise LengthError(f"`text` length ({len(text)}) exceeds `max_length` ({max_length})")
         if isinstance(text, str):
             return Text(text=text, type_=type_)
         elif isinstance(text, Text):
-            return Text(
-                text=text.text, type_=type_, emoji=text.emoji, verbatim=text.verbatim
-            )
+            return Text(text=text.text, type_=type_, emoji=text.emoji, verbatim=text.verbatim)
         else:
-            raise InvalidUsageError("This field must be a string or Text object")
+            raise TypeMismatchError("This field must be a string or Text object")
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Text:
+        """Parse a Slack-shaped ``text`` composition object back into a ``Text``.
+
+        Unknown fields are ignored so that future Slack additions do not
+        break round-tripping.
+
+        Args:
+            data: a dict matching the Slack ``text`` composition-object shape,
+                e.g. ``{"type": "mrkdwn", "text": "hi", "verbatim": True}``.
+
+        Returns:
+            A ``Text`` instance.
+
+        Throws:
+            MissingRequiredError: if ``data["text"]`` is absent.
+            TypeMismatchError: if ``data["type"]`` is not one of the
+                allowable ``TextType`` values.
+        """
+        if "text" not in data:
+            raise MissingRequiredError("Text payload is missing required `text` field.")
+        type_str = data.get("type", TextType.MARKDOWN.value)
+        try:
+            text_type = TextType(type_str)
+        except ValueError as exc:
+            raise TypeMismatchError(
+                f"Text `type` must be one of {[t.value for t in TextType]}, got {type_str!r}."
+            ) from exc
+        return cls(
+            text=data["text"],
+            type_=text_type,
+            emoji=bool(data.get("emoji", False)),
+            verbatim=bool(data.get("verbatim", False)),
+        )
 
     def __str__(self) -> str:
         return dumps(self._resolve())
@@ -204,7 +272,50 @@ class Text(CompositionObject):
 
 
 # Used for accepting strings and `Text`` where coercion to `Text` is desirable.
-TextLike = Union[str, Text]
+TextLike: TypeAlias = str | Text
+
+
+class PlainText(Text):
+    """Convenience wrapper for `Text` with `type_=TextType.PLAINTEXT`.
+
+    `PlainText("Hi", emoji=True)` is equivalent to
+    `Text("Hi", type_=TextType.PLAINTEXT, emoji=True)`. Anywhere a `Text` or
+    `TextLike` is accepted, a `PlainText` works because `PlainText` is a
+    subclass of `Text`. The rendered JSON is identical to the equivalent
+    `Text` call.
+
+    Args:
+        text: the text to render (1-3000 characters).
+        emoji: if `True`, emoji (e.g. `:smile:`) are escaped into Unicode.
+
+    Throws:
+        LengthError: if the provided `text` is empty or too long.
+    """
+
+    def __init__(self, text: str, emoji: bool = False) -> None:
+        super().__init__(text=text, type_=TextType.PLAINTEXT, emoji=emoji)
+
+
+class Markdown(Text):
+    """Convenience wrapper for `Text` with `type_=TextType.MARKDOWN`.
+
+    `Markdown("_italic_", verbatim=True)` is equivalent to
+    `Text("_italic_", type_=TextType.MARKDOWN, verbatim=True)`. Anywhere a
+    `Text` or `TextLike` is accepted, a `Markdown` works because `Markdown`
+    is a subclass of `Text`. The rendered JSON is identical to the
+    equivalent `Text` call.
+
+    Args:
+        text: the markdown-formatted text to render (1-3000 characters).
+        verbatim: if `True`, links, channel names, and user names are
+            rendered verbatim rather than as Slack-style references.
+
+    Throws:
+        LengthError: if the provided `text` is empty or too long.
+    """
+
+    def __init__(self, text: str, verbatim: bool = False) -> None:
+        super().__init__(text=text, type_=TextType.MARKDOWN, verbatim=verbatim)
 
 
 class ConfirmationDialogue(CompositionObject):
@@ -234,19 +345,38 @@ class ConfirmationDialogue(CompositionObject):
         super().__init__(type_=CompositionObjectType.CONFIRM)
         self.title = Text.to_text_nonnull(title, max_length=100, force_plaintext=True)
         self.text = Text.to_text_nonnull(text, max_length=300)
-        self.confirm = Text.to_text_nonnull(
-            confirm, max_length=30, force_plaintext=True
-        )
+        self.confirm = Text.to_text_nonnull(confirm, max_length=30, force_plaintext=True)
         self.deny = Text.to_text_nonnull(deny, max_length=30, force_plaintext=True)
 
-    def _resolve(self) -> Dict[str, Any]:
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                "title": self.title,
+                "text": self.text,
+                "confirm": self.confirm,
+                "deny": self.deny,
+            }
+        )
 
-        return {
-            "title": self.title._resolve(),
-            "text": self.text._resolve(),
-            "confirm": self.confirm._resolve(),
-            "deny": self.deny._resolve(),
-        }
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ConfirmationDialogue:
+        """Parse a Slack ``confirm`` composition object back into an instance.
+
+        Throws:
+            MissingRequiredError: if any of ``title``, ``text``, ``confirm``,
+                ``deny`` is absent.
+        """
+        for field in ("title", "text", "confirm", "deny"):
+            if field not in data:
+                raise MissingRequiredError(
+                    f"Confirmation dialogue payload is missing required `{field}` field."
+                )
+        return cls(
+            title=Text.from_dict(data["title"]),
+            text=Text.from_dict(data["text"]),
+            confirm=Text.from_dict(data["confirm"]),
+            deny=Text.from_dict(data["deny"]),
+        )
 
 
 class Confirm(ConfirmationDialogue):
@@ -258,7 +388,7 @@ class Confirm(ConfirmationDialogue):
     """
 
     def __init__(self, *args, **kwargs) -> None:
-        super(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
 
 class Option(CompositionObject):
@@ -283,8 +413,8 @@ class Option(CompositionObject):
         self,
         text: TextLike,
         value: str,
-        description: Optional[TextLike] = None,
-        url: Optional[str] = None,
+        description: TextLike | None = None,
+        url: str | None = None,
     ) -> None:
         super().__init__(type_=CompositionObjectType.OPTION)
         self.text = Text.to_text_nonnull(text, max_length=75)
@@ -293,18 +423,37 @@ class Option(CompositionObject):
             description, max_length=75, force_plaintext=True, allow_none=True
         )
         if url and len(url) > 3000:
-            raise InvalidUsageError("Option URLs must be less than 3000 characters")
+            raise LengthError("Option URLs must be less than 3000 characters")
         self.url = url
 
-    def _resolve(self) -> Dict[str, Any]:
-        option: Dict[str, Any] = {}  # Does not include type in JSON
-        option["text"] = self.text._resolve()
-        option["value"] = self.value
-        if self.description is not None:
-            option["description"] = self.description._resolve()
-        if self.url is not None:
-            option["url"] = self.url
-        return option
+    def _resolve(self) -> dict[str, Any]:
+        # Option does not include "type" in its rendered JSON.
+        return resolve(
+            {
+                "text": self.text,
+                "value": self.value,
+                "description": self.description,
+                "url": self.url,
+            }
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Option:
+        """Parse a Slack ``option`` composition object back into an ``Option``.
+
+        Throws:
+            MissingRequiredError: if ``text`` or ``value`` is absent.
+        """
+        for field in ("text", "value"):
+            if field not in data:
+                raise MissingRequiredError(f"Option payload is missing required `{field}` field.")
+        description = data.get("description")
+        return cls(
+            text=Text.from_dict(data["text"]),
+            value=data["value"],
+            description=Text.from_dict(description) if description is not None else None,
+            url=data.get("url"),
+        )
 
     def __eq__(self, other) -> bool:
         return (
@@ -330,23 +479,36 @@ class OptionGroup(CompositionObject):
         InvalidUsageError: if no options are provided or the label is not valid.
     """
 
-    def __init__(self, label: TextLike, options: List[Option]) -> None:
+    def __init__(self, label: TextLike, options: list[Option]) -> None:
         super().__init__(type_=CompositionObjectType.OPTION_GROUP)
         self.label = Text.to_text(label, max_length=75, force_plaintext=True)
-        self.options: List[Option] = coerce_to_list_nonnull(
+        self.options: list[Option] = coerce_to_list_nonnull(
             options,
             class_=Option,
             min_size=1,
             max_size=100,
         )
 
-    def _resolve(self) -> Dict[str, Any]:
-        option_group: Dict[str, Any] = {}  # Does not include type in JSON
-        if self.label is not None:
-            option_group["label"] = self.label._resolve()
-        if self.options is not None:
-            option_group["options"] = [option._resolve() for option in self.options]
-        return option_group
+    def _resolve(self) -> dict[str, Any]:
+        # OptionGroup does not include "type" in its rendered JSON.
+        return resolve({"label": self.label, "options": self.options})
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> OptionGroup:
+        """Parse a Slack ``option_group`` composition object.
+
+        Throws:
+            MissingRequiredError: if ``label`` or ``options`` is absent.
+        """
+        for field in ("label", "options"):
+            if field not in data:
+                raise MissingRequiredError(
+                    f"OptionGroup payload is missing required `{field}` field."
+                )
+        return cls(
+            label=Text.from_dict(data["label"]),
+            options=[Option.from_dict(item) for item in data["options"]],
+        )
 
 
 ALLOWABLE_TRIGGERS = ["on_enter_pressed", "on_character_entered"]
@@ -365,23 +527,31 @@ class DispatchActionConfiguration(CompositionObject):
             `trigger_actions_on`.
     """
 
-    def __init__(
-        self, trigger_actions_on: Optional[Union[str, List[str]]] = None
-    ) -> None:
+    def __init__(self, trigger_actions_on: str | list[str] | None = None) -> None:
+        super().__init__(type_=CompositionObjectType.DISPATCH)
         trigger_actions_on = trigger_actions_on or []
         self.trigger_actions_on = list(
             set(coerce_to_list_nonnull(trigger_actions_on, str, min_size=1, max_size=2))
         )
         for trigger in self.trigger_actions_on:
             if trigger not in ALLOWABLE_TRIGGERS:
-                raise InvalidUsageError(
+                raise TypeMismatchError(
                     f"Trigger {trigger} not in allowable values ({ALLOWABLE_TRIGGERS})"
                 )
 
-    def _resolve(self) -> Dict[str, Any]:
-        dispatch_action_config = {}  # Does not include type in JSON
-        dispatch_action_config["trigger_actions_on"] = self.trigger_actions_on
-        return dispatch_action_config
+    def _resolve(self) -> dict[str, Any]:
+        # DispatchActionConfiguration does not include "type" in its rendered JSON.
+        return {"trigger_actions_on": self.trigger_actions_on}
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> DispatchActionConfiguration:
+        """Parse a Slack ``dispatch_action_config`` composition object."""
+        return cls(trigger_actions_on=data.get("trigger_actions_on"))
+
+
+ConversationType: TypeAlias = Literal["im", "mpim", "private", "public"]
+"""The four kinds of Slack conversation that ``ConversationFilter.include`` may
+contain. See <https://api.slack.com/reference/block-kit/composition-objects#filter_conversations>."""
 
 
 class ConversationFilter(CompositionObject):
@@ -407,35 +577,48 @@ class ConversationFilter(CompositionObject):
 
     def __init__(
         self,
-        include: Optional[Union[str, List[str]]] = None,
-        exclude_external_shared_channels: Optional[bool] = None,
-        exclude_bot_users: Optional[bool] = None,
+        include: ConversationType | list[ConversationType] | None = None,
+        exclude_external_shared_channels: bool | None = None,
+        exclude_bot_users: bool | None = None,
     ) -> None:
         super().__init__(type_=CompositionObjectType.FILTER)
         if not (
-            include
-            or exclude_external_shared_channels is not None
-            or exclude_bot_users is not None
+            include or exclude_external_shared_channels is not None or exclude_bot_users is not None
         ):
-            raise InvalidUsageError(
+            raise MissingRequiredError(
                 "One of `include`, `exclude_external_shared_channels`, or "
                 "`exclude_bot_users` is required."
             )
-        self.include = coerce_to_list(include, str, allow_none=True)
+        self.include = coerce_to_list(cast("str | list[str] | None", include), str, allow_none=True)
         self.exclude_external_shared_channels = exclude_external_shared_channels
         self.exclude_bot_users = exclude_bot_users
 
-    def _resolve(self) -> Dict[str, Any]:
-        filter: Dict[str, Any] = {}  # Does not include type in JSON
-        if self.include:
-            filter["include"] = self.include
-        if self.exclude_external_shared_channels is not None:
-            filter["exclude_external_shared_channels"] = (
-                self.exclude_external_shared_channels
-            )
-        if self.exclude_bot_users is not None:
-            filter["exclude_bot_users"] = self.exclude_bot_users
-        return filter
+    def _resolve(self) -> dict[str, Any]:
+        # ConversationFilter does not include "type" in its rendered JSON.
+        # Note that ``include`` is omitted when empty (falsy list) to match the
+        # historical behaviour; ``exclude_*`` fields are kept when explicitly
+        # set to False.
+        return omit_none(
+            {
+                "include": self.include if self.include else None,
+                "exclude_external_shared_channels": self.exclude_external_shared_channels,
+                "exclude_bot_users": self.exclude_bot_users,
+            }
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ConversationFilter:
+        """Parse a Slack ``filter`` composition object.
+
+        At least one of ``include``, ``exclude_external_shared_channels``,
+        or ``exclude_bot_users`` must be present; otherwise the underlying
+        constructor raises ``MissingRequiredError``.
+        """
+        return cls(
+            include=data.get("include"),
+            exclude_external_shared_channels=data.get("exclude_external_shared_channels"),
+            exclude_bot_users=data.get("exclude_bot_users"),
+        )
 
 
 class InputParameter(CompositionObject):
@@ -454,11 +637,19 @@ class InputParameter(CompositionObject):
         self.name = name
         self.value = value
 
-    def _resolve(self) -> Dict[str, Any]:
-        input_parameter = {}  # Does not include type in JSON
-        input_parameter["name"] = self.name
-        input_parameter["value"] = self.value
-        return input_parameter
+    def _resolve(self) -> dict[str, Any]:
+        # InputParameter does not include "type" in its rendered JSON.
+        return {"name": self.name, "value": self.value}
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> InputParameter:
+        """Parse a Slack ``input_parameter`` composition object."""
+        for field in ("name", "value"):
+            if field not in data:
+                raise MissingRequiredError(
+                    f"InputParameter payload is missing required `{field}` field."
+                )
+        return cls(name=data["name"], value=data["value"])
 
 
 class SlackFile(CompositionObject):
@@ -482,22 +673,23 @@ class SlackFile(CompositionObject):
 
     def __init__(
         self,
-        url: Optional[str],
-        id: Optional[str],
+        url: str | None,
+        id: str | None,
     ) -> None:
         super().__init__(CompositionObjectType.SLACK_FILE)
         if url and id:
-            raise InvalidUsageError("Cannot provide both `url` and `id`.")
+            raise MutualExclusivityError("Cannot provide both `url` and `id`.")
         self.url = url
         self.id = id
 
-    def _resolve(self) -> Dict[str, Any]:
-        file = {}  # Does not include type in JSON
-        if self.url:
-            file["url"] = self.url
-        if self.id:
-            file["id"] = self.id
-        return file
+    def _resolve(self) -> dict[str, Any]:
+        # SlackFile does not include "type" in its rendered JSON.
+        return omit_none({"url": self.url, "id": self.id})
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SlackFile:
+        """Parse a Slack ``slack_file`` composition object."""
+        return cls(url=data.get("url"), id=data.get("id"))
 
 
 class Trigger(CompositionObject):
@@ -521,9 +713,7 @@ class Trigger(CompositionObject):
     def __init__(
         self,
         url: str,
-        customizable_input_parameters: Optional[
-            Union[InputParameter, List[InputParameter]]
-        ],
+        customizable_input_parameters: InputParameter | list[InputParameter] | None,
     ) -> None:
         super().__init__(type_=CompositionObjectType.TRIGGER)
         self.url = url
@@ -531,14 +721,29 @@ class Trigger(CompositionObject):
             customizable_input_parameters, InputParameter, allow_none=True
         )
 
-    def _resolve(self) -> Dict[str, Any]:
-        trigger: Dict[str, Any] = {}  # Does not include type in JSON
-        trigger["url"] = self.url
-        if self.customizable_input_parameters:
-            trigger["customizable_input_parameters"] = [
-                parameter._resolve() for parameter in self.customizable_input_parameters
-            ]
-        return trigger
+    def _resolve(self) -> dict[str, Any]:
+        # Trigger does not include "type" in its rendered JSON.
+        return resolve(
+            {
+                "url": self.url,
+                "customizable_input_parameters": self.customizable_input_parameters
+                if self.customizable_input_parameters
+                else None,
+            }
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Trigger:
+        """Parse a Slack ``trigger`` composition object."""
+        if "url" not in data:
+            raise MissingRequiredError("Trigger payload is missing required `url` field.")
+        raw_params = data.get("customizable_input_parameters")
+        params: list[InputParameter] | None
+        if raw_params is None:
+            params = None
+        else:
+            params = [InputParameter.from_dict(p) for p in raw_params]
+        return cls(url=data["url"], customizable_input_parameters=params)
 
 
 class Workflow(CompositionObject):
@@ -555,10 +760,52 @@ class Workflow(CompositionObject):
         super().__init__(type_=CompositionObjectType.WORKFLOW)
         self.trigger = trigger
 
-    def _resolve(self) -> Dict[str, Any]:
-        workflow = {}  # Does not include type in JSON
-        workflow["trigger"] = self.trigger._resolve()
-        return workflow
+    def _resolve(self) -> dict[str, Any]:
+        # Workflow does not include "type" in its rendered JSON.
+        return resolve({"trigger": self.trigger})
+
+    @classmethod
+    def from_url(cls, url: str, **input_parameters: str) -> Workflow:
+        """Build a `Workflow` from a trigger URL and input parameters in one call.
+
+        ``Workflow.from_url(url, a='1', b='2')`` is equivalent to::
+
+            Workflow(
+                trigger=Trigger(
+                    url=url,
+                    customizable_input_parameters=[
+                        InputParameter(name='a', value='1'),
+                        InputParameter(name='b', value='2'),
+                    ],
+                ),
+            )
+
+        When no input parameters are supplied, the resulting trigger has
+        ``customizable_input_parameters=None`` (the key is omitted from JSON).
+
+        Args:
+            url: the link trigger URL.
+            **input_parameters: zero or more ``name=value`` pairs that become
+                ``InputParameter`` entries on the trigger.
+
+        Returns:
+            A new ``Workflow`` instance.
+        """
+        params: list[InputParameter] | None
+        if input_parameters:
+            params = [
+                InputParameter(name=name, value=value) for name, value in input_parameters.items()
+            ]
+        else:
+            params = None
+        return cls(trigger=Trigger(url=url, customizable_input_parameters=params))
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Workflow:
+        """Parse a Slack ``workflow`` composition object."""
+        if "trigger" not in data:
+            raise MissingRequiredError("Workflow payload is missing required `trigger` field.")
+        return cls(trigger=Trigger.from_dict(data["trigger"]))
 
 
 class RawText:
@@ -584,14 +831,18 @@ class RawText:
         self.text = text
         self.emoji = emoji
 
-    def _resolve(self) -> Dict[str, Any]:
-        raw_text: Dict[str, Any] = {
-            "type": self.type,
-            "text": self.text,
-        }
-        if self.emoji:
-            raw_text["emoji"] = self.emoji
-        return raw_text
+    def _resolve(self) -> dict[str, Any]:
+        return omit_none(
+            {
+                "type": self.type,
+                "text": self.text,
+                "emoji": self.emoji if self.emoji else None,
+            }
+        )
+
+
+ColumnAlignment: TypeAlias = Literal["left", "center", "right"]
+"""Allowable values for ``ColumnSettings.align``."""
 
 
 class ColumnSettings:
@@ -605,20 +856,13 @@ class ColumnSettings:
 
     def __init__(
         self,
-        align: Optional[str] = None,
-        is_wrapped: Optional[bool] = None,
+        align: ColumnAlignment | None = None,
+        is_wrapped: bool | None = None,
     ) -> None:
         if align and align not in ["left", "center", "right"]:
-            raise InvalidUsageError(
-                "`align` must be one of `left`, `center`, or `right`"
-            )
+            raise TypeMismatchError("`align` must be one of `left`, `center`, or `right`")
         self.align = align
         self.is_wrapped = is_wrapped
 
-    def _resolve(self) -> Dict[str, Any]:
-        column_settings: Dict[str, Any] = {}
-        if self.align:
-            column_settings["align"] = self.align
-        if self.is_wrapped is not None:
-            column_settings["is_wrapped"] = self.is_wrapped
-        return column_settings
+    def _resolve(self) -> dict[str, Any]:
+        return omit_none({"align": self.align, "is_wrapped": self.is_wrapped})

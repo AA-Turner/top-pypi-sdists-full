@@ -4,13 +4,22 @@ from __future__ import annotations
 
 from functools import cached_property
 import re
-from typing import Optional, Protocol, TYPE_CHECKING
+from typing import Dict, Optional, Protocol, TYPE_CHECKING
 import urllib.parse
 
 from benchling_api_client.v2.benchling_client import AuthorizationMethod, BenchlingApiClient
 from benchling_api_client.v2.stable.client import Client
 import httpx
 
+from benchling_sdk.helpers.response_helpers import (
+    LEGACY_RATE_LIMIT_LIMIT_HEADER,
+    LEGACY_RATE_LIMIT_REMAINING_HEADER,
+    LEGACY_RATE_LIMIT_RESET_HEADER,
+    RATE_LIMIT_LIMIT_HEADER,
+    RATE_LIMIT_REMAINING_HEADER,
+    RATE_LIMIT_RESET_HEADER,
+    read_header_value,
+)
 from benchling_sdk.helpers.retry_helpers import RetryStrategy
 
 if TYPE_CHECKING:
@@ -115,6 +124,9 @@ class Benchling:
     _client: Client
     _retry_strategy: RetryStrategy
     _v2_service: Optional[V2Service]
+    _rate_limit_limit: Optional[str]
+    _rate_limit_remaining: Optional[str]
+    _rate_limit_reset: Optional[str]
 
     def __init__(
         self,
@@ -144,9 +156,22 @@ class Benchling:
                              to modify the behavior of the HTTP calls made to Benchling through means such as adding
                              proxies and certificates or introducing retry logic for transport-level errors.
         """
+        # Initialize rate limit header storage
+        self._rate_limit_limit = None
+        self._rate_limit_remaining = None
+        self._rate_limit_reset = None
+
         full_url = self._format_url(url, base_path)
-        if not httpx_client:
-            httpx_client = httpx.Client()
+
+        # Build httpx client with rate limit capture hook
+        if httpx_client is None:
+            httpx_client = httpx.Client(event_hooks={"response": [self._capture_rate_limit_headers]})
+        else:
+            # Add our hook to existing event hooks in an idempotent way
+            existing_hooks = list(httpx_client.event_hooks.get("response", []))
+            if self._capture_rate_limit_headers not in existing_hooks:
+                httpx_client.event_hooks["response"] = [self._capture_rate_limit_headers] + existing_hooks
+
         client = BenchlingApiClient(
             httpx_client=httpx_client, base_url=full_url, auth_method=auth_method, timeout=10
         )
@@ -160,6 +185,73 @@ class Benchling:
             retry_strategy = RetryStrategy.no_retries()
         self._retry_strategy = retry_strategy
         self._v2_service = None
+
+    def _capture_rate_limit_headers(self, response: httpx.Response) -> None:
+        """
+        Capture rate limit headers from HTTP response.
+
+        This fires on every HTTP response, before any SDK code sees it.
+        Supports both canonical X-Rate-Limit-* headers and legacy X-RateLimit-* headers.
+        """
+        headers = response.headers
+
+        # Extract rate limit headers with fallback to legacy headers
+        self._rate_limit_limit = read_header_value(
+            headers, RATE_LIMIT_LIMIT_HEADER, LEGACY_RATE_LIMIT_LIMIT_HEADER
+        )
+        self._rate_limit_remaining = read_header_value(
+            headers, RATE_LIMIT_REMAINING_HEADER, LEGACY_RATE_LIMIT_REMAINING_HEADER
+        )
+        self._rate_limit_reset = read_header_value(
+            headers, RATE_LIMIT_RESET_HEADER, LEGACY_RATE_LIMIT_RESET_HEADER
+        )
+
+    @property
+    def rate_limit_limit(self) -> Optional[str]:
+        """
+        Return the rate limit ceiling from the most recent API response.
+
+        This value represents the maximum number of requests allowed in the current rate limit window.
+        Returns None if no API calls have been made yet or if the header was not present.
+        """
+        return self._rate_limit_limit
+
+    @property
+    def rate_limit_remaining(self) -> Optional[str]:
+        """
+        Return the remaining rate limit from the most recent API response.
+
+        This value represents the number of requests remaining in the current rate limit window.
+        Returns None if no API calls have been made yet or if the header was not present.
+        """
+        return self._rate_limit_remaining
+
+    @property
+    def rate_limit_reset(self) -> Optional[str]:
+        """
+        Return the rate limit reset time from the most recent API response.
+
+        This value represents when the rate limit window resets (typically as a Unix timestamp).
+        Returns None if no API calls have been made yet or if the header was not present.
+        """
+        return self._rate_limit_reset
+
+    @property
+    def rate_limit_headers(self) -> Dict[str, str]:
+        """
+        Return all rate limit headers from the most recent API response.
+
+        Returns a dictionary containing the canonical rate limit header names and their values.
+        Only includes headers that were present in the response.
+        """
+        headers: Dict[str, str] = {}
+        if self._rate_limit_limit is not None:
+            headers[RATE_LIMIT_LIMIT_HEADER] = self._rate_limit_limit
+        if self._rate_limit_remaining is not None:
+            headers[RATE_LIMIT_REMAINING_HEADER] = self._rate_limit_remaining
+        if self._rate_limit_reset is not None:
+            headers[RATE_LIMIT_RESET_HEADER] = self._rate_limit_reset
+        return headers
 
     @property
     def client(self) -> Client:

@@ -4,7 +4,7 @@ from __future__ import annotations
 from ..._internal import different_from
 from ...abc import LightSource
 from ...math import Point
-from ...math.easing import EasingFunc
+from ...typing import EasingFunc
 from ...asset import Color
 
 from numbers import Real
@@ -59,3 +59,8 @@ class PointLight(LightSource):
         if __debug__:
             different_from(value, 0)
         self._radius = value
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "PointLight",
+]

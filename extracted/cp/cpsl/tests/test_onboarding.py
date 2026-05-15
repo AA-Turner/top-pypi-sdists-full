@@ -2,14 +2,18 @@ import os
 import sys
 import tempfile
 import unittest
+import zipfile
+from io import BytesIO
+from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import cpsl
 from cpsl.image import Image
 from cpsl.msg import Event
-from cpsl.page_bundle import bundle_cache_key, external_args, package_root
+from cpsl.page_bundle import bundle_cache_control, bundle_cache_key, external_args, package_root
 from cpsl.page_source import resolve_page_module
+from cpsl.utils import collect_source_archive, react_page_bundle_specs
 
 
 class OnboardingTests(unittest.TestCase):
@@ -142,6 +146,62 @@ class OnboardingTests(unittest.TestCase):
         self.assertIn("--external:@capsule/page", args)
         self.assertIn("--external:lucide-react", args)
         self.assertIn("--external:@scope/pkg", args)
+
+    def test_page_bundle_cache_control_is_immutable_for_versions(self):
+        self.assertEqual(bundle_cache_control(None), "no-cache")
+        self.assertEqual(bundle_cache_control("latest"), "no-cache")
+        self.assertEqual(bundle_cache_control("serve_123", "serve"), "no-cache")
+        self.assertEqual(bundle_cache_control("ver_123"), "public, max-age=31536000, immutable")
+
+    def test_archive_includes_only_page_bundle_cache_from_capsule_dir(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = os.getcwd()
+            try:
+                os.chdir(tmp)
+                os.makedirs(".capsule/cache/page-bundles")
+                os.makedirs(".capsule/cache/bin")
+                with open("app.py", "w") as f:
+                    f.write("print('ok')")
+                with open(".capsule/cache/page-bundles/abc123.js", "w") as f:
+                    f.write("export default null")
+                with open(".capsule/cache/bin/esbuild", "w") as f:
+                    f.write("binary")
+
+                archive = collect_source_archive([
+                    Path(".capsule/cache/page-bundles/abc123.js"),
+                ])
+            finally:
+                os.chdir(cwd)
+
+        with zipfile.ZipFile(BytesIO(archive)) as zf:
+            names = set(zf.namelist())
+
+        self.assertIn("app.py", names)
+        self.assertIn(".capsule/cache/page-bundles/abc123.js", names)
+        self.assertNotIn(".capsule/cache/bin/esbuild", names)
+
+    def test_react_page_bundle_specs_include_onboarding(self):
+        specs = react_page_bundle_specs({
+            "pages": [
+                {
+                    "name": "Tasks",
+                    "type": "react",
+                    "component": "pages/tasks.tsx",
+                    "packages": ["x"],
+                },
+                {"name": "Home", "type": "dsl", "widget_tree": {}},
+            ],
+            "onboarding": {
+                "type": "react",
+                "component": "pages/onboarding.tsx",
+                "packages": ["y"],
+            },
+        })
+
+        self.assertEqual(specs, [
+            ("Tasks", "pages/tasks.tsx", ["x"]),
+            ("__onboarding__", "pages/onboarding.tsx", ["y"]),
+        ])
 
 
 if __name__ == "__main__":

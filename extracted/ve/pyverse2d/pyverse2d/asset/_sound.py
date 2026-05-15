@@ -281,3 +281,8 @@ class Sound(Asset):
     def _get_handles(self) -> frozenset[SoundHandle]:
         """Renvoie les handles (lecture seule)"""
         return self._handles
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Sound",
+]

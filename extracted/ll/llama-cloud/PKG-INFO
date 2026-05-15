@@ -1,9 +1,9 @@
 Metadata-Version: 2.3
 Name: llama_cloud
-Version: 2.4.1
+Version: 2.5.0
 Summary: The official Python library for the llama-cloud API
-Project-URL: Homepage, https://github.com/run-llama/llama-cloud-py
-Project-URL: Repository, https://github.com/run-llama/llama-cloud-py
+Project-URL: Homepage, https://github.com/run-llama/llama-parse-py
+Project-URL: Repository, https://github.com/run-llama/llama-parse-py
 Author: Llama Cloud
 License: MIT
 Classifier: Intended Audience :: Developers
@@ -206,4 +206,4 @@ client = LlamaCloud(
 
 ## Contributing
 
-See [CONTRIBUTING.md](https://github.com/run-llama/llama-cloud-py/tree/main/./CONTRIBUTING.md).
+See [CONTRIBUTING.md](https://github.com/run-llama/llama-parse-py/tree/main/./CONTRIBUTING.md).

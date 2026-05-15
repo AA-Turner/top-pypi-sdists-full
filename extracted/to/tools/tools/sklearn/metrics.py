@@ -234,7 +234,7 @@ def ICC(data, icc_type=(2,1)):
     else:
         raise ValueError(f'Unknown icc_type: {icc_type!r}. '
                          'Choose from (1,1), (1,None), (2,1), (2,None), (3,1), (3,None).')
-    return icc
+    return icc.item()
 
 # Binary classification
 def sensitivity_score(y_true, y_pred): # alias

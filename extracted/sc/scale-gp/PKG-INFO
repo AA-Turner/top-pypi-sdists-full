@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: scale-gp
-Version: 0.1.0a61
+Version: 0.1.0a62
 Summary: The official Python library for the SGPClient API
 Project-URL: Homepage, https://github.com/scaleapi/sgp-python
 Project-URL: Repository, https://github.com/scaleapi/sgp-python
@@ -27,13 +27,15 @@ Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: httpx<1,>=0.23.0
 Requires-Dist: pydantic<3,>=1.9.0
 Requires-Dist: sniffio
-Requires-Dist: typing-extensions<5,>=4.10
+Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
 Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
 Description-Content-Type: text/markdown
 
 # SGP Client Python API library
+
+> **⚠️ This is the legacy v4 API SDK.** For the latest v5 SDK, please use [**sgp-python-beta**](https://github.com/scaleapi/sgp-python-beta).
 
 <!-- prettier-ignore -->
 [![PyPI version](https://img.shields.io/pypi/v/scale-gp.svg?label=pypi%20(stable))](https://pypi.org/project/scale-gp/)
@@ -296,26 +298,6 @@ create_knowledge_base_response = client.knowledge_bases.create(
 )
 print(create_knowledge_base_response.kb_index_configuration)
 ```
-
-## File uploads
-
-Request parameters that correspond to file uploads can be passed as `bytes`, or a [`PathLike`](https://docs.python.org/3/library/os.html#os.PathLike) instance or a tuple of `(filename, contents, media type)`.
-
-```python
-from pathlib import Path
-from scale_gp import SGPClient
-
-client = SGPClient()
-
-client.training_datasets.create(
-    account_id="account_id",
-    file=Path("/path/to/file"),
-    name="name",
-    schema_type="GENERATION",
-)
-```
-
-The async client uses the exact same interface. If you pass a [`PathLike`](https://docs.python.org/3/library/os.html#os.PathLike) instance, the file contents will be read asynchronously automatically.
 
 ## Handling errors
 

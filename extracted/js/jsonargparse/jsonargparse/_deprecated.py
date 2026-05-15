@@ -11,8 +11,9 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, Callable, Dict, Optional, Set, Union, overload
 
-from ._common import Action, null_logger
+from ._common import Action, InstantiatorsDictType, null_logger
 from ._common import LoggerProperty as InternalLoggerProperty
+from ._instantiation import _register_instantiator
 from ._namespace import Namespace
 from ._type_checking import ArgumentParser, ruamelCommentedMap
 
@@ -38,6 +39,16 @@ __all__ = [
     "strip_meta",
     "usage_and_exit_error_handler",
 ]
+
+_message_add_argument_enable_path = """
+    ``enable_path`` parameter of ``add_argument`` was deprecated in v4.49.0 and will be removed in v5.0.0.
+    Use ``sub_configs`` instead.
+"""
+
+_message_action_json_schema_enable_path = """
+    ``enable_path`` parameter of ``ActionJsonSchema`` was deprecated in v4.49.0 and will be removed in v5.0.0.
+    Use ``sub_config`` instead.
+"""
 
 
 shown_deprecation_warnings: Set[Any] = set()
@@ -94,6 +105,38 @@ def deprecated(message):
         return decorated
 
     return deprecated_decorator
+
+
+def add_argument_enable_path_deprecation(kwargs: dict, stacklevel: int = 1) -> Optional[bool]:
+    """Handle deprecated ``enable_path`` parameter in ``add_argument``.
+
+    If ``enable_path`` is present in kwargs, emit a deprecation warning and
+    return its value (popping it from kwargs). Returns ``None`` if not present.
+    """
+    if "enable_path" in kwargs:
+        deprecation_warning(
+            add_argument_enable_path_deprecation,
+            _message_add_argument_enable_path,
+            stacklevel=stacklevel + 1,
+        )
+        return kwargs.pop("enable_path")
+    return None
+
+
+def action_json_schema_enable_path_deprecation(kwargs: dict, stacklevel: int = 1) -> Optional[bool]:
+    """Handle deprecated ``enable_path`` parameter in ``ActionJsonSchema``.
+
+    If ``enable_path`` is present in kwargs, emit a deprecation warning and
+    return its value (popping it from kwargs). Returns ``None`` if not present.
+    """
+    if "enable_path" in kwargs:
+        deprecation_warning(
+            action_json_schema_enable_path_deprecation,
+            _message_action_json_schema_enable_path,
+            stacklevel=stacklevel + 1,
+        )
+        return kwargs.pop("enable_path")
+    return None
 
 
 def parse_as_dict_patch():
@@ -158,18 +201,6 @@ def parse_as_dict_patch():
     patch_parse_method("parse_object")
     patch_parse_method("parse_env")
     patch_parse_method("parse_string")
-
-    # Patch instantiate_classes
-    def patched_instantiate_classes(
-        self, cfg: Union[Namespace, Dict[str, Any]], **kwargs
-    ) -> Union[Namespace, Dict[str, Any]]:
-        if isinstance(cfg, dict):
-            cfg = self._apply_actions(cfg)
-        cfg = self._unpatched_instantiate_classes(cfg, **kwargs)
-        return cfg.as_dict() if self._parse_as_dict else cfg
-
-    ArgumentParser._unpatched_instantiate_classes = ArgumentParser.instantiate_classes
-    ArgumentParser.instantiate_classes = patched_instantiate_classes
 
     # Patch dump
     def patched_dump(self, cfg: Union[Namespace, Dict[str, Any]], *args, **kwargs) -> str:
@@ -274,7 +305,7 @@ class ActionPath:
 
 @deprecated("""
     ActionPathList was deprecated in v4.20.0 and will be removed in v5.0.0. Instead
-    use as type ``List[<path_type>]`` with ``enable_path=True``.
+    use as type ``List[<path_type>]`` with ``sub_configs=True``.
 """)
 class ActionPathList(Action):
     """Action to check and store a list of file paths read from a plain text file or stream."""
@@ -416,6 +447,27 @@ cli_return_parser_message = """
     v5.0.0. Instead of this use function capture_parser.
 """
 
+auto_cli_implicit_components_message = """
+    Implicit components discovery in auto_cli was deprecated in v4.49.0 and
+    will be removed in v5.0.0. Pass components explicitly, explicit is better
+    than implicit.
+"""
+
+
+def get_implicit_auto_cli_components(stacklevel):
+    deprecation_warning("auto_cli.components", auto_cli_implicit_components_message, stacklevel=stacklevel + 1)
+    caller = inspect.stack()[stacklevel][0]
+    module = inspect.getmodule(caller)
+    components = [
+        v for v in vars(module).values() if ((inspect.isclass(v) or callable(v)) and inspect.getmodule(v) is module)
+    ]
+    if len(components) == 0:
+        raise ValueError(
+            "Either components parameter must be given or there must be at least one "
+            "function or class among the locals in the context where CLI is called."
+        )
+    return components
+
 
 def deprecation_warning_cli_return_parser(stacklevel):
     deprecation_warning("CLI.__init__.return_parser", cli_return_parser_message, stacklevel=stacklevel)
@@ -454,6 +506,12 @@ path_immutable_attrs_message = """
 path_call_message = """
     Calling Path objects is deprecated and will be removed in v5.0.0. Use the
     ``absolute`` or ``relative`` properties instead.
+"""
+
+path_get_content_message = """
+    ``Path.get_content`` was deprecated in v4.49.0 and will be removed in
+    v5.0.0. Instead use ``Path.read_text`` for text and ``Path.open`` for binary
+    data.
 """
 
 
@@ -514,9 +572,30 @@ class PathDeprecations:
     def __call__(self, absolute: bool = True) -> str:
         return self._absolute if absolute else self._relative
 
+    def get_content(self, mode: str = "r"):
+        deprecation_warning("Path.get_content", path_get_content_message)
+        if self._std_io:  # type: ignore[attr-defined]
+            from ._paths import _read_cached_stdin
 
-class DebugException(Exception):
-    pass
+            return _read_cached_stdin()
+        elif self._is_url:  # type: ignore[attr-defined]
+            from ._optionals import import_requests
+
+            assert mode == "r"
+            requests = import_requests("Path.get_content")
+            response = requests.get(self._absolute)
+            response.raise_for_status()
+            return response.text
+        elif self._is_fsspec:  # type: ignore[attr-defined]
+            from ._optionals import import_fsspec
+
+            fsspec = import_fsspec("Path.get_content")
+            with fsspec.open(self._absolute, mode) as handle:
+                with handle as input_file:
+                    return input_file.read()
+        else:
+            with open(self._absolute, mode) as input_file:
+                return input_file.read()
 
 
 @deprecated("""
@@ -556,6 +635,8 @@ default_meta_message = """
 
 class ParserDeprecations:
     """Helper class for ArgumentParser deprecations. Will be removed in v5.0.0."""
+
+    _instantiators: Optional[InstantiatorsDictType] = None
 
     def __init__(self, *args, error_handler=False, default_meta=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -613,11 +694,21 @@ class ParserDeprecations:
             raise ValueError("default_meta expects a boolean.")
 
     @deprecated("""
+        ``instantiate_classes`` was deprecated in v4.49.0 and will be removed in v5.0.0.
+        Instead use ``instantiate``.
+    """)
+    def instantiate_classes(self, cfg: Union[Namespace, Dict[str, Any]], **kwargs) -> Union[Namespace, Dict[str, Any]]:
+        if isinstance(cfg, dict):
+            cfg = self._apply_actions(cfg)  # type: ignore[attr-defined]
+        cfg = self.instantiate(cfg, **kwargs)  # type: ignore[attr-defined]
+        return cfg.as_dict() if self._parse_as_dict else cfg  # type: ignore[attr-defined]
+
+    @deprecated("""
         instantiate_subclasses was deprecated in v4.0.0 and will be removed in v5.0.0.
-        Instead use instantiate_classes.
+        Instead use instantiate.
     """)
     def instantiate_subclasses(self, cfg: Namespace) -> Namespace:
-        return self.instantiate_classes(cfg, instantiate_groups=False)  # type: ignore[attr-defined]
+        return self.instantiate(cfg, instantiate_groups=False)  # type: ignore[attr-defined]
 
     @deprecated("""
         add_dataclass_arguments was deprecated in v4.35.0 and will be removed in
@@ -634,6 +725,30 @@ class ParserDeprecations:
     """)
     def check_config(self, *args, **kwargs):
         return self.validate(*args, **kwargs)
+
+    @deprecated("""
+        ``ArgumentParser.add_instantiator`` was deprecated in v4.49.0 and will be
+        removed in v5.0.0. Use the global function ``jsonargparse.add_instantiator``
+        instead.
+    """)
+    def add_instantiator(
+        self,
+        instantiator,
+        class_type,
+        subclasses: bool = True,
+        prepend: bool = False,
+    ) -> None:
+        if self._instantiators is None:
+            self._instantiators = {}
+        _register_instantiator(self._instantiators, instantiator, class_type, subclasses=subclasses, prepend=prepend)
+
+    def _get_parser_instantiators(self) -> InstantiatorsDictType:
+        instantiators = self._instantiators or {}
+        if hasattr(self, "parent_parser"):
+            parent_instantiators = self.parent_parser._get_parser_instantiators()
+            instantiators = instantiators.copy()
+            instantiators.update({k: v for k, v in parent_instantiators.items() if k not in instantiators})
+        return instantiators
 
 
 def deprecated_skip_check(component, kwargs: dict, skip_validation: bool) -> bool:
@@ -782,6 +897,55 @@ def strip_meta(cfg):
     from ._namespace import remove_meta
 
     return remove_meta(cfg)
+
+
+def is_meta_key(key: str) -> bool:
+    from ._namespace import meta_keys, split_key_leaf
+
+    leaf_key = split_key_leaf(key)[-1]
+    return leaf_key in meta_keys
+
+
+class NamespaceDeprecations:
+    """Helper class for Namespace deprecations. Will be removed in v5.0.0."""
+
+    @deprecated("""
+        get_sorted_keys method was deprecated in v4.49.0 and will be removed in
+        v5.0.0. There is no replacement since this is for internal use and
+        developers can call .keys() and then sort.
+    """)
+    def get_sorted_keys(self, branches: bool = True, key_filter: Callable = is_meta_key) -> list[str]:
+        """Deprecated method"""
+        from ._namespace import split_key
+
+        keys = [k for k in self.keys() if not key_filter(k)]  # type: ignore[attr-defined]
+        if branches:
+            for key in [k for k in keys if "." in k]:
+                key_split = split_key(key)
+                for num in range(len(key_split) - 1):
+                    parent_key = ".".join(key_split[: num + 1])
+                    if parent_key not in keys:
+                        keys.append(parent_key)
+        keys.sort(key=lambda x: -len(split_key(x)))
+        return keys
+
+    @deprecated("""
+        get_value_and_parent method was deprecated in v4.49.0 and will be
+        removed in v5.0.0. There is no replacement since this is for internal
+        use and developers can get the parent and leaf separately.
+    """)
+    def get_value_and_parent(self, key: str) -> tuple[Any, Namespace, str]:
+        """Deprecated method"""
+        leaf_key, parent_ns, _ = self._parse_required_key(key)  # type: ignore[attr-defined]
+        return parent_ns[leaf_key], parent_ns, leaf_key
+
+
+def _patch_namespace_deprecations() -> None:
+    Namespace.get_sorted_keys = NamespaceDeprecations.get_sorted_keys  # type: ignore[attr-defined]
+    Namespace.get_value_and_parent = NamespaceDeprecations.get_value_and_parent  # type: ignore[attr-defined]
+
+
+_patch_namespace_deprecations()
 
 
 class HelpFormatterDeprecations:

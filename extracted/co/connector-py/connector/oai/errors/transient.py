@@ -10,7 +10,7 @@ Fault: UPSTREAM / INFRASTRUCTURE  |  Category: TRANSIENT
 
 from typing import ClassVar
 
-from connector_sdk_types.errors import ConnectorErrorCode
+from connector_sdk_types.errors import ConnectorErrorCode, ConnectorErrorMetadata
 
 from .base import ConnectorError
 
@@ -30,6 +30,33 @@ class TransientError(ConnectorError):
     DEFAULT_MESSAGE: ClassVar[str] = "A transient error occurred"
     DEFAULT_HINT: ClassVar[str | None] = "Please retry the request."
 
+    def __init__(
+        self,
+        *,
+        retry_after_seconds: int | None = None,
+        message: str | None = None,
+        error_code: ConnectorErrorCode | None = None,
+        app_error_code: str | None = None,
+        hint: str | None = None,
+        retryable: bool | None = None,
+        throttled: bool | None = None,
+        refreshable: bool | None = None,
+    ):
+        super().__init__(
+            message=message,
+            error_code=error_code,
+            app_error_code=app_error_code,
+            hint=hint,
+            retryable=retryable,
+            throttled=throttled,
+            refreshable=refreshable,
+        )
+        self.retry_after_seconds = retry_after_seconds
+
+    def get_error_metadata(self) -> ConnectorErrorMetadata:
+        metadata = super().get_error_metadata()
+        return metadata.model_copy(update={"retry_after_seconds": self.retry_after_seconds})
+
 
 class RateLimitError(TransientError):
     """
@@ -41,6 +68,23 @@ class RateLimitError(TransientError):
 
     DEFAULT_CODE = ConnectorErrorCode.RATE_LIMIT
     DEFAULT_MESSAGE = "Rate limit exceeded"
+
+
+class BudgetExhaustedError(TransientError):
+    """
+    Raise when execution would exceed the caller's execution budget.
+
+    Example:
+    The connector detected it was about to sleep past the caller's deadline
+    (from ``RateLimitRequestInfo.max_execution_time``). Rather than
+    sleeping and letting the caller's timeout cancel the request with no
+    response, the connector raises early so a structured retryable error
+    can be returned. Accepts a ``retry_after`` parameter to specify the
+    recommended retry-after duration (in seconds).
+    """
+
+    DEFAULT_CODE = ConnectorErrorCode.BUDGET_EXHAUSTED
+    DEFAULT_MESSAGE = "Rate limit wait would exceed caller deadline"
 
 
 class UpstreamError(TransientError):

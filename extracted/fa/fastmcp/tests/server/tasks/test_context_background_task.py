@@ -15,6 +15,7 @@ import pytest
 from mcp import ServerSession
 from mcp.server.auth.middleware.auth_context import auth_context_var
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
+from mcp.types import CreateMessageResult, TextContent
 from pydantic import BaseModel
 
 from fastmcp import FastMCP
@@ -32,7 +33,7 @@ from fastmcp.server.elicitation import (
 from fastmcp.server.tasks.context import (
     TaskContextInfo,
     TaskContextSnapshot,
-    _set_cached_snapshot,
+    _remember_snapshot,
     get_task_scope,
 )
 from fastmcp.server.tasks.elicitation import handle_task_input
@@ -283,6 +284,35 @@ class TestBackgroundTaskIntegration:
             result = await task.result()
             assert result.data == "ok"
 
+    async def test_sample_uses_origin_request_id_in_background_task(self):
+        """E2E: ctx.sample() works in a task without an active request context."""
+        mcp = FastMCP("sample-background-test")
+        captured: dict[str, object] = {}
+
+        @mcp.tool(task=True)
+        async def ask_client(ctx: Context) -> str:
+            assert ctx.is_background_task is True
+            assert ctx.request_context is None
+            assert ctx.origin_request_id is not None
+            result = await ctx.sample("Say hello")
+            return result.text or ""
+
+        def sampling_handler(messages, params, ctx):
+            captured["called"] = True
+            return CreateMessageResult(
+                role="assistant",
+                content=TextContent(type="text", text="hello from background"),
+                model="test-model",
+                stopReason="endTurn",
+            )
+
+        async with Client(mcp, sampling_handler=sampling_handler) as client:
+            task = await client.call_tool("ask_client", {}, task=True)
+            result = await task.result()
+
+        assert result.data == "hello from background"
+        assert captured["called"] is True
+
     async def test_elicit_accept_flow(self):
         """E2E: tool elicits input, client accepts via elicitation_handler."""
         mcp = FastMCP("elicit-accept-test")
@@ -430,13 +460,13 @@ class TestAccessTokenInBackgroundTasks:
             scopes=["read"],
             expires_at=int(datetime.now(timezone.utc).timestamp()) - 3600,
         )
-        _set_cached_snapshot(
+        _remember_snapshot(
             "test-task",
             TaskContextSnapshot(access_token_json=expired.model_dump_json()),
         )
         fake_ctx = TaskContextInfo(task_id="test-task", task_scope="s")
         with patch(
-            "fastmcp.server.tasks.context.get_task_context", return_value=fake_ctx
+            "fastmcp.server.dependencies.get_task_context", return_value=fake_ctx
         ):
             assert get_access_token() is None
 
@@ -448,13 +478,13 @@ class TestAccessTokenInBackgroundTasks:
             scopes=["read"],
             expires_at=int(datetime.now(timezone.utc).timestamp()) + 3600,
         )
-        _set_cached_snapshot(
+        _remember_snapshot(
             "test-task",
             TaskContextSnapshot(access_token_json=valid.model_dump_json()),
         )
         fake_ctx = TaskContextInfo(task_id="test-task", task_scope="s")
         with patch(
-            "fastmcp.server.tasks.context.get_task_context", return_value=fake_ctx
+            "fastmcp.server.dependencies.get_task_context", return_value=fake_ctx
         ):
             result = get_access_token()
             assert result is not None
@@ -467,13 +497,13 @@ class TestAccessTokenInBackgroundTasks:
             client_id="test-client",
             scopes=["read"],
         )
-        _set_cached_snapshot(
+        _remember_snapshot(
             "test-task",
             TaskContextSnapshot(access_token_json=no_expiry.model_dump_json()),
         )
         fake_ctx = TaskContextInfo(task_id="test-task", task_scope="s")
         with patch(
-            "fastmcp.server.tasks.context.get_task_context", return_value=fake_ctx
+            "fastmcp.server.dependencies.get_task_context", return_value=fake_ctx
         ):
             result = get_access_token()
             assert result is not None

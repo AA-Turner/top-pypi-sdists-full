@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2022 James R. Barlow
 // SPDX-License-Identifier: MPL-2.0
 
+#include <atomic>
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
@@ -19,11 +20,6 @@
 #include <qpdf/QPDFUsage.hh>
 #include <qpdf/QUtil.hh>
 
-#include <pybind11/buffer_info.h>
-#include <pybind11/gil_safe_call_once.h>
-#include <pybind11/iostream.h>
-#include <pybind11/stl.h>
-
 #include "namepath.h"
 #include "parsers.h"
 #include "qpdf_pagelist.h"
@@ -32,6 +28,20 @@
 static constinit std::atomic<uint> DECIMAL_PRECISION = 15;
 static constinit std::atomic<bool> MMAP_DEFAULT = false;
 static constinit std::atomic<bool> EXPLICIT_CONVERSION_MODE = false;
+
+// Exception class pointers, populated once in NB_MODULE and then read-only.
+// Borrowed references - the owning strong reference lives in the module dict
+// via m.attr(...) = py::handle(ptr), so the PyObject remains valid for the
+// module's lifetime (i.e. as long as the exception translator can run).
+// std::atomic provides the memory-visibility guarantee across threads that
+// the C++ memory model requires; CPython's import machinery already serializes
+// NB_MODULE, so a single release-store is enough to publish the value.
+static constinit std::atomic<PyObject *> exc_main{nullptr};
+static constinit std::atomic<PyObject *> exc_password{nullptr};
+static constinit std::atomic<PyObject *> exc_datadecoding{nullptr};
+static constinit std::atomic<PyObject *> exc_usage{nullptr};
+static constinit std::atomic<PyObject *> exc_foreign{nullptr};
+static constinit std::atomic<PyObject *> exc_destroyedobject{nullptr};
 
 // Thread-local counter for explicit_conversion() context manager nesting.
 // When > 0, the current thread is inside one or more context managers and
@@ -144,11 +154,8 @@ bool is_object_type_assertion_error(const std::runtime_error &e)
     return std::regex_search(e.what(), error_pattern);
 }
 
-PYBIND11_MODULE(_core, m, py::mod_gil_not_used())
+NB_MODULE(_core, m)
 {
-    // py::options options;
-    // options.disable_function_signatures();
-
     m.doc() = "pikepdf provides a Pythonic interface for qpdf";
     m.attr("__name__") = "pikepdf._core";
     m.def("qpdf_version", &QPDF::QPDFVersion, "Get libqpdf version");
@@ -186,14 +193,20 @@ PYBIND11_MODULE(_core, m, py::mod_gil_not_used())
 
     // -- Module level functions --
     m.def("utf8_to_pdf_doc",
-         [](py::str utf8, char unknown) {
+         [](py::str utf8, py::bytes unknown) {
              std::string pdfdoc;
-             bool success = QUtil::utf8_to_pdf_doc(std::string(utf8), pdfdoc, unknown);
-             return py::make_tuple(success, py::bytes(pdfdoc));
+             const char *unk_ptr = static_cast<const char *>(unknown.data());
+             char unk = (unknown.size() > 0) ? unk_ptr[0] : '?';
+             bool success =
+                 QUtil::utf8_to_pdf_doc(py::cast<std::string>(utf8), pdfdoc, unk);
+             return py::make_tuple(success, py::bytes(pdfdoc.data(), pdfdoc.size()));
          })
         .def("pdf_doc_to_utf8",
             [](py::bytes pdfdoc) -> py::str {
-                return py::str(QUtil::pdf_doc_to_utf8(pdfdoc));
+                auto pdfdoc_str = to_string(pdfdoc);
+                auto utf8 = QUtil::pdf_doc_to_utf8(pdfdoc_str);
+                return py::steal<py::str>(
+                    PyUnicode_FromStringAndSize(utf8.data(), utf8.size()));
             })
         .def(
             "_translate_qpdf_logic_error",
@@ -246,35 +259,69 @@ PYBIND11_MODULE(_core, m, py::mod_gil_not_used())
         .def("_unparse_content_stream", unparse_content_stream);
 
     // -- Exceptions --
-    // clang-format off
-    PYBIND11_CONSTINIT static py::gil_safe_call_once_and_store<py::object> exc_main;
-    exc_main.call_once_and_store_result(
-        [&]() { return py::exception<QPDFExc>(m, "PdfError"); });
-    PYBIND11_CONSTINIT static py::gil_safe_call_once_and_store<py::object> exc_password;
-    exc_password.call_once_and_store_result(
-        [&]() { return py::exception<QPDFExc>(m, "PasswordError"); });
-    PYBIND11_CONSTINIT static py::gil_safe_call_once_and_store<py::object> exc_datadecoding;
-    exc_datadecoding.call_once_and_store_result(
-        [&]() { return py::exception<QPDFExc>(m, "DataDecodingError"); });
-    PYBIND11_CONSTINIT static py::gil_safe_call_once_and_store<py::object> exc_usage;
-    exc_usage.call_once_and_store_result(
-        [&]() { return py::exception<QPDFUsage>(m, "JobUsageError"); });
-    PYBIND11_CONSTINIT static py::gil_safe_call_once_and_store<py::object> exc_foreign;
-    exc_foreign.call_once_and_store_result(
-        [&]() { return py::exception<std::logic_error>(m, "ForeignObjectError"); });
-    PYBIND11_CONSTINIT static py::gil_safe_call_once_and_store<py::object> exc_destroyedobject;
-    exc_destroyedobject.call_once_and_store_result(
-        [&]() { return py::exception<std::runtime_error>(m, "DeletedObjectError"); });
-    // clang-format on
-    py::register_exception_translator([](std::exception_ptr p) {
+    // Create exception types using the Python C API. We need multiple Python
+    // exception classes mapping to the same C++ type (QPDFExc), which
+    // nanobind's nb::exception<T> cannot express directly.
+    //
+    // The module attr holds the owning strong reference. We also publish a
+    // borrowed pointer into the file-scope std::atomic so the exception
+    // translator can dispatch without re-importing pikepdf._core on every
+    // exception (which was creating reference-count churn and, together with
+    // other migration-era regressions, visible leak-report entries at
+    // interpreter shutdown).
+    auto publish = [](std::atomic<PyObject *> &slot,
+                       py::module_ &m,
+                       const char *attr,
+                       PyObject *cls) {
+        // NB_MODULE is serialized by CPython's import machinery, so a single
+        // release-store is sufficient to publish the value to any thread
+        // that later observes the module via the import system.
+        slot.store(cls, std::memory_order_release);
+        m.attr(attr) = py::handle(cls);
+    };
+
+    publish(exc_main,
+        m,
+        "PdfError",
+        PyErr_NewException("pikepdf._core.PdfError", PyExc_Exception, nullptr));
+    // PasswordError and DataDecodingError are siblings of PdfError (both
+    // direct subclasses of Exception), not subclasses of it. Reflect the
+    // documented hierarchy from src/pikepdf/_core.pyi and the pre-nanobind
+    // behavior; downstream code (e.g. ocrmypdf) relies on `except PdfError`
+    // not catching PasswordError.
+    publish(exc_password,
+        m,
+        "PasswordError",
+        PyErr_NewException("pikepdf._core.PasswordError", nullptr, nullptr));
+    publish(exc_datadecoding,
+        m,
+        "DataDecodingError",
+        PyErr_NewException("pikepdf._core.DataDecodingError", nullptr, nullptr));
+    publish(exc_usage,
+        m,
+        "JobUsageError",
+        PyErr_NewException("pikepdf._core.JobUsageError", PyExc_Exception, nullptr));
+    publish(exc_foreign,
+        m,
+        "ForeignObjectError",
+        PyErr_NewException(
+            "pikepdf._core.ForeignObjectError", PyExc_Exception, nullptr));
+    publish(exc_destroyedobject,
+        m,
+        "DeletedObjectError",
+        PyErr_NewException(
+            "pikepdf._core.DeletedObjectError", PyExc_Exception, nullptr));
+
+    py::register_exception_translator([](const std::exception_ptr &p, void *payload) {
+        (void)payload;
         try {
             if (p)
                 std::rethrow_exception(p);
         } catch (const QPDFExc &e) {
             if (e.getErrorCode() == qpdf_e_password) {
-                py::set_error(exc_password.get_stored(), e.what());
+                PyErr_SetString(exc_password.load(std::memory_order_acquire), e.what());
             } else {
-                py::set_error(exc_main.get_stored(), e.what());
+                PyErr_SetString(exc_main.load(std::memory_order_acquire), e.what());
             }
         } catch (const QPDFSystemError &e) {
             if (e.getErrno() != 0) {
@@ -282,25 +329,29 @@ PYBIND11_MODULE(_core, m, py::mod_gil_not_used())
                 PyErr_SetFromErrnoWithFilename(
                     PyExc_OSError, e.getDescription().c_str());
             } else {
-                py::set_error(exc_main.get_stored(), e.what());
+                PyErr_SetString(exc_main.load(std::memory_order_acquire), e.what());
             }
         } catch (const QPDFUsage &e) {
-            py::set_error(exc_usage.get_stored(), e.what());
+            PyErr_SetString(exc_usage.load(std::memory_order_acquire), e.what());
         } catch (const std::logic_error &e) {
             auto trans = translate_qpdf_logic_error(e);
             if (trans.second == error_type_foreign)
-                py::set_error(exc_foreign.get_stored(), trans.first.c_str());
+                PyErr_SetString(
+                    exc_foreign.load(std::memory_order_acquire), trans.first.c_str());
             else if (trans.second == error_type_pdferror)
-                py::set_error(exc_main.get_stored(), trans.first.c_str());
+                PyErr_SetString(
+                    exc_main.load(std::memory_order_acquire), trans.first.c_str());
             else
                 std::rethrow_exception(p);
         } catch (const std::runtime_error &e) {
             if (is_data_decoding_error(e))
-                py::set_error(exc_datadecoding.get_stored(), e.what());
+                PyErr_SetString(
+                    exc_datadecoding.load(std::memory_order_acquire), e.what());
             else if (is_destroyed_object_error(e))
-                py::set_error(exc_destroyedobject.get_stored(), e.what());
+                PyErr_SetString(
+                    exc_destroyedobject.load(std::memory_order_acquire), e.what());
             else if (is_object_type_assertion_error(e))
-                py::set_error(exc_main.get_stored(), e.what());
+                PyErr_SetString(exc_main.load(std::memory_order_acquire), e.what());
             else
                 std::rethrow_exception(p);
         }
@@ -322,7 +373,7 @@ PYBIND11_MODULE(_core, m, py::mod_gil_not_used())
 
 #ifdef Py_GIL_DISABLED
     m.attr("__threading__") = "freethreading";
-    py::print("Warning: pikepdf freethreading support is unstable");
+    fprintf(stderr, "Warning: pikepdf freethreading support is unstable\n");
 #else
     m.attr("__threading__") = "gil";
 #endif

@@ -13,7 +13,7 @@ from ..types import (
     application_variant_report_retrieve_params,
 )
 from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
-from .._utils import maybe_transform, async_maybe_transform
+from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -142,7 +142,10 @@ class ApplicationVariantReportsResource(SyncAPIResource):
                 f"Expected a non-empty value for `application_variant_report_id` but received {application_variant_report_id!r}"
             )
         return self._get(
-            f"/v4/application-variant-reports/{application_variant_report_id}",
+            path_template(
+                "/v4/application-variant-reports/{application_variant_report_id}",
+                application_variant_report_id=application_variant_report_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -333,7 +336,10 @@ class AsyncApplicationVariantReportsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `application_variant_report_id` but received {application_variant_report_id!r}"
             )
         return await self._get(
-            f"/v4/application-variant-reports/{application_variant_report_id}",
+            path_template(
+                "/v4/application-variant-reports/{application_variant_report_id}",
+                application_variant_report_id=application_variant_report_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

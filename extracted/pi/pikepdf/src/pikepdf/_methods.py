@@ -18,12 +18,13 @@ import shutil
 from collections.abc import (
     Callable,
     ItemsView,
+    Iterable,
     Iterator,
     KeysView,
     MutableMapping,
     ValuesView,
 )
-from contextlib import ExitStack, suppress
+from contextlib import ExitStack, contextmanager, suppress
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
@@ -110,19 +111,25 @@ class Extend_Object:
             return self.keys()
         return None
 
-    def emplace(self, other: Object, retain=(Name.Parent,)):
+    def emplace(self, other: Object, retain: Iterable[Name] | None = None):
         if not self.same_owner_as(other):
             raise TypeError("Objects must have the same owner for emplace()")
 
+        # Default to (Name.Parent,) lazily so that importing this module does
+        # not allocate a persistent pikepdf.Object instance in the function's
+        # __defaults__ tuple (which nanobind reports as a shutdown leak).
+        if retain is None:
+            retain = (Name.Parent,)
+
         # .keys() returns strings, so make all strings
-        retain = {str(k) for k in retain}
+        retain_set: set[str] = {str(k) for k in retain}
         self_keys = set(self.keys())
         other_keys = set(other.keys())
 
-        assert all(isinstance(k, str) for k in (retain | self_keys | other_keys))
+        assert all(isinstance(k, str) for k in (retain_set | self_keys | other_keys))
 
-        del_keys = self_keys - other_keys - retain
-        for k in (k for k in other_keys if k not in retain):
+        del_keys = self_keys - other_keys - retain_set
+        for k in (k for k in other_keys if k not in retain_set):
             self[k] = other[k]  # pylint: disable=unsupported-assignment-operation
         for k in del_keys:
             del self[k]  # pylint: disable=unsupported-delete-operation
@@ -282,6 +289,23 @@ class Extend_Object:
 
 @augments(Pdf)
 class Extend_Pdf:
+    @contextmanager
+    def lock(self):
+        """Context manager to hold the per-Pdf lock for compound operations.
+
+        Under free-threaded Python, individual C++ method calls are
+        automatically serialized, but multi-step Python operations (e.g.
+        read-modify-write on the same dictionary) are not atomic.  Wrap
+        such sequences in ``with pdf.lock():`` to prevent interleaving.
+
+        On GIL-enabled builds this is a no-op.
+        """
+        self._acquire_lock()
+        try:
+            yield
+        finally:
+            self._release_lock()
+
     def _quick_save(self):
         bio = BytesIO()
         self.save(bio)
@@ -299,26 +323,29 @@ class Extend_Pdf:
 
     @property
     def docinfo(self) -> Dictionary:
-        if Name.Info not in self.trailer or not isinstance(
-            self.trailer.Info, Dictionary
-        ):
-            self.trailer.Info = self.make_indirect(Dictionary())
-        if not self.trailer.Info.is_indirect:
-            self.trailer.Info = self.make_indirect(self.trailer.Info)
-        return self.trailer.Info
+        with self.lock():
+            if Name.Info not in self.trailer or not isinstance(
+                self.trailer.Info, Dictionary
+            ):
+                self.trailer.Info = self.make_indirect(Dictionary())
+            if not self.trailer.Info.is_indirect:
+                self.trailer.Info = self.make_indirect(self.trailer.Info)
+            return self.trailer.Info
 
     @docinfo.setter
     def docinfo(self, new_docinfo: Dictionary):
-        if not new_docinfo.is_indirect:
-            raise ValueError(
-                "docinfo must be an indirect object - use Pdf.make_indirect"
-            )
-        self.trailer.Info = new_docinfo
+        with self.lock():
+            if not new_docinfo.is_indirect:
+                raise ValueError(
+                    "docinfo must be an indirect object - use Pdf.make_indirect"
+                )
+            self.trailer.Info = new_docinfo
 
     @docinfo.deleter
     def docinfo(self):
-        if Name.Info in self.trailer:
-            del self.trailer.Info
+        with self.lock():
+            if Name.Info in self.trailer:
+                del self.trailer.Info
 
     def open_metadata(
         self,
@@ -346,15 +373,16 @@ class Extend_Pdf:
             if not (3 <= dim <= 14400):
                 raise ValueError('Page size must be between 3 and 14400 PDF units')
 
-        page_dict = Dictionary(
-            Type=Name.Page,
-            MediaBox=Array([0, 0, page_size[0], page_size[1]]),
-            Contents=self.make_stream(b''),
-            Resources=Dictionary(),
-        )
-        page_obj = self.make_indirect(page_dict)
-        self._add_page(page_obj, first=False)
-        return Page(page_obj)
+        with self.lock():
+            page_dict = Dictionary(
+                Type=Name.Page,
+                MediaBox=Array([0, 0, page_size[0], page_size[1]]),
+                Contents=self.make_stream(b''),
+                Resources=Dictionary(),
+            )
+            page_obj = self.make_indirect(page_dict)
+            self._add_page(page_obj, first=False)
+            return Page(page_obj)
 
     def close(self) -> None:
         self._close()
@@ -786,7 +814,11 @@ class Extend_Page:
         except KeyError:
             return default
 
-    def emplace(self, other: Page, retain=(Name.Parent,)):
+    def emplace(self, other: Page, retain: Iterable[Name] | None = None):
+        # Lazy default: keeping Name.Parent out of __defaults__ avoids a
+        # persistent pikepdf.Object reference at module import time.
+        if retain is None:
+            retain = (Name.Parent,)
         return self.obj.emplace(other.obj, retain=retain)
 
     def __repr__(self):
@@ -874,8 +906,12 @@ class Extend_AttachedFileSpec:
         path: Path | str,
         *,
         description: str = '',
-        relationship: Name | None = Name.Unspecified,
+        relationship: Name | None = None,
     ):
+        # Lazy default: keeping Name.Unspecified out of __defaults__ avoids a
+        # persistent pikepdf.Object reference at module import time.
+        if relationship is None:
+            relationship = Name.Unspecified
         mime, _ = mimetypes.guess_type(str(path))
         if mime is None:
             mime = ''

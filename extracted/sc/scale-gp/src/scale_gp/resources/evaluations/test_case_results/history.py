@@ -7,7 +7,7 @@ from typing import Any, cast
 import httpx
 
 from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from ...._utils import maybe_transform
+from ...._utils import path_template, maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -80,7 +80,12 @@ class HistoryResource(SyncAPIResource):
         return cast(
             TestCaseResult,
             self._get(
-                f"/v4/evaluations/{evaluation_id}/test-case-results/{test_case_result_id}/history/{num}",
+                path_template(
+                    "/v4/evaluations/{evaluation_id}/test-case-results/{test_case_result_id}/history/{num}",
+                    evaluation_id=evaluation_id,
+                    test_case_result_id=test_case_result_id,
+                    num=num,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
                 ),
@@ -126,7 +131,9 @@ class HistoryResource(SyncAPIResource):
         if not num:
             raise ValueError(f"Expected a non-empty value for `num` but received {num!r}")
         return self._get_api_list(
-            f"/v4/evaluations/{evaluation_id}/test-case-results/history/{num}",
+            path_template(
+                "/v4/evaluations/{evaluation_id}/test-case-results/history/{num}", evaluation_id=evaluation_id, num=num
+            ),
             page=SyncPageResponse[TestCaseResult],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -202,7 +209,12 @@ class AsyncHistoryResource(AsyncAPIResource):
         return cast(
             TestCaseResult,
             await self._get(
-                f"/v4/evaluations/{evaluation_id}/test-case-results/{test_case_result_id}/history/{num}",
+                path_template(
+                    "/v4/evaluations/{evaluation_id}/test-case-results/{test_case_result_id}/history/{num}",
+                    evaluation_id=evaluation_id,
+                    test_case_result_id=test_case_result_id,
+                    num=num,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
                 ),
@@ -248,7 +260,9 @@ class AsyncHistoryResource(AsyncAPIResource):
         if not num:
             raise ValueError(f"Expected a non-empty value for `num` but received {num!r}")
         return self._get_api_list(
-            f"/v4/evaluations/{evaluation_id}/test-case-results/history/{num}",
+            path_template(
+                "/v4/evaluations/{evaluation_id}/test-case-results/history/{num}", evaluation_id=evaluation_id, num=num
+            ),
             page=AsyncPageResponse[TestCaseResult],
             options=make_request_options(
                 extra_headers=extra_headers,

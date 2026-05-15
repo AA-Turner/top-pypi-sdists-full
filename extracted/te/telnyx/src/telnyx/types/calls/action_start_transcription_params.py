@@ -15,7 +15,11 @@ from .transcription_engine_google_config_param import TranscriptionEngineGoogleC
 from .transcription_engine_telnyx_config_param import TranscriptionEngineTelnyxConfigParam
 from .transcription_engine_assemblyai_config_param import TranscriptionEngineAssemblyaiConfigParam
 
-__all__ = ["ActionStartTranscriptionParams", "TranscriptionEngineConfig"]
+__all__ = [
+    "ActionStartTranscriptionParams",
+    "TranscriptionEngineConfig",
+    "TranscriptionEngineConfigTranscriptionEngineSpeechmaticsConfig",
+]
 
 
 class ActionStartTranscriptionParams(TypedDict, total=False):
@@ -32,7 +36,9 @@ class ActionStartTranscriptionParams(TypedDict, total=False):
     `call_control_id`.
     """
 
-    transcription_engine: Literal["Google", "Telnyx", "Deepgram", "Azure", "xAI", "AssemblyAI", "A", "B"]
+    transcription_engine: Literal[
+        "Google", "Telnyx", "Deepgram", "Azure", "xAI", "AssemblyAI", "Speechmatics", "A", "B"
+    ]
     """Engine to use for speech recognition.
 
     Legacy values `A` - `Google`, `B` - `Telnyx` are supported for backward
@@ -49,12 +55,48 @@ class ActionStartTranscriptionParams(TypedDict, total=False):
     """
 
 
+class TranscriptionEngineConfigTranscriptionEngineSpeechmaticsConfig(TypedDict, total=False):
+    interim_results: bool
+    """Whether to send also interim results.
+
+    If set to false, only final results will be sent.
+    """
+
+    language: Literal[
+        "en",
+        "ba",
+        "eu",
+        "gl",
+        "ga",
+        "mt",
+        "mn",
+        "sw",
+        "ug",
+        "cy",
+        "ar_en",
+        "cmn_en",
+        "en_ms",
+        "en_ta",
+        "tl",
+        "es-bilingual-en",
+        "cmn_en_ms_ta",
+    ]
+    """Language to use for speech recognition"""
+
+    transcription_engine: Literal["Speechmatics"]
+    """Engine identifier for Speechmatics transcription service"""
+
+    transcription_model: Literal["speechmatics/standard"]
+    """The model to use for transcription."""
+
+
 TranscriptionEngineConfig: TypeAlias = Union[
     TranscriptionEngineGoogleConfigParam,
     TranscriptionEngineTelnyxConfigParam,
     TranscriptionEngineAzureConfigParam,
     TranscriptionEngineXaiConfigParam,
     TranscriptionEngineAssemblyaiConfigParam,
+    TranscriptionEngineConfigTranscriptionEngineSpeechmaticsConfig,
     TranscriptionEngineAConfigParam,
     TranscriptionEngineBConfigParam,
     DeepgramNova2ConfigParam,

@@ -14,6 +14,7 @@ from ..utils import (
     build_filesystem_mount_specs,
     build_integration_specs,
     build_schedule_specs,
+    build_react_page_bundle_cache,
     normalize_image,
 )
 
@@ -63,6 +64,7 @@ def deploy(client: ServiceClient, entry_point: str):
     data_sources = config.get("data_sources", [])
 
     generate_type_stubs(type_stub_pages, config.get("npm_packages", []))
+    page_bundle_cache_files = build_react_page_bundle_cache(config)
 
     terminal.header("Deploying", f"[bold]{config['app_name']}[/bold]")
     entry_label = config["class_name"] or config["app_name"]
@@ -105,7 +107,7 @@ def deploy(client: ServiceClient, entry_point: str):
         terminal.detail(f"  apt:      {', '.join(image['apt_packages'])}")
 
     terminal.header("Syncing files")
-    archive = collect_source_archive()
+    archive = collect_source_archive(page_bundle_cache_files)
 
     terminal.header("Pushing")
 

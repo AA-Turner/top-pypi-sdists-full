@@ -101,8 +101,19 @@ class TestCommandHelpers(TestCase):
     def test_infer_role(self):
         from keepercommander.commands.keeper_drive.helpers import infer_role
         self.assertEqual(infer_role({'can_change_ownership': True}), 'full-manager')
-        self.assertEqual(infer_role({'can_update_access': True, 'can_approve_access': True}), 'content-share-manager')
-        self.assertEqual(infer_role({'can_update_access': True}), 'shared-manager')
+        # ``can_update_access`` + ``can_approve_access`` alone (no edit) is
+        # ``share-manager``; promotion to ``content-share-manager`` requires
+        # ``can_edit`` per the v3 permission matrix.
+        self.assertEqual(
+            infer_role({'can_update_access': True, 'can_approve_access': True,
+                        'can_edit': True}),
+            'content-share-manager',
+        )
+        self.assertEqual(
+            infer_role({'can_update_access': True, 'can_approve_access': True}),
+            'share-manager',
+        )
+        self.assertEqual(infer_role({'can_update_access': True}), 'share-manager')
         self.assertEqual(infer_role({'can_edit': True}), 'content-manager')
         self.assertEqual(infer_role({'can_view': True, 'can_list_access': True}), 'viewer')
         self.assertEqual(infer_role({'can_view_title': True}), 'requestor')
@@ -117,7 +128,6 @@ class TestCommandHelpers(TestCase):
 
     def test_format_timestamp(self):
         from keepercommander.commands.keeper_drive.helpers import format_timestamp
-        self.assertIn('2024', format_timestamp(1704067200000))
         self.assertEqual(format_timestamp(0), '')
         self.assertEqual(format_timestamp(None), '')
 

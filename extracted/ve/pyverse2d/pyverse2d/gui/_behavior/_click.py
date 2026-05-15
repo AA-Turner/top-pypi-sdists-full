@@ -6,16 +6,19 @@ from ...math import Point
 
 from pyverse2d import mouse, inputs
 
-from typing import Callable, Any
+from typing import Callable, Any, ClassVar
 
 # ======================================== BEHAVIOR ========================================
 class ClickBehavior(Behavior):
-    """Behavior gérant le clique
+    """Comportement gérant le clique souris
     
     Ce ``Behavior`` s'associe automatiquement au ``HoverBehavior`` si le ``Widget`` en possède un.
     """
-    __slots__ = ("_down_listeners", "_up_listeners")
-    _ID: str = "click"
+    __slots__ = (
+        "_down_listeners", "_up_listeners",
+    )
+
+    _ID: ClassVar[str] = "click"
 
     def __init__(self):
         # Initialisation du comportement
@@ -154,7 +157,11 @@ class ClickBehavior(Behavior):
 
     # ======================================== LIFE CYCLE ========================================
     def _update(self, dt: float) -> None:
-        """Actualisation"""
+        """Actualisation
+        
+        Args:
+            dt: delta-time
+        """
         pass
 
     # ======================================== INTERNALS ========================================
@@ -165,5 +172,9 @@ class ClickBehavior(Behavior):
         return self._owner.hover.is_hovered()
     
     def _collides(self, point: Point) -> bool:
-        """Vérifie si un point est dans le widget"""
+        """Vérifie si un point est dans le widget
+
+        Args:
+            point: ``Point`` à vérifier
+        """
         return self._owner.collidespoint(point)

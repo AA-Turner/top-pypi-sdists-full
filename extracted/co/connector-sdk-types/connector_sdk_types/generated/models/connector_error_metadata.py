@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from connector_sdk_types.generated.models.connector_error_category import ConnectorErrorCategory
 from connector_sdk_types.generated.models.connector_error_fault import ConnectorErrorFault
@@ -34,7 +34,8 @@ class ConnectorErrorMetadata(BaseModel):
     retryable: StrictBool = Field(description="True if retrying the operation may succeed (with or without back-off).")
     throttled: StrictBool = Field(description="True if retry requires exponential back-off or Retry-After. Only meaningful when retryable is also true (rate-limit scenario).")
     refreshable: StrictBool = Field(description="True if a token refresh or re-authentication may restore access.")
-    __properties: ClassVar[List[str]] = ["fault", "category", "hint", "retryable", "throttled", "refreshable"]
+    retry_after_seconds: Optional[StrictInt] = Field(default=None, description="Recommended wait time (seconds) before the next call to this connector/capability.")
+    __properties: ClassVar[List[str]] = ["fault", "category", "hint", "retryable", "throttled", "refreshable", "retry_after_seconds"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -92,7 +93,8 @@ class ConnectorErrorMetadata(BaseModel):
             "hint": obj.get("hint"),
             "retryable": obj.get("retryable"),
             "throttled": obj.get("throttled"),
-            "refreshable": obj.get("refreshable")
+            "refreshable": obj.get("refreshable"),
+            "retry_after_seconds": obj.get("retry_after_seconds")
         })
         return _obj
 

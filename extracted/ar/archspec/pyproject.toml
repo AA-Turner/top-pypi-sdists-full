@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "archspec"
-version = "0.2.5"
+version = "0.2.6"
 description = "A library to query system architecture"
 license = "Apache-2.0 OR MIT"
 authors = ["archspec developers <maintainers@spack.io>"]
@@ -24,11 +24,13 @@ classifiers = [
     "Operating System :: Unix"
 ]
 include = [
-    { path = "tests", format = "sdist"}
+    { path = "tests", format = "sdist" }
 ]
 exclude = [
-    "archspec/json/.git" ,
-    "archspec/json/.github" ,
+    "archspec/json/.git",
+    "archspec/json/.github",
+    "archspec/vendor/cpuid/.git",
+    "archspec/vendor/cpuid/.gitignore",
 ]
 
 [tool.poetry.dependencies]
@@ -42,18 +44,29 @@ pytest = [
     { version = "^7", python = "==3.7" },
     { version = "^8", python = "^3.8" }
 ]
+exceptiongroup = [
+    { version = "^1.3", python = "==3.9" },
+    { version = "^1.3", python = "==3.10" }
+]
+tomli = [
+    { version = "^1.0", python = "==3.7" },
+    { version = "^2.0", python = "==3.9" },
+    { version = "^2.0", python = "==3.10" }
+]
 pytest-cov = { version = "^4", python = "^3.7" }
 jsonschema = { version = "^4", python = "^3.7" }
-typing-extensions = { version = "==4.7.1", python = "==3.7"}
+typing-extensions = { version = "==4.7.1", python = "==3.7" }
 
 [tool.poetry.group.linters]
 optional = true
 
 [tool.poetry.group.linters.dependencies]
-pylint = { version = "^3", python = "^3.8" }
-flake8 = { version = "^7", python = "^3.8.1" }
-black = { version = "^24", python = "^3.8" }
-isort = { version = "^5", python = "^3.8" }
+pylint = { version = "^3", python = "^3.9" }
+flake8 = { version = "^7", python = "^3.9" }
+black = { version = "^24", python = "^3.9" }
+isort = { version = "^5", python = "^3.9" }
+mypy = { version = "^1.17", python = "^3.9" }
+vermin = { version = "^1.6", python = "^3.9" }
 
 [tool.isort]
 profile = "black"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-events-notify
-Version: 2.3.23
+Version: 2.3.24
 Summary: The Events Notify AWS Construct lib for AWS CDK
 Home-page: https://github.com/neilkuan/cdk-events-notify.git
 Author: Neil Kuan<guan840912@gmail.com>
@@ -16,12 +16,12 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Typing :: Typed
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved
-Requires-Python: ~=3.9
+Requires-Python: ~=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aws-cdk-lib<3.0.0,>=2.175.0
 Requires-Dist: constructs<11.0.0,>=10.5.1
-Requires-Dist: jsii<2.0.0,>=1.129.0
+Requires-Dist: jsii<2.0.0,>=1.130.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard==2.13.3
 

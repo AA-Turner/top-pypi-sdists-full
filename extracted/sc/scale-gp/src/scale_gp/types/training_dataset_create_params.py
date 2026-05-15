@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing_extensions import Literal, Required, TypedDict
 
-from .._types import FileTypes
-
 __all__ = ["TrainingDatasetCreateParams"]
 
 
@@ -13,7 +11,7 @@ class TrainingDatasetCreateParams(TypedDict, total=False):
     account_id: Required[str]
     """The ID of the account that owns the given entity."""
 
-    file: Required[FileTypes]
+    file: Required[str]
     """The file to upload as the training dataset"""
 
     name: Required[str]

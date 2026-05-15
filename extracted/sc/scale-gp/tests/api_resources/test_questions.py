@@ -144,6 +144,7 @@ class TestQuestions:
     def test_method_list_with_all_params(self, client: SGPClient) -> None:
         question = client.questions.list(
             account_id="account_id",
+            include_archived=True,
             limit=1,
             page=1,
         )
@@ -301,6 +302,7 @@ class TestAsyncQuestions:
     async def test_method_list_with_all_params(self, async_client: AsyncSGPClient) -> None:
         question = await async_client.questions.list(
             account_id="account_id",
+            include_archived=True,
             limit=1,
             page=1,
         )

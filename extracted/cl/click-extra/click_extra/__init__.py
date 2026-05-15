@@ -17,6 +17,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+# Mypy override: ``from cloup import *`` below makes mypy think Style is cloup.Style.
+# Declaring the correct type here first, before the star import, causes mypy to treat
+# the later star import's Style as a no-redef (keeping click_extra.styling.Style as
+# the canonical type for consumers of this package).
+if TYPE_CHECKING:
+    from .styling import Style
+
 # Import all click's module-level content to allow for drop-in replacement.
 # XXX Star import is really badly supported by mypy for now and leads to lots of
 # "Module 'XXX' has no attribute 'YYY'". See: https://github.com/python/mypy/issues/4930
@@ -32,6 +41,15 @@ from cloup import *  # type: ignore[no-redef, assignment]
 if True:
     from .types import ChoiceSource, EnumChoice
 
+# Override cloup.Style with our own version. The override must happen after
+# ``from cloup import *`` (which would otherwise re-shadow our subclass) and
+# before any module that does ``from . import Style`` is loaded (colorize,
+# theme, themes, parameters, version, testing all do).
+from . import styling as _styling_module
+
+Style = _styling_module.Style  # type: ignore[misc]
+del _styling_module
+
 from . import context
 from .colorize import (
     ColorOption,
@@ -46,13 +64,16 @@ from .commands import (
 )
 from .config import (
     DEFAULT_SUBCOMMANDS_KEY,
+    EXTENSION_METADATA_KEY,
     NO_CONFIG,
     PREPEND_SUBCOMMANDS_KEY,
     VCS,
     ConfigFormat,
     ConfigOption,
+    ConfigValidator,
     NoConfigOption,
     ValidateConfigOption,
+    ValidationError,
     flatten_config_keys,
     get_tool_config,
     normalize_config_keys,
@@ -112,9 +133,13 @@ from .table import (
 from .telemetry import TelemetryOption
 from .testing import ExtraCliRunner
 from .theme import (
+    BUILTIN_THEMES,
     HelpExtraTheme,
     ThemeOption,
+    get_current_theme,
+    get_default_theme,
     register_theme,
+    set_default_theme,
     theme_registry,
 )
 from .timer import TimerOption
@@ -122,9 +147,11 @@ from .version import ExtraVersionOption
 
 __all__ = [
     "BOOL",
+    "BUILTIN_THEMES",
     "CPU_COUNT",
     "DEFAULT_JOBS",
     "DEFAULT_SUBCOMMANDS_KEY",
+    "EXTENSION_METADATA_KEY",
     "FLOAT",
     "INT",
     "NO_CONFIG",
@@ -148,6 +175,7 @@ __all__ = [
     "CommandCollection",
     "ConfigFormat",
     "ConfigOption",
+    "ConfigValidator",
     "ConstraintMixin",
     "Context",
     "DateTime",
@@ -199,6 +227,7 @@ __all__ = [
     "Tuple",
     "UsageError",
     "ValidateConfigOption",
+    "ValidationError",
     "VerboseOption",
     "VerbosityOption",
     "VersionOption",
@@ -225,6 +254,8 @@ __all__ = [
     "get_app_dir",
     "get_binary_stream",
     "get_current_context",
+    "get_current_theme",
+    "get_default_theme",
     "get_param_spec",
     "get_text_stream",
     "get_tool_config",
@@ -256,6 +287,7 @@ __all__ = [
     "search_params",
     "secho",
     "serialize_data",
+    "set_default_theme",
     "show_params_option",
     "style",
     "table_format_option",
@@ -279,13 +311,13 @@ __all__ = [
 """
 
 
-__version__ = "7.15.0"
+__version__ = "7.16.1"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "c589fc747d65edcf8ee36d713f4ceb311326fbaa"
+__git_tag_sha__ = "26a76ca3b422f206e3f7a38fdabc9d113cdf1f23"
 
 
 def __getattr__(name: str) -> object:

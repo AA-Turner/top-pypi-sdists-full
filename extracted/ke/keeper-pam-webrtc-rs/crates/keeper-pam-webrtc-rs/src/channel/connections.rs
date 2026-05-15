@@ -52,16 +52,16 @@ pub async fn open_backend(
 ) -> Result<()> {
     if unlikely!(should_log_connection(false)) {
         debug!(
-            "Endpoint {}: Opening connection {} to {} for protocol {:?} (Channel ServerMode: {})",
-            channel.channel_id, conn_no, addr, active_protocol, channel.server_mode
+            "Endpoint {}: Opening connection {} to {} for protocol {:?} (Channel ServerMode: {}, conversation_id: {})",
+            channel.channel_id, conn_no, addr, active_protocol, channel.server_mode, channel.conversation_id
         );
     }
 
     // Check if the connection already exists
     if channel.conns.contains_key(&conn_no) {
         warn!(
-            "Endpoint {}: Connection {} already exists",
-            channel.channel_id, conn_no
+            "Endpoint {}: Connection {} already exists (conversation_id: {})",
+            channel.channel_id, conn_no, channel.conversation_id
         );
         return Ok(());
     }
@@ -73,15 +73,15 @@ pub async fn open_backend(
             *primary_conn_no_guard = Some(conn_no);
             if unlikely!(should_log_connection(false)) {
                 debug!(
-                    "Marked as primary Guacd data connection. (channel_id: {})",
-                    channel.channel_id
+                    "Marked as primary Guacd data connection. (channel_id: {}, conversation_id: {})",
+                    channel.channel_id, channel.conversation_id
                 );
             }
         } else if *primary_conn_no_guard != Some(conn_no) {
             // This case would be unusual - opening a new Guacd connection when one (potentially different conn_no) is already primary.
             // For now, log it. Depending on design, there might be an error or a secondary stream.
             if unlikely!(should_log_connection(false)) {
-                debug!("Opening additional Guacd connection; primary already set. (channel_id: {}, existing_primary: {:?})", channel.channel_id, *primary_conn_no_guard);
+                debug!("Opening additional Guacd connection; primary already set. (channel_id: {}, conversation_id: {}, existing_primary: {:?})", channel.channel_id, channel.conversation_id, *primary_conn_no_guard);
             }
         }
     }
@@ -104,15 +104,16 @@ pub async fn open_backend(
 
     if unlikely!(should_log_connection(false)) {
         debug!(
-            "Backend connection established (TCP_NODELAY) | channel_id: {} | {}: {:.1}ms | addr: {}",
-            channel.channel_id, backend_type, connect_duration_ms, addr
+            "Backend connection established (TCP_NODELAY) | channel_id: {} | conversation_id: {} | {}: {:.1}ms | addr: {}",
+            channel.channel_id, channel.conversation_id, backend_type, connect_duration_ms, addr
         );
     }
 
     if unlikely!(should_log_connection(false)) {
         debug!(
-            "PRE-CALL to setup_outbound_task (channel_id: {}, conn_no: {}, backend_addr: {}, active_protocol: {:?}, server_mode: {})",
+            "PRE-CALL to setup_outbound_task (channel_id: {}, conversation_id: {}, conn_no: {}, backend_addr: {}, active_protocol: {:?}, server_mode: {})",
             channel.channel_id,
+            channel.conversation_id,
             conn_no,
             addr,
             active_protocol,
@@ -135,6 +136,7 @@ pub async fn setup_outbound_task(
 
     let dc = channel.webrtc.clone();
     let channel_id_for_task = channel.channel_id.clone();
+    let conversation_id_for_task = channel.conversation_id.clone();
     let conn_closed_tx_for_task = channel.conn_closed_tx.clone(); // Clone the sender for the task
     let buffer_pool = channel.buffer_pool.clone();
     let is_channel_server_mode = channel.server_mode;
@@ -147,8 +149,9 @@ pub async fn setup_outbound_task(
     // TRACE: Ultra-verbose task lifecycle logging (only in verbose mode)
     if unlikely!(crate::logger::is_verbose_logging()) {
         log::trace!(
-            "ENTERING setup_outbound_task function (channel_id: {}, conn_no: {}, active_protocol: {:?}, server_mode: {})",
+            "ENTERING setup_outbound_task function (channel_id: {}, conversation_id: {}, conn_no: {}, active_protocol: {:?}, server_mode: {})",
             channel_id_for_task,
+            conversation_id_for_task,
             conn_no,
             active_protocol,
             is_channel_server_mode
@@ -158,12 +161,13 @@ pub async fn setup_outbound_task(
     if active_protocol == ActiveProtocol::Guacd {
         if unlikely!(should_log_connection(false)) {
             debug!(
-                "Channel({}): Performing Guacd handshake for conn_no {}",
-                channel_id_for_task, conn_no
+                "Channel({}): Performing Guacd handshake for conn_no {} (conversation_id: {})",
+                channel_id_for_task, conn_no, conversation_id_for_task
             );
         }
 
         let channel_id_clone = channel_id_for_task.clone(); // Already have channel_id_for_task
+        let conversation_id_clone = conversation_id_for_task.clone();
         let guacd_params_clone = channel.guacd_params.clone();
         let handshake_timeout_duration = channel.timeouts.guacd_handshake;
 
@@ -173,6 +177,7 @@ pub async fn setup_outbound_task(
                 &mut backend_reader,
                 &mut backend_writer,
                 &channel_id_clone,
+                &conversation_id_clone,
                 conn_no,
                 guacd_params_clone,
             ),
@@ -182,16 +187,16 @@ pub async fn setup_outbound_task(
             Ok(Ok(_)) => {
                 if unlikely!(should_log_connection(false)) {
                     debug!(
-                        "Channel({}): Guacd handshake successful for conn_no {}",
-                        channel_id_clone, conn_no
+                        "Channel({}): Guacd handshake successful for conn_no {} (conversation_id: {})",
+                        channel_id_clone, conn_no, conversation_id_clone
                     );
                 }
             }
             Ok(Err(e)) => {
                 let error_str = e.to_string();
                 error!(
-                    "Channel({}): Guacd handshake failed for conn_no {}: {}",
-                    channel_id_clone, conn_no, error_str
+                    "Channel({}): Guacd handshake failed for conn_no {} (conversation_id: {}): {}",
+                    channel_id_clone, conn_no, conversation_id_clone, error_str
                 );
                 // Reuse a single buffer for both operations to avoid acquire/release cycles
                 let mut reusable_control_buf = buffer_pool.acquire();
@@ -235,8 +240,8 @@ pub async fn setup_outbound_task(
             Err(_) => {
                 let error_str = "Guacd handshake timed out";
                 error!(
-                    "Channel({}): {} for conn_no {}",
-                    channel_id_clone, error_str, conn_no
+                    "Channel({}): {} for conn_no {} (conversation_id: {})",
+                    channel_id_clone, error_str, conn_no, conversation_id_clone
                 );
                 // Reuse a single buffer for both operations to avoid acquire/release cycles
                 let mut reusable_control_buf = buffer_pool.acquire();
@@ -282,12 +287,13 @@ pub async fn setup_outbound_task(
         // Database Proxy handshake - similar to Guacd but with simplified protocol
         if unlikely!(should_log_connection(false)) {
             debug!(
-                "Channel({}): Performing DatabaseProxy handshake for conn_no {}",
-                channel_id_for_task, conn_no
+                "Channel({}): Performing DatabaseProxy handshake for conn_no {} (conversation_id: {})",
+                channel_id_for_task, conn_no, conversation_id_for_task
             );
         }
 
         let channel_id_clone = channel_id_for_task.clone();
+        let conversation_id_clone = conversation_id_for_task.clone();
         let db_params_clone = channel.db_params.clone();
         let buffer_pool_clone = buffer_pool.clone();
         let handshake_timeout_duration = channel.timeouts.guacd_handshake; // Reuse guacd timeout
@@ -307,6 +313,7 @@ pub async fn setup_outbound_task(
                 &mut backend_reader,
                 &mut backend_writer,
                 &channel_id_clone,
+                &conversation_id_clone,
                 conn_no,
                 &db_type,
                 db_params_clone.clone(),
@@ -318,16 +325,16 @@ pub async fn setup_outbound_task(
             Ok(Ok(_)) => {
                 if unlikely!(should_log_connection(false)) {
                     debug!(
-                        "Channel({}): DatabaseProxy handshake successful for conn_no {}",
-                        channel_id_clone, conn_no
+                        "Channel({}): DatabaseProxy handshake successful for conn_no {} (conversation_id: {})",
+                        channel_id_clone, conn_no, conversation_id_clone
                     );
                 }
             }
             Ok(Err(e)) => {
                 let error_str = e.to_string();
                 error!(
-                    "Channel({}): DatabaseProxy handshake failed for conn_no {}: {}",
-                    channel_id_clone, conn_no, error_str
+                    "Channel({}): DatabaseProxy handshake failed for conn_no {}: {} (conversation_id: {})",
+                    channel_id_clone, conn_no, error_str, conversation_id_clone
                 );
                 let mut reusable_control_buf = buffer_pool.acquire();
                 reusable_control_buf.clear();
@@ -366,8 +373,8 @@ pub async fn setup_outbound_task(
             Err(_) => {
                 let error_str = "DatabaseProxy handshake timed out";
                 error!(
-                    "Channel({}): {} for conn_no {}",
-                    channel_id_clone, error_str, conn_no
+                    "Channel({}): {} for conn_no {} (conversation_id: {})",
+                    channel_id_clone, error_str, conn_no, conversation_id_clone
                 );
                 let mut reusable_control_buf = buffer_pool.acquire();
                 reusable_control_buf.clear();
@@ -408,8 +415,9 @@ pub async fn setup_outbound_task(
 
     if unlikely!(crate::logger::is_verbose_logging()) {
         log::trace!(
-            "PRE-SPAWN (outer scope) in setup_outbound_task (channel_id: {}, conn_no: {}, active_protocol: {:?}, server_mode: {})",
+            "PRE-SPAWN (outer scope) in setup_outbound_task (channel_id: {}, conversation_id: {}, conn_no: {}, active_protocol: {:?}, server_mode: {})",
             channel.channel_id,
+            channel.conversation_id,
             conn_no,
             active_protocol,
             is_channel_server_mode
@@ -438,6 +446,17 @@ pub async fn setup_outbound_task(
     } else {
         mpsc::unbounded_channel::<crate::models::ConnectionMessage>()
     };
+
+    // Clone data_tx so the outbound task can send synthetic acks to guacd for file
+    // downloads, letting guacd stream all chunks without waiting for vault client
+    // round-trips.  UploadAccelerator passes `ack` opcodes through unmodified, so
+    // this reaches guacd's TCP writer via the normal inbound path.
+    let synthetic_ack_tx: Option<mpsc::UnboundedSender<crate::models::ConnectionMessage>> =
+        if active_protocol == ActiveProtocol::Guacd {
+            Some(data_tx.clone())
+        } else {
+            None
+        };
 
     // Create cancellation token for immediate exit on WebRTC closure
     let cancel_read_task = tokio_util::sync::CancellationToken::new();
@@ -470,8 +489,9 @@ pub async fn setup_outbound_task(
         // TRACE: Task lifecycle logging (ultra-verbose, only in verbose mode)
         if unlikely!(crate::logger::is_verbose_logging()) {
             log::trace!(
-                "setup_outbound_task TASK SPAWNED (channel_id: {}, conn_no: {}, active_protocol: {:?}, server_mode: {})",
+                "setup_outbound_task TASK SPAWNED (channel_id: {}, conversation_id: {}, conn_no: {}, active_protocol: {:?}, server_mode: {})",
                 channel_id_for_task,
+                conversation_id_for_task,
                 conn_no,
                 active_protocol,
                 is_channel_server_mode
@@ -488,6 +508,7 @@ pub async fn setup_outbound_task(
             conn_no_local: u32,
             event_sender: &EventDrivenSender,
             channel_id_local: &str,
+            conversation_id_local: &str,
             context_msg: &str,
             fragmentation_enabled: bool,
         ) -> Result<(), ()> {
@@ -505,10 +526,11 @@ pub async fn setup_outbound_task(
                             Ok(_) => {
                                 if unlikely!(crate::logger::is_verbose_logging()) {
                                     log::trace!(
-                                        "Fragment {}/{} sent (channel_id: {}, conn_no: {}, context: {})",
+                                        "Fragment {}/{} sent (channel_id: {}, conversation_id: {}, conn_no: {}, context: {})",
                                         i + 1,
                                         frame_to_send.len().div_ceil(DEFAULT_FRAGMENT_THRESHOLD - 9),
                                         channel_id_local,
+                                        conversation_id_local,
                                         conn_no_local,
                                         context_msg
                                     );
@@ -520,8 +542,8 @@ pub async fn setup_outbound_task(
                                     && !e.contains("DataChannel closed")
                                 {
                                     error!(
-                                        "Fragment send failed (channel_id: {}, conn_no: {}, fragment: {}, error: {})",
-                                        channel_id_local, conn_no_local, i, e
+                                        "Fragment send failed (channel_id: {}, conversation_id: {}, conn_no: {}, fragment: {}, error: {})",
+                                        channel_id_local, conversation_id_local, conn_no_local, i, e
                                     );
                                 }
                                 return Err(());
@@ -542,8 +564,9 @@ pub async fn setup_outbound_task(
                     // TRACE: Ultra-verbose send tracking (suppressed unless verbose mode)
                     if unlikely!(crate::logger::is_verbose_logging()) {
                         log::trace!(
-                            "Event-driven send successful (0ms latency) (channel_id: {}, conn_no: {}, context: {}, bytes_queued: {}, can_send_immediate: {}, budget_exhausted: {}, byte_budget: {})",
+                            "Event-driven send successful (0ms latency) (channel_id: {}, conversation_id: {}, conn_no: {}, context: {}, bytes_queued: {}, can_send_immediate: {}, budget_exhausted: {}, byte_budget: {})",
                             channel_id_local,
+                            conversation_id_local,
                             conn_no_local,
                             context_msg,
                             event_sender.queue_depth(),
@@ -562,7 +585,7 @@ pub async fn setup_outbound_task(
                         && !err_str.contains("Channel is closing")
                         && !err_str.contains("DataChannel closed")
                     {
-                        error!("Event-driven send failed (channel_id: {}, conn_no: {}, context: {}, error: {})", channel_id_local, conn_no_local, context_msg, e);
+                        error!("Event-driven send failed (channel_id: {}, conversation_id: {}, conn_no: {}, context: {}, error: {})", channel_id_local, conversation_id_local, conn_no_local, context_msg, e);
                     }
                     Err(())
                 }
@@ -623,6 +646,11 @@ pub async fn setup_outbound_task(
             None
         };
 
+        // Stream indices of guacd-initiated file downloads.  When guacd opens a stream
+        // via a `file` instruction we track it here, pre-ack every subsequent `blob` so
+        // guacd can push the next chunk immediately, and remove it on `end`.
+        let mut active_download_streams: smallvec::SmallVec<[u32; 4]> = smallvec::SmallVec::new();
+
         // **BOLD WARNING: ENTERING HOT PATH - BACKEND→WEBRTC MAIN LOOP**
         // **NO STRING ALLOCATIONS, NO UNNECESSARY OBJECT CREATION**
         // **USE BORROWED DATA, BUFFER POOLS, AND ZERO-COPY TECHNIQUES**
@@ -681,8 +709,8 @@ pub async fn setup_outbound_task(
 
                     _ = cancel_token_for_task.cancelled() => {
                         debug!(
-                            "Guacd outbound: Read cancelled, exiting (channel_id: {}, conn_no: {})",
-                            channel_id_for_task, conn_no
+                            "Guacd outbound: Read cancelled, exiting (channel_id: {}, conversation_id: {}, conn_no: {})",
+                            channel_id_for_task, conversation_id_for_task, conn_no
                         );
                         break;  // Exit immediately
                     }
@@ -695,8 +723,8 @@ pub async fn setup_outbound_task(
                             Ok(Ok(n)) => n,
                             Ok(Err(e)) => {
                                 error!(
-                                    "Endpoint {}: Read error on connection {} (Guacd path): {}",
-                                    channel_id_for_task, conn_no, e
+                                    "Endpoint {}: Read error on connection {} (Guacd path): {} (conversation_id: {})",
+                                    channel_id_for_task, conn_no, e, conversation_id_for_task
                                 );
                                 break;
                             }
@@ -708,8 +736,8 @@ pub async fn setup_outbound_task(
                                             let error_str = "Database connection failed: authentication failed";
                                             error!(
                                                 "Guacd idle timeout - no data received after handshake \
-                                                (channel_id: {}, conn_no: {}). Likely DB auth failure.",
-                                                channel_id_for_task, conn_no
+                                                (channel_id: {}, conversation_id: {}, conn_no: {}). Likely DB auth failure.",
+                                                channel_id_for_task, conversation_id_for_task, conn_no
                                             );
                                             // Store close reason so tube.rs includes it in channel_closed signal
                                             if let Ok(mut guard) = channel_close_reason_arc.try_lock() {
@@ -734,6 +762,7 @@ pub async fn setup_outbound_task(
                                                 conn_no,
                                                 &event_sender,
                                                 &channel_id_for_task,
+                                                &conversation_id_for_task,
                                                 "Guacd idle timeout error instruction",
                                                 fragmentation_enabled,
                                             ).await;
@@ -757,6 +786,7 @@ pub async fn setup_outbound_task(
                                                 conn_no,
                                                 &event_sender,
                                                 &channel_id_for_task,
+                                                &conversation_id_for_task,
                                                 "Guacd idle timeout close",
                                                 fragmentation_enabled,
                                             ).await;
@@ -777,8 +807,8 @@ pub async fn setup_outbound_task(
 
                     _ = cancel_token_for_task.cancelled() => {
                         debug!(
-                            "Guacd outbound: Read cancelled, exiting (channel_id: {}, conn_no: {})",
-                            channel_id_for_task, conn_no
+                            "Guacd outbound: Read cancelled, exiting (channel_id: {}, conversation_id: {}, conn_no: {})",
+                            channel_id_for_task, conversation_id_for_task, conn_no
                         );
                         break;  // Exit immediately
                     }
@@ -791,8 +821,8 @@ pub async fn setup_outbound_task(
                             Ok(Ok(n)) => n,
                             Ok(Err(e)) => {
                                 error!(
-                                    "Endpoint {}: Read error on connection {} (Non-Guacd path): {}",
-                                    channel_id_for_task, conn_no, e
+                                    "Endpoint {}: Read error on connection {} (Non-Guacd path): {} (conversation_id: {})",
+                                    channel_id_for_task, conn_no, e, conversation_id_for_task
                                 );
                                 break;
                             }
@@ -815,8 +845,8 @@ pub async fn setup_outbound_task(
                 0 => {
                     // EOF detected - guacd closed connection
                     debug!(
-                        "Guacd outbound: EOF from guacd, connection closed (channel_id: {}, conn_no: {})",
-                        channel_id_for_task, conn_no
+                        "Guacd outbound: EOF from guacd, connection closed (channel_id: {}, conversation_id: {}, conn_no: {})",
+                        channel_id_for_task, conversation_id_for_task, conn_no
                     );
                     if !eof_sent {
                         // First EOF detection
@@ -837,6 +867,7 @@ pub async fn setup_outbound_task(
                                 conn_no,
                                 &event_sender,
                                 &channel_id_for_task,
+                                &conversation_id_for_task,
                                 "EOF frame (clean disconnect)",
                                 fragmentation_enabled,
                             )
@@ -848,8 +879,8 @@ pub async fn setup_outbound_task(
                             // This indicates a problem: crash, auth failure, network error, etc.
                             warn!(
                                 "Unexpected EOF from guacd - connection closed without disconnect opcode \
-                                (channel_id: {}, conn_no: {})",
-                                channel_id_for_task, conn_no
+                                (channel_id: {}, conversation_id: {}, conn_no: {})",
+                                channel_id_for_task, conversation_id_for_task, conn_no
                             );
 
                             // Check if Python already sent a CloseConnection
@@ -888,6 +919,7 @@ pub async fn setup_outbound_task(
                                     conn_no,
                                     &event_sender,
                                     &channel_id_for_task,
+                                    &conversation_id_for_task,
                                     "Unexpected EOF close",
                                     fragmentation_enabled,
                                 )
@@ -895,8 +927,8 @@ pub async fn setup_outbound_task(
                                 .is_err()
                                 {
                                     error!(
-                                        "Channel({}): Conn {}: Failed to send CloseConnection for unexpected EOF",
-                                        channel_id_for_task, conn_no
+                                        "Channel({}): Conn {}: Failed to send CloseConnection for unexpected EOF (conversation_id: {})",
+                                        channel_id_for_task, conn_no, conversation_id_for_task
                                     );
                                 }
 
@@ -906,8 +938,8 @@ pub async fn setup_outbound_task(
                                     if unlikely!(should_log_connection(false)) {
                                         debug!(
                                             "Stored ConnectionLost as close reason for unexpected EOF \
-                                            (channel_id: {}, conn_no: {})",
-                                            channel_id_for_task, conn_no
+                                            (channel_id: {}, conversation_id: {}, conn_no: {})",
+                                            channel_id_for_task, conversation_id_for_task, conn_no
                                         );
                                     }
                                 }
@@ -936,8 +968,8 @@ pub async fn setup_outbound_task(
                             } else if unlikely!(should_log_connection(false)) {
                                 debug!(
                                     "Channel({}): Conn {}: Skipping CloseConnection for unexpected EOF \
-                                    (Python already sent with specific reason)",
-                                    channel_id_for_task, conn_no
+                                    (Python already sent with specific reason, conversation_id: {})",
+                                    channel_id_for_task, conn_no, conversation_id_for_task
                                 );
                             }
 
@@ -984,9 +1016,9 @@ pub async fn setup_outbound_task(
                                         let parse_duration = parse_start.elapsed();
                                         if parse_duration.as_micros() > 100 {
                                             debug!(
-                                                "Channel({}): Slow Guacd validate: {}μs",
+                                                "Channel({}): Slow Guacd validate: {}μs (conversation_id: {})",
                                                 channel_id_for_task,
-                                                parse_duration.as_micros()
+                                                parse_duration.as_micros(), conversation_id_for_task
                                             );
                                         }
                                     }
@@ -1005,7 +1037,7 @@ pub async fn setup_outbound_task(
                                                         {
                                                             // Guacd sent disconnect instruction - clean connection closure
                                                             clean_disconnect_received = true; // Mark as clean disconnect
-                                                            warn!("Guacd sent disconnect instruction - closing connection cleanly (channel_id: {}, conn_no: {})", channel_id_for_task, conn_no);
+                                                            warn!("Guacd sent disconnect instruction - closing connection cleanly (channel_id: {}, conversation_id: {}, conn_no: {})", channel_id_for_task, conversation_id_for_task, conn_no);
                                                             Some("Guacd disconnect".to_string())
                                                         } else if instr.opcode
                                                             == guacr_protocol::ERROR_OPCODE
@@ -1021,11 +1053,11 @@ pub async fn setup_outbound_task(
                                                                 } else {
                                                                     "Guacd error".to_string()
                                                                 };
-                                                            error!("Guacd sent error opcode - closing connection (channel_id: {}, conn_no: {}, opcode: {}, args: {:?})", channel_id_for_task, conn_no, instr.opcode, instr.args);
+                                                            error!("Guacd sent error opcode - closing connection (channel_id: {}, conversation_id: {}, conn_no: {}, opcode: {}, args: {:?})", channel_id_for_task, conversation_id_for_task, conn_no, instr.opcode, instr.args);
                                                             Some(error_msg)
                                                         } else {
                                                             // Unknown close opcode
-                                                            warn!("Guacd sent close instruction - closing connection (channel_id: {}, conn_no: {}, opcode: {}, args: {:?})", channel_id_for_task, conn_no, instr.opcode, instr.args);
+                                                            warn!("Guacd sent close instruction - closing connection (channel_id: {}, conversation_id: {}, conn_no: {}, opcode: {}, args: {:?})", channel_id_for_task, conversation_id_for_task, conn_no, instr.opcode, instr.args);
                                                             Some(format!(
                                                                 "Guacd close: {}",
                                                                 instr.opcode
@@ -1034,7 +1066,7 @@ pub async fn setup_outbound_task(
                                                     }
                                                     Err(_) => {
                                                         // Failed to parse - assume error
-                                                        error!("Guacd sent close opcode but failed to parse - closing connection (channel_id: {}, conn_no: {})", channel_id_for_task, conn_no);
+                                                        error!("Guacd sent close opcode but failed to parse - closing connection (channel_id: {}, conversation_id: {}, conn_no: {})", channel_id_for_task, conversation_id_for_task, conn_no);
                                                         Some(
                                                             "Guacd close opcode (parse failed)"
                                                                 .to_string(),
@@ -1061,6 +1093,7 @@ pub async fn setup_outbound_task(
                                                 conn_no,
                                                 &event_sender,
                                                 &channel_id_for_task,
+                                                &conversation_id_for_task,
                                                 "Guacd close instruction forward",
                                                 fragmentation_enabled,
                                             )
@@ -1068,8 +1101,8 @@ pub async fn setup_outbound_task(
                                             .is_err()
                                             {
                                                 error!(
-                                                    "Channel({}): Conn {}: Failed to forward Guacd close instruction",
-                                                    channel_id_for_task, conn_no
+                                                    "Channel({}): Conn {}: Failed to forward Guacd close instruction (conversation_id: {})",
+                                                    channel_id_for_task, conn_no, conversation_id_for_task
                                                 );
                                             }
 
@@ -1086,8 +1119,8 @@ pub async fn setup_outbound_task(
                                                 // so the client receives the correct close reason, not GuacdError.
                                                 if unlikely!(should_log_connection(false)) {
                                                     debug!(
-                                                        "Channel({}): Conn {}: Sending CloseConnection with existing reason {:?}",
-                                                        channel_id_for_task, conn_no, reason
+                                                        "Channel({}): Conn {}: Sending CloseConnection with existing reason {:?} (conversation_id: {})",
+                                                        channel_id_for_task, conn_no, reason, conversation_id_for_task
                                                     );
                                                 }
                                                 let mut temp_buf_for_control =
@@ -1109,6 +1142,7 @@ pub async fn setup_outbound_task(
                                                     conn_no,
                                                     &event_sender,
                                                     &channel_id_for_task,
+                                                    &conversation_id_for_task,
                                                     "Guacd close (existing reason)",
                                                     fragmentation_enabled,
                                                 )
@@ -1116,8 +1150,8 @@ pub async fn setup_outbound_task(
                                                 .is_err()
                                                 {
                                                     error!(
-                                                        "Channel({}): Conn {}: Failed to send CloseConnection with existing reason",
-                                                        channel_id_for_task, conn_no
+                                                        "Channel({}): Conn {}: Failed to send CloseConnection with existing reason (conversation_id: {})",
+                                                        channel_id_for_task, conn_no, conversation_id_for_task
                                                     );
                                                 }
                                             } else {
@@ -1157,6 +1191,7 @@ pub async fn setup_outbound_task(
                                                     conn_no,
                                                     &event_sender,
                                                     &channel_id_for_task,
+                                                    &conversation_id_for_task,
                                                     "Guacd close",
                                                     fragmentation_enabled,
                                                 )
@@ -1164,8 +1199,8 @@ pub async fn setup_outbound_task(
                                                 .is_err()
                                                 {
                                                     error!(
-                                                        "Channel({}): Conn {}: Failed to send CloseConnection frame for Guacd close via event-driven system",
-                                                        channel_id_for_task, conn_no
+                                                        "Channel({}): Conn {}: Failed to send CloseConnection frame for Guacd close via event-driven system (conversation_id: {})",
+                                                        channel_id_for_task, conn_no, conversation_id_for_task
                                                     );
                                                 }
 
@@ -1178,8 +1213,8 @@ pub async fn setup_outbound_task(
                                                     *guard = Some(close_reason);
                                                     if unlikely!(should_log_connection(false)) {
                                                         debug!(
-                                                            "Stored {:?} as close reason for channel (channel_id: {}, conn_no: {})",
-                                                            close_reason, channel_id_for_task, conn_no
+                                                            "Stored {:?} as close reason for channel (channel_id: {}, conversation_id: {}, conn_no: {})",
+                                                            close_reason, channel_id_for_task, conversation_id_for_task, conn_no
                                                         );
                                                     }
                                                 }
@@ -1229,6 +1264,7 @@ pub async fn setup_outbound_task(
                                                         conn_no,
                                                         &event_sender,
                                                         &channel_id_for_task,
+                                                        &conversation_id_for_task,
                                                         "pre-sync batch flush",
                                                         fragmentation_enabled,
                                                     )
@@ -1257,6 +1293,7 @@ pub async fn setup_outbound_task(
                                                 conn_no,
                                                 &event_sender,
                                                 &channel_id_for_task,
+                                                &conversation_id_for_task,
                                                 "Guacd sync forward to client",
                                                 fragmentation_enabled,
                                             )
@@ -1267,8 +1304,8 @@ pub async fn setup_outbound_task(
                                                 // The EventDrivenSender only returns Err for permanent closure,
                                                 // temporary failures (buffer full) are queued and return Ok.
                                                 debug!(
-                                                    "Channel({}): Conn {}: WebRTC channel closed, exiting guacd outbound task",
-                                                    channel_id_for_task, conn_no
+                                                    "Channel({}): Conn {}: WebRTC channel closed, exiting guacd outbound task (conversation_id: {})",
+                                                    channel_id_for_task, conn_no, conversation_id_for_task
                                                 );
                                                 close_conn_and_break = true;
                                                 break;
@@ -1282,7 +1319,7 @@ pub async fn setup_outbound_task(
                                             // Note: Disconnect/close events use CloseConnection action (line 532) with warn! logging
                                             // SpecialOpcode is for Size and other non-critical opcodes
                                             if unlikely!(should_log_connection(false)) {
-                                                debug!("OUTBOUND: Special opcode detected - dispatching to handler (channel_id: {}, conn_no: {}, opcode_name: {}, opcode: {:?})", channel_id_for_task, conn_no, opcode.as_str(), opcode);
+                                                debug!("OUTBOUND: Special opcode detected - dispatching to handler (channel_id: {}, conversation_id: {}, conn_no: {}, opcode_name: {}, opcode: {:?})", channel_id_for_task, conversation_id_for_task, conn_no, opcode.as_str(), opcode);
                                             }
 
                                             // Dispatch to appropriate special handler
@@ -1309,12 +1346,14 @@ pub async fn setup_outbound_task(
                                                             if unlikely!(should_log_connection(
                                                                 false
                                                             )) {
-                                                                debug!("OUTBOUND: Server size instruction (actual session size) - sending to signal system (channel_id: {}, conn_no: {}, layer: {}, width: {}, height: {})", channel_id_for_task, conn_no, peeked_instr.args[0], peeked_instr.args.get(1).unwrap_or(&"unknown"), peeked_instr.args.get(2).unwrap_or(&"unknown"));
+                                                                debug!("OUTBOUND: Server size instruction (actual session size) - sending to signal system (channel_id: {}, conversation_id: {}, conn_no: {}, layer: {}, width: {}, height: {})", channel_id_for_task, conversation_id_for_task, conn_no, peeked_instr.args[0], peeked_instr.args.get(1).unwrap_or(&"unknown"), peeked_instr.args.get(2).unwrap_or(&"unknown"));
                                                             }
 
                                                             // Send it to the Python signal system
                                                             let channel_id_clone =
                                                                 channel_id_for_task.clone();
+                                                            let conversation_id_clone =
+                                                                conversation_id_for_task.clone();
                                                             let raw_instruction = GuacdParser::guacd_encode_instruction(&GuacdInstruction::new(
                                                                  peeked_instr.opcode.to_string(),
                                                                  peeked_instr.args.iter().map(|s| s.to_string()).collect()
@@ -1353,7 +1392,7 @@ pub async fn setup_outbound_task(
                                                                                 false
                                                                             )
                                                                         ) {
-                                                                            debug!("OUTBOUND: Found tube containing this channel (channel_id: {}, tube_id: {})", channel_id_clone, tube_id);
+                                                                            debug!("OUTBOUND: Found tube containing this channel (channel_id: {}, conversation_id: {}, tube_id: {})", channel_id_clone, conversation_id_clone, tube_id);
                                                                         }
                                                                         break;
                                                                     }
@@ -1371,6 +1410,7 @@ pub async fn setup_outbound_task(
                                                                             kind: "guacd_instruction".to_string(),
                                                                             data: raw_instruction_str,
                                                                             conversation_id: channel_id_clone.clone(),
+                                                                            signal_id: uuid::Uuid::new_v4().to_string(),
                                                                             progress_flag: Some(2), // PROGRESS - ongoing data transfer/instruction processing
                                                                             progress_status: Some("OK".to_string()), // Successful instruction forwarding
                                                                             is_ok: Some(true), // Successful instruction forwarding
@@ -1380,30 +1420,30 @@ pub async fn setup_outbound_task(
                                                                             signal_sender
                                                                                 .send(signal_msg)
                                                                         {
-                                                                            debug!("OUTBOUND: Failed to send actual size signal to Python (tube_id: {}, channel_id: {}, error: {})", tube_id, channel_id_clone, e);
+                                                                            debug!("OUTBOUND: Failed to send actual size signal to Python (tube_id: {}, channel_id: {}, conversation_id: {}, error: {})", tube_id, channel_id_clone, conversation_id_clone, e);
                                                                         } else if unlikely!(
                                                                             should_log_connection(
                                                                                 false
                                                                             )
                                                                         ) {
-                                                                            debug!("OUTBOUND: Successfully sent actual size signal to Python (tube_id: {}, channel_id: {})", tube_id, channel_id_clone);
+                                                                            debug!("OUTBOUND: Successfully sent actual size signal to Python (tube_id: {}, channel_id: {}, conversation_id: {})", tube_id, channel_id_clone, conversation_id_clone);
                                                                         }
                                                                     } else {
-                                                                        debug!("OUTBOUND: No signal sender found for tube (tube_id: {})", tube_id);
+                                                                        debug!("OUTBOUND: No signal sender found for tube (tube_id: {}, conversation_id: {})", tube_id, "-");
                                                                     }
                                                                 } else {
-                                                                    debug!("OUTBOUND: Could not find tube containing this channel");
+                                                                    debug!("OUTBOUND: Could not find tube containing this channel (conversation_id: {})", "-");
                                                                 }
                                                             });
                                                         } else if unlikely!(should_log_connection(
                                                             false
                                                         )) {
-                                                            debug!("OUTBOUND: Size instruction with insufficient args - skipping signal (channel_id: {}, opcode_name: {})", channel_id_for_task, SpecialOpcode::Size.as_str());
+                                                            debug!("OUTBOUND: Size instruction with insufficient args - skipping signal (channel_id: {}, conversation_id: {}, opcode_name: {})", channel_id_for_task, conversation_id_for_task, SpecialOpcode::Size.as_str());
                                                         }
                                                     } else if unlikely!(should_log_connection(
                                                         false
                                                     )) {
-                                                        debug!("OUTBOUND: Failed to parse size instruction - skipping signal (channel_id: {}, opcode_name: {})", channel_id_for_task, SpecialOpcode::Size.as_str());
+                                                        debug!("OUTBOUND: Failed to parse size instruction - skipping signal (channel_id: {}, conversation_id: {}, opcode_name: {})", channel_id_for_task, conversation_id_for_task, SpecialOpcode::Size.as_str());
                                                     }
 
                                                     // Main-layer resize: flush the batch buffer
@@ -1433,6 +1473,7 @@ pub async fn setup_outbound_task(
                                                                     conn_no,
                                                                     &event_sender,
                                                                     &channel_id_for_task,
+                                                                    &conversation_id_for_task,
                                                                     "pre-size,0 batch flush",
                                                                     fragmentation_enabled,
                                                                 )
@@ -1460,6 +1501,7 @@ pub async fn setup_outbound_task(
                                                             conn_no,
                                                             &event_sender,
                                                             &channel_id_for_task,
+                                                            &conversation_id_for_task,
                                                             "size,0 direct send",
                                                             fragmentation_enabled,
                                                         )
@@ -1521,6 +1563,66 @@ pub async fn setup_outbound_task(
                                                     }
                                                 }
                                             }
+
+                                            // Download acceleration: when guacd sends a blob
+                                            // on a file-download stream, immediately synthetic-ack
+                                            // it so guacd can push the next chunk without waiting
+                                            // for the vault client's full round-trip.
+                                            //
+                                            // Fast-path prefix checks avoid peek_instruction on
+                                            // the much-more-common img/copy/rect screen-update
+                                            // instructions.  Only `file` detection runs
+                                            // unconditionally; `blob`/`end` are gated by the set
+                                            // being non-empty.
+                                            if let Some(ref ack_tx) = synthetic_ack_tx {
+                                                let need_peek = current_slice
+                                                    .starts_with(b"4.file,")
+                                                    || (!active_download_streams.is_empty()
+                                                        && (current_slice.starts_with(b"4.blob,")
+                                                            || current_slice
+                                                                .starts_with(b"3.end,")));
+                                                if need_peek {
+                                                    if let Ok(peeked) =
+                                                        GuacdParser::peek_instruction(current_slice)
+                                                    {
+                                                        if let Some(stream_idx) = peeked
+                                                            .args
+                                                            .first()
+                                                            .and_then(|s| s.parse::<u32>().ok())
+                                                        {
+                                                            match peeked.opcode {
+                                                                "file"
+                                                                    if !active_download_streams
+                                                                        .contains(&stream_idx) =>
+                                                                {
+                                                                    active_download_streams
+                                                                        .push(stream_idx);
+                                                                }
+                                                                "blob"
+                                                                    if active_download_streams
+                                                                        .contains(&stream_idx) =>
+                                                                {
+                                                                    let ack_bytes =
+                                                                        GuacdParser::encode_ack(
+                                                                            stream_idx,
+                                                                        );
+                                                                    let _ = ack_tx.send(
+                                                                        crate::models::ConnectionMessage::Data(
+                                                                            ack_bytes,
+                                                                        ),
+                                                                    );
+                                                                }
+                                                                "end" => {
+                                                                    active_download_streams.retain(
+                                                                        |x| *x != stream_idx,
+                                                                    );
+                                                                }
+                                                                _ => {}
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
 
@@ -1548,6 +1650,7 @@ pub async fn setup_outbound_task(
                                                     conn_no,
                                                     &event_sender,
                                                     &channel_id_for_task,
+                                                    &conversation_id_for_task,
                                                     "(pre-large) batch",
                                                     fragmentation_enabled,
                                                 )
@@ -1576,6 +1679,7 @@ pub async fn setup_outbound_task(
                                                 conn_no,
                                                 &event_sender,
                                                 &channel_id_for_task,
+                                                &conversation_id_for_task,
                                                 "large instruction",
                                                 fragmentation_enabled,
                                             )
@@ -1605,6 +1709,7 @@ pub async fn setup_outbound_task(
                                                     conn_no,
                                                     &event_sender,
                                                     &channel_id_for_task,
+                                                    &conversation_id_for_task,
                                                     "batch",
                                                     fragmentation_enabled,
                                                 )
@@ -1634,8 +1739,8 @@ pub async fn setup_outbound_task(
                                     let error_str =
                                         format!("Guacd protocol parsing error: {:?}", e);
                                     error!(
-                                        "Channel({}): Conn {}: Error peeking/parsing Guacd instruction: {:?}. Buffer content (approx): {:?}. Closing connection.",
-                                        channel_id_for_task, conn_no, e, &main_read_buffer[..std::cmp::min(main_read_buffer.len(), 100)]
+                                        "Channel({}): Conn {}: Error peeking/parsing Guacd instruction: {:?}. Buffer content (approx): {:?}. Closing connection. (conversation_id: {})",
+                                        channel_id_for_task, conn_no, e, &main_read_buffer[..std::cmp::min(main_read_buffer.len(), 100)], conversation_id_for_task
                                     );
                                     let mut temp_buf_for_control = buffer_pool.acquire();
                                     temp_buf_for_control.clear();
@@ -1661,6 +1766,7 @@ pub async fn setup_outbound_task(
                                         conn_no,
                                         &event_sender,
                                         &channel_id_for_task,
+                                        &conversation_id_for_task,
                                         "Guacd parsing error close",
                                         fragmentation_enabled,
                                     )
@@ -1668,8 +1774,8 @@ pub async fn setup_outbound_task(
                                     .is_err()
                                     {
                                         error!(
-                                            "Channel({}): Conn {}: Failed to send CloseConnection frame for Guacd parsing error via event-driven system",
-                                            channel_id_for_task, conn_no
+                                            "Channel({}): Conn {}: Failed to send CloseConnection frame for Guacd parsing error via event-driven system (conversation_id: {})",
+                                            channel_id_for_task, conn_no, conversation_id_for_task
                                         );
                                     }
                                     close_conn_and_break = true;
@@ -1700,6 +1806,7 @@ pub async fn setup_outbound_task(
                                     conn_no,
                                     &event_sender,
                                     &channel_id_for_task,
+                                    &conversation_id_for_task,
                                     "per-read flush",
                                     fragmentation_enabled,
                                 )
@@ -1746,6 +1853,7 @@ pub async fn setup_outbound_task(
                             conn_no,
                             &event_sender,
                             &channel_id_for_task,
+                            &conversation_id_for_task,
                             "PortForward/SOCKS5 data",
                             fragmentation_enabled,
                         )
@@ -1753,7 +1861,7 @@ pub async fn setup_outbound_task(
                         .is_err()
                         {
                             error!(
-                                "Failed to send PortForward/SOCKS5 data with event-driven backpressure - closing connection (channel_id: {}, conn_no: {})", channel_id_for_task, conn_no
+                                "Failed to send PortForward/SOCKS5 data with event-driven backpressure - closing connection (channel_id: {}, conversation_id: {}, conn_no: {})", channel_id_for_task, conversation_id_for_task, conn_no
                             );
                             close_conn_and_break = true;
                         }
@@ -1768,8 +1876,8 @@ pub async fn setup_outbound_task(
         if unlikely!(should_log_connection(true)) {
             // Critical: connection closing
             debug!(
-                "Endpoint {}: Backend->WebRTC task for connection {} exited",
-                channel_id_for_task, conn_no
+                "Endpoint {}: Backend->WebRTC task for connection {} exited (conversation_id: {})",
+                channel_id_for_task, conn_no, conversation_id_for_task
             );
         }
         buffer_pool.release(main_read_buffer);
@@ -1789,9 +1897,9 @@ pub async fn setup_outbound_task(
             // This is not ideal but acceptable - connection resources are already released by this point
             if !e.to_string().contains("channel closed") {
                 warn!(
-                    "Connection closure signal failed - receiver closed (channel_id: {}, conn_no: {}). \
+                    "Connection closure signal failed - receiver closed (channel_id: {}, conversation_id: {}, conn_no: {}). \
                      Connection will remain in map until Channel Drop. Error: {:?}",
-                    channel_id_for_task, conn_no, e
+                    channel_id_for_task, conversation_id_for_task, conn_no, e
                 );
             }
             // Note: We cannot remove the connection from DashMap here because we don't have
@@ -1805,8 +1913,8 @@ pub async fn setup_outbound_task(
         } else if unlikely!(should_log_connection(true)) {
             // Critical: disconnect event
             debug!(
-                "Sent connection closure signal to Channel run loop. (channel_id: {}, conn_no: {})",
-                channel_id_for_task, conn_no
+                "Sent connection closure signal to Channel run loop. (channel_id: {}, conversation_id: {}, conn_no: {})",
+                channel_id_for_task, conversation_id_for_task, conn_no
             );
         }
     });
@@ -1857,8 +1965,8 @@ pub async fn setup_outbound_task(
 
     if unlikely!(should_log_connection(false)) {
         debug!(
-            "Endpoint {}: Connection {} added to registry",
-            channel.channel_id, conn_no
+            "Endpoint {}: Connection {} added to registry (conversation_id: {})",
+            channel.channel_id, conn_no, channel.conversation_id
         );
     }
 
@@ -1874,10 +1982,12 @@ pub async fn setup_outbound_task(
 ///   4. Proxy → Gateway: ready [session_id] OR error [message]
 ///
 /// This is a simplified version of the Guacd handshake - no size/audio/video/image instructions.
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn perform_database_proxy_handshake<R, W>(
     reader: &mut R,
     writer: &mut W,
     channel_id: &str,
+    conversation_id: &str,
     conn_no: u32,
     db_type: &str, // "mysql", "postgresql", "sqlserver"
     db_params: Arc<Mutex<HashMap<String, String>>>,
@@ -2028,8 +2138,8 @@ where
     let select_instruction = GuacdInstruction::new("select".to_string(), vec![db_type.to_string()]);
     if unlikely!(should_log_connection(false)) {
         debug!(
-            "DatabaseProxy Handshake: Sending 'select' (channel_id: {}, db_type: {})",
-            channel_id, db_type
+            "DatabaseProxy Handshake: Sending 'select' (channel_id: {}, conversation_id: {}, db_type: {})",
+            channel_id, conversation_id, db_type
         );
     }
     let encoded_select = GuacdParser::guacd_encode_instruction(&select_instruction);
@@ -2047,8 +2157,8 @@ where
     .await?;
     if unlikely!(should_log_connection(false)) {
         debug!(
-            "DatabaseProxy Handshake: Received 'args' (channel_id: {}, args: {:?})",
-            channel_id, args_instruction.args
+            "DatabaseProxy Handshake: Received 'args' (channel_id: {}, conversation_id: {}, args: {:?})",
+            channel_id, conversation_id, args_instruction.args
         );
     }
 
@@ -2100,8 +2210,8 @@ where
     let connect_instruction = GuacdInstruction::new("connect".to_string(), connect_args);
     if unlikely!(should_log_connection(false)) {
         debug!(
-            "DatabaseProxy Handshake: Sending 'connect' (channel_id: {})",
-            channel_id
+            "DatabaseProxy Handshake: Sending 'connect' (channel_id: {}, conversation_id: {})",
+            channel_id, conversation_id
         );
     }
     writer
@@ -2122,14 +2232,14 @@ where
     if let Some(session_id) = ready_instruction.args.first() {
         if unlikely!(should_log_connection(false)) {
             debug!(
-                "DatabaseProxy handshake completed (channel_id: {}, session_id: {})",
-                channel_id, session_id
+                "DatabaseProxy handshake completed (channel_id: {}, conversation_id: {}, session_id: {})",
+                channel_id, conversation_id, session_id
             );
         }
     } else if unlikely!(should_log_connection(false)) {
         debug!(
-            "DatabaseProxy handshake completed (channel_id: {})",
-            channel_id
+            "DatabaseProxy handshake completed (channel_id: {}, conversation_id: {})",
+            channel_id, conversation_id
         );
     }
 

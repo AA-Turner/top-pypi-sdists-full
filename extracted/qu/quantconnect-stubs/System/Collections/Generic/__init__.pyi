@@ -12,58 +12,55 @@ import System.Runtime.Serialization
 import System.Threading
 import System.Threading.Tasks
 
-System_Collections_Generic_IDictionary_TValue = typing.TypeVar("System_Collections_Generic_IDictionary_TValue")
-System_Collections_Generic_IDictionary_TKey = typing.TypeVar("System_Collections_Generic_IDictionary_TKey")
-System_Collections_Generic_HashSet_T = typing.TypeVar("System_Collections_Generic_HashSet_T")
-System_Collections_Generic_HashSet_AlternateLookup_TAlternate = typing.TypeVar("System_Collections_Generic_HashSet_AlternateLookup_TAlternate")
-System_Collections_Generic_IAsyncEnumerator_T = typing.TypeVar("System_Collections_Generic_IAsyncEnumerator_T")
-System_Collections_Generic_Comparer_T = typing.TypeVar("System_Collections_Generic_Comparer_T")
-System_Collections_Generic_GenericComparer_T = typing.TypeVar("System_Collections_Generic_GenericComparer_T")
-System_Collections_Generic_NullableComparer_T = typing.TypeVar("System_Collections_Generic_NullableComparer_T")
-System_Collections_Generic_ObjectComparer_T = typing.TypeVar("System_Collections_Generic_ObjectComparer_T")
-System_Collections_Generic_IReadOnlyDictionary_TKey = typing.TypeVar("System_Collections_Generic_IReadOnlyDictionary_TKey")
-System_Collections_Generic_IReadOnlyDictionary_TValue = typing.TypeVar("System_Collections_Generic_IReadOnlyDictionary_TValue")
+System_Collections_Generic_ISet_T = typing.TypeVar("System_Collections_Generic_ISet_T")
 System_Collections_Generic_KeyValuePair_TKey = typing.TypeVar("System_Collections_Generic_KeyValuePair_TKey")
 System_Collections_Generic_KeyValuePair_TValue = typing.TypeVar("System_Collections_Generic_KeyValuePair_TValue")
 System_Collections_Generic_IList_T = typing.TypeVar("System_Collections_Generic_IList_T")
-System_Collections_Generic_IComparer_T = typing.TypeVar("System_Collections_Generic_IComparer_T")
-System_Collections_Generic_IReadOnlySet_T = typing.TypeVar("System_Collections_Generic_IReadOnlySet_T")
 System_Collections_Generic_List_T = typing.TypeVar("System_Collections_Generic_List_T")
-System_Collections_Generic_ICollection_T = typing.TypeVar("System_Collections_Generic_ICollection_T")
-System_Collections_Generic_IReadOnlyList_T = typing.TypeVar("System_Collections_Generic_IReadOnlyList_T")
-System_Collections_Generic_IEnumerable_T = typing.TypeVar("System_Collections_Generic_IEnumerable_T")
-System_Collections_Generic_IReadOnlyCollection_T = typing.TypeVar("System_Collections_Generic_IReadOnlyCollection_T")
-System_Collections_Generic_IEnumerator_T = typing.TypeVar("System_Collections_Generic_IEnumerator_T")
-System_Collections_Generic_ISet_T = typing.TypeVar("System_Collections_Generic_ISet_T")
 System_Collections_Generic_IEqualityComparer_T = typing.TypeVar("System_Collections_Generic_IEqualityComparer_T")
-System_Collections_Generic_Queue_T = typing.TypeVar("System_Collections_Generic_Queue_T")
-System_Collections_Generic_IAsyncEnumerable_T = typing.TypeVar("System_Collections_Generic_IAsyncEnumerable_T")
-System_Collections_Generic_Dictionary_TValue = typing.TypeVar("System_Collections_Generic_Dictionary_TValue")
-System_Collections_Generic_Dictionary_TKey = typing.TypeVar("System_Collections_Generic_Dictionary_TKey")
-System_Collections_Generic_Dictionary_AlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Generic_Dictionary_AlternateLookup_TAlternateKey")
 System_Collections_Generic_EqualityComparer_T = typing.TypeVar("System_Collections_Generic_EqualityComparer_T")
 System_Collections_Generic_GenericEqualityComparer_T = typing.TypeVar("System_Collections_Generic_GenericEqualityComparer_T")
 System_Collections_Generic_NullableEqualityComparer_T = typing.TypeVar("System_Collections_Generic_NullableEqualityComparer_T")
 System_Collections_Generic_ObjectEqualityComparer_T = typing.TypeVar("System_Collections_Generic_ObjectEqualityComparer_T")
 System_Collections_Generic_EnumEqualityComparer_T = typing.TypeVar("System_Collections_Generic_EnumEqualityComparer_T")
+System_Collections_Generic_HashSet_T = typing.TypeVar("System_Collections_Generic_HashSet_T")
+System_Collections_Generic_HashSet_AlternateLookup_TAlternate = typing.TypeVar("System_Collections_Generic_HashSet_AlternateLookup_TAlternate")
+System_Collections_Generic_IReadOnlyCollection_T = typing.TypeVar("System_Collections_Generic_IReadOnlyCollection_T")
+System_Collections_Generic_Dictionary_TValue = typing.TypeVar("System_Collections_Generic_Dictionary_TValue")
+System_Collections_Generic_Dictionary_TKey = typing.TypeVar("System_Collections_Generic_Dictionary_TKey")
+System_Collections_Generic_Dictionary_AlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Generic_Dictionary_AlternateLookup_TAlternateKey")
+System_Collections_Generic_Comparer_T = typing.TypeVar("System_Collections_Generic_Comparer_T")
+System_Collections_Generic_GenericComparer_T = typing.TypeVar("System_Collections_Generic_GenericComparer_T")
+System_Collections_Generic_NullableComparer_T = typing.TypeVar("System_Collections_Generic_NullableComparer_T")
+System_Collections_Generic_ObjectComparer_T = typing.TypeVar("System_Collections_Generic_ObjectComparer_T")
+System_Collections_Generic_IEnumerator_T = typing.TypeVar("System_Collections_Generic_IEnumerator_T")
+System_Collections_Generic_IComparer_T = typing.TypeVar("System_Collections_Generic_IComparer_T")
+System_Collections_Generic_IReadOnlyList_T = typing.TypeVar("System_Collections_Generic_IReadOnlyList_T")
 System_Collections_Generic_IAlternateEqualityComparer_TAlternate = typing.TypeVar("System_Collections_Generic_IAlternateEqualityComparer_TAlternate")
 System_Collections_Generic_IAlternateEqualityComparer_T = typing.TypeVar("System_Collections_Generic_IAlternateEqualityComparer_T")
-System_Collections_Generic_SortedSet_T = typing.TypeVar("System_Collections_Generic_SortedSet_T")
+System_Collections_Generic_IReadOnlyDictionary_TKey = typing.TypeVar("System_Collections_Generic_IReadOnlyDictionary_TKey")
+System_Collections_Generic_IReadOnlyDictionary_TValue = typing.TypeVar("System_Collections_Generic_IReadOnlyDictionary_TValue")
+System_Collections_Generic_Queue_T = typing.TypeVar("System_Collections_Generic_Queue_T")
+System_Collections_Generic_IAsyncEnumerable_T = typing.TypeVar("System_Collections_Generic_IAsyncEnumerable_T")
+System_Collections_Generic_ICollection_T = typing.TypeVar("System_Collections_Generic_ICollection_T")
+System_Collections_Generic_IDictionary_TValue = typing.TypeVar("System_Collections_Generic_IDictionary_TValue")
+System_Collections_Generic_IDictionary_TKey = typing.TypeVar("System_Collections_Generic_IDictionary_TKey")
+System_Collections_Generic_IEnumerable_T = typing.TypeVar("System_Collections_Generic_IEnumerable_T")
+System_Collections_Generic_IReadOnlySet_T = typing.TypeVar("System_Collections_Generic_IReadOnlySet_T")
+System_Collections_Generic_IAsyncEnumerator_T = typing.TypeVar("System_Collections_Generic_IAsyncEnumerator_T")
 System_Collections_Generic_PriorityQueue_TElement = typing.TypeVar("System_Collections_Generic_PriorityQueue_TElement")
 System_Collections_Generic_PriorityQueue_TPriority = typing.TypeVar("System_Collections_Generic_PriorityQueue_TPriority")
+System_Collections_Generic_Stack_T = typing.TypeVar("System_Collections_Generic_Stack_T")
+System_Collections_Generic_LinkedList_T = typing.TypeVar("System_Collections_Generic_LinkedList_T")
+System_Collections_Generic_LinkedListNode_T = typing.TypeVar("System_Collections_Generic_LinkedListNode_T")
+System_Collections_Generic_SortedSet_T = typing.TypeVar("System_Collections_Generic_SortedSet_T")
 System_Collections_Generic_SortedList_TKey = typing.TypeVar("System_Collections_Generic_SortedList_TKey")
 System_Collections_Generic_SortedList_TValue = typing.TypeVar("System_Collections_Generic_SortedList_TValue")
 System_Collections_Generic_SortedDictionary_TValue = typing.TypeVar("System_Collections_Generic_SortedDictionary_TValue")
 System_Collections_Generic_SortedDictionary_TKey = typing.TypeVar("System_Collections_Generic_SortedDictionary_TKey")
 System_Collections_Generic_TreeSet_T = typing.TypeVar("System_Collections_Generic_TreeSet_T")
-System_Collections_Generic_LinkedList_T = typing.TypeVar("System_Collections_Generic_LinkedList_T")
-System_Collections_Generic_LinkedListNode_T = typing.TypeVar("System_Collections_Generic_LinkedListNode_T")
-System_Collections_Generic_Stack_T = typing.TypeVar("System_Collections_Generic_Stack_T")
-System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate = typing.TypeVar("System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate")
-System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate = typing.TypeVar("System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate")
 System_Collections_Generic_KeyValuePair_Create_TKey = typing.TypeVar("System_Collections_Generic_KeyValuePair_Create_TKey")
 System_Collections_Generic_KeyValuePair_Create_TValue = typing.TypeVar("System_Collections_Generic_KeyValuePair_Create_TValue")
-System_Collections_Generic_List_ConvertAll_TOutput = typing.TypeVar("System_Collections_Generic_List_ConvertAll_TOutput")
 System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey = typing.TypeVar("System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey")
 System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue = typing.TypeVar("System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue")
 System_Collections_Generic_CollectionExtensions_TryAdd_TKey = typing.TypeVar("System_Collections_Generic_CollectionExtensions_TryAdd_TKey")
@@ -76,353 +73,44 @@ System_Collections_Generic_CollectionExtensions_AsReadOnly_TValue = typing.TypeV
 System_Collections_Generic_CollectionExtensions_AddRange_T = typing.TypeVar("System_Collections_Generic_CollectionExtensions_AddRange_T")
 System_Collections_Generic_CollectionExtensions_InsertRange_T = typing.TypeVar("System_Collections_Generic_CollectionExtensions_InsertRange_T")
 System_Collections_Generic_CollectionExtensions_CopyTo_T = typing.TypeVar("System_Collections_Generic_CollectionExtensions_CopyTo_T")
+System_Collections_Generic_List_ConvertAll_TOutput = typing.TypeVar("System_Collections_Generic_List_ConvertAll_TOutput")
+System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate = typing.TypeVar("System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate")
+System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate = typing.TypeVar("System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate")
 System_Collections_Generic_Dictionary_GetAlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Generic_Dictionary_GetAlternateLookup_TAlternateKey")
 System_Collections_Generic_Dictionary_TryGetAlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Generic_Dictionary_TryGetAlternateLookup_TAlternateKey")
 
 
-class IDictionary(typing.Generic[System_Collections_Generic_IDictionary_TKey, System_Collections_Generic_IDictionary_TValue], System.Collections.Generic.ICollection[System.Collections.Generic.KeyValuePair[System_Collections_Generic_IDictionary_TKey, System_Collections_Generic_IDictionary_TValue]], metaclass=abc.ABCMeta):
+class ISet(typing.Generic[System_Collections_Generic_ISet_T], System.Collections.Generic.ICollection[System_Collections_Generic_ISet_T], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    @property
-    @abc.abstractmethod
-    def keys(self) -> System.Collections.Generic.ICollection[System_Collections_Generic_IDictionary_TKey]:
+    def except_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> None:
         ...
 
-    @property
-    @abc.abstractmethod
-    def values(self) -> System.Collections.Generic.ICollection[System_Collections_Generic_IDictionary_TValue]:
+    def intersect_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> None:
         ...
 
-    def __contains__(self, key: System_Collections_Generic_IDictionary_TKey) -> bool:
+    def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> bool:
         ...
 
-    def __getitem__(self, key: System_Collections_Generic_IDictionary_TKey) -> System_Collections_Generic_IDictionary_TValue:
+    def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> bool:
         ...
 
-    def __len__(self) -> int:
+    def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> bool:
         ...
 
-    def __setitem__(self, key: System_Collections_Generic_IDictionary_TKey, value: System_Collections_Generic_IDictionary_TValue) -> None:
+    def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> bool:
         ...
 
-    def add(self, key: System_Collections_Generic_IDictionary_TKey, value: System_Collections_Generic_IDictionary_TValue) -> None:
+    def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> bool:
         ...
 
-    def contains_key(self, key: System_Collections_Generic_IDictionary_TKey) -> bool:
+    def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> bool:
         ...
 
-    def remove(self, key: System_Collections_Generic_IDictionary_TKey) -> bool:
+    def symmetric_except_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> None:
         ...
 
-    def try_get_value(self, key: System_Collections_Generic_IDictionary_TKey, value: typing.Optional[System_Collections_Generic_IDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Generic_IDictionary_TValue]:
-        ...
-
-
-class _Typed_HashSet_GetAlternateLookup(typing.Generic[System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate]):
-    """"""
-
-    @overload
-    def __call__(self) -> System.Collections.Generic.HashSet.AlternateLookup[System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate]:
-        ...
-
-
-class _HashSet_GetAlternateLookup:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate]) -> System.Collections.Generic._Typed_HashSet_GetAlternateLookup[System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate]:
-        ...
-
-
-class _Typed_HashSet_TryGetAlternateLookup(typing.Generic[System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate]):
-    """"""
-
-    @overload
-    def __call__(self, lookup: typing.Optional[System.Collections.Generic.HashSet.AlternateLookup[System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate]]) -> typing.Tuple[bool, System.Collections.Generic.HashSet.AlternateLookup[System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate]]:
-        ...
-
-
-class _HashSet_TryGetAlternateLookup:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate]) -> System.Collections.Generic._Typed_HashSet_TryGetAlternateLookup[System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate]:
-        ...
-
-
-class HashSet(typing.Generic[System_Collections_Generic_HashSet_T], System.Object, System.Collections.Generic.ISet[System_Collections_Generic_HashSet_T], System.Collections.Generic.IReadOnlySet[System_Collections_Generic_HashSet_T], System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback, typing.Iterable[System_Collections_Generic_HashSet_T]):
-    """This class has no documentation."""
-
-    class AlternateLookup(typing.Generic[System_Collections_Generic_HashSet_AlternateLookup_TAlternate]):
-        """This class has no documentation."""
-
-        @property
-        def set(self) -> System.Collections.Generic.HashSet[System_Collections_Generic_HashSet_T]:
-            ...
-
-        def __contains__(self, item: System_Collections_Generic_HashSet_AlternateLookup_TAlternate) -> bool:
-            ...
-
-        def __len__(self) -> int:
-            ...
-
-        def add(self, item: System_Collections_Generic_HashSet_AlternateLookup_TAlternate) -> bool:
-            ...
-
-        def contains(self, item: System_Collections_Generic_HashSet_AlternateLookup_TAlternate) -> bool:
-            ...
-
-        def remove(self, item: System_Collections_Generic_HashSet_AlternateLookup_TAlternate) -> bool:
-            ...
-
-        def try_get_value(self, equal_value: System_Collections_Generic_HashSet_AlternateLookup_TAlternate, actual_value: typing.Optional[System_Collections_Generic_HashSet_T]) -> typing.Tuple[bool, System_Collections_Generic_HashSet_T]:
-            ...
-
-    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Generic_HashSet_T]):
-        """This class has no documentation."""
-
-        @property
-        def current(self) -> System_Collections_Generic_HashSet_T:
-            ...
-
-        def dispose(self) -> None:
-            ...
-
-        def move_next(self) -> bool:
-            ...
-
-    @property
-    def count(self) -> int:
-        ...
-
-    @property
-    def capacity(self) -> int:
-        ...
-
-    @property
-    def comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Generic_HashSet_T]:
-        ...
-
-    @property
-    def get_alternate_lookup(self) -> System.Collections.Generic._HashSet_GetAlternateLookup:
-        ...
-
-    @property
-    def try_get_alternate_lookup(self) -> System.Collections.Generic._HashSet_TryGetAlternateLookup:
-        ...
-
-    def __contains__(self, item: System_Collections_Generic_HashSet_T) -> bool:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Generic_HashSet_T]) -> None:
-        ...
-
-    @overload
-    def __init__(self, capacity: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, collection: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> None:
-        ...
-
-    @overload
-    def __init__(self, collection: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T], comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Generic_HashSet_T]) -> None:
-        ...
-
-    @overload
-    def __init__(self, capacity: int, comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Generic_HashSet_T]) -> None:
-        ...
-
-    def __iter__(self) -> typing.Iterator[System_Collections_Generic_HashSet_T]:
-        ...
-
-    def __len__(self) -> int:
-        ...
-
-    def add(self, item: System_Collections_Generic_HashSet_T) -> bool:
-        ...
-
-    def clear(self) -> None:
-        ...
-
-    def contains(self, item: System_Collections_Generic_HashSet_T) -> bool:
-        ...
-
-    @overload
-    def copy_to(self, array: typing.List[System_Collections_Generic_HashSet_T]) -> None:
-        ...
-
-    @overload
-    def copy_to(self, array: typing.List[System_Collections_Generic_HashSet_T], array_index: int) -> None:
-        ...
-
-    @overload
-    def copy_to(self, array: typing.List[System_Collections_Generic_HashSet_T], array_index: int, count: int) -> None:
-        ...
-
-    @staticmethod
-    def create_set_comparer() -> System.Collections.Generic.IEqualityComparer[System.Collections.Generic.HashSet[System_Collections_Generic_HashSet_T]]:
-        ...
-
-    def ensure_capacity(self, capacity: int) -> int:
-        ...
-
-    def except_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> None:
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.HashSet.Enumerator:
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-    def intersect_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> None:
-        ...
-
-    def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> bool:
-        ...
-
-    def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> bool:
-        ...
-
-    def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> bool:
-        ...
-
-    def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> bool:
-        ...
-
-    def on_deserialization(self, sender: typing.Any) -> None:
-        ...
-
-    def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> bool:
-        ...
-
-    def remove(self, item: System_Collections_Generic_HashSet_T) -> bool:
-        ...
-
-    def remove_where(self, match: typing.Callable[[System_Collections_Generic_HashSet_T], bool]) -> int:
-        ...
-
-    def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> bool:
-        ...
-
-    def symmetric_except_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> None:
-        ...
-
-    @overload
-    def trim_excess(self) -> None:
-        ...
-
-    @overload
-    def trim_excess(self, capacity: int) -> None:
-        ...
-
-    def try_get_value(self, equal_value: System_Collections_Generic_HashSet_T, actual_value: typing.Optional[System_Collections_Generic_HashSet_T]) -> typing.Tuple[bool, System_Collections_Generic_HashSet_T]:
-        ...
-
-    def union_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> None:
-        ...
-
-
-class IAsyncEnumerator(typing.Generic[System_Collections_Generic_IAsyncEnumerator_T], System.IAsyncDisposable, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def current(self) -> System_Collections_Generic_IAsyncEnumerator_T:
-        ...
-
-    def move_next_async(self) -> System.Threading.Tasks.ValueTask[bool]:
-        ...
-
-
-class Comparer(typing.Generic[System_Collections_Generic_Comparer_T], System.Object, System.Collections.IComparer, System.Collections.Generic.IComparer[System_Collections_Generic_Comparer_T], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    DEFAULT: System.Collections.Generic.Comparer[System_Collections_Generic_Comparer_T]
-
-    def compare(self, x: System_Collections_Generic_Comparer_T, y: System_Collections_Generic_Comparer_T) -> int:
-        ...
-
-    @staticmethod
-    def create(comparison: typing.Callable[[System_Collections_Generic_Comparer_T, System_Collections_Generic_Comparer_T], int]) -> System.Collections.Generic.Comparer[System_Collections_Generic_Comparer_T]:
-        ...
-
-
-class GenericComparer(typing.Generic[System_Collections_Generic_GenericComparer_T], System.Collections.Generic.Comparer[System_Collections_Generic_GenericComparer_T]):
-    """This class has no documentation."""
-
-    def compare(self, x: System_Collections_Generic_GenericComparer_T, y: System_Collections_Generic_GenericComparer_T) -> int:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class NullableComparer(typing.Generic[System_Collections_Generic_NullableComparer_T], System.Collections.Generic.Comparer[typing.Optional[System_Collections_Generic_NullableComparer_T]], System.Runtime.Serialization.ISerializable):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-    def compare(self, x: typing.Optional[System_Collections_Generic_NullableComparer_T], y: typing.Optional[System_Collections_Generic_NullableComparer_T]) -> int:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
-
-class ObjectComparer(typing.Generic[System_Collections_Generic_ObjectComparer_T], System.Collections.Generic.Comparer[System_Collections_Generic_ObjectComparer_T]):
-    """This class has no documentation."""
-
-    def compare(self, x: System_Collections_Generic_ObjectComparer_T, y: System_Collections_Generic_ObjectComparer_T) -> int:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class IReadOnlyDictionary(typing.Generic[System_Collections_Generic_IReadOnlyDictionary_TKey, System_Collections_Generic_IReadOnlyDictionary_TValue], System.Collections.Generic.IReadOnlyCollection[System.Collections.Generic.KeyValuePair[System_Collections_Generic_IReadOnlyDictionary_TKey, System_Collections_Generic_IReadOnlyDictionary_TValue]], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def keys(self) -> typing.Iterable[System_Collections_Generic_IReadOnlyDictionary_TKey]:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def values(self) -> typing.Iterable[System_Collections_Generic_IReadOnlyDictionary_TValue]:
-        ...
-
-    def __contains__(self, key: System_Collections_Generic_IReadOnlyDictionary_TKey) -> bool:
-        ...
-
-    def __getitem__(self, key: System_Collections_Generic_IReadOnlyDictionary_TKey) -> System_Collections_Generic_IReadOnlyDictionary_TValue:
-        ...
-
-    def __len__(self) -> int:
-        ...
-
-    def contains_key(self, key: System_Collections_Generic_IReadOnlyDictionary_TKey) -> bool:
-        ...
-
-    def try_get_value(self, key: System_Collections_Generic_IReadOnlyDictionary_TKey, value: typing.Optional[System_Collections_Generic_IReadOnlyDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Generic_IReadOnlyDictionary_TValue]:
+    def union_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> None:
         ...
 
 
@@ -483,42 +171,139 @@ class IList(typing.Generic[System_Collections_Generic_IList_T], System.Collectio
         ...
 
 
-class IComparer(typing.Generic[System_Collections_Generic_IComparer_T], metaclass=abc.ABCMeta):
+class _Typed_CollectionExtensions_GetValueOrDefault(typing.Generic[System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey]):
+    """"""
+
+    @overload
+    def __call__(self, dictionary: System.Collections.Generic.IReadOnlyDictionary[System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey, System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue], key: System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey) -> System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue:
+        ...
+
+    @overload
+    def __call__(self, dictionary: System.Collections.Generic.IReadOnlyDictionary[System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey, System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue], key: System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey, default_value: System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue) -> System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue:
+        ...
+
+
+class _CollectionExtensions_GetValueOrDefault:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey]) -> System.Collections.Generic._Typed_CollectionExtensions_GetValueOrDefault[System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey]:
+        ...
+
+
+class _Typed_CollectionExtensions_TryAdd(typing.Generic[System_Collections_Generic_CollectionExtensions_TryAdd_TKey]):
+    """"""
+
+    @overload
+    def __call__(self, dictionary: System.Collections.Generic.IDictionary[System_Collections_Generic_CollectionExtensions_TryAdd_TKey, System_Collections_Generic_CollectionExtensions_TryAdd_TValue], key: System_Collections_Generic_CollectionExtensions_TryAdd_TKey, value: System_Collections_Generic_CollectionExtensions_TryAdd_TValue) -> bool:
+        ...
+
+
+class _CollectionExtensions_TryAdd:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_TryAdd_TKey]) -> System.Collections.Generic._Typed_CollectionExtensions_TryAdd[System_Collections_Generic_CollectionExtensions_TryAdd_TKey]:
+        ...
+
+
+class _Typed_CollectionExtensions_Remove(typing.Generic[System_Collections_Generic_CollectionExtensions_Remove_TKey]):
+    """"""
+
+    @overload
+    def __call__(self, dictionary: System.Collections.Generic.IDictionary[System_Collections_Generic_CollectionExtensions_Remove_TKey, System_Collections_Generic_CollectionExtensions_Remove_TValue], key: System_Collections_Generic_CollectionExtensions_Remove_TKey, value: typing.Optional[System_Collections_Generic_CollectionExtensions_Remove_TValue]) -> typing.Tuple[bool, System_Collections_Generic_CollectionExtensions_Remove_TValue]:
+        ...
+
+
+class _CollectionExtensions_Remove:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_Remove_TKey]) -> System.Collections.Generic._Typed_CollectionExtensions_Remove[System_Collections_Generic_CollectionExtensions_Remove_TKey]:
+        ...
+
+
+class _Typed_CollectionExtensions_AsReadOnly(typing.Generic[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]):
+    """"""
+
+    @overload
+    def __call__(self, list: System.Collections.Generic.IList[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]) -> System.Collections.ObjectModel.ReadOnlyCollection[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]:
+        ...
+
+    @overload
+    def __call__(self, set: System.Collections.Generic.ISet[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]) -> System.Collections.ObjectModel.ReadOnlySet[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]:
+        ...
+
+    @overload
+    def __call__(self, dictionary: System.Collections.Generic.IDictionary[System_Collections_Generic_CollectionExtensions_AsReadOnly_TKey, System_Collections_Generic_CollectionExtensions_AsReadOnly_TValue]) -> System.Collections.ObjectModel.ReadOnlyDictionary[System_Collections_Generic_CollectionExtensions_AsReadOnly_TKey, System_Collections_Generic_CollectionExtensions_AsReadOnly_TValue]:
+        ...
+
+
+class _CollectionExtensions_AsReadOnly:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]) -> System.Collections.Generic._Typed_CollectionExtensions_AsReadOnly[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]:
+        ...
+
+
+class _Typed_CollectionExtensions_AddRange(typing.Generic[System_Collections_Generic_CollectionExtensions_AddRange_T]):
+    """"""
+
+    @overload
+    def __call__(self, list: System.Collections.Generic.List[System_Collections_Generic_CollectionExtensions_AddRange_T], *source: typing.Union[System_Collections_Generic_CollectionExtensions_AddRange_T, typing.Iterable[System_Collections_Generic_CollectionExtensions_AddRange_T]]) -> None:
+        ...
+
+
+class _CollectionExtensions_AddRange:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_AddRange_T]) -> System.Collections.Generic._Typed_CollectionExtensions_AddRange[System_Collections_Generic_CollectionExtensions_AddRange_T]:
+        ...
+
+
+class _Typed_CollectionExtensions_InsertRange(typing.Generic[System_Collections_Generic_CollectionExtensions_InsertRange_T]):
+    """"""
+
+    @overload
+    def __call__(self, list: System.Collections.Generic.List[System_Collections_Generic_CollectionExtensions_InsertRange_T], index: int, *source: typing.Union[System_Collections_Generic_CollectionExtensions_InsertRange_T, typing.Iterable[System_Collections_Generic_CollectionExtensions_InsertRange_T]]) -> None:
+        ...
+
+
+class _CollectionExtensions_InsertRange:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_InsertRange_T]) -> System.Collections.Generic._Typed_CollectionExtensions_InsertRange[System_Collections_Generic_CollectionExtensions_InsertRange_T]:
+        ...
+
+
+class _Typed_CollectionExtensions_CopyTo(typing.Generic[System_Collections_Generic_CollectionExtensions_CopyTo_T]):
+    """"""
+
+    @overload
+    def __call__(self, list: System.Collections.Generic.List[System_Collections_Generic_CollectionExtensions_CopyTo_T], destination: System.Span[System_Collections_Generic_CollectionExtensions_CopyTo_T]) -> None:
+        ...
+
+
+class _CollectionExtensions_CopyTo:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_CopyTo_T]) -> System.Collections.Generic._Typed_CollectionExtensions_CopyTo[System_Collections_Generic_CollectionExtensions_CopyTo_T]:
+        ...
+
+
+class CollectionExtensions(System.Object):
     """This class has no documentation."""
 
-    def compare(self, x: System_Collections_Generic_IComparer_T, y: System_Collections_Generic_IComparer_T) -> int:
-        ...
+    get_value_or_default: System.Collections.Generic._CollectionExtensions_GetValueOrDefault
 
+    try_add: System.Collections.Generic._CollectionExtensions_TryAdd
 
-class IReadOnlySet(typing.Generic[System_Collections_Generic_IReadOnlySet_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Generic_IReadOnlySet_T], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
+    remove: System.Collections.Generic._CollectionExtensions_Remove
 
-    def __contains__(self, item: System_Collections_Generic_IReadOnlySet_T) -> bool:
-        ...
+    as_read_only: System.Collections.Generic._CollectionExtensions_AsReadOnly
 
-    def __len__(self) -> int:
-        ...
+    add_range: System.Collections.Generic._CollectionExtensions_AddRange
 
-    def contains(self, item: System_Collections_Generic_IReadOnlySet_T) -> bool:
-        ...
+    insert_range: System.Collections.Generic._CollectionExtensions_InsertRange
 
-    def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_IReadOnlySet_T]) -> bool:
-        ...
-
-    def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_IReadOnlySet_T]) -> bool:
-        ...
-
-    def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_IReadOnlySet_T]) -> bool:
-        ...
-
-    def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_IReadOnlySet_T]) -> bool:
-        ...
-
-    def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_IReadOnlySet_T]) -> bool:
-        ...
-
-    def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_IReadOnlySet_T]) -> bool:
-        ...
+    copy_to: System.Collections.Generic._CollectionExtensions_CopyTo
 
 
 class _Typed_List_ConvertAll(typing.Generic[System_Collections_Generic_List_ConvertAll_TOutput]):
@@ -761,125 +546,6 @@ class List(typing.Generic[System_Collections_Generic_List_T], System.Object, Sys
         ...
 
 
-class ICollection(typing.Generic[System_Collections_Generic_ICollection_T], System.Collections.Generic.IEnumerable[System_Collections_Generic_ICollection_T], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def count(self) -> int:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def is_read_only(self) -> bool:
-        ...
-
-    def __contains__(self, item: System_Collections_Generic_ICollection_T) -> bool:
-        ...
-
-    def __len__(self) -> int:
-        ...
-
-    def add(self, item: System_Collections_Generic_ICollection_T) -> None:
-        ...
-
-    def clear(self) -> None:
-        ...
-
-    def contains(self, item: System_Collections_Generic_ICollection_T) -> bool:
-        ...
-
-    def copy_to(self, array: typing.List[System_Collections_Generic_ICollection_T], array_index: int) -> None:
-        ...
-
-    def remove(self, item: System_Collections_Generic_ICollection_T) -> bool:
-        ...
-
-
-class IReadOnlyList(typing.Generic[System_Collections_Generic_IReadOnlyList_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Generic_IReadOnlyList_T], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __getitem__(self, index: int) -> System_Collections_Generic_IReadOnlyList_T:
-        ...
-
-
-class IEnumerable(typing.Generic[System_Collections_Generic_IEnumerable_T], System.Collections.IEnumerable, typing.Iterable[System_Collections_Generic_IEnumerable_T], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __iter__(self) -> typing.Iterator[System_Collections_Generic_IEnumerable_T]:
-        ...
-
-
-class IReadOnlyCollection(typing.Generic[System_Collections_Generic_IReadOnlyCollection_T], System.Collections.Generic.IEnumerable[System_Collections_Generic_IReadOnlyCollection_T], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def count(self) -> int:
-        ...
-
-    def __len__(self) -> int:
-        ...
-
-
-class NonRandomizedStringEqualityComparer(System.Object, System.Collections.Generic.IInternalStringEqualityComparer, System.Runtime.Serialization.ISerializable):
-    """This class has no documentation."""
-
-    def __init__(self, information: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-    def equals(self, x: str, y: str) -> bool:
-        ...
-
-    def get_hash_code(self, obj: str) -> int:
-        ...
-
-    @staticmethod
-    def get_string_comparer(comparer: typing.Any) -> System.Collections.Generic.IEqualityComparer[str]:
-        ...
-
-    def get_underlying_equality_comparer(self) -> System.Collections.Generic.IEqualityComparer[str]:
-        ...
-
-
-class IEnumerator(typing.Generic[System_Collections_Generic_IEnumerator_T], System.IDisposable, System.Collections.IEnumerator, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class ISet(typing.Generic[System_Collections_Generic_ISet_T], System.Collections.Generic.ICollection[System_Collections_Generic_ISet_T], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def except_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> None:
-        ...
-
-    def intersect_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> None:
-        ...
-
-    def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> bool:
-        ...
-
-    def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> bool:
-        ...
-
-    def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> bool:
-        ...
-
-    def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> bool:
-        ...
-
-    def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> bool:
-        ...
-
-    def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> bool:
-        ...
-
-    def symmetric_except_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> None:
-        ...
-
-    def union_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_ISet_T]) -> None:
-        ...
-
-
 class IEqualityComparer(typing.Generic[System_Collections_Generic_IEqualityComparer_T], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -890,165 +556,197 @@ class IEqualityComparer(typing.Generic[System_Collections_Generic_IEqualityCompa
         ...
 
 
-class KeyNotFoundException(System.SystemException):
+class EqualityComparer(typing.Generic[System_Collections_Generic_EqualityComparer_T], System.Object, System.Collections.IEqualityComparer, System.Collections.Generic.IEqualityComparer[System_Collections_Generic_EqualityComparer_T], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    DEFAULT: System.Collections.Generic.EqualityComparer[System_Collections_Generic_EqualityComparer_T]
+
+    @staticmethod
+    def create(equals: typing.Callable[[System_Collections_Generic_EqualityComparer_T, System_Collections_Generic_EqualityComparer_T], bool], get_hash_code: typing.Callable[[System_Collections_Generic_EqualityComparer_T], int] = None) -> System.Collections.Generic.EqualityComparer[System_Collections_Generic_EqualityComparer_T]:
+        ...
+
+    def equals(self, x: System_Collections_Generic_EqualityComparer_T, y: System_Collections_Generic_EqualityComparer_T) -> bool:
+        ...
+
+    def get_hash_code(self, obj: System_Collections_Generic_EqualityComparer_T) -> int:
+        ...
+
+
+class GenericEqualityComparer(typing.Generic[System_Collections_Generic_GenericEqualityComparer_T], System.Collections.Generic.EqualityComparer[System_Collections_Generic_GenericEqualityComparer_T]):
     """This class has no documentation."""
 
     @overload
+    def equals(self, x: System_Collections_Generic_GenericEqualityComparer_T, y: System_Collections_Generic_GenericEqualityComparer_T) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def get_hash_code(self, obj: System_Collections_Generic_GenericEqualityComparer_T) -> int:
+        ...
+
+    @overload
+    def get_hash_code(self) -> int:
+        ...
+
+
+class NullableEqualityComparer(typing.Generic[System_Collections_Generic_NullableEqualityComparer_T], System.Collections.Generic.EqualityComparer[typing.Optional[System_Collections_Generic_NullableEqualityComparer_T]], System.Runtime.Serialization.ISerializable):
+    """This class has no documentation."""
+
     def __init__(self) -> None:
         ...
 
     @overload
-    def __init__(self, message: str) -> None:
+    def equals(self, x: typing.Optional[System_Collections_Generic_NullableEqualityComparer_T], y: typing.Optional[System_Collections_Generic_NullableEqualityComparer_T]) -> bool:
         ...
 
     @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-
-class _Typed_CollectionExtensions_GetValueOrDefault(typing.Generic[System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey]):
-    """"""
-
-    @overload
-    def __call__(self, dictionary: System.Collections.Generic.IReadOnlyDictionary[System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey, System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue], key: System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey) -> System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue:
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     @overload
-    def __call__(self, dictionary: System.Collections.Generic.IReadOnlyDictionary[System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey, System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue], key: System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey, default_value: System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue) -> System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TValue:
-        ...
-
-
-class _CollectionExtensions_GetValueOrDefault:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey]) -> System.Collections.Generic._Typed_CollectionExtensions_GetValueOrDefault[System_Collections_Generic_CollectionExtensions_GetValueOrDefault_TKey]:
-        ...
-
-
-class _Typed_CollectionExtensions_TryAdd(typing.Generic[System_Collections_Generic_CollectionExtensions_TryAdd_TKey]):
-    """"""
-
-    @overload
-    def __call__(self, dictionary: System.Collections.Generic.IDictionary[System_Collections_Generic_CollectionExtensions_TryAdd_TKey, System_Collections_Generic_CollectionExtensions_TryAdd_TValue], key: System_Collections_Generic_CollectionExtensions_TryAdd_TKey, value: System_Collections_Generic_CollectionExtensions_TryAdd_TValue) -> bool:
-        ...
-
-
-class _CollectionExtensions_TryAdd:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_TryAdd_TKey]) -> System.Collections.Generic._Typed_CollectionExtensions_TryAdd[System_Collections_Generic_CollectionExtensions_TryAdd_TKey]:
-        ...
-
-
-class _Typed_CollectionExtensions_Remove(typing.Generic[System_Collections_Generic_CollectionExtensions_Remove_TKey]):
-    """"""
-
-    @overload
-    def __call__(self, dictionary: System.Collections.Generic.IDictionary[System_Collections_Generic_CollectionExtensions_Remove_TKey, System_Collections_Generic_CollectionExtensions_Remove_TValue], key: System_Collections_Generic_CollectionExtensions_Remove_TKey, value: typing.Optional[System_Collections_Generic_CollectionExtensions_Remove_TValue]) -> typing.Tuple[bool, System_Collections_Generic_CollectionExtensions_Remove_TValue]:
-        ...
-
-
-class _CollectionExtensions_Remove:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_Remove_TKey]) -> System.Collections.Generic._Typed_CollectionExtensions_Remove[System_Collections_Generic_CollectionExtensions_Remove_TKey]:
-        ...
-
-
-class _Typed_CollectionExtensions_AsReadOnly(typing.Generic[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]):
-    """"""
-
-    @overload
-    def __call__(self, list: System.Collections.Generic.IList[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]) -> System.Collections.ObjectModel.ReadOnlyCollection[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]:
+    def get_hash_code(self, obj: typing.Optional[System_Collections_Generic_NullableEqualityComparer_T]) -> int:
         ...
 
     @overload
-    def __call__(self, set: System.Collections.Generic.ISet[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]) -> System.Collections.ObjectModel.ReadOnlySet[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]:
+    def get_hash_code(self) -> int:
         ...
 
-    @overload
-    def __call__(self, dictionary: System.Collections.Generic.IDictionary[System_Collections_Generic_CollectionExtensions_AsReadOnly_TKey, System_Collections_Generic_CollectionExtensions_AsReadOnly_TValue]) -> System.Collections.ObjectModel.ReadOnlyDictionary[System_Collections_Generic_CollectionExtensions_AsReadOnly_TKey, System_Collections_Generic_CollectionExtensions_AsReadOnly_TValue]:
-        ...
-
-
-class _CollectionExtensions_AsReadOnly:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]) -> System.Collections.Generic._Typed_CollectionExtensions_AsReadOnly[System_Collections_Generic_CollectionExtensions_AsReadOnly_T]:
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
 
-class _Typed_CollectionExtensions_AddRange(typing.Generic[System_Collections_Generic_CollectionExtensions_AddRange_T]):
-    """"""
-
-    @overload
-    def __call__(self, list: System.Collections.Generic.List[System_Collections_Generic_CollectionExtensions_AddRange_T], *source: typing.Union[System_Collections_Generic_CollectionExtensions_AddRange_T, typing.Iterable[System_Collections_Generic_CollectionExtensions_AddRange_T]]) -> None:
-        ...
-
-
-class _CollectionExtensions_AddRange:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_AddRange_T]) -> System.Collections.Generic._Typed_CollectionExtensions_AddRange[System_Collections_Generic_CollectionExtensions_AddRange_T]:
-        ...
-
-
-class _Typed_CollectionExtensions_InsertRange(typing.Generic[System_Collections_Generic_CollectionExtensions_InsertRange_T]):
-    """"""
-
-    @overload
-    def __call__(self, list: System.Collections.Generic.List[System_Collections_Generic_CollectionExtensions_InsertRange_T], index: int, *source: typing.Union[System_Collections_Generic_CollectionExtensions_InsertRange_T, typing.Iterable[System_Collections_Generic_CollectionExtensions_InsertRange_T]]) -> None:
-        ...
-
-
-class _CollectionExtensions_InsertRange:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_InsertRange_T]) -> System.Collections.Generic._Typed_CollectionExtensions_InsertRange[System_Collections_Generic_CollectionExtensions_InsertRange_T]:
-        ...
-
-
-class _Typed_CollectionExtensions_CopyTo(typing.Generic[System_Collections_Generic_CollectionExtensions_CopyTo_T]):
-    """"""
-
-    @overload
-    def __call__(self, list: System.Collections.Generic.List[System_Collections_Generic_CollectionExtensions_CopyTo_T], destination: System.Span[System_Collections_Generic_CollectionExtensions_CopyTo_T]) -> None:
-        ...
-
-
-class _CollectionExtensions_CopyTo:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Generic_CollectionExtensions_CopyTo_T]) -> System.Collections.Generic._Typed_CollectionExtensions_CopyTo[System_Collections_Generic_CollectionExtensions_CopyTo_T]:
-        ...
-
-
-class CollectionExtensions(System.Object):
+class ObjectEqualityComparer(typing.Generic[System_Collections_Generic_ObjectEqualityComparer_T], System.Collections.Generic.EqualityComparer[System_Collections_Generic_ObjectEqualityComparer_T]):
     """This class has no documentation."""
 
-    get_value_or_default: System.Collections.Generic._CollectionExtensions_GetValueOrDefault
+    @overload
+    def equals(self, x: System_Collections_Generic_ObjectEqualityComparer_T, y: System_Collections_Generic_ObjectEqualityComparer_T) -> bool:
+        ...
 
-    try_add: System.Collections.Generic._CollectionExtensions_TryAdd
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
 
-    remove: System.Collections.Generic._CollectionExtensions_Remove
+    @overload
+    def get_hash_code(self, obj: System_Collections_Generic_ObjectEqualityComparer_T) -> int:
+        ...
 
-    as_read_only: System.Collections.Generic._CollectionExtensions_AsReadOnly
-
-    add_range: System.Collections.Generic._CollectionExtensions_AddRange
-
-    insert_range: System.Collections.Generic._CollectionExtensions_InsertRange
-
-    copy_to: System.Collections.Generic._CollectionExtensions_CopyTo
+    @overload
+    def get_hash_code(self) -> int:
+        ...
 
 
-class Queue(typing.Generic[System_Collections_Generic_Queue_T], System.Object, System.Collections.ICollection, System.Collections.Generic.IReadOnlyCollection[System_Collections_Generic_Queue_T], typing.Iterable[System_Collections_Generic_Queue_T]):
+class ByteEqualityComparer(System.Collections.Generic.EqualityComparer[int]):
     """This class has no documentation."""
 
-    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Generic_Queue_T]):
+    @overload
+    def equals(self, x: int, y: int) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def get_hash_code(self, b: int) -> int:
+        ...
+
+    @overload
+    def get_hash_code(self) -> int:
+        ...
+
+
+class EnumEqualityComparer(typing.Generic[System_Collections_Generic_EnumEqualityComparer_T], System.Collections.Generic.EqualityComparer[System_Collections_Generic_EnumEqualityComparer_T], System.Runtime.Serialization.ISerializable):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, x: System_Collections_Generic_EnumEqualityComparer_T, y: System_Collections_Generic_EnumEqualityComparer_T) -> bool:
+        ...
+
+    @overload
+    def get_hash_code(self, obj: System_Collections_Generic_EnumEqualityComparer_T) -> int:
+        ...
+
+    @overload
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        ...
+
+
+class _Typed_HashSet_GetAlternateLookup(typing.Generic[System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate]):
+    """"""
+
+    @overload
+    def __call__(self) -> System.Collections.Generic.HashSet.AlternateLookup[System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate]:
+        ...
+
+
+class _HashSet_GetAlternateLookup:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate]) -> System.Collections.Generic._Typed_HashSet_GetAlternateLookup[System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate]:
+        ...
+
+
+class _Typed_HashSet_TryGetAlternateLookup(typing.Generic[System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate]):
+    """"""
+
+    @overload
+    def __call__(self, lookup: typing.Optional[System.Collections.Generic.HashSet.AlternateLookup[System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate]]) -> typing.Tuple[bool, System.Collections.Generic.HashSet.AlternateLookup[System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate]]:
+        ...
+
+
+class _HashSet_TryGetAlternateLookup:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate]) -> System.Collections.Generic._Typed_HashSet_TryGetAlternateLookup[System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate]:
+        ...
+
+
+class HashSet(typing.Generic[System_Collections_Generic_HashSet_T], System.Object, System.Collections.Generic.ISet[System_Collections_Generic_HashSet_T], System.Collections.Generic.IReadOnlySet[System_Collections_Generic_HashSet_T], System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback, typing.Iterable[System_Collections_Generic_HashSet_T]):
+    """This class has no documentation."""
+
+    class AlternateLookup(typing.Generic[System_Collections_Generic_HashSet_AlternateLookup_TAlternate]):
         """This class has no documentation."""
 
         @property
-        def current(self) -> System_Collections_Generic_Queue_T:
+        def set(self) -> System.Collections.Generic.HashSet[System_Collections_Generic_HashSet_T]:
+            ...
+
+        def __contains__(self, item: System_Collections_Generic_HashSet_AlternateLookup_TAlternate) -> bool:
+            ...
+
+        def __len__(self) -> int:
+            ...
+
+        def add(self, item: System_Collections_Generic_HashSet_AlternateLookup_TAlternate) -> bool:
+            ...
+
+        def contains(self, item: System_Collections_Generic_HashSet_AlternateLookup_TAlternate) -> bool:
+            ...
+
+        def remove(self, item: System_Collections_Generic_HashSet_AlternateLookup_TAlternate) -> bool:
+            ...
+
+        def try_get_value(self, equal_value: System_Collections_Generic_HashSet_AlternateLookup_TAlternate, actual_value: typing.Optional[System_Collections_Generic_HashSet_T]) -> typing.Tuple[bool, System_Collections_Generic_HashSet_T]:
+            ...
+
+    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Generic_HashSet_T]):
+        """This class has no documentation."""
+
+        @property
+        def current(self) -> System_Collections_Generic_HashSet_T:
             ...
 
         def dispose(self) -> None:
@@ -1065,7 +763,19 @@ class Queue(typing.Generic[System_Collections_Generic_Queue_T], System.Object, S
     def capacity(self) -> int:
         ...
 
-    def __contains__(self, item: System_Collections_Generic_Queue_T) -> bool:
+    @property
+    def comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Generic_HashSet_T]:
+        ...
+
+    @property
+    def get_alternate_lookup(self) -> System.Collections.Generic._HashSet_GetAlternateLookup:
+        ...
+
+    @property
+    def try_get_alternate_lookup(self) -> System.Collections.Generic._HashSet_TryGetAlternateLookup:
+        ...
+
+    def __contains__(self, item: System_Collections_Generic_HashSet_T) -> bool:
         ...
 
     @overload
@@ -1073,44 +783,99 @@ class Queue(typing.Generic[System_Collections_Generic_Queue_T], System.Object, S
         ...
 
     @overload
+    def __init__(self, comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Generic_HashSet_T]) -> None:
+        ...
+
+    @overload
     def __init__(self, capacity: int) -> None:
         ...
 
     @overload
-    def __init__(self, collection: System.Collections.Generic.IEnumerable[System_Collections_Generic_Queue_T]) -> None:
+    def __init__(self, collection: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> None:
         ...
 
-    def __iter__(self) -> typing.Iterator[System_Collections_Generic_Queue_T]:
+    @overload
+    def __init__(self, collection: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T], comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Generic_HashSet_T]) -> None:
+        ...
+
+    @overload
+    def __init__(self, capacity: int, comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Generic_HashSet_T]) -> None:
+        ...
+
+    def __iter__(self) -> typing.Iterator[System_Collections_Generic_HashSet_T]:
         ...
 
     def __len__(self) -> int:
         ...
 
+    def add(self, item: System_Collections_Generic_HashSet_T) -> bool:
+        ...
+
     def clear(self) -> None:
         ...
 
-    def contains(self, item: System_Collections_Generic_Queue_T) -> bool:
+    def contains(self, item: System_Collections_Generic_HashSet_T) -> bool:
         ...
 
-    def copy_to(self, array: typing.List[System_Collections_Generic_Queue_T], array_index: int) -> None:
+    @overload
+    def copy_to(self, array: typing.List[System_Collections_Generic_HashSet_T]) -> None:
         ...
 
-    def dequeue(self) -> System_Collections_Generic_Queue_T:
+    @overload
+    def copy_to(self, array: typing.List[System_Collections_Generic_HashSet_T], array_index: int) -> None:
         ...
 
-    def enqueue(self, item: System_Collections_Generic_Queue_T) -> None:
+    @overload
+    def copy_to(self, array: typing.List[System_Collections_Generic_HashSet_T], array_index: int, count: int) -> None:
+        ...
+
+    @staticmethod
+    def create_set_comparer() -> System.Collections.Generic.IEqualityComparer[System.Collections.Generic.HashSet[System_Collections_Generic_HashSet_T]]:
         ...
 
     def ensure_capacity(self, capacity: int) -> int:
         ...
 
-    def get_enumerator(self) -> System.Collections.Generic.Queue.Enumerator:
+    def except_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> None:
         ...
 
-    def peek(self) -> System_Collections_Generic_Queue_T:
+    def get_enumerator(self) -> System.Collections.Generic.HashSet.Enumerator:
         ...
 
-    def to_array(self) -> typing.List[System_Collections_Generic_Queue_T]:
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    def intersect_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> None:
+        ...
+
+    def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> bool:
+        ...
+
+    def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> bool:
+        ...
+
+    def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> bool:
+        ...
+
+    def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> bool:
+        ...
+
+    def on_deserialization(self, sender: typing.Any) -> None:
+        ...
+
+    def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> bool:
+        ...
+
+    def remove(self, item: System_Collections_Generic_HashSet_T) -> bool:
+        ...
+
+    def remove_where(self, match: typing.Callable[[System_Collections_Generic_HashSet_T], bool]) -> int:
+        ...
+
+    def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> bool:
+        ...
+
+    def symmetric_except_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> None:
         ...
 
     @overload
@@ -1121,17 +886,22 @@ class Queue(typing.Generic[System_Collections_Generic_Queue_T], System.Object, S
     def trim_excess(self, capacity: int) -> None:
         ...
 
-    def try_dequeue(self, result: typing.Optional[System_Collections_Generic_Queue_T]) -> typing.Tuple[bool, System_Collections_Generic_Queue_T]:
+    def try_get_value(self, equal_value: System_Collections_Generic_HashSet_T, actual_value: typing.Optional[System_Collections_Generic_HashSet_T]) -> typing.Tuple[bool, System_Collections_Generic_HashSet_T]:
         ...
 
-    def try_peek(self, result: typing.Optional[System_Collections_Generic_Queue_T]) -> typing.Tuple[bool, System_Collections_Generic_Queue_T]:
+    def union_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_HashSet_T]) -> None:
         ...
 
 
-class IAsyncEnumerable(typing.Generic[System_Collections_Generic_IAsyncEnumerable_T], metaclass=abc.ABCMeta):
+class IReadOnlyCollection(typing.Generic[System_Collections_Generic_IReadOnlyCollection_T], System.Collections.Generic.IEnumerable[System_Collections_Generic_IReadOnlyCollection_T], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    def get_async_enumerator(self, cancellation_token: System.Threading.CancellationToken = ...) -> System.Collections.Generic.IAsyncEnumerator[System_Collections_Generic_IAsyncEnumerable_T]:
+    @property
+    @abc.abstractmethod
+    def count(self) -> int:
+        ...
+
+    def __len__(self) -> int:
         ...
 
 
@@ -1420,61 +1190,64 @@ class Dictionary(typing.Generic[System_Collections_Generic_Dictionary_TKey, Syst
         ...
 
 
-class EqualityComparer(typing.Generic[System_Collections_Generic_EqualityComparer_T], System.Object, System.Collections.IEqualityComparer, System.Collections.Generic.IEqualityComparer[System_Collections_Generic_EqualityComparer_T], metaclass=abc.ABCMeta):
+class NonRandomizedStringEqualityComparer(System.Object, System.Collections.Generic.IInternalStringEqualityComparer, System.Runtime.Serialization.ISerializable):
     """This class has no documentation."""
 
-    DEFAULT: System.Collections.Generic.EqualityComparer[System_Collections_Generic_EqualityComparer_T]
+    def __init__(self, information: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    def equals(self, x: str, y: str) -> bool:
+        ...
+
+    def get_hash_code(self, obj: str) -> int:
+        ...
 
     @staticmethod
-    def create(equals: typing.Callable[[System_Collections_Generic_EqualityComparer_T, System_Collections_Generic_EqualityComparer_T], bool], get_hash_code: typing.Callable[[System_Collections_Generic_EqualityComparer_T], int] = None) -> System.Collections.Generic.EqualityComparer[System_Collections_Generic_EqualityComparer_T]:
+    def get_string_comparer(comparer: typing.Any) -> System.Collections.Generic.IEqualityComparer[str]:
         ...
 
-    def equals(self, x: System_Collections_Generic_EqualityComparer_T, y: System_Collections_Generic_EqualityComparer_T) -> bool:
-        ...
-
-    def get_hash_code(self, obj: System_Collections_Generic_EqualityComparer_T) -> int:
+    def get_underlying_equality_comparer(self) -> System.Collections.Generic.IEqualityComparer[str]:
         ...
 
 
-class GenericEqualityComparer(typing.Generic[System_Collections_Generic_GenericEqualityComparer_T], System.Collections.Generic.EqualityComparer[System_Collections_Generic_GenericEqualityComparer_T]):
+class Comparer(typing.Generic[System_Collections_Generic_Comparer_T], System.Object, System.Collections.IComparer, System.Collections.Generic.IComparer[System_Collections_Generic_Comparer_T], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    @overload
-    def equals(self, x: System_Collections_Generic_GenericEqualityComparer_T, y: System_Collections_Generic_GenericEqualityComparer_T) -> bool:
+    DEFAULT: System.Collections.Generic.Comparer[System_Collections_Generic_Comparer_T]
+
+    def compare(self, x: System_Collections_Generic_Comparer_T, y: System_Collections_Generic_Comparer_T) -> int:
         ...
 
-    @overload
+    @staticmethod
+    def create(comparison: typing.Callable[[System_Collections_Generic_Comparer_T, System_Collections_Generic_Comparer_T], int]) -> System.Collections.Generic.Comparer[System_Collections_Generic_Comparer_T]:
+        ...
+
+
+class GenericComparer(typing.Generic[System_Collections_Generic_GenericComparer_T], System.Collections.Generic.Comparer[System_Collections_Generic_GenericComparer_T]):
+    """This class has no documentation."""
+
+    def compare(self, x: System_Collections_Generic_GenericComparer_T, y: System_Collections_Generic_GenericComparer_T) -> int:
+        ...
+
     def equals(self, obj: typing.Any) -> bool:
         ...
 
-    @overload
-    def get_hash_code(self, obj: System_Collections_Generic_GenericEqualityComparer_T) -> int:
-        ...
-
-    @overload
     def get_hash_code(self) -> int:
         ...
 
 
-class NullableEqualityComparer(typing.Generic[System_Collections_Generic_NullableEqualityComparer_T], System.Collections.Generic.EqualityComparer[typing.Optional[System_Collections_Generic_NullableEqualityComparer_T]], System.Runtime.Serialization.ISerializable):
+class NullableComparer(typing.Generic[System_Collections_Generic_NullableComparer_T], System.Collections.Generic.Comparer[typing.Optional[System_Collections_Generic_NullableComparer_T]], System.Runtime.Serialization.ISerializable):
     """This class has no documentation."""
 
     def __init__(self) -> None:
         ...
 
-    @overload
-    def equals(self, x: typing.Optional[System_Collections_Generic_NullableEqualityComparer_T], y: typing.Optional[System_Collections_Generic_NullableEqualityComparer_T]) -> bool:
+    def compare(self, x: typing.Optional[System_Collections_Generic_NullableComparer_T], y: typing.Optional[System_Collections_Generic_NullableComparer_T]) -> int:
         ...
 
-    @overload
     def equals(self, obj: typing.Any) -> bool:
         ...
 
-    @overload
-    def get_hash_code(self, obj: typing.Optional[System_Collections_Generic_NullableEqualityComparer_T]) -> int:
-        ...
-
-    @overload
     def get_hash_code(self) -> int:
         ...
 
@@ -1482,69 +1255,34 @@ class NullableEqualityComparer(typing.Generic[System_Collections_Generic_Nullabl
         ...
 
 
-class ObjectEqualityComparer(typing.Generic[System_Collections_Generic_ObjectEqualityComparer_T], System.Collections.Generic.EqualityComparer[System_Collections_Generic_ObjectEqualityComparer_T]):
+class ObjectComparer(typing.Generic[System_Collections_Generic_ObjectComparer_T], System.Collections.Generic.Comparer[System_Collections_Generic_ObjectComparer_T]):
     """This class has no documentation."""
 
-    @overload
-    def equals(self, x: System_Collections_Generic_ObjectEqualityComparer_T, y: System_Collections_Generic_ObjectEqualityComparer_T) -> bool:
+    def compare(self, x: System_Collections_Generic_ObjectComparer_T, y: System_Collections_Generic_ObjectComparer_T) -> int:
         ...
 
-    @overload
     def equals(self, obj: typing.Any) -> bool:
         ...
 
-    @overload
-    def get_hash_code(self, obj: System_Collections_Generic_ObjectEqualityComparer_T) -> int:
-        ...
-
-    @overload
     def get_hash_code(self) -> int:
         ...
 
 
-class ByteEqualityComparer(System.Collections.Generic.EqualityComparer[int]):
+class IEnumerator(typing.Generic[System_Collections_Generic_IEnumerator_T], System.IDisposable, System.Collections.IEnumerator, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    @overload
-    def equals(self, x: int, y: int) -> bool:
-        ...
 
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def get_hash_code(self, b: int) -> int:
-        ...
-
-    @overload
-    def get_hash_code(self) -> int:
-        ...
-
-
-class EnumEqualityComparer(typing.Generic[System_Collections_Generic_EnumEqualityComparer_T], System.Collections.Generic.EqualityComparer[System_Collections_Generic_EnumEqualityComparer_T], System.Runtime.Serialization.ISerializable):
+class IComparer(typing.Generic[System_Collections_Generic_IComparer_T], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    def __init__(self) -> None:
+    def compare(self, x: System_Collections_Generic_IComparer_T, y: System_Collections_Generic_IComparer_T) -> int:
         ...
 
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
 
-    @overload
-    def equals(self, x: System_Collections_Generic_EnumEqualityComparer_T, y: System_Collections_Generic_EnumEqualityComparer_T) -> bool:
-        ...
+class IReadOnlyList(typing.Generic[System_Collections_Generic_IReadOnlyList_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Generic_IReadOnlyList_T], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
 
-    @overload
-    def get_hash_code(self, obj: System_Collections_Generic_EnumEqualityComparer_T) -> int:
-        ...
-
-    @overload
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+    def __getitem__(self, index: int) -> System_Collections_Generic_IReadOnlyList_T:
         ...
 
 
@@ -1558,6 +1296,616 @@ class IAlternateEqualityComparer(typing.Generic[System_Collections_Generic_IAlte
         ...
 
     def get_hash_code(self, alternate: System_Collections_Generic_IAlternateEqualityComparer_TAlternate) -> int:
+        ...
+
+
+class IReadOnlyDictionary(typing.Generic[System_Collections_Generic_IReadOnlyDictionary_TKey, System_Collections_Generic_IReadOnlyDictionary_TValue], System.Collections.Generic.IReadOnlyCollection[System.Collections.Generic.KeyValuePair[System_Collections_Generic_IReadOnlyDictionary_TKey, System_Collections_Generic_IReadOnlyDictionary_TValue]], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def keys(self) -> typing.Iterable[System_Collections_Generic_IReadOnlyDictionary_TKey]:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def values(self) -> typing.Iterable[System_Collections_Generic_IReadOnlyDictionary_TValue]:
+        ...
+
+    def __contains__(self, key: System_Collections_Generic_IReadOnlyDictionary_TKey) -> bool:
+        ...
+
+    def __getitem__(self, key: System_Collections_Generic_IReadOnlyDictionary_TKey) -> System_Collections_Generic_IReadOnlyDictionary_TValue:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def contains_key(self, key: System_Collections_Generic_IReadOnlyDictionary_TKey) -> bool:
+        ...
+
+    def try_get_value(self, key: System_Collections_Generic_IReadOnlyDictionary_TKey, value: typing.Optional[System_Collections_Generic_IReadOnlyDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Generic_IReadOnlyDictionary_TValue]:
+        ...
+
+
+class Queue(typing.Generic[System_Collections_Generic_Queue_T], System.Object, System.Collections.ICollection, System.Collections.Generic.IReadOnlyCollection[System_Collections_Generic_Queue_T], typing.Iterable[System_Collections_Generic_Queue_T]):
+    """This class has no documentation."""
+
+    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Generic_Queue_T]):
+        """This class has no documentation."""
+
+        @property
+        def current(self) -> System_Collections_Generic_Queue_T:
+            ...
+
+        def dispose(self) -> None:
+            ...
+
+        def move_next(self) -> bool:
+            ...
+
+    @property
+    def count(self) -> int:
+        ...
+
+    @property
+    def capacity(self) -> int:
+        ...
+
+    def __contains__(self, item: System_Collections_Generic_Queue_T) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, capacity: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, collection: System.Collections.Generic.IEnumerable[System_Collections_Generic_Queue_T]) -> None:
+        ...
+
+    def __iter__(self) -> typing.Iterator[System_Collections_Generic_Queue_T]:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def contains(self, item: System_Collections_Generic_Queue_T) -> bool:
+        ...
+
+    def copy_to(self, array: typing.List[System_Collections_Generic_Queue_T], array_index: int) -> None:
+        ...
+
+    def dequeue(self) -> System_Collections_Generic_Queue_T:
+        ...
+
+    def enqueue(self, item: System_Collections_Generic_Queue_T) -> None:
+        ...
+
+    def ensure_capacity(self, capacity: int) -> int:
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.Queue.Enumerator:
+        ...
+
+    def peek(self) -> System_Collections_Generic_Queue_T:
+        ...
+
+    def to_array(self) -> typing.List[System_Collections_Generic_Queue_T]:
+        ...
+
+    @overload
+    def trim_excess(self) -> None:
+        ...
+
+    @overload
+    def trim_excess(self, capacity: int) -> None:
+        ...
+
+    def try_dequeue(self, result: typing.Optional[System_Collections_Generic_Queue_T]) -> typing.Tuple[bool, System_Collections_Generic_Queue_T]:
+        ...
+
+    def try_peek(self, result: typing.Optional[System_Collections_Generic_Queue_T]) -> typing.Tuple[bool, System_Collections_Generic_Queue_T]:
+        ...
+
+
+class IAsyncEnumerable(typing.Generic[System_Collections_Generic_IAsyncEnumerable_T], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_async_enumerator(self, cancellation_token: System.Threading.CancellationToken = ...) -> System.Collections.Generic.IAsyncEnumerator[System_Collections_Generic_IAsyncEnumerable_T]:
+        ...
+
+
+class ICollection(typing.Generic[System_Collections_Generic_ICollection_T], System.Collections.Generic.IEnumerable[System_Collections_Generic_ICollection_T], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def count(self) -> int:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def is_read_only(self) -> bool:
+        ...
+
+    def __contains__(self, item: System_Collections_Generic_ICollection_T) -> bool:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def add(self, item: System_Collections_Generic_ICollection_T) -> None:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def contains(self, item: System_Collections_Generic_ICollection_T) -> bool:
+        ...
+
+    def copy_to(self, array: typing.List[System_Collections_Generic_ICollection_T], array_index: int) -> None:
+        ...
+
+    def remove(self, item: System_Collections_Generic_ICollection_T) -> bool:
+        ...
+
+
+class IDictionary(typing.Generic[System_Collections_Generic_IDictionary_TKey, System_Collections_Generic_IDictionary_TValue], System.Collections.Generic.ICollection[System.Collections.Generic.KeyValuePair[System_Collections_Generic_IDictionary_TKey, System_Collections_Generic_IDictionary_TValue]], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def keys(self) -> System.Collections.Generic.ICollection[System_Collections_Generic_IDictionary_TKey]:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def values(self) -> System.Collections.Generic.ICollection[System_Collections_Generic_IDictionary_TValue]:
+        ...
+
+    def __contains__(self, key: System_Collections_Generic_IDictionary_TKey) -> bool:
+        ...
+
+    def __getitem__(self, key: System_Collections_Generic_IDictionary_TKey) -> System_Collections_Generic_IDictionary_TValue:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def __setitem__(self, key: System_Collections_Generic_IDictionary_TKey, value: System_Collections_Generic_IDictionary_TValue) -> None:
+        ...
+
+    def add(self, key: System_Collections_Generic_IDictionary_TKey, value: System_Collections_Generic_IDictionary_TValue) -> None:
+        ...
+
+    def contains_key(self, key: System_Collections_Generic_IDictionary_TKey) -> bool:
+        ...
+
+    def remove(self, key: System_Collections_Generic_IDictionary_TKey) -> bool:
+        ...
+
+    def try_get_value(self, key: System_Collections_Generic_IDictionary_TKey, value: typing.Optional[System_Collections_Generic_IDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Generic_IDictionary_TValue]:
+        ...
+
+
+class IEnumerable(typing.Generic[System_Collections_Generic_IEnumerable_T], System.Collections.IEnumerable, typing.Iterable[System_Collections_Generic_IEnumerable_T], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __iter__(self) -> typing.Iterator[System_Collections_Generic_IEnumerable_T]:
+        ...
+
+
+class IReadOnlySet(typing.Generic[System_Collections_Generic_IReadOnlySet_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Generic_IReadOnlySet_T], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __contains__(self, item: System_Collections_Generic_IReadOnlySet_T) -> bool:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def contains(self, item: System_Collections_Generic_IReadOnlySet_T) -> bool:
+        ...
+
+    def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_IReadOnlySet_T]) -> bool:
+        ...
+
+    def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_IReadOnlySet_T]) -> bool:
+        ...
+
+    def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_IReadOnlySet_T]) -> bool:
+        ...
+
+    def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_IReadOnlySet_T]) -> bool:
+        ...
+
+    def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_IReadOnlySet_T]) -> bool:
+        ...
+
+    def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_IReadOnlySet_T]) -> bool:
+        ...
+
+
+class KeyNotFoundException(System.SystemException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+
+class IAsyncEnumerator(typing.Generic[System_Collections_Generic_IAsyncEnumerator_T], System.IAsyncDisposable, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def current(self) -> System_Collections_Generic_IAsyncEnumerator_T:
+        ...
+
+    def move_next_async(self) -> System.Threading.Tasks.ValueTask[bool]:
+        ...
+
+
+class PriorityQueue(typing.Generic[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority], System.Object):
+    """This class has no documentation."""
+
+    class UnorderedItemsCollection(System.Object, System.Collections.Generic.IReadOnlyCollection[System.ValueTuple[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]], System.Collections.ICollection, typing.Iterable[System.ValueTuple[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]]):
+        """This class has no documentation."""
+
+        class Enumerator(System.Collections.Generic.IEnumerator[System.ValueTuple[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]]):
+            """This class has no documentation."""
+
+            @property
+            def current(self) -> System.ValueTuple[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]:
+                ...
+
+            def dispose(self) -> None:
+                ...
+
+            def move_next(self) -> bool:
+                ...
+
+        @property
+        def count(self) -> int:
+            ...
+
+        def __iter__(self) -> typing.Iterator[System.ValueTuple[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]]:
+            ...
+
+        def __len__(self) -> int:
+            ...
+
+        def get_enumerator(self) -> System.Collections.Generic.PriorityQueue.UnorderedItemsCollection.Enumerator:
+            ...
+
+    @property
+    def count(self) -> int:
+        ...
+
+    @property
+    def capacity(self) -> int:
+        ...
+
+    @property
+    def comparer(self) -> System.Collections.Generic.IComparer[System_Collections_Generic_PriorityQueue_TPriority]:
+        ...
+
+    @property
+    def unordered_items(self) -> System.Collections.Generic.PriorityQueue.UnorderedItemsCollection:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, initial_capacity: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, comparer: System.Collections.Generic.IComparer[System_Collections_Generic_PriorityQueue_TPriority]) -> None:
+        ...
+
+    @overload
+    def __init__(self, initial_capacity: int, comparer: System.Collections.Generic.IComparer[System_Collections_Generic_PriorityQueue_TPriority]) -> None:
+        ...
+
+    @overload
+    def __init__(self, items: System.Collections.Generic.IEnumerable[System.ValueTuple[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]]) -> None:
+        ...
+
+    @overload
+    def __init__(self, items: System.Collections.Generic.IEnumerable[System.ValueTuple[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]], comparer: System.Collections.Generic.IComparer[System_Collections_Generic_PriorityQueue_TPriority]) -> None:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def dequeue(self) -> System_Collections_Generic_PriorityQueue_TElement:
+        ...
+
+    def dequeue_enqueue(self, element: System_Collections_Generic_PriorityQueue_TElement, priority: System_Collections_Generic_PriorityQueue_TPriority) -> System_Collections_Generic_PriorityQueue_TElement:
+        ...
+
+    def enqueue(self, element: System_Collections_Generic_PriorityQueue_TElement, priority: System_Collections_Generic_PriorityQueue_TPriority) -> None:
+        ...
+
+    def enqueue_dequeue(self, element: System_Collections_Generic_PriorityQueue_TElement, priority: System_Collections_Generic_PriorityQueue_TPriority) -> System_Collections_Generic_PriorityQueue_TElement:
+        ...
+
+    @overload
+    def enqueue_range(self, items: System.Collections.Generic.IEnumerable[System.ValueTuple[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]]) -> None:
+        ...
+
+    @overload
+    def enqueue_range(self, elements: System.Collections.Generic.IEnumerable[System_Collections_Generic_PriorityQueue_TElement], priority: System_Collections_Generic_PriorityQueue_TPriority) -> None:
+        ...
+
+    def ensure_capacity(self, capacity: int) -> int:
+        ...
+
+    def peek(self) -> System_Collections_Generic_PriorityQueue_TElement:
+        ...
+
+    def remove(self, element: System_Collections_Generic_PriorityQueue_TElement, removed_element: typing.Optional[System_Collections_Generic_PriorityQueue_TElement], priority: typing.Optional[System_Collections_Generic_PriorityQueue_TPriority], equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Generic_PriorityQueue_TElement] = None) -> typing.Tuple[bool, System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]:
+        ...
+
+    def trim_excess(self) -> None:
+        ...
+
+    def try_dequeue(self, element: typing.Optional[System_Collections_Generic_PriorityQueue_TElement], priority: typing.Optional[System_Collections_Generic_PriorityQueue_TPriority]) -> typing.Tuple[bool, System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]:
+        ...
+
+    def try_peek(self, element: typing.Optional[System_Collections_Generic_PriorityQueue_TElement], priority: typing.Optional[System_Collections_Generic_PriorityQueue_TPriority]) -> typing.Tuple[bool, System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]:
+        ...
+
+
+class Stack(typing.Generic[System_Collections_Generic_Stack_T], System.Object, System.Collections.ICollection, System.Collections.Generic.IReadOnlyCollection[System_Collections_Generic_Stack_T], typing.Iterable[System_Collections_Generic_Stack_T]):
+    """This class has no documentation."""
+
+    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Generic_Stack_T]):
+        """This class has no documentation."""
+
+        @property
+        def current(self) -> System_Collections_Generic_Stack_T:
+            ...
+
+        def dispose(self) -> None:
+            ...
+
+        def move_next(self) -> bool:
+            ...
+
+    @property
+    def count(self) -> int:
+        ...
+
+    @property
+    def capacity(self) -> int:
+        ...
+
+    def __contains__(self, item: System_Collections_Generic_Stack_T) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, capacity: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, collection: System.Collections.Generic.IEnumerable[System_Collections_Generic_Stack_T]) -> None:
+        ...
+
+    def __iter__(self) -> typing.Iterator[System_Collections_Generic_Stack_T]:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def contains(self, item: System_Collections_Generic_Stack_T) -> bool:
+        ...
+
+    def copy_to(self, array: typing.List[System_Collections_Generic_Stack_T], array_index: int) -> None:
+        ...
+
+    def ensure_capacity(self, capacity: int) -> int:
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.Stack.Enumerator:
+        ...
+
+    def peek(self) -> System_Collections_Generic_Stack_T:
+        ...
+
+    def pop(self) -> System_Collections_Generic_Stack_T:
+        ...
+
+    def push(self, item: System_Collections_Generic_Stack_T) -> None:
+        ...
+
+    def to_array(self) -> typing.List[System_Collections_Generic_Stack_T]:
+        ...
+
+    @overload
+    def trim_excess(self) -> None:
+        ...
+
+    @overload
+    def trim_excess(self, capacity: int) -> None:
+        ...
+
+    def try_peek(self, result: typing.Optional[System_Collections_Generic_Stack_T]) -> typing.Tuple[bool, System_Collections_Generic_Stack_T]:
+        ...
+
+    def try_pop(self, result: typing.Optional[System_Collections_Generic_Stack_T]) -> typing.Tuple[bool, System_Collections_Generic_Stack_T]:
+        ...
+
+
+class LinkedList(typing.Generic[System_Collections_Generic_LinkedList_T], System.Object, System.Collections.Generic.ICollection[System_Collections_Generic_LinkedList_T], System.Collections.ICollection, System.Collections.Generic.IReadOnlyCollection[System_Collections_Generic_LinkedList_T], System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback, typing.Iterable[System_Collections_Generic_LinkedList_T]):
+    """This class has no documentation."""
+
+    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Generic_LinkedList_T], System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback):
+        """This class has no documentation."""
+
+        @property
+        def current(self) -> System_Collections_Generic_LinkedList_T:
+            ...
+
+        def dispose(self) -> None:
+            ...
+
+        def move_next(self) -> bool:
+            ...
+
+    @property
+    def count(self) -> int:
+        ...
+
+    @property
+    def first(self) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]:
+        ...
+
+    @property
+    def last(self) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]:
+        ...
+
+    def __contains__(self, value: System_Collections_Generic_LinkedList_T) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, collection: System.Collections.Generic.IEnumerable[System_Collections_Generic_LinkedList_T]) -> None:
+        ...
+
+    def __iter__(self) -> typing.Iterator[System_Collections_Generic_LinkedList_T]:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    @overload
+    def add_after(self, node: System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T], value: System_Collections_Generic_LinkedList_T) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]:
+        ...
+
+    @overload
+    def add_after(self, node: System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T], new_node: System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]) -> None:
+        ...
+
+    @overload
+    def add_before(self, node: System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T], value: System_Collections_Generic_LinkedList_T) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]:
+        ...
+
+    @overload
+    def add_before(self, node: System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T], new_node: System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]) -> None:
+        ...
+
+    @overload
+    def add_first(self, value: System_Collections_Generic_LinkedList_T) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]:
+        ...
+
+    @overload
+    def add_first(self, node: System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]) -> None:
+        ...
+
+    @overload
+    def add_last(self, value: System_Collections_Generic_LinkedList_T) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]:
+        ...
+
+    @overload
+    def add_last(self, node: System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]) -> None:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def contains(self, value: System_Collections_Generic_LinkedList_T) -> bool:
+        ...
+
+    def copy_to(self, array: typing.List[System_Collections_Generic_LinkedList_T], index: int) -> None:
+        ...
+
+    def find(self, value: System_Collections_Generic_LinkedList_T) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]:
+        ...
+
+    def find_last(self, value: System_Collections_Generic_LinkedList_T) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]:
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.LinkedList.Enumerator:
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    def on_deserialization(self, sender: typing.Any) -> None:
+        ...
+
+    @overload
+    def remove(self, value: System_Collections_Generic_LinkedList_T) -> bool:
+        ...
+
+    @overload
+    def remove(self, node: System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]) -> None:
+        ...
+
+    def remove_first(self) -> None:
+        ...
+
+    def remove_last(self) -> None:
+        ...
+
+
+class LinkedListNode(typing.Generic[System_Collections_Generic_LinkedListNode_T], System.Object):
+    """This class has no documentation."""
+
+    @property
+    def list(self) -> System.Collections.Generic.LinkedList[System_Collections_Generic_LinkedListNode_T]:
+        ...
+
+    @property
+    def next(self) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedListNode_T]:
+        ...
+
+    @property
+    def previous(self) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedListNode_T]:
+        ...
+
+    @property
+    def value(self) -> System_Collections_Generic_LinkedListNode_T:
+        ...
+
+    @value.setter
+    def value(self, value: System_Collections_Generic_LinkedListNode_T) -> None:
+        ...
+
+    @property
+    def value_ref(self) -> typing.Any:
+        ...
+
+    def __init__(self, value: System_Collections_Generic_LinkedListNode_T) -> None:
         ...
 
 
@@ -1701,120 +2049,6 @@ class SortedSet(typing.Generic[System_Collections_Generic_SortedSet_T], System.O
         ...
 
     def union_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Generic_SortedSet_T]) -> None:
-        ...
-
-
-class PriorityQueue(typing.Generic[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority], System.Object):
-    """This class has no documentation."""
-
-    class UnorderedItemsCollection(System.Object, System.Collections.Generic.IReadOnlyCollection[System.ValueTuple[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]], System.Collections.ICollection, typing.Iterable[System.ValueTuple[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]]):
-        """This class has no documentation."""
-
-        class Enumerator(System.Collections.Generic.IEnumerator[System.ValueTuple[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]]):
-            """This class has no documentation."""
-
-            @property
-            def current(self) -> System.ValueTuple[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]:
-                ...
-
-            def dispose(self) -> None:
-                ...
-
-            def move_next(self) -> bool:
-                ...
-
-        @property
-        def count(self) -> int:
-            ...
-
-        def __iter__(self) -> typing.Iterator[System.ValueTuple[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]]:
-            ...
-
-        def __len__(self) -> int:
-            ...
-
-        def get_enumerator(self) -> System.Collections.Generic.PriorityQueue.UnorderedItemsCollection.Enumerator:
-            ...
-
-    @property
-    def count(self) -> int:
-        ...
-
-    @property
-    def capacity(self) -> int:
-        ...
-
-    @property
-    def comparer(self) -> System.Collections.Generic.IComparer[System_Collections_Generic_PriorityQueue_TPriority]:
-        ...
-
-    @property
-    def unordered_items(self) -> System.Collections.Generic.PriorityQueue.UnorderedItemsCollection:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, initial_capacity: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, comparer: System.Collections.Generic.IComparer[System_Collections_Generic_PriorityQueue_TPriority]) -> None:
-        ...
-
-    @overload
-    def __init__(self, initial_capacity: int, comparer: System.Collections.Generic.IComparer[System_Collections_Generic_PriorityQueue_TPriority]) -> None:
-        ...
-
-    @overload
-    def __init__(self, items: System.Collections.Generic.IEnumerable[System.ValueTuple[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]]) -> None:
-        ...
-
-    @overload
-    def __init__(self, items: System.Collections.Generic.IEnumerable[System.ValueTuple[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]], comparer: System.Collections.Generic.IComparer[System_Collections_Generic_PriorityQueue_TPriority]) -> None:
-        ...
-
-    def clear(self) -> None:
-        ...
-
-    def dequeue(self) -> System_Collections_Generic_PriorityQueue_TElement:
-        ...
-
-    def dequeue_enqueue(self, element: System_Collections_Generic_PriorityQueue_TElement, priority: System_Collections_Generic_PriorityQueue_TPriority) -> System_Collections_Generic_PriorityQueue_TElement:
-        ...
-
-    def enqueue(self, element: System_Collections_Generic_PriorityQueue_TElement, priority: System_Collections_Generic_PriorityQueue_TPriority) -> None:
-        ...
-
-    def enqueue_dequeue(self, element: System_Collections_Generic_PriorityQueue_TElement, priority: System_Collections_Generic_PriorityQueue_TPriority) -> System_Collections_Generic_PriorityQueue_TElement:
-        ...
-
-    @overload
-    def enqueue_range(self, items: System.Collections.Generic.IEnumerable[System.ValueTuple[System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]]) -> None:
-        ...
-
-    @overload
-    def enqueue_range(self, elements: System.Collections.Generic.IEnumerable[System_Collections_Generic_PriorityQueue_TElement], priority: System_Collections_Generic_PriorityQueue_TPriority) -> None:
-        ...
-
-    def ensure_capacity(self, capacity: int) -> int:
-        ...
-
-    def peek(self) -> System_Collections_Generic_PriorityQueue_TElement:
-        ...
-
-    def remove(self, element: System_Collections_Generic_PriorityQueue_TElement, removed_element: typing.Optional[System_Collections_Generic_PriorityQueue_TElement], priority: typing.Optional[System_Collections_Generic_PriorityQueue_TPriority], equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Generic_PriorityQueue_TElement] = None) -> typing.Tuple[bool, System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]:
-        ...
-
-    def trim_excess(self) -> None:
-        ...
-
-    def try_dequeue(self, element: typing.Optional[System_Collections_Generic_PriorityQueue_TElement], priority: typing.Optional[System_Collections_Generic_PriorityQueue_TPriority]) -> typing.Tuple[bool, System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]:
-        ...
-
-    def try_peek(self, element: typing.Optional[System_Collections_Generic_PriorityQueue_TElement], priority: typing.Optional[System_Collections_Generic_PriorityQueue_TPriority]) -> typing.Tuple[bool, System_Collections_Generic_PriorityQueue_TElement, System_Collections_Generic_PriorityQueue_TPriority]:
         ...
 
 
@@ -2221,240 +2455,6 @@ class TreeSet(typing.Generic[System_Collections_Generic_TreeSet_T], System.Colle
 
     @overload
     def __init__(self, comparer: System.Collections.Generic.IComparer[System_Collections_Generic_TreeSet_T]) -> None:
-        ...
-
-
-class LinkedList(typing.Generic[System_Collections_Generic_LinkedList_T], System.Object, System.Collections.Generic.ICollection[System_Collections_Generic_LinkedList_T], System.Collections.ICollection, System.Collections.Generic.IReadOnlyCollection[System_Collections_Generic_LinkedList_T], System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback, typing.Iterable[System_Collections_Generic_LinkedList_T]):
-    """This class has no documentation."""
-
-    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Generic_LinkedList_T], System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback):
-        """This class has no documentation."""
-
-        @property
-        def current(self) -> System_Collections_Generic_LinkedList_T:
-            ...
-
-        def dispose(self) -> None:
-            ...
-
-        def move_next(self) -> bool:
-            ...
-
-    @property
-    def count(self) -> int:
-        ...
-
-    @property
-    def first(self) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]:
-        ...
-
-    @property
-    def last(self) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]:
-        ...
-
-    def __contains__(self, value: System_Collections_Generic_LinkedList_T) -> bool:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, collection: System.Collections.Generic.IEnumerable[System_Collections_Generic_LinkedList_T]) -> None:
-        ...
-
-    def __iter__(self) -> typing.Iterator[System_Collections_Generic_LinkedList_T]:
-        ...
-
-    def __len__(self) -> int:
-        ...
-
-    @overload
-    def add_after(self, node: System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T], value: System_Collections_Generic_LinkedList_T) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]:
-        ...
-
-    @overload
-    def add_after(self, node: System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T], new_node: System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]) -> None:
-        ...
-
-    @overload
-    def add_before(self, node: System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T], value: System_Collections_Generic_LinkedList_T) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]:
-        ...
-
-    @overload
-    def add_before(self, node: System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T], new_node: System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]) -> None:
-        ...
-
-    @overload
-    def add_first(self, value: System_Collections_Generic_LinkedList_T) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]:
-        ...
-
-    @overload
-    def add_first(self, node: System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]) -> None:
-        ...
-
-    @overload
-    def add_last(self, value: System_Collections_Generic_LinkedList_T) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]:
-        ...
-
-    @overload
-    def add_last(self, node: System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]) -> None:
-        ...
-
-    def clear(self) -> None:
-        ...
-
-    def contains(self, value: System_Collections_Generic_LinkedList_T) -> bool:
-        ...
-
-    def copy_to(self, array: typing.List[System_Collections_Generic_LinkedList_T], index: int) -> None:
-        ...
-
-    def find(self, value: System_Collections_Generic_LinkedList_T) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]:
-        ...
-
-    def find_last(self, value: System_Collections_Generic_LinkedList_T) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]:
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.LinkedList.Enumerator:
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-    def on_deserialization(self, sender: typing.Any) -> None:
-        ...
-
-    @overload
-    def remove(self, value: System_Collections_Generic_LinkedList_T) -> bool:
-        ...
-
-    @overload
-    def remove(self, node: System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedList_T]) -> None:
-        ...
-
-    def remove_first(self) -> None:
-        ...
-
-    def remove_last(self) -> None:
-        ...
-
-
-class LinkedListNode(typing.Generic[System_Collections_Generic_LinkedListNode_T], System.Object):
-    """This class has no documentation."""
-
-    @property
-    def list(self) -> System.Collections.Generic.LinkedList[System_Collections_Generic_LinkedListNode_T]:
-        ...
-
-    @property
-    def next(self) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedListNode_T]:
-        ...
-
-    @property
-    def previous(self) -> System.Collections.Generic.LinkedListNode[System_Collections_Generic_LinkedListNode_T]:
-        ...
-
-    @property
-    def value(self) -> System_Collections_Generic_LinkedListNode_T:
-        ...
-
-    @value.setter
-    def value(self, value: System_Collections_Generic_LinkedListNode_T) -> None:
-        ...
-
-    @property
-    def value_ref(self) -> typing.Any:
-        ...
-
-    def __init__(self, value: System_Collections_Generic_LinkedListNode_T) -> None:
-        ...
-
-
-class Stack(typing.Generic[System_Collections_Generic_Stack_T], System.Object, System.Collections.ICollection, System.Collections.Generic.IReadOnlyCollection[System_Collections_Generic_Stack_T], typing.Iterable[System_Collections_Generic_Stack_T]):
-    """This class has no documentation."""
-
-    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Generic_Stack_T]):
-        """This class has no documentation."""
-
-        @property
-        def current(self) -> System_Collections_Generic_Stack_T:
-            ...
-
-        def dispose(self) -> None:
-            ...
-
-        def move_next(self) -> bool:
-            ...
-
-    @property
-    def count(self) -> int:
-        ...
-
-    @property
-    def capacity(self) -> int:
-        ...
-
-    def __contains__(self, item: System_Collections_Generic_Stack_T) -> bool:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, capacity: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, collection: System.Collections.Generic.IEnumerable[System_Collections_Generic_Stack_T]) -> None:
-        ...
-
-    def __iter__(self) -> typing.Iterator[System_Collections_Generic_Stack_T]:
-        ...
-
-    def __len__(self) -> int:
-        ...
-
-    def clear(self) -> None:
-        ...
-
-    def contains(self, item: System_Collections_Generic_Stack_T) -> bool:
-        ...
-
-    def copy_to(self, array: typing.List[System_Collections_Generic_Stack_T], array_index: int) -> None:
-        ...
-
-    def ensure_capacity(self, capacity: int) -> int:
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.Stack.Enumerator:
-        ...
-
-    def peek(self) -> System_Collections_Generic_Stack_T:
-        ...
-
-    def pop(self) -> System_Collections_Generic_Stack_T:
-        ...
-
-    def push(self, item: System_Collections_Generic_Stack_T) -> None:
-        ...
-
-    def to_array(self) -> typing.List[System_Collections_Generic_Stack_T]:
-        ...
-
-    @overload
-    def trim_excess(self) -> None:
-        ...
-
-    @overload
-    def trim_excess(self, capacity: int) -> None:
-        ...
-
-    def try_peek(self, result: typing.Optional[System_Collections_Generic_Stack_T]) -> typing.Tuple[bool, System_Collections_Generic_Stack_T]:
-        ...
-
-    def try_pop(self, result: typing.Optional[System_Collections_Generic_Stack_T]) -> typing.Tuple[bool, System_Collections_Generic_Stack_T]:
         ...
 
 

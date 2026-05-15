@@ -130,6 +130,21 @@ impl From<str::Utf8Error> for PeekError {
 /// Methods operate on provided buffer slices, supporting incremental/partial parsing.
 pub struct StreamingParser;
 
+/// Writes a u32 as ASCII decimal into `buf` (right-justified) and returns the filled slice.
+/// Uses only stack memory — no heap allocation.
+fn write_u32(buf: &mut [u8; 10], mut n: u32) -> &[u8] {
+    let mut pos = buf.len();
+    loop {
+        pos -= 1;
+        buf[pos] = b'0' + (n % 10) as u8;
+        n /= 10;
+        if n == 0 {
+            break;
+        }
+    }
+    &buf[pos..]
+}
+
 impl StreamingParser {
     /// Fast search for a delimiter byte in a slice
     #[inline(always)]
@@ -625,6 +640,35 @@ impl StreamingParser {
         Self::encode_instruction(instruction)
     }
 
+    /// Encode a synthetic ACK for the blob pre-ack fast path.
+    ///
+    /// Single allocation (the output buffer). Wire format: `3.ack,<N>.<stream_idx>,2.OK,1.0;`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use guacr_protocol::StreamingParser;
+    ///
+    /// let ack = StreamingParser::encode_ack(42);
+    /// assert_eq!(ack.as_ref(), b"3.ack,2.42,2.OK,1.0;");
+    /// ```
+    pub fn encode_ack(stream_idx: u32) -> Bytes {
+        let mut idx_buf = [0u8; 10];
+        let idx = write_u32(&mut idx_buf, stream_idx);
+
+        let mut len_buf = [0u8; 10];
+        let idx_len = write_u32(&mut len_buf, idx.len() as u32);
+
+        let total = 6 + idx_len.len() + 1 + idx.len() + 10;
+        let mut buf = BytesMut::with_capacity(total);
+        buf.put_slice(b"3.ack,");
+        buf.put_slice(idx_len);
+        buf.put_u8(ELEM_SEP);
+        buf.put_slice(idx);
+        buf.put_slice(b",2.OK,1.0;");
+        buf.freeze()
+    }
+
     /// Encode an instruction into Guacamole protocol format using BytesMut.
     /// Uses character counts for lengths as specified by the Guacamole protocol.
     pub fn encode_instruction(instruction: &OwnedInstruction) -> Bytes {
@@ -638,15 +682,18 @@ impl StreamingParser {
             + 10;
         let mut buffer = BytesMut::with_capacity(estimated_size);
 
-        // Use character count for opcode length (not byte count)
-        buffer.put_slice(instruction.opcode.chars().count().to_string().as_bytes());
+        let mut tmp = [0u8; 10];
+        buffer.put_slice(write_u32(
+            &mut tmp,
+            instruction.opcode.chars().count() as u32,
+        ));
         buffer.put_u8(ELEM_SEP);
         buffer.put_slice(instruction.opcode.as_bytes());
 
         for arg in &instruction.args {
             buffer.put_u8(ARG_SEP);
-            // Use character count for argument length (not byte count)
-            buffer.put_slice(arg.chars().count().to_string().as_bytes());
+            let mut tmp = [0u8; 10];
+            buffer.put_slice(write_u32(&mut tmp, arg.chars().count() as u32));
             buffer.put_u8(ELEM_SEP);
             buffer.put_slice(arg.as_bytes());
         }

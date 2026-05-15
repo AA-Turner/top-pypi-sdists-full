@@ -8,6 +8,7 @@ import tempfile
 import zipfile
 from importlib import metadata
 from pathlib import Path
+from typing import Any
 
 from . import terminal
 
@@ -30,6 +31,7 @@ IGNORE_PATTERNS = {
 }
 
 IGNORE_EXTENSIONS = {".pyc"}
+PAGE_BUNDLE_CACHE_DIR = Path(".capsule") / "cache" / "page-bundles"
 
 
 def resolve_entry_point(entry_point: str) -> dict:
@@ -92,12 +94,14 @@ def should_ignore(name: str) -> bool:
     return any(name.endswith(ext) for ext in IGNORE_EXTENSIONS)
 
 
-def collect_source_archive() -> bytes:
+def collect_source_archive(extra_files: list[Path] | None = None) -> bytes:
     """ZIP the current working directory, respecting ignore patterns."""
     root = Path.cwd()
+    root_resolved = root.resolve()
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
     tmp.close()
     file_count = 0
+    archived: set[str] = set()
 
     try:
         with zipfile.ZipFile(tmp.name, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -109,8 +113,22 @@ def collect_source_archive() -> bytes:
                     full = os.path.join(dirpath, fname)
                     rel = os.path.relpath(full, root)
                     zf.write(full, rel)
+                    archived.add(rel)
                     terminal.detail(f"  + {rel}")
                     file_count += 1
+
+            for path in extra_files or []:
+                full_path = (root / path).resolve() if not path.is_absolute() else path.resolve()
+                try:
+                    rel = full_path.relative_to(root_resolved).as_posix()
+                except ValueError:
+                    continue
+                if rel in archived or not full_path.is_file():
+                    continue
+                zf.write(full_path, rel)
+                archived.add(rel)
+                terminal.detail(f"  + {rel}")
+                file_count += 1
 
         data = Path(tmp.name).read_bytes()
         terminal.detail(
@@ -120,6 +138,44 @@ def collect_source_archive() -> bytes:
         return data
     finally:
         os.unlink(tmp.name)
+
+
+def react_page_bundle_specs(config: dict[str, Any]) -> list[tuple[str, str, list[str]]]:
+    specs: list[tuple[str, str, list[str]]] = []
+    for page in config.get("pages", []):
+        if page.get("type") == "react" and page.get("component"):
+            specs.append((page["name"], page["component"], list(page.get("packages") or [])))
+
+    onboarding = config.get("onboarding")
+    if onboarding and onboarding.get("type") == "react" and onboarding.get("component"):
+        specs.append((
+            "__onboarding__",
+            onboarding["component"],
+            list(onboarding.get("packages") or []),
+        ))
+
+    return specs
+
+
+def build_react_page_bundle_cache(config: dict[str, Any]) -> list[Path]:
+    specs = react_page_bundle_specs(config)
+    if not specs:
+        return []
+
+    from .page_bundle import build_page_bundle
+
+    paths: list[Path] = []
+    terminal.header("Building page bundles")
+    for name, component, packages in specs:
+        try:
+            result = build_page_bundle(component, packages)
+        except Exception as exc:
+            terminal.detail(f"  ! {name}: {exc}")
+            continue
+        state = "cached" if result.cached else "built"
+        terminal.detail(f"  + {name} ({state})")
+        paths.append(result.path)
+    return paths
 
 
 def _pip_package_name(spec: str) -> str:

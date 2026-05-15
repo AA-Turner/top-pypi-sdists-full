@@ -10,6 +10,8 @@ __all__ = ["QuestionListParams"]
 class QuestionListParams(TypedDict, total=False):
     account_id: str
 
+    include_archived: bool
+
     limit: int
     """Maximum number of artifacts to be returned by the given endpoint.
 

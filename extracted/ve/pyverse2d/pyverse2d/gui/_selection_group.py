@@ -1,8 +1,11 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect, positive, not_null
+from .._internal import expect, over
 from ..abc import Widget
+
+from numbers import Integral
+from typing import ClassVar
 
 # ======================================== GROUP ========================================
 class SelectionGroup:
@@ -18,22 +21,31 @@ class SelectionGroup:
         "_name", "_limit", "_replace", "_deselectable",
         "_members", "_selected",
     )
-    _groups: dict[str, SelectionGroup] = {}
+    _groups: ClassVar[dict[str, SelectionGroup]] = {}
 
     def __init__(
             self,
             name: str,
-            limit: int = None,
+            limit: Integral | None = None,
             replace: bool = False,
             deselectable: bool = True,
         ):
-        # Paramètres
-        self._name: str = expect(name, str)
-        self._limit: int | None = expect(limit, (int, None))
-        self._replace: bool = expect(replace, bool)
-        self._deselectable: bool = expect(deselectable, bool)
+        # Transtypage et vérifications
+        name = str(name)
+        limit = int(limit) if limit is not None else None
+        replace = bool(replace)
+        deselectable = bool(deselectable)
 
-        # Construction
+        if __debug__:
+            if limit is not None: over(limit, 0, include=False)
+
+        # Attributs publiques
+        self._name: str = name
+        self._limit: int | None = limit
+        self._replace: bool = replace
+        self._deselectable: bool = deselectable
+
+        # Attributs internes
         self._members: set[Widget] = set()
         self._selected: list[Widget] = []
 
@@ -57,12 +69,13 @@ class SelectionGroup:
     def name(self) -> str:
         """Nom du groupe de sélection
 
-        Le nom doit être unique.
+        Le nom doit être un ``str`` unique.
         """
         return self._name
     
     @name.setter
     def name(self, value: str) -> None:
+        value = str(value)
         if value == self._name:
             return
         if value in self._groups.keys():
@@ -80,8 +93,12 @@ class SelectionGroup:
         return self._limit
 
     @limit.setter
-    def limit(self, value: int | None) -> None:
-        self._limit = positive(not_null(expect(value, (int, None))))
+    def limit(self, value: Integral | None) -> None:
+        if value is not None:
+            value = int(value)
+            if __debug__:
+                over(value, 0, include=False)
+        self._limit = value
 
     @property
     def replace(self) -> bool:
@@ -94,7 +111,8 @@ class SelectionGroup:
     
     @replace.setter
     def replace(self, value: bool) -> None:
-        self._replace = expect(value, bool)
+        value = bool(value)
+        self._replace = value
 
     @property
     def deselectable(self) -> bool:
@@ -107,15 +125,24 @@ class SelectionGroup:
     
     @deselectable.setter
     def deselectable(self, value: bool) -> None:
-        self._deselectable = expect(value, bool)
+        value = bool(value)
+        self._deselectable = value
 
     # ======================================== COLLECTION ========================================
     def add(self, widget: Widget) -> None:
-        """Ajoute un ``Widget`` au groupe"""
+        """Ajoute un ``Widget`` au groupe
+        
+        Args:
+            widget: ``Widget`` à ajouter
+        """
         self._members.add(widget)
 
     def remove(self, widget: Widget) -> None:
-        """Retire un ``Widget`` du groupe"""
+        """Retire un ``Widget`` du groupe
+        
+        Args:
+            widget: ``Widget`` à retirer
+        """
         if widget in self._selected:
             self.deselect(widget)
         self._members.remove(widget)
@@ -136,14 +163,22 @@ class SelectionGroup:
 
     # ======================================== STATE ========================================
     def click(self, widget: Widget) -> None:
-        """Gère les clics sur un membre du groupe"""
+        """Gère les clics sur un membre du groupe
+        
+        Args:
+            widget: ``Widget`` cliqué
+        """
         if widget in self._selected:
             if self._deselectable: self.deselect(widget)
         else:
             self.select(widget)
 
     def select(self, widget: Widget) -> None:
-        """Sélectionne un membre du groupe"""
+        """Sélectionne un membre du groupe
+
+        Args:
+            widget: ``Widget`` à sélectionner
+        """
         if self._limit is not None and len(self._selected) >= self._limit:
             if not self._replace:
                 return
@@ -152,7 +187,11 @@ class SelectionGroup:
         widget.select.select()
     
     def deselect(self, widget: Widget) -> None:
-        """Désélectionne un membre du groupe"""
+        """Désélectionne un membre du groupe
+        
+        Args:
+            widget: ``Widget`` à déselectionner
+        """
         self._selected.remove(widget)
         widget.select.deselect()
     
@@ -162,9 +201,18 @@ class SelectionGroup:
             self.deselect(widget)
 
     def is_selected(self, widget: Widget) -> bool:
-        """Indique si un membre du groupe est sélectionné"""
+        """Indique si un membre du groupe est sélectionné
+
+        Args:
+            widget: ``Widget`` à vérifier
+        """
         return widget in self._selected
     
     def get_selected(self) -> list[Widget]:
         """Renvoie la liste des membres sélectionnés"""
         return self._selected
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "SelectionGroup",
+]

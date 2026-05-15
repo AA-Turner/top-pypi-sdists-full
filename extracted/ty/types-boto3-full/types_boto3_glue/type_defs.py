@@ -3003,6 +3003,7 @@ class GetCatalogsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     Recursive: NotRequired[bool]
     IncludeRoot: NotRequired[bool]
+    HasDatabases: NotRequired[bool]
 
 
 class GetClassifierRequestTypeDef(TypedDict):

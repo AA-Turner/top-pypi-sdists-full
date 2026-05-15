@@ -10,6 +10,16 @@ import System.Runtime.ConstrainedExecution
 import System.Threading
 
 
+class MemoryFailPoint(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable):
+    """This class has no documentation."""
+
+    def __init__(self, size_in_megabytes: int) -> None:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+
 class JitInfo(System.Object):
     """This class has no documentation."""
 
@@ -77,16 +87,6 @@ class TargetedPatchingOptOutAttribute(System.Attribute):
         ...
 
     def __init__(self, reason: str) -> None:
-        ...
-
-
-class MemoryFailPoint(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable):
-    """This class has no documentation."""
-
-    def __init__(self, size_in_megabytes: int) -> None:
-        ...
-
-    def dispose(self) -> None:
         ...
 
 

@@ -557,7 +557,14 @@ class PKScreenerMain:
             PKAnalyticsService().send_event(f"{menu_option}")
             OutputControls().printOutput(f"{colorText.GREEN}Launching PKScreener to collect logs. If it does not launch, please try with the following:{colorText.END}\n{colorText.FAIL}{launcher} -a Y -l{colorText.END}\n{colorText.WARN}Press Ctrl + C to exit at any time.{colorText.END}")
             sleep(2)
-            os.system(f"{launcher} -a Y -l")
+            if sys.platform == "win32":
+                # Windows PowerShell/CMD syntax
+                cmd = f'set PK_DEBUG_ALL=1 && set PK_LOG_LEVEL=10 && {launcher} -a Y -l'
+                os.system(cmd)
+            else:
+                # Unix-like (Linux/macOS)
+                cmd = f'export PK_DEBUG_ALL=1 && export PK_LOG_LEVEL=10 && {launcher} -a Y -l'
+                os.system(cmd)
         elif menu_option == "F":
             PKAnalyticsService().send_event(f"{menu_option}")
             indexOption = 0

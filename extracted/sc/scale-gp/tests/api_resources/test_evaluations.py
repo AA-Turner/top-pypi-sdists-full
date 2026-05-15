@@ -74,6 +74,17 @@ class TestEvaluations:
             evaluation_config={"foo": "bar"},
             evaluation_config_id="evaluation_config_id",
             evaluation_dataset_version=0,
+            inline_evaluation_config={
+                "account_id": "account_id",
+                "question_set_id": "question_set_id",
+                "auto_evaluation_model": "llama-3-1-70b-instruct",
+                "auto_evaluation_parameters": {
+                    "batch_size": 1,
+                    "temperature": 0,
+                },
+                "evaluation_type": "llm_auto",
+                "studio_project_id": "studio_project_id",
+            },
             metric_config={
                 "components": [
                     {
@@ -655,6 +666,17 @@ class TestAsyncEvaluations:
             evaluation_config={"foo": "bar"},
             evaluation_config_id="evaluation_config_id",
             evaluation_dataset_version=0,
+            inline_evaluation_config={
+                "account_id": "account_id",
+                "question_set_id": "question_set_id",
+                "auto_evaluation_model": "llama-3-1-70b-instruct",
+                "auto_evaluation_parameters": {
+                    "batch_size": 1,
+                    "temperature": 0,
+                },
+                "evaluation_type": "llm_auto",
+                "studio_project_id": "studio_project_id",
+            },
             metric_config={
                 "components": [
                     {

@@ -34,6 +34,7 @@ Usage::
         ListLineageNodeHistoryPaginator,
         ListMetadataGenerationRunsPaginator,
         ListNotebookRunsPaginator,
+        ListNotebooksPaginator,
         ListNotificationsPaginator,
         ListPolicyGrantsPaginator,
         ListProjectMembershipsPaginator,
@@ -78,6 +79,7 @@ Usage::
     list_lineage_node_history_paginator: ListLineageNodeHistoryPaginator = client.get_paginator("list_lineage_node_history")
     list_metadata_generation_runs_paginator: ListMetadataGenerationRunsPaginator = client.get_paginator("list_metadata_generation_runs")
     list_notebook_runs_paginator: ListNotebookRunsPaginator = client.get_paginator("list_notebook_runs")
+    list_notebooks_paginator: ListNotebooksPaginator = client.get_paginator("list_notebooks")
     list_notifications_paginator: ListNotificationsPaginator = client.get_paginator("list_notifications")
     list_policy_grants_paginator: ListPolicyGrantsPaginator = client.get_paginator("list_policy_grants")
     list_project_memberships_paginator: ListProjectMembershipsPaginator = client.get_paginator("list_project_memberships")
@@ -150,6 +152,8 @@ from .type_defs import (
     ListMetadataGenerationRunsOutputTypeDef,
     ListNotebookRunsInputPaginateTypeDef,
     ListNotebookRunsOutputTypeDef,
+    ListNotebooksInputPaginateTypeDef,
+    ListNotebooksOutputTypeDef,
     ListNotificationsInputPaginateTypeDef,
     ListNotificationsOutputTypeDef,
     ListPolicyGrantsInputPaginateTypeDef,
@@ -215,6 +219,7 @@ __all__ = (
     "ListLineageNodeHistoryPaginator",
     "ListMetadataGenerationRunsPaginator",
     "ListNotebookRunsPaginator",
+    "ListNotebooksPaginator",
     "ListNotificationsPaginator",
     "ListPolicyGrantsPaginator",
     "ListProjectMembershipsPaginator",
@@ -698,6 +703,27 @@ class ListNotebookRunsPaginator(_ListNotebookRunsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/paginator/ListNotebookRuns.html#DataZone.Paginator.ListNotebookRuns.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/paginators/#listnotebookrunspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListNotebooksPaginatorBase = Paginator[ListNotebooksOutputTypeDef]
+else:
+    _ListNotebooksPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListNotebooksPaginator(_ListNotebooksPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/paginator/ListNotebooks.html#DataZone.Paginator.ListNotebooks)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/paginators/#listnotebookspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListNotebooksInputPaginateTypeDef]
+    ) -> PageIterator[ListNotebooksOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/paginator/ListNotebooks.html#DataZone.Paginator.ListNotebooks.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/paginators/#listnotebookspaginator)
         """
 
 

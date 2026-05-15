@@ -89,12 +89,12 @@ def get_all_dialects() -> dict[str, Callable[[], Dialect]]:
         return CSL
 
     def get_csl_stencil():
-        from xdsl.dialects.csl.csl_stencil import CSL_STENCIL
+        from xdsl.dialects.csl_stencil import CSL_STENCIL
 
         return CSL_STENCIL
 
     def get_csl_wrapper():
-        from xdsl.dialects.csl.csl_wrapper import CSL_WRAPPER
+        from xdsl.dialects.csl_wrapper import CSL_WRAPPER
 
         return CSL_WRAPPER
 
@@ -232,6 +232,11 @@ def get_all_dialects() -> dict[str, Callable[[], Dialect]]:
         from xdsl.dialects.pdl_interp import PDLInterp
 
         return PDLInterp
+
+    def get_polynomial():
+        from xdsl.dialects.polynomial import Polynomial
+
+        return Polynomial
 
     def get_printf():
         from xdsl.dialects.printf import Printf
@@ -373,6 +378,11 @@ def get_all_dialects() -> dict[str, Callable[[], Dialect]]:
 
         return Wasm
 
+    def get_wasmssa():
+        from xdsl.dialects.wasmssa import WasmSSA
+
+        return WasmSSA
+
     def get_x86():
         from xdsl.dialects.x86 import X86
 
@@ -434,6 +444,7 @@ def get_all_dialects() -> dict[str, Callable[[], Dialect]]:
         "omp": get_omp,
         "pdl": get_pdl,
         "pdl_interp": get_pdl_interp,
+        "polynomial": get_polynomial,
         "printf": get_printf,
         "ptr_xdsl": get_ptr_xdsl,
         "py": get_py,
@@ -461,6 +472,7 @@ def get_all_dialects() -> dict[str, Callable[[], Dialect]]:
         "varith": get_varith,
         "vector": get_vector,
         "wasm": get_wasm,
+        "wasmssa": get_wasmssa,
         "x86": get_x86,
         "x86_func": get_x86_func,
         "x86_scf": get_x86_scf,

@@ -299,3 +299,8 @@ class ParticleEmitter(ABC, Positionable):
             positions: (n, 2) float32
             velocities: (n, 2) float32
         """
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "ParticleEmitter",
+]

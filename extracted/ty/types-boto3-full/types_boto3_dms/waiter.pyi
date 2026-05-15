@@ -13,6 +13,15 @@ Usage::
     from types_boto3_dms.client import DatabaseMigrationServiceClient
     from types_boto3_dms.waiter import (
         EndpointDeletedWaiter,
+        ExtensionPackAssociatedWaiter,
+        MetadataModelAssessedWaiter,
+        MetadataModelConversionCancelledWaiter,
+        MetadataModelConvertedWaiter,
+        MetadataModelCreatedWaiter,
+        MetadataModelCreationCancelledWaiter,
+        MetadataModelExportedAsScriptWaiter,
+        MetadataModelExportedToTargetWaiter,
+        MetadataModelImportedWaiter,
         ReplicationInstanceAvailableWaiter,
         ReplicationInstanceDeletedWaiter,
         ReplicationTaskDeletedWaiter,
@@ -26,6 +35,15 @@ Usage::
     client: DatabaseMigrationServiceClient = session.client("dms")
 
     endpoint_deleted_waiter: EndpointDeletedWaiter = client.get_waiter("endpoint_deleted")
+    extension_pack_associated_waiter: ExtensionPackAssociatedWaiter = client.get_waiter("extension_pack_associated")
+    metadata_model_assessed_waiter: MetadataModelAssessedWaiter = client.get_waiter("metadata_model_assessed")
+    metadata_model_conversion_cancelled_waiter: MetadataModelConversionCancelledWaiter = client.get_waiter("metadata_model_conversion_cancelled")
+    metadata_model_converted_waiter: MetadataModelConvertedWaiter = client.get_waiter("metadata_model_converted")
+    metadata_model_created_waiter: MetadataModelCreatedWaiter = client.get_waiter("metadata_model_created")
+    metadata_model_creation_cancelled_waiter: MetadataModelCreationCancelledWaiter = client.get_waiter("metadata_model_creation_cancelled")
+    metadata_model_exported_as_script_waiter: MetadataModelExportedAsScriptWaiter = client.get_waiter("metadata_model_exported_as_script")
+    metadata_model_exported_to_target_waiter: MetadataModelExportedToTargetWaiter = client.get_waiter("metadata_model_exported_to_target")
+    metadata_model_imported_waiter: MetadataModelImportedWaiter = client.get_waiter("metadata_model_imported")
     replication_instance_available_waiter: ReplicationInstanceAvailableWaiter = client.get_waiter("replication_instance_available")
     replication_instance_deleted_waiter: ReplicationInstanceDeletedWaiter = client.get_waiter("replication_instance_deleted")
     replication_task_deleted_waiter: ReplicationTaskDeletedWaiter = client.get_waiter("replication_task_deleted")
@@ -45,6 +63,15 @@ from botocore.waiter import Waiter
 from .type_defs import (
     DescribeConnectionsMessageWaitTypeDef,
     DescribeEndpointsMessageWaitTypeDef,
+    DescribeExtensionPackAssociationsMessageWaitTypeDef,
+    DescribeMetadataModelAssessmentsMessageWaitTypeDef,
+    DescribeMetadataModelConversionsMessageWaitExtraTypeDef,
+    DescribeMetadataModelConversionsMessageWaitTypeDef,
+    DescribeMetadataModelCreationsMessageWaitExtraTypeDef,
+    DescribeMetadataModelCreationsMessageWaitTypeDef,
+    DescribeMetadataModelExportsAsScriptMessageWaitTypeDef,
+    DescribeMetadataModelExportsToTargetMessageWaitTypeDef,
+    DescribeMetadataModelImportsMessageWaitTypeDef,
     DescribeReplicationInstancesMessageWaitExtraTypeDef,
     DescribeReplicationInstancesMessageWaitTypeDef,
     DescribeReplicationTasksMessageWaitExtraExtraExtraTypeDef,
@@ -60,6 +87,15 @@ else:
 
 __all__ = (
     "EndpointDeletedWaiter",
+    "ExtensionPackAssociatedWaiter",
+    "MetadataModelAssessedWaiter",
+    "MetadataModelConversionCancelledWaiter",
+    "MetadataModelConvertedWaiter",
+    "MetadataModelCreatedWaiter",
+    "MetadataModelCreationCancelledWaiter",
+    "MetadataModelExportedAsScriptWaiter",
+    "MetadataModelExportedToTargetWaiter",
+    "MetadataModelImportedWaiter",
     "ReplicationInstanceAvailableWaiter",
     "ReplicationInstanceDeletedWaiter",
     "ReplicationTaskDeletedWaiter",
@@ -80,6 +116,123 @@ class EndpointDeletedWaiter(Waiter):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/EndpointDeleted.html#DatabaseMigrationService.Waiter.EndpointDeleted.wait)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#endpointdeletedwaiter)
+        """
+
+class ExtensionPackAssociatedWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/ExtensionPackAssociated.html#DatabaseMigrationService.Waiter.ExtensionPackAssociated)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#extensionpackassociatedwaiter)
+    """
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeExtensionPackAssociationsMessageWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/ExtensionPackAssociated.html#DatabaseMigrationService.Waiter.ExtensionPackAssociated.wait)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#extensionpackassociatedwaiter)
+        """
+
+class MetadataModelAssessedWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/MetadataModelAssessed.html#DatabaseMigrationService.Waiter.MetadataModelAssessed)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#metadatamodelassessedwaiter)
+    """
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeMetadataModelAssessmentsMessageWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/MetadataModelAssessed.html#DatabaseMigrationService.Waiter.MetadataModelAssessed.wait)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#metadatamodelassessedwaiter)
+        """
+
+class MetadataModelConversionCancelledWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/MetadataModelConversionCancelled.html#DatabaseMigrationService.Waiter.MetadataModelConversionCancelled)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#metadatamodelconversioncancelledwaiter)
+    """
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeMetadataModelConversionsMessageWaitExtraTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/MetadataModelConversionCancelled.html#DatabaseMigrationService.Waiter.MetadataModelConversionCancelled.wait)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#metadatamodelconversioncancelledwaiter)
+        """
+
+class MetadataModelConvertedWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/MetadataModelConverted.html#DatabaseMigrationService.Waiter.MetadataModelConverted)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#metadatamodelconvertedwaiter)
+    """
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeMetadataModelConversionsMessageWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/MetadataModelConverted.html#DatabaseMigrationService.Waiter.MetadataModelConverted.wait)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#metadatamodelconvertedwaiter)
+        """
+
+class MetadataModelCreatedWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/MetadataModelCreated.html#DatabaseMigrationService.Waiter.MetadataModelCreated)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#metadatamodelcreatedwaiter)
+    """
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeMetadataModelCreationsMessageWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/MetadataModelCreated.html#DatabaseMigrationService.Waiter.MetadataModelCreated.wait)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#metadatamodelcreatedwaiter)
+        """
+
+class MetadataModelCreationCancelledWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/MetadataModelCreationCancelled.html#DatabaseMigrationService.Waiter.MetadataModelCreationCancelled)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#metadatamodelcreationcancelledwaiter)
+    """
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeMetadataModelCreationsMessageWaitExtraTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/MetadataModelCreationCancelled.html#DatabaseMigrationService.Waiter.MetadataModelCreationCancelled.wait)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#metadatamodelcreationcancelledwaiter)
+        """
+
+class MetadataModelExportedAsScriptWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/MetadataModelExportedAsScript.html#DatabaseMigrationService.Waiter.MetadataModelExportedAsScript)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#metadatamodelexportedasscriptwaiter)
+    """
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeMetadataModelExportsAsScriptMessageWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/MetadataModelExportedAsScript.html#DatabaseMigrationService.Waiter.MetadataModelExportedAsScript.wait)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#metadatamodelexportedasscriptwaiter)
+        """
+
+class MetadataModelExportedToTargetWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/MetadataModelExportedToTarget.html#DatabaseMigrationService.Waiter.MetadataModelExportedToTarget)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#metadatamodelexportedtotargetwaiter)
+    """
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeMetadataModelExportsToTargetMessageWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/MetadataModelExportedToTarget.html#DatabaseMigrationService.Waiter.MetadataModelExportedToTarget.wait)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#metadatamodelexportedtotargetwaiter)
+        """
+
+class MetadataModelImportedWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/MetadataModelImported.html#DatabaseMigrationService.Waiter.MetadataModelImported)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#metadatamodelimportedwaiter)
+    """
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeMetadataModelImportsMessageWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/waiter/MetadataModelImported.html#DatabaseMigrationService.Waiter.MetadataModelImported.wait)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dms/waiters/#metadatamodelimportedwaiter)
         """
 
 class ReplicationInstanceAvailableWaiter(Waiter):

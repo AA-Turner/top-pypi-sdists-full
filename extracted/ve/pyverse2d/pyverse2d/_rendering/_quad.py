@@ -96,3 +96,8 @@ class ScreenQuad:
         gl.glDeleteBuffers(1, self._vbo)
         gl.glDeleteBuffers(1, self._ebo)
         del self._shader
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "ScreenQuad",
+]

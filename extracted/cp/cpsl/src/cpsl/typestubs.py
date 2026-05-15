@@ -83,9 +83,24 @@ declare module "@capsule/page" {
   interface CapsuleContext {
     appId: string;
     user: { email: string } | null;
+    pages: CapsulePage[];
     login: () => void;
     navigate: (target: NavigationTarget) => void;
+    pageRoute: (target: PageTarget) => string;
+    pageHref: (target: PageTarget) => string;
   }
+
+  interface CapsulePage {
+    name: string;
+    route: string;
+    path: string;
+    href: string;
+    icon: string;
+    type: "dsl" | "react";
+    access?: "public" | "authenticated";
+  }
+
+  type PageTarget = string | { name?: string; page?: string; pageId?: string; route?: string };
 
   type NavigationTarget =
     | "home"
@@ -203,6 +218,9 @@ declare module "@capsule/page" {
   export function useCapsule(): CapsuleContext;
   export function navigate(target: NavigationTarget): void;
   export function useNavigate(): (target: NavigationTarget) => void;
+  export function usePages(): CapsulePage[];
+  export function pageRoute(target: PageTarget): string;
+  export function pageHref(target: PageTarget): string;
 
   // -----------------------------------------------------------------------
   // Theme

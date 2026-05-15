@@ -9,14 +9,14 @@ from typing import Any, Callable, Optional, Union
 from ._actions import _ActionConfigLoad
 from ._common import (
     LoggerProperty,
-    get_class_instantiator,
     get_generic_origin,
     get_unaliased_type,
     is_final_class,
     is_subclass,
     is_subclasses_disabled,
 )
-from ._namespace import Namespace
+from ._instantiation import get_class_instantiator
+from ._namespace import Namespace, get_value_and_parent
 from ._optionals import attrs_support, get_doc_short_description, is_attrs_class, is_pydantic_model
 from ._parameter_resolvers import ParamData, get_parameter_origins, get_signature_parameters
 from ._required import set_required
@@ -31,9 +31,6 @@ from ._typehints import (
 )
 from ._util import NoneType, get_import_path, get_private_kwargs, get_typehint_origin, iter_to_set_str
 from .typing import _LazyInitBaseClass, register_pydantic_type
-
-__all__ = ["SignatureArguments"]
-
 
 kinds = inspect._ParameterKind
 inspect_empty = inspect._empty
@@ -66,7 +63,8 @@ class SignatureArguments(LoggerProperty):
             as_positional: Whether to add required parameters as positional arguments.
             default: Default value used to override parameter defaults.
             skip: Names of parameters or number of positionals that should be skipped.
-            instantiate: Whether the class group should be instantiated by ``instantiate_classes``.
+            instantiate: Whether the class group should be instantiated by
+                :meth:`instantiate <.ArgumentParser.instantiate>`.
             fail_untyped: Whether to raise exception if a required parameter does not have a type.
             sub_configs: Whether subclass type hints should be loadable from inner config file.
 
@@ -254,7 +252,7 @@ class SignatureArguments(LoggerProperty):
             skip: Names of parameters or number of positionals that should be skipped.
             fail_untyped: Whether to raise exception if a required parameter does not have a type.
             sub_configs: Whether subclass type hints should be loadable from inner config file.
-            instantiate: Whether the class group should be instantiated by ``instantiate_classes``.
+            instantiate: Whether the class group should be instantiated.
 
         Returns:
             The list of arguments added.
@@ -562,7 +560,7 @@ def get_object_name(obj) -> str:
 
 def group_instantiate_class(group, cfg):
     try:
-        value, parent, key = cfg.get_value_and_parent(group.dest)
+        value, parent, key = get_value_and_parent(cfg, group.dest)
     except KeyError:
         value = {}
         parent = cfg

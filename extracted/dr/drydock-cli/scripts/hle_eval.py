@@ -189,23 +189,23 @@ def judge_with_gemma(question: str, gold: str, pred: str) -> tuple[str, str]:
         # Fall back to reasoning_content (llama.cpp --jinja thinking field)
         return (msg.get("reasoning_content") or "").strip()
 
-    def _verdict_from(text: str) -> str:
+    def _verdict_from(text: str, tail_only: bool = False) -> str:
         if not text:
             return ""
-        # Try the first line first (the canonical shape).
-        lines = text.splitlines()
-        if lines:
+        # When scanning reasoning_content (thinking tokens), the verdict
+        # usually appears at the end of the analysis, not the beginning.
+        # tail_only=True restricts the scan to the last 300 characters.
+        scan = text[-300:] if tail_only else text
+        lines = scan.splitlines()
+        if lines and not tail_only:
             first = lines[0].strip().upper()
             for v in ("YES", "PARTIAL", "NO"):
                 if first.startswith(v):
                     return v
-        # Then scan the whole text for a clean verdict token. Stops at
-        # the first occurrence so "YES but not NO" prefers YES.
-        up = text.upper()
+        up = scan.upper()
         for v in ("YES", "PARTIAL", "NO"):
             i = up.find(v)
             if i >= 0:
-                # Require word boundary so "YESTERDAY" doesn't count.
                 end = i + len(v)
                 if end == len(up) or not up[end].isalpha():
                     return v
@@ -223,21 +223,26 @@ def judge_with_gemma(question: str, gold: str, pred: str) -> tuple[str, str]:
     try:
         text = _call(prompt, 200)
         verdict = _verdict_from(text)
+        if not verdict:
+            # reasoning_content (thinking tokens) may carry the verdict at
+            # the tail of the analysis when content is empty. Scan the last
+            # 300 chars with word-boundary check to avoid false positives.
+            verdict = _verdict_from(text, tail_only=True)
         if verdict:
             return verdict, text[:300]
-        # Tighter retry — one word, no reasoning. Gives the model a
-        # path that doesn't burn the whole budget on thinking.
+        # Tighter retry — bump budget to 256 so thinking + one-word answer
+        # both fit (16 was too small: model exhausted the budget on thinking).
         terse = (
             "Grade this answer against the ground truth and reply with "
             "ONE WORD ONLY: YES, NO, or PARTIAL.\n\n"
             f"GROUND TRUTH: {gold[:600]}\nPREDICTED: {pred[:600]}\n\nAnswer:"
         )
-        text2 = _call(terse, 16)
+        text2 = _call(terse, 256)
         verdict = _verdict_from(text2)
+        if not verdict:
+            verdict = _verdict_from(text2, tail_only=True)
         if verdict:
             return verdict, f"[retry] {text2[:200]}"
-        # Both calls gave nothing usable. Report the raw text so the
-        # operator can see WHAT went wrong instead of a generic ERROR.
         return "ERROR", f"judge produced no parseable verdict: {(text or text2)[:200]!r}"
     except Exception as e:
         return "ERROR", f"judge failed: {e!r}"
@@ -276,6 +281,11 @@ def score_answer(q: dict, pred: str, outcome: dict | None = None) -> dict:
             return {"correct": True, "method": "exact", "verdict": "YES"}
         if fuzzy_score(pred, gold):
             return {"correct": True, "method": "fuzzy", "verdict": "YES"}
+        # Short pred (single letter/word) can't embed the right answer —
+        # skip the judge to avoid ERROR on an obviously wrong answer.
+        if len(normalize(pred)) <= 3:
+            return {"correct": False, "method": "exact", "verdict": "NO",
+                    "judge_reasoning": "short pred does not match gold"}
         # Fall through to judge for tricky MC where pred has explanation
     verdict, reasoning = judge_with_gemma(q["question"], gold, pred)
     return {
@@ -440,9 +450,15 @@ def run_one(q: dict, sk, run_dir: Path) -> dict:
            "COLUMNS": "120", "LINES": "30",
            # HLE sessions must commit quickly. Lower turn thresholds so the
            # model gets the wrap-up warning before the 480s wall-clock kills it.
-           # Default 30/60 is for coding tasks; 10/15 forces an answer sooner.
-           "DRYDOCK_WRAP_UP_WARN_AT": "10",
-           "DRYDOCK_STOP_NOW_WARN_AT": "15",
+           # Default 30/60 is for coding tasks; 8/12 forces an answer sooner.
+           # On engineering/math questions llama.cpp Q3 averages 60-160s/turn,
+           # so the turn-based STOP_NOW at 12 fires at 720-1920s — well past
+           # the 480s wall clock. STOP_NOW_TIME_SEC=300 fires at 5 minutes
+           # regardless of turn count, giving the model 3 minutes to respond.
+           # Respect env overrides (e.g. babysitter exports lower values).
+           "DRYDOCK_WRAP_UP_WARN_AT": os.environ.get("DRYDOCK_WRAP_UP_WARN_AT", "8"),
+           "DRYDOCK_STOP_NOW_WARN_AT": os.environ.get("DRYDOCK_STOP_NOW_WARN_AT", "12"),
+           "DRYDOCK_STOP_NOW_TIME_SEC": os.environ.get("DRYDOCK_STOP_NOW_TIME_SEC", "300"),
            "DRYDOCK_STOP_NOW_SUFFIX": "Write your best answer as 'FINAL ANSWER: <answer>' now."}
     start = time.time()
     # --dangerously-skip-permissions: HLE is batch eval against read-only

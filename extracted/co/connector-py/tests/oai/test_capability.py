@@ -20,7 +20,9 @@ from connector.oai.capability import (
     get_capability_annotations,
     validate_capability,
 )
-from connector_sdk_types.generated import ExecutionSummary
+from connector_sdk_types.generated import (
+    ExecutionSummary,
+)
 from connector_sdk_types.generated.models.updated_effect import UpdatedEffect
 
 from .shared_types import SampleRequest, SampleResponse

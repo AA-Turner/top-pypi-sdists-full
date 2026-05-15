@@ -1,18 +1,18 @@
 Metadata-Version: 2.4
 Name: rumdl
-Version: 0.1.91
+Version: 0.1.92
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
@@ -22,7 +22,7 @@ Summary: A fast Markdown linter written in Rust
 Home-Page: https://github.com/rvben/rumdl
 Author-email: "Ruben J. Jongejan" <ruben.jongejan@gmail.com>
 License: MIT
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://github.com/rvben/rumdl
 Project-URL: Repository, https://github.com/rvben/rumdl.git
@@ -76,6 +76,8 @@ rumdl init
 rumdl is a high-performance Markdown linter and formatter that helps ensure consistency and best practices in your Markdown files. Inspired by [ruff](https://github.com/astral-sh/ruff) 's approach to
 Python linting, rumdl brings similar speed and developer experience improvements to the Markdown ecosystem.
 
+> Questions or feedback? Join us on [Discord](https://discord.gg/ADTJFSFUyn).
+
 It offers:
 
 - ⚡️ **Built for speed** with Rust - significantly faster than alternatives
@@ -111,6 +113,7 @@ With intelligent caching, subsequent runs are even faster - rumdl only re-lints 
   - [Using pacman (Arch Linux)](#using-pacman-arch-linux)
   - [Download binary](#download-binary)
   - [Editor Plugins](#editor-plugins)
+  - [Shell Completions](#shell-completions)
 - [Usage](#usage)
   - [Stdin/Stdout Formatting](#stdinstdout-formatting)
   - [Editor Integration](#editor-integration)
@@ -134,6 +137,7 @@ With intelligent caching, subsequent runs are even faster - rumdl only re-lints 
     - [`config [OPTIONS] [COMMAND]`](#config-options-command)
     - [`server [OPTIONS]`](#server-options)
     - [`vscode [OPTIONS]`](#vscode-options)
+    - [`completions [SHELL]`](#completions-shell)
     - [`version`](#version)
   - [Global Options](#global-options)
   - [Exit Codes](#exit-codes)
@@ -170,6 +174,12 @@ With intelligent caching, subsequent runs are even faster - rumdl only re-lints 
 ## Installation
 
 Choose the installation method that works best for you:
+
+### Using winget (Windows)
+
+```powershell
+winget install --id rvben.rumdl --exact
+```
 
 ### Using Homebrew (macOS/Linux)
 
@@ -225,7 +235,7 @@ mise ls-remote rumdl
 mise install rumdl
 
 # Use a specific version for the project
-mise use rumdl@0.1.62
+mise use rumdl@0.1.92
 ```
 
 ### Using Nix (macOS/Linux)
@@ -280,6 +290,48 @@ Expand-Archive -Path "rumdl.zip" -DestinationPath "$env:USERPROFILE\.rumdl"
 | JetBrains (PyCharm, IntelliJ, etc.) | [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/29943-rumdl)                        |
 
 All plugins provide real-time linting, formatting on save, hover documentation, and automatic configuration discovery.
+
+### Shell Completions
+
+rumdl can generate tab-completion scripts via `rumdl completions [SHELL]`. Supported shells: `bash`, `zsh`, `fish`, `powershell`, `elvish`.
+
+When `SHELL` is omitted, rumdl auto-detects it from `$SHELL`. Run `rumdl completions --list` to see all supported shells.
+
+**Bash** — add to `~/.bashrc`:
+
+```bash
+source <(rumdl completions bash)
+```
+
+**Zsh** — add to `~/.zshrc`:
+
+```bash
+source <(rumdl completions zsh)
+```
+
+Or install system-wide for `zsh`:
+
+```bash
+rumdl completions zsh > "${fpath[1]}/_rumdl"
+```
+
+**Fish** — write the completion file once:
+
+```fish
+rumdl completions fish > ~/.config/fish/completions/rumdl.fish
+```
+
+**PowerShell** — add to your `$PROFILE`:
+
+```powershell
+rumdl completions powershell | Out-String | Invoke-Expression
+```
+
+**Elvish** — add to `~/.config/elvish/rc.elv`:
+
+```elvish
+eval (rumdl completions elvish | slurp)
+```
 
 ## Usage
 
@@ -382,7 +434,7 @@ Add the following to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.1.62
+    rev: v0.1.92
     hooks:
       - id: rumdl      # Lint only (fails on issues)
       - id: rumdl-fmt  # Auto-format and fail if issues remain
@@ -404,7 +456,7 @@ However, for pre-commit workflows where you want to include all files, even when
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.1.62
+    rev: v0.1.92
     hooks:
       - id: rumdl
         args: [--no-exclude]  # Disable all exclude patterns
@@ -657,6 +709,18 @@ Install the rumdl VS Code extension
 - `--force`: Force reinstall even if already installed
 - `--update`: Update to the latest version (only if newer version is available)
 - `--status`: Show installation status without installing
+
+#### `completions [SHELL]`
+
+Print a shell completion script for `rumdl` to stdout. See [Shell Completions](#shell-completions) for installation snippets.
+
+**Arguments:**
+
+- `[SHELL]`: One of `bash`, `zsh`, `fish`, `powershell`, `elvish`. Auto-detected from `$SHELL` when omitted.
+
+**Options:**
+
+- `-l, --list`: List available shells and exit
 
 #### `version`
 

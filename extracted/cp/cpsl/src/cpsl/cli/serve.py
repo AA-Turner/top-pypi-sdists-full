@@ -30,6 +30,7 @@ from ..utils import (
     build_filesystem_mount_specs,
     build_integration_specs,
     build_schedule_specs,
+    build_react_page_bundle_cache,
     normalize_image,
 )
 
@@ -228,6 +229,7 @@ def serve(
     data_sources = config.get("data_sources", [])
 
     generate_type_stubs(type_stub_pages, config.get("npm_packages", []))
+    page_bundle_cache_files = build_react_page_bundle_cache(config)
 
     terminal.header("Serving", f"[bold]{config['app_name']}[/bold]")
     entry_label = config["class_name"] or config["app_name"]
@@ -253,7 +255,7 @@ def serve(
         terminal.detail(f"  commands:  {len(image['commands'])}")
 
     terminal.header("Syncing files")
-    archive = collect_source_archive()
+    archive = collect_source_archive(page_bundle_cache_files)
 
     req = StartServeRequest(
         app_name=config["app_name"],

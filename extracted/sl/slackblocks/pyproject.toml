@@ -1,6 +1,6 @@
 [project]
 name = "slackblocks"
-version = "1.2.5"
+version = "2.0.0"
 description = "Python wrapper for the Slack Blocks API"
 authors = [
     { name = "Nicholas Lambourne", email = "dev@ndl.im" },
@@ -21,8 +21,6 @@ keywords = [
     "blocks",
 ]
 classifiers = [
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -34,17 +32,17 @@ classifiers = [
     "Typing :: Typed",
     "Topic :: Communications :: Chat",
 ]
-requires-python = ">=3.8.1"
+requires-python = ">=3.10"
 exclude = ["test/**", "docs/**"]
 
 [dependency-groups]
 dev = [
     "aiohttp>=3.10.11,<4.0.0",
-    "black>=24.8.0,<25.0.0",
-    "flake8>=6.1.0,<7.0.0",
-    "flake8-pyproject>=1.2.3,<2.0.0",
+    "hypothesis>=6.100.0,<7.0.0",
     "mypy>=1.14.1,<1.15.0",
     "pytest>=8.3.4,<9.0.0",
+    "pytest-cov>=6.0.0,<7.0.0",
+    "ruff>=0.8.0,<1.0.0",
     "slack-sdk>=3.33.4,<4.0.0",
     "twine>=6.0.1,<7.0.0",
     "wheel>=0.45.1,<1.0.0",
@@ -53,28 +51,71 @@ docs = [
     "mike>=2.1.3,<3.0.0",
     "mkdocs>=1.6.1,<2.0.0",
     "mkdocs-material>=9.5.49,<10.0.0",
-    "mkdocstrings[python]>=0.27.0; python_full_version >= '3.9'",
-    "mkdocstrings-python>=1.13.0,<2.0.0; python_full_version >= '3.9'",
+    "mkdocstrings[python]>=0.27.0",
+    "mkdocstrings-python>=1.13.0,<2.0.0",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.flake8]
-exclude = [".venv", "./build", "./dist", ".eggs", ".git"]
-max-line-length = 100
-extend-ignore = """
-    BLK100
-"""
-per-file-ignores = [
-    "slackblocks/__init__.py:F401",
-    "slackblocks/rich_text/__init__.py:F401",
-    "slackblocks/rich_text/objects.py:W605",
-]
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = [".venv", "build", "dist", ".eggs", ".git"]
+
+[tool.ruff.lint]
+# Rule families enabled:
+#   E, W   - pycodestyle
+#   F      - pyflakes
+#   B      - flake8-bugbear (likely bugs)
+#   I      - isort (import sorting)
+#   SIM    - flake8-simplify (simpler equivalents)
+#   TC     - flake8-type-checking (move type-only imports into TYPE_CHECKING)
+#   UP     - pyupgrade (modern syntax for the target Python version)
+select = ["B", "E", "F", "I", "SIM", "TC", "UP", "W"]
+# E501 (line-too-long) is handled by the formatter; don't lint it. Long lines
+# in docstrings (e.g. Slack API URLs) can't be wrapped without breaking
+# Markdown link rendering.
+# SIM108 (force ternary) is opinionated and hurts readability for the
+# multi-branch validation patterns used in this codebase.
+ignore = ["E501", "SIM108"]
+
+[tool.ruff.lint.per-file-ignores]
+"slackblocks/__init__.py" = ["F401"]
+"slackblocks/rich_text/__init__.py" = ["F401"]
+"slackblocks/rich_text/objects.py" = ["W605"]
+
+[tool.ruff.format]
+# Black-compatible defaults; no overrides needed.
 
 [tool.pytest.ini_options]
 filterwarnings = [
     "error",
 ]
+addopts = [
+    "--cov=slackblocks",
+    "--cov-report=term-missing",
+    "--cov-fail-under=90",
+]
+
+[tool.coverage.run]
+source = ["slackblocks"]
+branch = true
+
+[tool.coverage.report]
+# Lines that don't need coverage:
+# - 'pragma: no cover' opt-out marker.
+# - Defensive 'raise NotImplementedError' stubs, which are intentionally
+#   unreachable without a future PR (see Phase 7.4 from_dict deferrals).
+# - Lines that mypy needs but the runtime never hits.
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "@overload",
+    "\\.\\.\\.$",
+]
+show_missing = true
+skip_covered = false
 

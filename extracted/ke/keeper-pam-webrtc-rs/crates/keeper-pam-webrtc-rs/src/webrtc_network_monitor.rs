@@ -189,6 +189,11 @@ pub struct NetworkMonitor {
     quality_history: Arc<DashMap<String, Vec<NetworkQualityMetrics>>>,
     /// Track spawned tasks to prevent leaks
     monitoring_tasks: Arc<tokio::sync::Mutex<Vec<tokio::task::JoinHandle<()>>>>,
+    /// Tube ID for logging context (optional for early-construction paths)
+    #[allow(dead_code)]
+    pub(crate) tube_id: Option<String>,
+    /// Conversation ID for logging context (optional for early-construction paths)
+    pub(crate) conversation_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -242,6 +247,8 @@ pub struct ConnectionMigrator {
     migration_strategies: Vec<MigrationStrategy>,
     /// Configuration
     config: NetworkMonitorConfig,
+    /// Conversation ID for log correlation
+    conversation_id: Option<String>,
 }
 
 /// State of an active migration
@@ -277,7 +284,7 @@ pub enum MigrationStrategy {
 }
 
 impl ConnectionMigrator {
-    pub fn new(config: NetworkMonitorConfig) -> Self {
+    pub fn new(config: NetworkMonitorConfig, conversation_id: Option<String>) -> Self {
         Self {
             active_migrations: Arc::new(DashMap::new()),
             migration_strategies: vec![
@@ -286,6 +293,7 @@ impl ConnectionMigrator {
                 MigrationStrategy::BreakBeforeMake,
             ],
             config,
+            conversation_id,
         }
     }
 
@@ -298,7 +306,11 @@ impl ConnectionMigrator {
     ) -> WebRTCResult<()> {
         let migration_id = format!("{}:{}->{}", tube_id, from_interface, to_interface);
 
-        info!("Starting connection migration: {}", migration_id);
+        info!(
+            "Starting connection migration: {} (conversation_id: {})",
+            migration_id,
+            self.conversation_id.as_deref().unwrap_or("-")
+        );
 
         let migration_state = MigrationState {
             from_interface: from_interface.clone(),
@@ -317,7 +329,12 @@ impl ConnectionMigrator {
         let migration_id_clone = migration_id.clone();
         tokio::spawn(async move {
             if let Err(e) = migrator.execute_migration(&migration_id_clone).await {
-                error!("Migration failed for {}: {:?}", migration_id_clone, e);
+                error!(
+                    "Migration failed for {}: {:?} (conversation_id: {})",
+                    migration_id_clone,
+                    e,
+                    migrator.conversation_id.as_deref().unwrap_or("-")
+                );
                 migrator.mark_migration_failed(&migration_id_clone, &format!("{:?}", e));
             }
         });
@@ -343,7 +360,11 @@ impl ConnectionMigrator {
         self.complete_migration(migration_id).await?;
 
         self.update_migration_phase(migration_id, MigrationPhase::Completed);
-        info!("Migration completed successfully: {}", migration_id);
+        info!(
+            "Migration completed successfully: {} (conversation_id: {})",
+            migration_id,
+            self.conversation_id.as_deref().unwrap_or("-")
+        );
 
         Ok(())
     }
@@ -367,8 +388,11 @@ impl ConnectionMigrator {
         // The caller (NetworkMonitor) should have already validated this before calling start_migration.
 
         debug!(
-            "Migration preparation completed: {} ({}->{})",
-            migration_id, from_interface, to_interface
+            "Migration preparation completed: {} ({}->{}, conversation_id: {})",
+            migration_id,
+            from_interface,
+            to_interface,
+            self.conversation_id.as_deref().unwrap_or("-")
         );
         Ok(())
     }
@@ -381,7 +405,11 @@ impl ConnectionMigrator {
             "stun2.l.google.com:19302",
         ];
 
-        debug!("Testing new connection for migration: {}", migration_id);
+        debug!(
+            "Testing new connection for migration: {} (conversation_id: {})",
+            migration_id,
+            self.conversation_id.as_deref().unwrap_or("-")
+        );
 
         for endpoint in &test_endpoints {
             match tokio::time::timeout(
@@ -392,22 +420,29 @@ impl ConnectionMigrator {
             {
                 Ok(Ok(_stream)) => {
                     debug!(
-                        "New connection tested successfully: {} via {}",
-                        migration_id, endpoint
+                        "New connection tested successfully: {} via {} (conversation_id: {})",
+                        migration_id,
+                        endpoint,
+                        self.conversation_id.as_deref().unwrap_or("-")
                     );
                     return Ok(());
                 }
                 Ok(Err(e)) => {
                     debug!(
-                        "Connection test failed for {} to {}: {}",
-                        migration_id, endpoint, e
+                        "Connection test failed for {} to {}: {} (conversation_id: {})",
+                        migration_id,
+                        endpoint,
+                        e,
+                        self.conversation_id.as_deref().unwrap_or("-")
                     );
                     continue;
                 }
                 Err(_) => {
                     debug!(
-                        "Connection test timed out for {} to {}",
-                        migration_id, endpoint
+                        "Connection test timed out for {} to {} (conversation_id: {})",
+                        migration_id,
+                        endpoint,
+                        self.conversation_id.as_deref().unwrap_or("-")
                     );
                     continue;
                 }
@@ -428,15 +463,20 @@ impl ConnectionMigrator {
         // when it receives the network change event. This method just coordinates the timing.
 
         debug!(
-            "Connection migration phase: performing handover for {}",
-            migration_id
+            "Connection migration phase: performing handover for {} (conversation_id: {})",
+            migration_id,
+            self.conversation_id.as_deref().unwrap_or("-")
         );
 
         // Wait for ICE restart to be initiated (this is done via callbacks in the integration layer)
         // Give some time for the network change event to propagate and ICE restart to begin
         sleep(Duration::from_millis(500)).await;
 
-        debug!("Connection migration handover initiated: {}", migration_id);
+        debug!(
+            "Connection migration handover initiated: {} (conversation_id: {})",
+            migration_id,
+            self.conversation_id.as_deref().unwrap_or("-")
+        );
         Ok(())
     }
 
@@ -459,8 +499,12 @@ impl ConnectionMigrator {
         };
 
         debug!(
-            "Migration cleanup completed: {} ({}->{}, took {}ms)",
-            migration_id, from_interface, to_interface, migration_time_ms
+            "Migration cleanup completed: {} ({}->{}, took {}ms, conversation_id: {})",
+            migration_id,
+            from_interface,
+            to_interface,
+            migration_time_ms,
+            self.conversation_id.as_deref().unwrap_or("-")
         );
 
         // Note: The actual NetworkMonitor update and event triggering should be done
@@ -474,7 +518,12 @@ impl ConnectionMigrator {
         // DashMap - get_mut returns a RefMut
         if let Some(mut migration) = self.active_migrations.get_mut(migration_id) {
             migration.phase = phase.clone();
-            debug!("Migration {} phase updated to {:?}", migration_id, phase);
+            debug!(
+                "Migration {} phase updated to {:?} (conversation_id: {})",
+                migration_id,
+                phase,
+                self.conversation_id.as_deref().unwrap_or("-")
+            );
         }
     }
 
@@ -482,7 +531,12 @@ impl ConnectionMigrator {
         // DashMap - get_mut returns a RefMut
         if let Some(mut migration) = self.active_migrations.get_mut(migration_id) {
             migration.phase = MigrationPhase::Failed(reason.to_string());
-            warn!("Migration {} failed: {}", migration_id, reason);
+            warn!(
+                "Migration {} failed: {} (conversation_id: {})",
+                migration_id,
+                reason,
+                self.conversation_id.as_deref().unwrap_or("-")
+            );
         }
     }
 
@@ -512,6 +566,7 @@ impl Clone for ConnectionMigrator {
             active_migrations: Arc::clone(&self.active_migrations),
             migration_strategies: self.migration_strategies.clone(),
             config: self.config.clone(),
+            conversation_id: self.conversation_id.clone(),
         }
     }
 }
@@ -601,7 +656,18 @@ impl NetworkQualityScorer {
 
 impl NetworkMonitor {
     pub fn new(config: NetworkMonitorConfig) -> Self {
-        let connection_migrator = Arc::new(ConnectionMigrator::new(config.clone()));
+        Self::new_with_context(config, None, None)
+    }
+
+    pub fn new_with_context(
+        config: NetworkMonitorConfig,
+        tube_id: Option<String>,
+        conversation_id: Option<String>,
+    ) -> Self {
+        let connection_migrator = Arc::new(ConnectionMigrator::new(
+            config.clone(),
+            conversation_id.clone(),
+        ));
 
         Self {
             interfaces: Arc::new(DashMap::new()),
@@ -613,6 +679,8 @@ impl NetworkMonitor {
             last_connectivity_check: Arc::new(std::sync::atomic::AtomicU8::new(CONNECTIVITY_NONE)),
             monitoring_active: Arc::new(AtomicBool::new(false)),
             monitoring_tasks: Arc::new(tokio::sync::Mutex::new(Vec::new())),
+            tube_id,
+            conversation_id,
         }
     }
 
@@ -625,7 +693,7 @@ impl NetworkMonitor {
 
         // SOLUTION: Start background monitoring task but defer initial scan until triggered
         // Network scan will be triggered when WebRTC connection reaches "Connected" state
-        debug!("Starting network monitoring background task (initial scan deferred until WebRTC Connected)");
+        debug!("Starting network monitoring background task (initial scan deferred until WebRTC Connected, conversation_id: {})", self.conversation_id.as_deref().unwrap_or("-"));
 
         // Start background monitoring task without initial scan
         let monitor = self.clone_for_task();
@@ -637,9 +705,14 @@ impl NetworkMonitor {
         });
 
         // Spawn error handler task (runs in main context with Python logging)
+        let conversation_id_for_error_task = self.conversation_id.clone();
         let handle2 = tokio::spawn(async move {
             while let Some(error_msg) = error_rx.recv().await {
-                error!("Network monitoring: {}", error_msg);
+                error!(
+                    "Network monitoring: {} (conversation_id: {})",
+                    error_msg,
+                    conversation_id_for_error_task.as_deref().unwrap_or("-")
+                );
             }
         });
 
@@ -647,7 +720,10 @@ impl NetworkMonitor {
         self.monitoring_tasks.lock().await.push(handle1);
         self.monitoring_tasks.lock().await.push(handle2);
 
-        debug!("Network monitoring started (2 tasks tracked)");
+        debug!(
+            "Network monitoring started (2 tasks tracked, conversation_id: {})",
+            self.conversation_id.as_deref().unwrap_or("-")
+        );
         Ok(())
     }
 
@@ -668,20 +744,27 @@ impl NetworkMonitor {
 
             if task_count > 0 {
                 debug!(
-                    "Network monitoring: Aborted {} tasks immediately",
-                    task_count
+                    "Network monitoring: Aborted {} tasks immediately (conversation_id: {})",
+                    task_count,
+                    self.conversation_id.as_deref().unwrap_or("-")
                 );
             }
         } else {
-            debug!("Network monitoring: Lock held, tasks will exit via flag (max 5s delay)");
+            debug!("Network monitoring: Lock held, tasks will exit via flag (max 5s delay, conversation_id: {})", self.conversation_id.as_deref().unwrap_or("-"));
         }
 
-        debug!("Network monitoring stopped");
+        debug!(
+            "Network monitoring stopped (conversation_id: {})",
+            self.conversation_id.as_deref().unwrap_or("-")
+        );
     }
 
     /// Trigger initial network scan (called when WebRTC connection is established)
     pub async fn trigger_initial_scan(&self) -> WebRTCResult<()> {
-        debug!("Triggering initial network scan (WebRTC connection established)");
+        debug!(
+            "Triggering initial network scan (WebRTC connection established, conversation_id: {})",
+            self.conversation_id.as_deref().unwrap_or("-")
+        );
         self.scan_network_interfaces().await
     }
 
@@ -698,7 +781,10 @@ impl NetworkMonitor {
         {
             let mut callbacks = self.callbacks.lock();
             callbacks.push(Box::new(callback));
-            debug!("Registered network change callback");
+            debug!(
+                "Registered network change callback (conversation_id: {})",
+                self.conversation_id.as_deref().unwrap_or("-")
+            );
         }
     }
 
@@ -719,8 +805,11 @@ impl NetworkMonitor {
         new_interface: &str,
     ) -> WebRTCResult<()> {
         info!(
-            "Handling network transition for tube {} from {} to {}",
-            tube_id, old_interface, new_interface
+            "Handling network transition for tube {} from {} to {} (conversation_id: {})",
+            tube_id,
+            old_interface,
+            new_interface,
+            self.conversation_id.as_deref().unwrap_or("-")
         );
 
         if self.config.enable_migration {
@@ -732,7 +821,7 @@ impl NetworkMonitor {
                 )
                 .await?;
         } else {
-            info!("Connection migration disabled, triggering standard ICE restart");
+            info!("Connection migration disabled, triggering standard ICE restart (conversation_id: {})", self.conversation_id.as_deref().unwrap_or("-"));
         }
 
         Ok(())
@@ -828,8 +917,8 @@ impl NetworkMonitor {
             if let Some(current_primary) = self.get_primary_interface().await {
                 if current_primary == interface_name {
                     info!(
-                        "Primary interface {} quality degraded to {}, looking for migration target",
-                        interface_name, metrics.quality_score
+                        "Primary interface {} quality degraded to {}, looking for migration target (conversation_id: {})",
+                        interface_name, metrics.quality_score, self.conversation_id.as_deref().unwrap_or("-")
                     );
 
                     if let Some(_target) = self.find_best_migration_target(&current_primary).await {
@@ -862,8 +951,10 @@ impl NetworkMonitor {
 
         if should_trigger {
             info!(
-                "Primary interface changed: {:?} -> {}",
-                old_interface, interface_name
+                "Primary interface changed: {:?} -> {} (conversation_id: {})",
+                old_interface,
+                interface_name,
+                self.conversation_id.as_deref().unwrap_or("-")
             );
             self.trigger_event(NetworkChangeEvent::PrimaryInterfaceChanged {
                 old_interface,
@@ -905,13 +996,20 @@ impl NetworkMonitor {
             if self.test_endpoint_connectivity(endpoint).await {
                 // Connectivity checks can be frequent - only log in verbose mode
                 if unlikely!(crate::logger::is_verbose_logging()) {
-                    debug!("Connectivity check passed (endpoint: {})", endpoint);
+                    debug!(
+                        "Connectivity check passed (endpoint: {}, conversation_id: {})",
+                        endpoint,
+                        self.conversation_id.as_deref().unwrap_or("-")
+                    );
                 }
                 return true;
             }
         }
 
-        warn!("Connectivity check failed for all endpoints");
+        warn!(
+            "Connectivity check failed for all endpoints (conversation_id: {})",
+            self.conversation_id.as_deref().unwrap_or("-")
+        );
         false
     }
 
@@ -930,7 +1028,10 @@ impl NetworkMonitor {
     async fn scan_network_interfaces(&self) -> WebRTCResult<()> {
         // Interface scanning happens periodically - verbose only
         if unlikely!(crate::logger::is_verbose_logging()) {
-            debug!("Scanning network interfaces...");
+            debug!(
+                "Scanning network interfaces... (conversation_id: {})",
+                self.conversation_id.as_deref().unwrap_or("-")
+            );
         }
 
         // Get system network interfaces (simplified implementation)
@@ -1049,12 +1150,20 @@ impl NetworkMonitor {
                 }
             }
             Err(e) => {
-                warn!("Failed to enumerate network interfaces: {}", e);
+                warn!(
+                    "Failed to enumerate network interfaces: {} (conversation_id: {})",
+                    e,
+                    self.conversation_id.as_deref().unwrap_or("-")
+                );
             }
         }
 
         if unlikely!(crate::logger::is_verbose_logging()) {
-            debug!("Detected {} network interfaces", interfaces.len());
+            debug!(
+                "Detected {} network interfaces (conversation_id: {})",
+                interfaces.len(),
+                self.conversation_id.as_deref().unwrap_or("-")
+            );
         }
         Ok(interfaces)
     }
@@ -1126,13 +1235,21 @@ impl NetworkMonitor {
         {
             Ok(Ok(_)) => {
                 if unlikely!(crate::logger::is_verbose_logging()) {
-                    debug!("Connectivity test passed for {}", endpoint);
+                    debug!(
+                        "Connectivity test passed for {} (conversation_id: {})",
+                        endpoint,
+                        self.conversation_id.as_deref().unwrap_or("-")
+                    );
                 }
                 true
             }
             Ok(Err(_)) | Err(_) => {
                 if unlikely!(crate::logger::is_verbose_logging()) {
-                    debug!("Connectivity test failed for {}", endpoint);
+                    debug!(
+                        "Connectivity test failed for {} (conversation_id: {})",
+                        endpoint,
+                        self.conversation_id.as_deref().unwrap_or("-")
+                    );
                 }
                 false
             }
@@ -1142,7 +1259,11 @@ impl NetworkMonitor {
     /// Trigger a network change event
     async fn trigger_event(&self, event: NetworkChangeEvent) {
         // Network events are important but not frequent - keep at debug level
-        debug!("Network change detected: {:?}", event);
+        debug!(
+            "Network change detected: {:?} (conversation_id: {})",
+            event,
+            self.conversation_id.as_deref().unwrap_or("-")
+        );
 
         // Add debounce delay
         sleep(self.config.change_debounce_delay).await;
@@ -1294,10 +1415,12 @@ impl WebRTCNetworkIntegration {
 
         // Register network change handler
         let callbacks = integration.tube_callbacks.clone();
+        let conversation_id = monitor.conversation_id.clone();
         monitor.register_callback(move |event| {
             let callbacks = callbacks.clone();
+            let conversation_id = conversation_id.clone();
             Box::pin(async move {
-                Self::handle_network_change(callbacks, event).await;
+                Self::handle_network_change(callbacks, event, conversation_id.as_deref()).await;
             })
         });
 
@@ -1313,8 +1436,9 @@ impl WebRTCNetworkIntegration {
         self.tube_callbacks
             .insert(tube_id.clone(), Box::new(ice_restart_callback));
         debug!(
-            "Registered tube {} for network change notifications",
-            tube_id
+            "Registered tube {} for network change notifications (conversation_id: {})",
+            tube_id,
+            self.monitor.conversation_id.as_deref().unwrap_or("-")
         );
     }
 
@@ -1324,8 +1448,9 @@ impl WebRTCNetworkIntegration {
         // DashMap - no lock needed
         if self.tube_callbacks.remove(tube_id).is_some() {
             info!(
-                "Unregistered tube {} from network change notifications",
-                tube_id
+                "Unregistered tube {} from network change notifications (conversation_id: {})",
+                tube_id,
+                self.monitor.conversation_id.as_deref().unwrap_or("-")
             );
         }
     }
@@ -1335,12 +1460,18 @@ impl WebRTCNetworkIntegration {
         // DashMap - no lock needed
         if let Some(callback) = self.tube_callbacks.get(tube_id) {
             info!(
-                "Triggering ICE restart for tube {} due to: {}",
-                tube_id, reason
+                "Triggering ICE restart for tube {} due to: {} (conversation_id: {})",
+                tube_id,
+                reason,
+                self.monitor.conversation_id.as_deref().unwrap_or("-")
             );
             callback();
         } else {
-            debug!("No ICE restart callback registered for tube {}", tube_id);
+            debug!(
+                "No ICE restart callback registered for tube {} (conversation_id: {})",
+                tube_id,
+                self.monitor.conversation_id.as_deref().unwrap_or("-")
+            );
         }
     }
 
@@ -1349,6 +1480,7 @@ impl WebRTCNetworkIntegration {
     async fn handle_network_change(
         callbacks: Arc<DashMap<String, TubeCallback>>,
         event: NetworkChangeEvent,
+        conversation_id: Option<&str>,
     ) {
         // Determine if this change requires ICE restart
         let requires_ice_restart = match &event {
@@ -1390,21 +1522,28 @@ impl WebRTCNetworkIntegration {
             }
         };
 
+        let conv_id = conversation_id.unwrap_or("-");
         if requires_ice_restart {
-            debug!("Network change requires ICE restart: {:?}", event);
+            debug!(
+                "Network change requires ICE restart: {:?} (conversation_id: {})",
+                event, conv_id
+            );
 
             // Trigger ICE restart for all registered tubes (DashMap - no lock needed)
             for entry in callbacks.iter() {
                 let tube_id = entry.key();
                 let callback = entry.value();
                 debug!(
-                    "Triggering ICE restart for tube {} due to network change",
-                    tube_id
+                    "Triggering ICE restart for tube {} due to network change (conversation_id: {})",
+                    tube_id, conv_id
                 );
                 callback();
             }
         } else {
-            debug!("Network change does not require ICE restart: {:?}", event);
+            debug!(
+                "Network change does not require ICE restart: {:?} (conversation_id: {})",
+                event, conv_id
+            );
         }
     }
 

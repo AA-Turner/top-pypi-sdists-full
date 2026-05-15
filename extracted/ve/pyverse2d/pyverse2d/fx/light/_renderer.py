@@ -894,3 +894,8 @@ class LightRenderer:
             u_radius=vignette.radius,
             u_color=vignette.color.rgb,
         )
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "LightRenderer",
+]

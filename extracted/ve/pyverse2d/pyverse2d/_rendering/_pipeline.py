@@ -498,3 +498,8 @@ class _PipelineContext:
         """Nettoie le contexte"""
         for attr in self.__slots__:
             setattr(self, attr, None)
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Pipeline",
+]

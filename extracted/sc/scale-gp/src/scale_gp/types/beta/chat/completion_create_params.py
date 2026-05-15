@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from typing import Dict, Union, Iterable
-from typing_extensions import Literal, Required, TypedDict
+from typing_extensions import Literal, Required, Annotated, TypedDict
 
 from ...._types import SequenceNotStr
+from ...._utils import PropertyInfo
 
 __all__ = ["CompletionCreateParamsBase", "CompletionCreateParamsNonStreaming", "CompletionCreateParamsStreaming"]
 
@@ -143,6 +144,8 @@ class CompletionCreateParamsBase(TypedDict, total=False):
 
     Only tokens comprising top_p probability mass are considered.
     """
+
+    x_openai_api_key: Annotated[str, PropertyInfo(alias="x-openai-api-key")]
 
 
 class CompletionCreateParamsNonStreaming(CompletionCreateParamsBase, total=False):

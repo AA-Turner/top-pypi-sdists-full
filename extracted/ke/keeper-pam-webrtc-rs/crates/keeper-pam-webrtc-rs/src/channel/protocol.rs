@@ -27,6 +27,7 @@ impl Channel {
     pub(crate) fn setup_webrtc_state_monitoring(&mut self) {
         let webrtc = self.webrtc.clone();
         let channel_id_base = self.channel_id.clone(); // Base clone for the function scope
+        let conversation_id_base = self.conversation_id.clone();
 
         let last_state = webrtc.ready_state();
         let (state_tx, mut state_rx) = tokio::sync::mpsc::channel(8);
@@ -35,6 +36,7 @@ impl Channel {
 
         let state_tx_open = state_tx.clone();
         let channel_id_for_open = channel_id_base.clone(); // Clone for on_open
+        let conversation_id_for_open = conversation_id_base.clone();
 
         // Clone the WebRTCDataChannel's shared notification mechanism so we can
         // notify waiters when the channel opens. This is important because we're
@@ -56,13 +58,14 @@ impl Channel {
 
             let tx = state_tx_open.clone();
             let channel_id_log = channel_id_for_open.clone(); // Clone for async block
+            let conversation_id_log = conversation_id_for_open.clone();
 
             // Proper resource handling: Store AbortHandle for explicit lifecycle management
             let handle = tokio::spawn(async move {
                 if let Err(e) = tx.send("Open".to_string()).await {
                     warn!(
-                        "Failed to send open state notification (channel_id: {}, error: {})",
-                        channel_id_log, e
+                        "Failed to send open state notification (channel_id: {}, conversation_id: {}, error: {})",
+                        channel_id_log, conversation_id_log, e
                     );
                 }
             });
@@ -76,6 +79,7 @@ impl Channel {
 
         let state_tx_close = state_tx.clone();
         let channel_id_for_close = channel_id_base.clone(); // Clone for on_close
+        let conversation_id_for_close = conversation_id_base.clone();
         let state_tasks_for_close = self.state_monitoring_tasks.clone();
         let ice_restart_active_for_close = self.ice_restart_active.clone();
         let should_exit_for_close = self.should_exit.clone();
@@ -92,13 +96,14 @@ impl Channel {
 
             let tx = state_tx_close.clone();
             let channel_id_log = channel_id_for_close.clone(); // Clone for async block
+            let conversation_id_log = conversation_id_for_close.clone();
 
             // Proper resource handling: Store AbortHandle for explicit lifecycle management
             let handle = tokio::spawn(async move {
                 if let Err(e) = tx.send("Closed".to_string()).await {
                     warn!(
-                        "Failed to send close state notification (channel_id: {}, error: {})",
-                        channel_id_log, e
+                        "Failed to send close state notification (channel_id: {}, conversation_id: {}, error: {})",
+                        channel_id_log, conversation_id_log, e
                     );
                 }
             });
@@ -121,19 +126,21 @@ impl Channel {
 
         let state_tx_error = state_tx.clone();
         let channel_id_for_error = channel_id_base.clone(); // Clone for on_error
+        let conversation_id_for_error = conversation_id_base.clone();
         let state_tasks_for_error = self.state_monitoring_tasks.clone();
 
         data_channel.on_error(Box::new(move |err| {
             let tx = state_tx_error.clone();
             let err_str = format!("Error: {err}");
             let channel_id_log = channel_id_for_error.clone(); // Clone for async block
+            let conversation_id_log = conversation_id_for_error.clone();
 
             // Proper resource handling: Store AbortHandle for explicit lifecycle management
             let handle = tokio::spawn(async move {
                 if let Err(e) = tx.send(err_str).await {
                     warn!(
-                        "Failed to send error state notification (channel_id: {}, error: {})",
-                        channel_id_log, e
+                        "Failed to send error state notification (channel_id: {}, conversation_id: {}, error: {})",
+                        channel_id_log, conversation_id_log, e
                     );
                 }
             });
@@ -147,25 +154,27 @@ impl Channel {
 
         let runtime = get_runtime();
         let channel_id_for_runtime_spawn = channel_id_base.clone(); // Clone for runtime spawn
+        let conversation_id_for_runtime_spawn = conversation_id_base.clone();
         runtime.spawn(async move {
             let mut last_state_in_task = last_state;
             let channel_id_log = channel_id_for_runtime_spawn.clone(); // Clone for use in loop
+            let conversation_id_log = conversation_id_for_runtime_spawn.clone();
             while let Some(current_state) = state_rx.recv().await {
                 if current_state != last_state_in_task {
-                    debug!("Endpoint WebRTC state changed: {} -> {} (channel_id: {})", last_state_in_task, current_state, channel_id_log);
+                    debug!("Endpoint WebRTC state changed: {} -> {} (channel_id: {}, conversation_id: {})", last_state_in_task, current_state, channel_id_log, conversation_id_log);
                     last_state_in_task = current_state.clone();
                 }
 
                 let lower_current_state = current_state.to_lowercase();
                 if lower_current_state == "closed" || lower_current_state.starts_with("error") {
-                    debug!("Endpoint WebRTC state, stopping state monitoring task. (channel_id: {}, state: {})", channel_id_log, current_state);
+                    debug!("Endpoint WebRTC state, stopping state monitoring task. (channel_id: {}, conversation_id: {}, state: {})", channel_id_log, conversation_id_log, current_state);
                     break;
                 }
             }
         });
         debug!(
-            "Channel WebRTC state change monitoring set up. (channel_id: {})",
-            channel_id_base
+            "Channel WebRTC state change monitoring set up. (channel_id: {}, conversation_id: {})",
+            channel_id_base, conversation_id_base
         );
     }
 
@@ -181,8 +190,8 @@ impl Channel {
             let active_connections = self.conns.len();
             let connection_list = self.get_connection_ids();
 
-            debug!("Processing control message - Channel stats (channel_id: {}, message_type: {:?}, active_connections: {}, connection_list: {:?})",
-                   self.channel_id, message_type, active_connections, connection_list);
+            debug!("Processing control message - Channel stats (channel_id: {}, conversation_id: {}, message_type: {:?}, active_connections: {}, connection_list: {:?})",
+                   self.channel_id, self.conversation_id, message_type, active_connections, connection_list);
         }
 
         match message_type {
@@ -230,8 +239,8 @@ impl Channel {
             // Short payload: remote likely closed before sending full 4-byte conn_no + 1-byte reason.
             // Treat as control connection closed normally to avoid error propagation and MPSC failure.
             warn!(
-                "Channel({}): CloseConnection payload shorter than {} bytes (got {}), treating as conn_no=0, reason=Normal",
-                self.channel_id, CONN_NO_LEN, data.len()
+                "Channel({}): CloseConnection payload shorter than {} bytes (got {}), treating as conn_no=0, reason=Normal (conversation_id: {})",
+                self.channel_id, CONN_NO_LEN, data.len(), self.conversation_id
             );
             (0u32, CloseConnectionReason::Normal)
         } else {
@@ -263,19 +272,19 @@ impl Channel {
         if let Some(ref msg) = error_message {
             if reason.is_critical() {
                 error!(
-                    "Connection {} closed with error: {} (reason: {:?}, channel_id: {})",
-                    target_connection_no, msg, reason, self.channel_id
+                    "Connection {} closed with error: {} (reason: {:?}, channel_id: {}, conversation_id: {})",
+                    target_connection_no, msg, reason, self.channel_id, self.conversation_id
                 );
             } else if unlikely!(crate::logger::is_verbose_logging()) {
                 debug!(
-                    "Connection {} closed: {} (reason: {:?}, channel_id: {})",
-                    target_connection_no, msg, reason, self.channel_id
+                    "Connection {} closed: {} (reason: {:?}, channel_id: {}, conversation_id: {})",
+                    target_connection_no, msg, reason, self.channel_id, self.conversation_id
                 );
             }
         } else if unlikely!(crate::logger::is_verbose_logging()) {
             debug!(
-                "Endpoint Closing connection {} (reason: {:?}) (channel_id: {})",
-                target_connection_no, reason, self.channel_id
+                "Endpoint Closing connection {} (reason: {:?}) (channel_id: {}, conversation_id: {})",
+                target_connection_no, reason, self.channel_id, self.conversation_id
             );
         }
 
@@ -296,8 +305,8 @@ impl Channel {
                 };
                 if tx.send(msg).await.is_err() {
                     warn!(
-                        "Channel({}): Failed to send ConnectionClosed to Python handler for conn_no {}",
-                        self.channel_id, target_connection_no
+                        "Channel({}): Failed to send ConnectionClosed to Python handler for conn_no {} (conversation_id: {})",
+                        self.channel_id, target_connection_no, self.conversation_id
                     );
                 }
             }
@@ -308,15 +317,16 @@ impl Channel {
             {
                 if state.active_connections.remove(&target_connection_no) {
                     debug!(
-                        "Channel({}): PythonHandler removed virtual connection {} (remaining: {})",
+                        "Channel({}): PythonHandler removed virtual connection {} (remaining: {}, conversation_id: {})",
                         self.channel_id,
                         target_connection_no,
-                        state.active_connections.len()
+                        state.active_connections.len(),
+                        self.conversation_id
                     );
                 } else {
                     debug!(
-                        "Channel({}): PythonHandler conn_no {} was not in active_connections (may have been unconfirmed)",
-                        self.channel_id, target_connection_no
+                        "Channel({}): PythonHandler conn_no {} was not in active_connections (may have been unconfirmed) (conversation_id: {})",
+                        self.channel_id, target_connection_no, self.conversation_id
                     );
                 }
             }
@@ -391,7 +401,7 @@ impl Channel {
         let target_connection_no = cursor.get_u32(); // Consumes first 4 bytes
 
         if unlikely!(crate::logger::is_verbose_logging()) {
-            debug!("Endpoint Received OpenConnection request (channel_id: {}, conn_no: {}, payload_len: {}, server_mode: {}, active_protocol: {:?})", self.channel_id, target_connection_no, cursor.remaining(), self.server_mode, self.active_protocol);
+            debug!("Endpoint Received OpenConnection request (channel_id: {}, conversation_id: {}, conn_no: {}, payload_len: {}, server_mode: {}, active_protocol: {:?})", self.channel_id, self.conversation_id, target_connection_no, cursor.remaining(), self.server_mode, self.active_protocol);
         }
 
         // Initialize effective host/port with channel defaults
@@ -407,8 +417,8 @@ impl Channel {
                 self.connect_as_settings.gateway_private_key.as_ref()
             {
                 debug!(
-                    "Channel({}): Attempting ConnectAs for Guacd target_conn_no {}",
-                    self.channel_id, target_connection_no
+                    "Channel({}): Attempting ConnectAs for Guacd target_conn_no {} (conversation_id: {})",
+                    self.channel_id, target_connection_no, self.conversation_id
                 );
 
                 if cursor.remaining() >= CONNECT_AS_DETAILS_LEN_FIELD_BYTES {
@@ -431,9 +441,14 @@ impl Channel {
                             &crypto_buffer[CONNECT_AS_PUBLIC_KEY_BYTES + CONNECT_AS_NONCE_BYTES..];
 
                         // 1. Parse PKCS#8 PEM to P256SecretKey
-                        let p256_secret_key = P256SecretKey::from_pkcs8_pem(gateway_private_key_pem)
+                        let p256_secret_key = P256SecretKey::from_pkcs8_pem(
+                            gateway_private_key_pem,
+                        )
                         .map_err(|e| {
-                            error!("Channel({}): Failed to parse gateway private key PKCS#8 PEM: {}. PEM was: '{}'", self.channel_id, e, gateway_private_key_pem);
+                            error!(
+                                "Channel({}): Failed to parse gateway private key PKCS#8 PEM: {} (conversation_id: {})",
+                                self.channel_id, e, self.conversation_id
+                            );
                             anyhow!("Failed to parse gateway private key PKCS#8 PEM: {}", e)
                         })?;
 
@@ -452,7 +467,7 @@ impl Channel {
                             encrypted_data_bytes,
                         ) {
                             Ok(decrypted_payload) => {
-                                info!("Channel({}): Successfully decrypted ConnectAs payload for target_conn_no {}", self.channel_id, target_connection_no);
+                                info!("Channel({}): Successfully decrypted ConnectAs payload for target_conn_no {} (conversation_id: {})", self.channel_id, target_connection_no, self.conversation_id);
                                 let mut guacd_params_locked = self.guacd_params.lock().await;
 
                                 // Apply user credentials if EITHER allow_supply_user OR allow_supply_host is true (matches Python logic)
@@ -461,8 +476,8 @@ impl Channel {
                                 {
                                     if let Some(user_details) = decrypted_payload.user {
                                         debug!(
-                                            "Channel({}): Applying ConnectAs user details",
-                                            self.channel_id
+                                            "Channel({}): Applying ConnectAs user details (conversation_id: {})",
+                                            self.channel_id, self.conversation_id
                                         );
 
                                         if let Some(val) = user_details.username {
@@ -503,15 +518,15 @@ impl Channel {
                                 if self.connect_as_settings.allow_supply_host {
                                     if let Some(host) = decrypted_payload.host {
                                         debug!(
-                                            "Channel({}): ConnectAs supplied host: {}",
-                                            self.channel_id, host
+                                            "Channel({}): ConnectAs supplied host: {} (conversation_id: {})",
+                                            self.channel_id, host, self.conversation_id
                                         );
                                         effective_guacd_host = Some(host);
                                     }
                                     if let Some(port) = decrypted_payload.port {
                                         debug!(
-                                            "Channel({}): ConnectAs supplied port: {}",
-                                            self.channel_id, port
+                                            "Channel({}): ConnectAs supplied port: {} (conversation_id: {})",
+                                            self.channel_id, port, self.conversation_id
                                         );
                                         effective_guacd_port = Some(port);
                                     }
@@ -519,7 +534,7 @@ impl Channel {
                                 // Guacd params are updated, effective_guacd_host/port is set.
                             }
                             Err(e) => {
-                                error!("Channel({}): Failed to decrypt or parse ConnectAs payload for target_conn_no {}: {}", self.channel_id, target_connection_no, e);
+                                error!("Channel({}): Failed to decrypt or parse ConnectAs payload for target_conn_no {}: {} (conversation_id: {})", self.channel_id, target_connection_no, e, self.conversation_id);
                                 self.buffer_pool.release(crypto_buffer);
                                 // Unlike original connections.rs, we might not want to immediately return Err here.
                                 // Consider if connection should proceed with default Guacd params if ConnectAs fails.
@@ -529,15 +544,15 @@ impl Channel {
                         }
                         self.buffer_pool.release(crypto_buffer);
                     } else {
-                        warn!("Channel({}): ConnectAs payload too short for PK, Nonce, and encrypted data (expected {}, got {}) for target_conn_no {}",
-                              self.channel_id, required_crypto_block_len, cursor.remaining(), target_connection_no);
+                        warn!("Channel({}): ConnectAs payload too short for PK, Nonce, and encrypted data (expected {}, got {}) for target_conn_no {} (conversation_id: {})",
+                              self.channel_id, required_crypto_block_len, cursor.remaining(), target_connection_no, self.conversation_id);
                         return Err(anyhow!(
                             "ConnectAs payload too short for PK, Nonce, and encrypted data"
                         ));
                     }
                 } else {
-                    warn!("Channel({}): ConnectAs payload too short for connect_as_payload_len field (expected {} bytes, got {}) for target_conn_no {}",
-                          self.channel_id, CONNECT_AS_DETAILS_LEN_FIELD_BYTES, cursor.remaining(), target_connection_no);
+                    warn!("Channel({}): ConnectAs payload too short for connect_as_payload_len field (expected {} bytes, got {}) for target_conn_no {} (conversation_id: {})",
+                          self.channel_id, CONNECT_AS_DETAILS_LEN_FIELD_BYTES, cursor.remaining(), target_connection_no, self.conversation_id);
                     // If ConnectAs was expected but the payload is too short even for its length, it's an error.
                     // If ConnectAs was optional and this path is reached, it implies no ConnectAs data was provided.
                     // The original connections.rs returned Err. Here, we might just log and proceed if ConnectAs is not mandatory.
@@ -552,25 +567,43 @@ impl Channel {
                         ));
                     }
                     // If cursor.remaining() is 0, it means no ConnectAs payload was sent, proceed without it.
-                    debug!("Channel({}): No additional payload for ConnectAs provided after target_conn_no {}.", self.channel_id, target_connection_no);
+                    debug!("Channel({}): No additional payload for ConnectAs provided after target_conn_no {} (conversation_id: {}).", self.channel_id, target_connection_no, self.conversation_id);
                 }
             }
         }
         // --- End of ConnectAs Logic ---
 
-        // Prepare data for the detailed trace log AFTER ConnectAs might have modified params
-        let guacd_params_locked = self.guacd_params.lock().await;
-        let guacd_params_for_log = format!("{:?}", *guacd_params_locked);
-        drop(guacd_params_locked);
-
         if unlikely!(crate::logger::is_verbose_logging()) {
-            debug!("Channel state for OpenConnection (after potential ConnectAs) (channel_id: {}, conn_no: {}, effective_guacd_host: {:?}, effective_guacd_port: {:?}, connect_as_settings: {:?}, guacd_params_map: {})",
-                self.channel_id, target_connection_no, effective_guacd_host, effective_guacd_port, self.connect_as_settings, guacd_params_for_log
+            // Build a redacted copy of the params map for logging — strip keys that
+            // carry credentials so that verbose logs never contain plaintext secrets.
+            const REDACTED_KEYS: &[&str] = &[
+                "password",
+                "privatekey",
+                "passphrase",
+                "public-key",
+                "publickey",
+            ];
+            let redacted: std::collections::HashMap<String, String> = {
+                let guacd_params_locked = self.guacd_params.lock().await;
+                guacd_params_locked
+                    .iter()
+                    .map(|(k, v)| {
+                        let val = if REDACTED_KEYS.contains(&k.as_str()) {
+                            "[redacted]".to_string()
+                        } else {
+                            v.clone()
+                        };
+                        (k.clone(), val)
+                    })
+                    .collect()
+            };
+            debug!("Channel state for OpenConnection (after potential ConnectAs) (channel_id: {}, conversation_id: {}, conn_no: {}, effective_guacd_host: {:?}, effective_guacd_port: {:?}, connect_as_settings: {:?}, guacd_params_map: {:?})",
+                self.channel_id, self.conversation_id, target_connection_no, effective_guacd_host, effective_guacd_port, self.connect_as_settings, redacted
             );
         }
 
         if self.server_mode && self.active_protocol == super::types::ActiveProtocol::PortForward {
-            debug!("Server-mode PortForward received OpenConnection for conn_no {}. Acknowledging with ConnectionOpened. (channel_id: {})", target_connection_no, self.channel_id);
+            debug!("Server-mode PortForward received OpenConnection for conn_no {}. Acknowledging with ConnectionOpened. (channel_id: {}, conversation_id: {})", target_connection_no, self.channel_id, self.conversation_id);
             self.send_control_message(
                 ControlMessage::ConnectionOpened,
                 &target_connection_no.to_be_bytes(),
@@ -597,8 +630,8 @@ impl Channel {
                 crate::models::CONN_STATE_ACTIVE => {
                     // Connection is genuinely active - duplicate request
                     debug!(
-                        "Active connection {} already exists. Sending ConnectionOpened. (channel_id: {})",
-                        target_connection_no, self.channel_id
+                        "Active connection {} already exists. Sending ConnectionOpened. (channel_id: {}, conversation_id: {})",
+                        target_connection_no, self.channel_id, self.conversation_id
                     );
                     self.send_control_message(
                         ControlMessage::ConnectionOpened,
@@ -614,8 +647,8 @@ impl Channel {
                         target_connection_no, state
                     );
                     error!(
-                        "Rejected conn_no reuse during cleanup (channel_id: {}, conn_no: {}, state: {})",
-                        self.channel_id, target_connection_no, state
+                        "Rejected conn_no reuse during cleanup (channel_id: {}, conversation_id: {}, conn_no: {}, state: {})",
+                        self.channel_id, self.conversation_id, target_connection_no, state
                     );
 
                     // Send CloseConnection with ConnectionFailed reason
@@ -632,15 +665,15 @@ impl Channel {
                         .send_control_message(ControlMessage::CloseConnection, &buffer)
                         .await
                     {
-                        error!("Failed to send CloseConnection for reuse rejection: {}", e);
+                        error!("Failed to send CloseConnection for reuse rejection: {} (channel_id: {}, conversation_id: {})", e, self.channel_id, self.conversation_id);
                     }
                     self.buffer_pool.release(buffer);
                     return Ok(());
                 }
                 _ => {
                     warn!(
-                        "Unknown connection state: {} (channel_id: {}, conn_no: {})",
-                        state, self.channel_id, target_connection_no
+                        "Unknown connection state: {} (channel_id: {}, conversation_id: {}, conn_no: {})",
+                        state, self.channel_id, self.conversation_id, target_connection_no
                     );
                     // Treat as closing to be safe
                     return Ok(());
@@ -678,8 +711,8 @@ impl Channel {
                             .await
                             {
                                 Ok(()) => {
-                                    debug!("Handler spawned successfully, sending ConnectionOpened (channel: {}, conn: {})",
-                                    self.channel_id, target_connection_no);
+                                    debug!("Handler spawned successfully, sending ConnectionOpened (channel: {}, conversation_id: {}, conn: {})",
+                                    self.channel_id, self.conversation_id, target_connection_no);
                                     let mut payload = self.buffer_pool.acquire();
                                     payload.put_u32(target_connection_no);
                                     let result = self
@@ -693,8 +726,8 @@ impl Channel {
                                 }
                                 Err(e) => {
                                     error!(
-                                        "Handler failed to start (channel: {}, conn: {}): {}",
-                                        self.channel_id, target_connection_no, e
+                                        "Handler failed to start (channel: {}, conversation_id: {}, conn: {}): {}",
+                                        self.channel_id, self.conversation_id, target_connection_no, e
                                     );
                                     let mut payload = self.buffer_pool.acquire();
                                     payload.put_u32(target_connection_no);
@@ -720,8 +753,8 @@ impl Channel {
                     match tokio::net::lookup_host(format!("{host}:{port}")).await {
                         Ok(mut addrs) => {
                             if let Some(socket_addr) = addrs.next() {
-                                debug!("Channel({}): Guacd OpenConnection for target_conn_no {} to {}:{} (resolved to {}).",
-                                    self.channel_id, target_connection_no, host, port, socket_addr);
+                                debug!("Channel({}): Guacd OpenConnection for target_conn_no {} to {}:{} (resolved to {}, conversation_id: {}).",
+                                    self.channel_id, target_connection_no, host, port, socket_addr, self.conversation_id);
                                 // Use super::connections to call open_backend
                                 super::connections::open_backend(
                                     self,
@@ -759,8 +792,8 @@ impl Channel {
                         match tokio::net::lookup_host(format!("{host}:{port}")).await {
                             Ok(mut addrs) => {
                                 if let Some(socket_addr) = addrs.next() {
-                                    debug!("Channel({}): PortForward OpenConnection for target_conn_no {} to {}:{} (resolved to {}).",
-                                        self.channel_id, target_connection_no, host, port, socket_addr);
+                                    debug!("Channel({}): PortForward OpenConnection for target_conn_no {} to {}:{} (resolved to {}, conversation_id: {}).",
+                                        self.channel_id, target_connection_no, host, port, socket_addr, self.conversation_id);
                                     super::connections::open_backend(
                                         self,
                                         target_connection_no,
@@ -802,8 +835,8 @@ impl Channel {
                                 Some(resolved_ips) => {
                                     if !checker.is_port_allowed(target.port) {
                                         error!(
-                                            "SOCKS5 port {} not allowed (channel_id: {})",
-                                            target.port, self.channel_id
+                                            "SOCKS5 port {} not allowed (channel_id: {}, conversation_id: {})",
+                                            target.port, self.channel_id, self.conversation_id
                                         );
                                         return Err(anyhow!(
                                             "SOCKS5 port {} not allowed",
@@ -812,8 +845,8 @@ impl Channel {
                                     }
 
                                     debug!(
-                                        "SOCKS5 connection allowed to {}:{} (channel_id: {})",
-                                        target.host, target.port, self.channel_id
+                                        "SOCKS5 connection allowed to {}:{} (channel_id: {}, conversation_id: {})",
+                                        target.host, target.port, self.channel_id, self.conversation_id
                                     );
 
                                     if let Some(&first_ip) = resolved_ips.first() {
@@ -834,7 +867,7 @@ impl Channel {
                                     }
                                 }
                                 None => {
-                                    error!("SOCKS5 destination {} not allowed or unresolvable (channel_id: {})", target.host, self.channel_id);
+                                    error!("SOCKS5 destination {} not allowed or unresolvable (channel_id: {}, conversation_id: {})", target.host, self.channel_id, self.conversation_id);
                                     Err(anyhow!(
                                         "SOCKS5 destination {} not allowed or unresolvable",
                                         target.host
@@ -848,15 +881,15 @@ impl Channel {
                         Err(anyhow!("SOCKS5 tunnel protocol not configured"))
                     }
                 } else {
-                    warn!("SOCKS5 OpenConnection received but not in client mode with network checker (channel_id: {})", self.channel_id);
+                    warn!("SOCKS5 OpenConnection received but not in client mode with network checker (channel_id: {}, conversation_id: {})", self.channel_id, self.conversation_id);
                     Err(anyhow!("SOCKS5 OpenConnection not supported in this mode"))
                 }
             }
             super::types::ActiveProtocol::PythonHandler => {
                 // PythonHandler mode: connections are virtual - notify Python and acknowledge
                 debug!(
-                    "Channel({}): PythonHandler OpenConnection for virtual conn_no {}",
-                    self.channel_id, target_connection_no
+                    "Channel({}): PythonHandler OpenConnection for virtual conn_no {} (conversation_id: {})",
+                    self.channel_id, target_connection_no, self.conversation_id
                 );
 
                 // Send ConnectionOpened event to Python handler
@@ -869,8 +902,8 @@ impl Channel {
                         .is_err()
                     {
                         warn!(
-                            "Channel({}): Failed to send ConnectionOpened to Python handler",
-                            self.channel_id
+                            "Channel({}): Failed to send ConnectionOpened to Python handler (conversation_id: {})",
+                            self.channel_id, self.conversation_id
                         );
                     }
                 }
@@ -882,8 +915,8 @@ impl Channel {
                 // Database proxy mode: route to proxy host/port instead of guacd
                 if unlikely!(crate::logger::is_verbose_logging()) {
                     debug!(
-                        "Channel({}): DatabaseProxy OpenConnection requested, proxy_host={:?}, proxy_port={:?}",
-                        self.channel_id, self.proxy_host, self.proxy_port
+                        "Channel({}): DatabaseProxy OpenConnection requested, proxy_host={:?}, proxy_port={:?} (conversation_id: {})",
+                        self.channel_id, self.proxy_host, self.proxy_port, self.conversation_id
                     );
                 }
                 if let (Some(host), Some(port)) = (self.proxy_host.as_deref(), self.proxy_port) {
@@ -891,8 +924,8 @@ impl Channel {
                         Ok(mut addrs) => {
                             if let Some(socket_addr) = addrs.next() {
                                 if unlikely!(crate::logger::is_verbose_logging()) {
-                                    debug!("Channel({}): DatabaseProxy OpenConnection for target_conn_no {} to {}:{} (resolved to {}).",
-                                        self.channel_id, target_connection_no, host, port, socket_addr);
+                                    debug!("Channel({}): DatabaseProxy OpenConnection for target_conn_no {} to {}:{} (resolved to {}, conversation_id: {}).",
+                                        self.channel_id, target_connection_no, host, port, socket_addr, self.conversation_id);
                                 }
                                 super::connections::open_backend(
                                     self,
@@ -930,8 +963,8 @@ impl Channel {
 
         if let Err(e) = open_result {
             let error_str = e.to_string();
-            error!("Channel({}): Failed to process OpenConnection for target_conn_no {}: {}. Sending CloseConnection back.",
-                self.channel_id, target_connection_no, error_str);
+            error!("Channel({}): Failed to process OpenConnection for target_conn_no {}: {}. Sending CloseConnection back. (conversation_id: {})",
+                self.channel_id, target_connection_no, error_str, self.conversation_id);
             temp_payload_buffer.put_u32(target_connection_no);
             temp_payload_buffer.put_u8(CloseConnectionReason::ConnectionFailed as u8);
             // Add error message (backward compatible extension)
@@ -945,20 +978,20 @@ impl Channel {
                 .await
             {
                 error!(
-                    "Channel({}): Failed to send CloseConnection for failed OpenConnection {}: {}",
-                    self.channel_id, target_connection_no, send_err
+                    "Channel({}): Failed to send CloseConnection for failed OpenConnection {}: {} (conversation_id: {})",
+                    self.channel_id, target_connection_no, send_err, self.conversation_id
                 );
             }
         } else {
-            debug!("Channel({}): Successfully processed OpenConnection for target_conn_no {}, sending ConnectionOpened.", self.channel_id, target_connection_no);
+            debug!("Channel({}): Successfully processed OpenConnection for target_conn_no {}, sending ConnectionOpened. (conversation_id: {})", self.channel_id, target_connection_no, self.conversation_id);
             temp_payload_buffer.put_u32(target_connection_no);
             if let Err(e) = self
                 .send_control_message(ControlMessage::ConnectionOpened, &temp_payload_buffer)
                 .await
             {
                 error!(
-                    "Channel({}): Error sending ConnectionOpened for conn_no {}: {}",
-                    self.channel_id, target_connection_no, e
+                    "Channel({}): Error sending ConnectionOpened for conn_no {}: {} (conversation_id: {})",
+                    self.channel_id, target_connection_no, e, self.conversation_id
                 );
             }
         }
@@ -972,8 +1005,8 @@ impl Channel {
             // Basic ping without connection info
             if unlikely!(crate::logger::is_verbose_logging()) {
                 debug!(
-                    "Endpoint Received basic Ping request (channel_id: {})",
-                    self.channel_id
+                    "Endpoint Received basic Ping request (channel_id: {}, conversation_id: {})",
+                    self.channel_id, self.conversation_id
                 );
             }
             self.send_control_message(
@@ -992,8 +1025,8 @@ impl Channel {
             // Validate non-control connection exists with single lookup
             if self.conns.get(&conn_no).is_none() {
                 error!(
-                    "Endpoint Connection {} not found for Ping (channel_id: {})",
-                    conn_no, self.channel_id
+                    "Endpoint Connection {} not found for Ping (channel_id: {}, conversation_id: {})",
+                    conn_no, self.channel_id, self.conversation_id
                 );
                 return Ok(());
             }
@@ -1010,14 +1043,14 @@ impl Channel {
             response.extend_from_slice(&data[CONN_NO_LEN..]);
             if unlikely!(crate::logger::is_verbose_logging()) {
                 debug!(
-                    "Endpoint Received ACK request with timing data for {} (channel_id: {})",
-                    conn_no, self.channel_id
+                    "Endpoint Received ACK request with timing data for {} (channel_id: {}, conversation_id: {})",
+                    conn_no, self.channel_id, self.conversation_id
                 );
             }
         } else if unlikely!(crate::logger::is_verbose_logging()) {
             debug!(
-                "Endpoint Received ACK request for {} (channel_id: {})",
-                conn_no, self.channel_id
+                "Endpoint Received ACK request for {} (channel_id: {}, conversation_id: {})",
+                conn_no, self.channel_id, self.conversation_id
             );
         }
 
@@ -1034,8 +1067,8 @@ impl Channel {
         if data.len() < CONN_NO_LEN {
             if unlikely!(crate::logger::is_verbose_logging()) {
                 debug!(
-                    "Endpoint Received basic pong (channel_id: {})",
-                    self.channel_id
+                    "Endpoint Received basic pong (channel_id: {}, conversation_id: {})",
+                    self.channel_id, self.conversation_id
                 );
             }
             return Ok(());
@@ -1048,18 +1081,21 @@ impl Channel {
         if let Some(_conn_ref) = self.conns.get(&conn_no) {
             if conn_no == 0 {
                 if unlikely!(crate::logger::is_verbose_logging()) {
-                    debug!("Endpoint Received pong (channel_id: {})", self.channel_id);
+                    debug!(
+                        "Endpoint Received pong (channel_id: {}, conversation_id: {})",
+                        self.channel_id, self.conversation_id
+                    );
                 }
             } else if unlikely!(crate::logger::is_verbose_logging()) {
                 debug!(
-                    "Endpoint Received ACK response for {} (channel_id: {})",
-                    conn_no, self.channel_id
+                    "Endpoint Received ACK response for {} (channel_id: {}, conversation_id: {})",
+                    conn_no, self.channel_id, self.conversation_id
                 );
             }
         } else if unlikely!(crate::logger::is_verbose_logging()) {
             debug!(
-                "Endpoint Received pong for unknown connection {} (channel_id: {})",
-                conn_no, self.channel_id
+                "Endpoint Received pong for unknown connection {} (channel_id: {}, conversation_id: {})",
+                conn_no, self.channel_id, self.conversation_id
             );
         }
 
@@ -1078,7 +1114,7 @@ impl Channel {
         // Check if the connection exists and handle EOF
         if let Some(conn_ref) = self.conns.get(&conn_no) {
             if unlikely!(crate::logger::is_verbose_logging()) {
-                debug!("Endpoint Received EOF from remote for connection {}, signaling backend to shutdown write side (channel_id: {})", conn_no, self.channel_id);
+                debug!("Endpoint Received EOF from remote for connection {}, signaling backend to shutdown write side (channel_id: {}, conversation_id: {})", conn_no, self.channel_id, self.conversation_id);
             }
 
             // SendEOF means the remote side closed their writing end
@@ -1086,20 +1122,20 @@ impl Channel {
             match conn_ref.data_tx.send(crate::models::ConnectionMessage::Eof) {
                 Ok(_) => {
                     if unlikely!(crate::logger::is_verbose_logging()) {
-                        debug!("Endpoint Successfully sent EOF signal to backend for conn {} (channel_id: {})", conn_no, self.channel_id);
+                        debug!("Endpoint Successfully sent EOF signal to backend for conn {} (channel_id: {}, conversation_id: {})", conn_no, self.channel_id, self.conversation_id);
                     }
                 }
                 Err(_) => {
                     // Channel is closed, connection is already dead
                     if unlikely!(crate::logger::is_verbose_logging()) {
-                        debug!("Endpoint EOF signal failed, connection {} already closed (channel_id: {})", conn_no, self.channel_id);
+                        debug!("Endpoint EOF signal failed, connection {} already closed (channel_id: {}, conversation_id: {})", conn_no, self.channel_id, self.conversation_id);
                     }
                 }
             }
         } else {
             error!(
-                "Endpoint Connection for EOF {} not found (channel_id: {})",
-                conn_no, self.channel_id
+                "Endpoint Connection for EOF {} not found (channel_id: {}, conversation_id: {})",
+                conn_no, self.channel_id, self.conversation_id
             );
         }
 
@@ -1121,8 +1157,8 @@ impl Channel {
         // Handle PythonHandler mode specially - lazy initialization of virtual connections
         if self.active_protocol == super::types::ActiveProtocol::PythonHandler {
             debug!(
-                "Channel({}): PythonHandler received ConnectionOpened for conn_no {}",
-                self.channel_id, connection_no
+                "Channel({}): PythonHandler received ConnectionOpened for conn_no {} (conversation_id: {})",
+                self.channel_id, connection_no, self.conversation_id
             );
 
             // Register the virtual connection in our state
@@ -1131,15 +1167,15 @@ impl Channel {
             {
                 if state.active_connections.contains(&connection_no) {
                     warn!(
-                        "Channel({}): PythonHandler conn_no {} already registered, ignoring duplicate ConnectionOpened",
-                        self.channel_id, connection_no
+                        "Channel({}): PythonHandler conn_no {} already registered, ignoring duplicate ConnectionOpened (conversation_id: {})",
+                        self.channel_id, connection_no, self.conversation_id
                     );
                     return Ok(());
                 }
                 state.active_connections.insert(connection_no);
                 debug!(
-                    "Channel({}): PythonHandler registered virtual connection {} (total active: {})",
-                    self.channel_id, connection_no, state.active_connections.len()
+                    "Channel({}): PythonHandler registered virtual connection {} (total active: {}, conversation_id: {})",
+                    self.channel_id, connection_no, state.active_connections.len(), self.conversation_id
                 );
             }
 
@@ -1153,8 +1189,8 @@ impl Channel {
                     .is_err()
                 {
                     warn!(
-                        "Channel({}): Failed to send ConnectionOpened to Python handler for conn_no {}",
-                        self.channel_id, connection_no
+                        "Channel({}): Failed to send ConnectionOpened to Python handler for conn_no {} (conversation_id: {})",
+                        self.channel_id, connection_no, self.conversation_id
                     );
                     // Clean up the registration since Python won't know about it
                     if let super::core::ProtocolLogicState::PythonHandler(ref mut state) =
@@ -1166,8 +1202,8 @@ impl Channel {
                 }
             } else {
                 error!(
-                    "Channel({}): PythonHandler mode but python_handler_tx is None",
-                    self.channel_id
+                    "Channel({}): PythonHandler mode but python_handler_tx is None (conversation_id: {})",
+                    self.channel_id, self.conversation_id
                 );
                 return Err(anyhow!("PythonHandler mode missing python_handler_tx"));
             }
@@ -1179,8 +1215,8 @@ impl Channel {
         if !self.server_mode {
             if unlikely!(crate::logger::is_verbose_logging()) {
                 debug!(
-                    "Endpoint Received ConnectionOpened in client mode (ignoring) (channel_id: {})",
-                    self.channel_id
+                    "Endpoint Received ConnectionOpened in client mode (ignoring) (channel_id: {}, conversation_id: {})",
+                    self.channel_id, self.conversation_id
                 );
             }
             return Ok(());
@@ -1188,8 +1224,8 @@ impl Channel {
 
         if unlikely!(crate::logger::is_verbose_logging()) {
             debug!(
-                "Endpoint Starting reader for connection {} (channel_id: {})",
-                connection_no, self.channel_id
+                "Endpoint Starting reader for connection {} (channel_id: {}, conversation_id: {})",
+                connection_no, self.channel_id, self.conversation_id
             );
         }
 
@@ -1200,8 +1236,8 @@ impl Channel {
                 if let Some(response_bytes) = protocol.deferred_response() {
                     if unlikely!(crate::logger::is_verbose_logging()) {
                         debug!(
-                            "{} Connection opened, sending deferred response (channel_id: {}, conn_no: {})",
-                            protocol.name(), self.channel_id, connection_no
+                            "{} Connection opened, sending deferred response (channel_id: {}, conversation_id: {}, conn_no: {})",
+                            protocol.name(), self.channel_id, self.conversation_id, connection_no
                         );
                     }
 
@@ -1212,15 +1248,15 @@ impl Channel {
                         Ok(_) => {
                             if unlikely!(crate::logger::is_verbose_logging()) {
                                 debug!(
-                                    "Endpoint {} deferred response queued for connection {} (channel_id: {})",
-                                    protocol.name(), connection_no, self.channel_id
+                                    "Endpoint {} deferred response queued for connection {} (channel_id: {}, conversation_id: {})",
+                                    protocol.name(), connection_no, self.channel_id, self.conversation_id
                                 );
                             }
                         }
                         Err(e) => {
                             error!(
-                                "Endpoint Failed to queue {} deferred response: {} (channel_id: {})",
-                                protocol.name(), e, self.channel_id
+                                "Endpoint Failed to queue {} deferred response: {} (channel_id: {}, conversation_id: {})",
+                                protocol.name(), e, self.channel_id, self.conversation_id
                             );
                         }
                     }
@@ -1235,17 +1271,17 @@ impl Channel {
                 .map(|t| t.is_finished())
                 .unwrap_or(true);
             if task_finished {
-                warn!("In ConnectionOpened, to_webrtc task was already finished. This is unexpected. (channel_id: {}, conn_no: {})", self.channel_id, connection_no);
+                warn!("In ConnectionOpened, to_webrtc task was already finished. This is unexpected. (channel_id: {}, conversation_id: {}, conn_no: {})", self.channel_id, self.conversation_id, connection_no);
             }
 
             debug!(
-                "Connection fully opened and ready. (channel_id: {}, conn_no: {})",
-                self.channel_id, connection_no
+                "Connection fully opened and ready. (channel_id: {}, conversation_id: {}, conn_no: {})",
+                self.channel_id, self.conversation_id, connection_no
             );
         } else {
             error!(
-                "Endpoint Connection {} not found for ConnectionOpened (channel_id: {})",
-                connection_no, self.channel_id
+                "Endpoint Connection {} not found for ConnectionOpened (channel_id: {}, conversation_id: {})",
+                connection_no, self.channel_id, self.conversation_id
             );
             return Ok(());
         }
@@ -1257,8 +1293,8 @@ impl Channel {
     async fn handle_metrics_request(&mut self, data: &[u8]) -> Result<()> {
         if unlikely!(crate::logger::is_verbose_logging()) {
             debug!(
-                "Processing metrics request (channel_id: {})",
-                self.channel_id
+                "Processing metrics request (channel_id: {}, conversation_id: {})",
+                self.channel_id, self.conversation_id
             );
         }
 
@@ -1318,8 +1354,9 @@ impl Channel {
 
         if unlikely!(crate::logger::is_verbose_logging()) {
             debug!(
-                "Sent metrics response (channel_id: {}, response_bytes: {})",
+                "Sent metrics response (channel_id: {}, conversation_id: {}, response_bytes: {})",
                 self.channel_id,
+                self.conversation_id,
                 response_data.len()
             );
         }
@@ -1331,8 +1368,9 @@ impl Channel {
     async fn handle_metrics_response(&mut self, data: &[u8]) -> Result<()> {
         if unlikely!(crate::logger::is_verbose_logging()) {
             debug!(
-                "Received metrics response (channel_id: {}, response_bytes: {})",
+                "Received metrics response (channel_id: {}, conversation_id: {}, response_bytes: {})",
                 self.channel_id,
+                self.conversation_id,
                 data.len()
             );
         }
@@ -1342,14 +1380,14 @@ impl Channel {
             match serde_json::from_slice::<serde_json::Value>(data) {
                 Ok(metrics) => {
                     debug!(
-                        "Parsed metrics response (channel_id: {}, metrics: {:?})",
-                        self.channel_id, metrics
+                        "Parsed metrics response (channel_id: {}, conversation_id: {}, metrics: {:?})",
+                        self.channel_id, self.conversation_id, metrics
                     );
                 }
                 Err(e) => {
                     debug!(
-                        "Failed to parse metrics response (channel_id: {}, error: {})",
-                        self.channel_id, e
+                        "Failed to parse metrics response (channel_id: {}, conversation_id: {}, error: {})",
+                        self.channel_id, self.conversation_id, e
                     );
                 }
             }
@@ -1362,8 +1400,9 @@ impl Channel {
     async fn handle_metrics_config(&mut self, data: &[u8]) -> Result<()> {
         if unlikely!(crate::logger::is_verbose_logging()) {
             debug!(
-                "Processing metrics config (channel_id: {}, config_bytes: {})",
+                "Processing metrics config (channel_id: {}, conversation_id: {}, config_bytes: {})",
                 self.channel_id,
+                self.conversation_id,
                 data.len()
             );
         }
@@ -1373,16 +1412,16 @@ impl Channel {
             match serde_json::from_slice::<serde_json::Value>(data) {
                 Ok(config) => {
                     debug!(
-                        "Received metrics configuration (channel_id: {}, config: {:?})",
-                        self.channel_id, config
+                        "Received metrics configuration (channel_id: {}, conversation_id: {}, config: {:?})",
+                        self.channel_id, self.conversation_id, config
                     );
 
                     // Process configuration settings
                     if let Some(enable_collection) = config.get("enable_collection") {
                         if let Some(enabled) = enable_collection.as_bool() {
                             debug!(
-                                "Metrics collection setting (channel_id: {}, enabled: {})",
-                                self.channel_id, enabled
+                                "Metrics collection setting (channel_id: {}, conversation_id: {}, enabled: {})",
+                                self.channel_id, self.conversation_id, enabled
                             );
                         }
                     }
@@ -1390,8 +1429,8 @@ impl Channel {
                     if let Some(collection_interval) = config.get("collection_interval_ms") {
                         if let Some(interval) = collection_interval.as_u64() {
                             debug!(
-                                "Metrics collection interval (channel_id: {}, interval_ms: {})",
-                                self.channel_id, interval
+                                "Metrics collection interval (channel_id: {}, conversation_id: {}, interval_ms: {})",
+                                self.channel_id, self.conversation_id, interval
                             );
                         }
                     }
@@ -1401,8 +1440,8 @@ impl Channel {
                 }
                 Err(e) => {
                     debug!(
-                        "Failed to parse metrics config (channel_id: {}, error: {})",
-                        self.channel_id, e
+                        "Failed to parse metrics config (channel_id: {}, conversation_id: {}, error: {})",
+                        self.channel_id, self.conversation_id, e
                     );
                 }
             }

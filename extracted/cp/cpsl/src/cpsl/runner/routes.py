@@ -36,7 +36,7 @@ from ..decorators import (
     _SCHEDULE_ATTR,
 )
 from ..home import serialize_suggestions
-from ..page_bundle import page_bundle_handler
+from ..page_bundle import build_page_bundle, page_bundle_handler
 from ..page_source import (
     page_module_source_handler,
     page_source_handler,
@@ -244,8 +244,52 @@ class RunnerRouteMixin:
             meta["shell"] = shell
         return meta
 
+    def _schedule_page_bundle_warmup(
+        self,
+        specs: tuple[tuple[str, str, list[str]], ...],
+    ) -> None:
+        if not specs:
+            return
+
+        async def warm_one(
+            semaphore: asyncio.Semaphore,
+            name: str,
+            component: str,
+            packages: list[str],
+        ) -> None:
+            async with semaphore:
+                try:
+                    result = await asyncio.to_thread(build_page_bundle, component, packages)
+                    state = "cached" if result.cached else "built"
+                    _log(f"page bundle warmup {state}: {name}")
+                except Exception as exc:
+                    _log(f"page bundle warmup failed: {name}: {exc}")
+
+        async def warm_all() -> None:
+            _log(f"page bundle warmup queued: {len(specs)} page(s)")
+            semaphore = asyncio.Semaphore(2)
+            await asyncio.gather(
+                *(
+                    warm_one(semaphore, name, component, packages)
+                    for name, component, packages in specs
+                )
+            )
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        tasks = getattr(self, "_page_bundle_warmup_tasks", None)
+        if tasks is None:
+            tasks = set()
+            self._page_bundle_warmup_tasks = tasks
+        task = loop.create_task(warm_all())
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
+
     def _mount_endpoints(self, app: web.Application) -> None:
         meta = self._collect_meta()
+        react_page_specs: list[tuple[str, str, list[str]]] = []
 
         def _handle_meta(_req: web.Request) -> web.Response:
             self._last_activity = time.time()
@@ -273,13 +317,15 @@ class RunnerRouteMixin:
             if page.get("type") == PAGE_TYPE_REACT and page.get("component"):
                 pname = page["name"]
                 component = page["component"]
+                packages = list(page.get("packages") or [])
+                react_page_specs.append((pname, component, packages))
                 app.router.add_get(
                     f"/pages/{pname}/source",
                     page_source_handler(component),
                 )
                 app.router.add_get(
                     f"/pages/{pname}/bundle.js",
-                    page_bundle_handler(component, page.get("packages", [])),
+                    page_bundle_handler(component, packages),
                 )
                 app.router.add_get(
                     f"/pages/{pname}/source-manifest",
@@ -292,13 +338,15 @@ class RunnerRouteMixin:
                 _log(f"page source mounted: GET /pages/{pname}/source")
         onboarding = meta.get("onboarding")
         if onboarding and onboarding.get("type") == PAGE_TYPE_REACT and onboarding.get("component"):
+            onboarding_packages = list(onboarding.get("packages") or [])
+            react_page_specs.append(("__onboarding__", onboarding["component"], onboarding_packages))
             app.router.add_get(
                 "/pages/__onboarding__/source",
                 page_source_handler(onboarding["component"]),
             )
             app.router.add_get(
                 "/pages/__onboarding__/bundle.js",
-                page_bundle_handler(onboarding["component"], onboarding.get("packages", [])),
+                page_bundle_handler(onboarding["component"], onboarding_packages),
             )
             app.router.add_get(
                 "/pages/__onboarding__/source-manifest",
@@ -309,6 +357,8 @@ class RunnerRouteMixin:
                 page_module_source_handler(onboarding["component"]),
             )
             _log("page source mounted: GET /pages/__onboarding__/source")
+
+        self._schedule_page_bundle_warmup(tuple(react_page_specs))
 
         from ..app import _REGISTERED_CLASSES
 

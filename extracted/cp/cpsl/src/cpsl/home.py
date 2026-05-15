@@ -16,6 +16,13 @@ def _target_name(value: Any) -> str:
     return name
 
 
+def _page_target_name(value: Any) -> str:
+    route = getattr(value, "route", None)
+    if isinstance(route, str) and route:
+        return route
+    return _target_name(value)
+
+
 @dataclass(frozen=True, slots=True)
 class Suggestion:
     """A typed action shown on an app's Capsule home screen.
@@ -59,7 +66,7 @@ class Suggestion:
             value = _target_name(self.workflow)
         else:
             target = "page"
-            value = _target_name(self.page)
+            value = _page_target_name(self.page)
 
         d: dict[str, Any] = {
             "label": self.label,

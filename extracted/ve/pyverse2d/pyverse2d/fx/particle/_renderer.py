@@ -109,7 +109,11 @@ class ParticleRenderer:
 
     @classmethod
     def _upload(cls, data: np.ndarray) -> None:
-        """Passe les données au GPU"""
+        """Passe les données au GPU
+        
+        Args:
+            data: données à passer
+        """
         count = len(data)
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, cls._inst_vbo)
         if count > cls._inst_capacity:
@@ -163,3 +167,8 @@ class ParticleRenderer:
 
         gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
         program.stop()
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "ParticleRenderer",
+]

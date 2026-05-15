@@ -34,6 +34,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+from sage.core.pre_write_validator import validated_generate
 from sage.core.principal_engineer import (
     _collect_module_symbols,
     _find_dangling_imports,
@@ -121,19 +122,31 @@ def _run_dangling_pass(
         prompt = build_integrity_fix_prompt(
             importer, py_files[importer], siblings, missing
         )
+        # KEY: route through pre-write validator with retry. Previously the
+        # raw LLM output was written directly — that's how the <div> regen
+        # regression and indent errors landed in stage-7-clean files.
         try:
-            raw = generate(prompt)
+            fixed, vresult = validated_generate(
+                initial_prompt=prompt,
+                path=importer,
+                generate=generate,
+                sanitize=strip_code_fences,
+                max_attempts=3,
+                log=log,
+            )
         except Exception as exc:  # noqa: BLE001 — integrity must never crash
             log(f"  [integrity] {importer}: generate failed ({exc})")
             continue
-        fixed = strip_code_fences(raw)
         if len(fixed) < 20:
             continue
+        # If validation didn't fully pass, still write best-effort. Doctor
+        # pass + stage 8 will pick up remaining issues.
         target = root / importer
         target.write_text(fixed, encoding="utf-8")
         py_files[importer] = fixed
         fixes += 1
-        log(f"  [integrity] ↻ {importer} ({len(missing)} dangling refs)")
+        status = "↻" if vresult.ok else "⚠"
+        log(f"  [integrity] {status} {importer} ({len(missing)} dangling refs)")
     return fixes
 
 
@@ -166,11 +179,17 @@ def _run_lint_pass(
                 rel_path, current, diagnostics, undefined
             )
             try:
-                raw = generate(prompt)
+                fixed, _ = validated_generate(
+                    initial_prompt=prompt,
+                    path=rel_path,
+                    generate=generate,
+                    sanitize=strip_code_fences,
+                    max_attempts=3,
+                    log=log,
+                )
             except Exception as exc:  # noqa: BLE001
                 log(f"  [integrity-lint] {rel_path}: generate failed ({exc})")
                 break
-            fixed = strip_code_fences(raw)
             if len(fixed) < 20:
                 break
             full.write_text(fixed, encoding="utf-8")

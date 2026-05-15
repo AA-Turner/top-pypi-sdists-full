@@ -14,3 +14,8 @@ thiserror.workspace = true
 [dev-dependencies]
 anyhow = { workspace = true }
 bytes = { workspace = true }
+criterion = "0.5"
+
+[[bench]]
+name = "encode_ack"
+harness = false

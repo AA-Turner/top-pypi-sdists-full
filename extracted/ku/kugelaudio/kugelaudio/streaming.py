@@ -116,7 +116,16 @@ class StreamingSession:
 
         handshake_errors = ws_handshake_error_types(websockets)
         try:
-            self._ws = await websockets.connect(ws_url, compression=None)
+            # See MultiContextSession.connect for why we override the websockets
+            # ping defaults — keep the WS alive across ~20-30s NAT/proxy idle
+            # timeouts that otherwise drop it without a close handshake.
+            self._ws = await websockets.connect(
+                ws_url,
+                compression=None,
+                ping_interval=15.0,
+                ping_timeout=15.0,
+                close_timeout=5.0,
+            )
             self._is_started = True
             logger.debug("Streaming session connected")
         except handshake_errors as e:
@@ -491,6 +500,36 @@ class MultiContextSession:
         """Return the most recently received word timestamps for *context_id*."""
         return self._last_word_timestamps.get(context_id, [])
 
+    @property
+    def is_alive(self) -> bool:
+        """True iff the underlying WebSocket is still usable for send().
+
+        False after the WS has been closed (clean or otherwise) or has been
+        reset by ``_reset_dead_session`` after a mid-stream drop. Callers that
+        cache the session across turns (e.g. the Pipecat wrapper) should check
+        this before reuse and reconnect when False.
+        """
+        ws = self._ws
+        if ws is None:
+            return False
+        # websockets exposes a ``state`` enum; State.OPEN == 1. Avoid importing
+        # the enum to stay compatible across websockets minor versions.
+        state = getattr(ws, "state", None)
+        if state is not None:
+            name = getattr(state, "name", "")
+            return name == "OPEN"
+        # Fallback: assume open if we have a ws and no state attribute.
+        return True
+
+    def _reset_dead_session(self) -> None:
+        """Drop all references to a dead WebSocket so the next operation
+        can either reconnect (via ``connect``) or raise cleanly. Idempotent.
+        """
+        self._ws = None
+        self._is_started = False
+        self._contexts.clear()
+        self._pending_messages.clear()
+
     async def __aenter__(self) -> "MultiContextSession":
         await self.connect()
         return self
@@ -512,7 +551,15 @@ class MultiContextSession:
 
         handshake_errors = ws_handshake_error_types(websockets)
         try:
-            self._ws = await websockets.connect(ws_url)
+            # Tighter than the websockets default of 20s/20s. A 15s ping cadence
+            # keeps the WS alive across NAT/proxy idle timeouts that show up in
+            # the wild around 30s (some macOS NAT, corporate firewalls, mobile
+            # carriers). Without these, an idle conversation pause of ~20-30s
+            # can drop the connection without a close handshake, and the next
+            # send() raises ConnectionClosedError("no close frame received").
+            self._ws = await websockets.connect(
+                ws_url, ping_interval=15.0, ping_timeout=15.0, close_timeout=5.0
+            )
         except handshake_errors as e:
             typed = classify_ws_handshake_error(e)
             if typed is not None:
@@ -650,6 +697,18 @@ class MultiContextSession:
         Yields:
             AudioChunk as audio is generated
         """
+        if not self.is_alive:
+            # WS was dropped (proxy idle, network blip, server restart) and
+            # state was already torn down by ``_reset_dead_session``. Surface
+            # a typed error rather than crashing inside ``await self._ws.send``
+            # with the stack-trace-only ConnectionClosedError("no close frame
+            # received or sent") that callers can't easily catch.
+            self._reset_dead_session()
+            raise KugelAudioConnectionError(
+                "KugelAudio WebSocket is not connected. Reconnect with "
+                "session.connect() (or recreate the session) before send()."
+            )
+
         if not self._is_started:
             await self._start_session(context_id)
 
@@ -843,11 +902,19 @@ class MultiContextSession:
             except Exception as e:
                 if "ConnectionClosed" in str(type(e)):
                     code = getattr(e, "code", None)
+                    # Tear down session state so the next send() reconnects
+                    # cleanly instead of calling .send() on a dead socket and
+                    # raising ConnectionClosedError("no close frame received").
+                    self._reset_dead_session()
                     if code in _WS_ERROR_CLOSE_CODES:
                         raise classify_ws_close(
                             code, getattr(e, "reason", None)
                         ) from e
-                    break
+                    raise KugelAudioConnectionError(
+                        "KugelAudio WebSocket dropped mid-stream "
+                        f"(close code={code}). Caller should retry on a "
+                        "fresh session."
+                    ) from e
                 raise
 
     async def close(self) -> Dict[str, Any]:

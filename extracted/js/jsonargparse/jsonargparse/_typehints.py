@@ -5,7 +5,7 @@ import os
 import re
 import sys
 from argparse import ArgumentError
-from collections import OrderedDict, abc, defaultdict
+from collections import OrderedDict, abc, defaultdict, deque
 from contextlib import contextmanager, suppress
 from contextvars import ContextVar
 from copy import deepcopy
@@ -16,8 +16,10 @@ from types import FunctionType, MappingProxyType
 from typing import (
     Any,
     Callable,
+    Deque,
     Dict,
     ForwardRef,
+    FrozenSet,
     Iterable,
     List,
     Literal,
@@ -46,7 +48,6 @@ from ._actions import (
     remove_actions,
 )
 from ._common import (
-    get_class_instantiator,
     get_unaliased_type,
     is_generic_class,
     is_instance,
@@ -58,6 +59,7 @@ from ._common import (
     parser_context,
     validating_defaults,
 )
+from ._instantiation import get_class_instantiator
 from ._loaders_dumpers import (
     basic_json_or_yaml_load,
     get_loader_exceptions,
@@ -77,6 +79,7 @@ from ._optionals import (
 from ._paths import Path, PathError, change_to_path_dir
 from ._required import clear_required
 from ._subcommands import find_action, find_parent_action, parse_kwargs
+from ._type_checking import ArgumentParser
 from ._util import (
     NestedArg,
     NoneType,
@@ -85,6 +88,7 @@ from ._util import (
     import_object,
     indent_text,
     iter_to_set_str,
+    load_config_path_context,
     object_path_serializer,
     parse_value_or_config,
     warning,
@@ -118,6 +122,9 @@ root_types = {
     Union,
     List,
     list,
+    FrozenSet,
+    Deque,
+    deque,
     Iterable,
     Sequence,
     MutableSequence,
@@ -127,6 +134,7 @@ root_types = {
     Tuple,
     tuple,
     Set,
+    FrozenSet,
     set,
     frozenset,
     MutableSet,
@@ -159,6 +167,8 @@ tuple_set_origin_types = {Tuple, tuple, Set, set, frozenset, MutableSet, abc.Set
 sequence_origin_types = {
     List,
     list,
+    Deque,
+    deque,
     Iterable,
     Sequence,
     MutableSequence,
@@ -211,6 +221,61 @@ def get_parse_optional_num_return() -> int:
 
 
 parse_optional_num_return = get_parse_optional_num_return()
+
+
+def freeze(value):
+    if isinstance(value, dict):
+        return tuple(sorted(((k, freeze(v)) for k, v in value.items()), key=lambda item: repr(item[0])))
+    if isinstance(value, set):
+        return tuple(sorted((freeze(v) for v in value), key=repr))
+    if isinstance(value, (list, tuple)):
+        return tuple(freeze(v) for v in value)
+    return value
+
+
+_cached_class_parsers: dict[tuple, ArgumentParser] = {}
+
+
+def cached_get_class_parser(*, val_class, sub_add_kwargs, skip_args, parent_parser, nested_links):
+    if isinstance(val_class, str):
+        val_class = import_object(val_class)
+    parser_class = type(parent_parser)
+    cache_key = (
+        val_class,
+        parser_class,
+        parent_parser.parser_mode,
+        freeze(sub_add_kwargs),
+        freeze(skip_args),
+        freeze(nested_links),
+    )
+    if cache_key in _cached_class_parsers:
+        parser = _cached_class_parsers[cache_key]
+        parser.logger = parent_parser.logger
+        return parser
+
+    kwargs = dict(sub_add_kwargs) if sub_add_kwargs else {}
+    if skip_args:
+        kwargs.setdefault("skip", set()).update(skip_args)
+
+    parser = parser_class(exit_on_error=False, logger=parent_parser.logger, parser_mode=parent_parser.parser_mode)
+    remove_actions(parser, (ActionConfigFile, _ActionPrintConfig))
+    if inspect.isclass(val_class) or inspect.isclass(get_typehint_origin(val_class)):
+        parser.add_class_arguments(val_class, **kwargs)
+    else:
+        kwargs = {k: v for k, v in kwargs.items() if k != "instantiate"}
+        parser.add_function_arguments(val_class, **kwargs)
+
+    if "linked_targets" in kwargs:
+        for key in kwargs["linked_targets"]:
+            clear_required(parser, key)
+
+    for link_kwargs in nested_links:
+        parser.link_arguments(**link_kwargs)
+
+    parser._inner_parser = True
+
+    _cached_class_parsers[cache_key] = parser
+    return parser
 
 
 class ActionTypeHint(Action):
@@ -571,14 +636,14 @@ class ActionTypeHint(Action):
                     "logger": self.logger,
                 }
                 try:
-                    with change_to_path_dir(config_path):
+                    with load_config_path_context(config_path), change_to_path_dir(config_path):
                         val = adapt_typehints(val, self._typehint, **kwargs)
                 except ValueError as ex:
                     if orig_val == "-" and isinstance(getattr(ex, "parent", None), PathError):
                         raise ex
                     try:
                         if isinstance(orig_val, str):
-                            with change_to_path_dir(config_path):
+                            with load_config_path_context(config_path), change_to_path_dir(config_path):
                                 val = adapt_typehints(orig_val, self._typehint, default=self.default, **kwargs)
                             ex = None
                     except ValueError:
@@ -633,33 +698,13 @@ class ActionTypeHint(Action):
 
     @staticmethod
     def get_class_parser(val_class, sub_add_kwargs=None, skip_args=None):
-        if isinstance(val_class, str):
-            val_class = import_object(val_class)
-        kwargs = dict(sub_add_kwargs) if sub_add_kwargs else {}
-        if skip_args:
-            kwargs.setdefault("skip", set()).update(skip_args)
-        parser = parent_parser.get()
-        from ._core import ArgumentParser
-
-        assert isinstance(parser, ArgumentParser)
-        parser = type(parser)(exit_on_error=False, logger=parser.logger, parser_mode=parser.parser_mode)
-        remove_actions(parser, (ActionConfigFile, _ActionPrintConfig))
-        if inspect.isclass(val_class) or inspect.isclass(get_typehint_origin(val_class)):
-            parser.add_class_arguments(val_class, **kwargs)
-        else:
-            kwargs = {k: v for k, v in kwargs.items() if k != "instantiate"}
-            parser.add_function_arguments(val_class, **kwargs)
-
-        if "linked_targets" in kwargs:
-            for key in kwargs["linked_targets"]:
-                clear_required(parser, key)
-
-        for link_kwargs in nested_links.get():
-            parser.link_arguments(**link_kwargs)
-
-        parser._inner_parser = True
-
-        return parser
+        return cached_get_class_parser(
+            val_class=val_class,
+            sub_add_kwargs=sub_add_kwargs,
+            skip_args=skip_args,
+            parent_parser=parent_parser.get(),
+            nested_links=nested_links.get(),
+        )
 
     def extra_help(self):
         extra = ""
@@ -863,7 +908,7 @@ def adapt_typehints(
 
     # Tuple or Set
     elif typehint_origin in tuple_set_origin_types:
-        if not isinstance(val, (list, tuple, set)):
+        if not isinstance(val, (list, tuple, set, frozenset)):
             raise_unexpected_value(f"Expected a {typehint_origin}", val)
         val = list(val)
         if subtypehints is not None:
@@ -875,7 +920,12 @@ def adapt_typehints(
                 subtypehint = subtypehints[0 if is_ellipsis or not is_tuple else n]
                 val[n] = adapt_typehints(v, subtypehint, **adapt_kwargs)
         if not serialize:
-            val = tuple(val) if typehint_origin in {Tuple, tuple} else set(val)
+            if typehint_origin in {Tuple, tuple}:
+                val = tuple(val)
+            elif typehint_origin is frozenset:
+                val = frozenset(val)
+            else:
+                val = set(val)
 
     # List, Iterable or Sequence
     elif typehint_origin in sequence_origin_types:
@@ -899,7 +949,7 @@ def adapt_typehints(
                 from ._optionals import _get_config_read_mode
 
                 list_path = Path(val, mode=_get_config_read_mode())
-                val = list_path.get_content().splitlines()
+                val = list_path.read_text().splitlines()
         if isinstance(val, NestedArg) and subtypehints is not None:
             val = (prev_val[:-1] if isinstance(prev_val, list) else []) + [val]
         elif isinstance(val, Iterable) and not isinstance(val, (list, str)) and type(val) not in mapping_origin_types:
@@ -914,6 +964,8 @@ def adapt_typehints(
                     adapt_kwargs_n = deepcopy(adapt_kwargs)
                 with change_to_path_dir(list_path):
                     val[n] = adapt_typehints(v, subtypehints[0], **adapt_kwargs_n)
+        if typehint_origin is deque:
+            val = list(val) if serialize else deque(val)
 
     # Dict, Mapping
     elif typehint_origin in mapping_origin_types:
@@ -1493,7 +1545,7 @@ def adapt_class_type(
     init_args = value.get("init_args", Namespace())
 
     if instantiate_classes:
-        init_args = parser.instantiate_classes(init_args)
+        init_args = parser.instantiate(init_args)
         if not sub_add_kwargs.get("instantiate", True):
             if init_args:
                 value["init_args"] = init_args

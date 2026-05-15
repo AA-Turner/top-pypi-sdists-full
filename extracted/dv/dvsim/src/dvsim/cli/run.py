@@ -833,7 +833,7 @@ def parse_args(argv: list[str] | None = None):
         dest="instrumentation",
         nargs="+",
         default=[],
-        choices=InstrumentationFactory.options(),
+        choices=["all", *InstrumentationFactory.options()],
         help="Enable scheduler instrumentation (can specify multiple types).",
     )
 
@@ -985,7 +985,13 @@ def main(argv: list[str] | None = None) -> None:
     set_backend_type(is_local=args.local, fake=args.fake)
 
     # Configure scheduler instrumentation
-    set_instrumentation(InstrumentationFactory.create(args.instrumentation))
+    if args.instrumentation:
+        instrumentations = (
+            InstrumentationFactory.options()
+            if "all" in args.instrumentation
+            else args.instrumentation
+        )
+        set_instrumentation(InstrumentationFactory.create(instrumentations))
 
     # Build infrastructure from hjson file and create the list of items to
     # be deployed.

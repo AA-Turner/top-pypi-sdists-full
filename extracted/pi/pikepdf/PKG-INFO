@@ -1,13 +1,10 @@
 Metadata-Version: 2.4
 Name: pikepdf
-Version: 10.5.1
+Version: 10.6.0
 Summary: Read, write, repair, and transform PDFs in Python, powered by qpdf
-Author-email: "James R. Barlow" <james@purplerock.ca>
-License-Expression: MPL-2.0
-Project-URL: documentation, https://pikepdf.readthedocs.io/
-Project-URL: repository, https://github.com/pikepdf/pikepdf
-Project-URL: changelog, https://pikepdf.readthedocs.io/en/latest/releasenotes/index.html
 Keywords: PDF
+Author-Email: "James R. Barlow" <james@purplerock.ca>
+License-Expression: MPL-2.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
@@ -17,9 +14,10 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Programming Language :: Python :: Free Threading :: 1 - Unstable
+Project-URL: documentation, https://pikepdf.readthedocs.io/
+Project-URL: repository, https://github.com/pikepdf/pikepdf
+Project-URL: changelog, https://pikepdf.readthedocs.io/en/latest/releasenotes/index.html
 Requires-Python: >=3.10
-Description-Content-Type: text/markdown
-License-File: LICENSE.txt
 Requires-Dist: Pillow>=10.0.1
 Requires-Dist: Deprecated
 Requires-Dist: lxml>=4.8
@@ -46,17 +44,17 @@ Provides-Extra: test
 Requires-Dist: attrs>=20.2.0; extra == "test"
 Requires-Dist: coverage[toml]; extra == "test"
 Requires-Dist: hypothesis>=6.36; extra == "test"
-Requires-Dist: numpy>=1.21.0; (platform_machine == "x86_64" and platform_python_implementation == "CPython") and extra == "test"
+Requires-Dist: numpy>=1.21.0; platform_machine == "x86_64" and platform_python_implementation == "CPython" and extra == "test"
 Requires-Dist: psutil>=5.9; os_name != "nt" and extra == "test"
-Requires-Dist: pybind11; extra == "test"
+Requires-Dist: nanobind; extra == "test"
 Requires-Dist: pytest>=6.2.5; extra == "test"
 Requires-Dist: pytest-cov>=3.0.0; extra == "test"
 Requires-Dist: pytest-timeout>=2.1.0; extra == "test"
 Requires-Dist: pytest-xdist>=2.5.0; extra == "test"
 Requires-Dist: python-dateutil>=2.8.1; extra == "test"
-Requires-Dist: python-xmp-toolkit<2.1.0,>=2.0.1; (os_name != "nt" and platform_machine == "x86_64") and extra == "test"
+Requires-Dist: python-xmp-toolkit<2.1.0,>=2.0.1; os_name != "nt" and platform_machine == "x86_64" and extra == "test"
 Requires-Dist: tomli; python_version < "3.11" and extra == "test"
-Dynamic: license-file
+Description-Content-Type: text/markdown
 
 <!-- SPDX-FileCopyrightText: 2022 James R. Barlow -->
 <!-- SPDX-License-Identifier: MPL-2.0 -->

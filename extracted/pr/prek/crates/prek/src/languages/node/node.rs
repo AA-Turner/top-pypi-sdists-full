@@ -17,10 +17,27 @@ use crate::languages::node::version::EXTRA_KEY_LTS;
 use crate::languages::version::LanguageRequest;
 use crate::process::Cmd;
 use crate::run::run_by_batch;
-use crate::store::{Store, ToolBucket};
+use crate::store::{CacheBucket, Store, ToolBucket};
 
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct Node;
+
+const NPM_CONFIG_PREFIX_ENV: &str = "npm_config_prefix";
+const NPM_CONFIG_CACHE_ENV: &str = "npm_config_cache";
+// npm exports `global_prefix` and `local_prefix` as lowercase child-process
+// state, not npmrc config sources. It accepts either case when reading env, so
+// clear both forms to keep parent npm/npx context out of the hook env while
+// preserving user/global npmrc paths for auth.
+const NPM_CONFIG_ENVS_TO_REMOVE: &[&str] = &[
+    "NPM_CONFIG_PREFIX",
+    "npm_config_prefix",
+    "NPM_CONFIG_GLOBAL_PREFIX",
+    "npm_config_global_prefix",
+    "NPM_CONFIG_LOCAL_PREFIX",
+    "npm_config_local_prefix",
+    "NPM_CONFIG_CACHE",
+    "npm_config_cache",
+];
 
 impl LanguageImpl for Node {
     async fn install(
@@ -87,9 +104,10 @@ impl LanguageImpl for Node {
             // node toolchain directory to PATH so that `npm` can find `node`.
             let node_bin = node.node().parent().expect("Node binary must have parent");
             let new_path = prepend_paths(&[&bin_dir, node_bin]).context("Failed to join PATH")?;
+            let npm_cache = store.cache_path(CacheBucket::Npm);
 
-            Cmd::new(node.npm(), "npm install")
-                .arg("install")
+            let mut cmd = Cmd::new(node.npm(), "npm install");
+            cmd.arg("install")
                 .arg("-g")
                 .arg("--no-progress")
                 .arg("--no-save")
@@ -98,12 +116,9 @@ impl LanguageImpl for Node {
                 .arg("--install-links")
                 .args(&*deps)
                 .env(EnvVars::PATH, new_path)
-                .env(EnvVars::NPM_CONFIG_PREFIX, &info.env_path)
-                .env_remove(EnvVars::NPM_CONFIG_USERCONFIG)
-                .env(EnvVars::NODE_PATH, &lib_dir)
-                .check(true)
-                .output()
-                .await?;
+                .env(EnvVars::NODE_PATH, &lib_dir);
+            apply_npm_config_env(&mut cmd, &info.env_path, &npm_cache);
+            cmd.check(true).output().await?;
         }
 
         info.persist_env_path();
@@ -148,15 +163,17 @@ impl LanguageImpl for Node {
             prepend_paths(&[&bin_dir(env_dir), node_bin]).context("Failed to join PATH")?;
 
         let entry = hook.entry.resolve(Some(&new_path), store)?;
+        let npm_cache = store.cache_path(CacheBucket::Npm);
+
         let run = async |batch: &[&Path]| {
-            let mut output = Cmd::new(&entry[0], "node hook")
-                .current_dir(hook.work_dir())
+            let mut cmd = Cmd::new(&entry[0], "node hook");
+            cmd.current_dir(hook.work_dir())
                 .args(&entry[1..])
                 .env(EnvVars::PATH, &new_path)
-                .env(EnvVars::NPM_CONFIG_PREFIX, env_dir)
-                .env_remove(EnvVars::NPM_CONFIG_USERCONFIG)
                 .env(EnvVars::NODE_PATH, lib_dir(env_dir))
-                .envs(&hook.env)
+                .envs(&hook.env);
+            apply_npm_config_env(&mut cmd, env_dir, &npm_cache);
+            let mut output = cmd
                 .args(&hook.args)
                 .args(batch)
                 .check(false)
@@ -186,4 +203,12 @@ impl LanguageImpl for Node {
 
         Ok((combined_status, combined_output))
     }
+}
+
+fn apply_npm_config_env(cmd: &mut Cmd, prefix: &Path, cache: &Path) {
+    for key in NPM_CONFIG_ENVS_TO_REMOVE {
+        cmd.env_remove(key);
+    }
+    cmd.env(NPM_CONFIG_PREFIX_ENV, prefix);
+    cmd.env(NPM_CONFIG_CACHE_ENV, cache);
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: postgrid-python
-Version: 2.1.1
+Version: 2.2.0
 Summary: The official Python library for the PostGrid API
 Project-URL: Homepage, https://github.com/postgrid/postgrid-python
 Project-URL: Repository, https://github.com/postgrid/postgrid-python

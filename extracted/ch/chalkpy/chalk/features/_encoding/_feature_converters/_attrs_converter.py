@@ -69,7 +69,7 @@ def _build_attrs_to_dict(cls: type) -> Callable[[Any], Any]:
         if v is ...:
             return v
         if isinstance(v, dict):
-            return {f: sub[f](v[f]) if f in sub else v[f] for f in field_names}
+            return {f: sub[f](v.get(f)) if f in sub else v.get(f) for f in field_names}
         return {f: sub[f](getattr(v, f)) if f in sub else getattr(v, f) for f in field_names}
 
     return _convert
@@ -100,7 +100,7 @@ def _build_dict_to_attrs(cls: type) -> Callable[[Any], Any]:
         if isinstance(d, cls):
             return d
         if isinstance(d, dict):
-            return cls(**{f: sub[f](d[f]) if f in sub else d[f] for f in field_names})
+            return cls(**{f: sub[f](d.get(f)) if f in sub else d.get(f) for f in field_names})
         # list/tuple (JSON array form)
         return cls(**{f: sub[f](v) if f in sub else v for f, v in zip(field_names, d)})
 

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Mapping, cast
 from typing_extensions import Literal
 
 import httpx
 
-from ..._types import Body, Omit, Query, Headers, NotGiven, FileTypes, omit, not_given
-from ..._utils import extract_files, maybe_transform, deepcopy_minimal, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -59,7 +58,7 @@ class FilesResource(SyncAPIResource):
     def create(
         self,
         *,
-        file: FileTypes,
+        file: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -79,16 +78,13 @@ class FilesResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        body = deepcopy_minimal({"file": file})
-        files = extract_files(cast(Mapping[str, object], body), paths=[["file"]])
         # It should be noted that the actual Content-Type header that will be
         # sent to the server will contain a `boundary` parameter, e.g.
         # multipart/form-data; boundary=---abc--
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return self._post(
             "/v4/beta/files",
-            body=maybe_transform(body, file_create_params.FileCreateParams),
-            files=files,
+            body=maybe_transform({"file": file}, file_create_params.FileCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -121,7 +117,7 @@ class FilesResource(SyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return self._get(
-            f"/v4/beta/files/{file_id}",
+            path_template("/v4/beta/files/{file_id}", file_id=file_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -131,6 +127,7 @@ class FilesResource(SyncAPIResource):
     def list(
         self,
         *,
+        account_id: str | Omit = omit,
         ending_before: str | Omit = omit,
         filename: str | Omit = omit,
         limit: int | Omit = omit,
@@ -148,6 +145,8 @@ class FilesResource(SyncAPIResource):
         List Files
 
         Args:
+          account_id: Optional search by account_id
+
           filename: Filter files by filename (case-insensitive partial match)
 
           extra_headers: Send extra headers
@@ -168,6 +167,7 @@ class FilesResource(SyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "account_id": account_id,
                         "ending_before": ending_before,
                         "filename": filename,
                         "limit": limit,
@@ -207,7 +207,7 @@ class FilesResource(SyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return self._delete(
-            f"/v4/beta/files/{file_id}",
+            path_template("/v4/beta/files/{file_id}", file_id=file_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -241,7 +241,7 @@ class FilesResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         extra_headers = {"Accept": "application/binary", **(extra_headers or {})}
         return self._get(
-            f"/v4/beta/files/{file_id}/content",
+            path_template("/v4/beta/files/{file_id}/content", file_id=file_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -272,7 +272,7 @@ class AsyncFilesResource(AsyncAPIResource):
     async def create(
         self,
         *,
-        file: FileTypes,
+        file: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -292,16 +292,13 @@ class AsyncFilesResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        body = deepcopy_minimal({"file": file})
-        files = extract_files(cast(Mapping[str, object], body), paths=[["file"]])
         # It should be noted that the actual Content-Type header that will be
         # sent to the server will contain a `boundary` parameter, e.g.
         # multipart/form-data; boundary=---abc--
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return await self._post(
             "/v4/beta/files",
-            body=await async_maybe_transform(body, file_create_params.FileCreateParams),
-            files=files,
+            body=await async_maybe_transform({"file": file}, file_create_params.FileCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -334,7 +331,7 @@ class AsyncFilesResource(AsyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return await self._get(
-            f"/v4/beta/files/{file_id}",
+            path_template("/v4/beta/files/{file_id}", file_id=file_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -344,6 +341,7 @@ class AsyncFilesResource(AsyncAPIResource):
     def list(
         self,
         *,
+        account_id: str | Omit = omit,
         ending_before: str | Omit = omit,
         filename: str | Omit = omit,
         limit: int | Omit = omit,
@@ -361,6 +359,8 @@ class AsyncFilesResource(AsyncAPIResource):
         List Files
 
         Args:
+          account_id: Optional search by account_id
+
           filename: Filter files by filename (case-insensitive partial match)
 
           extra_headers: Send extra headers
@@ -381,6 +381,7 @@ class AsyncFilesResource(AsyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "account_id": account_id,
                         "ending_before": ending_before,
                         "filename": filename,
                         "limit": limit,
@@ -420,7 +421,7 @@ class AsyncFilesResource(AsyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return await self._delete(
-            f"/v4/beta/files/{file_id}",
+            path_template("/v4/beta/files/{file_id}", file_id=file_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -454,7 +455,7 @@ class AsyncFilesResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         extra_headers = {"Accept": "application/binary", **(extra_headers or {})}
         return await self._get(
-            f"/v4/beta/files/{file_id}/content",
+            path_template("/v4/beta/files/{file_id}/content", file_id=file_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

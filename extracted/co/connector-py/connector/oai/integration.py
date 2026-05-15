@@ -37,6 +37,7 @@ from connector_sdk_types.generated import (
     EntitlementType,
     Info,
     InfoResponse,
+    RateLimitMode,
     ResourceType,
     StandardCapabilityName,
 )
@@ -136,6 +137,10 @@ class DescriptionData:
 class CapabilityMetadata:
     display_name: str | None = None
     description: str | None = None
+    # Explicit mode override for this capability. When set, overrides the SDK default
+    # (write→RETRY_ONLY / read→ENFORCE). Use RateLimitMode.ENFORCE for complex write
+    # capabilities (e.g. assign_entitlement that makes many internal API calls).
+    rate_limit_mode: RateLimitMode | None = None
 
 
 def _is_snake_case(text: str) -> bool:
@@ -236,6 +241,7 @@ class Integration:
         name: StandardCapabilityName,
         display_name: str | None = None,
         description: str | None = None,
+        rate_limit_mode: RateLimitMode | None = None,
     ) -> t.Callable[
         [CapabilityCallableProto[t.Any]],
         CapabilityCallableProto[t.Any],
@@ -265,7 +271,9 @@ class Integration:
             validate_capability(name, func)
             self.capabilities[name.value] = func
             self.capability_metadata[name.value] = CapabilityMetadata(
-                display_name=display_name, description=description
+                display_name=display_name,
+                description=description,
+                rate_limit_mode=rate_limit_mode,
             )
             return func
 
@@ -276,6 +284,7 @@ class Integration:
         name: str,
         display_name: str | None = None,
         description: str | None = None,
+        rate_limit_mode: RateLimitMode | None = None,
     ) -> t.Callable[
         [CapabilityCallableProto[t.Any]],
         CapabilityCallableProto[t.Any],
@@ -317,6 +326,7 @@ class Integration:
             self.capability_metadata[name] = CapabilityMetadata(
                 display_name=display_name,
                 description=description,
+                rate_limit_mode=rate_limit_mode,
             )
             return func
 
@@ -375,6 +385,7 @@ class Integration:
         return CapabilityExecutorFactory(
             app_id=self.app_id,
             capabilities=self.capabilities,
+            capability_metadata=self.capability_metadata,
             settings_model=self.settings_model,
             auth_setting=self.auth,
             credentials=self.credentials,

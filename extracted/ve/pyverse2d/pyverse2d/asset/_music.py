@@ -157,3 +157,8 @@ class Music(Asset):
             source = self._source
             self._source = None
             return source
+        
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Music",
+]

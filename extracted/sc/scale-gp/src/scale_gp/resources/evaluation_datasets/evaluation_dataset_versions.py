@@ -8,7 +8,7 @@ from datetime import datetime
 import httpx
 
 from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -96,7 +96,10 @@ class EvaluationDatasetVersionsResource(SyncAPIResource):
                 f"Expected a non-empty value for `evaluation_dataset_id` but received {evaluation_dataset_id!r}"
             )
         return self._post(
-            f"/v4/evaluation-datasets/{evaluation_dataset_id}/evaluation-dataset-versions",
+            path_template(
+                "/v4/evaluation-datasets/{evaluation_dataset_id}/evaluation-dataset-versions",
+                evaluation_dataset_id=evaluation_dataset_id,
+            ),
             body=maybe_transform(
                 {
                     "account_id": account_id,
@@ -154,7 +157,11 @@ class EvaluationDatasetVersionsResource(SyncAPIResource):
                 f"Expected a non-empty value for `evaluation_dataset_version_id` but received {evaluation_dataset_version_id!r}"
             )
         return self._get(
-            f"/v4/evaluation-datasets/{evaluation_dataset_id}/evaluation-dataset-versions/{evaluation_dataset_version_id}",
+            path_template(
+                "/v4/evaluation-datasets/{evaluation_dataset_id}/evaluation-dataset-versions/{evaluation_dataset_version_id}",
+                evaluation_dataset_id=evaluation_dataset_id,
+                evaluation_dataset_version_id=evaluation_dataset_version_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -207,7 +214,10 @@ class EvaluationDatasetVersionsResource(SyncAPIResource):
                 f"Expected a non-empty value for `evaluation_dataset_id` but received {evaluation_dataset_id!r}"
             )
         return self._get_api_list(
-            f"/v4/evaluation-datasets/{evaluation_dataset_id}/evaluation-dataset-versions",
+            path_template(
+                "/v4/evaluation-datasets/{evaluation_dataset_id}/evaluation-dataset-versions",
+                evaluation_dataset_id=evaluation_dataset_id,
+            ),
             page=SyncPageResponse[EvaluationDatasetVersion],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -263,7 +273,11 @@ class EvaluationDatasetVersionsResource(SyncAPIResource):
                 f"Expected a non-empty value for `evaluation_dataset_version_id` but received {evaluation_dataset_version_id!r}"
             )
         return self._post(
-            f"/v4/evaluation-datasets/{evaluation_dataset_id}/evaluation-dataset-versions/{evaluation_dataset_version_id}/publish",
+            path_template(
+                "/v4/evaluation-datasets/{evaluation_dataset_id}/evaluation-dataset-versions/{evaluation_dataset_version_id}/publish",
+                evaluation_dataset_id=evaluation_dataset_id,
+                evaluation_dataset_version_id=evaluation_dataset_version_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -343,7 +357,10 @@ class AsyncEvaluationDatasetVersionsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `evaluation_dataset_id` but received {evaluation_dataset_id!r}"
             )
         return await self._post(
-            f"/v4/evaluation-datasets/{evaluation_dataset_id}/evaluation-dataset-versions",
+            path_template(
+                "/v4/evaluation-datasets/{evaluation_dataset_id}/evaluation-dataset-versions",
+                evaluation_dataset_id=evaluation_dataset_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "account_id": account_id,
@@ -401,7 +418,11 @@ class AsyncEvaluationDatasetVersionsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `evaluation_dataset_version_id` but received {evaluation_dataset_version_id!r}"
             )
         return await self._get(
-            f"/v4/evaluation-datasets/{evaluation_dataset_id}/evaluation-dataset-versions/{evaluation_dataset_version_id}",
+            path_template(
+                "/v4/evaluation-datasets/{evaluation_dataset_id}/evaluation-dataset-versions/{evaluation_dataset_version_id}",
+                evaluation_dataset_id=evaluation_dataset_id,
+                evaluation_dataset_version_id=evaluation_dataset_version_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -454,7 +475,10 @@ class AsyncEvaluationDatasetVersionsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `evaluation_dataset_id` but received {evaluation_dataset_id!r}"
             )
         return self._get_api_list(
-            f"/v4/evaluation-datasets/{evaluation_dataset_id}/evaluation-dataset-versions",
+            path_template(
+                "/v4/evaluation-datasets/{evaluation_dataset_id}/evaluation-dataset-versions",
+                evaluation_dataset_id=evaluation_dataset_id,
+            ),
             page=AsyncPageResponse[EvaluationDatasetVersion],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -510,7 +534,11 @@ class AsyncEvaluationDatasetVersionsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `evaluation_dataset_version_id` but received {evaluation_dataset_version_id!r}"
             )
         return await self._post(
-            f"/v4/evaluation-datasets/{evaluation_dataset_id}/evaluation-dataset-versions/{evaluation_dataset_version_id}/publish",
+            path_template(
+                "/v4/evaluation-datasets/{evaluation_dataset_id}/evaluation-dataset-versions/{evaluation_dataset_version_id}/publish",
+                evaluation_dataset_id=evaluation_dataset_id,
+                evaluation_dataset_version_id=evaluation_dataset_version_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

@@ -4,11 +4,13 @@ Rich text elements are the primitive elements used to populate the rich
     [`RichTextBlock`](/slackblocks/latest/reference/blocks/#blocks.RichTextBlock).
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from enum import Enum
-from json import dumps
-from typing import Any, Dict, Optional
+from typing import Any
 
+from slackblocks._core import RenderableMixin, omit_none
 from slackblocks.utils import validate_string
 
 
@@ -25,7 +27,18 @@ class RichTextElementType(Enum):
     USER_GROUP = "usergroup"
 
 
-class RichTextElement(ABC):
+def _style_dict(**flags: bool | None) -> dict[str, bool] | None:
+    """Build a rich text "style" sub-object from named boolean flags.
+
+    Any flag that is explicitly ``None`` is dropped. If every flag is dropped
+    (i.e. nothing was set), returns ``None`` so the caller can decide whether
+    to emit the ``style`` key at all.
+    """
+    style = omit_none(flags)
+    return style if style else None
+
+
+class RichTextElement(RenderableMixin, ABC):
     """
     Abstract base class for all rich text element classes.
 
@@ -38,11 +51,8 @@ class RichTextElement(ABC):
         self.type_ = type_
 
     @abstractmethod
-    def _resolve(self) -> Dict[str, Any]:
+    def _resolve(self) -> dict[str, Any]:
         return {"type": self.type_.value}
-
-    def __repr__(self) -> str:
-        return dumps(self._resolve(), indent=4)
 
 
 class RichText(RichTextElement):
@@ -65,10 +75,10 @@ class RichText(RichTextElement):
     def __init__(
         self,
         text: str,
-        bold: Optional[bool] = None,
-        italic: Optional[bool] = None,
-        strike: Optional[bool] = None,
-        code: Optional[bool] = None,
+        bold: bool | None = None,
+        italic: bool | None = None,
+        strike: bool | None = None,
+        code: bool | None = None,
     ) -> None:
         super().__init__(type_=RichTextElementType.TEXT)
         self.text = text
@@ -77,21 +87,16 @@ class RichText(RichTextElement):
         self.strike = strike
         self.code = code
 
-    def _resolve(self) -> Dict[str, Any]:
-        rich_text = super()._resolve()
-        rich_text["text"] = self.text
-        style = {}
-        if self.bold is not None:
-            style["bold"] = self.bold
-        if self.italic is not None:
-            style["italic"] = self.italic
-        if self.strike is not None:
-            style["strike"] = self.strike
-        if self.code is not None:
-            style["code"] = self.code
-        if style:
-            rich_text["style"] = style
-        return rich_text
+    def _resolve(self) -> dict[str, Any]:
+        return omit_none(
+            {
+                **super()._resolve(),
+                "text": self.text,
+                "style": _style_dict(
+                    bold=self.bold, italic=self.italic, strike=self.strike, code=self.code
+                ),
+            }
+        )
 
 
 class RichTextChannel(RichTextElement):
@@ -107,7 +112,10 @@ class RichTextChannel(RichTextElement):
         italic: whether to render the given channel in italics.
         strike: whether to render the given channel with a "strikethrough".
         highlight: whether to give the channel a distinct highlight when rendered.
-        client_highlight: ???
+        client_highlight: a Slack-internal rendering hint accompanying
+            mention-style elements. Rarely needed by app developers; pass
+            ``None`` (the default) unless you have a specific reason to set
+            it.
         unlink: whether to remove the link to the channel from the channel when
             rendered.
     """
@@ -115,12 +123,12 @@ class RichTextChannel(RichTextElement):
     def __init__(
         self,
         channel_id: str,
-        bold: Optional[bool] = None,
-        italic: Optional[bool] = None,
-        strike: Optional[bool] = None,
-        highlight: Optional[bool] = None,
-        client_highlight: Optional[bool] = None,
-        unlink: Optional[bool] = None,
+        bold: bool | None = None,
+        italic: bool | None = None,
+        strike: bool | None = None,
+        highlight: bool | None = None,
+        client_highlight: bool | None = None,
+        unlink: bool | None = None,
     ) -> None:
         super().__init__(RichTextElementType.CHANNEL)
         self.channel_id = channel_id
@@ -131,25 +139,21 @@ class RichTextChannel(RichTextElement):
         self.client_highlight = client_highlight
         self.unlink = unlink
 
-    def _resolve(self) -> Dict[str, Any]:
-        channel = super()._resolve()
-        channel["channel_id"] = self.channel_id
-        style = {}
-        if self.bold is not None:
-            style["bold"] = self.bold
-        if self.italic is not None:
-            style["italic"] = self.italic
-        if self.strike is not None:
-            style["strike"] = self.strike
-        if self.highlight is not None:
-            style["highlight"] = self.highlight
-        if self.client_highlight is not None:
-            style["client_highlight"] = self.client_highlight
-        if self.unlink is not None:
-            style["unlink"] = self.unlink
-        if style:
-            channel["style"] = style
-        return channel
+    def _resolve(self) -> dict[str, Any]:
+        return omit_none(
+            {
+                **super()._resolve(),
+                "channel_id": self.channel_id,
+                "style": _style_dict(
+                    bold=self.bold,
+                    italic=self.italic,
+                    strike=self.strike,
+                    highlight=self.highlight,
+                    client_highlight=self.client_highlight,
+                    unlink=self.unlink,
+                ),
+            }
+        )
 
 
 class RichTextEmoji(RichTextElement):
@@ -171,10 +175,8 @@ class RichTextEmoji(RichTextElement):
         super().__init__(RichTextElementType.EMOJI)
         self.name = validate_string(name, field_name="name", min_length=1)
 
-    def _resolve(self) -> Dict[str, Any]:
-        emoji = super()._resolve()
-        emoji["name"] = self.name
-        return emoji
+    def _resolve(self) -> dict[str, Any]:
+        return {**super()._resolve(), "name": self.name}
 
 
 class RichTextLink(RichTextElement):
@@ -198,12 +200,12 @@ class RichTextLink(RichTextElement):
     def __init__(
         self,
         url: str,
-        text: Optional[str] = None,
-        unsafe: Optional[bool] = None,
-        bold: Optional[bool] = None,
-        italic: Optional[bool] = None,
-        strike: Optional[bool] = None,
-        code: Optional[bool] = None,
+        text: str | None = None,
+        unsafe: bool | None = None,
+        bold: bool | None = None,
+        italic: bool | None = None,
+        strike: bool | None = None,
+        code: bool | None = None,
     ) -> None:
         super().__init__(type_=RichTextElementType.LINK)
         self.url = url
@@ -214,25 +216,18 @@ class RichTextLink(RichTextElement):
         self.strike = strike
         self.code = code
 
-    def _resolve(self) -> Dict[str, Any]:
-        link = super()._resolve()
-        link["url"] = self.url
-        if self.text is not None:
-            link["text"] = self.text
-        if self.unsafe is not None:
-            link["unsafe"] = self.unsafe
-        style = {}
-        if self.bold is not None:
-            style["bold"] = self.bold
-        if self.italic is not None:
-            style["italic"] = self.italic
-        if self.strike is not None:
-            style["strike"] = self.strike
-        if self.code is not None:
-            style["code"] = self.code
-        if style:
-            link["style"] = style
-        return link
+    def _resolve(self) -> dict[str, Any]:
+        return omit_none(
+            {
+                **super()._resolve(),
+                "url": self.url,
+                "text": self.text,
+                "unsafe": self.unsafe,
+                "style": _style_dict(
+                    bold=self.bold, italic=self.italic, strike=self.strike, code=self.code
+                ),
+            }
+        )
 
 
 class RichTextUser(RichTextElement):
@@ -249,7 +244,10 @@ class RichTextUser(RichTextElement):
         italic: whether to render the given user in italics.
         strike: whether to render the given user with a "strikethrough".
         highlight: whether to give the user a distinct highlight when rendered.
-        client_highlight: ???
+        client_highlight: a Slack-internal rendering hint accompanying
+            mention-style elements. Rarely needed by app developers; pass
+            ``None`` (the default) unless you have a specific reason to set
+            it.
         unlink: whether to remove the link to the user from the channel when
             rendered.
     """
@@ -257,12 +255,12 @@ class RichTextUser(RichTextElement):
     def __init__(
         self,
         user_id: str,
-        bold: Optional[bool] = None,
-        italic: Optional[bool] = None,
-        strike: Optional[bool] = None,
-        highlight: Optional[bool] = None,
-        client_highlight: Optional[bool] = None,
-        unlink: Optional[bool] = None,
+        bold: bool | None = None,
+        italic: bool | None = None,
+        strike: bool | None = None,
+        highlight: bool | None = None,
+        client_highlight: bool | None = None,
+        unlink: bool | None = None,
     ) -> None:
         super().__init__(RichTextElementType.USER)
         self.user_id = user_id
@@ -273,25 +271,21 @@ class RichTextUser(RichTextElement):
         self.client_highlight = client_highlight
         self.unlink = unlink
 
-    def _resolve(self) -> Dict[str, Any]:
-        user = super()._resolve()
-        user["user_id"] = self.user_id
-        style = {}
-        if self.bold is not None:
-            style["bold"] = self.bold
-        if self.italic is not None:
-            style["italic"] = self.italic
-        if self.strike is not None:
-            style["strike"] = self.strike
-        if self.highlight is not None:
-            style["highlight"] = self.highlight
-        if self.client_highlight is not None:
-            style["client_highlight"] = self.client_highlight
-        if self.unlink is not None:
-            style["unlink"] = self.unlink
-        if style:
-            user["style"] = style
-        return user
+    def _resolve(self) -> dict[str, Any]:
+        return omit_none(
+            {
+                **super()._resolve(),
+                "user_id": self.user_id,
+                "style": _style_dict(
+                    bold=self.bold,
+                    italic=self.italic,
+                    strike=self.strike,
+                    highlight=self.highlight,
+                    client_highlight=self.client_highlight,
+                    unlink=self.unlink,
+                ),
+            }
+        )
 
 
 class RichTextUserGroup(RichTextElement):
@@ -307,7 +301,10 @@ class RichTextUserGroup(RichTextElement):
         italic: whether to render the given user in italics.
         strike: whether to render the given user with a "strikethrough".
         highlight: whether to give the user a distinct highlight when rendered.
-        client_highlight: ???
+        client_highlight: a Slack-internal rendering hint accompanying
+            mention-style elements. Rarely needed by app developers; pass
+            ``None`` (the default) unless you have a specific reason to set
+            it.
         unlink: whether to remove the link to the user from the channel when
             rendered.
     """
@@ -315,12 +312,12 @@ class RichTextUserGroup(RichTextElement):
     def __init__(
         self,
         user_group_id: str,
-        bold: Optional[bool] = None,
-        italic: Optional[bool] = None,
-        strike: Optional[bool] = None,
-        highlight: Optional[bool] = None,
-        client_highlight: Optional[bool] = None,
-        unlink: Optional[bool] = None,
+        bold: bool | None = None,
+        italic: bool | None = None,
+        strike: bool | None = None,
+        highlight: bool | None = None,
+        client_highlight: bool | None = None,
+        unlink: bool | None = None,
     ) -> None:
         super().__init__(RichTextElementType.USER_GROUP)
         self.user_group_id = user_group_id
@@ -331,22 +328,18 @@ class RichTextUserGroup(RichTextElement):
         self.client_highlight = client_highlight
         self.unlink = unlink
 
-    def _resolve(self) -> Dict[str, Any]:
-        user_group = super()._resolve()
-        user_group["usergroup_id"] = self.user_group_id
-        style = {}
-        if self.bold is not None:
-            style["bold"] = self.bold
-        if self.italic is not None:
-            style["italic"] = self.italic
-        if self.strike is not None:
-            style["strike"] = self.strike
-        if self.highlight is not None:
-            style["highlight"] = self.highlight
-        if self.client_highlight is not None:
-            style["client_highlight"] = self.client_highlight
-        if self.unlink is not None:
-            style["unlink"] = self.unlink
-        if style:
-            user_group["style"] = style
-        return user_group
+    def _resolve(self) -> dict[str, Any]:
+        return omit_none(
+            {
+                **super()._resolve(),
+                "usergroup_id": self.user_group_id,
+                "style": _style_dict(
+                    bold=self.bold,
+                    italic=self.italic,
+                    strike=self.strike,
+                    highlight=self.highlight,
+                    client_highlight=self.client_highlight,
+                    unlink=self.unlink,
+                ),
+            }
+        )

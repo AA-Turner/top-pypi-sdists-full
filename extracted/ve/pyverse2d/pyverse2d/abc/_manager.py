@@ -50,3 +50,8 @@ class Manager(ABC):
 
     @abstractmethod
     def flush(self) -> None: ...
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Manager",
+]

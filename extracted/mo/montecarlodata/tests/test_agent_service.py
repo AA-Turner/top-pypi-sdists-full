@@ -1,11 +1,22 @@
+import json
 from unittest import TestCase
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import click
 from pycarlo.core import Client
 
 from montecarlodata.agents.agent import AgentService
-from montecarlodata.agents.fields import AWS, AWS_ASSUMABLE_ROLE, REMOTE_AGENT, S3
+from montecarlodata.agents.fields import (
+    AWS,
+    AWS_ASSUMABLE_ROLE,
+    AZURE,
+    AZURE_BLOB,
+    AZURE_STORAGE_ACCOUNT_KEYS,
+    AZURE_STORAGE_SERVICE_PRINCIPAL,
+    DATA_STORE_AGENT,
+    REMOTE_AGENT,
+    S3,
+)
 from montecarlodata.common.user import UserService
 from tests.helpers import capture_function
 from tests.test_common_user import _SAMPLE_CONFIG
@@ -317,3 +328,82 @@ class AgentServiceTest(TestCase):
         captured = out.std_out.getvalue()
         self.assertIn("Agent successfully registered", captured)
         self.assertNotIn("Agent updated and enabled", captured)
+
+    # ------------------------------------------------------------------
+    # create_agent (Azure paths)
+    # ------------------------------------------------------------------
+
+    def test_create_azure_blob_store_connection_string(self):
+        response = Mock()
+        response.create_or_update_agent.agent_id = "azure-cs-123"
+        response.create_or_update_agent.validation_result.success = True
+        response.create_or_update_agent.validation_result.errors = None
+        response.create_or_update_agent.validation_result.warnings = None
+        self._mc_client.return_value = response
+
+        out = capture_function(
+            self._service.create_agent,
+            {
+                "agent_type": DATA_STORE_AGENT,
+                "platform": AZURE,
+                "storage": AZURE_BLOB,
+                "auth_type": AZURE_STORAGE_ACCOUNT_KEYS,
+                "endpoint": "my-container",
+                "connection_string": "DefaultEndpointsProtocol=https;AccountName=test;AccountKey=key",
+            },
+        )
+
+        self.assertIsNone(out.exception)
+        self.assertEqual(1, self._mc_client.call_count)
+        captured = out.std_out.getvalue()
+        self.assertIn("Agent successfully registered", captured)
+        self.assertIn("azure-cs-123", captured)
+
+        # Verify credentials contain azure_connection_string
+        call_args = str(self._mc_client.call_args_list[0])
+        self.assertIn("azure_connection_string", call_args)
+
+    def test_create_azure_blob_store_service_principal(self):
+        response = Mock()
+        response.create_or_update_agent.agent_id = "azure-sp-123"
+        response.create_or_update_agent.validation_result.success = True
+        response.create_or_update_agent.validation_result.errors = None
+        response.create_or_update_agent.validation_result.warnings = None
+        self._mc_client.return_value = response
+
+        # Capture the credentials JSON that create_agent serialises.
+        captured_creds = {}
+        original_dumps = json.dumps
+
+        def intercept_dumps(obj, **kwargs):
+            if isinstance(obj, dict) and "tenant_id" in obj:
+                captured_creds.update(obj)
+            return original_dumps(obj, **kwargs)
+
+        with patch("montecarlodata.agents.agent.json.dumps", side_effect=intercept_dumps):
+            out = capture_function(
+                self._service.create_agent,
+                {
+                    "agent_type": DATA_STORE_AGENT,
+                    "platform": AZURE,
+                    "storage": AZURE_BLOB,
+                    "auth_type": AZURE_STORAGE_SERVICE_PRINCIPAL,
+                    "endpoint": "my-container",
+                    "tenant_id": "tenant-abc",
+                    "client_id": "client-def",
+                    "client_secret": "secret-ghi",
+                    "account_url": "mystorageaccount",
+                },
+            )
+
+        self.assertIsNone(out.exception)
+        self.assertEqual(1, self._mc_client.call_count)
+        captured = out.std_out.getvalue()
+        self.assertIn("Agent successfully registered", captured)
+        self.assertIn("azure-sp-123", captured)
+
+        # Verify credentials contain all SP fields
+        self.assertEqual(captured_creds["tenant_id"], "tenant-abc")
+        self.assertEqual(captured_creds["client_id"], "client-def")
+        self.assertEqual(captured_creds["client_secret"], "secret-ghi")
+        self.assertEqual(captured_creds["account_url"], "mystorageaccount")

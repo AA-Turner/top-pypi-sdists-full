@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cbor2
-Version: 6.1.0
+Version: 6.1.1
 Summary: CBOR (de)serializer with extensive tag support
 Author-email: Alex Grönholm <alex.gronholm@nextday.fi>
 License-Expression: MIT

@@ -36,7 +36,8 @@ from dataclasses import dataclass, field, replace
 from typing import Any
 
 import aiohttp
-from kugelaudio.client import REGION_URLS, _parse_api_key
+from kugelaudio.client import _parse_api_key, _resolve_region_url
+from kugelaudio.exceptions import ValidationError
 from livekit.agents import (
     APIConnectionError,
     APIConnectOptions,
@@ -528,9 +529,9 @@ class TTS(tts.TTS):
 
         Args:
             api_key: KugelAudio API key. If not provided, reads from
-                KUGELAUDIO_API_KEY environment variable. Region-prefixed keys
-                (e.g. ``"us-ka_..."`` or ``"global-ka_..."``) are supported —
-                the prefix selects the region and is stripped before auth.
+                KUGELAUDIO_API_KEY environment variable. Prefix with
+                ``"eu-"`` to select the direct EU endpoint; the prefix is
+                stripped before auth.
             model: TTS model to use. "kugel-1-turbo" (fast) or
                 "kugel-1" (premium).
             voice_id: Voice ID to use. If None, uses server default.
@@ -546,11 +547,11 @@ class TTS(tts.TTS):
                 ~60-150ms per request. Supported: de, en, fr, es, it, pt, nl, pl,
                 sv, da, no, fi, cs, hu, ro, el, uk, bg, tr, vi, ar, hi, zh, ja, ko,
                 sk, sl, hr, sr, ru, he, fa, ur, bn, ta, yue, th, id, ms.
-            region: Region for the API endpoint — ``"eu"`` (default), ``"us"``,
-                or ``"global"``. Overrides any prefix detected from the API key.
-                Ignored when *base_url* is set.
+            region: API endpoint region. Use ``"eu"`` for the direct EU endpoint.
+                Overrides any prefix detected from the API key. Ignored when
+                *base_url* is set.
             base_url: API base URL. Overrides region selection entirely. Defaults
-                to the URL for the resolved region (EU if unspecified).
+                to the default geo-routed API endpoint if no region is specified.
             http_session: Optional aiohttp session to reuse.
         """
         super().__init__(
@@ -573,13 +574,11 @@ class TTS(tts.TTS):
         if base_url:
             resolved_url = base_url.rstrip("/")
         else:
-            effective_region = region or detected_region or "eu"
-            if effective_region not in REGION_URLS:
-                raise ValueError(
-                    f"Invalid region '{effective_region}'. "
-                    f"Must be one of: {', '.join(REGION_URLS)}"
-                )
-            resolved_url = REGION_URLS[effective_region]
+            effective_region = region or detected_region
+            try:
+                resolved_url = _resolve_region_url(effective_region)
+            except ValidationError as exc:
+                raise ValueError(str(exc)) from exc
 
         self._opts = _TTSOptions(
             model=model,

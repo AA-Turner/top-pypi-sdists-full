@@ -244,6 +244,52 @@ def _load_sage_token() -> tuple[str, str]:
 
 # ── Utilities ──────────────────────────────────────────────────────────────────
 
+def _imessage_max_rowid() -> int:
+    """Return the highest message rowid in chat.db, or 0 if unreadable.
+
+    Used to verify whether `_send_imessage` actually queued a message —
+    AppleScript's Messages.app handler returns success even for fake
+    recipients, so the only reliable post-send check is whether a new
+    row appeared in ~/Library/Messages/chat.db.
+    """
+    if sys.platform != "darwin":
+        return 0
+    db_path = os.path.expanduser("~/Library/Messages/chat.db")
+    if not os.path.exists(db_path):
+        return 0
+    try:
+        import sqlite3
+        with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=2) as db:
+            row = db.execute("SELECT COALESCE(MAX(rowid), 0) FROM message").fetchone()
+            return int(row[0]) if row else 0
+    except Exception:
+        return 0
+
+
+def _imessage_row_matches(prev_max_rowid: int, text: str) -> bool:
+    """Confirm an outbound message with this text was queued after prev_max_rowid."""
+    if sys.platform != "darwin":
+        return False
+    db_path = os.path.expanduser("~/Library/Messages/chat.db")
+    if not os.path.exists(db_path):
+        return False
+    try:
+        import sqlite3
+        with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=2) as db:
+            # is_from_me=1 (outbound) + text matches + rowid newer than baseline.
+            # Match on the first 200 chars so we don't blow up on long messages.
+            row = db.execute(
+                "SELECT 1 FROM message "
+                "WHERE rowid > ? AND is_from_me = 1 AND text IS NOT NULL "
+                "  AND substr(text, 1, 200) = substr(?, 1, 200) "
+                "LIMIT 1",
+                (prev_max_rowid, text),
+            ).fetchone()
+            return row is not None
+    except Exception:
+        return False
+
+
 def _send_imessage(recipient: str, text: str) -> bool:
     """Send an iMessage from this Mac via the Messages app.
 
@@ -252,27 +298,69 @@ def _send_imessage(recipient: str, text: str) -> bool:
     signed into an Apple ID with iMessage enabled. The sender will be the
     Mac's signed-in Apple ID — no way around this without Apple Business
     Chat (which is paid).
+
+    Why this is more involved than `osascript send X to buddy Y`:
+
+    1. AppleScript's `send to buddy` silently succeeds for invalid recipients.
+       osascript exits 0, but iMessage drops the message — verified locally
+       with `send "x" to participant "fake@nowhere.invalid"` returning "ok".
+       So the only honest success signal is a new is_from_me=1 row appearing
+       in ~/Library/Messages/chat.db after the send.
+
+    2. Apple keeps renaming the dictionary keywords. The modern form is
+       `participant "..." of (1st service whose service type = iMessage)`;
+       the legacy form is `buddy "..." of theService`. Some Macs accept
+       only one. We try modern first, then fall back to legacy.
     """
     if sys.platform != "darwin":
         return False
     safe_text = text.replace("\\", "\\\\").replace('"', '\\"')
     safe_to   = recipient.replace("\\", "\\\\").replace('"', '\\"')
-    script = (
-        'tell application "Messages"\n'
-        '    set theService to first service whose service type = iMessage\n'
-        f'    set theBuddy to buddy "{safe_to}" of theService\n'
-        f'    send "{safe_text}" to theBuddy\n'
-        'end tell'
-    )
-    try:
-        result = subprocess.run(
-            ["osascript", "-e", script],
-            capture_output=True, text=True, timeout=10,
+
+    baseline = _imessage_max_rowid()
+
+    def _run_send_script(target_keyword: str) -> tuple[bool, str]:
+        """Run the send via osascript with `participant` or `buddy` keyword."""
+        script = (
+            'tell application "Messages"\n'
+            '    try\n'
+            '        set targetService to 1st service whose service type = iMessage\n'
+            f'        set targetBuddy to {target_keyword} "{safe_to}" of targetService\n'
+            f'        send "{safe_text}" to targetBuddy\n'
+            '        return "ok"\n'
+            '    on error errMsg number errNum\n'
+            '        return "err " & errNum & ": " & errMsg\n'
+            '    end try\n'
+            'end tell'
         )
-        return result.returncode == 0
-    except Exception as exc:
-        logger.debug("osascript iMessage failed: %s", exc)
-        return False
+        try:
+            r = subprocess.run(
+                ["osascript", "-e", script],
+                capture_output=True, text=True, timeout=10,
+            )
+            return r.returncode == 0, (r.stdout or "").strip() or (r.stderr or "").strip()
+        except Exception as exc:
+            return False, f"exception: {exc}"
+
+    # Try modern `participant`, then legacy `buddy`. Either may script-succeed
+    # without iMessage queuing anything; chat.db is the ground truth.
+    for keyword in ("participant", "buddy"):
+        ok, msg = _run_send_script(keyword)
+        if not ok or msg != "ok":
+            logger.debug("osascript iMessage (%s) to %s: %s", keyword, recipient, msg)
+            continue
+        # Give Messages.app a moment to write to chat.db
+        for _ in range(8):  # up to ~2s
+            time.sleep(0.25)
+            if _imessage_row_matches(baseline, text):
+                return True
+        logger.warning(
+            "iMessage to %s: osascript said ok but no row appeared in chat.db "
+            "after 2s — Messages.app may have dropped the message (recipient "
+            "not on iMessage, or not signed in)",
+            recipient,
+        )
+    return False
 
 
 def _find_kdeconnect_cli() -> str | None:

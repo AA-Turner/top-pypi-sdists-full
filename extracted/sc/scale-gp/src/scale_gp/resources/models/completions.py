@@ -8,7 +8,7 @@ from typing_extensions import Literal, overload
 import httpx
 
 from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
-from ..._utils import required_args, maybe_transform, async_maybe_transform
+from ..._utils import path_template, required_args, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -27,6 +27,8 @@ __all__ = ["CompletionsResource", "AsyncCompletionsResource"]
 
 
 class CompletionsResource(SyncAPIResource):
+    """Model API."""
+
     @cached_property
     def with_raw_response(self) -> CompletionsResourceWithRawResponse:
         """
@@ -402,7 +404,7 @@ class CompletionsResource(SyncAPIResource):
                 f"Expected a non-empty value for `model_deployment_id` but received {model_deployment_id!r}"
             )
         return self._post(
-            f"/v4/models/{model_deployment_id}/completions",
+            path_template("/v4/models/{model_deployment_id}/completions", model_deployment_id=model_deployment_id),
             body=maybe_transform(
                 {
                     "prompt": prompt,
@@ -435,6 +437,8 @@ class CompletionsResource(SyncAPIResource):
 
 
 class AsyncCompletionsResource(AsyncAPIResource):
+    """Model API."""
+
     @cached_property
     def with_raw_response(self) -> AsyncCompletionsResourceWithRawResponse:
         """
@@ -810,7 +814,7 @@ class AsyncCompletionsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `model_deployment_id` but received {model_deployment_id!r}"
             )
         return await self._post(
-            f"/v4/models/{model_deployment_id}/completions",
+            path_template("/v4/models/{model_deployment_id}/completions", model_deployment_id=model_deployment_id),
             body=await async_maybe_transform(
                 {
                     "prompt": prompt,

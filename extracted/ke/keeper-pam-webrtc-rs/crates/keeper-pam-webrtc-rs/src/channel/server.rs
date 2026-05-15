@@ -69,8 +69,8 @@ impl Channel {
             .map_err(|e| anyhow!("Failed to get local address after bind: {}", e))?;
 
         debug!(
-            "Channel({}): Server listening on {}",
-            self.channel_id, actual_addr
+            "Channel({}): Server listening on {} (conversation_id: {})",
+            self.channel_id, actual_addr, self.conversation_id
         );
 
         // Store the listener for cleanup
@@ -87,6 +87,7 @@ impl Channel {
         // Spawn a task to accept connections
         let (tx, _rx) = oneshot::channel();
         let channel_id = self.channel_id.clone();
+        let conversation_id = self.conversation_id.clone();
         let webrtc = self.webrtc.clone();
         let active_protocol = self.active_protocol;
         let buffer_pool = self.buffer_pool.clone();
@@ -111,8 +112,8 @@ impl Channel {
             // Wait for the WebRTC data channel to be open before accepting TCP connections
             // This prevents race conditions where TCP clients connect before the data channel is ready
             debug!(
-                "Channel({}): Waiting for data channel to be open before accepting connections",
-                channel_id
+                "Channel({}): Waiting for data channel to be open before accepting connections (conversation_id: {})",
+                channel_id, conversation_id
             );
             match webrtc
                 .wait_for_channel_open(Some(std::time::Duration::from_secs(30)))
@@ -120,16 +121,16 @@ impl Channel {
             {
                 Ok(true) => {
                     debug!(
-                        "Channel({}): Data channel is open, ready to accept TCP connections",
-                        channel_id
+                        "Channel({}): Data channel is open, ready to accept TCP connections (conversation_id: {})",
+                        channel_id, conversation_id
                     );
                 }
                 Ok(false) => {
-                    warn!("Channel({}): Data channel did not open (closed or timed out), server task exiting", channel_id);
+                    warn!("Channel({}): Data channel did not open (closed or timed out), server task exiting (conversation_id: {})", channel_id, conversation_id);
                     return;
                 }
                 Err(e) => {
-                    error!("Channel({}): Error waiting for data channel to open: {}, server task exiting", channel_id, e);
+                    error!("Channel({}): Error waiting for data channel to open: {}, server task exiting (conversation_id: {})", channel_id, e, conversation_id);
                     return;
                 }
             }
@@ -140,7 +141,10 @@ impl Channel {
                 // Accept a new connection
                 match listener_clone.accept().await {
                     Ok((stream, peer_addr)) => {
-                        debug!("Channel({}): New connection from {}", channel_id, peer_addr);
+                        debug!(
+                            "Channel({}): New connection from {} (conversation_id: {})",
+                            channel_id, peer_addr, conversation_id
+                        );
 
                         // Check if peer_addr is localhost
                         let is_localhost = match peer_addr.ip() {
@@ -153,8 +157,8 @@ impl Channel {
                             if let Some(ref protocol) = tunnel_protocol {
                                 if let Err(e) = protocol.reject_non_localhost(stream).await {
                                     error!(
-                                        "Channel({}): Error sending rejection: {}",
-                                        channel_id, e
+                                        "Channel({}): Error sending rejection: {} (conversation_id: {})",
+                                        channel_id, e, conversation_id
                                     );
                                 }
                             } else {
@@ -162,8 +166,8 @@ impl Channel {
                             }
 
                             error!(
-                                "Channel({}): Connection from non-localhost address rejected",
-                                channel_id
+                                "Channel({}): Connection from non-localhost address rejected (conversation_id: {})",
+                                channel_id, conversation_id
                             );
                             continue;
                         }
@@ -175,7 +179,9 @@ impl Channel {
                             let webrtc_clone = webrtc.clone();
                             let buffer_pool_clone = buffer_pool.clone();
                             let task_channel_id = channel_id.clone();
+                            let task_conversation_id = conversation_id.clone();
                             let error_log_channel_id = channel_id.clone();
+                            let error_log_conversation_id = conversation_id.clone();
                             let protocol_clone = protocol.clone();
                             let protocol_name = protocol.name().to_string();
                             let current_conn_no = next_conn_no;
@@ -191,13 +197,14 @@ impl Channel {
                                     webrtc_clone,
                                     buffer_pool_clone,
                                     task_channel_id,
+                                    task_conversation_id,
                                     event_sender_clone,
                                 )
                                 .await
                                 {
                                     error!(
-                                        "Channel({}): {} connection error: {}",
-                                        error_log_channel_id, protocol_name, e
+                                        "Channel({}): {} connection error: {} (conversation_id: {})",
+                                        error_log_channel_id, protocol_name, e, error_log_conversation_id
                                     );
                                 }
                             });
@@ -211,7 +218,9 @@ impl Channel {
                                     let webrtc_clone = webrtc.clone();
                                     let buffer_pool_clone = buffer_pool.clone();
                                     let task_channel_id = channel_id.clone();
+                                    let task_conversation_id = conversation_id.clone();
                                     let error_log_channel_id = channel_id.clone();
+                                    let error_log_conversation_id = conversation_id.clone();
                                     let current_conn_no = next_conn_no;
                                     next_conn_no += 1;
 
@@ -225,11 +234,12 @@ impl Channel {
                                             webrtc_clone,
                                             buffer_pool_clone,
                                             task_channel_id,
+                                            task_conversation_id,
                                             event_sender_clone,
                                         )
                                         .await
                                         {
-                                            error!("Channel({}): Generic server connection error for {:?}: {}", error_log_channel_id, active_protocol, e);
+                                            error!("Channel({}): Generic server connection error for {:?}: {} (conversation_id: {})", error_log_channel_id, active_protocol, e, error_log_conversation_id);
                                         }
                                     });
 
@@ -237,24 +247,30 @@ impl Channel {
                                     server_connection_tasks.lock().push(abort_handle);
                                 }
                                 ActiveProtocol::PythonHandler => {
-                                    warn!("Channel({}): PythonHandler protocol does not support server mode", channel_id);
+                                    warn!("Channel({}): PythonHandler protocol does not support server mode (conversation_id: {})", channel_id, conversation_id);
                                 }
                                 _ => {
                                     warn!(
-                                        "Channel({}): No tunnel protocol configured for {:?}",
-                                        channel_id, active_protocol
+                                        "Channel({}): No tunnel protocol configured for {:?} (conversation_id: {})",
+                                        channel_id, active_protocol, conversation_id
                                     );
                                 }
                             }
                         }
                     }
                     Err(e) => {
-                        error!("Channel({}): Error accepting connection: {}", channel_id, e);
+                        error!(
+                            "Channel({}): Error accepting connection: {} (conversation_id: {})",
+                            channel_id, e, conversation_id
+                        );
                     }
                 }
             }
 
-            debug!("Channel({}): Server task exiting", channel_id);
+            debug!(
+                "Channel({}): Server task exiting (conversation_id: {})",
+                channel_id, conversation_id
+            );
         });
 
         self.local_client_server_task = Some(server_task);
@@ -270,12 +286,15 @@ impl Channel {
             // Give it some time to clean up
             match tokio::time::timeout(std::time::Duration::from_secs(5), task).await {
                 Ok(_) => {
-                    debug!("Endpoint {}: Server task shutdown cleanly", self.channel_id);
+                    debug!(
+                        "Endpoint {}: Server task shutdown cleanly (conversation_id: {})",
+                        self.channel_id, self.conversation_id
+                    );
                 }
                 Err(_) => {
                     warn!(
-                        "Endpoint {}: Server task did not shutdown in time",
-                        self.channel_id
+                        "Endpoint {}: Server task did not shutdown in time (conversation_id: {})",
+                        self.channel_id, self.conversation_id
                     );
                 }
             }
@@ -289,7 +308,10 @@ impl Channel {
         // Give the system a brief moment to fully release the socket
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
-        info!("Endpoint {}: Server stopped", self.channel_id);
+        info!(
+            "Endpoint {}: Server stopped (conversation_id: {})",
+            self.channel_id, self.conversation_id
+        );
         Ok(())
     }
 }
@@ -311,13 +333,15 @@ async fn handle_tunnel_server_connection(
     webrtc: WebRTCDataChannel,
     buffer_pool: crate::buffer_pool::BufferPool,
     channel_id: String,
+    conversation_id: String,
     event_sender: EventDrivenSender,
 ) -> Result<()> {
     debug!(
-        "Channel({}): New {} connection {}",
+        "Channel({}): New {} connection {} (conversation_id: {})",
         channel_id,
         protocol.name(),
-        conn_no
+        conn_no,
+        conversation_id
     );
 
     // 1. Perform protocol-specific handshake (SOCKS5 greeting/auth/request, or no-op for PortForward)
@@ -347,15 +371,17 @@ async fn handle_tunnel_server_connection(
         })?;
 
     debug!(
-        "Channel({}): Sent OpenConnection for {} stream {}",
+        "Channel({}): Sent OpenConnection for {} stream {} (conversation_id: {})",
         channel_id,
         protocol.name(),
-        conn_no
+        conn_no,
+        conversation_id
     );
 
     // 3. Spawn read loop with EventDrivenSender for proper backpressure
     let buffer_pool_clone = buffer_pool.clone();
     let channel_id_clone = channel_id.clone();
+    let conversation_id_clone = conversation_id.clone();
     let protocol_name = protocol.name().to_string();
 
     let read_task = tokio::spawn(async move {
@@ -369,8 +395,8 @@ async fn handle_tunnel_server_connection(
 
         if unlikely!(crate::logger::is_verbose_logging()) {
             debug!(
-                "Server-side TCP reader task started for conn_no: {} ({}) with EventDrivenSender",
-                conn_no, protocol_name
+                "Server-side TCP reader task started for conn_no: {} ({}) with EventDrivenSender (channel_id: {}, conversation_id: {})",
+                conn_no, protocol_name, channel_id_clone, conversation_id_clone
             );
         }
 
@@ -391,8 +417,8 @@ async fn handle_tunnel_server_connection(
                 Ok(0) => {
                     if unlikely!(crate::logger::is_verbose_logging()) {
                         debug!(
-                            "Channel({}): Client on server port (conn_no {}, {}) sent EOF.",
-                            channel_id_clone, conn_no, protocol_name
+                            "Channel({}): Client on server port (conn_no {}, {}) sent EOF. (conversation_id: {})",
+                            channel_id_clone, conn_no, protocol_name, conversation_id_clone
                         );
                     }
                     let eof_payload = conn_no.to_be_bytes();
@@ -408,8 +434,8 @@ async fn handle_tunnel_server_connection(
                         .await
                     {
                         error!(
-                            "Channel({}): Failed to send EOF via EventDrivenSender for conn_no {}: {}",
-                            channel_id_clone, conn_no, e
+                            "Channel({}): Failed to send EOF via EventDrivenSender for conn_no {}: {} (conversation_id: {})",
+                            channel_id_clone, conn_no, e, conversation_id_clone
                         );
                     }
                     break;
@@ -421,8 +447,8 @@ async fn handle_tunnel_server_connection(
 
                     if unlikely!(crate::logger::is_verbose_logging()) {
                         debug!(
-                            "Server-side TCP reader received {} bytes for conn_no: {}",
-                            n, conn_no
+                            "Server-side TCP reader received {} bytes for conn_no: {} (channel_id: {}, conversation_id: {})",
+                            n, conn_no, channel_id_clone, conversation_id_clone
                         );
                     }
 
@@ -450,7 +476,7 @@ async fn handle_tunnel_server_connection(
                             crate::metrics::METRICS_COLLECTOR
                                 .record_error(&channel_id_clone, "webrtc_send_failed");
                             if unlikely!(crate::logger::is_verbose_logging()) {
-                                debug!("Failed to send data frame via EventDrivenSender for conn_no {}: {}", conn_no, e);
+                                debug!("Failed to send data frame via EventDrivenSender for conn_no {}: {} (channel_id: {}, conversation_id: {})", conn_no, e, channel_id_clone, conversation_id_clone);
                             }
                             break;
                         }
@@ -459,8 +485,8 @@ async fn handle_tunnel_server_connection(
                 Ok(_) => {}
                 Err(e) => {
                     error!(
-                        "Channel({}): Error reading from client on server port (conn_no {}): {}",
-                        channel_id_clone, conn_no, e
+                        "Channel({}): Error reading from client on server port (conn_no {}): {} (conversation_id: {})",
+                        channel_id_clone, conn_no, e, conversation_id_clone
                     );
                     break;
                 }
@@ -470,8 +496,8 @@ async fn handle_tunnel_server_connection(
         buffer_pool_clone.release(encode_buffer);
         if unlikely!(crate::logger::is_verbose_logging()) {
             debug!(
-                "Channel({}): Server-side TCP reader task for conn_no {} ({}) exited.",
-                channel_id_clone, conn_no, protocol_name
+                "Channel({}): Server-side TCP reader task for conn_no {} ({}) exited. (conversation_id: {})",
+                channel_id_clone, conn_no, protocol_name, conversation_id_clone
             );
         }
     });
@@ -505,11 +531,12 @@ async fn handle_generic_server_connection(
     webrtc: WebRTCDataChannel,
     buffer_pool: crate::buffer_pool::BufferPool,
     channel_id: String,
+    conversation_id: String,
     event_sender: EventDrivenSender,
 ) -> Result<()> {
     debug!(
-        "Channel({}): New generic {:?} connection {}",
-        channel_id, active_protocol, conn_no
+        "Channel({}): New generic {:?} connection {} (conversation_id: {})",
+        channel_id, active_protocol, conn_no, conversation_id
     );
 
     let open_conn_payload = conn_no.to_be_bytes();
@@ -530,14 +557,15 @@ async fn handle_generic_server_connection(
         })?;
 
     debug!(
-        "Channel({}): Sent OpenConnection for new server stream {} ({:?})",
-        channel_id, conn_no, active_protocol
+        "Channel({}): Sent OpenConnection for new server stream {} ({:?}) (conversation_id: {})",
+        channel_id, conn_no, active_protocol, conversation_id
     );
 
     let (mut reader, writer) = stream.into_split();
 
     let buffer_pool_clone = buffer_pool.clone();
     let channel_id_clone = channel_id.clone();
+    let conversation_id_clone = conversation_id.clone();
 
     let read_task = tokio::spawn(async move {
         let mut read_buffer = buffer_pool_clone.acquire();
@@ -550,8 +578,8 @@ async fn handle_generic_server_connection(
 
         if unlikely!(crate::logger::is_verbose_logging()) {
             debug!(
-                "Server-side TCP reader task started for conn_no: {} with EventDrivenSender",
-                conn_no
+                "Server-side TCP reader task started for conn_no: {} with EventDrivenSender (channel_id: {}, conversation_id: {})",
+                conn_no, channel_id_clone, conversation_id_clone
             );
         }
 
@@ -572,8 +600,8 @@ async fn handle_generic_server_connection(
                 Ok(0) => {
                     if unlikely!(crate::logger::is_verbose_logging()) {
                         debug!(
-                            "Channel({}): Client on server port (conn_no {}) sent EOF.",
-                            channel_id_clone, conn_no
+                            "Channel({}): Client on server port (conn_no {}) sent EOF. (conversation_id: {})",
+                            channel_id_clone, conn_no, conversation_id_clone
                         );
                     }
                     let eof_payload = conn_no.to_be_bytes();
@@ -589,8 +617,8 @@ async fn handle_generic_server_connection(
                         .await
                     {
                         error!(
-                            "Channel({}): Failed to send EOF via EventDrivenSender for conn_no {}: {}",
-                            channel_id_clone, conn_no, e
+                            "Channel({}): Failed to send EOF via EventDrivenSender for conn_no {}: {} (conversation_id: {})",
+                            channel_id_clone, conn_no, e, conversation_id_clone
                         );
                     }
                     break;
@@ -602,14 +630,24 @@ async fn handle_generic_server_connection(
 
                     if unlikely!(crate::logger::is_verbose_logging()) {
                         debug!(
-                            "Server-side TCP reader received {} bytes for conn_no: {}",
-                            n, conn_no
+                            "Server-side TCP reader received {} bytes for conn_no: {} (channel_id: {}, conversation_id: {})",
+                            n, conn_no, channel_id_clone, conversation_id_clone
                         );
 
                         if n <= 100 {
-                            debug!("Data: {:?}", &read_buffer[0..n]);
+                            debug!(
+                                "Data: {:?} (channel_id: {}, conversation_id: {})",
+                                &read_buffer[0..n],
+                                channel_id_clone,
+                                conversation_id_clone
+                            );
                         } else {
-                            debug!("Data (first 50 bytes): {:?}", &read_buffer[0..50]);
+                            debug!(
+                                "Data (first 50 bytes): {:?} (channel_id: {}, conversation_id: {})",
+                                &read_buffer[0..50],
+                                channel_id_clone,
+                                conversation_id_clone
+                            );
                         }
                     }
 
@@ -625,8 +663,8 @@ async fn handle_generic_server_connection(
                     let bytes_written = data_frame.encode_into(&mut encode_buffer);
 
                     if unlikely!(crate::logger::is_verbose_logging()) {
-                        debug!("Encoded frame with conn_no {} and {} bytes payload into {} total bytes",
-                            conn_no, n, bytes_written);
+                        debug!("Encoded frame with conn_no {} and {} bytes payload into {} total bytes (channel_id: {}, conversation_id: {})",
+                            conn_no, n, bytes_written, channel_id_clone, conversation_id_clone);
                     }
 
                     let encoded_frame_bytes = encode_buffer.split_to(bytes_written).freeze();
@@ -646,7 +684,7 @@ async fn handle_generic_server_connection(
                             );
 
                             if unlikely!(crate::logger::is_verbose_logging()) {
-                                debug!("Successfully sent data frame via EventDrivenSender for conn_no {}", conn_no);
+                                debug!("Successfully sent data frame via EventDrivenSender for conn_no {} (channel_id: {}, conversation_id: {})", conn_no, channel_id_clone, conversation_id_clone);
                             }
                         }
                         Err(e) => {
@@ -654,7 +692,7 @@ async fn handle_generic_server_connection(
                                 .record_error(&channel_id_clone, "webrtc_send_failed");
 
                             if unlikely!(crate::logger::is_verbose_logging()) {
-                                debug!("Failed to send data frame via EventDrivenSender for conn_no {}: {}", conn_no, e);
+                                debug!("Failed to send data frame via EventDrivenSender for conn_no {}: {} (channel_id: {}, conversation_id: {})", conn_no, e, channel_id_clone, conversation_id_clone);
                             }
                             break;
                         }
@@ -664,13 +702,13 @@ async fn handle_generic_server_connection(
                 Err(e) => {
                     if unlikely!(crate::logger::is_verbose_logging()) {
                         debug!(
-                            "Error reading from client on server port (conn_no {}): {}",
-                            conn_no, e
+                            "Error reading from client on server port (conn_no {}): {} (channel_id: {}, conversation_id: {})",
+                            conn_no, e, channel_id_clone, conversation_id_clone
                         );
                     }
                     error!(
-                        "Channel({}): Error reading from client on server port (conn_no {}): {}",
-                        channel_id_clone, conn_no, e
+                        "Channel({}): Error reading from client on server port (conn_no {}): {} (conversation_id: {})",
+                        channel_id_clone, conn_no, e, conversation_id_clone
                     );
                     break;
                 }
@@ -679,10 +717,10 @@ async fn handle_generic_server_connection(
         buffer_pool_clone.release(read_buffer);
         buffer_pool_clone.release(encode_buffer);
         if unlikely!(crate::logger::is_verbose_logging()) {
-            debug!("Server-side TCP reader task for conn_no {} exited", conn_no);
+            debug!("Server-side TCP reader task for conn_no {} exited (channel_id: {}, conversation_id: {})", conn_no, channel_id_clone, conversation_id_clone);
             debug!(
-                "Channel({}): Server-side TCP reader task for conn_no {} ({:?}) exited.",
-                channel_id_clone, conn_no, active_protocol
+                "Channel({}): Server-side TCP reader task for conn_no {} ({:?}) exited. (conversation_id: {})",
+                channel_id_clone, conn_no, active_protocol, conversation_id_clone
             );
         }
     });

@@ -939,6 +939,7 @@ class TrustStoreTypeDef(TypedDict):
     NumberOfCaCertificates: NotRequired[int]
     LastModifiedTime: NotRequired[datetime]
     Reason: NotRequired[str]
+    UseClientCertificateOCSPEndpoint: NotRequired[bool]
 
 class CustomErrorResponseTypeDef(TypedDict):
     ErrorCode: int
@@ -2420,8 +2421,9 @@ class VpcOriginListTypeDef(TypedDict):
 
 class UpdateTrustStoreRequestTypeDef(TypedDict):
     Id: str
-    CaCertificatesBundleSource: CaCertificatesBundleSourceTypeDef
     IfMatch: str
+    CaCertificatesBundleSource: NotRequired[CaCertificatesBundleSourceTypeDef]
+    UseClientCertificateOCSPEndpoint: NotRequired[bool]
 
 class ForwardedValuesOutputTypeDef(TypedDict):
     QueryString: bool
@@ -3246,6 +3248,7 @@ class CreateKeyValueStoreRequestTypeDef(TypedDict):
 class CreateTrustStoreRequestTypeDef(TypedDict):
     Name: str
     CaCertificatesBundleSource: CaCertificatesBundleSourceTypeDef
+    UseClientCertificateOCSPEndpoint: NotRequired[bool]
     Tags: NotRequired[TagsUnionTypeDef]
 
 class CreateVpcOriginRequestTypeDef(TypedDict):

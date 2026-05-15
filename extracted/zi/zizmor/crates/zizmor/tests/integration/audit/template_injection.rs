@@ -49,7 +49,7 @@ fn test_template_injection_dynamic_matrix() -> Result<()> {
        = note: audit confidence → Medium
        = note: this finding has an auto-fix
 
-    1 findings (1 fixable): 0 informational, 0 low, 1 medium, 0 high
+    1 findings (1 unsafe fixes): 0 informational, 0 low, 1 medium, 0 high
     "#
     );
 
@@ -86,7 +86,7 @@ fn test_pr_317_repro() -> Result<()> {
        = note: audit confidence → Medium
        = note: this finding has an auto-fix
 
-    2 findings (1 suppressed, 1 fixable): 0 informational, 0 low, 1 medium, 0 high
+    2 findings (1 suppressed, 1 unsafe fixes): 0 informational, 0 low, 1 medium, 0 high
     "
     );
 
@@ -133,7 +133,7 @@ fn test_static_env() -> Result<()> {
        = note: audit confidence → High
        = note: this finding has an auto-fix
 
-    7 findings (4 suppressed, 3 fixable): 0 informational, 3 low, 0 medium, 0 high
+    7 findings (4 suppressed, 3 unsafe fixes): 0 informational, 3 low, 0 medium, 0 high
     "
     );
 
@@ -244,7 +244,7 @@ fn test_pr_425_backstop_action() -> Result<()> {
        |
        = note: audit confidence → High
 
-    5 findings (1 fixable): 0 informational, 0 low, 0 medium, 5 high
+    5 findings (1 unsafe fixes): 0 informational, 0 low, 0 medium, 5 high
     "#
     );
 
@@ -610,6 +610,34 @@ fn test_issue_1664() -> Result<()> {
        = note: audit confidence → High
 
     3 findings (1 suppressed): 0 informational, 2 low, 0 medium, 0 high
+    "#
+    );
+
+    Ok(())
+}
+
+/// Repro case for #1903: parenthesized compound expressions in context
+/// position (e.g. `(a || b).foo`) should not crash zizmor.
+///
+/// See: <https://github.com/zizmorcore/zizmor/issues/1903>
+#[test]
+fn test_issue_1903() -> Result<()> {
+    insta::assert_snapshot!(
+        zizmor()
+            .input(input_under_test("template-injection/issue-1903-repro.yml"))
+            .run()?,
+        @r#"
+    info[template-injection]: code injection via template expansion
+      --> @@INPUT@@:21:24
+       |
+    21 |       - run: echo "${{ (github.event.pull_request || github.event.issue).number }}"
+       |         ---            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+       |         |
+       |         this run block
+       |
+       = note: audit confidence → Low
+
+    1 finding: 1 informational, 0 low, 0 medium, 0 high
     "#
     );
 

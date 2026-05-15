@@ -22,17 +22,36 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
-SESSION_ROOT = Path.home() / ".vibe" / "logs" / "session"
+def _session_roots() -> list[Path]:
+    """Return all session-log roots that exist on disk.
+
+    Drydock's active root is `~/.drydock/logs/session` (post the
+    config-save_dir cleanup on 2026-05-14). Older sessions still live
+    at `~/.vibe/logs/session` from before the migration; we still
+    read those so historical analyses don't lose ~12k sessions.
+    """
+    candidates = [
+        Path.home() / ".drydock" / "logs" / "session",
+        Path.home() / ".vibe" / "logs" / "session",
+    ]
+    return [r for r in candidates if r.is_dir()]
+
+
+# Back-compat: kept as the first existing root so legacy callers that
+# read this constant get a sensible value. New code should call
+# `_session_roots()` directly.
+_roots = _session_roots()
+SESSION_ROOT = _roots[0] if _roots else Path.home() / ".drydock" / "logs" / "session"
 
 
 def _session_dirs(limit: int, since: datetime | None) -> list[Path]:
-    if not SESSION_ROOT.is_dir():
+    roots = _session_roots()
+    if not roots:
         return []
-    dirs = sorted(
-        (p for p in SESSION_ROOT.glob("session_*") if p.is_dir()),
-        key=lambda p: p.name,
-        reverse=True,
-    )
+    all_dirs: list[Path] = []
+    for r in roots:
+        all_dirs.extend(p for p in r.glob("session_*") if p.is_dir())
+    dirs = sorted(all_dirs, key=lambda p: p.name, reverse=True)
     if since is not None:
         # session_YYYYMMDD_HHMMSS_xxx
         keep: list[Path] = []
@@ -105,12 +124,21 @@ def main() -> int:
         for name in c:
             sessions_using[name] += 1
 
+    symbolic_stack = ("logic", "algebra", "number_theory", "set",
+                      "linear_algebra", "stats", "units", "chemistry")
+
     if args.json:
         out = {
             "sessions_scanned": len(dirs),
             "since": args.since or None,
             "tool_calls_total": dict(total_counts),
             "sessions_using_tool": dict(sessions_using),
+            "symbolic_stack": {
+                "tools": list(symbolic_stack),
+                "calls": {t: total_counts.get(t, 0) for t in symbolic_stack},
+                "sessions_using": {t: sessions_using.get(t, 0)
+                                   for t in symbolic_stack},
+            },
         }
         print(json.dumps(out, indent=2, sort_keys=True))
         return 0
@@ -141,6 +169,20 @@ def main() -> int:
     print(f"NEW TOOLS (math/count/memory/verify):")
     print(f"  total calls:   {new_use}")
     print(f"  sessions used: {new_sess} / {len(dirs)}")
+
+    sym_use = sum(total_counts.get(t, 0) for t in symbolic_stack)
+    sym_sess = sum(1 for d in dirs if any(
+        _scan_session(d).get(t, 0) for t in symbolic_stack))
+    print()
+    print("SYMBOLIC STACK (logic/algebra/number_theory/set/linear_algebra/"
+          "stats/units/chemistry):")
+    print(f"  total calls:   {sym_use}")
+    print(f"  sessions used: {sym_sess} / {len(dirs)}")
+    # Per-tool breakdown so we see which ones are dead weight vs. used.
+    print(f"  {'tool':<18s} {'calls':>8s} {'sessions':>10s}")
+    for t in symbolic_stack:
+        print(f"    {t:<16s} {total_counts.get(t, 0):>8d} "
+              f"{sessions_using.get(t, 0):>10d}")
     return 0
 
 

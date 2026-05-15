@@ -16,7 +16,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 project(
   prism
-  VERSION 0.14.4
+  VERSION 0.15.0
   DESCRIPTION "The Platform-agnostic Reader Interface for Speech and Messages"
   LANGUAGES C CXX)
 
@@ -36,6 +36,10 @@ if(PRISM_ENABLE_VCPKG_SPECIFIC_OPTIONS)
   option(
     PRISM_VCPKG_WANTS_ORCA_BACKEND
     "Indicates that the Prism vcpkg port is being built with the orca feature enabled"
+    OFF)
+  option(
+    PRISM_VCPKG_WANTS_SPIEL_BACKEND
+    "Indicates that the Prism vcpkg port is being built with the spiel feature enabled"
     OFF)
 endif()
 option(PRISM_ENABLE_GDEXTENSION "Enable building of the Godot GDExtension" ON)
@@ -318,7 +322,7 @@ if(WIN32)
     add_import_library(ZDSR ${CMAKE_CURRENT_SOURCE_DIR}/defs/zdsr32.def
                        ZDSRAPI.dll)
     add_import_library(
-      BoyCtrl ${CMAKE_CURRENT_SOURCE_DIR}/defs/boy_pc_reader32.def BoyCtrl.dll)
+      byctrl ${CMAKE_CURRENT_SOURCE_DIR}/defs/boy_pc_reader32.def byctrl.dll)
     add_import_library(
       PCTalker ${CMAKE_CURRENT_SOURCE_DIR}/defs/pc_talker32.def PCTKUSR.dll)
     add_import_library(
@@ -329,7 +333,7 @@ if(WIN32)
       ${CMAKE_CURRENT_SOURCE_DIR}/defs/prism_speech_dispatcher_bridge32.def
       prism_speech_dispatcher_bridge.dll)
     target_link_libraries(
-      ${PROJECT_NAME} PRIVATE ZDSR BoyCtrl PCTalker PrismOrcaBridge
+      ${PROJECT_NAME} PRIVATE ZDSR byctrl PCTalker PrismOrcaBridge
                               PrismSpeechDispatcherBridge)
   elseif(NOT _comp_arch_id_lc MATCHES "arm64|aarch64|arm64ec")
     if(PRISM_ENABLE_LEGACY_BACKENDS
@@ -341,8 +345,7 @@ if(WIN32)
     add_import_library(ZDSR ${CMAKE_CURRENT_SOURCE_DIR}/defs/zdsr.def
                        ZDSRAPI_x64.dll)
     add_import_library(
-      BoyCtrl ${CMAKE_CURRENT_SOURCE_DIR}/defs/boy_pc_reader.def
-      BoyCtrl-x64.dll)
+      byctrl ${CMAKE_CURRENT_SOURCE_DIR}/defs/boy_pc_reader.def byctrl-x64.dll)
     add_import_library(PCTalker ${CMAKE_CURRENT_SOURCE_DIR}/defs/pc_talker.def
                        PCTKUSR.dll)
     add_import_library(
@@ -353,7 +356,7 @@ if(WIN32)
       ${CMAKE_CURRENT_SOURCE_DIR}/defs/prism_speech_dispatcher_bridge.def
       prism_speech_dispatcher_bridge.dll)
     target_link_libraries(
-      ${PROJECT_NAME} PRIVATE ZDSR BoyCtrl PCTalker PrismOrcaBridge
+      ${PROJECT_NAME} PRIVATE ZDSR byctrl PCTalker PrismOrcaBridge
                               PrismSpeechDispatcherBridge)
   else()
     add_import_library(PCTalker ${CMAKE_CURRENT_SOURCE_DIR}/defs/pc_talker.def
@@ -460,6 +463,17 @@ if(UNIX
       target_compile_definitions(${PROJECT_NAME} PRIVATE NO_LIBSPEECHD)
       target_compile_definitions(prism_backend_iface INTERFACE NO_LIBSPEECHD)
     endif()
+    if(PRISM_VCPKG_WANTS_SPIEL_BACKEND)
+      pkg_check_modules(SPIEL spiel-1.0 REQUIRED)
+      target_include_directories(${PROJECT_NAME} PRIVATE ${SPIEL_INCLUDE_DIRS})
+      target_include_directories(prism_backend_iface
+                                 INTERFACE ${SPIEL_INCLUDE_DIRS})
+      target_link_directories(${PROJECT_NAME} PRIVATE ${SPIEL_LIBRARY_DIRS})
+      target_link_libraries(${PROJECT_NAME} PRIVATE ${SPIEL_LIBRARIES})
+    else()
+      target_compile_definitions(${PROJECT_NAME} PRIVATE NO_LIBSPIEL)
+      target_compile_definitions(prism_backend_iface INTERFACE NO_LIBSPIEL)
+    endif()
   else()
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(GIO gio-unix-2.0)
@@ -531,6 +545,17 @@ if(UNIX
       target_compile_definitions(${PROJECT_NAME} PRIVATE NO_LIBSPEECHD)
       target_compile_definitions(prism_backend_iface INTERFACE NO_LIBSPEECHD)
     endif()
+    pkg_check_modules(SPIEL spiel-1.0)
+    if(SPIEL_FOUND)
+      target_include_directories(${PROJECT_NAME} PRIVATE ${SPIEL_INCLUDE_DIRS})
+      target_include_directories(prism_backend_iface
+                                 INTERFACE ${SPIEL_INCLUDE_DIRS})
+      target_link_directories(${PROJECT_NAME} PRIVATE ${SPIEL_LIBRARY_DIRS})
+      target_link_libraries(${PROJECT_NAME} PRIVATE ${SPIEL_LIBRARIES})
+    else()
+      target_compile_definitions(${PROJECT_NAME} PRIVATE NO_LIBSPIEL)
+      target_compile_definitions(prism_backend_iface INTERFACE NO_LIBSPIEL)
+    endif()
   endif()
 endif()
 if(WIN32 OR WINDOWS_STORE)
@@ -552,7 +577,7 @@ if(MSVC)
       ${PROJECT_NAME}
       ${_PRISM_LINK_VIS}
       /delayload:ZDSRAPI.dll
-      /delayload:BoyCtrl.dll
+      /delayload:byctrl.dll
       /delayload:PCTKUSR.dll
       /delayload:prism_orca_bridge.dll
       /delayload:prism_speech_dispatcher_bridge.dll)
@@ -566,7 +591,7 @@ if(MSVC)
       ${PROJECT_NAME}
       ${_PRISM_LINK_VIS}
       /delayload:ZDSRAPI_x64.dll
-      /delayload:BoyCtrl-x64.dll
+      /delayload:byctrl-x64.dll
       /delayload:PCTKUSR.dll
       /delayload:prism_orca_bridge.dll
       /delayload:prism_speech_dispatcher_bridge.dll)
@@ -601,7 +626,7 @@ elseif(
       ${PROJECT_NAME}
       ${_PRISM_LINK_VIS}
       "LINKER:/delayload:ZDSRAPI.dll"
-      "LINKER:/delayload:BoyCtrl.dll"
+      "LINKER:/delayload:byctrl.dll"
       "LINKER:/delayload:PCTKUSR.dll"
       "LINKER:/delayload:prism_orca_bridge.dll"
       "LINKER:/delayload:prism_speech_dispatcher_bridge.dll")
@@ -616,7 +641,7 @@ elseif(
       ${PROJECT_NAME}
       ${_PRISM_LINK_VIS}
       "LINKER:/delayload:ZDSRAPI_x64.dll"
-      "LINKER:/delayload:BoyCtrl-x64.dll"
+      "LINKER:/delayload:byctrl-x64.dll"
       "LINKER:/delayload:PCTKUSR.dll"
       "LINKER:/delayload:prism_orca_bridge.dll"
       "LINKER:/delayload:prism_speech_dispatcher_bridge.dll")
@@ -693,7 +718,8 @@ if(PRISM_ENABLE_LINTING)
     list(APPEND SKIP_LINT_FILES ${android_sources} ${android_headers})
   endif()
   if(NOT CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-    find_program(CLANG_TIDY_EXE NAMES "clang-tidy")
+    find_program(CLANG_TIDY_EXE NAMES "clang-tidy-22" "clang-tidy-21"
+                                      "clang-tidy-20" "clang-tidy")
     if(CLANG_TIDY_EXE)
       set(CLANG_TIDY_COMMAND "${CLANG_TIDY_EXE}")
       set_target_properties(${PROJECT_NAME} PROPERTIES CXX_CLANG_TIDY

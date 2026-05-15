@@ -8,6 +8,9 @@ __all__ = ["FileListParams"]
 
 
 class FileListParams(TypedDict, total=False):
+    account_id: str
+    """Optional search by account_id"""
+
     ending_before: str
 
     filename: str

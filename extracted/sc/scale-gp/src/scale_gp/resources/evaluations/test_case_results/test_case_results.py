@@ -16,7 +16,7 @@ from .history import (
     AsyncHistoryResourceWithStreamingResponse,
 )
 from ...._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -117,7 +117,7 @@ class TestCaseResultsResource(SyncAPIResource):
         return cast(
             TestCaseResult,
             self._post(
-                f"/v4/evaluations/{evaluation_id}/test-case-results",
+                path_template("/v4/evaluations/{evaluation_id}/test-case-results", evaluation_id=evaluation_id),
                 body=maybe_transform(
                     {
                         "application_spec_id": application_spec_id,
@@ -191,7 +191,11 @@ class TestCaseResultsResource(SyncAPIResource):
         return cast(
             TestCaseResultWithViews,
             self._get(
-                f"/v4/evaluations/{evaluation_id}/test-case-results/{test_case_result_id}",
+                path_template(
+                    "/v4/evaluations/{evaluation_id}/test-case-results/{test_case_result_id}",
+                    evaluation_id=evaluation_id,
+                    test_case_result_id=test_case_result_id,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,
@@ -264,7 +268,11 @@ class TestCaseResultsResource(SyncAPIResource):
         return cast(
             TestCaseResult,
             self._patch(
-                f"/v4/evaluations/{evaluation_id}/test-case-results/{test_case_result_id}",
+                path_template(
+                    "/v4/evaluations/{evaluation_id}/test-case-results/{test_case_result_id}",
+                    evaluation_id=evaluation_id,
+                    test_case_result_id=test_case_result_id,
+                ),
                 body=maybe_transform(
                     {
                         "account_id": account_id,
@@ -339,7 +347,7 @@ class TestCaseResultsResource(SyncAPIResource):
         if not evaluation_id:
             raise ValueError(f"Expected a non-empty value for `evaluation_id` but received {evaluation_id!r}")
         return self._get_api_list(
-            f"/v4/evaluations/{evaluation_id}/test-case-results",
+            path_template("/v4/evaluations/{evaluation_id}/test-case-results", evaluation_id=evaluation_id),
             page=SyncPageResponse[TestCaseResultWithViews],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -395,7 +403,7 @@ class TestCaseResultsResource(SyncAPIResource):
         if not evaluation_id:
             raise ValueError(f"Expected a non-empty value for `evaluation_id` but received {evaluation_id!r}")
         return self._post(
-            f"/v4/evaluations/{evaluation_id}/test-case-results/batch",
+            path_template("/v4/evaluations/{evaluation_id}/test-case-results/batch", evaluation_id=evaluation_id),
             body=maybe_transform(items, Iterable[test_case_result_batch_params.Item]),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -478,7 +486,7 @@ class AsyncTestCaseResultsResource(AsyncAPIResource):
         return cast(
             TestCaseResult,
             await self._post(
-                f"/v4/evaluations/{evaluation_id}/test-case-results",
+                path_template("/v4/evaluations/{evaluation_id}/test-case-results", evaluation_id=evaluation_id),
                 body=await async_maybe_transform(
                     {
                         "application_spec_id": application_spec_id,
@@ -552,7 +560,11 @@ class AsyncTestCaseResultsResource(AsyncAPIResource):
         return cast(
             TestCaseResultWithViews,
             await self._get(
-                f"/v4/evaluations/{evaluation_id}/test-case-results/{test_case_result_id}",
+                path_template(
+                    "/v4/evaluations/{evaluation_id}/test-case-results/{test_case_result_id}",
+                    evaluation_id=evaluation_id,
+                    test_case_result_id=test_case_result_id,
+                ),
                 options=make_request_options(
                     extra_headers=extra_headers,
                     extra_query=extra_query,
@@ -625,7 +637,11 @@ class AsyncTestCaseResultsResource(AsyncAPIResource):
         return cast(
             TestCaseResult,
             await self._patch(
-                f"/v4/evaluations/{evaluation_id}/test-case-results/{test_case_result_id}",
+                path_template(
+                    "/v4/evaluations/{evaluation_id}/test-case-results/{test_case_result_id}",
+                    evaluation_id=evaluation_id,
+                    test_case_result_id=test_case_result_id,
+                ),
                 body=await async_maybe_transform(
                     {
                         "account_id": account_id,
@@ -700,7 +716,7 @@ class AsyncTestCaseResultsResource(AsyncAPIResource):
         if not evaluation_id:
             raise ValueError(f"Expected a non-empty value for `evaluation_id` but received {evaluation_id!r}")
         return self._get_api_list(
-            f"/v4/evaluations/{evaluation_id}/test-case-results",
+            path_template("/v4/evaluations/{evaluation_id}/test-case-results", evaluation_id=evaluation_id),
             page=AsyncPageResponse[TestCaseResultWithViews],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -756,7 +772,7 @@ class AsyncTestCaseResultsResource(AsyncAPIResource):
         if not evaluation_id:
             raise ValueError(f"Expected a non-empty value for `evaluation_id` but received {evaluation_id!r}")
         return await self._post(
-            f"/v4/evaluations/{evaluation_id}/test-case-results/batch",
+            path_template("/v4/evaluations/{evaluation_id}/test-case-results/batch", evaluation_id=evaluation_id),
             body=await async_maybe_transform(items, Iterable[test_case_result_batch_params.Item]),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout

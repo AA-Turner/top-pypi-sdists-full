@@ -26,14 +26,65 @@ class ResourceScope(IntEnum):
     ASSEMBLY = ...
 
 
-class ResourceExposureAttribute(System.Attribute):
+class ResourceConsumptionAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def resource_exposure_level(self) -> System.Runtime.Versioning.ResourceScope:
+    def resource_scope(self) -> System.Runtime.Versioning.ResourceScope:
         ...
 
-    def __init__(self, exposure_level: System.Runtime.Versioning.ResourceScope) -> None:
+    @property
+    def consumption_scope(self) -> System.Runtime.Versioning.ResourceScope:
+        ...
+
+    @overload
+    def __init__(self, resource_scope: System.Runtime.Versioning.ResourceScope) -> None:
+        ...
+
+    @overload
+    def __init__(self, resource_scope: System.Runtime.Versioning.ResourceScope, consumption_scope: System.Runtime.Versioning.ResourceScope) -> None:
+        ...
+
+
+class TargetFrameworkAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def framework_name(self) -> str:
+        ...
+
+    @property
+    def framework_display_name(self) -> str:
+        ...
+
+    @framework_display_name.setter
+    def framework_display_name(self, value: str) -> None:
+        ...
+
+    def __init__(self, framework_name: str) -> None:
+        ...
+
+
+class ComponentGuaranteesOptions(IntEnum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    EXCHANGE = ...
+
+    STABLE = ...
+
+    SIDE_BY_SIDE = ...
+
+
+class ComponentGuaranteesAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def guarantees(self) -> System.Runtime.Versioning.ComponentGuaranteesOptions:
+        ...
+
+    def __init__(self, guarantees: System.Runtime.Versioning.ComponentGuaranteesOptions) -> None:
         ...
 
 
@@ -89,16 +140,15 @@ class FrameworkName(System.Object, System.IEquatable[System_Runtime_Versioning_F
         ...
 
 
-class ComponentGuaranteesOptions(IntEnum):
+class ResourceExposureAttribute(System.Attribute):
     """This class has no documentation."""
 
-    NONE = 0
+    @property
+    def resource_exposure_level(self) -> System.Runtime.Versioning.ResourceScope:
+        ...
 
-    EXCHANGE = ...
-
-    STABLE = ...
-
-    SIDE_BY_SIDE = ...
+    def __init__(self, exposure_level: System.Runtime.Versioning.ResourceScope) -> None:
+        ...
 
 
 class VersioningHelper(System.Object):
@@ -112,56 +162,6 @@ class VersioningHelper(System.Object):
     @staticmethod
     @overload
     def make_version_safe_name(name: str, _from: System.Runtime.Versioning.ResourceScope, to: System.Runtime.Versioning.ResourceScope, type: typing.Type) -> str:
-        ...
-
-
-class ResourceConsumptionAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def resource_scope(self) -> System.Runtime.Versioning.ResourceScope:
-        ...
-
-    @property
-    def consumption_scope(self) -> System.Runtime.Versioning.ResourceScope:
-        ...
-
-    @overload
-    def __init__(self, resource_scope: System.Runtime.Versioning.ResourceScope) -> None:
-        ...
-
-    @overload
-    def __init__(self, resource_scope: System.Runtime.Versioning.ResourceScope, consumption_scope: System.Runtime.Versioning.ResourceScope) -> None:
-        ...
-
-
-class TargetFrameworkAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def framework_name(self) -> str:
-        ...
-
-    @property
-    def framework_display_name(self) -> str:
-        ...
-
-    @framework_display_name.setter
-    def framework_display_name(self, value: str) -> None:
-        ...
-
-    def __init__(self, framework_name: str) -> None:
-        ...
-
-
-class ComponentGuaranteesAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def guarantees(self) -> System.Runtime.Versioning.ComponentGuaranteesOptions:
-        ...
-
-    def __init__(self, guarantees: System.Runtime.Versioning.ComponentGuaranteesOptions) -> None:
         ...
 
 

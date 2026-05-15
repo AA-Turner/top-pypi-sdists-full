@@ -11,13 +11,13 @@ from scale_gp import SGPClient, AsyncSGPClient
 from tests.utils import assert_matches_type
 from scale_gp.types import (
     KnowledgeBase,
+    KnowledgeBaseQueryResponse,
     CreateKnowledgeBaseResponse,
     DeleteKnowledgeBaseResponse,
     KnowledgeBaseUpdateResponse,
     CreateKnowledgeBaseUploadsFromFilesResponse,
 )
-from scale_gp.pagination import SyncPageResponse, AsyncPageResponse, SyncChunkPagination, AsyncChunkPagination
-from scale_gp.types.shared import Chunk
+from scale_gp.pagination import SyncPageResponse, AsyncPageResponse
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -263,7 +263,7 @@ class TestKnowledgeBases:
             query="query",
             top_k=1,
         )
-        assert_matches_type(SyncChunkPagination[Chunk], knowledge_base, path=["response"])
+        assert_matches_type(KnowledgeBaseQueryResponse, knowledge_base, path=["response"])
 
     @parametrize
     def test_method_query_with_all_params(self, client: SGPClient) -> None:
@@ -281,7 +281,7 @@ class TestKnowledgeBases:
                 }
             },
         )
-        assert_matches_type(SyncChunkPagination[Chunk], knowledge_base, path=["response"])
+        assert_matches_type(KnowledgeBaseQueryResponse, knowledge_base, path=["response"])
 
     @parametrize
     def test_raw_response_query(self, client: SGPClient) -> None:
@@ -294,7 +294,7 @@ class TestKnowledgeBases:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         knowledge_base = response.parse()
-        assert_matches_type(SyncChunkPagination[Chunk], knowledge_base, path=["response"])
+        assert_matches_type(KnowledgeBaseQueryResponse, knowledge_base, path=["response"])
 
     @parametrize
     def test_streaming_response_query(self, client: SGPClient) -> None:
@@ -307,7 +307,7 @@ class TestKnowledgeBases:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             knowledge_base = response.parse()
-            assert_matches_type(SyncChunkPagination[Chunk], knowledge_base, path=["response"])
+            assert_matches_type(KnowledgeBaseQueryResponse, knowledge_base, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -327,7 +327,7 @@ class TestKnowledgeBases:
             knowledge_base_id="knowledge_base_id",
             chunking_strategy_config="chunking_strategy_config",
             data_source_config="data_source_config",
-            files=[b"raw file contents"],
+            files=["string"],
             force_reupload=True,
         )
         assert_matches_type(CreateKnowledgeBaseUploadsFromFilesResponse, knowledge_base, path=["response"])
@@ -339,8 +339,9 @@ class TestKnowledgeBases:
             knowledge_base_id="knowledge_base_id",
             chunking_strategy_config="chunking_strategy_config",
             data_source_config="data_source_config",
-            files=[b"raw file contents"],
+            files=["string"],
             force_reupload=True,
+            custom_metadata="custom_metadata",
             tagging_information="tagging_information",
         )
         assert_matches_type(CreateKnowledgeBaseUploadsFromFilesResponse, knowledge_base, path=["response"])
@@ -352,7 +353,7 @@ class TestKnowledgeBases:
             knowledge_base_id="knowledge_base_id",
             chunking_strategy_config="chunking_strategy_config",
             data_source_config="data_source_config",
-            files=[b"raw file contents"],
+            files=["string"],
             force_reupload=True,
         )
 
@@ -368,7 +369,7 @@ class TestKnowledgeBases:
             knowledge_base_id="knowledge_base_id",
             chunking_strategy_config="chunking_strategy_config",
             data_source_config="data_source_config",
-            files=[b"raw file contents"],
+            files=["string"],
             force_reupload=True,
         ) as response:
             assert not response.is_closed
@@ -387,7 +388,7 @@ class TestKnowledgeBases:
                 knowledge_base_id="",
                 chunking_strategy_config="chunking_strategy_config",
                 data_source_config="data_source_config",
-                files=[b"raw file contents"],
+                files=["string"],
                 force_reupload=True,
             )
 
@@ -635,7 +636,7 @@ class TestAsyncKnowledgeBases:
             query="query",
             top_k=1,
         )
-        assert_matches_type(AsyncChunkPagination[Chunk], knowledge_base, path=["response"])
+        assert_matches_type(KnowledgeBaseQueryResponse, knowledge_base, path=["response"])
 
     @parametrize
     async def test_method_query_with_all_params(self, async_client: AsyncSGPClient) -> None:
@@ -653,7 +654,7 @@ class TestAsyncKnowledgeBases:
                 }
             },
         )
-        assert_matches_type(AsyncChunkPagination[Chunk], knowledge_base, path=["response"])
+        assert_matches_type(KnowledgeBaseQueryResponse, knowledge_base, path=["response"])
 
     @parametrize
     async def test_raw_response_query(self, async_client: AsyncSGPClient) -> None:
@@ -666,7 +667,7 @@ class TestAsyncKnowledgeBases:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         knowledge_base = await response.parse()
-        assert_matches_type(AsyncChunkPagination[Chunk], knowledge_base, path=["response"])
+        assert_matches_type(KnowledgeBaseQueryResponse, knowledge_base, path=["response"])
 
     @parametrize
     async def test_streaming_response_query(self, async_client: AsyncSGPClient) -> None:
@@ -679,7 +680,7 @@ class TestAsyncKnowledgeBases:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             knowledge_base = await response.parse()
-            assert_matches_type(AsyncChunkPagination[Chunk], knowledge_base, path=["response"])
+            assert_matches_type(KnowledgeBaseQueryResponse, knowledge_base, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -699,7 +700,7 @@ class TestAsyncKnowledgeBases:
             knowledge_base_id="knowledge_base_id",
             chunking_strategy_config="chunking_strategy_config",
             data_source_config="data_source_config",
-            files=[b"raw file contents"],
+            files=["string"],
             force_reupload=True,
         )
         assert_matches_type(CreateKnowledgeBaseUploadsFromFilesResponse, knowledge_base, path=["response"])
@@ -711,8 +712,9 @@ class TestAsyncKnowledgeBases:
             knowledge_base_id="knowledge_base_id",
             chunking_strategy_config="chunking_strategy_config",
             data_source_config="data_source_config",
-            files=[b"raw file contents"],
+            files=["string"],
             force_reupload=True,
+            custom_metadata="custom_metadata",
             tagging_information="tagging_information",
         )
         assert_matches_type(CreateKnowledgeBaseUploadsFromFilesResponse, knowledge_base, path=["response"])
@@ -724,7 +726,7 @@ class TestAsyncKnowledgeBases:
             knowledge_base_id="knowledge_base_id",
             chunking_strategy_config="chunking_strategy_config",
             data_source_config="data_source_config",
-            files=[b"raw file contents"],
+            files=["string"],
             force_reupload=True,
         )
 
@@ -740,7 +742,7 @@ class TestAsyncKnowledgeBases:
             knowledge_base_id="knowledge_base_id",
             chunking_strategy_config="chunking_strategy_config",
             data_source_config="data_source_config",
-            files=[b"raw file contents"],
+            files=["string"],
             force_reupload=True,
         ) as response:
             assert not response.is_closed
@@ -759,6 +761,6 @@ class TestAsyncKnowledgeBases:
                 knowledge_base_id="",
                 chunking_strategy_config="chunking_strategy_config",
                 data_source_config="data_source_config",
-                files=[b"raw file contents"],
+                files=["string"],
                 force_reupload=True,
             )

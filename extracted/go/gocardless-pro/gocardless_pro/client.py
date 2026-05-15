@@ -7,13 +7,13 @@ from . import services
 from .api_client import ApiClient
 
 class Client(object):
-    """Client for interacting with the GoCardless Pro API.
+    """Client for interacting with the GoCardless API.
 
     Instantiate a client object with your access token and environment, then
     use the resource methods to access the API.
 
     Args:
-      access_token (str): Find or generate this in your GoCardless Pro dashboard
+      access_token (str): Find or generate this in your GoCardless dashboard
         (https://manage.gocardless.com/organisation/access-tokens).
       environment (str): Either 'sandbox' or 'live'.
       base_url (str): Manually set a base URL. Most people should use
@@ -23,7 +23,7 @@ class Client(object):
     Example:
       client = Client(access_token=ACCESS_TOKEN, environment='sandbox')
       for customer in client.customers.list():
-          print '{} {}'.format(customer.family_name, customer.given_name)
+          print('{} {}'.format(customer.family_name, customer.given_name))
     """
 
     def __init__(self, access_token=None, environment=None, base_url=None, raise_on_idempotency_conflict=False):
@@ -44,6 +44,10 @@ class Client(object):
     @property
     def bank_account_details(self):
         return services.BankAccountDetailsService(self._api_client, 3, 0.5, self._raise_on_idempotency_conflict)
+
+    @property
+    def bank_account_holder_verifications(self):
+        return services.BankAccountHolderVerificationsService(self._api_client, 3, 0.5, self._raise_on_idempotency_conflict)
 
     @property
     def bank_authorisations(self):
@@ -106,6 +110,10 @@ class Client(object):
         return services.ExportsService(self._api_client, 3, 0.5, self._raise_on_idempotency_conflict)
 
     @property
+    def funds_availabilities(self):
+        return services.FundsAvailabilitiesService(self._api_client, 3, 0.5, self._raise_on_idempotency_conflict)
+
+    @property
     def instalment_schedules(self):
         return services.InstalmentSchedulesService(self._api_client, 3, 0.5, self._raise_on_idempotency_conflict)
 
@@ -142,6 +150,14 @@ class Client(object):
         return services.OutboundPaymentsService(self._api_client, 3, 0.5, self._raise_on_idempotency_conflict)
 
     @property
+    def outbound_payment_imports(self):
+        return services.OutboundPaymentImportsService(self._api_client, 3, 0.5, self._raise_on_idempotency_conflict)
+
+    @property
+    def outbound_payment_import_entries(self):
+        return services.OutboundPaymentImportEntriesService(self._api_client, 3, 0.5, self._raise_on_idempotency_conflict)
+
+    @property
     def payer_authorisations(self):
         return services.PayerAuthorisationsService(self._api_client, 3, 0.5, self._raise_on_idempotency_conflict)
 
@@ -152,6 +168,10 @@ class Client(object):
     @property
     def payments(self):
         return services.PaymentsService(self._api_client, 3, 0.5, self._raise_on_idempotency_conflict)
+
+    @property
+    def payment_accounts(self):
+        return services.PaymentAccountsService(self._api_client, 3, 0.5, self._raise_on_idempotency_conflict)
 
     @property
     def payment_account_transactions(self):

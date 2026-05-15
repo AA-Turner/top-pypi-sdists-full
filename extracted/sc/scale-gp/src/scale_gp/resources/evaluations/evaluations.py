@@ -23,7 +23,7 @@ from ...types import (
     evaluation_claim_task_params,
 )
 from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from ..._utils import required_args, maybe_transform, async_maybe_transform
+from ..._utils import path_template, required_args, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -132,6 +132,7 @@ class EvaluationsResource(SyncAPIResource):
         evaluation_config: Dict[str, object] | Omit = omit,
         evaluation_config_id: str | Omit = omit,
         evaluation_dataset_version: int | Omit = omit,
+        inline_evaluation_config: evaluation_create_params.EvaluationBuilderRequestInlineEvaluationConfig | Omit = omit,
         metric_config: evaluation_create_params.EvaluationBuilderRequestMetricConfig | Omit = omit,
         question_id_to_annotation_config: Dict[str, AnnotationConfigParam] | Omit = omit,
         tags: Dict[str, object] | Omit = omit,
@@ -159,6 +160,9 @@ class EvaluationsResource(SyncAPIResource):
           annotation_config: Annotation configuration for tasking
 
           evaluation_config_id: The ID of the associated evaluation config.
+
+          inline_evaluation_config: Inline evaluation config data to create atomically with the evaluation. Provide
+              this OR evaluation_config_id, not both.
 
           metric_config: Specifies the config for the metrics to be computed.
 
@@ -254,6 +258,7 @@ class EvaluationsResource(SyncAPIResource):
         evaluation_config: Dict[str, object] | Omit = omit,
         evaluation_config_id: str | Omit = omit,
         evaluation_dataset_version: int | Omit = omit,
+        inline_evaluation_config: evaluation_create_params.EvaluationBuilderRequestInlineEvaluationConfig | Omit = omit,
         metric_config: evaluation_create_params.EvaluationBuilderRequestMetricConfig
         | evaluation_create_params.DefaultEvaluationRequestMetricConfig
         | Omit = omit,
@@ -282,6 +287,7 @@ class EvaluationsResource(SyncAPIResource):
                     "evaluation_config": evaluation_config,
                     "evaluation_config_id": evaluation_config_id,
                     "evaluation_dataset_version": evaluation_dataset_version,
+                    "inline_evaluation_config": inline_evaluation_config,
                     "metric_config": metric_config,
                     "question_id_to_annotation_config": question_id_to_annotation_config,
                     "tags": tags,
@@ -332,7 +338,7 @@ class EvaluationsResource(SyncAPIResource):
         if not evaluation_id:
             raise ValueError(f"Expected a non-empty value for `evaluation_id` but received {evaluation_id!r}")
         return self._get(
-            f"/v4/evaluations/{evaluation_id}",
+            path_template("/v4/evaluations/{evaluation_id}", evaluation_id=evaluation_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -466,7 +472,7 @@ class EvaluationsResource(SyncAPIResource):
         if not evaluation_id:
             raise ValueError(f"Expected a non-empty value for `evaluation_id` but received {evaluation_id!r}")
         return self._patch(
-            f"/v4/evaluations/{evaluation_id}",
+            path_template("/v4/evaluations/{evaluation_id}", evaluation_id=evaluation_id),
             body=maybe_transform(
                 {
                     "annotation_config": annotation_config,
@@ -645,7 +651,7 @@ class EvaluationsResource(SyncAPIResource):
         if not evaluation_id:
             raise ValueError(f"Expected a non-empty value for `evaluation_id` but received {evaluation_id!r}")
         return self._delete(
-            f"/v4/evaluations/{evaluation_id}",
+            path_template("/v4/evaluations/{evaluation_id}", evaluation_id=evaluation_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -681,7 +687,7 @@ class EvaluationsResource(SyncAPIResource):
         if not evaluation_id:
             raise ValueError(f"Expected a non-empty value for `evaluation_id` but received {evaluation_id!r}")
         return self._post(
-            f"/v4/evaluations/{evaluation_id}/claim-task",
+            path_template("/v4/evaluations/{evaluation_id}/claim-task", evaluation_id=evaluation_id),
             body=maybe_transform(
                 {"skip_current": skip_current}, evaluation_claim_task_params.EvaluationClaimTaskParams
             ),
@@ -751,6 +757,7 @@ class AsyncEvaluationsResource(AsyncAPIResource):
         evaluation_config: Dict[str, object] | Omit = omit,
         evaluation_config_id: str | Omit = omit,
         evaluation_dataset_version: int | Omit = omit,
+        inline_evaluation_config: evaluation_create_params.EvaluationBuilderRequestInlineEvaluationConfig | Omit = omit,
         metric_config: evaluation_create_params.EvaluationBuilderRequestMetricConfig | Omit = omit,
         question_id_to_annotation_config: Dict[str, AnnotationConfigParam] | Omit = omit,
         tags: Dict[str, object] | Omit = omit,
@@ -778,6 +785,9 @@ class AsyncEvaluationsResource(AsyncAPIResource):
           annotation_config: Annotation configuration for tasking
 
           evaluation_config_id: The ID of the associated evaluation config.
+
+          inline_evaluation_config: Inline evaluation config data to create atomically with the evaluation. Provide
+              this OR evaluation_config_id, not both.
 
           metric_config: Specifies the config for the metrics to be computed.
 
@@ -873,6 +883,7 @@ class AsyncEvaluationsResource(AsyncAPIResource):
         evaluation_config: Dict[str, object] | Omit = omit,
         evaluation_config_id: str | Omit = omit,
         evaluation_dataset_version: int | Omit = omit,
+        inline_evaluation_config: evaluation_create_params.EvaluationBuilderRequestInlineEvaluationConfig | Omit = omit,
         metric_config: evaluation_create_params.EvaluationBuilderRequestMetricConfig
         | evaluation_create_params.DefaultEvaluationRequestMetricConfig
         | Omit = omit,
@@ -901,6 +912,7 @@ class AsyncEvaluationsResource(AsyncAPIResource):
                     "evaluation_config": evaluation_config,
                     "evaluation_config_id": evaluation_config_id,
                     "evaluation_dataset_version": evaluation_dataset_version,
+                    "inline_evaluation_config": inline_evaluation_config,
                     "metric_config": metric_config,
                     "question_id_to_annotation_config": question_id_to_annotation_config,
                     "tags": tags,
@@ -951,7 +963,7 @@ class AsyncEvaluationsResource(AsyncAPIResource):
         if not evaluation_id:
             raise ValueError(f"Expected a non-empty value for `evaluation_id` but received {evaluation_id!r}")
         return await self._get(
-            f"/v4/evaluations/{evaluation_id}",
+            path_template("/v4/evaluations/{evaluation_id}", evaluation_id=evaluation_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -1085,7 +1097,7 @@ class AsyncEvaluationsResource(AsyncAPIResource):
         if not evaluation_id:
             raise ValueError(f"Expected a non-empty value for `evaluation_id` but received {evaluation_id!r}")
         return await self._patch(
-            f"/v4/evaluations/{evaluation_id}",
+            path_template("/v4/evaluations/{evaluation_id}", evaluation_id=evaluation_id),
             body=await async_maybe_transform(
                 {
                     "annotation_config": annotation_config,
@@ -1264,7 +1276,7 @@ class AsyncEvaluationsResource(AsyncAPIResource):
         if not evaluation_id:
             raise ValueError(f"Expected a non-empty value for `evaluation_id` but received {evaluation_id!r}")
         return await self._delete(
-            f"/v4/evaluations/{evaluation_id}",
+            path_template("/v4/evaluations/{evaluation_id}", evaluation_id=evaluation_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -1300,7 +1312,7 @@ class AsyncEvaluationsResource(AsyncAPIResource):
         if not evaluation_id:
             raise ValueError(f"Expected a non-empty value for `evaluation_id` but received {evaluation_id!r}")
         return await self._post(
-            f"/v4/evaluations/{evaluation_id}/claim-task",
+            path_template("/v4/evaluations/{evaluation_id}/claim-task", evaluation_id=evaluation_id),
             body=await async_maybe_transform(
                 {"skip_current": skip_current}, evaluation_claim_task_params.EvaluationClaimTaskParams
             ),

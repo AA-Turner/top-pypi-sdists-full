@@ -281,6 +281,10 @@ from sage.core.procedural_workflow import (
     _compute_response_hash,
     FailureLoopDetector,
 )
+# Back-compat alias — earlier callers / tests imported `_FailureLoopDetector`
+# from sage.main directly. Keep working without forcing a rename across the
+# rest of the codebase.
+_FailureLoopDetector = FailureLoopDetector
 from sage.core.project import (
     command_from_project_root as _command_from_project_root,
     default_project_root as _default_project_root,
@@ -2040,12 +2044,13 @@ def _resolve_model_prefix(model_id: str, cfg: SageConfig) -> str:
 
     Resolution order (P0-Fix: Now checks provider availability):
     1. Already-prefixed IDs are returned unchanged
-    2. Explicitly registered local GGUF models → llama_cpp:model
-    3. Exact cloud provider models (Groq, Gemini, etc.) → provider:model
-    4. Exact GGUF catalog models → llama_cpp:model
-    5. Ollama models (only if Ollama is running and has the model pulled)
-    6. Cloud-compatible fuzzy fallback (keyed providers only)
-    7. Final fallback to local Ollama tag (pull if needed)
+    2. OpenRouter-style "<vendor>/<model>:free" IDs → openrouter:<id>
+    3. Explicitly registered local GGUF models → llama_cpp:model
+    4. Exact cloud provider models (Groq, Gemini, etc.) → provider:model
+    5. Exact GGUF catalog models → llama_cpp:model
+    6. Ollama models (only if Ollama is running and has the model pulled)
+    7. Cloud-compatible fuzzy fallback (keyed providers only)
+    8. Final fallback to local Ollama tag (pull if needed)
     """
     from sage.providers.openai_compat import PROVIDER_SPECS
 
@@ -2075,6 +2080,14 @@ def _resolve_model_prefix(model_id: str, cfg: SageConfig) -> str:
             return _resolve_model_prefix(model_name, cfg)
         if prefix in _PROVIDER_PREFIXES:
             return model_id
+        # OpenRouter IDs look like "vendor/model:free" — the colon is a tag
+        # suffix, not a provider separator. If the part before the colon
+        # contains "/" we know it's an OpenRouter-style ID, not an Ollama
+        # tag like "gemma3:latest". This prevents the user's selection from
+        # silently falling through to fuzzy match (and landing on the wrong
+        # provider).
+        if "/" in prefix:
+            return f"openrouter:{model_id}"
         # Otherwise it might be an Ollama tag like "gemma3:latest" - check if ollama is running
 
     # Explicitly registered local models should resolve to the local runtime
@@ -2093,13 +2106,28 @@ def _resolve_model_prefix(model_id: str, cfg: SageConfig) -> str:
         return f"llama_cpp:{model_id}"
 
     # P0-Fix: Check cloud providers exact matches first (they're always available)
-    # Build lookup of all cloud provider models
+    # Build lookup of all cloud provider models, INCLUDING the live OpenRouter
+    # free catalog. Without the live catalog, a user-picked OpenRouter model
+    # (e.g. qwen/qwen3-coder:free) falls through to fuzzy match and lands on
+    # whichever provider's static list contains a similarly-named model.
     cloud_model_lookup: dict[str, str] = {}  # model_id -> provider:model_id
     for spec in PROVIDER_SPECS:
         for m in spec.models:
             # Store both exact ID and lowercase version for matching
             cloud_model_lookup[m.id] = f"{spec.name}:{m.id}"
             cloud_model_lookup[m.id.lower()] = f"{spec.name}:{m.id}"
+
+    # Live OpenRouter free catalog (cached 24h locally — no network on hot path).
+    try:
+        from sage.providers.openrouter_catalog import fetch_free_models
+        for live in fetch_free_models():
+            live_id = live.get("id") if isinstance(live, dict) else getattr(live, "id", None)
+            if not live_id:
+                continue
+            cloud_model_lookup.setdefault(live_id, f"openrouter:{live_id}")
+            cloud_model_lookup.setdefault(live_id.lower(), f"openrouter:{live_id}")
+    except Exception as exc:
+        logger.debug("OpenRouter live catalog unavailable during resolve: %s", exc)
 
     # Check if the model matches a cloud provider model
     if model_id in cloud_model_lookup:
@@ -2126,19 +2154,52 @@ def _resolve_model_prefix(model_id: str, cfg: SageConfig) -> str:
         logger.debug(f"Ollama check failed: {e}")
         pass  # Ollama not running, skip
 
-    # If the model looks similar to a cloud model, use that as a best-effort fallback.
+    # If the model looks similar to a cloud model, use that as a best-effort
+    # fallback — BUT only consider providers the user actually has keys for.
+    # Without this gate, a Qwen3 Coder selection slides onto DeepInfra (which
+    # is in the static catalog) even when the user only has an OpenRouter key,
+    # and every request then 4xxs at runtime.
     if model_id in CATALOG_BY_NAME or any(
         token in model_id.lower()
         for token in ("qwen", "deepseek", "openai", "claude", "mistral", "gemini", "grok")
     ):
-        # Look for cloud alternatives with similar name
+        keyed_providers = _providers_with_keys(cfg)
         model_lower = model_id.lower()
         for cloud_id, resolved in cloud_model_lookup.items():
+            resolved_provider = resolved.split(":", 1)[0]
+            if resolved_provider not in keyed_providers:
+                continue
             if model_lower in cloud_id.lower() or cloud_id.lower() in model_lower:
                 return resolved
 
     # Last resort: treat as an Ollama model tag (local inference only).
     return f"ollama:{model_id}"
+
+
+def _providers_with_keys(cfg: SageConfig) -> set[str]:
+    """Return the set of cloud providers that have a usable API key configured.
+
+    Reads from both the live process env (the user may have set
+    SAGE_*_API_KEY directly) and from `cfg` (the persisted config file).
+    """
+    from sage.providers.openai_compat import PROVIDER_SPECS
+
+    keyed: set[str] = set()
+    # Local-capable / no-key providers are always considered available.
+    keyed.update({"ollama", "llama_cpp", "gcs", "cloud"})
+
+    cfg_keys = getattr(cfg, "api_keys", None) or {}
+    for spec in PROVIDER_SPECS:
+        env_val = os.environ.get(spec.env_var, "")
+        cfg_val = cfg_keys.get(spec.api_key_config, "") if isinstance(cfg_keys, dict) else ""
+        if (env_val and env_val.strip()) or (cfg_val and str(cfg_val).strip()):
+            keyed.add(spec.name)
+
+    # Gemini key is handled via google_genai env, not a ProviderSpec entry.
+    if os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY"):
+        keyed.add("gemini")
+
+    return keyed
 
 
 def _is_explicit_model_request(model_id: str) -> bool:
@@ -13067,14 +13128,54 @@ def run(
                     renderer.info(f"Current model: {model_id}")
                 continue
             elif command == "/models":
-                # Simplified model listing
-                renderer.info("Listing models...")
+                # Parse REPL flags: /models [--all] [--details] [-p PROVIDER] [-f KEYWORD]
+                tokens = (arg or "").split()
+                show_all = "--all" in tokens
+                show_details = "--details" in tokens or "-d" in tokens
+                slash_provider = None
+                slash_filter = None
+                i = 0
+                while i < len(tokens):
+                    if tokens[i] in {"--provider", "-p"} and i + 1 < len(tokens):
+                        slash_provider = tokens[i + 1]
+                        i += 2
+                        continue
+                    if tokens[i] in {"--filter", "-f"} and i + 1 < len(tokens):
+                        slash_filter = tokens[i + 1]
+                        i += 2
+                        continue
+                    # Bare keyword = filter (e.g. `/models coder`)
+                    if not tokens[i].startswith("-") and slash_filter is None:
+                        slash_filter = tokens[i]
+                    i += 1
+
                 all_models = router.list_all_models()
+                if slash_provider:
+                    all_models = [m for m in all_models if m.provider.lower() == slash_provider.lower()]
+                if slash_filter:
+                    kw = slash_filter.lower()
+                    all_models = [
+                        m for m in all_models
+                        if kw in f"{m.id} {m.name} {getattr(m, 'description', '') or ''}".lower()
+                    ]
+                renderer.info(
+                    f"Listing {len(all_models)} models"
+                    + (f" (provider={slash_provider})" if slash_provider else "")
+                    + (f" (filter={slash_filter!r})" if slash_filter else "")
+                )
                 rows = [
-                    {"id": m.id, "provider": m.provider, "name": m.name, "local": m.local}
+                    {
+                        "id": m.id, "provider": m.provider, "name": m.name,
+                        "local": m.local,
+                        "description": getattr(m, "description", "") or "",
+                        "pros": getattr(m, "pros", "") or "",
+                        "cons": getattr(m, "cons", "") or "",
+                    }
                     for m in all_models
                 ]
-                renderer.print_model_table(rows)
+                renderer.print_model_table(
+                    rows, show_all=show_all, show_details=show_details,
+                )
                 continue
             elif command == "/system":
                 if arg:
@@ -13411,13 +13512,52 @@ def chat(
                 _perform_cli_update(from_repl=True)
                 continue
             elif command == "/models":
-                renderer.info("Listing models...")
+                # Parse REPL flags: /models [--all] [--details] [-p PROVIDER] [-f KW]
+                tokens = (arg or "").split()
+                show_all = "--all" in tokens
+                show_details = "--details" in tokens or "-d" in tokens
+                slash_provider = None
+                slash_filter = None
+                i = 0
+                while i < len(tokens):
+                    if tokens[i] in {"--provider", "-p"} and i + 1 < len(tokens):
+                        slash_provider = tokens[i + 1]
+                        i += 2
+                        continue
+                    if tokens[i] in {"--filter", "-f"} and i + 1 < len(tokens):
+                        slash_filter = tokens[i + 1]
+                        i += 2
+                        continue
+                    if not tokens[i].startswith("-") and slash_filter is None:
+                        slash_filter = tokens[i]
+                    i += 1
+
                 all_models = router.list_all_models()
+                if slash_provider:
+                    all_models = [
+                        m for m in all_models
+                        if m.provider.lower() == slash_provider.lower()
+                    ]
+                if slash_filter:
+                    kw = slash_filter.lower()
+                    all_models = [
+                        m for m in all_models
+                        if kw in f"{m.id} {m.name} {getattr(m, 'description', '') or ''}".lower()
+                    ]
+                renderer.info(f"Listing {len(all_models)} models")
                 rows = [
-                    {"id": m.id, "provider": m.provider, "name": m.name, "local": m.local}
+                    {
+                        "id": m.id, "provider": m.provider, "name": m.name,
+                        "local": m.local,
+                        "description": getattr(m, "description", "") or "",
+                        "pros": getattr(m, "pros", "") or "",
+                        "cons": getattr(m, "cons", "") or "",
+                    }
                     for m in all_models
                 ]
-                renderer.print_model_table(rows)
+                renderer.print_model_table(
+                    rows, show_all=show_all, show_details=show_details,
+                )
                 continue
             elif command == "/model":
                 if arg:
@@ -13859,14 +13999,43 @@ def models(
         str | None,
         typer.Option("--search", "-s", help="Search Ollama catalog by keyword"),
     ] = None,
+    all_models: Annotated[
+        bool, typer.Option("--all", help="Show ALL models (no truncation)")
+    ] = False,
+    details: Annotated[
+        bool,
+        typer.Option(
+            "--details", help="Show full descriptions with pros/cons per model"
+        ),
+    ] = False,
+    provider: Annotated[
+        str | None,
+        typer.Option(
+            "--provider",
+            "-p",
+            help="Filter by provider (ollama, openrouter, llama_cpp, gemini, groq, …)",
+        ),
+    ] = None,
+    filter_kw: Annotated[
+        str | None,
+        typer.Option(
+            "--filter",
+            "-f",
+            help="Filter models by keyword (matches id + name + description)",
+        ),
+    ] = None,
 ) -> None:
     """List available models from all configured providers.
 
     Examples:
-      sage models                        List active models
-      sage models --ollama               List all Ollama models available to pull
-      sage models --ollama -c coding     List coding-focused Ollama models
-      sage models --ollama -s deepseek   Search Ollama catalog
+      sage models                              List active models (top 45)
+      sage models --all                        Show ALL models, no truncation
+      sage models --details                    Show pros/cons for each model
+      sage models --provider openrouter        Only OpenRouter models
+      sage models -p ollama -f coder           Local Ollama models matching 'coder'
+      sage models --ollama                     Show all Ollama models available to pull
+      sage models --ollama -c coding           Coding-focused pullable Ollama models
+      sage models --ollama -s deepseek         Search Ollama catalog
     """
     if ollama or category or search:
         _show_ollama_catalog(category=category, search_query=search)
@@ -13882,11 +14051,44 @@ def models(
     downloaded_names = {name for name, _ in list_downloaded()}
     gcs_models = [m for m in get_full_catalog() if m.backend == "gguf"]
 
+    # Apply --provider and --filter
+    def _matches(m) -> bool:
+        if provider and m.provider.lower() != provider.lower():
+            return False
+        if filter_kw:
+            kw = filter_kw.lower()
+            haystack = f"{m.id} {m.name} {getattr(m, 'description', '') or ''}".lower()
+            if kw not in haystack:
+                return False
+        return True
+
+    locally_loaded = [m for m in locally_loaded if _matches(m)]
+
     # ── Section 1: Locally loaded / configured models ──────────
     if locally_loaded:
-        renderer.console.print("[bold]Ready to use[/bold] (downloaded + registered):\n")
+        title = "Available Models"
+        if provider:
+            title += f" (provider={provider})"
+        if filter_kw:
+            title += f" (filter={filter_kw!r})"
+        renderer.console.print(f"[bold]{title}[/bold]")
+        if all_models:
+            renderer.console.print("[dim](showing ALL — no truncation)[/dim]\n")
+        else:
+            renderer.console.print()
         renderer.print_model_table(
-            [{"id": m.id, "provider": m.provider, "name": m.name, "local": m.local} for m in locally_loaded]
+            [
+                {
+                    "id": m.id, "provider": m.provider, "name": m.name,
+                    "local": m.local,
+                    "description": getattr(m, "description", "") or "",
+                    "pros": getattr(m, "pros", "") or "",
+                    "cons": getattr(m, "cons", "") or "",
+                }
+                for m in locally_loaded
+            ],
+            show_all=all_models,
+            show_details=details,
         )
         renderer.info(f"\nDefault: {cfg.default_model}\n")
 
@@ -16231,15 +16433,45 @@ def sms_diagnose() -> None:
     # Apple → iMessage (only meaningful on macOS)
     if has_apple:
         if platform.system() == "Darwin":
-            # Verify Messages.app is installed and AppleScript is reachable
             applescript_ok = bool(_sh.which("osascript"))
             messages_app   = os.path.exists("/System/Applications/Messages.app") or \
                              os.path.exists("/Applications/Messages.app")
-            if applescript_ok and messages_app:
-                line(OK, "iMessage path: macOS Messages.app + osascript ready")
-            else:
+            if not (applescript_ok and messages_app):
                 line(BAD, "iMessage path broken on this Mac",
                      "Open Messages.app, sign into iCloud, enable iMessage in Settings → Messages")
+            else:
+                # Active probe: ask Messages.app to enumerate its iMessage
+                # service. If Automation permission isn't granted to the
+                # parent app (Terminal / iTerm / Python), this fails with
+                # error -1743 and the user sees a clear remediation hint.
+                import subprocess as _sp
+                probe = (
+                    'tell application "Messages"\n'
+                    '    try\n'
+                    '        get name of (1st service whose service type = iMessage)\n'
+                    '        return "ok"\n'
+                    '    on error errMsg number errNum\n'
+                    '        return "err " & errNum & ": " & errMsg\n'
+                    '    end try\n'
+                    'end tell'
+                )
+                try:
+                    r = _sp.run(["osascript", "-e", probe],
+                                capture_output=True, text=True, timeout=5)
+                    out = (r.stdout or "").strip()
+                except Exception as exc:
+                    out = f"err: {exc}"
+
+                if out == "ok":
+                    line(OK, "iMessage path: Messages.app responding to AppleScript")
+                elif "1743" in out or "not allowed" in out.lower():
+                    line(BAD, "AppleScript not allowed to control Messages.app",
+                         "System Settings → Privacy & Security → Automation → "
+                         "enable Messages for your terminal app (Terminal / iTerm). "
+                         "Then quit and re-open the terminal.")
+                else:
+                    line(WARN, f"Messages.app probe returned: {out or '(empty)'}",
+                         "Open Messages.app once and ensure iMessage is signed in.")
         else:
             line(WARN, "iMessage requires macOS — Apple-tagged contacts won't deliver from this OS",
                  "Run a SAGE bridge on a Mac, or remove --device apple from those contacts")

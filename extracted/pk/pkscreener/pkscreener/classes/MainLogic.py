@@ -218,7 +218,14 @@ class MenuOptionHandler:
             f"{colorText.WARN}Press Ctrl + C to exit at any time.{colorText.END}"
         )
         sleep(2)
-        os.system(f"{launcher} -a Y -l")
+        if sys.platform == "win32":
+            # Windows PowerShell/CMD syntax
+            cmd = f'set PK_DEBUG_ALL=1 && set PK_LOG_LEVEL=10 && {launcher} -a Y -l'
+            os.system(cmd)
+        else:
+            # Unix-like (Linux/macOS)
+            cmd = f'export PK_DEBUG_ALL=1 && export PK_LOG_LEVEL=10 && {launcher} -a Y -l'
+            os.system(cmd)
         return None, None
     
     def handle_menu_f(self, options) -> Optional[List[str]]:
@@ -600,30 +607,33 @@ def _handle_log_menu(launcher: str):
     )
     sleep(2)
     
-    # Method 1: Using subprocess with environment passing (Recommended)
-    env = os.environ.copy()
-    env['PKDEVTOOLS_DEBUG_ALL'] = '1'
-    env['PKDEVTOOLS_LOG_LEVEL'] = '10'
-    import subprocess
+    # # Method 1: Using subprocess with environment passing (Recommended)
+    # env = os.environ.copy()
+    # env['PK_DEBUG_ALL'] = '1'
+    # env['PK_LOG_LEVEL'] = '10'
+    # import subprocess
+    # try:
+    #     subprocess.run(
+    #         [launcher, '-l'],
+    #         env=env,
+    #         check=False,
+    #         shell=True  # False for Better security, works cross-platform
+    #     )
+    # except Exception as e:
+    #     OutputControls().printOutput(f"{colorText.FAIL}Failed to launch: {e}{colorText.END}")
+    
     try:
-        subprocess.run(
-            [launcher, '-l'],
-            env=env,
-            check=False,
-            shell=True  # False for Better security, works cross-platform
-        )
+        # Method 2: Using platform detection (Alternative)
+        if sys.platform == "win32":
+            # Windows PowerShell/CMD syntax
+            cmd = f'set PK_DEBUG_ALL=1 && set PK_LOG_LEVEL=10 && {launcher} -a Y -l'
+            os.system(cmd)
+        else:
+            # Unix-like (Linux/macOS)
+            cmd = f'export PK_DEBUG_ALL=1 && export PK_LOG_LEVEL=10 && {launcher} -a Y -l'
+            os.system(cmd)
     except Exception as e:
         OutputControls().printOutput(f"{colorText.FAIL}Failed to launch: {e}{colorText.END}")
-    
-    # Method 2: Using platform detection (Alternative)
-    # if sys.platform == "win32":
-    #     # Windows PowerShell/CMD syntax
-    #     cmd = f'set PKDEVTOOLS_DEBUG_ALL=1 && set PKDEVTOOLS_LOG_LEVEL=10 && {launcher} -a Y -l'
-    #     os.system(cmd)
-    # else:
-    #     # Unix-like (Linux/macOS)
-    #     cmd = f'export PKDEVTOOLS_DEBUG_ALL=1 && export PKDEVTOOLS_LOG_LEVEL=10 && {launcher} -a Y -l'
-    #     os.system(cmd)
     
 def _handle_fundamental_menu(
     fetcher,

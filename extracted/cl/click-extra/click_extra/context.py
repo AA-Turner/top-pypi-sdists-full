@@ -217,7 +217,7 @@ as :data:`VERBOSITY` for the ``-v`` family of flags.
 START_TIME: Final[str] = "click_extra.start_time"
 """``time.perf_counter()`` snapshot taken when ``--time`` is enabled.
 
-Written by :class:`click_extra.timer.TimerOption.register_timer_on_close`.
+Written by :class:`click_extra.timer.TimerOption.init_timer`.
 """
 
 
@@ -257,6 +257,30 @@ THEME: Final[str] = "click_extra.theme.active"
 Written by :class:`click_extra.theme.ThemeOption.set_theme`. Read via
 :func:`click_extra.theme.get_current_theme`, which falls back to
 ``click_extra.theme.default_theme`` when no key is set.
+"""
+
+THEME_OVERRIDES: Final[str] = "click_extra.theme.overrides"
+"""Per-invocation theme registry overlay loaded from the user's config file.
+
+Written by :class:`click_extra.config.ConfigOption` when it sees
+``[tool.<cli>.themes.<name>]`` tables: each table is built into a
+:class:`~click_extra.theme.HelpExtraTheme` (cascading on top of an existing
+theme when *name* matches one already in :data:`~click_extra.theme.theme_registry`).
+Read by :func:`click_extra.theme.get_theme_registry` so ``--theme`` can pick
+the new themes without leaking them into sibling invocations sharing the
+same process.
+"""
+
+
+# --- Telemetry ----------------------------------------------------------------
+
+TELEMETRY: Final[str] = "click_extra.telemetry"
+"""``True`` if the user opted into telemetry, ``False`` otherwise.
+
+Written by :class:`click_extra.telemetry.TelemetryOption.set_telemetry` after
+reconciling ``--telemetry`` / ``--no-telemetry`` with the standard
+``DO_NOT_TRACK`` environment variable. Downstream code reads this to decide
+whether to emit usage data.
 """
 
 

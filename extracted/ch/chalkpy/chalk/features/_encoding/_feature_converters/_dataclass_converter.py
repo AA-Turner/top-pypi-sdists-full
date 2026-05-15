@@ -125,7 +125,7 @@ def _build_dict_to_dc(dc_class: type) -> "Callable[[Any], Any]":
                 return dc_class(**{f: sub[f](None) if f in sub else None for f in field_names})
             if isinstance(d, dc_class):
                 return d
-            return dc_class(**{f: sub[f](d[f]) if f in sub else d[f] for f in field_names})
+            return dc_class(**{f: sub[f](d.get(f)) if f in sub else d.get(f) for f in field_names})
 
         return _reconstruct_nested
 

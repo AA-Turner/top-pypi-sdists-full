@@ -4,50 +4,26 @@
 
 """DVSim Scheduler Instrumentation."""
 
-from dvsim.instrumentation.base import (
-    CompositeInstrumentation,
-    InstrumentationFragment,
-    InstrumentationFragments,
-    JobFragment,
-    NoOpInstrumentation,
-    SchedulerFragment,
-    SchedulerInstrumentation,
-    merge_instrumentation_report,
-)
+from dvsim.instrumentation.base import InstrumentationAggregator, SchedulerInstrumentation
 from dvsim.instrumentation.factory import InstrumentationFactory
-from dvsim.instrumentation.metadata import MetadataInstrumentation, MetadataJobFragment
-from dvsim.instrumentation.resources import (
-    ResourceInstrumentation,
-    ResourceJobFragment,
-    ResourceSchedulerFragment,
+from dvsim.instrumentation.records import (
+    InstrumentationMetrics,
+    InstrumentationResults,
+    JobMetrics,
+    SchedulerMetrics,
 )
 from dvsim.instrumentation.runtime import flush, get, set_instrumentation, set_report_path
-from dvsim.instrumentation.timing import (
-    TimingInstrumentation,
-    TimingJobFragment,
-    TimingSchedulerFragment,
-)
 
 __all__ = (
-    "CompositeInstrumentation",
+    "InstrumentationAggregator",
     "InstrumentationFactory",
-    "InstrumentationFragment",
-    "InstrumentationFragments",
-    "JobFragment",
-    "MetadataInstrumentation",
-    "MetadataJobFragment",
-    "NoOpInstrumentation",
-    "ResourceInstrumentation",
-    "ResourceJobFragment",
-    "ResourceSchedulerFragment",
-    "SchedulerFragment",
+    "InstrumentationMetrics",
+    "InstrumentationResults",
+    "JobMetrics",
     "SchedulerInstrumentation",
-    "TimingInstrumentation",
-    "TimingJobFragment",
-    "TimingSchedulerFragment",
+    "SchedulerMetrics",
     "flush",
     "get",
-    "merge_instrumentation_report",
     "set_instrumentation",
     "set_report_path",
 )

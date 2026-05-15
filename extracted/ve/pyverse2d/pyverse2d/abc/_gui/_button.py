@@ -188,3 +188,8 @@ class Button(Widget):
             yield
         finally:
             self._apply_callback()
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Button",
+]

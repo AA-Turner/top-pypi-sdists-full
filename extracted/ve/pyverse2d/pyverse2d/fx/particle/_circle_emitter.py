@@ -119,3 +119,8 @@ class CircleEmitter(ParticleEmitter):
 
         velocities = np.stack([vx, vy], axis=1).astype(np.float32)
         return positions, velocities
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "CircleEmitter",
+]

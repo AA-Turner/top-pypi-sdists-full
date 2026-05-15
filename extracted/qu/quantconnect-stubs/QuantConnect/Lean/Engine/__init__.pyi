@@ -18,159 +18,6 @@ import System
 import System.Threading
 
 
-class AlgorithmTimeLimitManager(System.Object, QuantConnect.IIsolatorLimitResultProvider):
-    """
-    Provides an implementation of IIsolatorLimitResultProvider that tracks the algorithm
-    manager's time loops and enforces a maximum amount of time that each time loop may take to execute.
-    The isolator uses the result provided by is_within_limit to determine if it should
-    terminate the algorithm for violation of the imposed limits.
-    """
-
-    @property
-    def additional_time_bucket(self) -> QuantConnect.Util.RateLimit.ITokenBucket:
-        """
-        Gets the additional time bucket which is responsible for tracking additional time requested
-        for processing via long-running scheduled events. In LEAN, we use the LeakyBucket
-        """
-        ...
-
-    def __init__(self, additional_time_bucket: QuantConnect.Util.RateLimit.ITokenBucket, time_loop_maximum: datetime.timedelta) -> None:
-        """
-        Initializes a new instance of AlgorithmTimeLimitManager to manage the
-        creation of IsolatorLimitResult instances as it pertains to the
-        algorithm manager's time loop
-        
-        :param additional_time_bucket: Provides a bucket of additional time that can be requested to be
-        spent to give execution time for things such as training scheduled events
-        :param time_loop_maximum: Specifies the maximum amount of time the algorithm is permitted to
-        spend in a single time loop. This value can be overriden if certain actions are taken by the
-        algorithm, such as invoking the training methods.
-        """
-        ...
-
-    def is_within_limit(self) -> QuantConnect.IsolatorLimitResult:
-        """Determines whether or not the algorithm time loop is considered within the limits"""
-        ...
-
-    def request_additional_time(self, minutes: int) -> None:
-        """
-        Requests additional time to continue executing the current time step.
-        At time of writing, this is intended to be used to provide training scheduled events
-        additional time to allow complex training models time to execute while also preventing
-        abuse by enforcing certain control parameters set via the job packet.
-        
-        Each time this method is invoked, this time limit manager will increase the allowable
-        execution time by the specified number of whole minutes
-        """
-        ...
-
-    def start_new_time_step(self) -> None:
-        """
-        Invoked by the algorithm at the start of each time loop. This resets the current time step
-        elapsed time.
-        """
-        ...
-
-    def try_request_additional_time(self, minutes: int) -> bool:
-        """
-        Attempts to requests additional time to continue executing the current time step.
-        At time of writing, this is intended to be used to provide training scheduled events
-        additional time to allow complex training models time to execute while also preventing
-        abuse by enforcing certain control parameters set via the job packet.
-        
-        Each time this method is invoked, this time limit manager will increase the allowable
-        execution time by the specified number of whole minutes
-        """
-        ...
-
-
-class AlgorithmManager(System.Object):
-    """Algorithm manager class executes the algorithm and generates and passes through the algorithm events."""
-
-    @property
-    def state(self) -> QuantConnect.AlgorithmStatus:
-        """Publicly accessible algorithm status"""
-        ...
-
-    @property
-    def algorithm_id(self) -> str:
-        """Public access to the currently running algorithm id."""
-        ...
-
-    @property
-    def time_limit(self) -> QuantConnect.Lean.Engine.AlgorithmTimeLimitManager:
-        """
-        Provides the isolator with a function for verifying that we're not spending too much time in each
-        algorithm manager time loop
-        """
-        ...
-
-    @property
-    def quit_state(self) -> bool:
-        """Quit state flag for the running algorithm. When true the user has requested the backtest stops through a Quit() method."""
-        ...
-
-    @property
-    def data_points(self) -> int:
-        """Gets the number of data points processed per second"""
-        ...
-
-    @property
-    def algorithm_history_data_points(self) -> int:
-        """Gets the number of data points of algorithm history provider"""
-        ...
-
-    def __init__(self, live_mode: bool, job: QuantConnect.Packets.AlgorithmNodePacket = None) -> None:
-        """
-        Initializes a new instance of the AlgorithmManager class
-        
-        :param live_mode: True if we're running in live mode, false for backtest mode
-        :param job: Provided by LEAN when creating a new algo manager. This is the job
-        that the algo manager is about to execute. Research and other consumers can provide the
-        default value of null
-        """
-        ...
-
-    @staticmethod
-    def handle_dividends(time_slice: QuantConnect.Lean.Engine.DataFeeds.TimeSlice, algorithm: QuantConnect.Interfaces.IAlgorithm, live_mode: bool) -> None:
-        """Helper method to apply a dividend to an algorithm instance"""
-        ...
-
-    @staticmethod
-    def handle_splits(time_slice: QuantConnect.Lean.Engine.DataFeeds.TimeSlice, algorithm: QuantConnect.Interfaces.IAlgorithm, live_mode: bool) -> None:
-        """Helper method to apply a split to an algorithm instance"""
-        ...
-
-    @staticmethod
-    def process_volatility_history_requirements(algorithm: QuantConnect.Interfaces.IAlgorithm, live_mode: bool) -> None:
-        """
-        Helper method used to process securities volatility history requirements
-        
-        :param algorithm: The algorithm instance
-        :param live_mode: Whether the algorithm is in live mode
-        """
-        ...
-
-    def run(self, job: QuantConnect.Packets.AlgorithmNodePacket, algorithm: QuantConnect.Interfaces.IAlgorithm, synchronizer: QuantConnect.Lean.Engine.DataFeeds.ISynchronizer, transactions: QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler, results: QuantConnect.Lean.Engine.Results.IResultHandler, realtime: QuantConnect.Lean.Engine.RealTime.IRealTimeHandler, lean_manager: QuantConnect.Lean.Engine.Server.ILeanManager, cancellation_token_source: System.Threading.CancellationTokenSource, performance_tracking_tool: QuantConnect.Util.PerformanceTrackingTool) -> None:
-        """
-        Launch the algorithm manager to run this strategy
-        
-        :param job: Algorithm job
-        :param algorithm: Algorithm instance
-        :param synchronizer: Instance which implements ISynchronizer. Used to stream the data
-        :param transactions: Transaction manager object
-        :param results: Result handler object
-        :param realtime: Realtime processing object
-        :param lean_manager: ILeanManager implementation that is updated periodically with the IAlgorithm instance
-        :param cancellation_token_source: Cancellation token source to monitor
-        """
-        ...
-
-    def set_status(self, state: QuantConnect.AlgorithmStatus) -> None:
-        """Set the quit state."""
-        ...
-
-
 class LeanEngineSystemHandlers(System.Object, System.IDisposable):
     """Provides a container for the system level handlers"""
 
@@ -347,6 +194,159 @@ class Initializer(System.Object):
     @staticmethod
     def start() -> None:
         """Basic common Lean initialization"""
+        ...
+
+
+class AlgorithmTimeLimitManager(System.Object, QuantConnect.IIsolatorLimitResultProvider):
+    """
+    Provides an implementation of IIsolatorLimitResultProvider that tracks the algorithm
+    manager's time loops and enforces a maximum amount of time that each time loop may take to execute.
+    The isolator uses the result provided by is_within_limit to determine if it should
+    terminate the algorithm for violation of the imposed limits.
+    """
+
+    @property
+    def additional_time_bucket(self) -> QuantConnect.Util.RateLimit.ITokenBucket:
+        """
+        Gets the additional time bucket which is responsible for tracking additional time requested
+        for processing via long-running scheduled events. In LEAN, we use the LeakyBucket
+        """
+        ...
+
+    def __init__(self, additional_time_bucket: QuantConnect.Util.RateLimit.ITokenBucket, time_loop_maximum: datetime.timedelta) -> None:
+        """
+        Initializes a new instance of AlgorithmTimeLimitManager to manage the
+        creation of IsolatorLimitResult instances as it pertains to the
+        algorithm manager's time loop
+        
+        :param additional_time_bucket: Provides a bucket of additional time that can be requested to be
+        spent to give execution time for things such as training scheduled events
+        :param time_loop_maximum: Specifies the maximum amount of time the algorithm is permitted to
+        spend in a single time loop. This value can be overriden if certain actions are taken by the
+        algorithm, such as invoking the training methods.
+        """
+        ...
+
+    def is_within_limit(self) -> QuantConnect.IsolatorLimitResult:
+        """Determines whether or not the algorithm time loop is considered within the limits"""
+        ...
+
+    def request_additional_time(self, minutes: int) -> None:
+        """
+        Requests additional time to continue executing the current time step.
+        At time of writing, this is intended to be used to provide training scheduled events
+        additional time to allow complex training models time to execute while also preventing
+        abuse by enforcing certain control parameters set via the job packet.
+        
+        Each time this method is invoked, this time limit manager will increase the allowable
+        execution time by the specified number of whole minutes
+        """
+        ...
+
+    def start_new_time_step(self) -> None:
+        """
+        Invoked by the algorithm at the start of each time loop. This resets the current time step
+        elapsed time.
+        """
+        ...
+
+    def try_request_additional_time(self, minutes: int) -> bool:
+        """
+        Attempts to requests additional time to continue executing the current time step.
+        At time of writing, this is intended to be used to provide training scheduled events
+        additional time to allow complex training models time to execute while also preventing
+        abuse by enforcing certain control parameters set via the job packet.
+        
+        Each time this method is invoked, this time limit manager will increase the allowable
+        execution time by the specified number of whole minutes
+        """
+        ...
+
+
+class AlgorithmManager(System.Object):
+    """Algorithm manager class executes the algorithm and generates and passes through the algorithm events."""
+
+    @property
+    def state(self) -> QuantConnect.AlgorithmStatus:
+        """Publicly accessible algorithm status"""
+        ...
+
+    @property
+    def algorithm_id(self) -> str:
+        """Public access to the currently running algorithm id."""
+        ...
+
+    @property
+    def time_limit(self) -> QuantConnect.Lean.Engine.AlgorithmTimeLimitManager:
+        """
+        Provides the isolator with a function for verifying that we're not spending too much time in each
+        algorithm manager time loop
+        """
+        ...
+
+    @property
+    def quit_state(self) -> bool:
+        """Quit state flag for the running algorithm. When true the user has requested the backtest stops through a Quit() method."""
+        ...
+
+    @property
+    def data_points(self) -> int:
+        """Gets the number of data points processed per second"""
+        ...
+
+    @property
+    def algorithm_history_data_points(self) -> int:
+        """Gets the number of data points of algorithm history provider"""
+        ...
+
+    def __init__(self, live_mode: bool, job: QuantConnect.Packets.AlgorithmNodePacket = None) -> None:
+        """
+        Initializes a new instance of the AlgorithmManager class
+        
+        :param live_mode: True if we're running in live mode, false for backtest mode
+        :param job: Provided by LEAN when creating a new algo manager. This is the job
+        that the algo manager is about to execute. Research and other consumers can provide the
+        default value of null
+        """
+        ...
+
+    @staticmethod
+    def handle_dividends(time_slice: QuantConnect.Lean.Engine.DataFeeds.TimeSlice, algorithm: QuantConnect.Interfaces.IAlgorithm, live_mode: bool) -> None:
+        """Helper method to apply a dividend to an algorithm instance"""
+        ...
+
+    @staticmethod
+    def handle_splits(time_slice: QuantConnect.Lean.Engine.DataFeeds.TimeSlice, algorithm: QuantConnect.Interfaces.IAlgorithm, live_mode: bool) -> None:
+        """Helper method to apply a split to an algorithm instance"""
+        ...
+
+    @staticmethod
+    def process_volatility_history_requirements(algorithm: QuantConnect.Interfaces.IAlgorithm, live_mode: bool) -> None:
+        """
+        Helper method used to process securities volatility history requirements
+        
+        :param algorithm: The algorithm instance
+        :param live_mode: Whether the algorithm is in live mode
+        """
+        ...
+
+    def run(self, job: QuantConnect.Packets.AlgorithmNodePacket, algorithm: QuantConnect.Interfaces.IAlgorithm, synchronizer: QuantConnect.Lean.Engine.DataFeeds.ISynchronizer, transactions: QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler, results: QuantConnect.Lean.Engine.Results.IResultHandler, realtime: QuantConnect.Lean.Engine.RealTime.IRealTimeHandler, lean_manager: QuantConnect.Lean.Engine.Server.ILeanManager, cancellation_token_source: System.Threading.CancellationTokenSource, performance_tracking_tool: QuantConnect.Util.PerformanceTrackingTool) -> None:
+        """
+        Launch the algorithm manager to run this strategy
+        
+        :param job: Algorithm job
+        :param algorithm: Algorithm instance
+        :param synchronizer: Instance which implements ISynchronizer. Used to stream the data
+        :param transactions: Transaction manager object
+        :param results: Result handler object
+        :param realtime: Realtime processing object
+        :param lean_manager: ILeanManager implementation that is updated periodically with the IAlgorithm instance
+        :param cancellation_token_source: Cancellation token source to monitor
+        """
+        ...
+
+    def set_status(self, state: QuantConnect.AlgorithmStatus) -> None:
+        """Set the quit state."""
         ...
 
 

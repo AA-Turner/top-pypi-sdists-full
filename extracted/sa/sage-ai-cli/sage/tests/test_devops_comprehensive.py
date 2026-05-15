@@ -101,11 +101,19 @@ class TestGitOps:
         assert ops.repo_path == tmp_path
 
     def test_init_invalid_repo(self, tmp_path):
-        """Initialize with invalid repo raises error."""
+        """Init on a non-git path sets is_repo=False (graceful no-op design).
+
+        The earlier API raised on construction; the current design lets you
+        construct a GitOps anywhere, then short-circuits each operation
+        (commit, stage_files, etc.) into a no-op GitResult. Callers that
+        want strict behavior call `_validate_repo()` themselves.
+        """
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=1)
+            ops = GitOps(tmp_path)
+            assert ops.is_repo is False
             with pytest.raises(ValueError):
-                GitOps(tmp_path)
+                ops._validate_repo()
 
     def test_get_status(self, tmp_path):
         """Get git status."""
@@ -186,14 +194,15 @@ class TestGitOps:
             mock_run.assert_not_called()
 
     def test_commit(self, tmp_path):
-        """Create commit."""
+        """Create commit. Returns a GitResult; commit SHA is on .data."""
         (tmp_path / ".git").mkdir()
         ops = GitOps(tmp_path)
 
         with patch.object(ops, "_run_git") as mock_run:
             mock_run.return_value = MagicMock(stdout="abc123\n")
-            sha = ops.commit("Test message")
-            assert sha == "abc123"
+            result = ops.commit("Test message")
+            assert result.success is True
+            assert result.data == "abc123"
 
     def test_create_branch(self, tmp_path):
         """Create branch."""

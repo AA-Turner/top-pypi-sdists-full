@@ -12,18 +12,22 @@ from soniox.errors import SonioxValidationError
 
 if TYPE_CHECKING:
     from .api.async_auth import AsyncAuthAPI
+    from .api.async_concurrency_limits import AsyncConcurrencyLimitsAPI
     from .api.async_files import AsyncFilesAPI
     from .api.async_models import AsyncModelsAPI
     from .api.async_stt import AsyncSttAPI
     from .api.async_tts import AsyncTtsAPI
     from .api.async_tts_models import AsyncTtsModelsAPI
+    from .api.async_usage_logs import AsyncUsageLogsAPI
     from .api.async_webhooks import AsyncSonioxWebhooksAPI
     from .api.auth import AuthAPI
+    from .api.concurrency_limits import ConcurrencyLimitsAPI
     from .api.files import FilesAPI
     from .api.models import ModelsAPI
     from .api.stt import SttAPI
     from .api.tts import TtsAPI
     from .api.tts_models import TtsModelsAPI
+    from .api.usage_logs import UsageLogsAPI
     from .api.webhooks import SonioxWebhooksAPI
     from .realtime import AsyncRealtimeAPI, RealtimeAPI
 
@@ -151,6 +155,18 @@ class SonioxClient(_BaseSonioxClient):
         return TtsModelsAPI(self)
 
     @cached_property
+    def usage_logs(self) -> UsageLogsAPI:
+        from .api.usage_logs import UsageLogsAPI
+
+        return UsageLogsAPI(self)
+
+    @cached_property
+    def concurrency_limits(self) -> ConcurrencyLimitsAPI:
+        from .api.concurrency_limits import ConcurrencyLimitsAPI
+
+        return ConcurrencyLimitsAPI(self)
+
+    @cached_property
     def auth(self) -> AuthAPI:
         from .api.auth import AuthAPI
 
@@ -269,6 +285,18 @@ class AsyncSonioxClient(_BaseSonioxClient):
         from .api.async_tts_models import AsyncTtsModelsAPI
 
         return AsyncTtsModelsAPI(self)
+
+    @cached_property
+    def usage_logs(self) -> AsyncUsageLogsAPI:
+        from .api.async_usage_logs import AsyncUsageLogsAPI
+
+        return AsyncUsageLogsAPI(self)
+
+    @cached_property
+    def concurrency_limits(self) -> AsyncConcurrencyLimitsAPI:
+        from .api.async_concurrency_limits import AsyncConcurrencyLimitsAPI
+
+        return AsyncConcurrencyLimitsAPI(self)
 
     @cached_property
     def auth(self) -> AsyncAuthAPI:

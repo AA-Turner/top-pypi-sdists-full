@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_bedrock.literals import AgreementStatusType
+    from mypy_boto3_bedrock.literals import AdvancedPromptOptimizationJobStatusType
 
-    data: AgreementStatusType = "AVAILABLE"
+    data: AdvancedPromptOptimizationJobStatusType = "Completed"
     ```
 """
 
@@ -23,6 +23,7 @@ else:
 
 
 __all__ = (
+    "AdvancedPromptOptimizationJobStatusType",
     "AgreementStatusType",
     "ApplicationTypeType",
     "AttributeTypeType",
@@ -70,6 +71,7 @@ __all__ = (
     "InferenceTypeType",
     "InputTagsType",
     "JobStatusDetailsType",
+    "ListAdvancedPromptOptimizationJobsPaginatorName",
     "ListAutomatedReasoningPoliciesPaginatorName",
     "ListAutomatedReasoningPolicyBuildWorkflowsPaginatorName",
     "ListAutomatedReasoningPolicyTestCasesPaginatorName",
@@ -122,6 +124,9 @@ __all__ = (
 )
 
 
+AdvancedPromptOptimizationJobStatusType = Literal[
+    "Completed", "Deleting", "Failed", "InProgress", "PartiallyCompleted", "Stopped", "Stopping"
+]
 AgreementStatusType = Literal["AVAILABLE", "ERROR", "NOT_AVAILABLE", "PENDING"]
 ApplicationTypeType = Literal["ModelEvaluation", "RagEvaluation"]
 AttributeTypeType = Literal["BOOLEAN", "NUMBER", "STRING", "STRING_LIST"]
@@ -244,6 +249,7 @@ InputTagsType = Literal["HONOR", "IGNORE"]
 JobStatusDetailsType = Literal[
     "Completed", "Failed", "InProgress", "NotStarted", "Stopped", "Stopping"
 ]
+ListAdvancedPromptOptimizationJobsPaginatorName = Literal["list_advanced_prompt_optimization_jobs"]
 ListAutomatedReasoningPoliciesPaginatorName = Literal["list_automated_reasoning_policies"]
 ListAutomatedReasoningPolicyBuildWorkflowsPaginatorName = Literal[
     "list_automated_reasoning_policy_build_workflows"
@@ -738,6 +744,7 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "list_advanced_prompt_optimization_jobs",
     "list_automated_reasoning_policies",
     "list_automated_reasoning_policy_build_workflows",
     "list_automated_reasoning_policy_test_cases",

@@ -9,14 +9,13 @@ from llvmlite.ir.values import Block as LLVMBlock
 from llvmlite.ir.values import Value
 
 from xdsl.backend.llvm.convert_type import convert_type
-from xdsl.dialects import llvm, vector
+from xdsl.dialects import llvm
 from xdsl.dialects.builtin import (
     AnyFloat,
     DenseIntOrFPElementsAttr,
     FloatAttr,
     IntegerAttr,
 )
-from xdsl.dialects.vector import FMAOp
 from xdsl.ir import Attribute, Block, Operation, SSAValue
 from xdsl.utils.type import get_element_type_or_self
 
@@ -175,10 +174,12 @@ def _convert_fcmp(
 
 _UNARY_INTRINSIC_MAP: dict[type[Operation], str] = {
     llvm.FAbsOp: "llvm.fabs",
+    llvm.FExpOp: "llvm.exp",
+    llvm.FCeilOp: "llvm.ceil",
+    llvm.FSinOp: "llvm.sin",
     llvm.FSqrtOp: "llvm.sqrt",
     llvm.FLogOp: "llvm.log",
 }
-
 
 _BINARY_INTRINSIC_MAP: dict[type[Operation], str] = {
     llvm.VectorFMaxOp: "llvm.maxnum",
@@ -364,24 +365,29 @@ def _convert_masked_store(
 
 
 def _convert_fma(
-    op: FMAOp,
+    op: llvm.FMAOp,
     builder: ir.IRBuilder,
     val_map: dict[SSAValue, ir.Value],
 ):
-    lhs = val_map[op.lhs]
-    rhs = val_map[op.rhs]
-    acc = val_map[op.acc]
+    if any(op.fastmathFlags.data):
+        raise NotImplementedError("Fast-math flags not supported")
+    a = val_map[op.a]
+    b = val_map[op.b]
+    c = val_map[op.c]
     res_type = convert_type(op.res.type)
-    assert isinstance(res_type, ir.VectorType)
-    assert isinstance(res_type.element, (ir.HalfType, ir.FloatType, ir.DoubleType))
-    # declare_intrinsic doesn't support VectorType, build name manually
-    name = f"llvm.fma.v{res_type.count}{res_type.element.intrinsic_name}"
+    _float_types = (ir.HalfType, ir.FloatType, ir.DoubleType)
+    if isinstance(res_type, ir.VectorType):
+        assert isinstance(res_type.element, _float_types)
+        name = f"llvm.fma.v{res_type.count}{res_type.element.intrinsic_name}"
+    else:
+        assert isinstance(res_type, _float_types)
+        name = f"llvm.fma.{res_type.intrinsic_name}"
     fn_type = ir.FunctionType(res_type, [res_type, res_type, res_type])
     try:
         intrinsic = builder.module.get_global(name)
     except KeyError:
         intrinsic = ir.Function(builder.module, fn_type, name=name)
-    val_map[op.res] = builder.call(intrinsic, [lhs, rhs, acc])
+    val_map[op.res] = builder.call(intrinsic, [a, b, c])
 
 
 def _convert_return(
@@ -399,18 +405,40 @@ def _convert_addressof(
     val_map[op.result] = builder.module.get_global(op.global_name.root_reference.data)
 
 
-def _convert_broadcast(
-    op: vector.BroadcastOp,
+def _convert_call_intrinsic(
+    op: llvm.CallIntrinsicOp,
     builder: ir.IRBuilder,
     val_map: dict[SSAValue, ir.Value],
 ):
-    source_val = val_map[op.source]
-    vec_type = convert_type(op.vector.type)
-    n_lanes = op.vector.type.get_shape()[0]
-    undef = ir.Constant(vec_type, ir.Undefined)
-    inserted = builder.insert_element(undef, source_val, ir.Constant(ir.IntType(32), 0))
-    mask = ir.Constant(ir.VectorType(ir.IntType(32), n_lanes), [0] * n_lanes)
-    val_map[op.vector] = builder.shuffle_vector(inserted, undef, mask)
+    if op.op_bundle_operands:
+        raise NotImplementedError("Operand bundles not supported")
+    if any(op.fastmathFlags.data):
+        raise NotImplementedError("Fast-math flags not supported")
+    args = [val_map[arg] for arg in op.args]
+    arg_types = [a.type for a in args]
+    name = op.intrin.data
+    if op.ress is not None:
+        ret_type = convert_type(op.ress.type)
+    else:
+        ret_type = ir.VoidType()
+    fn_type = ir.FunctionType(ret_type, arg_types)
+    try:
+        intrinsic = builder.module.get_global(name)
+    except KeyError:
+        intrinsic = ir.Function(builder.module, fn_type, name=name)
+    result = builder.call(intrinsic, args)
+    if op.ress is not None:
+        val_map[op.ress] = result
+
+
+def _convert_shuffle_vector(
+    op: llvm.ShuffleVectorOp,
+    builder: ir.IRBuilder,
+    val_map: dict[SSAValue, ir.Value],
+):
+    mask_values = op.mask.get_values()
+    mask = ir.Constant(ir.VectorType(ir.IntType(32), len(mask_values)), mask_values)
+    val_map[op.res] = builder.shuffle_vector(val_map[op.v1], val_map[op.v2], mask)
 
 
 _CONSTANT_VALUE_MAP: dict[type[Attribute], Callable[[Attribute], object]] = {
@@ -508,12 +536,22 @@ def convert_op(
             _convert_return(op, builder, val_map)
         case llvm.ZeroOp():
             val_map[op.res] = ir.Constant(convert_type(op.res.type), None)
+        case llvm.UndefOp():
+            val_map[op.res] = ir.Constant(convert_type(op.res.type), ir.Undefined)
         case llvm.AddressOfOp():
             _convert_addressof(op, builder, val_map)
-        case FMAOp():
+        case llvm.CallIntrinsicOp():
+            _convert_call_intrinsic(op, builder, val_map)
+        case llvm.InsertElementOp():
+            val_map[op.res] = builder.insert_element(
+                val_map[op.vector],
+                val_map[op.value],
+                val_map[op.index],
+            )
+        case llvm.ShuffleVectorOp():
+            _convert_shuffle_vector(op, builder, val_map)
+        case llvm.FMAOp():
             _convert_fma(op, builder, val_map)
-        case vector.BroadcastOp():
-            _convert_broadcast(op, builder, val_map)
         case llvm.ConstantOp():
             _convert_constant(op, builder, val_map)
         case _:

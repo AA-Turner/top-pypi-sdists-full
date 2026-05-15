@@ -22,26 +22,44 @@ def get_current() -> Scene | None:
 
 # ======================================== TRANSITIONS ========================================
 def load(scene: Scene):
-    """Remplace toute la stack par une scene"""
+    """Remplace toute la stack par une scene
+    
+    Args:
+        scene: nouvelle ``Scene`` à charger
+    """
+    if __debug__:
+        expect(scene, Scene)
     _stop_all()
     _stack.clear()
-    _stack.append(expect(scene, Scene))
+    _stack.append(scene)
     scene._set_state(SceneState.RUNNING)
     scene.on_start()
 
 def switch(scene: Scene):
-    """Remplace la scene active par une autre"""
+    """Remplace la scene active par une autre
+    
+    Args:
+        scene: nouvelle ``Scene``à switch
+    """
+    if __debug__:
+        expect(scene, Scene)
     if _stack:
         top = _stack[-1]
         top._set_state(SceneState.SLEEPING)
         top.on_stop()
         _stack.pop()
-    _stack.append(expect(scene, Scene))
+    _stack.append(scene)
     scene._set_state(SceneState.RUNNING)
     scene.on_start()
 
 def push(scene: Scene):
-    """Empile une scene par dessus la scene active"""
+    """Empile une scene par dessus la scene active
+    
+    Args:
+        scene: ``Scene`` à ajouter
+    """
+    if __debug__:
+        expect(scene, Scene)
     if _stack and scene.stack_mode is not StackMode.OVERLAY:
         top = _stack[-1]
         if scene.stack_mode is StackMode.PAUSE: top._set_state(SceneState.PAUSED)
@@ -49,7 +67,7 @@ def push(scene: Scene):
         else:
             top._set_state(SceneState.SLEEPING)
             top.on_stop()
-    _stack.append(expect(scene, Scene))
+    _stack.append(scene)
     scene._set_state(SceneState.RUNNING)
     scene.on_start()
 
@@ -68,24 +86,37 @@ def pop():
 
 # ======================================== LIFE CYCLE ========================================
 def _preload(pipeline: Pipeline) -> None:
-    """Préchargement"""
+    """Préchargement
+    
+    Args:
+        pipeline: ``Pipeline`` de rendu courant
+    """
     for scene in _stack:
         scene._preload(pipeline)
 
 def update(dt: float):
-    """Actualisation des scènes"""
+    """Actualisation des scènes
+    
+    Args:
+        dt: delta-time
+    """
     for scene in reversed(_stack):
         if scene.state in _update_states:
             scene.update(dt)
 
 def draw(pipeline: Pipeline):
-    """Affichage des scènes"""
+    """Affichage des scènes
+    
+    Args:
+        pipeline: ``Pipeline`` de rendu courant
+    """
     for scene in _stack:
         if scene.state in _draw_states:
             scene.draw(pipeline)
 
 # ======================================== INTERNALS ========================================
 def _stop_all():
+    """Arrête toutes les scènes"""
     for scene in _stack:
         scene._set_state(SceneState.SLEEPING)
         scene.on_stop()

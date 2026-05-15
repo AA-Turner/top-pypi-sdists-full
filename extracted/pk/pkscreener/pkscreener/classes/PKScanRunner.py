@@ -691,6 +691,7 @@ class PKScanRunner:
 
         # Start all workers in parallel using threads
         # This is safe because Process.start() is non-blocking and returns quickly
+        max_workers = max(2,max_workers)
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all start tasks
             future_to_worker = {executor.submit(worker.start): worker for worker in consumers}

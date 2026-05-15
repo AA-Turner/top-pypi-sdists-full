@@ -251,6 +251,8 @@ class AgentModelAuthType(pycarlo.lib.types.Enum):
     * `AWS_VPCE`: AWS VPC Endpoint
     * `AZURE_FUNCTION_APP_KEY`: Azure Function App Key
     * `AZURE_STORAGE_ACCOUNT_KEYS`: Azure Storage Account Shared Key
+    * `AZURE_STORAGE_SERVICE_PRINCIPAL`: Azure Storage Service
+      Principal
     * `GCP_JSON_SERVICE_ACCOUNT_KEY`: GCP JSON Service Account Key
     * `GCP_WORKLOAD_IDENTITY_FEDERATION`: GCP Workload Identity
       Federation
@@ -266,6 +268,7 @@ class AgentModelAuthType(pycarlo.lib.types.Enum):
         "AWS_VPCE",
         "AZURE_FUNCTION_APP_KEY",
         "AZURE_STORAGE_ACCOUNT_KEYS",
+        "AZURE_STORAGE_SERVICE_PRINCIPAL",
         "GCP_JSON_SERVICE_ACCOUNT_KEY",
         "GCP_WORKLOAD_IDENTITY_FEDERATION",
         "MCD_SHA512",
@@ -1027,6 +1030,7 @@ class AuthTypeEnum(pycarlo.lib.types.Enum):
     * `AWS_VPCE`None
     * `AZURE_FUNCTION_APP_KEY`None
     * `AZURE_STORAGE_ACCOUNT_KEYS`None
+    * `AZURE_STORAGE_SERVICE_PRINCIPAL`None
     * `GCP_JSON_SERVICE_ACCOUNT_KEY`None
     * `GCP_WORKLOAD_IDENTITY_FEDERATION`None
     * `MCD_SHA512`None
@@ -1041,6 +1045,7 @@ class AuthTypeEnum(pycarlo.lib.types.Enum):
         "AWS_VPCE",
         "AZURE_FUNCTION_APP_KEY",
         "AZURE_STORAGE_ACCOUNT_KEYS",
+        "AZURE_STORAGE_SERVICE_PRINCIPAL",
         "GCP_JSON_SERVICE_ACCOUNT_KEY",
         "GCP_WORKLOAD_IDENTITY_FEDERATION",
         "MCD_SHA512",
@@ -1378,6 +1383,7 @@ class ConnectionModelType(pycarlo.lib.types.Enum):
     * `MICROSOFT_FABRIC`None
     * `MSK_KAFKA`None
     * `MSK_KAFKA_CONNECT`None
+    * `MULESOFT`None
     * `MYSQL`None
     * `ORACLE`None
     * `PINECONE`None
@@ -1433,6 +1439,7 @@ class ConnectionModelType(pycarlo.lib.types.Enum):
         "MICROSOFT_FABRIC",
         "MSK_KAFKA",
         "MSK_KAFKA_CONNECT",
+        "MULESOFT",
         "MYSQL",
         "ORACLE",
         "PINECONE",
@@ -1536,6 +1543,7 @@ class ConnectionTypeEnum(pycarlo.lib.types.Enum):
     * `MICROSOFT_FABRIC`None
     * `MSK_KAFKA`None
     * `MSK_KAFKA_CONNECT`None
+    * `MULESOFT`None
     * `MYSQL`None
     * `ORACLE`None
     * `PINECONE`None
@@ -1591,6 +1599,7 @@ class ConnectionTypeEnum(pycarlo.lib.types.Enum):
         "MICROSOFT_FABRIC",
         "MSK_KAFKA",
         "MSK_KAFKA_CONNECT",
+        "MULESOFT",
         "MYSQL",
         "ORACLE",
         "PINECONE",
@@ -2585,6 +2594,7 @@ class EtlType(pycarlo.lib.types.Enum):
     * `FIVETRAN`None
     * `INFORMATICA`None
     * `INFORMATICA_V2`None
+    * `MULESOFT`None
     """
 
     __schema__ = schema
@@ -2596,6 +2606,7 @@ class EtlType(pycarlo.lib.types.Enum):
         "FIVETRAN",
         "INFORMATICA",
         "INFORMATICA_V2",
+        "MULESOFT",
     )
 
 
@@ -2967,6 +2978,11 @@ class FieldHealthMetrics(pycarlo.lib.types.Enum):
     * `PERCENTILE_60`None
     * `PERCENTILE_80`None
     * `TEXT_ALL_SPACE_RATE`None
+    * `TEXT_AU_ABN_RATE`None
+    * `TEXT_AU_MEDICARE_RATE`None
+    * `TEXT_AU_PHONE_RATE`None
+    * `TEXT_AU_POSTCODE_RATE`None
+    * `TEXT_AU_TFN_RATE`None
     * `TEXT_CREDIT_CARD_RATE`None
     * `TEXT_EMAIL_ADDRESS_RATE`None
     * `TEXT_INT_RATE`None
@@ -3008,6 +3024,11 @@ class FieldHealthMetrics(pycarlo.lib.types.Enum):
         "PERCENTILE_60",
         "PERCENTILE_80",
         "TEXT_ALL_SPACE_RATE",
+        "TEXT_AU_ABN_RATE",
+        "TEXT_AU_MEDICARE_RATE",
+        "TEXT_AU_PHONE_RATE",
+        "TEXT_AU_POSTCODE_RATE",
+        "TEXT_AU_TFN_RATE",
         "TEXT_CREDIT_CARD_RATE",
         "TEXT_EMAIL_ADDRESS_RATE",
         "TEXT_INT_RATE",
@@ -3122,12 +3143,22 @@ class FieldMetricType(pycarlo.lib.types.Enum):
     * `TEXT_ALL_SPACES_RATE`None
     * `TEXT_ALL_SPACE_COUNT`None
     * `TEXT_ALL_SPACE_RATE`None
+    * `TEXT_AU_ABN_RATE`None
+    * `TEXT_AU_MEDICARE_RATE`None
+    * `TEXT_AU_PHONE_RATE`None
+    * `TEXT_AU_POSTCODE_RATE`None
+    * `TEXT_AU_TFN_RATE`None
     * `TEXT_CREDIT_CARD_RATE`None
     * `TEXT_EMAIL_ADDRESS_RATE`None
     * `TEXT_INT_RATE`None
     * `TEXT_MAX_LENGTH`None
     * `TEXT_MEAN_LENGTH`None
     * `TEXT_MIN_LENGTH`None
+    * `TEXT_NOT_AU_ABN_COUNT`None
+    * `TEXT_NOT_AU_MEDICARE_COUNT`None
+    * `TEXT_NOT_AU_PHONE_COUNT`None
+    * `TEXT_NOT_AU_POSTCODE_COUNT`None
+    * `TEXT_NOT_AU_TFN_COUNT`None
     * `TEXT_NOT_CREDIT_CARD_COUNT`None
     * `TEXT_NOT_EMAIL_ADDRESS_COUNT`None
     * `TEXT_NOT_INT_COUNT`None
@@ -3220,12 +3251,22 @@ class FieldMetricType(pycarlo.lib.types.Enum):
         "TEXT_ALL_SPACES_RATE",
         "TEXT_ALL_SPACE_COUNT",
         "TEXT_ALL_SPACE_RATE",
+        "TEXT_AU_ABN_RATE",
+        "TEXT_AU_MEDICARE_RATE",
+        "TEXT_AU_PHONE_RATE",
+        "TEXT_AU_POSTCODE_RATE",
+        "TEXT_AU_TFN_RATE",
         "TEXT_CREDIT_CARD_RATE",
         "TEXT_EMAIL_ADDRESS_RATE",
         "TEXT_INT_RATE",
         "TEXT_MAX_LENGTH",
         "TEXT_MEAN_LENGTH",
         "TEXT_MIN_LENGTH",
+        "TEXT_NOT_AU_ABN_COUNT",
+        "TEXT_NOT_AU_MEDICARE_COUNT",
+        "TEXT_NOT_AU_PHONE_COUNT",
+        "TEXT_NOT_AU_POSTCODE_COUNT",
+        "TEXT_NOT_AU_TFN_COUNT",
         "TEXT_NOT_CREDIT_CARD_COUNT",
         "TEXT_NOT_EMAIL_ADDRESS_COUNT",
         "TEXT_NOT_INT_COUNT",
@@ -3333,12 +3374,22 @@ class FieldQueryType(pycarlo.lib.types.Enum):
     * `TEXT_ALL_SPACES_RATE`None
     * `TEXT_ALL_SPACE_COUNT`None
     * `TEXT_ALL_SPACE_RATE`None
+    * `TEXT_AU_ABN_RATE`None
+    * `TEXT_AU_MEDICARE_RATE`None
+    * `TEXT_AU_PHONE_RATE`None
+    * `TEXT_AU_POSTCODE_RATE`None
+    * `TEXT_AU_TFN_RATE`None
     * `TEXT_CREDIT_CARD_RATE`None
     * `TEXT_EMAIL_ADDRESS_RATE`None
     * `TEXT_INT_RATE`None
     * `TEXT_MAX_LENGTH`None
     * `TEXT_MEAN_LENGTH`None
     * `TEXT_MIN_LENGTH`None
+    * `TEXT_NOT_AU_ABN_COUNT`None
+    * `TEXT_NOT_AU_MEDICARE_COUNT`None
+    * `TEXT_NOT_AU_PHONE_COUNT`None
+    * `TEXT_NOT_AU_POSTCODE_COUNT`None
+    * `TEXT_NOT_AU_TFN_COUNT`None
     * `TEXT_NOT_CREDIT_CARD_COUNT`None
     * `TEXT_NOT_EMAIL_ADDRESS_COUNT`None
     * `TEXT_NOT_INT_COUNT`None
@@ -3432,12 +3483,22 @@ class FieldQueryType(pycarlo.lib.types.Enum):
         "TEXT_ALL_SPACES_RATE",
         "TEXT_ALL_SPACE_COUNT",
         "TEXT_ALL_SPACE_RATE",
+        "TEXT_AU_ABN_RATE",
+        "TEXT_AU_MEDICARE_RATE",
+        "TEXT_AU_PHONE_RATE",
+        "TEXT_AU_POSTCODE_RATE",
+        "TEXT_AU_TFN_RATE",
         "TEXT_CREDIT_CARD_RATE",
         "TEXT_EMAIL_ADDRESS_RATE",
         "TEXT_INT_RATE",
         "TEXT_MAX_LENGTH",
         "TEXT_MEAN_LENGTH",
         "TEXT_MIN_LENGTH",
+        "TEXT_NOT_AU_ABN_COUNT",
+        "TEXT_NOT_AU_MEDICARE_COUNT",
+        "TEXT_NOT_AU_PHONE_COUNT",
+        "TEXT_NOT_AU_POSTCODE_COUNT",
+        "TEXT_NOT_AU_TFN_COUNT",
         "TEXT_NOT_CREDIT_CARD_COUNT",
         "TEXT_NOT_EMAIL_ADDRESS_COUNT",
         "TEXT_NOT_INT_COUNT",
@@ -4819,6 +4880,21 @@ class MonthlyPosition(pycarlo.lib.types.Enum):
     __choices__ = ("FIRST", "LAST")
 
 
+class MulesoftRegionEnum(pycarlo.lib.types.Enum):
+    """Anypoint Platform regional instance — drives the auth + API base
+    URLs.
+
+    Enumeration Choices:
+
+    * `EU`None
+    * `GOV`None
+    * `US`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("EU", "GOV", "US")
+
+
 class MutedEventType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -5285,6 +5361,11 @@ class PiiMonitorMode(pycarlo.lib.types.Enum):
 class PiiType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
+    * `AU_ABN`None
+    * `AU_MEDICARE`None
+    * `AU_PHONE`None
+    * `AU_POSTCODE`None
+    * `AU_TFN`None
     * `CREDIT_CARD`None
     * `EMAIL`None
     * `PHONE`None
@@ -5294,7 +5375,19 @@ class PiiType(pycarlo.lib.types.Enum):
     """
 
     __schema__ = schema
-    __choices__ = ("CREDIT_CARD", "EMAIL", "PHONE", "SSN", "US_STATE_CODE", "US_ZIP_CODE")
+    __choices__ = (
+        "AU_ABN",
+        "AU_MEDICARE",
+        "AU_PHONE",
+        "AU_POSTCODE",
+        "AU_TFN",
+        "CREDIT_CARD",
+        "EMAIL",
+        "PHONE",
+        "SSN",
+        "US_STATE_CODE",
+        "US_ZIP_CODE",
+    )
 
 
 class PlatformAgentType(pycarlo.lib.types.Enum):
@@ -6131,12 +6224,22 @@ class SamplingEnabledMetricTypes(pycarlo.lib.types.Enum):
     * `SUM`None
     * `TEXT_ALL_SPACE_COUNT`None
     * `TEXT_ALL_SPACE_RATE`None
+    * `TEXT_AU_ABN_RATE`None
+    * `TEXT_AU_MEDICARE_RATE`None
+    * `TEXT_AU_PHONE_RATE`None
+    * `TEXT_AU_POSTCODE_RATE`None
+    * `TEXT_AU_TFN_RATE`None
     * `TEXT_CREDIT_CARD_RATE`None
     * `TEXT_EMAIL_ADDRESS_RATE`None
     * `TEXT_INT_RATE`None
     * `TEXT_MAX_LENGTH`None
     * `TEXT_MEAN_LENGTH`None
     * `TEXT_MIN_LENGTH`None
+    * `TEXT_NOT_AU_ABN_COUNT`None
+    * `TEXT_NOT_AU_MEDICARE_COUNT`None
+    * `TEXT_NOT_AU_PHONE_COUNT`None
+    * `TEXT_NOT_AU_POSTCODE_COUNT`None
+    * `TEXT_NOT_AU_TFN_COUNT`None
     * `TEXT_NOT_CREDIT_CARD_COUNT`None
     * `TEXT_NOT_EMAIL_ADDRESS_COUNT`None
     * `TEXT_NOT_INT_COUNT`None
@@ -6202,12 +6305,22 @@ class SamplingEnabledMetricTypes(pycarlo.lib.types.Enum):
         "SUM",
         "TEXT_ALL_SPACE_COUNT",
         "TEXT_ALL_SPACE_RATE",
+        "TEXT_AU_ABN_RATE",
+        "TEXT_AU_MEDICARE_RATE",
+        "TEXT_AU_PHONE_RATE",
+        "TEXT_AU_POSTCODE_RATE",
+        "TEXT_AU_TFN_RATE",
         "TEXT_CREDIT_CARD_RATE",
         "TEXT_EMAIL_ADDRESS_RATE",
         "TEXT_INT_RATE",
         "TEXT_MAX_LENGTH",
         "TEXT_MEAN_LENGTH",
         "TEXT_MIN_LENGTH",
+        "TEXT_NOT_AU_ABN_COUNT",
+        "TEXT_NOT_AU_MEDICARE_COUNT",
+        "TEXT_NOT_AU_PHONE_COUNT",
+        "TEXT_NOT_AU_POSTCODE_COUNT",
+        "TEXT_NOT_AU_TFN_COUNT",
         "TEXT_NOT_CREDIT_CARD_COUNT",
         "TEXT_NOT_EMAIL_ADDRESS_COUNT",
         "TEXT_NOT_INT_COUNT",
@@ -10235,6 +10348,7 @@ class GetAgentGraphInput(sgqlc.types.Input):
         "end_time",
         "workflows",
         "max_traces",
+        "include_framework_nodes",
     )
     agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
     """Agent name — same value passed as `agentName` on getTraces."""
@@ -10264,6 +10378,16 @@ class GetAgentGraphInput(sgqlc.types.Input):
     max_traces = sgqlc.types.Field(Int, graphql_name="maxTraces")
     """Maximum number of most-recent traces to fuse into the graph.
     Capped at 100; values above 100 are clamped server-side.
+    """
+
+    include_framework_nodes = sgqlc.types.Field(Boolean, graphql_name="includeFrameworkNodes")
+    """When false (the default), framework-plumbing wrapper nodes (e.g.
+    LangChain Runnables, LangGraph channels) are filtered out and
+    their children re-parent to the nearest user-code ancestor — the
+    graph behaves as if the wrappers were never emitted. When true,
+    wrappers appear as their own nodes flagged via `frameworkNode`,
+    and counts / edges / cluster sizes reflect the full uncollapsed
+    tree.
     """
 
 
@@ -11537,6 +11661,30 @@ class MskKafkaConnectCredentialsInput(sgqlc.types.Input):
     external_id = sgqlc.types.Field(String, graphql_name="externalId")
     """Optional external id, if one is required to assume the provided
     IAM role
+    """
+
+
+class MulesoftConnectionDetails(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("client_id", "client_secret", "region")
+    client_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="clientId")
+    """Anypoint Connected App client_id (the customer creates the
+    Connected App in Anypoint with the View Environment, Read
+    Deployments, and Exchange Viewer scopes).
+    """
+
+    client_secret = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="clientSecret")
+    """Anypoint Connected App client_secret. Stored encrypted; never
+    surfaced back in GraphQL responses.
+    """
+
+    region = sgqlc.types.Field(MulesoftRegionEnum, graphql_name="region")
+    """Anypoint regional instance. Drives which auth URL and API base URL
+    the data-collector + agent route through (US:
+    anypoint.mulesoft.com, EU: eu1.anypoint.mulesoft.com, Gov:
+    gov.anypoint.mulesoft.com). Defaults to US when omitted
+    (anypoint.mulesoft.com is the primary Anypoint instance; EU and
+    Gov are special-case deployments).
     """
 
 
@@ -17159,6 +17307,7 @@ class AgentGraphNode(sgqlc.types.Type):
         "kind",
         "name",
         "model",
+        "framework_node",
         "count",
         "trace_count",
         "error_count",
@@ -17180,10 +17329,15 @@ class AgentGraphNode(sgqlc.types.Type):
     """
 
     parent_id = sgqlc.types.Field(String, graphql_name="parentId")
-    """Disambiguated id of the nearest container ancestor (workflow /
-    task / agent / chain). Null for root nodes or nodes whose parent
-    chain has no container ancestor. Walk these to build the workflow
-    hierarchy as a tree — containment is NOT expressed as edges.
+    """id of the parent node in the fused graph. When
+    `includeFrameworkNodes` is false (the default), framework wrapper
+    spans are dropped server-side and their children re-parent to the
+    nearest non-wrapper ancestor — so parentId points at the nearest
+    user-code node. When `includeFrameworkNodes` is true, parentId is
+    the immediate parent span's node (no skipping). Null for root
+    nodes or when the resolved parent span did not make it into the
+    graph (e.g. malformed). Walk these to build the hierarchy as a
+    tree — containment is NOT expressed as edges.
     """
 
     kind = sgqlc.types.Field(sgqlc.types.non_null(AgentGraphNodeKind), graphql_name="kind")
@@ -17198,6 +17352,17 @@ class AgentGraphNode(sgqlc.types.Type):
 
     model = sgqlc.types.Field(String, graphql_name="model")
     """Model name. Set only when kind='llm'; null otherwise."""
+
+    framework_node = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="frameworkNode")
+    """True when this node represents a framework-plumbing wrapper (e.g.
+    a LangChain Runnable or output parser, a LangGraph channel) rather
+    than user code. Always false when `includeFrameworkNodes` is false
+    (the default), because wrappers are stripped server-side in that
+    mode. When `includeFrameworkNodes` is true, wrappers appear as
+    their own nodes with this flag set, and id / parentId reflect the
+    raw tree — UIs can use this flag to de-emphasize plumbing without
+    hiding it.
+    """
 
     count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
     """Total span occurrences across all fused traces."""
@@ -22703,7 +22868,16 @@ class CreateOrUpdateAuthProvisioning(sgqlc.types.Type):
 
 
 class CreateOrUpdateAuthorizationGroup(sgqlc.types.Type):
-    """Create or update an authorization group."""
+    """Create or update an authorization group. Customer-managed groups
+    support full editing. Agent-managed groups (provisioned
+    automatically by Monte Carlo for agent-assisted domains) accept a
+    limited update surface: ``connectionRestrictionIds`` and the
+    cosmetic fields ``label``/``description``/``version``. ``roles``
+    and ``domainRestrictionIds`` on agent-managed groups must be
+    passed with their current values; ``memberUserIds`` and
+    ``ssoGroup`` cannot be set. Creating a new agent-managed group via
+    this mutation is not supported.
+    """
 
     __schema__ = schema
     __field_names__ = ("authorization_group",)
@@ -30115,6 +30289,23 @@ class FreshnessTableMonitorConfigOutput(sgqlc.types.Type):
     """Detector freshness threshold"""
 
 
+class G2ReviewPrompt(sgqlc.types.Type):
+    """Per-user state for the G2 Review Prompts integration."""
+
+    __schema__ = schema
+    __field_names__ = ("review_exists", "review_url")
+    review_exists = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="reviewExists")
+    """True if G2 reports the calling user has already submitted a review
+    for our product, or if the integration is unavailable. The
+    frontend should suppress the prompt when this is true.
+    """
+
+    review_url = sgqlc.types.Field(String, graphql_name="reviewUrl")
+    """Pre-authenticated G2 review form URL (valid 24 h). Null when
+    review_exists is true or G2 is unavailable.
+    """
+
+
 class GenerateAgentAwsExternalId(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("result",)
@@ -35306,6 +35497,7 @@ class Mutation(sgqlc.types.Type):
         "test_informatica_credentials",
         "test_informatica_v2_credentials",
         "test_azure_data_factory_credentials",
+        "test_mulesoft_credentials",
         "test_self_hosted_credentials_v2",
         "test_athena_credentials_v2",
         "test_glue_credentials_v2",
@@ -50674,7 +50866,15 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """Create or update an authorization group.
+    """Create or update an authorization group. Customer-managed groups
+    support full editing. Agent-managed groups (provisioned
+    automatically by Monte Carlo for agent-assisted domains) accept a
+    limited update surface: ``connectionRestrictionIds`` and the
+    cosmetic fields ``label``/``description``/``version``. ``roles``
+    and ``domainRestrictionIds`` on agent-managed groups must be
+    passed with their current values; ``memberUserIds`` and
+    ``ssoGroup`` cannot be set. Creating a new agent-managed group via
+    this mutation is not supported.
 
     Arguments:
 
@@ -55147,6 +55347,54 @@ class Mutation(sgqlc.types.Type):
       should be run.
     """
 
+    test_mulesoft_credentials = sgqlc.types.Field(
+        "TestMulesoftCredentials",
+        graphql_name="testMulesoftCredentials",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_details",
+                    sgqlc.types.Arg(
+                        MulesoftConnectionDetails, graphql_name="connectionDetails", default=None
+                    ),
+                ),
+                (
+                    "connection_options",
+                    sgqlc.types.Arg(
+                        ConnectionTestOptions, graphql_name="connectionOptions", default=None
+                    ),
+                ),
+                (
+                    "temp_credentials_key",
+                    sgqlc.types.Arg(String, graphql_name="tempCredentialsKey", default=None),
+                ),
+                (
+                    "validation_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="validationName", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Test MuleSoft credentials
+
+    Arguments:
+
+    * `connection_details` (`MulesoftConnectionDetails`): MuleSoft
+      Connected App credentials + region.
+    * `connection_options` (`ConnectionTestOptions`): Common options
+      for integration tests.
+    * `temp_credentials_key` (`String`): Optionally provide a
+      credentials key returned by a prior save_credentials call to re-
+      validate without resubmitting credentials.
+    * `validation_name` (`String!`): Name of the validation test that
+      should be run. One of ``validate_mulesoft_api_access``
+      (prerequisite), ``validate_mulesoft_exchange_access``,
+      ``validate_mulesoft_deployment_listing``, or the framework-wide
+      ``save_credentials`` to persist a successful trial.
+    """
+
     test_self_hosted_credentials_v2 = sgqlc.types.Field(
         "TestSelfHostedCredentialsV2",
         graphql_name="testSelfHostedCredentialsV2",
@@ -59041,6 +59289,7 @@ class Query(sgqlc.types.Type):
         "get_workspaces_allow_list_for_power_bi_reports_collection",
         "get_workspace_ids_allow_list_for_power_bi_reports_collection",
         "get_asset_collection_preferences",
+        "get_g2_review_prompt",
         "get_fivetran_connectors",
         "get_pii_filtering_preferences",
         "get_pii_filters",
@@ -65480,6 +65729,12 @@ class Query(sgqlc.types.Type):
     * `after` (`String`)None
     * `first` (`Int`)None
     * `last` (`Int`)None
+    """
+
+    get_g2_review_prompt = sgqlc.types.Field(G2ReviewPrompt, graphql_name="getG2ReviewPrompt")
+    """(experimental) G2 review prompt state for the calling user.
+    Returns whether the user has already reviewed and, if not, a one-
+    time URL to the pre-filled G2 review form.
     """
 
     get_fivetran_connectors = sgqlc.types.Field(
@@ -83669,6 +83924,8 @@ class StorageOptimizationCandidate(sgqlc.types.Type):
         "is_excluded",
         "created_time",
         "last_observed",
+        "byte_count_share",
+        "row_count_share",
         "waste_pattern",
         "table_category",
         "risk_tier",
@@ -83772,6 +84029,16 @@ class StorageOptimizationCandidate(sgqlc.types.Type):
 
     last_observed = sgqlc.types.Field(DateTime, graphql_name="lastObserved")
     """When the table was last observed by Monte Carlo"""
+
+    byte_count_share = sgqlc.types.Field(Float, graphql_name="byteCountShare")
+    """Fraction of the warehouse's total byte count attributable to this
+    table
+    """
+
+    row_count_share = sgqlc.types.Field(Float, graphql_name="rowCountShare")
+    """Fraction of the warehouse's total row count attributable to this
+    table
+    """
 
     waste_pattern = sgqlc.types.Field(String, graphql_name="wastePattern")
     """Waste pattern classification: unread, write_only, dead_end,
@@ -85939,6 +86206,18 @@ class TestMskKafkaCredentials(sgqlc.types.Type):
     validation_result = sgqlc.types.Field(
         TestCredentialsV2Response, graphql_name="validationResult"
     )
+
+
+class TestMulesoftCredentials(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("key", "validation_result")
+    key = sgqlc.types.Field(String, graphql_name="key")
+    """Credentials key."""
+
+    validation_result = sgqlc.types.Field(
+        TestCredentialsV2Response, graphql_name="validationResult"
+    )
+    """Connection validation results."""
 
 
 class TestPineconeCredentials(sgqlc.types.Type):

@@ -2,6 +2,7 @@
 Test various resource downloading functions from resources/common.py
 """
 
+import logging
 import os
 import pytest
 import tempfile
@@ -130,3 +131,27 @@ def test_language_resources():
 
     zh_hans_resources = common.get_language_resources(resources, "zh-hans")
     assert zh_resources == zh_hans_resources
+
+
+def test_download_restores_logging_level(tmp_path, monkeypatch):
+    """download() must temporarily change the logger level, then restore it."""
+    stanza.logger.setLevel(logging.WARNING)
+    observed_level_during = []
+
+    original_load = common.load_resources_json
+    def capturing_load(model_dir):
+        observed_level_during.append(stanza.logger.level)
+        return original_load(model_dir)
+
+    monkeypatch.setattr(common, 'load_resources_json', capturing_load)
+
+    common.download('en', model_dir=TEST_MODELS_DIR, logging_level='DEBUG', processors=['tokenize'], download_json=False)
+
+    # Level was actually changed to DEBUG during the call
+    assert observed_level_during == [logging.DEBUG], (
+        f"Expected DEBUG ({logging.DEBUG}) during download, got {observed_level_during}"
+    )
+    # And restored to WARNING afterwards
+    assert stanza.logger.level == logging.WARNING, (
+        f"Expected WARNING ({logging.WARNING}) after download, got {stanza.logger.level}"
+    )

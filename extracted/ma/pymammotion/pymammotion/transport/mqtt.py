@@ -9,6 +9,7 @@ from dataclasses import dataclass, replace
 import json
 import logging
 import ssl
+import time
 from typing import TYPE_CHECKING
 
 from aiohttp import ClientConnectorDNSError
@@ -22,6 +23,7 @@ from pymammotion.transport.base import (
     Transport,
     TransportAvailability,
     TransportError,
+    TransportRateLimitedError,
     TransportType,
 )
 
@@ -180,6 +182,12 @@ class MQTTTransport(Transport):
         if self._availability is not TransportAvailability.DISCONNECTED:
             await self._notify_availability(TransportAvailability.DISCONNECTED)
 
+    async def _fire_fatal_auth(self, exc: Exception) -> None:
+        """Fire on_fatal_auth_error if registered, suppressing callback exceptions."""
+        if self.on_fatal_auth_error is not None:
+            with contextlib.suppress(Exception):
+                await self.on_fatal_auth_error(exc)
+
     async def _invoke(self, payload: bytes, iot_id: str) -> None:
         """Invoke the Mammotion HTTP endpoint (shared by send/send_heartbeat)."""
         from pymammotion.aliyun.exceptions import DeviceOfflineException, GatewayTimeoutException
@@ -194,16 +202,24 @@ class MQTTTransport(Transport):
         except ClientConnectorDNSError:
             raise TransportError("MQTTTransport.send: DNS lookup timed out") from None
         except UnauthorizedException:
-            _logger.warning("MQTTTransport.send: HTTP access token expired — force-refreshing invoke token")
+            _logger.info("MQTTTransport.send: HTTP access token expired — force-refreshing invoke token")
             if self._token_manager is None:
                 raise TransportError("Token manager not configured for MQTT transport") from None
-            await self._token_manager.force_refresh_invoke_token()
+            try:
+                await self._token_manager.force_refresh_invoke_token()
+            except (ReLoginRequiredError, AuthError) as refresh_exc:
+                self.mark_auth_failed()
+                await self._fire_fatal_auth(refresh_exc)
+                raise
             try:
                 res = await self._http.mqtt_invoke(content, "", iot_id)
             except UnauthorizedException as exc:
-                raise ReLoginRequiredError(
+                relogin_exc = ReLoginRequiredError(
                     self._token_manager.account_id, f"MQTT invoke still 401 after token refresh: {exc}"
-                ) from exc
+                )
+                self.mark_auth_failed()
+                await self._fire_fatal_auth(relogin_exc)
+                raise relogin_exc from exc
             except Exception as retry_exc:
                 raise AuthError(
                     f"Access token expired and retry failed after credential refresh {retry_exc}"
@@ -223,6 +239,10 @@ class MQTTTransport(Transport):
 
     async def send(self, payload: bytes, iot_id: str = "") -> None:
         """Send *payload* to the device and count it against the 24-hour quota."""
+        if self.is_rate_limited:
+            remaining = self._rate_limited_until - time.monotonic()
+            msg = f"MQTTTransport rate-limited for {remaining:.0f}s more"
+            raise TransportRateLimitedError(msg)
         _logger.debug("Sending Mammotion MQTT payload: %s, %s iot_id", payload, iot_id)
         await self._invoke(payload, iot_id)
         self.record_send()
@@ -285,12 +305,10 @@ class MQTTTransport(Transport):
                     new_jwt = await self._jwt_refresher()
                     self._config = replace(self._config, password=new_jwt)
                 except ReLoginRequiredError as rle:
-                    # JWT refresh failed permanently — notify and surface to caller
                     _logger.error("Pre-connect JWT refresh raised ReLoginRequiredError: %s", rle)
                     self._stop_event.set()
-                    if self.on_fatal_auth_error is not None:
-                        with contextlib.suppress(Exception):
-                            await self.on_fatal_auth_error(rle)
+                    self.mark_auth_failed()
+                    await self._fire_fatal_auth(rle)
                     raise
                 except Exception:
                     _logger.warning("Pre-connect JWT refresh failed", exc_info=True)
@@ -352,17 +370,15 @@ class MQTTTransport(Transport):
                         self._token_manager.account_id,
                         f"MQTT auth exhausted after {_bad_credentials_attempts} attempt(s) (rc={rc})",
                     )
-                    if self.on_fatal_auth_error is not None:
-                        with contextlib.suppress(Exception):
-                            await self.on_fatal_auth_error(auth_exc)
+                    self.mark_auth_failed()
+                    await self._fire_fatal_auth(auth_exc)
                     raise auth_exc from exc
                 _logger.warning("MQTT error (rc=%s): %s — retry in %ds", rc, exc, backoff)
             except ReLoginRequiredError as exc:
                 _logger.error("Re-login required during MQTT connection loop: %s", exc)
                 self._stop_event.set()
-                if self.on_fatal_auth_error is not None:
-                    with contextlib.suppress(Exception):
-                        await self.on_fatal_auth_error(exc)
+                self.mark_auth_failed()
+                await self._fire_fatal_auth(exc)
                 raise
             except aiomqtt.MqttError as exc:
                 _logger.warning("MQTT disconnected: %s — retry in %ds", exc, backoff)

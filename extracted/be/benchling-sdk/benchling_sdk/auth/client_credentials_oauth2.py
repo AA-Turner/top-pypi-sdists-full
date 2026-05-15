@@ -4,8 +4,7 @@ import base64
 from datetime import datetime, timedelta, timezone
 from json import JSONDecodeError
 import threading
-import typing
-from typing import NoReturn, Optional
+from typing import ClassVar, NoReturn, Optional
 from urllib.parse import urljoin
 
 from benchling_api_client.v2.benchling_client import AuthorizationMethod, BenchlingApiClient
@@ -13,6 +12,8 @@ import httpx
 
 from benchling_sdk.errors import BenchlingError
 from benchling_sdk.helpers.logging_helpers import sdk_logger
+
+logger = sdk_logger.getChild(__name__)
 
 MINIMUM_TOKEN_EXPIRY_BUFFER = 60
 
@@ -63,7 +64,7 @@ class ClientCredentialsOAuth2(AuthorizationMethod):
     type.
     """
 
-    _data_for_token_request: typing.ClassVar[dict] = {
+    _data_for_token_request: ClassVar[dict] = {
         "grant_type": "client_credentials",
     }
 
@@ -102,17 +103,80 @@ class ClientCredentialsOAuth2(AuthorizationMethod):
     def vend_new_token(self, base_url: str):
         """Make RFC6749 request to token URL to generate a new bearer token for client credentials OAuth2 flow."""
         token_url = self._token_url if self._token_url is not None else urljoin(base_url, "/api/v2/token")
-        response: httpx.Response = self.httpx_client.post(
-            token_url,
-            data=ClientCredentialsOAuth2._data_for_token_request,
-            headers=self._header_for_token_request,
-        )
 
-        if response.status_code == 200:
+        # Handle network-level failures (DNS, connection refused, timeout)
+        try:
+            response: httpx.Response = self.httpx_client.post(
+                token_url,
+                data=ClientCredentialsOAuth2._data_for_token_request,
+                headers=self._header_for_token_request,
+            )
+        except httpx.InvalidURL as exc:
+            detail = f"Invalid URL: {exc}"
+            _raise_token_error(
+                token_url=token_url,
+                status_code=400,
+                detail=detail,
+                message=(
+                    f"Failed to reach the Benchling token endpoint at {token_url}. {detail}. "
+                    "Please verify the tenant URL is correct."
+                ),
+            )
+        except httpx.UnsupportedProtocol as exc:
+            detail = f"Unsupported protocol: {exc}"
+            _raise_token_error(
+                token_url=token_url,
+                status_code=400,
+                detail=detail,
+                message=(
+                    f"Failed to reach the Benchling token endpoint at {token_url}. {detail}. "
+                    "Please verify the tenant URL is correct."
+                ),
+            )
+        except httpx.RequestError as exc:
+            detail = f"A network error occurred: {exc}"
+            _raise_token_error(
+                token_url=token_url,
+                status_code=500,
+                detail=detail,
+                message=(
+                    f"Failed to reach the Benchling token endpoint at {token_url}. {detail}. "
+                    "Please verify the tenant URL is correct and the endpoint is reachable."
+                ),
+            )
+
+        # Handle HTTP error responses
+        if response.status_code >= 400:
+            detail = _get_error_detail_from_response(response)
+            _raise_error_from_response(
+                response,
+                token_url=token_url,
+                detail=detail,
+                message=(
+                    f"OAuth token request to {token_url} failed with HTTP {response.status_code}: {detail}. "
+                    "Please verify that the tenant URL is correct and the OAuth application credentials "
+                    "(client_id / client_secret) are valid and have not been revoked."
+                ),
+            )
+
+        # Handle malformed success responses (200 but unparseable body)
+        try:
             as_json = response.json()
             self._token = Token.from_token_response(as_json)
-        else:
-            _raise_error_from_response(response)
+        except (JSONDecodeError, ValueError, TypeError, KeyError, AssertionError) as exc:
+            # Use generic detail to avoid leaking raw HTML from exception text
+            detail = _get_parse_error_detail(response, exc)
+            _raise_token_error(
+                token_url=token_url,
+                status_code=response.status_code,
+                detail=detail,
+                message=(
+                    f"Received HTTP {response.status_code} from {token_url} but failed to parse the token response. "
+                    f"{detail} The token endpoint may be returning an unexpected content type."
+                ),
+                headers=dict(response.headers),
+                content=response.content,
+            )
 
     def get_authorization_header(self, base_url: str) -> str:
         """
@@ -128,18 +192,128 @@ class ClientCredentialsOAuth2(AuthorizationMethod):
         return f"Bearer {self._token.access_token}"
 
 
-def _raise_error_from_response(response: httpx.Response) -> NoReturn:
+def _raise_token_error(
+    *,
+    token_url: str,
+    status_code: int,
+    detail: str,
+    message: str,
+    headers: Optional[dict] = None,
+    json_content: Optional[dict] = None,
+    content: Optional[bytes] = None,
+) -> NoReturn:
+    """
+    Log and raise a BenchlingError for OAuth token vending failures.
+
+    This is the single pattern for raising token-related errors, consolidating
+    logging and error construction into one place.
+    """
+    _log_token_error(token_url=token_url, status_code=status_code, detail=detail)
+    raise BenchlingError(
+        status_code=status_code,
+        headers=headers or {},
+        json=json_content,
+        content=content,
+        parsed=None,
+        message=message,
+    )
+
+
+def _raise_error_from_response(
+    response: httpx.Response, *, token_url: str, detail: str, message: str
+) -> NoReturn:
+    """Raise a BenchlingError from an HTTP error response."""
     json_content = None
     # Rather than rely on Content-Type header, try to parse JSON
     # If the response isn't JSON, just swallow the exception
     try:
         json_content = response.json()
     except JSONDecodeError as e:
-        sdk_logger.debug("Received error response without JSON OAuth vending token", e)
-    raise BenchlingError(
+        sdk_logger.debug(
+            "Received error response without JSON OAuth vending token",
+            exc_info=e,
+        )
+    _raise_token_error(
+        token_url=token_url,
         status_code=response.status_code,
-        headers=response.headers,
-        json=json_content,
+        detail=detail,
+        message=message,
+        headers=dict(response.headers),
+        json_content=json_content,
         content=response.content,
-        parsed=None,
     )
+
+
+def _log_token_error(*, token_url: str, status_code: int, detail: str) -> None:
+    """Log a structured error for Datadog-compatible logging."""
+    try:
+        logger.error(
+            "Benchling OAuth2 token request failed",
+            extra={
+                "dd": {"tag": "benchling.sdk.auth.token_vend_error"},
+                "benchling.auth.token_url": token_url,
+                "benchling.auth.status_code": status_code,
+                "benchling.auth.error_detail": detail,
+                "benchling.auth.client_id_prefix": "(redacted)",
+            },
+        )
+    except Exception:
+        # Logging must never mask the auth error
+        pass
+
+
+def _get_error_detail_from_response(response: httpx.Response) -> str:
+    """Extract a human-readable error detail from an HTTP error response."""
+    # Try to parse JSON and extract error details
+    try:
+        json_body = response.json()
+        if isinstance(json_body, dict):
+            # Check for error_description (OAuth2 standard)
+            if "error_description" in json_body:
+                return str(json_body["error_description"])
+            # Check for message field
+            if "message" in json_body:
+                return str(json_body["message"])
+            # Check for error.message (Benchling API format)
+            error_obj = json_body.get("error")
+            if isinstance(error_obj, dict):
+                if "message" in error_obj:
+                    return str(error_obj["message"])
+    except (JSONDecodeError, ValueError, TypeError):
+        pass
+
+    # Detect HTML error pages (404/502 etc.)
+    if _response_contains_html(response):
+        return (
+            "The token endpoint returned an HTML error page instead of a JSON response. "
+            "This typically indicates the URL is incorrect or the tenant is unreachable."
+        )
+
+    # Fall back to HTTP reason phrase
+    return response.reason_phrase or f"HTTP {response.status_code} error"
+
+
+def _get_parse_error_detail(response: httpx.Response, exc: Exception) -> str:
+    """Extract a sanitized error detail for parse failures, avoiding raw HTML leakage."""
+    # Check if response contains HTML to avoid leaking it via exception text
+    if _response_contains_html(response):
+        return (
+            "The token endpoint returned an HTML page instead of a JSON token response. "
+            "This typically indicates the URL is incorrect or the tenant is unreachable."
+        )
+    # For non-HTML responses, we can safely include a generic error type
+    return f"Parse error: {type(exc).__name__}."
+
+
+def _response_contains_html(response: httpx.Response) -> bool:
+    """Check if the response body contains HTML content."""
+    content = response.content
+    if not content:
+        return False
+    # Only inspect a small prefix to avoid decoding very large error pages
+    content_prefix = content[:4096]
+    try:
+        content_str = content_prefix.decode("utf-8", errors="ignore").lower()
+    except Exception:
+        content_str = str(content_prefix).lower()
+    return "<!doctype" in content_str or "<html" in content_str

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wllegal
-Version: 2026.3
+Version: 2026.4
 Summary: Hosted Weblate legal stuff
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: GPL-3.0-or-later
@@ -38,10 +38,10 @@ Requires-Dist: weblate-language-data>=2026.7
 Provides-Extra: dev
 Requires-Dist: wllegal[lint,test]; extra == "dev"
 Provides-Extra: lint
-Requires-Dist: prek==0.3.8; extra == "lint"
+Requires-Dist: prek==0.4.0; extra == "lint"
 Provides-Extra: test
 Requires-Dist: wllegal[weblate]; extra == "test"
-Requires-Dist: coverage==7.13.5; extra == "test"
+Requires-Dist: coverage==7.14.0; extra == "test"
 Requires-Dist: translate-toolkit; extra == "test"
 Provides-Extra: weblate
 Requires-Dist: Weblate[postgres]>=5.0; extra == "weblate"

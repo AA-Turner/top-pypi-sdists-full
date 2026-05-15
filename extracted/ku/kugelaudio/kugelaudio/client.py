@@ -84,15 +84,28 @@ def _warn_if_no_language(language: Optional[str], normalize: bool = True) -> Non
 DEFAULT_API_URL = "https://api.kugelaudio.com"
 DEFAULT_TTS_URL = None  # If None, uses api_url
 
-# Region-to-URL mapping for multi-region deployments
-REGION_URLS = {
-    "eu": "https://api.kugelaudio.com",
-    "us": "https://us-api.kugelaudio.com",
-    "global": "https://global-api.kugelaudio.com",
-}
+EU_API_URL = "https://api.eu.kugelaudio.com"
+SUPPORTED_REGIONS = ("eu", "us", "global")
+
+
+def _resolve_region_url(region: Optional[str]) -> str:
+    """Resolve a supported region hint to an API URL.
+
+    Only EU has a dedicated direct endpoint. All other supported hints use the
+    canonical geo-routed API.
+    """
+    if region is None:
+        return DEFAULT_API_URL
+    if region not in SUPPORTED_REGIONS:
+        raise ValidationError(
+            f"Invalid region '{region}'. Must be one of: {', '.join(SUPPORTED_REGIONS)}"
+        )
+    if region == "eu":
+        return EU_API_URL
+    return DEFAULT_API_URL
 
 # Prefixes that can be prepended to API keys to select a region
-_REGION_PREFIXES = ("eu-", "us-", "global-")
+_REGION_PREFIXES = tuple(f"{region}-" for region in SUPPORTED_REGIONS)
 
 
 def _parse_api_key(api_key: str) -> tuple[str, Optional[str]]:
@@ -1234,19 +1247,20 @@ class KugelAudio:
         """Initialize KugelAudio client.
 
         Args:
-            api_key: Your KugelAudio API key. Can be prefixed with ``eu-``, ``us-``,
-                or ``global-`` to automatically select the matching region (the prefix
-                is stripped before authenticating).
+            api_key: Your KugelAudio API key. Can be prefixed with ``eu-`` to
+                select the direct EU endpoint (the prefix is stripped before
+                authenticating).
             api_url: API base URL. When set, takes precedence over *region* and any
-                key prefix.  (default: determined by region, falling back to
-                ``https://api.kugelaudio.com``)
+                key prefix. (default: ``https://api.kugelaudio.com``)
             tts_url: TTS server URL (default: same as api_url, the backend proxies WebSocket)
             timeout: Request timeout in seconds
             keepalive_ping_interval: Seconds between WebSocket ping frames sent on the
                 pooled connection to prevent idle timeouts (default: 20.0). Set to None
                 to disable keepalive pings.
-            region: Deployment region — ``'eu'``, ``'us'``, or ``'global'``. Takes
-                precedence over an API-key prefix but not over an explicit *api_url*.
+            region: Deployment region. Use ``'eu'`` to select the direct EU
+                endpoint. Takes precedence over an API-key prefix but not over
+                an explicit *api_url*. If omitted, the client uses the default
+                geo-routed API endpoint.
 
         For fastest performance in async code, use the factory method:
             client = await KugelAudio.create(api_key="...")
@@ -1267,13 +1281,8 @@ class KugelAudio:
         if api_url:
             self._api_url = api_url.rstrip("/")
         else:
-            effective_region = region or detected_region or "eu"
-            if effective_region not in REGION_URLS:
-                raise ValidationError(
-                    f"Invalid region '{effective_region}'. "
-                    f"Must be one of: {', '.join(REGION_URLS)}"
-                )
-            self._api_url = REGION_URLS[effective_region]
+            effective_region = region or detected_region
+            self._api_url = _resolve_region_url(effective_region)
 
         # If tts_url not specified, use api_url (backend proxies to TTS server)
         self._tts_url = (tts_url or self._api_url).rstrip("/")
@@ -1327,7 +1336,7 @@ class KugelAudio:
             timeout: Request timeout in seconds
             model: Model to pre-connect for ('kugel-1-turbo' or 'kugel-1')
             keepalive_ping_interval: Seconds between WebSocket ping frames (default: 20.0).
-            region: Deployment region ('eu', 'us', or 'global').
+            region: Deployment region. Use 'eu' for the direct EU endpoint.
 
         Returns:
             Pre-connected KugelAudio client

@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Union, Mapping, cast
+from typing import Union
 from typing_extensions import Literal
 
 import httpx
 
 from ...types import training_dataset_list_params, training_dataset_create_params
-from ..._types import Body, Omit, Query, Headers, NotGiven, FileTypes, omit, not_given
-from ..._utils import extract_files, maybe_transform, deepcopy_minimal, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from .contents import (
     ContentsResource,
     AsyncContentsResource,
@@ -62,7 +62,7 @@ class TrainingDatasetsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        file: FileTypes,
+        file: str,
         name: str,
         schema_type: Literal["GENERATION", "RERANKING_QUESTIONS"],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -92,23 +92,21 @@ class TrainingDatasetsResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        body = deepcopy_minimal(
-            {
-                "account_id": account_id,
-                "file": file,
-                "name": name,
-                "schema_type": schema_type,
-            }
-        )
-        files = extract_files(cast(Mapping[str, object], body), paths=[["file"]])
         # It should be noted that the actual Content-Type header that will be
         # sent to the server will contain a `boundary` parameter, e.g.
         # multipart/form-data; boundary=---abc--
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return self._post(
             "/v4/training-datasets",
-            body=maybe_transform(body, training_dataset_create_params.TrainingDatasetCreateParams),
-            files=files,
+            body=maybe_transform(
+                {
+                    "account_id": account_id,
+                    "file": file,
+                    "name": name,
+                    "schema_type": schema_type,
+                },
+                training_dataset_create_params.TrainingDatasetCreateParams,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -153,7 +151,7 @@ class TrainingDatasetsResource(SyncAPIResource):
                 f"Expected a non-empty value for `training_dataset_id` but received {training_dataset_id!r}"
             )
         return self._get(
-            f"/v4/training-datasets/{training_dataset_id}",
+            path_template("/v4/training-datasets/{training_dataset_id}", training_dataset_id=training_dataset_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -255,7 +253,7 @@ class TrainingDatasetsResource(SyncAPIResource):
                 f"Expected a non-empty value for `training_dataset_id` but received {training_dataset_id!r}"
             )
         return self._delete(
-            f"/v4/training-datasets/{training_dataset_id}",
+            path_template("/v4/training-datasets/{training_dataset_id}", training_dataset_id=training_dataset_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -291,7 +289,7 @@ class AsyncTrainingDatasetsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        file: FileTypes,
+        file: str,
         name: str,
         schema_type: Literal["GENERATION", "RERANKING_QUESTIONS"],
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -321,23 +319,21 @@ class AsyncTrainingDatasetsResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        body = deepcopy_minimal(
-            {
-                "account_id": account_id,
-                "file": file,
-                "name": name,
-                "schema_type": schema_type,
-            }
-        )
-        files = extract_files(cast(Mapping[str, object], body), paths=[["file"]])
         # It should be noted that the actual Content-Type header that will be
         # sent to the server will contain a `boundary` parameter, e.g.
         # multipart/form-data; boundary=---abc--
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return await self._post(
             "/v4/training-datasets",
-            body=await async_maybe_transform(body, training_dataset_create_params.TrainingDatasetCreateParams),
-            files=files,
+            body=await async_maybe_transform(
+                {
+                    "account_id": account_id,
+                    "file": file,
+                    "name": name,
+                    "schema_type": schema_type,
+                },
+                training_dataset_create_params.TrainingDatasetCreateParams,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -382,7 +378,7 @@ class AsyncTrainingDatasetsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `training_dataset_id` but received {training_dataset_id!r}"
             )
         return await self._get(
-            f"/v4/training-datasets/{training_dataset_id}",
+            path_template("/v4/training-datasets/{training_dataset_id}", training_dataset_id=training_dataset_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -484,7 +480,7 @@ class AsyncTrainingDatasetsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `training_dataset_id` but received {training_dataset_id!r}"
             )
         return await self._delete(
-            f"/v4/training-datasets/{training_dataset_id}",
+            path_template("/v4/training-datasets/{training_dataset_id}", training_dataset_id=training_dataset_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

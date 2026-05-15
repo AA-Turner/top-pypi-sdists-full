@@ -12,6 +12,7 @@ Usage::
 
     from mypy_boto3_bedrock.client import BedrockClient
     from mypy_boto3_bedrock.paginator import (
+        ListAdvancedPromptOptimizationJobsPaginator,
         ListAutomatedReasoningPoliciesPaginator,
         ListAutomatedReasoningPolicyBuildWorkflowsPaginator,
         ListAutomatedReasoningPolicyTestCasesPaginator,
@@ -35,6 +36,7 @@ Usage::
     session = Session()
     client: BedrockClient = session.client("bedrock")
 
+    list_advanced_prompt_optimization_jobs_paginator: ListAdvancedPromptOptimizationJobsPaginator = client.get_paginator("list_advanced_prompt_optimization_jobs")
     list_automated_reasoning_policies_paginator: ListAutomatedReasoningPoliciesPaginator = client.get_paginator("list_automated_reasoning_policies")
     list_automated_reasoning_policy_build_workflows_paginator: ListAutomatedReasoningPolicyBuildWorkflowsPaginator = client.get_paginator("list_automated_reasoning_policy_build_workflows")
     list_automated_reasoning_policy_test_cases_paginator: ListAutomatedReasoningPolicyTestCasesPaginator = client.get_paginator("list_automated_reasoning_policy_test_cases")
@@ -64,6 +66,8 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    ListAdvancedPromptOptimizationJobsRequestPaginateTypeDef,
+    ListAdvancedPromptOptimizationJobsResponseTypeDef,
     ListAutomatedReasoningPoliciesRequestPaginateTypeDef,
     ListAutomatedReasoningPoliciesResponseTypeDef,
     ListAutomatedReasoningPolicyBuildWorkflowsRequestPaginateTypeDef,
@@ -109,6 +113,7 @@ else:
 
 
 __all__ = (
+    "ListAdvancedPromptOptimizationJobsPaginator",
     "ListAutomatedReasoningPoliciesPaginator",
     "ListAutomatedReasoningPolicyBuildWorkflowsPaginator",
     "ListAutomatedReasoningPolicyTestCasesPaginator",
@@ -128,6 +133,29 @@ __all__ = (
     "ListPromptRoutersPaginator",
     "ListProvisionedModelThroughputsPaginator",
 )
+
+
+if TYPE_CHECKING:
+    _ListAdvancedPromptOptimizationJobsPaginatorBase = Paginator[
+        ListAdvancedPromptOptimizationJobsResponseTypeDef
+    ]
+else:
+    _ListAdvancedPromptOptimizationJobsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListAdvancedPromptOptimizationJobsPaginator(_ListAdvancedPromptOptimizationJobsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListAdvancedPromptOptimizationJobs.html#Bedrock.Paginator.ListAdvancedPromptOptimizationJobs)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/paginators/#listadvancedpromptoptimizationjobspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAdvancedPromptOptimizationJobsRequestPaginateTypeDef]
+    ) -> PageIterator[ListAdvancedPromptOptimizationJobsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListAdvancedPromptOptimizationJobs.html#Bedrock.Paginator.ListAdvancedPromptOptimizationJobs.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/paginators/#listadvancedpromptoptimizationjobspaginator)
+        """
 
 
 if TYPE_CHECKING:

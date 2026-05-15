@@ -66,7 +66,6 @@ import pyarrow as pa
 import requests
 from google.protobuf import message_factory
 from google.protobuf.descriptor import Descriptor
-from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 from pydantic import BaseModel
 
 from chalk._lsp.error_builder import (
@@ -1708,10 +1707,6 @@ def _capture_global(
         and not inspect.isbuiltin(global_value)
     ):
         try:
-            instance_type = type(global_value).__name__
-            # Generate a call signature identifier for the callable instance
-            call_signature = f"{instance_type}.__call__"
-
             # textdistance exposes algorithms like `levenshtein` as callable instances
             # rather than functions, so `from textdistance import levenshtein` needs
             # explicit module-member capture.
@@ -1730,23 +1725,29 @@ def _capture_global(
                 except Exception:
                     pass
 
-            # For known callable instances like ProtobufDeserializer, create a specialized capture
-            if instance_type in ("ProtobufDeserializer",) and module_name:
-                module = importlib.import_module(module_name)
-                deserializer = getattr(module, global_var, None)
-                if deserializer is None:
-                    return None
-                if hasattr(deserializer, "_msg_class"):
-                    message_class: GeneratedProtocolMessageType = deserializer._msg_class
-                    if hasattr(message_class, "DESCRIPTOR"):
-                        return FunctionCapturedGlobalCallableProtobufDeserializerInstance(
-                            name=global_var,
-                            module=module_name,
-                            instance_type=instance_type,
-                            call_signature=call_signature,
-                            # Pyright issue; not sure why hasattr() check above doesn't solve it
-                            descriptor=message_class.DESCRIPTOR,  # pyright: ignore[reportAttributeAccessIssue]
-                        )
+            # TODO Currently we don't serialize this type of global and they're not used
+            # by our symbolic converter; so skip for now
+            # =====
+            # instance_type = type(global_value).__name__
+            # Generate a call signature identifier for the callable instance
+            # call_signature = f"{instance_type}.__call__"
+            # # For known callable instances like ProtobufDeserializer, create a specialized capture
+            # if instance_type in ("ProtobufDeserializer",) and module_name:
+            #     module = importlib.import_module(module_name)
+            #     deserializer = getattr(module, global_var, None)
+            #     if deserializer is None:
+            #         return None
+            #     if hasattr(deserializer, "_msg_class"):
+            #         message_class: GeneratedProtocolMessageType = deserializer._msg_class
+            #         if hasattr(message_class, "DESCRIPTOR"):
+            #             return FunctionCapturedGlobalCallableProtobufDeserializerInstance(
+            #                 name=global_var,
+            #                 module=module_name,
+            #                 instance_type=instance_type,
+            #                 call_signature=call_signature,
+            #                 # Pyright issue; not sure why hasattr() check above doesn't solve it
+            #                 descriptor=message_class.DESCRIPTOR,  # pyright: ignore[reportAttributeAccessIssue]
+            #             )
             return None
         except:
             pass

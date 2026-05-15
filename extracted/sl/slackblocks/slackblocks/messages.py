@@ -5,15 +5,18 @@ built out using blocks, elements, objects, and rich text features.
 See: <https://api.slack.com/messaging>
 """
 
+from __future__ import annotations
+
 from enum import Enum
 from json import dumps
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
+from slackblocks._core import resolve
 from slackblocks.utils import coerce_to_list
 
 from .attachments import Attachment
 from .blocks import Block
-from .errors import InvalidUsageError
+from .errors import TypeMismatchError
 
 
 class ResponseType(Enum):
@@ -25,58 +28,27 @@ class ResponseType(Enum):
     IN_CHANNEL = "in_channel"
 
     @staticmethod
-    def get_value(value: Union["ResponseType", str]) -> str:
+    def get_value(value: ResponseType | str) -> str:
         if isinstance(value, ResponseType):
             return value.value
         if value not in [response_type.value for response_type in ResponseType]:
-            raise InvalidUsageError(
-                "ResponseType must be either `ephemeral` or `in_channel`"
-            )
+            raise TypeMismatchError("ResponseType must be either `ephemeral` or `in_channel`")
         return value
 
 
-class BaseMessage:
-    """
-    Abstract class for shared functionality between Messages and
-    MessageResponses.
-    """
+class _MessagePayloadMixin:
+    """Shared serialization helpers used by both BaseMessage and
+    WebhookMessage.
 
-    def __init__(
-        self,
-        channel: Optional[str] = None,
-        text: Optional[str] = "",
-        blocks: Optional[Union[Block, List[Block]]] = None,
-        attachments: Optional[Union[Attachment, List[Attachment]]] = None,
-        thread_ts: Optional[str] = None,
-        mrkdwn: bool = True,
-    ) -> None:
-        self.blocks = coerce_to_list(blocks, class_=Block, allow_none=True)
-        self.channel = channel
-        self.text = text
-        self.attachments = coerce_to_list(
-            attachments, class_=Attachment, allow_none=True
-        )
-        self.thread_ts = thread_ts
-        self.mrkdwn = mrkdwn
+    Both expose the same interface (``to_dict()``, ``json()``, ``__repr__``,
+    ``__getitem__``, ``keys()``) so that ``**msg`` unpacking works with the
+    Slack Web/Webhook clients. Concrete subclasses must implement
+    ``_resolve``."""
 
-    def _resolve(self) -> Dict[str, Any]:
-        message: Dict[str, Any] = {}
-        if self.channel:
-            message["channel"] = self.channel
-        message["mrkdwn"] = self.mrkdwn
-        if self.blocks:
-            message["blocks"] = [block._resolve() for block in self.blocks]
-        if self.attachments:
-            message["attachments"] = [
-                attachment._resolve() for attachment in self.attachments
-            ]
-        if self.thread_ts:
-            message["thread_ts"] = self.thread_ts
-        if self.text or self.text == "":
-            message["text"] = self.text
-        return message
+    def _resolve(self) -> dict[str, Any]:  # pragma: no cover - overridden
+        raise NotImplementedError
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return self._resolve()
 
     def json(self) -> str:
@@ -88,8 +60,47 @@ class BaseMessage:
     def __getitem__(self, item):
         return self._resolve()[item]
 
-    def keys(self) -> List[str]:
+    def keys(self) -> list[str]:
         return list(self._resolve().keys())
+
+
+class BaseMessage(_MessagePayloadMixin):
+    """
+    Abstract class for shared functionality between Messages and
+    MessageResponses.
+    """
+
+    def __init__(
+        self,
+        channel: str | None = None,
+        text: str | None = "",
+        blocks: Block | list[Block] | None = None,
+        attachments: Attachment | list[Attachment] | None = None,
+        thread_ts: str | None = None,
+        mrkdwn: bool = True,
+    ) -> None:
+        self.blocks = coerce_to_list(blocks, class_=Block, allow_none=True)
+        self.channel = channel
+        self.text = text
+        self.attachments = coerce_to_list(attachments, class_=Attachment, allow_none=True)
+        self.thread_ts = thread_ts
+        self.mrkdwn = mrkdwn
+
+    def _resolve(self) -> dict[str, Any]:
+        # The 'text' field is intentionally emitted even when it is an empty
+        # string (Slack uses it as a notification fallback when blocks are
+        # present). resolve() strips None but preserves "" -- exactly the
+        # semantics we want here.
+        return resolve(
+            {
+                "channel": self.channel if self.channel else None,
+                "mrkdwn": self.mrkdwn,
+                "blocks": self.blocks if self.blocks else None,
+                "attachments": self.attachments if self.attachments else None,
+                "thread_ts": self.thread_ts if self.thread_ts else None,
+                "text": self.text if (self.text or self.text == "") else None,
+            }
+        )
 
 
 class Message(BaseMessage):
@@ -122,25 +133,26 @@ class Message(BaseMessage):
     def __init__(
         self,
         channel: str,
-        text: Optional[str] = "",
-        blocks: Optional[Union[List[Block], Block]] = None,
-        attachments: Optional[List[Attachment]] = None,
-        thread_ts: Optional[str] = None,
+        text: str | None = "",
+        blocks: list[Block] | Block | None = None,
+        attachments: list[Attachment] | None = None,
+        thread_ts: str | None = None,
         mrkdwn: bool = True,
-        unfurl_links: Optional[bool] = None,
-        unfurl_media: Optional[bool] = None,
+        unfurl_links: bool | None = None,
+        unfurl_media: bool | None = None,
     ) -> None:
         super().__init__(channel, text, blocks, attachments, thread_ts, mrkdwn)
         self.unfurl_links = unfurl_links
         self.unfurl_media = unfurl_media
 
-    def _resolve(self) -> Dict[str, Any]:
-        result = {**super()._resolve()}
-        if self.unfurl_links is not None:
-            result["unfurl_links"] = self.unfurl_links
-        if self.unfurl_media is not None:
-            result["unfurl_media"] = self.unfurl_media
-        return result
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **super()._resolve(),
+                "unfurl_links": self.unfurl_links,
+                "unfurl_media": self.unfurl_media,
+            }
+        )
 
 
 class MessageResponse(BaseMessage):
@@ -150,10 +162,10 @@ class MessageResponse(BaseMessage):
 
     def __init__(
         self,
-        text: Optional[str] = "",
-        blocks: Optional[Union[List[Block], Block]] = None,
-        attachments: Optional[List[Attachment]] = None,
-        thread_ts: Optional[str] = None,
+        text: str | None = "",
+        blocks: list[Block] | Block | None = None,
+        attachments: list[Attachment] | None = None,
+        thread_ts: str | None = None,
         mrkdwn: bool = True,
         replace_original: bool = False,
         ephemeral: bool = False,
@@ -168,17 +180,17 @@ class MessageResponse(BaseMessage):
         self.replace_original = replace_original
         self.ephemeral = ephemeral
 
-    def _resolve(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {
-            **super()._resolve(),
-            "replace_original": self.replace_original,
-        }
-        if self.ephemeral:
-            result["response_type"] = "ephemeral"
-        return result
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **super()._resolve(),
+                "replace_original": self.replace_original,
+                "response_type": "ephemeral" if self.ephemeral else None,
+            }
+        )
 
 
-class WebhookMessage:
+class WebhookMessage(_MessagePayloadMixin):
     """
     Messages sent via the Slack `WebhookClient` takes different arguments than
         those sent via the regular `WebClient`.
@@ -214,24 +226,22 @@ class WebhookMessage:
 
     def __init__(
         self,
-        text: Optional[str] = None,
-        attachments: Optional[Union[Attachment, List[Attachment]]] = None,
-        blocks: Optional[Union[Block, List[Block]]] = None,
-        response_type: Optional[Union[ResponseType, str]] = None,
-        replace_original: Optional[bool] = None,
-        delete_original: Optional[bool] = None,
-        unfurl_links: Optional[bool] = None,
-        unfurl_media: Optional[bool] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        text: str | None = None,
+        attachments: Attachment | list[Attachment] | None = None,
+        blocks: Block | list[Block] | None = None,
+        response_type: ResponseType | str | None = None,
+        replace_original: bool | None = None,
+        delete_original: bool | None = None,
+        unfurl_links: bool | None = None,
+        unfurl_media: bool | None = None,
+        metadata: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         self.text = text
-        self.attachments: Optional[List[Attachment]] = coerce_to_list(
+        self.attachments: list[Attachment] | None = coerce_to_list(
             attachments, Attachment, allow_none=True
         )
-        self.blocks: Optional[List[Block]] = coerce_to_list(
-            blocks, Block, allow_none=True
-        )
+        self.blocks: list[Block] | None = coerce_to_list(blocks, Block, allow_none=True)
         self.response_type = (
             ResponseType.get_value(response_type) if response_type is not None else None
         )
@@ -242,47 +252,22 @@ class WebhookMessage:
         self.metadata = metadata
         self.headers = headers
 
-    def _resolve(self) -> Dict[str, Any]:
-        webhook_message: Dict[str, Any] = {}
-        if self.text is not None:
-            webhook_message["text"] = self.text
-        if self.attachments is not None:
-            webhook_message["attachments"] = [
-                attachment._resolve()
-                for attachment in self.attachments
-                if attachment is not None
-            ]
-        if self.blocks is not None:
-            webhook_message["blocks"] = [
-                block._resolve() for block in self.blocks if block is not None
-            ]
-        if self.response_type is not None:
-            webhook_message["response_type"] = self.response_type
-        if self.replace_original is not None:
-            webhook_message["replace_original"] = self.replace_original
-        if self.delete_original is not None:
-            webhook_message["delete_original"] = self.delete_original
-        if self.unfurl_links is not None:
-            webhook_message["unfurl_links"] = self.unfurl_links
-        if self.unfurl_media is not None:
-            webhook_message["unfurl_media"] = self.unfurl_media
-        if self.metadata is not None:
-            webhook_message["metadata"] = self.metadata
-        if self.headers is not None:
-            webhook_message["headers"] = self.headers
-        return webhook_message
-
-    def to_dict(self) -> Dict[str, Any]:
-        return self._resolve()
-
-    def json(self) -> str:
-        return dumps(self._resolve(), indent=4)
-
-    def __repr__(self) -> str:
-        return self.json()
-
-    def __getitem__(self, item):
-        return self._resolve()[item]
-
-    def keys(self) -> List[str]:
-        return list(self._resolve().keys())
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                "text": self.text,
+                "attachments": [att for att in self.attachments if att is not None]
+                if self.attachments is not None
+                else None,
+                "blocks": [block for block in self.blocks if block is not None]
+                if self.blocks is not None
+                else None,
+                "response_type": self.response_type,
+                "replace_original": self.replace_original,
+                "delete_original": self.delete_original,
+                "unfurl_links": self.unfurl_links,
+                "unfurl_media": self.unfurl_media,
+                "metadata": self.metadata,
+                "headers": self.headers,
+            }
+        )

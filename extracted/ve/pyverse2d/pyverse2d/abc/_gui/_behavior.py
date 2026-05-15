@@ -159,3 +159,8 @@ class Behavior(ABC):
         """Suppression du comportement"""
         self.clear_tweens()
         self.detach()
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Behavior",
+]

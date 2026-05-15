@@ -11,64 +11,6 @@ import System.Reflection
 import System.Resources
 
 
-class IResourceReader(System.Collections.IEnumerable, System.IDisposable, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def close(self) -> None:
-        ...
-
-
-class ResourceReader(System.Object, System.Resources.IResourceReader):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self, file_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, stream: System.IO.Stream) -> None:
-        ...
-
-    def close(self) -> None:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-    def get_enumerator(self) -> System.Collections.IDictionaryEnumerator:
-        ...
-
-    def get_resource_data(self, resource_name: str, resource_type: typing.Optional[str], resource_data: typing.Optional[typing.List[int]]) -> typing.Tuple[None, str, typing.List[int]]:
-        ...
-
-
-class SatelliteContractVersionAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def version(self) -> str:
-        ...
-
-    def __init__(self, version: str) -> None:
-        ...
-
-
-class MissingManifestResourceException(System.SystemException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-
 class UltimateResourceFallbackLocation(IntEnum):
     """This class has no documentation."""
 
@@ -94,6 +36,37 @@ class NeutralResourcesLanguageAttribute(System.Attribute):
 
     @overload
     def __init__(self, culture_name: str, location: System.Resources.UltimateResourceFallbackLocation) -> None:
+        ...
+
+
+class MissingSatelliteAssemblyException(System.SystemException):
+    """This class has no documentation."""
+
+    @property
+    def culture_name(self) -> str:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, culture_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+
+class IResourceReader(System.Collections.IEnumerable, System.IDisposable, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def close(self) -> None:
         ...
 
 
@@ -276,12 +249,8 @@ class ResourceManager(System.Object):
         ...
 
 
-class MissingSatelliteAssemblyException(System.SystemException):
+class MissingManifestResourceException(System.SystemException):
     """This class has no documentation."""
-
-    @property
-    def culture_name(self) -> str:
-        ...
 
     @overload
     def __init__(self) -> None:
@@ -292,11 +261,42 @@ class MissingSatelliteAssemblyException(System.SystemException):
         ...
 
     @overload
-    def __init__(self, message: str, culture_name: str) -> None:
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+
+class SatelliteContractVersionAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def version(self) -> str:
+        ...
+
+    def __init__(self, version: str) -> None:
+        ...
+
+
+class ResourceReader(System.Object, System.Resources.IResourceReader):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self, file_name: str) -> None:
         ...
 
     @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
+    def __init__(self, stream: System.IO.Stream) -> None:
+        ...
+
+    def close(self) -> None:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+    def get_enumerator(self) -> System.Collections.IDictionaryEnumerator:
+        ...
+
+    def get_resource_data(self, resource_name: str, resource_type: typing.Optional[str], resource_data: typing.Optional[typing.List[int]]) -> typing.Tuple[None, str, typing.List[int]]:
         ...
 
 

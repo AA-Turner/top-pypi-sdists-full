@@ -6,7 +6,7 @@ import httpx
 
 from ..types import alias_execute_params
 from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from .._utils import maybe_transform, async_maybe_transform
+from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -68,7 +68,7 @@ class AliasResource(SyncAPIResource):
         if not alias:
             raise ValueError(f"Expected a non-empty value for `alias` but received {alias!r}")
         return self._get(
-            f"/v4/serving/a/{alias}",
+            path_template("/v4/serving/a/{alias}", alias=alias),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -104,7 +104,7 @@ class AliasResource(SyncAPIResource):
         if not alias:
             raise ValueError(f"Expected a non-empty value for `alias` but received {alias!r}")
         return self._post(
-            f"/v4/serving/a/{alias}/execute",
+            path_template("/v4/serving/a/{alias}/execute", alias=alias),
             body=maybe_transform({"stream": stream}, alias_execute_params.AliasExecuteParams),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -159,7 +159,7 @@ class AsyncAliasResource(AsyncAPIResource):
         if not alias:
             raise ValueError(f"Expected a non-empty value for `alias` but received {alias!r}")
         return await self._get(
-            f"/v4/serving/a/{alias}",
+            path_template("/v4/serving/a/{alias}", alias=alias),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -195,7 +195,7 @@ class AsyncAliasResource(AsyncAPIResource):
         if not alias:
             raise ValueError(f"Expected a non-empty value for `alias` but received {alias!r}")
         return await self._post(
-            f"/v4/serving/a/{alias}/execute",
+            path_template("/v4/serving/a/{alias}/execute", alias=alias),
             body=await async_maybe_transform({"stream": stream}, alias_execute_params.AliasExecuteParams),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout

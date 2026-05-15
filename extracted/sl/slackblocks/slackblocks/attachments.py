@@ -5,12 +5,15 @@ attachments API.
 See: <https://api.slack.com/slackblocks/latest/reference/messaging/attachments>.
 """
 
+from __future__ import annotations
+
 from enum import Enum
 from json import dumps
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
+from slackblocks._core import resolve
 from slackblocks.blocks import Block
-from slackblocks.errors import InvalidUsageError
+from slackblocks.errors import TypeMismatchError
 from slackblocks.utils import coerce_to_list, is_hex
 
 
@@ -115,9 +118,9 @@ class Field:
 
     def __init__(
         self,
-        title: Optional[str] = None,
-        value: Optional[str] = None,
-        short: Optional[bool] = False,
+        title: str | None = None,
+        value: str | None = None,
+        short: bool | None = False,
     ):
         self.title = title
         self.value = value
@@ -159,15 +162,15 @@ class Attachment:
 
     def __init__(
         self,
-        blocks: Optional[Union[Block, List[Block]]] = None,
-        color: Optional[Union[str, Color]] = None,
-        fields: Optional[Union[Field, List[Field]]] = None,
-        fallback: Optional[str] = None,
+        blocks: Block | list[Block] | None = None,
+        color: str | Color | None = None,
+        fields: Field | list[Field] | None = None,
+        fallback: str | None = None,
     ):
         self.blocks = coerce_to_list(blocks, Block, allow_none=True)
         self.fields = coerce_to_list(fields, Field, allow_none=True)
         self.fallback = fallback
-        self.color: Optional[str]
+        self.color: str | None
         if type(color) is Color:
             self.color = color.value
         elif type(color) is str:
@@ -176,21 +179,21 @@ class Attachment:
             elif len(color) == 6 and is_hex(color):
                 self.color = f"#{color}"
             else:
-                raise InvalidUsageError(
-                    "Color must be a valid hex code (e.g. `#ffffff`)"
-                )
+                raise TypeMismatchError("Color must be a valid hex code (e.g. `#ffffff`)")
         else:
             self.color = None
 
-    def _resolve(self) -> Dict[str, Any]:
-        attachment: Dict[str, Any] = {}
-        if self.blocks:
-            attachment["blocks"] = [block._resolve() for block in self.blocks]
-        if self.color:
-            attachment["color"] = self.color
-        if self.fallback:
-            attachment["fallback"] = self.fallback
-        return attachment
+    def _resolve(self) -> dict[str, Any]:
+        # Note: 'fields' is intentionally not included here. The attribute
+        # exists for legacy reasons but Attachment._resolve has historically
+        # never emitted it; preserving that behaviour.
+        return resolve(
+            {
+                "blocks": self.blocks if self.blocks else None,
+                "color": self.color if self.color else None,
+                "fallback": self.fallback if self.fallback else None,
+            }
+        )
 
     def __repr__(self) -> str:
         return dumps(self._resolve(), indent=4)

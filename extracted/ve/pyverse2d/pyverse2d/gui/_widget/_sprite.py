@@ -48,16 +48,22 @@ class Sprite(Widget):
             opacity: Real = 1.0,
             clipping: bool = False
         ):
-        # Image
-        self._image: Image = expect(image, Image)
+        # Transtypage et vérifications
+        flip_x = bool(flip_x)
+        flip_y = bool(flip_y)
+        color = Color(color)
+
+        if __debug__:
+            expect(image, Image)
+
+        # Attributs publiques
+        self._image: Image = image
+        self._flip_x: bool = flip_x
+        self._flip_y: bool = flip_y
+        self._color: Color = color
+
+        # Attributs internes
         self._image_renderer: PygletSpriteRenderer = None
-
-        # Transform
-        self._flip_x: bool = expect(flip_x, bool)
-        self._flip_y: bool = expect(flip_y, bool)
-
-        # Affichage
-        self._color: Color = Color(color)
 
         # Cache du AABB
         self._hitbox_key: tuple = None
@@ -81,7 +87,9 @@ class Sprite(Widget):
     
     @image.setter
     def image(self, value: Image) -> None:
-        self._image = expect(value, Image)
+        if __debug__:
+            expect(value, Image)
+        self._image = value
         self._invalidate_scissor()
 
     @property
@@ -94,7 +102,8 @@ class Sprite(Widget):
     
     @flip_x.setter
     def flip_x(self, value: bool) -> None:
-        self._flip_x = expect(value, bool)
+        value = bool(value)
+        self._flip_x = value
         self._invalidate_scissor()
 
     @property
@@ -107,7 +116,8 @@ class Sprite(Widget):
     
     @flip_y.setter
     def flip_y(self, value: bool) -> None:
-        self._flip_y = expect(value, bool)
+        value = bool(value)
+        self._flip_y = value
         self._invalidate_scissor()
 
     @property
@@ -120,7 +130,8 @@ class Sprite(Widget):
     
     @color.setter
     def color(self, value: Color) -> None:
-        self._color = Color(value)
+        value = Color(value)
+        self._color = value
 
     @property
     def hitbox(self):
@@ -166,11 +177,20 @@ class Sprite(Widget):
 
     # ======================================== LIFE CYCLE ========================================
     def _update(self, dt: float) -> None:
-        """Actualisation"""
+        """Actualisation
+        
+        Args:
+            dt: delta-time
+        """
         ...
 
     def _draw(self, pipeline: Pipeline, context: RenderContext) -> None:
-        """Affichage"""
+        """Affichage
+
+        Args:
+            pipeline: ``Pipeline`` de rendu courant
+            context: contexte de rendu courant
+        """
         # Construction du renderer
         if self._image_renderer is None:
             self._image_renderer = PygletSpriteRenderer(
@@ -204,6 +224,11 @@ class Sprite(Widget):
             self._hitbox_cache = Rect(*key)
     
     def _destroy(self):
-        """Destruction du widget"""
+        """Destruction du widget et se détache du parent"""
         self._image_renderer.delete()
         self._image_renderer = None
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Sprite",
+]

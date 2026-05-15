@@ -15,4 +15,6 @@ class RerankingCreateParams(TypedDict, total=False):
 
     query: Required[str]
 
+    instruction: str
+
     model_request_parameters: ParameterBindingsParam

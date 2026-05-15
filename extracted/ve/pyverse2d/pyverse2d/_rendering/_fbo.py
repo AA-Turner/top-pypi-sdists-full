@@ -63,3 +63,8 @@ class Framebuffer:
     def delete(self) -> None:
         """Libère les ressources GPU"""
         self._fbo.delete()
+
+    # ======================================== EXPORTS ========================================
+__all__ = [
+    "Framebuffer",
+]

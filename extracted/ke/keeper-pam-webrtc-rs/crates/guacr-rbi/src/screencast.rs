@@ -120,9 +120,11 @@ impl ScreencastStats {
             self.frames_dropped += 1;
         }
 
-        if self.frames_received > 0 {
-            self.avg_frame_size_kb = (self.bytes_received / self.frames_received / 1024) as u32;
-        }
+        self.avg_frame_size_kb = self
+            .bytes_received
+            .checked_div(self.frames_received)
+            .map(|v| (v / 1024) as u32)
+            .unwrap_or(0);
     }
 
     pub fn compression_ratio(&self) -> f32 {

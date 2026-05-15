@@ -190,17 +190,22 @@ def process_storage_error(storage_error) -> NoReturn:  # type: ignore [misc] # p
     error.additional_info = additional_data
     # error.args is what's surfaced on the traceback - show error message in all cases
     error.args = (error.message,)
+
     try:
-        # `from None` prevents us from double printing the exception (suppresses generated layer error context)
-        exec("raise error from None")  # pylint: disable=exec-used # nosec
-    except SyntaxError as exc:
-        raise error from exc
+        # `from None` suppresses exception chaining to prevent double printing the exception.
+        raise error from None
+    finally:
+        # Explicitly clears exception references to break circular references
+        # and allow immediate garbage collection.
+        error = None
+        storage_error = None
 
 
 def parse_to_internal_user_delegation_key(service_user_delegation_key):
     internal_user_delegation_key = UserDelegationKey()
     internal_user_delegation_key.signed_oid = service_user_delegation_key.signed_oid
     internal_user_delegation_key.signed_tid = service_user_delegation_key.signed_tid
+    internal_user_delegation_key.signed_delegated_user_tid = service_user_delegation_key.signed_delegated_user_tid
     internal_user_delegation_key.signed_start = _to_utc_datetime(service_user_delegation_key.signed_start)
     internal_user_delegation_key.signed_expiry = _to_utc_datetime(service_user_delegation_key.signed_expiry)
     internal_user_delegation_key.signed_service = service_user_delegation_key.signed_service

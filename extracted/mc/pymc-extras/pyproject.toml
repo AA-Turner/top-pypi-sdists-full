@@ -12,9 +12,9 @@ classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "License :: OSI Approved :: Apache Software License",
   "Intended Audience :: Science/Research",
   "Topic :: Scientific/Engineering",
@@ -22,7 +22,7 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 keywords = [
   "probability",
   "machine learning",
@@ -34,12 +34,11 @@ keywords = [
 license = {file = "LICENSE"}
 dynamic = ["version"]  # specify the version in the __init__.py file
 dependencies = [
-  "pymc>=5.28.1",
-  "pytensor>=2.38.1",
-  "scikit-learn",
-  "better-optimize>=0.1.5",
+  "pymc>=6.0,<7.0",
+  "arviz>=1.1",
+  "better-optimize>=0.4.1,<1.0",
   "pydantic>=2.0.0",
-  "preliz>=0.20.0",
+  "preliz>=0.25.0",
 ]
 
 [project.optional-dependencies]
@@ -104,7 +103,10 @@ filterwarnings =[
     'ignore:os\.fork\(\) was called\.:RuntimeWarning',
 
     # Preliz needs to update for pytensor > 2.35
-    'ignore:.*`pytensor\.graph\.basic\.ancestors`.*`pytensor\.graph\.traversal\.ancestors`.*:FutureWarning:^preliz(\.|$)',
+    'ignore:.*`pytensor\.graph\.basic\.ancestors`.*`pytensor\.graph\.traversal\.ancestors`.*:FutureWarning:^preliz(\.$)',
+
+    # Preliz triggers pytensor broadcastable deprecation internally
+    'ignore:The `broadcastable` keyword is deprecated:DeprecationWarning:pytensor',
 
     # OpenMP library warning on windows CI
     'ignore::RuntimeWarning:threadpoolctl',
@@ -129,7 +131,7 @@ exclude_lines = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.format]
 docstring-code-format = true

@@ -594,6 +594,13 @@ class LoggerSetup:
             log_file_path=log_file_path,
             filter=None,
         )
+        debug_config_path = os.path.join(Archiver.get_user_data_dir(), "debug_config.ini")
+        if os.path.exists(debug_config_path) and os.path.isfile(debug_config_path):
+            manager = DebugConfigManager()
+            config = manager.load_from_file(debug_config_path)
+            default_logger().debug(f"Loaded debug config from:{debug_config_path}")
+        else:
+            default_logger().debug(f"No debug config file found. Place one at:{debug_config_path}")
 
 
 
@@ -1299,10 +1306,6 @@ def pkscreenercli():
             pass
     
     try:
-        debug_config_path = os.path.join(Archiver.get_user_data_dir(), "debug_config.ini")
-        if os.path.exists(debug_config_path) and os.path.isfile(debug_config_path):
-            manager = DebugConfigManager()
-            config = manager.load_from_file(debug_config_path)
         _remove_old_instances()
         OutputControls(
             enableMultipleLineOutput=(args is None or args.monitor is None or args.runintradayanalysis),

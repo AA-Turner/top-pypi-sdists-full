@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 
 from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from ..._utils import maybe_transform
+from ..._utils import path_template, maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -85,7 +85,7 @@ class ChunksResource(SyncAPIResource):
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
         return self._get_api_list(
-            f"/v4/knowledge-bases/{knowledge_base_id}/chunks",
+            path_template("/v4/knowledge-bases/{knowledge_base_id}/chunks", knowledge_base_id=knowledge_base_id),
             page=SyncChunkPagination[Chunk],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -168,7 +168,7 @@ class AsyncChunksResource(AsyncAPIResource):
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
         return self._get_api_list(
-            f"/v4/knowledge-bases/{knowledge_base_id}/chunks",
+            path_template("/v4/knowledge-bases/{knowledge_base_id}/chunks", knowledge_base_id=knowledge_base_id),
             page=AsyncChunkPagination[Chunk],
             options=make_request_options(
                 extra_headers=extra_headers,

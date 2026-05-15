@@ -12,24 +12,29 @@ from numbers import Real
 
 # ======================================== OBJET ========================================
 class Line(MathObject):
-    """Objet mathématique 2D abstrait : Droite"""
+    """Objet mathématique 2D abstrait : Droite
+    
+    Args:
+        point: origine de la droite
+        vector: vecteur directionnel de la droite
+    """
     __slots__ = ("_origin", "_vector")
+
     def __init__(
             self,
             point: Point,
             vector: Vector
         ):
-        """
-        Args:
-            point(Point): origine de la droite
-            vector(Vector): Vecteur directeur de la droite
-        """
-        super().__init__()
-        self._origin: Point = Point(point)
-        self._vector: Vector = Vector(vector)
-        
-        if not self._vector:
-            raise ValueError("Null vector cannot be direction vector")
+        # Transtypage
+        point = Point(point)
+        vector = Vector(vector)
+
+        if __debug__:
+            if not vector: raise ValueError("Null vector cannot be direction vector")
+
+        # Attributs publiques
+        self._origin: Point = point
+        self._vector: Vector = vector
 
     # ======================================== CONVERSIONS ========================================
     def __repr__(self) -> str:
@@ -139,57 +144,51 @@ class Line(MathObject):
     
     # ======================================== PREDICATES ========================================
     def contains(self, point: Point) -> bool:
-        """
-        Vérifie qu'un point soit compris dans la droite
+        """Vérifie qu'un point soit compris dans la droite
 
         Args:
-            point(Point): point à vérifier
+            point: point à vérifier
         """
         return self._contains(Point(point))
     
     def is_orthogonal(self, line: Line) -> bool:
-        """
-        Vérifie l'orthogonalité avec une seconde droite
+        """Vérifie l'orthogonalité avec une seconde droite
 
         Args:
-            line(Line): droite à vérifier
+            line: droite à vérifier
         """
         return self._is_orthogonal(expect(line, Line))
     
     def is_parallel(self, line: Line) -> bool:
-        """
-        Vérifie que la droite soit parallèle à une autre droite
+        """Vérifie que la droite soit parallèle à une autre droite
 
         Args:
-            line(Line): droite à vérifier
+            line: droite à vérifier
         """
         return self._is_parallel(expect(line, Line))
     
     def is_secant(self, line: Line) -> bool:
-        """
-        Vérifie que la droite soit sécant à une autre droite
+        """Vérifie que la droite soit sécant à une autre droite
         
         Args:
-            line(Line): droite à vérifier
+            line: droite à vérifier
         """
         return self._is_secant(expect(line, Line))
     
     # ======================================== COLLISIONS ========================================
     def collidepoint(self, point: Point) -> bool:
-        """
-        Vérifie la collision avec un point
+        """Vérifie la collision avec un point
 
         Args:
-            point(Point): point à vérifier
+            point: point à vérifier
         """
         return self._collidepoint(Point(point))
     
     def collideline(self, line: Line) -> bool:
-        """
-        Vérifie la collision avec une droite
+        """Vérifie la collision avec une droite
 
         Args:
-            line(Line): droite à vérifier
+            line: droite à vérifier
         """
         return self._collideline(expect(line, Line))
     
@@ -199,56 +198,50 @@ class Line(MathObject):
         return Line(self._origin, self._vector)
     
     def translate(self, vector: Vector) -> Line:
-        """
-        Renvoie l'image de la droite par la translation du vecteur donné
+        """Renvoie l'image de la droite par la translation du vecteur donné
 
         Args:
-            vector(Vector): vecteur de translation
+            vector: vecteur de translation
         """
         return self._translate(Vector(vector))
     
     def point(self, t: Real) -> Point:
-        """
-        Renvoie le point de paramètre t
+        """Renvoie le point de paramètre t
 
         Args:
-            t(Real): paramètre de la droite
+            t: paramètre de la droite
         """
         return self._point(expect(t, Real))
     
     def project(self, point: Point) -> Point:
-        """
-        Renvoie le projeté orthogonal d'un point sur la droite
+        """Renvoie le projeté orthogonal d'un point sur la droite
 
         Args:
-            point(Point): point à projeter
+            point: point à projeter
         """
         return self._project(Point(point))
     
     def distance(self, point: Point) -> float:
-        """
-        Renvoie la distance d'un point à la droite
+        """Renvoie la distance d'un point à la droite
 
         Args:
-            point(Point): point à vérifier
+            point: point à vérifier
         """
         return self._distance(Point(point))
     
     def intersection(self, line: Line) -> None | Point | Line:
-        """
-        Renvoie le(s) point(s) d'intersection avec une autre droite
+        """Renvoie le(s) point(s) d'intersection avec une autre droite
 
         Args:
-            line(Line): seconde droite
+            line: seconde droite
         """
         return self._intersection(expect(line, Line))
     
     def symmetric(self, point: Point) -> Point:
-        """
-        Renvoie le symétrique d'un point par rapport à la droite
+        """Renvoie le symétrique d'un point par rapport à la droite
 
         Args:
-            point(Point): point original
+            point: point original
         """
         return self._symmetric(Point(point))
 
@@ -306,3 +299,8 @@ class Line(MathObject):
         """Symétrique d'un point par rapport à la droite"""
         H = self._project(point)
         return H + (H - point)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Line",
+]

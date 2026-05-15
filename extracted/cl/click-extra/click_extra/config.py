@@ -45,6 +45,7 @@ flat dot-notation and nested structures in any supported format.
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import os
@@ -52,7 +53,7 @@ import sys
 from collections import ChainMap
 from collections.abc import Iterable, Mapping
 from configparser import ConfigParser, ExtendedInterpolation
-from dataclasses import MISSING, fields as dc_fields, is_dataclass
+from dataclasses import MISSING, dataclass, fields as dc_fields, is_dataclass
 from enum import Enum
 from functools import cached_property, partial
 from gettext import gettext as _
@@ -274,6 +275,121 @@ _RESERVED_CONFIG_KEYS = frozenset({DEFAULT_SUBCOMMANDS_KEY, PREPEND_SUBCOMMANDS_
 """Configuration keys with special meaning that should not be treated as parameters."""
 
 
+EXTENSION_METADATA_KEY = "click_extra.extension"
+"""Dataclass field metadata flag marking a field as an *extension point*.
+
+Schema authors set ``metadata={EXTENSION_METADATA_KEY: True}`` on a field when
+its sub-tree should pass through click-extra's CLI-parameter strict check and
+be validated by app-specific logic instead. Equivalent to typing the field as
+``dict[str, X]``: both forms are recognized by
+:py:func:`_collect_opaque_paths_from_schema` (the internal pipeline still calls
+these paths "opaque" since they're skipped by the normalize/flatten/strict
+machinery). The metadata form is useful when the underlying Python type is
+something other than a ``dict`` (for example, a nested dataclass that
+nonetheless represents user-extensible content)."""
+
+
+THEMES_CONFIG_KEY: str = "themes"
+"""Sub-key under ``[tool.<cli>]`` where user-defined themes live in config.
+
+Used by :class:`ConfigOption` to find ``[tool.<cli>.themes.<name>]`` tables,
+build them via :meth:`HelpExtraTheme.from_dict
+<click_extra.theme.HelpExtraTheme.from_dict>`, and stash the result on
+``ctx.meta[click_extra.context.THEME_OVERRIDES]``. The constant is the
+single source of truth shared by :func:`_builtin_config_validators`,
+:meth:`ConfigOption._apply_theme_overrides`, and
+:func:`click_extra.theme.themes_from_config`.
+"""
+
+
+class ValidationError(Exception):
+    """Raised when a configuration file fails validation.
+
+    A single, structured exception type that uniformly carries the dotted
+    ``path`` of the offending key, a human-readable ``message``, and an optional
+    ``code`` for programmatic handling. Used by click-extra's built-in
+    strict-mode check and by every user-registered :class:`ConfigValidator`, so
+    downstream apps and ``--validate-config`` see the same error shape regardless
+    of who detected the problem.
+
+    :param path: Dotted path to the offending key, relative to the configuration
+        file root (e.g. ``"my-cli.managers.winget.cli_searchpath"``). An empty
+        string means the error applies to the document as a whole.
+    :param message: Human-readable description of the failure. Should be a
+        single sentence, no trailing punctuation, no path repeated.
+    :param code: Optional machine-readable error code (e.g. ``"unknown_field"``)
+        for callers that want to dispatch on error type without parsing the
+        message string.
+    """
+
+    def __init__(
+        self,
+        path: str,
+        message: str,
+        code: str | None = None,
+    ) -> None:
+        super().__init__(f"{path}: {message}" if path else message)
+        self.path = path
+        self.message = message
+        self.code = code
+
+
+@dataclass(frozen=True)
+class ConfigValidator:
+    """Register an app-defined *extension* validator for one sub-tree of the
+    configuration file.
+
+    Apps register validators via the ``config_validators=`` kwarg on
+    :class:`ConfigOption` (or the matching decorator) to extend click-extra's
+    built-in CLI-parameter strict check with custom validation logic. Each
+    validator targets a single dotted ``extension_path`` relative to the app's
+    configuration section. Click-extra passes the matching sub-tree straight
+    through to the registered validator: the strict check skips it, the schema
+    machinery treats it as opaque, and the user's logic owns the result. The
+    validator runs both during ``--validate-config`` and during normal config
+    loading.
+
+    :param extension_path: Dotted path of the sub-tree the validator owns,
+        relative to the app's section in the configuration file. For example, an
+        app named ``my-cli`` with ``extension_path="managers"`` receives the
+        contents of the ``[my-cli.managers]`` table.
+    :param validator: Callable taking the sub-tree dict and raising
+        :class:`ValidationError` on failure. Must be a pure function: no side
+        effects on the click context, no print statements. The caller decides
+        how to surface the error.
+    :param description: Optional human-readable summary of what the validator
+        checks. Surfaces in documentation generators that introspect the
+        decorator (e.g. autodoc), and may be reused in ``--help`` text in a
+        future release.
+    """
+
+    extension_path: str
+    validator: Callable[[dict[str, Any]], None]
+    description: str = ""
+
+
+def _builtin_config_validators() -> tuple[ConfigValidator, ...]:
+    """Return the validators click-extra registers on every :class:`ConfigOption`.
+
+    Currently a single validator for ``[tool.<cli>.themes.<name>]`` tables.
+    Lazy-imports :func:`~click_extra.theme.validate_themes_config` to avoid
+    a load-time cycle: :mod:`click_extra.theme` is imported after
+    :mod:`click_extra.config` from the package ``__init__``.
+    """
+    from .theme import validate_themes_config
+
+    return (
+        ConfigValidator(
+            extension_path=THEMES_CONFIG_KEY,
+            validator=validate_themes_config,
+            description=(
+                "Validate user-defined and override themes declared under "
+                "[tool.<cli>.themes.<name>]."
+            ),
+        ),
+    )
+
+
 def _strip_reserved_keys(conf: dict, keys: frozenset[str] | None = None) -> dict:
     """Recursively return a copy of *conf* with reserved keys removed at every level."""
     if keys is None:
@@ -468,7 +584,7 @@ def get_tool_config(ctx: click.Context | None = None) -> Any:
     """
     if ctx is None:
         ctx = get_current_context()
-    return ctx.find_root().meta.get(context.TOOL_CONFIG)
+    return context.get(ctx, context.TOOL_CONFIG)
 
 
 def _safe_get_type_hints(cls: type) -> dict[str, Any]:
@@ -522,6 +638,81 @@ def _is_mapping_type(hint: object) -> bool:
         return False
     origin = get_origin(hint)
     return origin is dict or origin is Mapping
+
+
+def _collect_opaque_paths_from_schema(
+    schema: type | Callable[[dict[str, Any]], Any] | None,
+    _prefix: str = "",
+) -> frozenset[str]:
+    """Collect dotted paths of *extension* fields from a dataclass schema.
+
+    Walks the schema recursively. A field qualifies as an extension point (and
+    is therefore treated as opaque by the rest of the pipeline) when **any** of
+    the following is true:
+
+    - The field's type hint is ``dict[str, X]`` or ``Mapping[str, X]`` (user
+      controls the keys, not the schema).
+    - The field carries ``metadata={EXTENSION_METADATA_KEY: True}`` (explicit
+      marker, useful when the underlying Python type is something other than a
+      mapping).
+
+    The helper name retains the historical ``opaque`` term because callers
+    inside :py:mod:`click_extra.config` use the result to bypass the
+    normalize/flatten/strict machinery — that pipeline's vocabulary is "opaque
+    paths." From a public API point of view those are the *extension paths*,
+    but inside this module the two names refer to the same set.
+
+    Nested dataclass fields are not themselves opaque: the function recurses
+    into them, prepending the field name to every collected sub-path.
+
+    The returned set contains dotted paths **relative to the schema root**, not
+    the configuration file root. The caller is responsible for prefixing them
+    with the app section name (or any other root) before stripping or
+    extracting sub-trees from a raw config dict.
+
+    Returns an empty set when ``schema`` is ``None`` or not a dataclass, so
+    callers can pass any of the values accepted by ``config_schema``.
+    """
+    if schema is None or not is_dataclass(schema):
+        return frozenset()
+
+    hints = _safe_get_type_hints(schema)
+    paths: set[str] = set()
+    for f in dc_fields(schema):
+        full_path = f"{_prefix}.{f.name}" if _prefix else f.name
+        hint = hints.get(f.name)
+        marked = bool(f.metadata.get(EXTENSION_METADATA_KEY, False))
+        if marked or _is_mapping_type(hint):
+            paths.add(full_path)
+        elif is_dataclass(hint) and isinstance(hint, type):
+            paths |= _collect_opaque_paths_from_schema(hint, _prefix=full_path)
+    return frozenset(paths)
+
+
+def _strip_opaque_subtrees(
+    conf: dict[str, Any],
+    opaque_paths: Iterable[str],
+) -> dict[str, Any]:
+    """Return a shallow-copied *conf* with every opaque sub-tree removed.
+
+    Each path in ``opaque_paths`` is a dotted location relative to ``conf``'s
+    root (callers prepend the app section name when needed). Paths that don't
+    resolve to anything are silently skipped: a schema may declare an opaque
+    field that the user never sets, and that's not an error. The empty path
+    is treated as a no-op for the same reason.
+
+    Use to drop user-controlled sub-trees from a normalized configuration
+    document before running click-extra's CLI-parameter strict check. The
+    sub-trees themselves are not returned: when callers need both the stripped
+    document and the extracted sub-trees, they can read them out of the
+    original ``conf`` with :py:func:`_extract_dotted` before calling this
+    helper.
+    """
+    result = dict(conf)
+    for path in opaque_paths:
+        if path:
+            result = _remove_dotted(result, path)
+    return result
 
 
 def _extract_dotted(conf: dict[str, Any], path: str) -> tuple[Any, bool]:
@@ -775,6 +966,7 @@ class ConfigOption(ExtraOption, ParamStructure):
         config_schema: type | Callable[[dict[str, Any]], Any] | None = None,
         schema_strict: bool = False,
         fallback_sections: Sequence[str] = (),
+        config_validators: Sequence[ConfigValidator] = (),
         **kwargs,
     ) -> None:
         """Takes as input a path to a file or folder, a glob pattern, or an URL.
@@ -993,6 +1185,46 @@ class ConfigOption(ExtraOption, ParamStructure):
             config_schema,
             strict=schema_strict,
         )
+
+        self.config_validators: tuple[ConfigValidator, ...] = (
+            _builtin_config_validators() + tuple(config_validators)
+        )
+        """Extension validators for sub-trees of the configuration file.
+
+        Each :class:`ConfigValidator` targets a dotted ``extension_path`` relative
+        to the app section. Validators run after click-extra's built-in
+        CLI-parameter strict check (during ``--validate-config``) and after the
+        schema callable produces the typed configuration object (during normal
+        config loading).
+
+        The list is seeded with click-extra's built-in validators (currently the
+        one for ``[tool.<cli>.themes.<name>]`` tables, see
+        :func:`click_extra.theme.validate_themes_config`); user-supplied
+        validators are appended after them. App code that registers its own
+        validator on the same ``extension_path`` simply runs alongside the
+        built-in: both validators are called, both sets of errors surface.
+        """
+
+        # Pre-compute the unified opaque-path set: every dotted path that
+        # click-extra must skip during its CLI-parameter strict check. From the
+        # public API point of view these are *extension paths*; inside the
+        # config pipeline they're "opaque" because the strict/normalize/flatten
+        # helpers stop descending into them. Sources are merged so apps can
+        # declare an extension point through either:
+        #   - a schema field typed dict[str, X] / marked with EXTENSION_METADATA_KEY,
+        #   - a ConfigValidator(extension_path=...) registration,
+        #   - or both (idempotent).
+        schema_paths = _collect_opaque_paths_from_schema(config_schema)
+        validator_paths = frozenset(v.extension_path for v in self.config_validators)
+        self._opaque_paths: frozenset[str] = schema_paths | validator_paths
+        """Dotted paths, relative to the app section, that strict CLI-parameter
+        validation must skip.
+
+        Union of schema-inferred extension fields and explicit
+        :class:`ConfigValidator` registrations. Used by
+        :py:meth:`merge_default_map` and
+        :py:meth:`ValidateConfigOption.validate_config`.
+        """
 
         kwargs.setdefault("callback", self.load_conf)
 
@@ -1425,8 +1657,14 @@ class ConfigOption(ExtraOption, ParamStructure):
         """Search for ``pyproject.toml`` from CWD upward to the VCS root.
 
         Mimics the discovery behavior of uv, ruff, and mypy: start in the
-        current working directory and walk up until a ``pyproject.toml`` is
-        found or the VCS root (or filesystem root) is reached.
+        current working directory and walk up until a ``pyproject.toml``
+        containing a ``[tool.<cli_name>]`` section is found, or the VCS root
+        (or filesystem root) is reached.
+
+        A ``pyproject.toml`` without a ``[tool.<cli_name>]`` section is
+        skipped so unrelated project configs (e.g. a dotfiles repo's
+        ``[tool.ruff]``) do not shadow the user's app-dir config; the
+        caller falls back to the standard app-dir search instead.
 
         Only runs when ``ConfigFormat.PYPROJECT_TOML`` is in
         ``file_format_patterns``.  Returns ``(path, parsed_tool_section)`` on
@@ -1435,6 +1673,8 @@ class ConfigOption(ExtraOption, ParamStructure):
         logger = logging.getLogger("click_extra")
         cwd = Path.cwd()
         stop_at = self._resolve_stop_at(cwd)
+
+        cli_name = get_current_context().find_root().info_name
 
         for directory in (cwd, *cwd.parents):
             if self._should_stop_walking(directory, stop_at):
@@ -1455,9 +1695,12 @@ class ConfigOption(ExtraOption, ParamStructure):
             for conf in self.parse_conf(
                 content, formats=(ConfigFormat.PYPROJECT_TOML,)
             ):
-                if conf:
+                if conf and cli_name in conf:
                     return candidate, conf
-            logger.debug(f"{candidate} parsed but empty [tool] section.")
+            logger.debug(
+                f"{candidate} has no [tool.{cli_name}] section; "
+                "falling back to app-dir search."
+            )
 
         return None, None
 
@@ -1603,6 +1846,50 @@ class ConfigOption(ExtraOption, ParamStructure):
 
         return conf
 
+    def _app_section_name(self, ctx: click.Context) -> str:
+        """Return the app section name used for both schema processing and opaque
+        path resolution.
+
+        Matches the name resolution logic in :py:meth:`_apply_config_schema`:
+        prefers the root command's name, falls back to ``ctx.info_name``, and
+        defaults to empty string for fully-defensive callers.
+        """
+        return ctx.find_root().command.name or ctx.info_name or ""
+
+    def _app_section(
+        self,
+        ctx: click.Context,
+        user_conf: dict[str, Any],
+    ) -> tuple[str, dict[str, Any]]:
+        """Return ``(app_name, app_section)`` for the current context.
+
+        Convenience pair that bundles :py:meth:`_app_section_name` and
+        :py:meth:`_resolve_app_section`. Used by every callback that operates
+        on the app's slice of the parsed config (schema processing, validator
+        dispatch, theme-override extraction).
+        """
+        app_name = self._app_section_name(ctx)
+        return app_name, self._resolve_app_section(user_conf, app_name)
+
+    def _strip_opaque_from_conf(
+        self,
+        ctx: click.Context,
+        normalized_conf: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Remove opaque sub-trees from a normalized config before strict-check.
+
+        Opaque paths are relative to the app's section, so they are prefixed with
+        the app name when stripping. Returns ``normalized_conf`` unchanged if no
+        opaque paths are declared, so the helper is safe to call unconditionally.
+        """
+        if not self._opaque_paths:
+            return normalized_conf
+        app_name = self._app_section_name(ctx)
+        prefixed_paths = (
+            f"{app_name}.{path}" if app_name else path for path in self._opaque_paths
+        )
+        return _strip_opaque_subtrees(normalized_conf, prefixed_paths)
+
     def _resolve_app_section(
         self,
         conf: dict[str, Any],
@@ -1649,11 +1936,89 @@ class ConfigOption(ExtraOption, ParamStructure):
         """
         if self._config_schema_callable is None:
             return
-        app_name = ctx.find_root().command.name or ctx.info_name or ""
-        app_section = self._resolve_app_section(user_conf, app_name)
-        ctx.meta[context.TOOL_CONFIG] = self._config_schema_callable(
-            app_section,
-        )
+        _, app_section = self._app_section(ctx, user_conf)
+        context.set(ctx, context.TOOL_CONFIG, self._config_schema_callable(app_section))
+
+    def _apply_theme_overrides(
+        self,
+        ctx: click.Context,
+        user_conf: dict[str, Any],
+    ) -> None:
+        """Build per-invocation theme overrides from the config and stash on ``ctx.meta``.
+
+        Reads the ``[tool.<cli>.themes.<name>]`` sub-tree, builds each entry into
+        a :class:`HelpExtraTheme <click_extra.theme.HelpExtraTheme>` (cascading
+        on top of an existing built-in theme when *name* matches one already in
+        :data:`~click_extra.theme.theme_registry`), and writes the result to
+        ``ctx.meta[click_extra.context.THEME_OVERRIDES]``. The module-level
+        registry is never mutated, so themes defined here apply to the current
+        invocation only.
+
+        Validation already happened via the built-in
+        :func:`~click_extra.theme.validate_themes_config` validator, so failures
+        below this point would be a click-extra bug rather than user error.
+        """
+        from .theme import themes_from_config
+
+        _, app_section = self._app_section(ctx, user_conf)
+        themes_subtree = app_section.get(THEMES_CONFIG_KEY)
+        if not isinstance(themes_subtree, dict) or not themes_subtree:
+            return
+        overrides = themes_from_config(themes_subtree)
+        if overrides:
+            context.set(ctx, context.THEME_OVERRIDES, overrides)
+
+    def _iter_validator_errors(
+        self,
+        ctx: click.Context,
+        user_conf: dict[str, Any],
+    ) -> Iterable[ValidationError]:
+        """Run every registered :class:`ConfigValidator` against its extension
+        sub-tree and yield each :class:`ValidationError` they raise.
+
+        Validators receive the value of the sub-tree at their declared
+        ``extension_path``, relative to the app section. Missing sub-trees and
+        non-dict sub-trees are skipped without invoking the validator: an
+        absent or malformed extension table is a click-extra concern, and the
+        validator should only be asked to inspect well-formed input.
+
+        Generator interface so callers can pick their error-handling strategy
+        (raise the first, collect all, log and continue).
+        """
+        if not self.config_validators:
+            return
+        app_name, app_section = self._app_section(ctx, user_conf)
+        for cv in self.config_validators:
+            subtree, found = _extract_dotted(app_section, cv.extension_path)
+            if not found or not isinstance(subtree, dict):
+                continue
+            try:
+                cv.validator(subtree)
+            except ValidationError as exc:
+                # Re-anchor the path to the configuration file root for
+                # uniform error reporting across click-extra's own checks
+                # and user-registered validators.
+                prefix = (
+                    f"{app_name}.{cv.extension_path}" if app_name else cv.extension_path
+                )
+                rooted_path = f"{prefix}.{exc.path}" if exc.path else prefix
+                yield ValidationError(rooted_path, exc.message, exc.code)
+
+    def _run_validators(
+        self,
+        ctx: click.Context,
+        user_conf: dict[str, Any],
+    ) -> None:
+        """Run every registered :class:`ConfigValidator` and raise on the first
+        failure.
+
+        Called during normal config loading so a misconfigured opaque sub-tree
+        fails fast and with the same precision as ``--validate-config``.
+        ``--validate-config`` itself uses :py:meth:`_iter_validator_errors`
+        directly so it can collect and report every error before exiting.
+        """
+        for error in self._iter_validator_errors(ctx, user_conf):
+            raise error
 
     def merge_default_map(self, ctx: click.Context, user_conf: dict) -> None:
         """Save the user configuration into the context's ``default_map``.
@@ -1665,12 +2030,18 @@ class ConfigOption(ExtraOption, ParamStructure):
         Uses a `~collections.ChainMap` so each config source keeps its own layer.
         The first layer wins on key lookup, which makes parameter-source precedence
         explicit and future-proofs for multi-file config loading.
+
+        Opaque sub-trees declared by the schema or by registered
+        :class:`ConfigValidator` instances are stripped from the conf before the
+        CLI-parameter strict check, so user-controlled keys (e.g. mappings whose
+        keys are data, not flag names) don't trip ``strict=True``.
         """
         normalized_conf = _expand_dotted_keys(
             _strip_reserved_keys(user_conf), strict=self.strict
         )
+        normalized_conf = self._strip_opaque_from_conf(ctx, normalized_conf)
         filtered_conf = _recursive_update(
-            self.params_template, normalized_conf, self.strict
+            copy.deepcopy(self.params_template), normalized_conf, self.strict
         )
 
         # Clean-up the conf by removing all blank values left-over by the template
@@ -1712,6 +2083,11 @@ class ConfigOption(ExtraOption, ParamStructure):
             config values end up in ``default_map``, so Click already reports them as
             ``ParameterSource.DEFAULT_MAP``, which is accurate.
         """
+        # Skip file I/O and ctx.meta writes during help rendering, shell
+        # completion, and any ``make_context(resilient_parsing=True)`` path.
+        if ctx.resilient_parsing:
+            return
+
         logger = logging.getLogger("click_extra")
 
         # In this function we would like to inform the user of what we're doing.
@@ -1804,6 +2180,19 @@ class ConfigOption(ExtraOption, ParamStructure):
             self.merge_default_map(ctx, user_conf)
             logger.debug(f"New defaults: {ctx.default_map}")
             self._apply_config_schema(ctx, user_conf)
+            try:
+                self._run_validators(ctx, user_conf)
+            except ValidationError as exc:
+                # Surface the validator's error as a clean click message
+                # rather than letting the exception bubble up as a traceback.
+                # Exit code 1 matches ``--validate-config`` for the same
+                # failure mode.
+                logger.critical(f"Configuration validation error: {exc}")
+                ctx.exit(1)
+            # Apply theme overrides after validators succeed so a malformed
+            # [tool.<cli>.themes.<name>] table reaches the user via
+            # ValidationError instead of a deep TypeError from from_dict.
+            self._apply_theme_overrides(ctx, user_conf)
 
         # When a schema is configured but no config file was found, still
         # produce the default instance so get_tool_config() never returns None.
@@ -1815,8 +2204,8 @@ class ConfigOption(ExtraOption, ParamStructure):
         # ctx.meta, so downstream CLI code can inspect what was loaded and from where.
         # See the load_conf docstring for why we use ctx.meta instead of a custom
         # ParameterSource enum member.
-        ctx.meta[context.CONF_SOURCE] = conf_path
-        ctx.meta[context.CONF_FULL] = user_conf
+        context.set(ctx, context.CONF_SOURCE, conf_path)
+        context.set(ctx, context.CONF_FULL, user_conf)
 
 
 class NoConfigOption(ExtraOption):
@@ -1920,7 +2309,22 @@ class ValidateConfigOption(ExtraOption):
         param: click.Parameter,
         value: str | None,
     ) -> None:
-        """Load, parse, and validate the configuration file, then exit."""
+        """Load, parse, and validate the configuration file, then exit.
+
+        Validation runs three checks in order, every one of them under the same
+        :class:`ValidationError` shape so the reported path is always rooted at
+        the configuration file:
+
+        1. CLI-parameter strict check on the non-opaque part of the document.
+        2. Schema processing, if a ``config_schema`` is configured: catches
+           type errors and unknown keys inside the dataclass-described section.
+        3. Each registered :class:`ConfigValidator` runs against its declared
+           opaque sub-tree.
+
+        Every detected error is emitted before exiting, so a single
+        ``--validate-config`` run surfaces the full list of fixes the user
+        needs to apply.
+        """
         if not value:
             return
 
@@ -1949,16 +2353,39 @@ class ValidateConfigOption(ExtraOption):
             )
             ctx.exit(2)
 
-        # Validate in strict mode — _recursive_update raises ValueError
-        # on unrecognized keys.
+        errors: list[str] = []
+
+        # 1. CLI-parameter strict check, with opaque sub-trees stripped so
+        # user-controlled tables (e.g. dict[str, X] fields) don't trip the
+        # unknown-key detector.
+        normalized = _expand_dotted_keys(_strip_reserved_keys(user_conf), strict=True)
+        normalized = config_option._strip_opaque_from_conf(ctx, normalized)
         try:
             _recursive_update(
-                config_option.params_template,
-                _expand_dotted_keys(_strip_reserved_keys(user_conf), strict=True),
+                copy.deepcopy(config_option.params_template),
+                normalized,
                 strict=True,
             )
         except ValueError as exc:
-            info_msg(f"Configuration validation error: {exc}")
+            errors.append(str(exc))
+
+        # 2. Schema processing: forwards type errors and (when schema_strict)
+        # unknown-key errors raised by the dataclass adapter.
+        if config_option._config_schema_callable is not None:
+            try:
+                config_option._apply_config_schema(ctx, user_conf)
+            except (ValueError, TypeError) as exc:
+                errors.append(str(exc))
+
+        # 3. App-registered validators against opaque sub-trees.
+        errors.extend(
+            str(verror)
+            for verror in config_option._iter_validator_errors(ctx, user_conf)
+        )
+
+        if errors:
+            for err in errors:
+                info_msg(f"Configuration validation error: {err}")
             ctx.exit(1)
 
         info_msg(f"Configuration file {value} is valid.")

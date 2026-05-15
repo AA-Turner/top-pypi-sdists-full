@@ -435,6 +435,13 @@ def _target_name(value: Any) -> str:
     return name
 
 
+def _page_target_name(value: Any) -> str:
+    route = getattr(value, "route", None)
+    if isinstance(route, str) and route:
+        return route
+    return _target_name(value)
+
+
 def _action_target(
     prompt: Any | None, workflow: Any | None, page: Any | None
 ) -> tuple[str, str] | None:
@@ -448,7 +455,7 @@ def _action_target(
     if not targets:
         return None
     key, value = targets[0]
-    return key, _target_name(value)
+    return key, _page_target_name(value) if key == "page" else _target_name(value)
 
 
 class Image(_Widget):

@@ -1,3 +1,4 @@
+from collections import Counter
 import random
 import logging
 import torch
@@ -72,6 +73,7 @@ class DataLoader:
         self.shuffled = not self.eval
         self.sort_during_eval = sort_during_eval
         self.doc = doc
+        self.reversed = args.get('reversed', False)
         data = self.load_doc(doc)
 
         # handle vocab
@@ -193,7 +195,19 @@ class DataLoader:
         data = doc.get([TEXT, UPOS, XPOS, FEATS, LEMMA, HEAD, DEPREL], as_sentences=True)
         data = self.resolve_none(data)
         data = simplify_punct(data)
+        if self.reversed:
+            data = self.reverse_sentences(data)
         return data
+
+    def reverse_sentences(self, data):
+        new_data = []
+        for sentence in data:
+            sentence = sentence[::-1]
+            for word in sentence:
+                if word[5] != 0 and word[5] != '_':
+                    word[5] = len(sentence) + 1 - word[5]
+            new_data.append(sentence)
+        return new_data
 
     def resolve_none(self, data):
         # replace None to '_'
@@ -233,4 +247,38 @@ def to_int(string, ignore_error=False):
         else:
             raise err
     return res
+
+class InfiniteBatch:
+    def __init__(self, *batches, weights=None):
+        self.batches = batches
+        self.iterators = [iter(batch) for batch in self.batches]
+        if weights is None:
+            self.weights = [1.0 for _ in batches]
+        else:
+            assert len(weights) == len(batches), "Got a weights parameter of a different length from the batches parameter"
+            self.weights = weights
+
+        self.counts = Counter()
+
+    def next_batch(self):
+        if len(self.batches) == 1:
+            batch_idx = 0
+        else:
+            batch_idx = random.choices(range(len(self.batches)), self.weights)[0]
+        self.counts[batch_idx] += 1
+        batch = next(self.iterators[batch_idx], None)
+        if batch is None:
+            self.batches[batch_idx].reshuffle()
+            self.iterators[batch_idx] = iter(self.batches[batch_idx])
+            batch = next(self.iterators[batch_idx])
+        return batch
+
+    def set_batch_size(self, batch_size):
+        for batch in self.batches:
+            batch.set_batch_size(batch_size)
+
+    def reshuffle(self):
+        for batch in self.batches:
+            batch.reshuffle()
+        self.iterators = [iter(batch) for batch in self.batches]
 

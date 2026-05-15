@@ -10,7 +10,7 @@ from .. import errors
 
 class MandateImportsService(base_service.BaseService):
     """Service class that provides access to the mandate_imports
-    endpoints of the GoCardless Pro API.
+    endpoints of the GoCardless API.
     """
 
     RESOURCE_CLASS = resources.MandateImport
@@ -103,7 +103,7 @@ class MandateImportsService(base_service.BaseService):
           })
         
         if params is not None:
-            params = {'data': params}
+            params = {self._envelope_key(): params}
         response = self._perform_request('POST', path, params, headers,
                                          retry_failures=False)
         return self._resource_for(response)
@@ -133,7 +133,7 @@ class MandateImportsService(base_service.BaseService):
           })
         
         if params is not None:
-            params = {'data': params}
+            params = {self._envelope_key(): params}
         response = self._perform_request('POST', path, params, headers,
                                          retry_failures=False)
         return self._resource_for(response)

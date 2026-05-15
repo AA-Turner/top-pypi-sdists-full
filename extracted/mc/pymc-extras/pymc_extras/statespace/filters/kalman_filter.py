@@ -18,6 +18,7 @@ from pymc_extras.statespace.filters.utilities import (
 from pymc_extras.statespace.utils.constants import (
     FILTER_OUTPUT_NAMES,
     JITTER_DEFAULT,
+    LONG_NAME_TO_SHORT,
     MATRIX_NAMES,
     MISSING_FILL,
 )
@@ -150,6 +151,7 @@ class BaseFilter(ABC):
         Q,
         missing_fill_value=None,
         cov_jitter=None,
+        time_varying_names=(),
     ) -> list[TensorVariable]:
         """
         Construct the computation graph for the Kalman filter. See [1] for details.
@@ -200,8 +202,11 @@ class BaseFilter(ABC):
 
         data, a0, P0, *params = self.check_params(data, a0, P0, c, d, T, Z, R, H, Q)
         data = pt.specify_shape(data, (data.type.shape[0], self.n_endog))
+        # ``time_varying_names`` is keyed on long names ("transition", ...) but the filter
+        # tracks ordering with the short single-letter names. Translate.
+        time_varying_short = {LONG_NAME_TO_SHORT[n] for n in time_varying_names}
         sequences, non_sequences, seq_names, non_seq_names = split_vars_into_seq_and_nonseq(
-            params, PARAM_NAMES
+            params, PARAM_NAMES, time_varying_short
         )
 
         self.seq_names = seq_names
@@ -293,17 +298,20 @@ class BaseFilter(ABC):
         return filter_results
 
     def handle_missing_values(
-        self, y, Z, H
-    ) -> tuple[TensorVariable, TensorVariable, TensorVariable, float]:
+        self, y, Z, H, d
+    ) -> tuple[TensorVariable, TensorVariable, TensorVariable, TensorVariable, float]:
         """
-        Handle missing values in the observation data `y`
+        Handle missing values in the observation data ``y``.
 
-        Adjusts the design matrix `Z` and the observation noise covariance matrix `H` by removing rows and/or columns
-        associated with the data that is not observed at this iteration. Missing values are replaced with zeros to prevent
-        propagating NaNs through the computation.
+        Adjust the design matrix ``Z``, the observation noise covariance matrix ``H``, and the observation
+        intercept ``d`` by zeroing the rows associated with observations that are missing at this iteration.
+        The missing entries of ``y`` are replaced with zeros to prevent propagating NaNs through the
+        computation. With ``y``, ``Z @ a``, and ``d`` all zero on the missing rows, the innovation
+        :math:`v = y - (Z a + d)` is exactly zero there, so missing observations contribute nothing to the
+        state update.
 
-        Return a binary flag tensor `all_nan_flag`,indicating if all values in the observation data are missing. This
-        flag is used for numerical adjustments in the update method.
+        Return a binary flag tensor ``all_nan_flag`` indicating whether every component of the observation
+        is missing. This flag is used for numerical adjustments in the update method.
 
         Parameters
         ----------
@@ -313,21 +321,28 @@ class BaseFilter(ABC):
             The design matrix.
         H : TensorVariable
             The observation noise covariance matrix.
+        d : TensorVariable
+            The observation intercept.
 
         Returns
         -------
         y_masked : TensorVariable
             Observation vector with missing values replaced by zeros.
 
-        Z_masked: TensorVariable
-            Design matrix adjusted to exclude the missing states from the information set of observed variables in the
-            update step
+        Z_masked : TensorVariable
+            Design matrix with the rows corresponding to missing observations zeroed out.
 
-        H_masked: TensorVariable
-            Noise covariance matrix, adjusted to exclude the missing states
+        H_masked : TensorVariable
+            Observation noise covariance matrix with the rows *and columns* corresponding to missing
+            observations zeroed out, so the result remains symmetric.
 
-        all_nan_flag: float
-            1 if the entire state vector is missing
+        d_masked : TensorVariable
+            Observation intercept with the entries corresponding to missing observations zeroed out. Without
+            this masking, missing rows of the innovation become :math:`-d`, injecting a fake observation
+            into the state update and inflating the log-likelihood by :math:`d^2 / \\text{jitter}`.
+
+        all_nan_flag : float
+            1 if every component of the observation is missing.
 
         References
         ----------
@@ -339,10 +354,11 @@ class BaseFilter(ABC):
         W = pt.diag(pt.bitwise_not(nan_mask).astype(pytensor.config.floatX))
 
         Z_masked = W.dot(Z)
-        H_masked = W.dot(H)
+        H_masked = W.dot(H).dot(W.mT)
+        d_masked = W.dot(d)
         y_masked = pt.set_subtensor(y[nan_mask], 0.0)
 
-        return y_masked, Z_masked, H_masked, all_nan_flag
+        return y_masked, Z_masked, H_masked, d_masked, all_nan_flag
 
     @staticmethod
     def predict(a, P, c, T, R, Q) -> tuple[TensorVariable, TensorVariable]:
@@ -512,10 +528,12 @@ class BaseFilter(ABC):
                2nd ed, Oxford University Press, 2012.
         """
         y, a, P, c, d, T, Z, R, H, Q = self.unpack_args(args)
-        y_masked, Z_masked, H_masked, all_nan_flag = self.handle_missing_values(y, Z, H)
+        y_masked, Z_masked, H_masked, d_masked, all_nan_flag = self.handle_missing_values(
+            y, Z, H, d
+        )
 
         a_filtered, P_filtered, obs_mu, obs_cov, ll = self.update(
-            y=y_masked, a=a, d=d, P=P, Z=Z_masked, H=H_masked, all_nan_flag=all_nan_flag
+            y=y_masked, a=a, d=d_masked, P=P, Z=Z_masked, H=H_masked, all_nan_flag=all_nan_flag
         )
 
         P_filtered = stabilize(P_filtered, self.cov_jitter)
@@ -582,16 +600,18 @@ class StandardFilter(BaseFilter):
         PZT = P.dot(Z.mT)
         F = Z.dot(PZT) + stabilize(H, self.cov_jitter)
 
-        K = pt.linalg.solve(F.mT, PZT.mT, assume_a="pos", check_finite=False).mT
+        F_chol = pt.linalg.cholesky(F, lower=True)
+
+        K = pt.linalg.cho_solve((F_chol, True), PZT.mT).mT
         I_KZ = pt.eye(self.n_states) - K.dot(Z)
 
         a_filtered = a + K @ v
         P_filtered = quad_form_sym(I_KZ, P) + quad_form_sym(K, H)
 
-        F_inv_v = pt.linalg.solve(F, v, assume_a="pos", check_finite=False)
+        F_inv_v = pt.linalg.cho_solve((F_chol, True), v)
         inner_term = v.T @ F_inv_v
 
-        F_logdet = pt.log(pt.linalg.det(F))
+        F_logdet = 2 * pt.log(pt.diag(F_chol)).sum()
 
         ll = pt.switch(
             all_nan_flag,
@@ -647,10 +667,7 @@ class SquareRootFilter(BaseFilter):
 
         y_hat = Z.dot(a) + d
         v = y - y_hat
-
-        H_chol = pytensor.ifelse(
-            pt.all(pt.eq(H, 0.0)), H, pt.linalg.cholesky(H, lower=True, on_error="nan")
-        )
+        H_chol = pt.linalg.cholesky(stabilize(H, self.cov_jitter), lower=True)
 
         # The following notation comes from https://ipnpr.jpl.nasa.gov/progress_report/42-233/42-233A.pdf
         # Construct upper-triangular block matrix A = [[chol(H), Z @ L_pred],
@@ -778,17 +795,17 @@ class UnivariateFilter(BaseFilter):
 
         return a_filtered, P_filtered, pt.atleast_1d(y_hat), pt.atleast_2d(F), ll_inner
 
-    def kalman_step(self, y, a, P, c, d, T, Z, R, H, Q):
-        nan_mask = pt.isnan(y)
+    def kalman_step(self, *args):
+        y, a, P, c, d, T, Z, R, H, Q = self.unpack_args(args)
 
-        W = pt.set_subtensor(pt.eye(y.shape[0])[nan_mask, nan_mask], 0.0)
-        Z_masked = W.dot(Z)
-        H_masked = W.dot(H)
-        y_masked = pt.set_subtensor(y[nan_mask], 0.0)
+        nan_mask = pt.or_(pt.isnan(y), pt.eq(y, self.missing_fill_value))
+        y_masked, Z_masked, H_masked, d_masked, all_nan_flag = self.handle_missing_values(
+            y, Z, H, d
+        )
 
         result = pytensor.scan(
             self._univariate_inner_filter_step,
-            sequences=[y_masked, Z_masked, d, pt.diag(H_masked), nan_mask],
+            sequences=[y_masked, Z_masked, d_masked, pt.diag(H_masked), nan_mask],
             outputs_info=[a, P, None, None, None],
             name="univariate_inner_scan",
             return_updates=False,
@@ -805,6 +822,10 @@ class UnivariateFilter(BaseFilter):
         P_filtered = stabilize(0.5 * (P_filtered + P_filtered.mT), self.cov_jitter)
         a_hat, P_hat = self.predict(a=a_filtered, P=P_filtered, c=c, T=T, R=R, Q=Q)
 
-        ll = -0.5 * ((pt.neq(ll_inner, 0).sum()) * MVN_CONST + ll_inner.sum())
+        ll = pt.switch(
+            all_nan_flag,
+            0.0,
+            -0.5 * ((pt.neq(ll_inner, 0).sum()) * MVN_CONST + ll_inner.sum()),
+        )
 
         return a_filtered, a_hat, obs_mu, P_filtered, P_hat, obs_cov, ll

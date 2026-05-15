@@ -586,6 +586,7 @@ __all__ = [
     "ExportAuditLogAsyncTask",
     "ExportAuditLogAsyncTaskResponse",
     "ExportItemRequest",
+    "ExportItemRequestFormat",
     "ExportsAsyncTask",
     "ExportsAsyncTaskResponse",
     "ExternalFileNotePart",
@@ -1805,6 +1806,7 @@ if TYPE_CHECKING:
     import benchling_api_client.v2.stable.models.export_audit_log_async_task
     import benchling_api_client.v2.stable.models.export_audit_log_async_task_response
     import benchling_api_client.v2.stable.models.export_item_request
+    import benchling_api_client.v2.stable.models.export_item_request_format
     import benchling_api_client.v2.stable.models.exports_async_task
     import benchling_api_client.v2.stable.models.exports_async_task_response
     import benchling_api_client.v2.stable.models.external_file_note_part
@@ -4027,6 +4029,9 @@ if TYPE_CHECKING:
     )
     ExportItemRequest = (
         benchling_api_client.v2.stable.models.export_item_request.ExportItemRequest
+    )
+    ExportItemRequestFormat = (
+        benchling_api_client.v2.stable.models.export_item_request_format.ExportItemRequestFormat
     )
     ExportsAsyncTask = (
         benchling_api_client.v2.stable.models.exports_async_task.ExportsAsyncTask
@@ -6333,6 +6338,7 @@ else:
         "ExportAuditLogAsyncTask": "benchling_api_client.v2.stable.models.export_audit_log_async_task",
         "ExportAuditLogAsyncTaskResponse": "benchling_api_client.v2.stable.models.export_audit_log_async_task_response",
         "ExportItemRequest": "benchling_api_client.v2.stable.models.export_item_request",
+        "ExportItemRequestFormat": "benchling_api_client.v2.stable.models.export_item_request_format",
         "ExportsAsyncTask": "benchling_api_client.v2.stable.models.exports_async_task",
         "ExportsAsyncTaskResponse": "benchling_api_client.v2.stable.models.exports_async_task_response",
         "ExternalFileNotePart": "benchling_api_client.v2.stable.models.external_file_note_part",

@@ -57,6 +57,7 @@ class TestCompletions:
             top_k=0,
             top_logprobs=0,
             top_p=0,
+            x_openai_api_key="x-openai-api-key",
         )
         assert_matches_type(CompletionCreateResponse, completion, path=["response"])
 
@@ -127,6 +128,7 @@ class TestCompletions:
             top_k=0,
             top_logprobs=0,
             top_p=0,
+            x_openai_api_key="x-openai-api-key",
         )
         completion_stream.response.close()
 
@@ -203,6 +205,7 @@ class TestAsyncCompletions:
             top_k=0,
             top_logprobs=0,
             top_p=0,
+            x_openai_api_key="x-openai-api-key",
         )
         assert_matches_type(CompletionCreateResponse, completion, path=["response"])
 
@@ -273,6 +276,7 @@ class TestAsyncCompletions:
             top_k=0,
             top_logprobs=0,
             top_p=0,
+            x_openai_api_key="x-openai-api-key",
         )
         await completion_stream.response.aclose()
 

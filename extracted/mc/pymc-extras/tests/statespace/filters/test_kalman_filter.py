@@ -133,6 +133,7 @@ def f_standard_nd():
 
     inputs = [data, a0, P0, c, d, T, Z, R, H, Q]
 
+    time_varying_names = ("transition", "design", "selection", "obs_cov", "state_cov")
     (
         filtered_states,
         predicted_states,
@@ -141,9 +142,11 @@ def f_standard_nd():
         predicted_covs,
         observed_covs,
         ll_obs,
-    ) = StandardFilter().build_graph(*inputs)
+    ) = StandardFilter().build_graph(*inputs, time_varying_names=time_varying_names)
 
-    smoothed_states, smoothed_covs = ksmoother.build_graph(T, R, Q, filtered_states, filtered_covs)
+    smoothed_states, smoothed_covs = ksmoother.build_graph(
+        T, R, Q, filtered_states, filtered_covs, time_varying_names=time_varying_names
+    )
 
     outputs = [
         filtered_states,
@@ -218,6 +221,62 @@ def test_missing_data(filter_name, p, rng):
         assert (
             outputs[output_idx].shape == expected_output
         ), f"Shape of {name} does not match expected"
+
+
+@pytest.mark.parametrize("filter_name", filter_names)
+def test_missing_value_with_nonzero_obs_intercept(filter_name, rng):
+    """
+    With non-zero observation intercept ``d``, masking must zero ``d`` at missing rows so the
+    innovation does not become ``-d`` and contaminate the log-likelihood. Verify by comparing
+    against the equivalent ``(y - d, 0)`` parameterization, under which the filter is invariant.
+    """
+    p, m, r, n = 3, 5, 1, 10
+    data, a0, P0, c, d, T, Z, R, H, Q = make_test_inputs(p, m, r, n, rng, missing_data=2)
+
+    d_nonzero = np.array([1.5, -0.7, 2.1], dtype=floatX)
+
+    # Reference: absorb d into the data (NaN entries stay NaN under subtraction).
+    data_absorbed = data - d_nonzero
+    out_ref = get_filter_function(filter_name)(
+        data_absorbed, a0, P0, c, np.zeros_like(d_nonzero), T, Z, R, H, Q
+    )
+    out_d = get_filter_function(filter_name)(data, a0, P0, c, d_nonzero, T, Z, R, H, Q)
+
+    for idx, name in enumerate(output_names):
+        assert_allclose(
+            out_d[idx],
+            out_ref[idx],
+            atol=ATOL,
+            rtol=RTOL,
+            err_msg=f"{name} differs between (d, y) and (0, y - d) with missing observations",
+        )
+
+
+@pytest.mark.parametrize("filter_name", filter_names)
+def test_missing_value_with_nondiagonal_obs_cov(filter_name, rng):
+    """
+    With non-diagonal ``H`` and a missing observation at position ``j``, the cross-covariances
+    ``H[:, j]`` and ``H[j, :]`` cannot influence any observed quantity. Verify by comparing
+    against a run where those rows and columns have been zeroed by hand — the two must agree.
+    """
+    p, m, r, n = 2, 5, 1, 10
+    data, a0, P0, c, d, T, Z, R, H, Q = make_test_inputs(p, m, r, n, rng)
+    data[:, 1] = np.nan
+
+    H_full = np.array([[1.0, 0.4], [0.4, 1.0]], dtype=floatX)
+    H_zeroed = np.array([[1.0, 0.0], [0.0, 0.0]], dtype=floatX)
+
+    out_full = get_filter_function(filter_name)(data, a0, P0, c, d, T, Z, R, H_full, Q)
+    out_zeroed = get_filter_function(filter_name)(data, a0, P0, c, d, T, Z, R, H_zeroed, Q)
+
+    for idx, name in enumerate(output_names):
+        assert_allclose(
+            out_full[idx],
+            out_zeroed[idx],
+            atol=ATOL,
+            rtol=RTOL,
+            err_msg=f"{name} depends on H entries at masked positions",
+        )
 
 
 @pytest.mark.parametrize("filter_name", filter_names)

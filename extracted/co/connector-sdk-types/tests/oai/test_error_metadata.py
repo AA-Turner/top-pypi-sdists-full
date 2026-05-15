@@ -160,6 +160,14 @@ def test_connector_error_get_metadata_resolves_deprecated_code():
     assert meta.retryable is False
 
 
+def test_connector_error_get_metadata_passes_retry_after_seconds():
+    from connector.oai.errors import BudgetExhaustedError
+
+    e = BudgetExhaustedError(retry_after_seconds=30)
+    meta = e.get_error_metadata()
+    assert meta.retry_after_seconds == 30
+
+
 # handle_exception auto-populates error_metadata
 
 

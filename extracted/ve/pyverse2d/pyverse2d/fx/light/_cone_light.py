@@ -4,7 +4,7 @@ from __future__ import annotations
 from ..._internal import not_null, clamped, different_from
 from ...abc import LightSource
 from ...math import Point, Vector
-from ...math.easing import EasingFunc
+from ...typing import EasingFunc
 from ...asset import Color
 
 from numbers import Real
@@ -143,3 +143,8 @@ class ConeLight(LightSource):
         x, y = self._direction
         self._direction.x = x * math.cos(theta) - y * math.sin(theta)
         self._direction.y = x * math.sin(theta) + y * math.cos(theta)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "ConeLight",
+]

@@ -32,6 +32,115 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+_SIBLING_VIEW_PATTERN = None
+
+
+def _register_sibling_temp_views(spark, filter_expr: str, catalog: str, schema: str) -> list[str]:
+    """Scan ``filter_expr`` for bare-name table references inside SQL subqueries
+    (``... in (select X from contract where ...)``) and register each as a
+    temp view backed by ``{catalog}.{schema}.landing_<name>``. Mirrors the
+    sibling-temp-view bootstrap the renderer emits at the top of every
+    ``landing_<ds>.py`` so the same predicate string runs unchanged in
+    scoring without operator setup.
+
+    Returns the list of names actually registered (for diagnostic logging).
+    Silently skips any name whose ``landing_<name>`` table is not present
+    in Unity Catalog — the filter would have failed anyway in that case
+    and the downstream ``df.filter(...)`` call surfaces the cleaner
+    [UNRESOLVED_COLUMN] / [TABLE_OR_VIEW_NOT_FOUND] message.
+    """
+    import re
+
+    global _SIBLING_VIEW_PATTERN
+    if _SIBLING_VIEW_PATTERN is None:
+        _SIBLING_VIEW_PATTERN = re.compile(
+            r"\b(?:from|join)\s+([A-Za-z_][A-Za-z0-9_]*)\b",
+            re.IGNORECASE,
+        )
+
+    names = set(_SIBLING_VIEW_PATTERN.findall(filter_expr))
+    registered: list[str] = []
+    for name in sorted(names):
+        uc_fqn = f"{catalog}.{schema}.landing_{name}"
+        try:
+            exists = spark.catalog.tableExists(uc_fqn)
+        except Exception:  # pragma: no cover — Spark catalog probe is best-effort
+            exists = False
+        if not exists:
+            continue
+        spark.read.format("delta").table(uc_fqn).createOrReplaceTempView(name)
+        registered.append(name)
+    return registered
+
+
+def _auto_resolve_filter_via_table(spark, catalog: str, schema: str) -> Optional[tuple[str, str]]:
+    """Discover ``({catalog}.{schema}.landing_<target_dataset>, raw_entity_key)``
+    from the active run's ``project_context`` so a caller passing only
+    ``filter_expression`` (no explicit ``filter_via_table``) still gets the
+    routing through landing when needed.
+
+    The raw entity key matters: landing tables keep the dataset's original
+    primary key (e.g. ``ACCOUNT_ID``) — only silver renames it to
+    ``entity_id``. If the caller projects ``entity_id`` directly off
+    landing it raises ``[UNRESOLVED_COLUMN]``. Returning the raw key lets
+    the caller project it explicitly and alias it back to ``entity_id``
+    before the inner-join with the customer table.
+
+    Returns ``(landing_fqn, raw_entity_key)`` if all of:
+
+      1. A run namespace resolves via ``RunNamespace.from_env_or_latest()``.
+      2. ``project_context.yaml`` exists in that namespace.
+      3. The context declares a target dataset (``role == "target"``,
+         ``target_dataset`` field, or a single-dataset project) AND that
+         dataset has a non-empty ``sample_filters`` entry — the routing
+         is only meaningful when a cohort filter exists in the first place.
+      4. The target dataset's registry entry carries an ``entity_column``
+         (the raw key NB00 declared).
+      5. The candidate ``landing_<target>`` table actually exists in UC.
+
+    Returns ``None`` if any tier fails — the caller falls back to direct
+    ``df.filter()`` against the customer table, which is correct when the
+    filter references columns that exist in gold (e.g. a numeric range).
+    """
+    try:
+        from customer_retention.analysis.auto_explorer.project_context import ProjectContext
+        from customer_retention.analysis.auto_explorer.run_namespace import RunNamespace
+    except ImportError:
+        return None
+    ns = RunNamespace.from_env_or_latest()
+    if ns is None or not ns.project_context_path.exists():
+        return None
+    try:
+        ctx = ProjectContext.load(ns.project_context_path)
+    except Exception:  # pragma: no cover — defensive
+        return None
+    filters = getattr(ctx, "sample_filters", None) or {}
+    if not filters:
+        return None
+    target_name = (
+        getattr(ctx, "target_dataset", None)
+        or next(
+            (n for n, d in ctx.datasets.items() if getattr(d, "role", None) == "target"),
+            None,
+        )
+    )
+    if target_name is None and len(ctx.datasets) == 1:
+        target_name = next(iter(ctx.datasets))
+    if target_name is None or not filters.get(target_name):
+        return None
+    target_ds = ctx.datasets.get(target_name)
+    raw_key = getattr(target_ds, "entity_column", None) if target_ds is not None else None
+    if not raw_key:
+        return None
+    candidate = f"{catalog}.{schema}.landing_{target_name}"
+    try:
+        if spark.catalog.tableExists(candidate):
+            return candidate, raw_key
+    except Exception:  # pragma: no cover — defensive
+        return None
+    return None
+
+
 if TYPE_CHECKING:  # pragma: no cover
     from pyspark.sql import DataFrame, SparkSession
 
@@ -93,6 +202,26 @@ class BatchInferenceConfig:
     # via ``df.filter(expr)`` on Databricks and ``safe_query(df, expr)`` locally
     # — a single narrow projection, no shuffle, no extra Spark jobs.
     filter_expression: Optional[str] = None
+
+    # When set, ``filter_expression`` is applied against ``filter_via_table``
+    # (typically ``{cat}.{sch}.landing_<target_dataset>``) instead of
+    # ``customer_table``, and the customer table is inner-joined to the
+    # surviving entity_id set. This routing is needed when the cohort filter
+    # references raw landing columns that no longer exist in the gold
+    # customer_table — e.g. a string categorical like ``REVENUE_MARKET_SEGMENT``
+    # that gold expands into one-hot columns ``REVENUE_MARKET_SEGMENT_<value>``.
+    # Leave ``None`` to apply the filter directly to ``customer_table`` (the
+    # original behaviour; works when every filter column is present in gold).
+    filter_via_table: Optional[str] = None
+
+    # Optional hint when ``filter_via_table`` is set: the raw entity-key
+    # column name on that landing table (e.g. ``ACCOUNT_ID``). Only the
+    # rename ``select(col(<raw_key>).alias("entity_id"))`` reads it;
+    # the join with the customer table is always on ``entity_id``. Leave
+    # ``None`` if the landing table already exposes ``entity_id``
+    # directly. The auto-resolution path discovers this from
+    # ``project_context.datasets[<target>].entity_column`` automatically.
+    filter_via_table_entity_key: Optional[str] = None
 
 
 @dataclass
@@ -351,8 +480,95 @@ def _run_databricks(config: BatchInferenceConfig) -> BatchInferenceResult:
     t_prep = time.perf_counter()
     df_customers = spark.table(customer_table)
     if config.filter_expression:
-        df_customers = df_customers.filter(config.filter_expression)
-        logger.info("Applied scope filter: %s", config.filter_expression)
+        # NB00's `sample_filter` predicate is stored in pandas/Python
+        # syntax (`column in ['a', 'b']`) because exploration filters via
+        # `df.query()`. Spark `df.filter()` needs SQL-tuple syntax
+        # (`column IN ('a', 'b')`). The same translator landing applies
+        # before its `df.filter(...)` call (see `findings_parser`
+        # invocation of `_spark_safe_query_expr`) — apply it here so the
+        # same predicate string drives both stages without operator
+        # intervention.
+        from customer_retention.core.compat import _spark_safe_query_expr
+        _sql_filter = _spark_safe_query_expr(config.filter_expression)
+        # Register sibling-temp-views for any bare-name table references
+        # inside the filter's SQL subqueries (e.g. `... in (select X from
+        # contract where ...)`). Without this, Spark resolves the bare
+        # name against `current_schema()` rather than the run's catalog/
+        # schema and raises [TABLE_OR_VIEW_NOT_FOUND]. Mirrors the
+        # bootstrap the renderer already emits at the top of every
+        # `landing_<ds>.py`, so the same predicate runs unchanged across
+        # landing and scoring.
+        _sibling_views = _register_sibling_temp_views(
+            spark, _sql_filter, config.catalog, config.schema,
+        )
+        if _sibling_views:
+            logger.info(
+                "Registered sibling temp views for scope-filter subqueries: %s",
+                _sibling_views,
+            )
+        # Auto-resolve `landing_<target>` + its raw entity key from
+        # project_context when the caller didn't supply an explicit
+        # `filter_via_table`. This keeps old c04 cells (passing only
+        # `filter_expression`) working without operator-side changes:
+        # when the cohort filter references a raw categorical that gold
+        # has one-hot encoded, the framework still routes via landing
+        # instead of raising [UNRESOLVED_COLUMN] mid-run.
+        #
+        # Landing tables keep the dataset's original primary key (e.g.
+        # `ACCOUNT_ID` for SPS account); only silver renames it to
+        # `entity_id`. We project the raw key off landing, alias it to
+        # `entity_id`, then inner-join with the customer table.
+        _via_table: Optional[str] = None
+        _via_raw_key: str = "entity_id"
+        if config.filter_via_table:
+            _via_table = config.filter_via_table
+            # Operator override: assume entity_id is present unless they
+            # also stored a raw-key hint via `filter_via_table_entity_key`
+            # (introduced for cases where the caller knows the landing
+            # table uses a non-standard key column).
+            _via_raw_key = getattr(config, "filter_via_table_entity_key", None) or "entity_id"
+        else:
+            _auto = _auto_resolve_filter_via_table(
+                spark, config.catalog, config.schema,
+            )
+            if _auto is not None:
+                _via_table, _via_raw_key = _auto
+        if _via_table:
+            from pyspark.sql.functions import col  # noqa: N812 — Spark API name
+            df_landing = spark.table(_via_table).filter(_sql_filter)
+            # If landing already exposes `entity_id` (rare — only happens
+            # when the raw key matches verbatim), project it directly;
+            # otherwise project the raw key and alias to `entity_id`
+            # before the join. This is the bug-fix that lets categorical
+            # cohort filters land on a customer table where the raw
+            # columns have been one-hot encoded away.
+            _landing_cols = {f.name for f in df_landing.schema.fields}
+            if "entity_id" in _landing_cols:
+                df_filtered_ids = df_landing.select("entity_id").distinct()
+            elif _via_raw_key in _landing_cols:
+                df_filtered_ids = (
+                    df_landing.select(col(_via_raw_key).alias("entity_id")).distinct()
+                )
+            else:
+                raise ValueError(
+                    f"scope filter routing failed: {_via_table} has neither "
+                    f"`entity_id` nor `{_via_raw_key}` — project_context's "
+                    "raw entity_column does not match the landing schema."
+                )
+            df_customers = df_customers.join(df_filtered_ids, on="entity_id", how="inner")
+            logger.info(
+                "Applied scope filter via %s (entity_id join): %s",
+                _via_table, _sql_filter,
+            )
+        else:
+            df_customers = df_customers.filter(_sql_filter)
+            if _sql_filter != config.filter_expression:
+                logger.info(
+                    "Applied scope filter (pandas->SQL translated): %s",
+                    _sql_filter,
+                )
+            else:
+                logger.info("Applied scope filter: %s", config.filter_expression)
     entity_df = df_customers.select("entity_id").distinct().withColumn(
         config.timestamp_column,
         lit(inference_ts).cast(TimestampType()),

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-codspeed
-Version: 5.0.1
+Version: 5.0.2
 Summary: Pytest plugin to create CodSpeed benchmarks
 Author-email: Arthur Pastel <arthur@codspeed.io>
 License: The MIT License (MIT)

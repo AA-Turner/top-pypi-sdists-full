@@ -9,7 +9,7 @@ import httpx
 
 from ...types import model_list_params, model_create_params, model_update_params, model_retrieve_params
 from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from .embeddings import (
     EmbeddingsResource,
@@ -76,28 +76,36 @@ __all__ = ["ModelsResource", "AsyncModelsResource"]
 
 
 class ModelsResource(SyncAPIResource):
+    """Model API."""
+
     @cached_property
     def deployments(self) -> DeploymentsResource:
+        """Model API."""
         return DeploymentsResource(self._client)
 
     @cached_property
     def embeddings(self) -> EmbeddingsResource:
+        """Model API."""
         return EmbeddingsResource(self._client)
 
     @cached_property
     def rerankings(self) -> RerankingsResource:
+        """Model API."""
         return RerankingsResource(self._client)
 
     @cached_property
     def completions(self) -> CompletionsResource:
+        """Model API."""
         return CompletionsResource(self._client)
 
     @cached_property
     def chat_completions(self) -> ChatCompletionsResource:
+        """Model API."""
         return ChatCompletionsResource(self._client)
 
     @cached_property
     def usage_statistics(self) -> UsageStatisticsResource:
+        """Model API."""
         return UsageStatisticsResource(self._client)
 
     @cached_property
@@ -291,7 +299,7 @@ class ModelsResource(SyncAPIResource):
         if not model_id:
             raise ValueError(f"Expected a non-empty value for `model_id` but received {model_id!r}")
         return self._get(
-            f"/v4/models/{model_id}",
+            path_template("/v4/models/{model_id}", model_id=model_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -380,7 +388,7 @@ class ModelsResource(SyncAPIResource):
         if not model_id:
             raise ValueError(f"Expected a non-empty value for `model_id` but received {model_id!r}")
         return self._patch(
-            f"/v4/models/{model_id}",
+            path_template("/v4/models/{model_id}", model_id=model_id),
             body=maybe_transform(
                 {
                     "base_model_id": base_model_id,
@@ -553,7 +561,7 @@ class ModelsResource(SyncAPIResource):
         if not model_id:
             raise ValueError(f"Expected a non-empty value for `model_id` but received {model_id!r}")
         return self._delete(
-            f"/v4/models/{model_id}",
+            path_template("/v4/models/{model_id}", model_id=model_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -562,28 +570,36 @@ class ModelsResource(SyncAPIResource):
 
 
 class AsyncModelsResource(AsyncAPIResource):
+    """Model API."""
+
     @cached_property
     def deployments(self) -> AsyncDeploymentsResource:
+        """Model API."""
         return AsyncDeploymentsResource(self._client)
 
     @cached_property
     def embeddings(self) -> AsyncEmbeddingsResource:
+        """Model API."""
         return AsyncEmbeddingsResource(self._client)
 
     @cached_property
     def rerankings(self) -> AsyncRerankingsResource:
+        """Model API."""
         return AsyncRerankingsResource(self._client)
 
     @cached_property
     def completions(self) -> AsyncCompletionsResource:
+        """Model API."""
         return AsyncCompletionsResource(self._client)
 
     @cached_property
     def chat_completions(self) -> AsyncChatCompletionsResource:
+        """Model API."""
         return AsyncChatCompletionsResource(self._client)
 
     @cached_property
     def usage_statistics(self) -> AsyncUsageStatisticsResource:
+        """Model API."""
         return AsyncUsageStatisticsResource(self._client)
 
     @cached_property
@@ -777,7 +793,7 @@ class AsyncModelsResource(AsyncAPIResource):
         if not model_id:
             raise ValueError(f"Expected a non-empty value for `model_id` but received {model_id!r}")
         return await self._get(
-            f"/v4/models/{model_id}",
+            path_template("/v4/models/{model_id}", model_id=model_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -866,7 +882,7 @@ class AsyncModelsResource(AsyncAPIResource):
         if not model_id:
             raise ValueError(f"Expected a non-empty value for `model_id` but received {model_id!r}")
         return await self._patch(
-            f"/v4/models/{model_id}",
+            path_template("/v4/models/{model_id}", model_id=model_id),
             body=await async_maybe_transform(
                 {
                     "base_model_id": base_model_id,
@@ -1039,7 +1055,7 @@ class AsyncModelsResource(AsyncAPIResource):
         if not model_id:
             raise ValueError(f"Expected a non-empty value for `model_id` but received {model_id!r}")
         return await self._delete(
-            f"/v4/models/{model_id}",
+            path_template("/v4/models/{model_id}", model_id=model_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -1069,26 +1085,32 @@ class ModelsResourceWithRawResponse:
 
     @cached_property
     def deployments(self) -> DeploymentsResourceWithRawResponse:
+        """Model API."""
         return DeploymentsResourceWithRawResponse(self._models.deployments)
 
     @cached_property
     def embeddings(self) -> EmbeddingsResourceWithRawResponse:
+        """Model API."""
         return EmbeddingsResourceWithRawResponse(self._models.embeddings)
 
     @cached_property
     def rerankings(self) -> RerankingsResourceWithRawResponse:
+        """Model API."""
         return RerankingsResourceWithRawResponse(self._models.rerankings)
 
     @cached_property
     def completions(self) -> CompletionsResourceWithRawResponse:
+        """Model API."""
         return CompletionsResourceWithRawResponse(self._models.completions)
 
     @cached_property
     def chat_completions(self) -> ChatCompletionsResourceWithRawResponse:
+        """Model API."""
         return ChatCompletionsResourceWithRawResponse(self._models.chat_completions)
 
     @cached_property
     def usage_statistics(self) -> UsageStatisticsResourceWithRawResponse:
+        """Model API."""
         return UsageStatisticsResourceWithRawResponse(self._models.usage_statistics)
 
 
@@ -1114,26 +1136,32 @@ class AsyncModelsResourceWithRawResponse:
 
     @cached_property
     def deployments(self) -> AsyncDeploymentsResourceWithRawResponse:
+        """Model API."""
         return AsyncDeploymentsResourceWithRawResponse(self._models.deployments)
 
     @cached_property
     def embeddings(self) -> AsyncEmbeddingsResourceWithRawResponse:
+        """Model API."""
         return AsyncEmbeddingsResourceWithRawResponse(self._models.embeddings)
 
     @cached_property
     def rerankings(self) -> AsyncRerankingsResourceWithRawResponse:
+        """Model API."""
         return AsyncRerankingsResourceWithRawResponse(self._models.rerankings)
 
     @cached_property
     def completions(self) -> AsyncCompletionsResourceWithRawResponse:
+        """Model API."""
         return AsyncCompletionsResourceWithRawResponse(self._models.completions)
 
     @cached_property
     def chat_completions(self) -> AsyncChatCompletionsResourceWithRawResponse:
+        """Model API."""
         return AsyncChatCompletionsResourceWithRawResponse(self._models.chat_completions)
 
     @cached_property
     def usage_statistics(self) -> AsyncUsageStatisticsResourceWithRawResponse:
+        """Model API."""
         return AsyncUsageStatisticsResourceWithRawResponse(self._models.usage_statistics)
 
 
@@ -1159,26 +1187,32 @@ class ModelsResourceWithStreamingResponse:
 
     @cached_property
     def deployments(self) -> DeploymentsResourceWithStreamingResponse:
+        """Model API."""
         return DeploymentsResourceWithStreamingResponse(self._models.deployments)
 
     @cached_property
     def embeddings(self) -> EmbeddingsResourceWithStreamingResponse:
+        """Model API."""
         return EmbeddingsResourceWithStreamingResponse(self._models.embeddings)
 
     @cached_property
     def rerankings(self) -> RerankingsResourceWithStreamingResponse:
+        """Model API."""
         return RerankingsResourceWithStreamingResponse(self._models.rerankings)
 
     @cached_property
     def completions(self) -> CompletionsResourceWithStreamingResponse:
+        """Model API."""
         return CompletionsResourceWithStreamingResponse(self._models.completions)
 
     @cached_property
     def chat_completions(self) -> ChatCompletionsResourceWithStreamingResponse:
+        """Model API."""
         return ChatCompletionsResourceWithStreamingResponse(self._models.chat_completions)
 
     @cached_property
     def usage_statistics(self) -> UsageStatisticsResourceWithStreamingResponse:
+        """Model API."""
         return UsageStatisticsResourceWithStreamingResponse(self._models.usage_statistics)
 
 
@@ -1204,24 +1238,30 @@ class AsyncModelsResourceWithStreamingResponse:
 
     @cached_property
     def deployments(self) -> AsyncDeploymentsResourceWithStreamingResponse:
+        """Model API."""
         return AsyncDeploymentsResourceWithStreamingResponse(self._models.deployments)
 
     @cached_property
     def embeddings(self) -> AsyncEmbeddingsResourceWithStreamingResponse:
+        """Model API."""
         return AsyncEmbeddingsResourceWithStreamingResponse(self._models.embeddings)
 
     @cached_property
     def rerankings(self) -> AsyncRerankingsResourceWithStreamingResponse:
+        """Model API."""
         return AsyncRerankingsResourceWithStreamingResponse(self._models.rerankings)
 
     @cached_property
     def completions(self) -> AsyncCompletionsResourceWithStreamingResponse:
+        """Model API."""
         return AsyncCompletionsResourceWithStreamingResponse(self._models.completions)
 
     @cached_property
     def chat_completions(self) -> AsyncChatCompletionsResourceWithStreamingResponse:
+        """Model API."""
         return AsyncChatCompletionsResourceWithStreamingResponse(self._models.chat_completions)
 
     @cached_property
     def usage_statistics(self) -> AsyncUsageStatisticsResourceWithStreamingResponse:
+        """Model API."""
         return AsyncUsageStatisticsResourceWithStreamingResponse(self._models.usage_statistics)

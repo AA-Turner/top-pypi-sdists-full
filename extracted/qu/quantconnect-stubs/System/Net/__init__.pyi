@@ -15,8 +15,8 @@ import System.Runtime.Serialization
 import System.Security
 import System.Security.Authentication.ExtendedProtection
 
-System_Net_IPNetwork = typing.Any
 System_Net_IPEndPoint = typing.Any
+System_Net_IPNetwork = typing.Any
 System_Net_IPAddress = typing.Any
 
 
@@ -58,6 +58,112 @@ class WebUtility(System.Object):
     @staticmethod
     def url_encode_to_bytes(value: typing.List[int], offset: int, count: int) -> typing.List[int]:
         ...
+
+
+class NetworkCredential(System.Object, System.Net.ICredentials, System.Net.ICredentialsByHost):
+    """This class has no documentation."""
+
+    @property
+    def user_name(self) -> str:
+        ...
+
+    @user_name.setter
+    def user_name(self, value: str) -> None:
+        ...
+
+    @property
+    def password(self) -> str:
+        ...
+
+    @password.setter
+    def password(self, value: str) -> None:
+        ...
+
+    @property
+    def secure_password(self) -> System.Security.SecureString:
+        ...
+
+    @secure_password.setter
+    def secure_password(self, value: System.Security.SecureString) -> None:
+        ...
+
+    @property
+    def domain(self) -> str:
+        ...
+
+    @domain.setter
+    def domain(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, user_name: str, password: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, user_name: str, password: str, domain: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, user_name: str, password: System.Security.SecureString) -> None:
+        ...
+
+    @overload
+    def __init__(self, user_name: str, password: System.Security.SecureString, domain: str) -> None:
+        ...
+
+    @overload
+    def get_credential(self, uri: System.Uri, authentication_type: str) -> System.Net.NetworkCredential:
+        ...
+
+    @overload
+    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
+        ...
+
+
+class ICredentials(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_credential(self, uri: System.Uri, auth_type: str) -> System.Net.NetworkCredential:
+        ...
+
+
+class EndPoint(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def address_family(self) -> System.Net.Sockets.AddressFamily:
+        ...
+
+    def create(self, socket_address: System.Net.SocketAddress) -> System.Net.EndPoint:
+        ...
+
+    def serialize(self) -> System.Net.SocketAddress:
+        ...
+
+
+class ICredentialsByHost(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
+        ...
+
+
+class HttpVersion(System.Object):
+    """This class has no documentation."""
+
+    UNKNOWN: System.Version = ...
+
+    VERSION_10: System.Version = ...
+
+    VERSION_11: System.Version = ...
+
+    VERSION_20: System.Version = ...
+
+    VERSION_30: System.Version = ...
 
 
 class IPAddress(System.Object, System.ISpanFormattable, System.ISpanParsable[System_Net_IPAddress], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Net_IPAddress]):
@@ -221,35 +327,45 @@ class IPAddress(System.Object, System.ISpanFormattable, System.ISpanParsable[Sys
         ...
 
 
-class IPNetwork(System.IEquatable[System_Net_IPNetwork], System.ISpanFormattable, System.ISpanParsable[System_Net_IPNetwork], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Net_IPNetwork]):
+class IPEndPoint(System.Net.EndPoint, System.ISpanFormattable, System.ISpanParsable[System_Net_IPEndPoint], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Net_IPEndPoint]):
     """This class has no documentation."""
 
-    @property
-    def base_address(self) -> System.Net.IPAddress:
-        ...
+    MIN_PORT: int = ...
+
+    MAX_PORT: int = ...
 
     @property
-    def prefix_length(self) -> int:
+    def address_family(self) -> System.Net.Sockets.AddressFamily:
         ...
 
-    def __eq__(self, right: System.Net.IPNetwork) -> bool:
+    @property
+    def address(self) -> System.Net.IPAddress:
         ...
 
-    def __init__(self, base_address: System.Net.IPAddress, prefix_length: int) -> None:
+    @address.setter
+    def address(self, value: System.Net.IPAddress) -> None:
         ...
 
-    def __ne__(self, right: System.Net.IPNetwork) -> bool:
+    @property
+    def port(self) -> int:
         ...
 
-    def contains(self, address: System.Net.IPAddress) -> bool:
+    @port.setter
+    def port(self, value: int) -> None:
         ...
 
     @overload
-    def equals(self, other: System.Net.IPNetwork) -> bool:
+    def __init__(self, address: int, port: int) -> None:
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
+    def __init__(self, address: System.Net.IPAddress, port: int) -> None:
+        ...
+
+    def create(self, socket_address: System.Net.SocketAddress) -> System.Net.EndPoint:
+        ...
+
+    def equals(self, comparand: typing.Any) -> bool:
         ...
 
     def get_hash_code(self) -> int:
@@ -257,17 +373,20 @@ class IPNetwork(System.IEquatable[System_Net_IPNetwork], System.ISpanFormattable
 
     @staticmethod
     @overload
-    def parse(s: str) -> System.Net.IPNetwork:
+    def parse(s: str) -> System.Net.IPEndPoint:
         ...
 
     @staticmethod
     @overload
-    def parse(s: System.ReadOnlySpan[str]) -> System.Net.IPNetwork:
+    def parse(s: System.ReadOnlySpan[str]) -> System.Net.IPEndPoint:
         ...
 
     @staticmethod
     @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int]) -> System.Net.IPNetwork:
+    def parse(utf_8_text: System.ReadOnlySpan[int]) -> System.Net.IPEndPoint:
+        ...
+
+    def serialize(self) -> System.Net.SocketAddress:
         ...
 
     def to_string(self) -> str:
@@ -283,88 +402,17 @@ class IPNetwork(System.IEquatable[System_Net_IPNetwork], System.ISpanFormattable
 
     @staticmethod
     @overload
-    def try_parse(s: str, result: typing.Optional[System.Net.IPNetwork]) -> typing.Tuple[bool, System.Net.IPNetwork]:
+    def try_parse(s: str, result: typing.Optional[System.Net.IPEndPoint]) -> typing.Tuple[bool, System.Net.IPEndPoint]:
         ...
 
     @staticmethod
     @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Net.IPNetwork]) -> typing.Tuple[bool, System.Net.IPNetwork]:
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Net.IPEndPoint]) -> typing.Tuple[bool, System.Net.IPEndPoint]:
         ...
 
     @staticmethod
     @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Net.IPNetwork]) -> typing.Tuple[bool, System.Net.IPNetwork]:
-        ...
-
-
-class NetworkCredential(System.Object, System.Net.ICredentials, System.Net.ICredentialsByHost):
-    """This class has no documentation."""
-
-    @property
-    def user_name(self) -> str:
-        ...
-
-    @user_name.setter
-    def user_name(self, value: str) -> None:
-        ...
-
-    @property
-    def password(self) -> str:
-        ...
-
-    @password.setter
-    def password(self, value: str) -> None:
-        ...
-
-    @property
-    def secure_password(self) -> System.Security.SecureString:
-        ...
-
-    @secure_password.setter
-    def secure_password(self, value: System.Security.SecureString) -> None:
-        ...
-
-    @property
-    def domain(self) -> str:
-        ...
-
-    @domain.setter
-    def domain(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, user_name: str, password: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, user_name: str, password: str, domain: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, user_name: str, password: System.Security.SecureString) -> None:
-        ...
-
-    @overload
-    def __init__(self, user_name: str, password: System.Security.SecureString, domain: str) -> None:
-        ...
-
-    @overload
-    def get_credential(self, uri: System.Uri, authentication_type: str) -> System.Net.NetworkCredential:
-        ...
-
-    @overload
-    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
-        ...
-
-
-class ICredentials(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_credential(self, uri: System.Uri, auth_type: str) -> System.Net.NetworkCredential:
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Net.IPEndPoint]) -> typing.Tuple[bool, System.Net.IPEndPoint]:
         ...
 
 
@@ -652,37 +700,82 @@ class PathList(System.Object):
     """This class has no documentation."""
 
 
-class CookieVariant(IntEnum):
+class DnsEndPoint(System.Net.EndPoint):
     """This class has no documentation."""
 
-    UNKNOWN = 0
+    @property
+    def host(self) -> str:
+        ...
 
-    PLAIN = 1
+    @property
+    def address_family(self) -> System.Net.Sockets.AddressFamily:
+        ...
 
-    RFC_2109 = 2
-
-    RFC_2965 = 3
-
-    DEFAULT = ...
-
-
-class CookieException(System.FormatException, System.Runtime.Serialization.ISerializable):
-    """This class has no documentation."""
+    @property
+    def port(self) -> int:
+        ...
 
     @overload
+    def __init__(self, host: str, port: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, host: str, port: int, address_family: System.Net.Sockets.AddressFamily) -> None:
+        ...
+
+    def equals(self, comparand: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class TransportContext(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_channel_binding(self, kind: System.Security.Authentication.ExtendedProtection.ChannelBindingKind) -> System.Security.Authentication.ExtendedProtection.ChannelBinding:
+        ...
+
+
+class CredentialCache(System.Object, System.Net.ICredentials, System.Net.ICredentialsByHost, System.Collections.IEnumerable):
+    """This class has no documentation."""
+
+    DEFAULT_CREDENTIALS: System.Net.ICredentials
+
+    DEFAULT_NETWORK_CREDENTIALS: System.Net.NetworkCredential
+
     def __init__(self) -> None:
         ...
 
     @overload
-    def __init__(self, message: str) -> None:
+    def add(self, uri_prefix: System.Uri, auth_type: str, cred: System.Net.NetworkCredential) -> None:
         ...
 
     @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+    def add(self, host: str, port: int, authentication_type: str, credential: System.Net.NetworkCredential) -> None:
         ...
 
-    def get_object_data(self, serialization_info: System.Runtime.Serialization.SerializationInfo, streaming_context: System.Runtime.Serialization.StreamingContext) -> None:
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+    @overload
+    def get_credential(self, uri_prefix: System.Uri, auth_type: str) -> System.Net.NetworkCredential:
+        ...
+
+    @overload
+    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
+        ...
+
+    def get_enumerator(self) -> System.Collections.IEnumerator:
+        ...
+
+    @overload
+    def remove(self, uri_prefix: System.Uri, auth_type: str) -> None:
+        ...
+
+    @overload
+    def remove(self, host: str, port: int, authentication_type: str) -> None:
+        ...
 
 
 class DecompressionMethods(IntEnum):
@@ -699,109 +792,6 @@ class DecompressionMethods(IntEnum):
     ZSTANDARD = ...
 
     ALL = ...
-
-
-class EndPoint(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def address_family(self) -> System.Net.Sockets.AddressFamily:
-        ...
-
-    def create(self, socket_address: System.Net.SocketAddress) -> System.Net.EndPoint:
-        ...
-
-    def serialize(self) -> System.Net.SocketAddress:
-        ...
-
-
-class IPEndPoint(System.Net.EndPoint, System.ISpanFormattable, System.ISpanParsable[System_Net_IPEndPoint], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Net_IPEndPoint]):
-    """This class has no documentation."""
-
-    MIN_PORT: int = ...
-
-    MAX_PORT: int = ...
-
-    @property
-    def address_family(self) -> System.Net.Sockets.AddressFamily:
-        ...
-
-    @property
-    def address(self) -> System.Net.IPAddress:
-        ...
-
-    @address.setter
-    def address(self, value: System.Net.IPAddress) -> None:
-        ...
-
-    @property
-    def port(self) -> int:
-        ...
-
-    @port.setter
-    def port(self, value: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, address: int, port: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, address: System.Net.IPAddress, port: int) -> None:
-        ...
-
-    def create(self, socket_address: System.Net.SocketAddress) -> System.Net.EndPoint:
-        ...
-
-    def equals(self, comparand: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str) -> System.Net.IPEndPoint:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str]) -> System.Net.IPEndPoint:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int]) -> System.Net.IPEndPoint:
-        ...
-
-    def serialize(self) -> System.Net.SocketAddress:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, result: typing.Optional[System.Net.IPEndPoint]) -> typing.Tuple[bool, System.Net.IPEndPoint]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Net.IPEndPoint]) -> typing.Tuple[bool, System.Net.IPEndPoint]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Net.IPEndPoint]) -> typing.Tuple[bool, System.Net.IPEndPoint]:
-        ...
 
 
 class IWebProxy(metaclass=abc.ABCMeta):
@@ -823,18 +813,98 @@ class IWebProxy(metaclass=abc.ABCMeta):
         ...
 
 
-class ICredentialsByHost(metaclass=abc.ABCMeta):
+class IPNetwork(System.IEquatable[System_Net_IPNetwork], System.ISpanFormattable, System.ISpanParsable[System_Net_IPNetwork], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Net_IPNetwork]):
     """This class has no documentation."""
 
-    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
+    @property
+    def base_address(self) -> System.Net.IPAddress:
+        ...
+
+    @property
+    def prefix_length(self) -> int:
+        ...
+
+    def __eq__(self, right: System.Net.IPNetwork) -> bool:
+        ...
+
+    def __init__(self, base_address: System.Net.IPAddress, prefix_length: int) -> None:
+        ...
+
+    def __ne__(self, right: System.Net.IPNetwork) -> bool:
+        ...
+
+    def contains(self, address: System.Net.IPAddress) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Net.IPNetwork) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str) -> System.Net.IPNetwork:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str]) -> System.Net.IPNetwork:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int]) -> System.Net.IPNetwork:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[System.Net.IPNetwork]) -> typing.Tuple[bool, System.Net.IPNetwork]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Net.IPNetwork]) -> typing.Tuple[bool, System.Net.IPNetwork]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Net.IPNetwork]) -> typing.Tuple[bool, System.Net.IPNetwork]:
         ...
 
 
-class TransportContext(System.Object, metaclass=abc.ABCMeta):
+class AuthenticationSchemes(IntEnum):
     """This class has no documentation."""
 
-    def get_channel_binding(self, kind: System.Security.Authentication.ExtendedProtection.ChannelBindingKind) -> System.Security.Authentication.ExtendedProtection.ChannelBinding:
-        ...
+    NONE = ...
+
+    DIGEST = ...
+
+    NEGOTIATE = ...
+
+    NTLM = ...
+
+    BASIC = ...
+
+    ANONYMOUS = ...
+
+    INTEGRATED_WINDOWS_AUTHENTICATION = ...
 
 
 class HttpStatusCode(IntEnum):
@@ -975,106 +1045,36 @@ class HttpStatusCode(IntEnum):
     NETWORK_AUTHENTICATION_REQUIRED = 511
 
 
-class CredentialCache(System.Object, System.Net.ICredentials, System.Net.ICredentialsByHost, System.Collections.IEnumerable):
+class CookieVariant(IntEnum):
     """This class has no documentation."""
 
-    DEFAULT_CREDENTIALS: System.Net.ICredentials
+    UNKNOWN = 0
 
-    DEFAULT_NETWORK_CREDENTIALS: System.Net.NetworkCredential
+    PLAIN = 1
 
+    RFC_2109 = 2
+
+    RFC_2965 = 3
+
+    DEFAULT = ...
+
+
+class CookieException(System.FormatException, System.Runtime.Serialization.ISerializable):
+    """This class has no documentation."""
+
+    @overload
     def __init__(self) -> None:
         ...
 
     @overload
-    def add(self, uri_prefix: System.Uri, auth_type: str, cred: System.Net.NetworkCredential) -> None:
+    def __init__(self, message: str) -> None:
         ...
 
     @overload
-    def add(self, host: str, port: int, authentication_type: str, credential: System.Net.NetworkCredential) -> None:
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @overload
-    def get_credential(self, uri_prefix: System.Uri, auth_type: str) -> System.Net.NetworkCredential:
-        ...
-
-    @overload
-    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
-        ...
-
-    def get_enumerator(self) -> System.Collections.IEnumerator:
-        ...
-
-    @overload
-    def remove(self, uri_prefix: System.Uri, auth_type: str) -> None:
-        ...
-
-    @overload
-    def remove(self, host: str, port: int, authentication_type: str) -> None:
-        ...
-
-
-class AuthenticationSchemes(IntEnum):
-    """This class has no documentation."""
-
-    NONE = ...
-
-    DIGEST = ...
-
-    NEGOTIATE = ...
-
-    NTLM = ...
-
-    BASIC = ...
-
-    ANONYMOUS = ...
-
-    INTEGRATED_WINDOWS_AUTHENTICATION = ...
-
-
-class HttpVersion(System.Object):
-    """This class has no documentation."""
-
-    UNKNOWN: System.Version = ...
-
-    VERSION_10: System.Version = ...
-
-    VERSION_11: System.Version = ...
-
-    VERSION_20: System.Version = ...
-
-    VERSION_30: System.Version = ...
-
-
-class DnsEndPoint(System.Net.EndPoint):
-    """This class has no documentation."""
-
-    @property
-    def host(self) -> str:
-        ...
-
-    @property
-    def address_family(self) -> System.Net.Sockets.AddressFamily:
-        ...
-
-    @property
-    def port(self) -> int:
-        ...
-
-    @overload
-    def __init__(self, host: str, port: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, host: str, port: int, address_family: System.Net.Sockets.AddressFamily) -> None:
-        ...
-
-    def equals(self, comparand: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def to_string(self) -> str:
-        ...
+    def get_object_data(self, serialization_info: System.Runtime.Serialization.SerializationInfo, streaming_context: System.Runtime.Serialization.StreamingContext) -> None:
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
 

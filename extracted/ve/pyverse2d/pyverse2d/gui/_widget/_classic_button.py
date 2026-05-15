@@ -25,7 +25,7 @@ class ClassicButton(Button):
         anchor: ancre relative locale
         scale: facteur de redimensionnement
         rotation: angle de rotation        
-        opacity: opacité [0, 1]
+        opacity: opacité *[0, 1]*
         clipping: rendu des widgets enfants strictement dans le AABB de la hitbox
         callback: action au clique
         condition: condition d'action
@@ -37,21 +37,22 @@ class ClassicButton(Button):
     )
 
     def __init__(
-            self,
-            background: Surface | Sprite,
-            label: Label | None = None,
-            border: Border | None = None,
-            position: Point = (0.0, 0.0),
-            anchor: Point = (0.5, 0.5),
-            scale: Real = 1.0,
-            rotation: Real = 0.0,
-            opacity: Real = 1.0,
-            clipping: bool = False,
-            callback: Callable | None = None,
-            condition: Callable | None = None,
-            id: Any = None,
-            give_id: bool = False,
-        ):
+        self,
+        background: Surface | Sprite,
+        label: Label | None = None,
+        border: Border | None = None,
+        position: Point = (0.0, 0.0),
+        anchor: Point = (0.5, 0.5),
+        scale: Real = 1.0,
+        rotation: Real = 0.0,
+        opacity: Real = 1.0,
+        clipping: bool = False,
+        callback: Callable | None = None,
+        condition: Callable | None = None,
+        id: Any = None,
+        give_id: bool = False,
+    ):
+        # Vérifications
         if __debug__:
             expect(background, (Surface, Sprite))
             expect(label, (Label, None))
@@ -63,8 +64,7 @@ class ClassicButton(Button):
         self._border: Border | None = border.deepcopy() if border is not None else None
 
         # Initialisation du bouton
-        super().__init__(position, anchor, scale, rotation, opacity, clipping,
-                         callback, condition, id, give_id)
+        super().__init__(position, anchor, scale, rotation, opacity, clipping, callback, condition, id, give_id)
 
         # Ajout des enfants
         self.add_child(self._background, name="background", z=0)
@@ -84,7 +84,8 @@ class ClassicButton(Button):
     
     @background.setter
     def background(self, value: Surface | Sprite) -> None:
-        assert isinstance(value, (Surface, Sprite)), f"background ({value}) must be a Surface or a Sprite widget"
+        if __debug__:
+            expect(value, (Surface, Sprite))
         self.remove_child(self._background)
         self._background = self.add_child(value.deepcopy(), name="background", z=0)
         self._invalidate_scissor()
@@ -99,7 +100,8 @@ class ClassicButton(Button):
     
     @label.setter
     def label(self, value: Label | None) -> None:
-        assert value is None or isinstance(value, Label), f"label ({value}) must be a Label widget or None"
+        if __debug__:
+            expect(value, (Label, None))
         if self._label is not None:
             self.remove_child(self._label)
         self._label = self.add_child(value.deepcopy(), name="label", z=10) if value is not None else None            
@@ -114,7 +116,8 @@ class ClassicButton(Button):
 
     @border.setter
     def border(self, value: Border | None) -> None:
-        assert value is None or isinstance(value, Border), f"border ({value}) must be a Border widget"
+        if __debug__:
+            expect(value, (Border, None))
         if self._border is not None:
             self.remove_child(self._border)
         self._border = self.add_child(value.deepcopy(), name="border", z=20) if value is not None else None            
@@ -126,7 +129,11 @@ class ClassicButton(Button):
 
     # ======================================== PREDICATES ========================================
     def collidespoint(self, point):
-        """Vérifie la collision avec un point"""
+        """Vérifie la collision avec un point
+
+        Args:
+            point: ``Point`` monde à vérifier
+        """
         return self._background.collidespoint(point)
 
     # ======================================== INTERFACE ========================================
@@ -147,3 +154,8 @@ class ClassicButton(Button):
             id = self._id,
             give_id = self._give_id,
         )
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "ClassicButton",
+]

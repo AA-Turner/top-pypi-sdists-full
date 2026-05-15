@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wslink
-Version: 2.5.6
+Version: 2.5.7
 Summary: Python/JavaScript library for communicating over WebSocket
 Author-email: Aron Helser <Aron.helser@kitware.com>, Scott Wittenburg <scott.wittenburg@kitware.com>, Alessandro Genova <alessandro.genova@kitware.com>, Sebastien Jourdain <sebastien.jourdain@kitware.com>
 License-File: LICENSE
@@ -16,7 +16,7 @@ Requires-Python: >=3.10
 Requires-Dist: aiohttp<4
 Requires-Dist: msgpack<2,>=1
 Provides-Extra: build
-Requires-Dist: uv~=0.10.7; extra == 'build'
+Requires-Dist: uv<0.12.0,>=0.10.7; extra == 'build'
 Provides-Extra: ssl
 Requires-Dist: cryptography; extra == 'ssl'
 Description-Content-Type: text/markdown

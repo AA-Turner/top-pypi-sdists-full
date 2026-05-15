@@ -9,8 +9,12 @@ V = TypeVar("V")
 DictKeys: TypeAlias = KeysView[K]
 DictValues: TypeAlias = ValuesView[V]
 
+CacheKey: TypeAlias = tuple | str
+
 # ======================================== EXPORTS ========================================
 __all__ = [
     "DictKeys",
     "DictValues",
+
+    "CacheKey",
 ]

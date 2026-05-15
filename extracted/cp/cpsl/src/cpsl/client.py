@@ -55,7 +55,8 @@ def _http_base(ctx: Optional[ConfigContext]) -> str:
     """Derive the HTTP API base URL from config.
 
     Checks CAPSULE_HTTP_URL first, then derives from the gRPC config.
-    In local dev the HTTP port is gRPC port + 1; in prod they share 443.
+    In local dev the HTTP port is explicitly configured, or gRPC port + 1;
+    in prod they share 443.
     """
     if url := os.environ.get("CAPSULE_HTTP_URL"):
         return url.rstrip("/")
@@ -63,11 +64,16 @@ def _http_base(ctx: Optional[ConfigContext]) -> str:
         return "https://api.capsule.new"
     host = ctx.gateway_host or "gateway.capsule.new"
     grpc_port = ctx.gateway_port or 443
-    if grpc_port == 443:
+    http_port = ctx.gateway_http_port
+    if http_port is None:
+        http_port = grpc_port if grpc_port in (80, 443) else grpc_port + 1
+    if http_port == 443:
         if host == "gateway.capsule.new":
             return "https://api.capsule.new"
         return f"https://{host}"
-    return f"http://{host}:{grpc_port + 1}"
+    if http_port == 80:
+        return f"http://{host}"
+    return f"http://{host}:{http_port}"
 
 
 class Client:

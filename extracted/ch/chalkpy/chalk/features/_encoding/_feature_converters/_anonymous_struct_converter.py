@@ -159,7 +159,7 @@ class AnonymousStructFeatureConverter(
         for pa_field in self._pa_struct_fields:
             fname = pa_field.name
             fc = self._field_converters[fname]
-            col = [None if d is None else d[fname] for d in dicts]
+            col = [None if d is None else d.get(fname) for d in dicts]
             if fname in self._sub_anon_converters:
                 arrays.append(self._sub_anon_converters[fname]._to_pyarrow_flat_from_dicts(col))
             elif fname in self._nontrivial_fields:
@@ -219,10 +219,10 @@ class AnonymousStructFeatureConverter(
 
     def _apply_rich_to_prim(self, v: dict) -> dict:
         if not self._nontrivial_fields and not self._sub_anon_converters:
-            return {name: v[name] for name in self._field_names}
+            return {name: v.get(name) for name in self._field_names}
         result: dict[str, Any] = {}
         for name in self._field_names:
-            val = v[name]
+            val = v.get(name)
             if name in self._sub_anon_converters or name in self._nontrivial_fields:
                 result[name] = self._field_converters[name].from_rich_to_primitive(val)
             else:
@@ -231,10 +231,10 @@ class AnonymousStructFeatureConverter(
 
     def _apply_prim_to_rich(self, v: dict) -> dict:
         if not self._nontrivial_fields and not self._sub_anon_converters:
-            return {name: v[name] for name in self._field_names}
+            return {name: v.get(name) for name in self._field_names}
         result: dict[str, Any] = {}
         for name in self._field_names:
-            val = v[name]
+            val = v.get(name)
             if name in self._sub_anon_converters or name in self._nontrivial_fields:
                 result[name] = self._field_converters[name].from_primitive_to_rich(val)
             else:

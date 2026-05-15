@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azdev
-Version: 0.2.9
+Version: 0.2.10
 Summary: Microsoft Azure CLI Developer Tools
 Home-page: https://github.com/Azure/azure-cli-dev-tools
 Author: Microsoft Corporation
@@ -13,12 +13,12 @@ Classifier: Topic :: Software Development :: Build Tools
 Classifier: Environment :: Console
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: azure-multiapi-storage
 Requires-Dist: docutils
@@ -26,7 +26,7 @@ Requires-Dist: flake8
 Requires-Dist: gitpython
 Requires-Dist: jinja2
 Requires-Dist: knack
-Requires-Dist: pylint<4
+Requires-Dist: pylint<5,>=4
 Requires-Dist: pytest-xdist
 Requires-Dist: pytest-forked
 Requires-Dist: pytest>=5.0.0
@@ -203,12 +203,17 @@ License
 
 Release History
 ===============
+0.2.10
+++++++
+* Add support for Python 3.14 and drop support for Python 3.9
+* Bump pylint constraint to >=4,<5 for Python 3.14 and style compatibility
+
 0.2.9
 +++++
 * `azdev latest-index`: Add `generate` and `verify` commands to manage Azure CLI packaged latest indices (`commandIndex.latest.json`, `helpIndex.latest.json`) with CI-friendly verify exit behavior.
 
 0.2.8
-++++++
++++++
 * Pin pip to 25.2 as pip 25.3 remove support for the legacy setup.py develop editable method in setuptools editable installs; setuptools >= 64 is now required. (#11457)
 
 0.2.7

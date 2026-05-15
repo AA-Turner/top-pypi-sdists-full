@@ -29,6 +29,7 @@ from openhands.sdk.skills.skill import (
     DEFAULT_MARKETPLACE_PATH,
     PUBLIC_SKILLS_BRANCH,
     PUBLIC_SKILLS_REPO,
+    _invalidate_public_skills_cache,
     load_skills_from_dir,
 )
 from openhands.sdk.skills.utils import (
@@ -186,10 +187,7 @@ def load_org_skills_from_url(
             except Exception as e:
                 logger.warning(f"Failed to load skills from {microagents_dir}: {e}")
 
-        logger.info(
-            f"Loaded {len(all_skills)} organization skills for {org_name}: "
-            f"{[s.name for s in all_skills]}"
-        )
+        logger.info("Loaded %d organization skills for %s", len(all_skills), org_name)
 
     except Exception as e:
         logger.warning(f"Failed to load organization skills for {org_name}: {e}")
@@ -362,9 +360,7 @@ def load_all_skills(
     # Merge all skills with precedence
     all_skills = merge_skills(skill_lists)
 
-    logger.info(
-        f"Returning {len(all_skills)} total skills: {[s.name for s in all_skills]}"
-    )
+    logger.info("Loaded %d skills", len(all_skills))
 
     return SkillLoadResult(skills=all_skills, sources=sources)
 
@@ -385,6 +381,7 @@ def sync_public_skills() -> tuple[bool, str]:
         )
 
         if result:
+            _invalidate_public_skills_cache()
             return (True, "Skills repository synced successfully")
         else:
             return (False, "Failed to sync skills repository")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastmcp
-Version: 3.2.4
+Version: 3.3.0
 Summary: The fast, Pythonic way to build MCP servers and clients.
 Project-URL: Homepage, https://gofastmcp.com
 Project-URL: Repository, https://github.com/PrefectHQ/fastmcp
@@ -18,43 +18,21 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: authlib>=1.6.5
-Requires-Dist: cyclopts>=4.0.0
-Requires-Dist: exceptiongroup>=1.2.2
-Requires-Dist: griffelib>=2.0.0
-Requires-Dist: httpx<1.0,>=0.28.1
-Requires-Dist: jsonref>=1.1.0
-Requires-Dist: jsonschema-path>=0.3.4
-Requires-Dist: mcp<2.0,>=1.24.0
-Requires-Dist: openapi-pydantic>=0.5.1
-Requires-Dist: opentelemetry-api>=1.20.0
-Requires-Dist: packaging>=24.0
-Requires-Dist: platformdirs>=4.0.0
-Requires-Dist: py-key-value-aio[filetree,keyring,memory]<0.5.0,>=0.4.4
-Requires-Dist: pydantic[email]>=2.11.7
-Requires-Dist: pyperclip>=1.9.0
-Requires-Dist: python-dotenv>=1.1.0
-Requires-Dist: pyyaml<7.0,>=6.0
-Requires-Dist: rich>=13.9.4
-Requires-Dist: uncalled-for>=0.2.0
-Requires-Dist: uvicorn>=0.35
-Requires-Dist: watchfiles>=1.0.0
-Requires-Dist: websockets>=15.0.1
+Requires-Dist: fastmcp-slim[client,server]==3.3.0
 Provides-Extra: anthropic
-Requires-Dist: anthropic>=0.48.0; extra == 'anthropic'
+Requires-Dist: fastmcp-slim[anthropic]==3.3.0; extra == 'anthropic'
 Provides-Extra: apps
-Requires-Dist: prefab-ui>=0.18.0; extra == 'apps'
+Requires-Dist: fastmcp-slim[apps]==3.3.0; extra == 'apps'
 Provides-Extra: azure
-Requires-Dist: azure-identity>=1.16.0; extra == 'azure'
-Requires-Dist: pyjwt>=2.12.0; extra == 'azure'
+Requires-Dist: fastmcp-slim[azure]==3.3.0; extra == 'azure'
 Provides-Extra: code-mode
-Requires-Dist: pydantic-monty==0.0.11; extra == 'code-mode'
+Requires-Dist: fastmcp-slim[code-mode]==3.3.0; extra == 'code-mode'
 Provides-Extra: gemini
-Requires-Dist: google-genai>=1.18.0; extra == 'gemini'
+Requires-Dist: fastmcp-slim[gemini]==3.3.0; extra == 'gemini'
 Provides-Extra: openai
-Requires-Dist: openai>=1.102.0; extra == 'openai'
+Requires-Dist: fastmcp-slim[openai]==3.3.0; extra == 'openai'
 Provides-Extra: tasks
-Requires-Dist: pydocket>=0.19.0; extra == 'tasks'
+Requires-Dist: fastmcp-slim[tasks]==3.3.0; extra == 'tasks'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -136,7 +114,17 @@ FastMCP has three pillars:
 
 **[Servers](https://gofastmcp.com/servers/server)** wrap your Python functions into MCP-compliant tools, resources, and prompts. **[Clients](https://gofastmcp.com/clients/client)** connect to any server with full protocol support. And **[Apps](https://gofastmcp.com/apps/overview)** give your tools interactive UIs rendered directly in the conversation.
 
-Ready to build? Start with the [installation guide](https://gofastmcp.com/getting-started/installation) or jump straight to the [quickstart](https://gofastmcp.com/getting-started/quickstart). When you're ready to deploy, [Prefect Horizon](https://www.prefect.io/horizon) offers free hosting for FastMCP users.
+Ready to build? Start with the [installation guide](https://gofastmcp.com/getting-started/installation) or jump straight to the [quickstart](https://gofastmcp.com/getting-started/quickstart).
+
+## Run FastMCP in production with Horizon
+
+FastMCP is the standard way to build MCP servers. **[Prefect Horizon](https://www.prefect.io/horizon?utm_source=github&utm_medium=readme&utm_campaign=readme_horizon&utm_content=readme_body)** is the enterprise MCP gateway for running them safely.
+
+Built by the FastMCP team, Horizon packages the best practices we've learned shipping the world's most popular MCP framework.
+
+Deploy FastMCP servers from GitHub with branch previews and instant rollback. Create a private registry of every MCP your company uses. Secure access with SSO and tool-level RBAC. Get audit logs, observability, and governance across your MCP stack. Remix approved tools into purpose-built endpoints for teams and agents.
+
+Start with FastMCP. [Scale with Horizon →](https://www.prefect.io/horizon?utm_source=github&utm_medium=readme&utm_campaign=readme_horizon&utm_content=readme_cta)
 
 ## Installation
 

@@ -1,7 +1,11 @@
-from pathlib import Path
-from typing import Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from slackblocks.objects import Option, Text, TextType
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 OPTION_A = Option(text=Text("A", type_=TextType.PLAINTEXT), value="A")
 OPTION_B = Option(text=Text("B", type_=TextType.PLAINTEXT), value="B")
@@ -12,6 +16,6 @@ THREE_OPTIONS = TWO_OPTIONS + [
 ]
 
 
-def fetch_sample(path: Union[Path, str]) -> str:
-    with open(path, "r") as file_:
+def fetch_sample(path: Path | str) -> str:
+    with open(path) as file_:
         return file_.read()

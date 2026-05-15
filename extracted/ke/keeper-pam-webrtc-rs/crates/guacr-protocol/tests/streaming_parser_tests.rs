@@ -540,6 +540,41 @@ fn test_encode_instruction() {
 }
 
 #[test]
+fn test_encode_ack() {
+    // 1-digit stream index
+    assert_eq!(
+        GuacdParser::encode_ack(0),
+        Bytes::from_static(b"3.ack,1.0,2.OK,1.0;")
+    );
+    assert_eq!(
+        GuacdParser::encode_ack(5),
+        Bytes::from_static(b"3.ack,1.5,2.OK,1.0;")
+    );
+    assert_eq!(
+        GuacdParser::encode_ack(9),
+        Bytes::from_static(b"3.ack,1.9,2.OK,1.0;")
+    );
+    // 2-digit stream index (boundary)
+    assert_eq!(
+        GuacdParser::encode_ack(10),
+        Bytes::from_static(b"3.ack,2.10,2.OK,1.0;")
+    );
+    assert_eq!(
+        GuacdParser::encode_ack(42),
+        Bytes::from_static(b"3.ack,2.42,2.OK,1.0;")
+    );
+    assert_eq!(
+        GuacdParser::encode_ack(99),
+        Bytes::from_static(b"3.ack,2.99,2.OK,1.0;")
+    );
+    // 10-digit stream index (u32::MAX)
+    assert_eq!(
+        GuacdParser::encode_ack(u32::MAX),
+        Bytes::from_static(b"3.ack,10.4294967295,2.OK,1.0;")
+    );
+}
+
+#[test]
 fn test_decode_empty_instruction_string_val() {
     // Renamed from test_decode_empty_instruction for clarity
     let result = GuacdParser::guacd_decode_for_test(b"0.").unwrap();

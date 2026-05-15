@@ -7,7 +7,7 @@ from typing_extensions import Literal
 import httpx
 
 from ...._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -101,7 +101,11 @@ class TimeseriesResource(SyncAPIResource):
         if not metric_id:
             raise ValueError(f"Expected a non-empty value for `metric_id` but received {metric_id!r}")
         return self._get(
-            f"/v4/applications/{application_spec_id}/metrics/timeseries/{metric_id}",
+            path_template(
+                "/v4/applications/{application_spec_id}/metrics/timeseries/{metric_id}",
+                application_spec_id=application_spec_id,
+                metric_id=metric_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -199,7 +203,11 @@ class AsyncTimeseriesResource(AsyncAPIResource):
         if not metric_id:
             raise ValueError(f"Expected a non-empty value for `metric_id` but received {metric_id!r}")
         return await self._get(
-            f"/v4/applications/{application_spec_id}/metrics/timeseries/{metric_id}",
+            path_template(
+                "/v4/applications/{application_spec_id}/metrics/timeseries/{metric_id}",
+                application_spec_id=application_spec_id,
+                metric_id=metric_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

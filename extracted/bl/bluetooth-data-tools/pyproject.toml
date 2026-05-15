@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "bluetooth-data-tools"
-version = "1.28.4"
+version = "1.29.0"
 license = "Apache-2.0"
 description = "Tools for converting bluetooth data and packets"
 authors = [{ name = "J. Nick Koston", email = "nick@koston.org" }]
@@ -40,7 +40,7 @@ python = "^3.10"
 Sphinx = {version = ">=5,<9", optional = true}
 sphinx-rtd-theme = {version = ">=1,<4", optional = true}
 myst-parser = {version = ">=0.18,<4.1", optional = true}
-cryptography = ">=41.0.3"
+cryptography = ">=46.0.7"
 
 [tool.poetry.extras]
 docs = [
@@ -53,9 +53,9 @@ docs = [
 pytest-benchmark = ">=4,<6"
 
 [tool.poetry.group.dev.dependencies]
-pytest-codspeed = "^4.2.0"
-pytest = "^8.4"
-pytest-cov = "^7.0"
+pytest-codspeed = "^4.5.0"
+pytest = "^9.0"
+pytest-cov = "^7.1"
 
 [tool.poetry.group.docs]
 optional = true

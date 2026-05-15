@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Union, Iterable
+from typing import Dict, Union, Iterable, Optional
 from datetime import datetime
 from typing_extensions import Literal, Required, Annotated, TypeAlias, TypedDict
 
@@ -112,10 +112,10 @@ class ItemTraceSpan(TypedDict, total=False):
     node_id: Required[str]
     """Identifier for the node that emitted this trace span."""
 
-    operation_input: Required[Dict[str, ItemTraceSpanOperationInput]]
+    operation_input: Required[Dict[str, Optional[ItemTraceSpanOperationInput]]]
     """The JSON representation of the input that this step received."""
 
-    operation_output: Required[Dict[str, ItemTraceSpanOperationOutput]]
+    operation_output: Required[Dict[str, Optional[ItemTraceSpanOperationOutput]]]
     """The JSON representation of the output that this step emitted."""
 
     start_timestamp: Required[Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]]
@@ -130,7 +130,7 @@ class ItemTraceSpan(TypedDict, total=False):
     end_timestamp: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
     """The end time of the step."""
 
-    operation_expected: Dict[str, ItemTraceSpanOperationExpected]
+    operation_expected: Dict[str, Optional[ItemTraceSpanOperationExpected]]
     """The JSON representation of the expected output for this step"""
 
     operation_metadata: Dict[str, object]

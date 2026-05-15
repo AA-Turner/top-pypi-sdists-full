@@ -9,79 +9,31 @@ import System.Runtime.InteropServices
 
 System_Buffers_StandardFormat = typing.Any
 
-System_Buffers_IMemoryOwner_T = typing.TypeVar("System_Buffers_IMemoryOwner_T")
+System_Buffers_SearchValues_T = typing.TypeVar("System_Buffers_SearchValues_T")
 System_Buffers_ArrayPool_T = typing.TypeVar("System_Buffers_ArrayPool_T")
 System_Buffers_MemoryManager_T = typing.TypeVar("System_Buffers_MemoryManager_T")
-System_Buffers_SearchValues_T = typing.TypeVar("System_Buffers_SearchValues_T")
+System_Buffers_IMemoryOwner_T = typing.TypeVar("System_Buffers_IMemoryOwner_T")
 
 
-class StandardFormat(System.IEquatable[System_Buffers_StandardFormat]):
+class SearchValues(typing.Generic[System_Buffers_SearchValues_T], System.Object):
     """This class has no documentation."""
 
-    NO_PRECISION: int = ...
-
-    MAX_PRECISION: int = 99
-
-    @property
-    def symbol(self) -> str:
-        ...
-
-    @property
-    def precision(self) -> int:
-        ...
-
-    @property
-    def has_precision(self) -> bool:
-        ...
-
-    @property
-    def is_default(self) -> bool:
-        ...
-
-    def __eq__(self, right: System.Buffers.StandardFormat) -> bool:
-        ...
-
-    def __init__(self, symbol: str, precision: int = ...) -> None:
-        ...
-
-    def __ne__(self, right: System.Buffers.StandardFormat) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Buffers.StandardFormat) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
+    def contains(self, value: System_Buffers_SearchValues_T) -> bool:
         ...
 
     @staticmethod
     @overload
-    def parse(format: System.ReadOnlySpan[str]) -> System.Buffers.StandardFormat:
+    def create(*values: typing.Union[int, typing.Iterable[int]]) -> System.Buffers.SearchValues[int]:
         ...
 
     @staticmethod
     @overload
-    def parse(format: str) -> System.Buffers.StandardFormat:
-        ...
-
-    def to_string(self) -> str:
+    def create(*values: typing.Union[str, typing.Iterable[str]]) -> System.Buffers.SearchValues[str]:
         ...
 
     @staticmethod
-    def try_parse(format: System.ReadOnlySpan[str], result: typing.Optional[System.Buffers.StandardFormat]) -> typing.Tuple[bool, System.Buffers.StandardFormat]:
-        ...
-
-
-class IMemoryOwner(typing.Generic[System_Buffers_IMemoryOwner_T], System.IDisposable, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def memory(self) -> System.Memory[System_Buffers_IMemoryOwner_T]:
+    @overload
+    def create(values: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> System.Buffers.SearchValues[str]:
         ...
 
 
@@ -171,25 +123,73 @@ class MemoryManager(typing.Generic[System_Buffers_MemoryManager_T], System.Objec
         ...
 
 
-class SearchValues(typing.Generic[System_Buffers_SearchValues_T], System.Object):
+class IMemoryOwner(typing.Generic[System_Buffers_IMemoryOwner_T], System.IDisposable, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    def contains(self, value: System_Buffers_SearchValues_T) -> bool:
+    @property
+    @abc.abstractmethod
+    def memory(self) -> System.Memory[System_Buffers_IMemoryOwner_T]:
+        ...
+
+
+class StandardFormat(System.IEquatable[System_Buffers_StandardFormat]):
+    """This class has no documentation."""
+
+    NO_PRECISION: int = ...
+
+    MAX_PRECISION: int = 99
+
+    @property
+    def symbol(self) -> str:
+        ...
+
+    @property
+    def precision(self) -> int:
+        ...
+
+    @property
+    def has_precision(self) -> bool:
+        ...
+
+    @property
+    def is_default(self) -> bool:
+        ...
+
+    def __eq__(self, right: System.Buffers.StandardFormat) -> bool:
+        ...
+
+    def __init__(self, symbol: str, precision: int = ...) -> None:
+        ...
+
+    def __ne__(self, right: System.Buffers.StandardFormat) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Buffers.StandardFormat) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
         ...
 
     @staticmethod
     @overload
-    def create(*values: typing.Union[int, typing.Iterable[int]]) -> System.Buffers.SearchValues[int]:
+    def parse(format: System.ReadOnlySpan[str]) -> System.Buffers.StandardFormat:
         ...
 
     @staticmethod
     @overload
-    def create(*values: typing.Union[str, typing.Iterable[str]]) -> System.Buffers.SearchValues[str]:
+    def parse(format: str) -> System.Buffers.StandardFormat:
+        ...
+
+    def to_string(self) -> str:
         ...
 
     @staticmethod
-    @overload
-    def create(values: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> System.Buffers.SearchValues[str]:
+    def try_parse(format: System.ReadOnlySpan[str], result: typing.Optional[System.Buffers.StandardFormat]) -> typing.Tuple[bool, System.Buffers.StandardFormat]:
         ...
 
 

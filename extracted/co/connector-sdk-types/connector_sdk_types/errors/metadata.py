@@ -28,6 +28,7 @@ def build_metadata(
     retryable: bool | None = None,
     throttled: bool | None = None,
     refreshable: bool | None = None,
+    retry_after_seconds: int | None = None,
 ) -> ConnectorErrorMetadata:
     """
     Build ConnectorErrorMetadata for a resolved ConnectorErrorCode.
@@ -41,4 +42,5 @@ def build_metadata(
         else code in RETRYABLE_CODES or code in THROTTLE_AND_RETRY_CODES,
         throttled=throttled if throttled is not None else code in THROTTLE_AND_RETRY_CODES,
         refreshable=refreshable if refreshable is not None else code in REFRESHABLE_CODES,
+        retry_after_seconds=retry_after_seconds if retry_after_seconds is not None else None,
     )

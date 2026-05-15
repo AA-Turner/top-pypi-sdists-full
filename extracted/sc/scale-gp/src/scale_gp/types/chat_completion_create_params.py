@@ -12,12 +12,12 @@ __all__ = [
     "ChatCompletionCreateParamsBase",
     "Message",
     "MessageUserMessage",
-    "MessageUserMessageContentUserMessageContentPart",
-    "MessageUserMessageContentUserMessageContentPartTextUserMessageContentParts",
-    "MessageUserMessageContentUserMessageContentPartImageURLUserMessageContentParts",
-    "MessageUserMessageContentUserMessageContentPartImageURLUserMessageContentPartsImageURL",
-    "MessageUserMessageContentUserMessageContentPartImageDataUserMessageContentParts",
-    "MessageUserMessageContentUserMessageContentPartImageDataUserMessageContentPartsImageData",
+    "MessageUserMessageContentUnionMember1",
+    "MessageUserMessageContentUnionMember1TextUserMessageContentParts",
+    "MessageUserMessageContentUnionMember1ImageURLUserMessageContentParts",
+    "MessageUserMessageContentUnionMember1ImageURLUserMessageContentPartsImageURL",
+    "MessageUserMessageContentUnionMember1ImageDataUserMessageContentParts",
+    "MessageUserMessageContentUnionMember1ImageDataUserMessageContentPartsImageData",
     "MessageAssistantMessage",
     "MessageSystemMessage",
     "ChatCompletionCreateParamsNonStreaming",
@@ -150,13 +150,13 @@ class ChatCompletionCreateParamsBase(TypedDict, total=False):
     """
 
 
-class MessageUserMessageContentUserMessageContentPartTextUserMessageContentParts(TypedDict, total=False):
+class MessageUserMessageContentUnionMember1TextUserMessageContentParts(TypedDict, total=False):
     text: Required[str]
 
     type: Literal["text"]
 
 
-class MessageUserMessageContentUserMessageContentPartImageURLUserMessageContentPartsImageURL(TypedDict, total=False):
+class MessageUserMessageContentUnionMember1ImageURLUserMessageContentPartsImageURL(TypedDict, total=False):
     """Specifies the image URL and level of detail. Only supported by OpenAI models"""
 
     url: Required[str]
@@ -166,14 +166,14 @@ class MessageUserMessageContentUserMessageContentPartImageURLUserMessageContentP
     """Only used for OpenAI. Corresponds to OpenAI's image detail parameter."""
 
 
-class MessageUserMessageContentUserMessageContentPartImageURLUserMessageContentParts(TypedDict, total=False):
-    image_url: Required[MessageUserMessageContentUserMessageContentPartImageURLUserMessageContentPartsImageURL]
+class MessageUserMessageContentUnionMember1ImageURLUserMessageContentParts(TypedDict, total=False):
+    image_url: Required[MessageUserMessageContentUnionMember1ImageURLUserMessageContentPartsImageURL]
     """Specifies the image URL and level of detail. Only supported by OpenAI models"""
 
     type: Literal["image_url"]
 
 
-class MessageUserMessageContentUserMessageContentPartImageDataUserMessageContentPartsImageData(TypedDict, total=False):
+class MessageUserMessageContentUnionMember1ImageDataUserMessageContentPartsImageData(TypedDict, total=False):
     """Specifies inline image data"""
 
     data: Required[str]
@@ -193,22 +193,22 @@ class MessageUserMessageContentUserMessageContentPartImageDataUserMessageContent
     """The type of the image data. Only base64 is supported."""
 
 
-class MessageUserMessageContentUserMessageContentPartImageDataUserMessageContentParts(TypedDict, total=False):
-    image_data: Required[MessageUserMessageContentUserMessageContentPartImageDataUserMessageContentPartsImageData]
+class MessageUserMessageContentUnionMember1ImageDataUserMessageContentParts(TypedDict, total=False):
+    image_data: Required[MessageUserMessageContentUnionMember1ImageDataUserMessageContentPartsImageData]
     """Specifies inline image data"""
 
     type: Literal["image_data"]
 
 
-MessageUserMessageContentUserMessageContentPart: TypeAlias = Union[
-    MessageUserMessageContentUserMessageContentPartTextUserMessageContentParts,
-    MessageUserMessageContentUserMessageContentPartImageURLUserMessageContentParts,
-    MessageUserMessageContentUserMessageContentPartImageDataUserMessageContentParts,
+MessageUserMessageContentUnionMember1: TypeAlias = Union[
+    MessageUserMessageContentUnionMember1TextUserMessageContentParts,
+    MessageUserMessageContentUnionMember1ImageURLUserMessageContentParts,
+    MessageUserMessageContentUnionMember1ImageDataUserMessageContentParts,
 ]
 
 
 class MessageUserMessage(TypedDict, total=False):
-    content: Required[Union[str, Iterable[MessageUserMessageContentUserMessageContentPart]]]
+    content: Required[Union[str, Iterable[MessageUserMessageContentUnionMember1]]]
     """Input from the user.
 
     Can either be text or a list of content parts. Not all models support image

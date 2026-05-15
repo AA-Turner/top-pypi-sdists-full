@@ -8,7 +8,7 @@ from typing_extensions import Literal
 import httpx
 
 from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -41,8 +41,11 @@ __all__ = ["DeploymentsResource", "AsyncDeploymentsResource"]
 
 
 class DeploymentsResource(SyncAPIResource):
+    """Model API."""
+
     @cached_property
     def usage_statistics(self) -> UsageStatisticsResource:
+        """Model API."""
         return UsageStatisticsResource(self._client)
 
     @cached_property
@@ -73,6 +76,7 @@ class DeploymentsResource(SyncAPIResource):
         deployment_metadata: Dict[str, object] | Omit = omit,
         model_creation_parameters: Dict[str, object] | Omit = omit,
         vendor_configuration: deployment_create_params.VendorConfiguration | Omit = omit,
+        wait_for_ready: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -105,6 +109,9 @@ class DeploymentsResource(SyncAPIResource):
         Args:
           account_id: The ID of the account that owns the given entity.
 
+          wait_for_ready: If true, the request will block until the Launch endpoint is READY. Defaults to
+              true.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -116,7 +123,7 @@ class DeploymentsResource(SyncAPIResource):
         if not model_instance_id:
             raise ValueError(f"Expected a non-empty value for `model_instance_id` but received {model_instance_id!r}")
         return self._post(
-            f"/v4/models/{model_instance_id}/deployments",
+            path_template("/v4/models/{model_instance_id}/deployments", model_instance_id=model_instance_id),
             body=maybe_transform(
                 {
                     "name": name,
@@ -124,6 +131,7 @@ class DeploymentsResource(SyncAPIResource):
                     "deployment_metadata": deployment_metadata,
                     "model_creation_parameters": model_creation_parameters,
                     "vendor_configuration": vendor_configuration,
+                    "wait_for_ready": wait_for_ready,
                 },
                 deployment_create_params.DeploymentCreateParams,
             ),
@@ -172,7 +180,11 @@ class DeploymentsResource(SyncAPIResource):
         if not deployment_id:
             raise ValueError(f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}")
         return self._get(
-            f"/v4/models/{model_instance_id}/deployments/{deployment_id}",
+            path_template(
+                "/v4/models/{model_instance_id}/deployments/{deployment_id}",
+                model_instance_id=model_instance_id,
+                deployment_id=deployment_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -188,6 +200,7 @@ class DeploymentsResource(SyncAPIResource):
         model_creation_parameters: Dict[str, object] | Omit = omit,
         name: str | Omit = omit,
         vendor_configuration: deployment_update_params.VendorConfiguration | Omit = omit,
+        wait_for_ready: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -209,6 +222,9 @@ class DeploymentsResource(SyncAPIResource):
         Review the request schema to see the fields that can be updated.
 
         Args:
+          wait_for_ready: If true, the request will block until the Launch endpoint is READY. Defaults to
+              true.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -222,13 +238,18 @@ class DeploymentsResource(SyncAPIResource):
         if not deployment_id:
             raise ValueError(f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}")
         return self._patch(
-            f"/v4/models/{model_instance_id}/deployments/{deployment_id}",
+            path_template(
+                "/v4/models/{model_instance_id}/deployments/{deployment_id}",
+                model_instance_id=model_instance_id,
+                deployment_id=deployment_id,
+            ),
             body=maybe_transform(
                 {
                     "deployment_metadata": deployment_metadata,
                     "model_creation_parameters": model_creation_parameters,
                     "name": name,
                     "vendor_configuration": vendor_configuration,
+                    "wait_for_ready": wait_for_ready,
                 },
                 deployment_update_params.DeploymentUpdateParams,
             ),
@@ -304,7 +325,7 @@ class DeploymentsResource(SyncAPIResource):
         if not model_instance_id:
             raise ValueError(f"Expected a non-empty value for `model_instance_id` but received {model_instance_id!r}")
         return self._get_api_list(
-            f"/v4/models/{model_instance_id}/deployments",
+            path_template("/v4/models/{model_instance_id}/deployments", model_instance_id=model_instance_id),
             page=SyncPageResponse[ModelDeployment],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -360,7 +381,11 @@ class DeploymentsResource(SyncAPIResource):
         if not deployment_id:
             raise ValueError(f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}")
         return self._delete(
-            f"/v4/models/{model_instance_id}/deployments/{deployment_id}",
+            path_template(
+                "/v4/models/{model_instance_id}/deployments/{deployment_id}",
+                model_instance_id=model_instance_id,
+                deployment_id=deployment_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -401,7 +426,11 @@ class DeploymentsResource(SyncAPIResource):
                 f"Expected a non-empty value for `model_deployment_id` but received {model_deployment_id!r}"
             )
         return self._post(
-            f"/v4/models/{model_instance_id}/deployments/{model_deployment_id}/execute",
+            path_template(
+                "/v4/models/{model_instance_id}/deployments/{model_deployment_id}/execute",
+                model_instance_id=model_instance_id,
+                model_deployment_id=model_deployment_id,
+            ),
             body=maybe_transform({"stream": stream}, deployment_execute_params.DeploymentExecuteParams),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -494,8 +523,11 @@ class DeploymentsResource(SyncAPIResource):
 
 
 class AsyncDeploymentsResource(AsyncAPIResource):
+    """Model API."""
+
     @cached_property
     def usage_statistics(self) -> AsyncUsageStatisticsResource:
+        """Model API."""
         return AsyncUsageStatisticsResource(self._client)
 
     @cached_property
@@ -526,6 +558,7 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         deployment_metadata: Dict[str, object] | Omit = omit,
         model_creation_parameters: Dict[str, object] | Omit = omit,
         vendor_configuration: deployment_create_params.VendorConfiguration | Omit = omit,
+        wait_for_ready: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -558,6 +591,9 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         Args:
           account_id: The ID of the account that owns the given entity.
 
+          wait_for_ready: If true, the request will block until the Launch endpoint is READY. Defaults to
+              true.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -569,7 +605,7 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         if not model_instance_id:
             raise ValueError(f"Expected a non-empty value for `model_instance_id` but received {model_instance_id!r}")
         return await self._post(
-            f"/v4/models/{model_instance_id}/deployments",
+            path_template("/v4/models/{model_instance_id}/deployments", model_instance_id=model_instance_id),
             body=await async_maybe_transform(
                 {
                     "name": name,
@@ -577,6 +613,7 @@ class AsyncDeploymentsResource(AsyncAPIResource):
                     "deployment_metadata": deployment_metadata,
                     "model_creation_parameters": model_creation_parameters,
                     "vendor_configuration": vendor_configuration,
+                    "wait_for_ready": wait_for_ready,
                 },
                 deployment_create_params.DeploymentCreateParams,
             ),
@@ -625,7 +662,11 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         if not deployment_id:
             raise ValueError(f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}")
         return await self._get(
-            f"/v4/models/{model_instance_id}/deployments/{deployment_id}",
+            path_template(
+                "/v4/models/{model_instance_id}/deployments/{deployment_id}",
+                model_instance_id=model_instance_id,
+                deployment_id=deployment_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -641,6 +682,7 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         model_creation_parameters: Dict[str, object] | Omit = omit,
         name: str | Omit = omit,
         vendor_configuration: deployment_update_params.VendorConfiguration | Omit = omit,
+        wait_for_ready: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -662,6 +704,9 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         Review the request schema to see the fields that can be updated.
 
         Args:
+          wait_for_ready: If true, the request will block until the Launch endpoint is READY. Defaults to
+              true.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -675,13 +720,18 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         if not deployment_id:
             raise ValueError(f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}")
         return await self._patch(
-            f"/v4/models/{model_instance_id}/deployments/{deployment_id}",
+            path_template(
+                "/v4/models/{model_instance_id}/deployments/{deployment_id}",
+                model_instance_id=model_instance_id,
+                deployment_id=deployment_id,
+            ),
             body=await async_maybe_transform(
                 {
                     "deployment_metadata": deployment_metadata,
                     "model_creation_parameters": model_creation_parameters,
                     "name": name,
                     "vendor_configuration": vendor_configuration,
+                    "wait_for_ready": wait_for_ready,
                 },
                 deployment_update_params.DeploymentUpdateParams,
             ),
@@ -757,7 +807,7 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         if not model_instance_id:
             raise ValueError(f"Expected a non-empty value for `model_instance_id` but received {model_instance_id!r}")
         return self._get_api_list(
-            f"/v4/models/{model_instance_id}/deployments",
+            path_template("/v4/models/{model_instance_id}/deployments", model_instance_id=model_instance_id),
             page=AsyncPageResponse[ModelDeployment],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -813,7 +863,11 @@ class AsyncDeploymentsResource(AsyncAPIResource):
         if not deployment_id:
             raise ValueError(f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}")
         return await self._delete(
-            f"/v4/models/{model_instance_id}/deployments/{deployment_id}",
+            path_template(
+                "/v4/models/{model_instance_id}/deployments/{deployment_id}",
+                model_instance_id=model_instance_id,
+                deployment_id=deployment_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -854,7 +908,11 @@ class AsyncDeploymentsResource(AsyncAPIResource):
                 f"Expected a non-empty value for `model_deployment_id` but received {model_deployment_id!r}"
             )
         return await self._post(
-            f"/v4/models/{model_instance_id}/deployments/{model_deployment_id}/execute",
+            path_template(
+                "/v4/models/{model_instance_id}/deployments/{model_deployment_id}/execute",
+                model_instance_id=model_instance_id,
+                model_deployment_id=model_deployment_id,
+            ),
             body=await async_maybe_transform({"stream": stream}, deployment_execute_params.DeploymentExecuteParams),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -974,6 +1032,7 @@ class DeploymentsResourceWithRawResponse:
 
     @cached_property
     def usage_statistics(self) -> UsageStatisticsResourceWithRawResponse:
+        """Model API."""
         return UsageStatisticsResourceWithRawResponse(self._deployments.usage_statistics)
 
 
@@ -1005,6 +1064,7 @@ class AsyncDeploymentsResourceWithRawResponse:
 
     @cached_property
     def usage_statistics(self) -> AsyncUsageStatisticsResourceWithRawResponse:
+        """Model API."""
         return AsyncUsageStatisticsResourceWithRawResponse(self._deployments.usage_statistics)
 
 
@@ -1036,6 +1096,7 @@ class DeploymentsResourceWithStreamingResponse:
 
     @cached_property
     def usage_statistics(self) -> UsageStatisticsResourceWithStreamingResponse:
+        """Model API."""
         return UsageStatisticsResourceWithStreamingResponse(self._deployments.usage_statistics)
 
 
@@ -1067,4 +1128,5 @@ class AsyncDeploymentsResourceWithStreamingResponse:
 
     @cached_property
     def usage_statistics(self) -> AsyncUsageStatisticsResourceWithStreamingResponse:
+        """Model API."""
         return AsyncUsageStatisticsResourceWithStreamingResponse(self._deployments.usage_statistics)

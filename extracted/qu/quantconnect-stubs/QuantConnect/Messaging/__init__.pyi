@@ -12,6 +12,46 @@ QuantConnect_Messaging__EventContainer_Callable = typing.TypeVar("QuantConnect_M
 QuantConnect_Messaging__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Messaging__EventContainer_ReturnType")
 
 
+class Messaging(System.Object, QuantConnect.Interfaces.IMessagingHandler):
+    """Local/desktop implementation of messaging system for Lean Engine."""
+
+    @property
+    def has_subscribers(self) -> bool:
+        """
+        This implementation ignores the has_subscribers flag and
+        instead will always write to the log.
+        """
+        ...
+
+    @has_subscribers.setter
+    def has_subscribers(self, value: bool) -> None:
+        ...
+
+    def dispose(self) -> None:
+        """Dispose of any resources"""
+        ...
+
+    def initialize(self, initialize_parameters: QuantConnect.Interfaces.MessagingHandlerInitializeParameters) -> None:
+        """
+        Initialize the messaging system
+        
+        :param initialize_parameters: The parameters required for initialization
+        """
+        ...
+
+    def send(self, packet: QuantConnect.Packets.Packet) -> None:
+        """Send a generic base packet without processing"""
+        ...
+
+    def send_notification(self, notification: QuantConnect.Notifications.Notification) -> None:
+        """Send any notification with a base type of Notification."""
+        ...
+
+    def set_authentication(self, job: QuantConnect.Packets.AlgorithmNodePacket) -> None:
+        """Set the messaging channel"""
+        ...
+
+
 class EventMessagingHandler(System.Object, QuantConnect.Interfaces.IMessagingHandler):
     """Desktop implementation of messaging system for Lean Engine"""
 
@@ -200,46 +240,6 @@ class EventMessagingHandler(System.Object, QuantConnect.Interfaces.IMessagingHan
         ...
 
     def system_debug_event_raised(self, packet: QuantConnect.Packets.SystemDebugPacket) -> None:
-        ...
-
-
-class Messaging(System.Object, QuantConnect.Interfaces.IMessagingHandler):
-    """Local/desktop implementation of messaging system for Lean Engine."""
-
-    @property
-    def has_subscribers(self) -> bool:
-        """
-        This implementation ignores the has_subscribers flag and
-        instead will always write to the log.
-        """
-        ...
-
-    @has_subscribers.setter
-    def has_subscribers(self, value: bool) -> None:
-        ...
-
-    def dispose(self) -> None:
-        """Dispose of any resources"""
-        ...
-
-    def initialize(self, initialize_parameters: QuantConnect.Interfaces.MessagingHandlerInitializeParameters) -> None:
-        """
-        Initialize the messaging system
-        
-        :param initialize_parameters: The parameters required for initialization
-        """
-        ...
-
-    def send(self, packet: QuantConnect.Packets.Packet) -> None:
-        """Send a generic base packet without processing"""
-        ...
-
-    def send_notification(self, notification: QuantConnect.Notifications.Notification) -> None:
-        """Send any notification with a base type of Notification."""
-        ...
-
-    def set_authentication(self, job: QuantConnect.Packets.AlgorithmNodePacket) -> None:
-        """Set the messaging channel"""
         ...
 
 

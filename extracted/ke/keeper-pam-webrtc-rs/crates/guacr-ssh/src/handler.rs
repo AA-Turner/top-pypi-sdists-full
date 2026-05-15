@@ -1157,11 +1157,7 @@ impl<'a> RenderContext<'a> {
         if let Some(dirty) = dirty_opt {
             let total_cells = (current_rows as usize) * (current_cols as usize);
             let dirty_cells = dirty.cell_count();
-            let dirty_pct = if total_cells > 0 {
-                (dirty_cells * 100) / total_cells
-            } else {
-                100
-            };
+            let dirty_pct = (dirty_cells * 100).checked_div(total_cells).unwrap_or(100);
 
             if dirty_pct == 0 {
                 // Edge case: dirty region is empty — only send sync

@@ -259,3 +259,8 @@ class Playlist(Asset):
         self._order = list(range(len(self._musics)))
         if self._shuffle:
             random.shuffle(self._order)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Playlist",
+]

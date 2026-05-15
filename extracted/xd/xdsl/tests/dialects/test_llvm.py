@@ -1,11 +1,14 @@
 from io import StringIO
 
 import pytest
+from typing_extensions import TypeVar
 
 from xdsl.context import Context
 from xdsl.dialects import arith, builtin, llvm, test
 from xdsl.dialects.builtin import UnitAttr, i32
+from xdsl.dialects.llvm import ShuffleVectorResultConstraint
 from xdsl.ir import Attribute, Block, Region
+from xdsl.irdl import AnyAttr, EqAttrConstraint, TypeVarConstraint, VarConstraint
 from xdsl.parser import Parser
 from xdsl.printer import Printer
 from xdsl.utils.exceptions import VerifyException
@@ -558,12 +561,15 @@ def test_call_op_variadic():
 
 
 def test_call_intrinsic_op_converts_str_to_stringattr():
-    # verify string intrinsic name is auto-converted to StringAttr
-    op = llvm.CallIntrinsicOp(
-        "llvm.intr", [], [], op_bundle_sizes=llvm.DenseArrayBase.from_list(i32, [])
-    )
+    op = llvm.CallIntrinsicOp("llvm.intr", [], [])
     assert isinstance(op.intrin, builtin.StringAttr)
     assert op.intrin.data == "llvm.intr"
+
+
+def test_call_intrinsic_op_accepts_stringattr():
+    intrin = builtin.StringAttr("llvm.smax")
+    op = llvm.CallIntrinsicOp(intrin, [], [])
+    assert op.intrin is intrin
 
 
 def test_func_op_visibility_default():
@@ -587,6 +593,13 @@ def test_fabs_op():
     assert op.result.type == builtin.f32
 
 
+def test_fceil_op():
+    val = create_ssa_value(builtin.f32)
+    op = llvm.FCeilOp(val)
+    assert op.arg == val
+    assert op.res.type == builtin.f32
+
+
 def test_fsqrt_op():
     val = create_ssa_value(builtin.f32)
     op = llvm.FSqrtOp(val)
@@ -597,6 +610,21 @@ def test_fsqrt_op():
 def test_flog_op():
     val = create_ssa_value(builtin.f32)
     op = llvm.FLogOp(val)
+    assert op.arg == val
+    assert op.res.type == builtin.f32
+
+
+def test_fexp_op():
+    val = create_ssa_value(builtin.f32)
+    op = llvm.FExpOp(val)
+    assert op.arg == val
+    assert op.res.type == builtin.f32
+    assert op.name == "llvm.intr.exp"
+
+
+def test_fsin_op():
+    val = create_ssa_value(builtin.f32)
+    op = llvm.FSinOp(val)
     assert op.arg == val
     assert op.res.type == builtin.f32
 
@@ -662,3 +690,42 @@ def test_masked_store_op():
     assert op.data == ptr
     assert op.mask == mask
     assert op.alignment.value.data == 16
+
+
+def test_shuffle_vector_op():
+    vec_type = builtin.VectorType(builtin.f32, [4])
+    v1 = create_ssa_value(vec_type)
+    v2 = create_ssa_value(vec_type)
+    mask = builtin.DenseArrayBase.from_list(builtin.i32, [0, 0, 0, 0])
+    op = llvm.ShuffleVectorOp(v1, v2, mask, vec_type)
+    assert op.v1 == v1
+    assert op.v2 == v2
+    assert op.mask is mask
+    assert op.res.type == vec_type
+
+
+def test_shuffle_vector_op_different_sizes():
+    input_type = builtin.VectorType(builtin.f32, [4])
+    result_type = builtin.VectorType(builtin.f32, [2])
+    v1 = create_ssa_value(input_type)
+    v2 = create_ssa_value(input_type)
+    mask = builtin.DenseArrayBase.from_list(builtin.i32, [0, 5])
+    op = llvm.ShuffleVectorOp(v1, v2, mask, result_type)
+    assert op.v1 == v1
+    assert op.v2 == v2
+    assert op.mask is mask
+    assert op.res.type == result_type
+
+
+def test_shuffle_vector_result_constraint_mapping_type_vars():
+    _T = TypeVar("_T", bound=Attribute)
+    elem_constr = TypeVarConstraint(_T, AnyAttr())
+    mask_constr = VarConstraint("MASK", AnyAttr())
+    constr = ShuffleVectorResultConstraint(elem_constr, mask_constr)
+
+    replacement = EqAttrConstraint(builtin.f32)
+    mapped = constr.mapping_type_vars({_T: replacement})
+
+    assert isinstance(mapped, ShuffleVectorResultConstraint)
+    assert mapped.element_constr == replacement
+    assert mapped.mask_constr == mask_constr

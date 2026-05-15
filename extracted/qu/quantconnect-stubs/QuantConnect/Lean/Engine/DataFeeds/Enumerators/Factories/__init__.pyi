@@ -16,6 +16,63 @@ import System
 import System.Collections.Generic
 
 
+class BaseDataCollectionSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory):
+    """
+    Provides an implementation of ISubscriptionEnumeratorFactory that reads
+    an entire SubscriptionDataSource into a single BaseDataCollection
+    to be emitted on the tradable date at midnight
+    """
+
+    def __init__(self, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
+        """
+        Instanciates a new BaseDataCollectionSubscriptionEnumeratorFactory
+        
+        :param object_store: The object store to use
+        """
+        ...
+
+    def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, data_provider: QuantConnect.Interfaces.IDataProvider) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+        """
+        Creates an enumerator to read the specified request
+        
+        :param request: The subscription request to be read
+        :param data_provider: Provider used to get data when it is not present on disk
+        :returns: An enumerator reading the subscription request.
+        """
+        ...
+
+
+class SubscriptionDataReaderSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory, System.IDisposable):
+    """Provides an implementation of ISubscriptionEnumeratorFactory that used the SubscriptionDataReader"""
+
+    def __init__(self, result_handler: QuantConnect.Lean.Engine.Results.IResultHandler, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, cache_provider: QuantConnect.Interfaces.IDataCacheProvider, algorithm: QuantConnect.Interfaces.IAlgorithm, enable_price_scaling: bool = True) -> None:
+        """
+        Initializes a new instance of the SubscriptionDataReaderSubscriptionEnumeratorFactory class
+        
+        :param result_handler: The result handler for the algorithm
+        :param map_file_provider: The map file provider
+        :param factor_file_provider: The factor file provider
+        :param cache_provider: Provider used to get data when it is not present on disk
+        :param algorithm: The algorithm instance to use
+        :param enable_price_scaling: Applies price factor
+        """
+        ...
+
+    def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, data_provider: QuantConnect.Interfaces.IDataProvider) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+        """
+        Creates a SubscriptionDataReader to read the specified request
+        
+        :param request: The subscription request to be read
+        :param data_provider: Provider used to get data when it is not present on disk
+        :returns: An enumerator reading the subscription request.
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+
 class TimeTriggeredUniverseSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory):
     """
     Provides an implementation of ISubscriptionEnumeratorFactory to emit
@@ -70,37 +127,6 @@ class CorporateEventEnumeratorFactory(System.Object):
         ...
 
 
-class SubscriptionDataReaderSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory, System.IDisposable):
-    """Provides an implementation of ISubscriptionEnumeratorFactory that used the SubscriptionDataReader"""
-
-    def __init__(self, result_handler: QuantConnect.Lean.Engine.Results.IResultHandler, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, cache_provider: QuantConnect.Interfaces.IDataCacheProvider, algorithm: QuantConnect.Interfaces.IAlgorithm, enable_price_scaling: bool = True) -> None:
-        """
-        Initializes a new instance of the SubscriptionDataReaderSubscriptionEnumeratorFactory class
-        
-        :param result_handler: The result handler for the algorithm
-        :param map_file_provider: The map file provider
-        :param factor_file_provider: The factor file provider
-        :param cache_provider: Provider used to get data when it is not present on disk
-        :param algorithm: The algorithm instance to use
-        :param enable_price_scaling: Applies price factor
-        """
-        ...
-
-    def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, data_provider: QuantConnect.Interfaces.IDataProvider) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
-        """
-        Creates a SubscriptionDataReader to read the specified request
-        
-        :param request: The subscription request to be read
-        :param data_provider: Provider used to get data when it is not present on disk
-        :returns: An enumerator reading the subscription request.
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-
 class LiveCustomDataSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory):
     """Provides an implementation of ISubscriptionEnumeratorFactory to handle live custom data."""
 
@@ -131,32 +157,6 @@ class LiveCustomDataSubscriptionEnumeratorFactory(System.Object, QuantConnect.Da
         
         
         This Class is protected.
-        """
-        ...
-
-
-class BaseDataCollectionSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory):
-    """
-    Provides an implementation of ISubscriptionEnumeratorFactory that reads
-    an entire SubscriptionDataSource into a single BaseDataCollection
-    to be emitted on the tradable date at midnight
-    """
-
-    def __init__(self, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
-        """
-        Instanciates a new BaseDataCollectionSubscriptionEnumeratorFactory
-        
-        :param object_store: The object store to use
-        """
-        ...
-
-    def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, data_provider: QuantConnect.Interfaces.IDataProvider) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
-        """
-        Creates an enumerator to read the specified request
-        
-        :param request: The subscription request to be read
-        :param data_provider: Provider used to get data when it is not present on disk
-        :returns: An enumerator reading the subscription request.
         """
         ...
 

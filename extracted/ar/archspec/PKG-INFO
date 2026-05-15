@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: archspec
-Version: 0.2.5
+Version: 0.2.6
 Summary: A library to query system architecture
 Home-page: https://github.com/archspec/archspec
 License: Apache-2.0 OR MIT
@@ -24,6 +24,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Project-URL: Documentation, https://archspec.readthedocs.io
 Project-URL: Repository, https://github.com/archspec/archspec.git
 Description-Content-Type: text/markdown

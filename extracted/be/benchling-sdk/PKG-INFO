@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: benchling-sdk
-Version: 1.24.1
+Version: 1.25.0
 Summary: SDK for interacting with the Benchling Platform.
 License: Apache-2.0
 Author: Benchling Support
@@ -16,7 +16,7 @@ Provides-Extra: python-jose
 Requires-Dist: PyYAML (>=6.0,<7.0)
 Requires-Dist: attrs (>=20.1.0)
 Requires-Dist: backoff (>=1.10.0,<3)
-Requires-Dist: benchling-api-client (==2.0.425)
+Requires-Dist: benchling-api-client (==2.0.434)
 Requires-Dist: certifi (>=2022.12.7)
 Requires-Dist: cryptography (>=42.0.0) ; extra == "cryptography"
 Requires-Dist: dataclasses-json (>=0.5.2,<0.6.0)

@@ -8,52 +8,17 @@ use anyhow::{anyhow, Result};
 use bytes::Bytes;
 use log::{debug, error, warn};
 
-// Memory prefetching optimizations
-#[cfg(target_arch = "x86_64")]
-mod prefetch_optimizations {
-    use crate::models::Conn;
-    use dashmap::DashMap;
-    use std::arch::x86_64::*;
-
-    /// Prefetch memory for DashMap lookup to improve cache performance
-    #[inline(always)]
-    pub fn prefetch_connection_lookup(conns: &DashMap<u32, Conn>, conn_no: u32) {
-        // Calculate approximate hash bucket location for prefetch
-        // This is a heuristic - actual DashMap implementation may vary
-        let hash = conn_no as usize;
-        let ptr = conns as *const _ as *const u8;
-
-        unsafe {
-            // Prefetch the likely memory location
-            _mm_prefetch(
-                ptr.add(hash * 64) as *const i8, // Approximate bucket location
-                _MM_HINT_T0,                     // Prefetch to L1 cache
-            );
-
-            // Prefetch next cache line as well for better coverage
-            _mm_prefetch(ptr.add(hash * 64 + 64) as *const i8, _MM_HINT_T0);
-        }
-    }
-}
-
-#[cfg(not(target_arch = "x86_64"))]
 mod prefetch_optimizations {
     use crate::models::Conn;
     use dashmap::DashMap;
 
-    /// No-op prefetch for non-x86_64 architectures
+    /// No-op: the previous x86_64 implementation used `ptr.add(hash * 64)` on a
+    /// DashMap reference, which violates Rust's `<*const T>::add` safety contract
+    /// (the result must remain within the same allocated object). The "optimisation"
+    /// was unsound and provided no measurable benefit given DashMap's own internal
+    /// sharding already ensures good cache locality.
     #[inline(always)]
-    pub fn prefetch_connection_lookup(_conns: &DashMap<u32, Conn>, _conn_no: u32) {
-        // No prefetch on non-x86_64
-    }
-
-    /// No-op batch prefetch for non-x86_64 architectures
-    /// Currently preparatory - will be used when we implement frame batching
-    #[inline(always)]
-    #[allow(dead_code)] // Preparatory for future batch processing optimization
-    pub fn prefetch_multiple_connections(_conns: &DashMap<u32, Conn>, _conn_nos: &[u32]) {
-        // No prefetch on non-x86_64
-    }
+    pub fn prefetch_connection_lookup(_conns: &DashMap<u32, Conn>, _conn_no: u32) {}
 }
 
 use prefetch_optimizations::prefetch_connection_lookup;

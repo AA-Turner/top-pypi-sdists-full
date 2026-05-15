@@ -7,3 +7,8 @@ from abc import ABC
 class Space(ABC):
     """Classe abstraite des espaces de rendu"""
     __slots__ = tuple()
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Space",
+]

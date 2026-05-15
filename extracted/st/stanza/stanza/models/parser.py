@@ -25,13 +25,16 @@ import torch
 from torch import nn, optim
 
 import stanza.models.depparse.data as data
-from stanza.models.depparse.data import DataLoader
-from stanza.models.depparse.trainer import Trainer
+from stanza.models.depparse.data import DataLoader, InfiniteBatch
+from stanza.models.depparse.trainer import Trainer, GraphTrainer, TransitionTrainer
+from stanza.models.depparse.transition.model import SubtreeCombination
+from stanza.models.depparse.utils import predict_dataset
 from stanza.models.depparse import scorer
 from stanza.models.common import utils
 from stanza.models.common import pretrain
 from stanza.models.common.data import augment_punct
 from stanza.models.common.doc import *
+from stanza.models.common.foundation_cache import FoundationCache
 from stanza.models.common.peft_config import add_peft_args, resolve_peft_args
 from stanza.models.common.utils import log_training_args
 from stanza.utils.conll import CoNLL
@@ -45,8 +48,36 @@ def build_argparse():
     parser.add_argument('--wordvec_dir', type=str, default='extern_data/word2vec', help='Directory of word vectors.')
     parser.add_argument('--wordvec_file', type=str, default=None, help='Word vectors filename.')
     parser.add_argument('--wordvec_pretrain_file', type=str, default=None, help='Exact name of the pretrain file to read')
-    parser.add_argument('--train_file', type=str, default=None, help='Input file for data loader.')
-    parser.add_argument('--eval_file', type=str, default=None, help='Input file for data loader.')
+    parser.add_argument('--train_file', type=str, default=None, help='Input train file for data loader.')
+    # Depending on how they are produced, a --silver_file can provide
+    # a small but real improvement in quality in the final model.
+    # This can also be used to train a model using two separate data
+    # sources, such as a historical dataset you want to be the primary
+    # dataset and a more modern dataset you want to have as a
+    # secondary training set
+    # When constructed using a combination of a graph parser and a
+    # transition parser, following the same general approach from the
+    # constituency parser, adding a silver dataset improves results on
+    # multiple UD datasets
+    # Unfortunately, the same general improvement occurs when using
+    # two sets of graph parsers built with different seeds, which
+    # makes the transition parser look substantially less useful
+    # Baseline: graph w/ transformer trained with adadelta and adam
+    # 2x graph: two sets of 5 graph models trained with different seeds
+    # g/t: 5 graph models and 5 transition models
+    #  dev             base    g+t      2g
+    # de_gsd          89.83   89.62   89.64
+    # en_ewt          93.89   94.04   94.15
+    # it_vit          90.60   90.69   90.78
+    # zh-hans_gsdsimp 85.89   86.53   86.55
+    #  test            base    g+t      2g
+    # de_gsd          87.09   87.12   87.15
+    # en_ewt          93.72   93.78   93.98
+    # it_vit          90.88   91.03   91.15
+    # zh-hans_gsdsimp 86.34   86.60   86.49
+    parser.add_argument('--silver_file', type=str, default=None, help='Supplemental training file with silver trees.')
+    parser.add_argument('--silver_weight', type=float, default=0.5, help='Relative weight of the silver trees, if present')
+    parser.add_argument('--eval_file', type=str, default=None, help='Input dev file for data loader.')
     parser.add_argument('--output_file', type=str, default=None, help='Output CoNLL-U file.')
     parser.add_argument('--no_gold_labels', dest='gold_labels', action='store_false', help="Don't score the eval file - perhaps it has no gold labels, for example.  Cannot be used at training time")
     parser.add_argument('--output_latex', default=False, action='store_true', help='Output the per-relation table in Latex form')
@@ -192,6 +223,7 @@ def build_argparse():
     parser.add_argument('--continue_from', type=str, default=None, help="File name to preload the model to continue training from")
 
     parser.add_argument('--seed', type=int, default=1234)
+    parser.add_argument('--no_seed', action='store_const', const=None, dest='seed', help='Remove the random seed, resulting in a randomly chosen random seed')
     add_peft_args(parser)
     utils.add_device_args(parser)
 
@@ -201,6 +233,18 @@ def build_argparse():
     parser.add_argument('--wandb_name', default=None, help='Name of a wandb session to start when training.  Will default to the dataset short name')
 
     parser.add_argument('--train_size', type=int, default=None, help='If specified, randomly select this many sentences from the training data')
+
+    parser.add_argument('--model_type', default='graph', choices=['graph', 'transition'], help='Which model to use')
+    parser.add_argument('--transition_embedding_dim', type=int, default=20, help="Embedding size for a transition")
+    parser.add_argument('--transition_hidden_dim', type=int, default=20, help="Embedding size for transition stack")
+    parser.add_argument('--transition_merge_words_output_dim', type=int, default=200, help="Dimension for merging words when scoring transitions")
+    parser.add_argument('--transition_subtree_combination', type=lambda x: SubtreeCombination[x.upper()], default=SubtreeCombination.NONE,
+                        help="Which subtree combination method to use.  {}".format(", ".join(x.name for x in SubtreeCombination)))
+    parser.add_argument('--transition_subtree_nonlinearity', type=str, default='none',
+                        help="Which non-linearity to use when combining subtrees")
+    parser.add_argument('--transition_relation_learning_factor', type=float, default=1.0,
+                        help="How much to scale the learning rate of the relations, relative to the transitions")
+    parser.add_argument('--reversed', default=False, action='store_true', help='Reverse the sentence before parsing')
     return parser
 
 def parse_args(args=None):
@@ -240,15 +284,6 @@ def load_pretrain(args):
             vec_file = args['wordvec_file'] if args['wordvec_file'] else utils.get_wordvec_file(args['wordvec_dir'], args['shorthand'])
         pt = pretrain.Pretrain(pretrain_file, vec_file, args['pretrain_max_vocab'])
     return pt
-
-def predict_dataset(trainer, dev_batch):
-    dev_preds = []
-    if len(dev_batch) > 0:
-        for batch in dev_batch:
-            preds = trainer.predict(batch)
-            dev_preds += preds
-        dev_preds = utils.unsort(dev_preds, dev_batch.data_orig_idx)
-    return dev_preds
 
 def train(args):
     model_file = model_file_name(args)
@@ -321,6 +356,13 @@ def train(args):
         logger.info("Skip training because no data available...")
         sys.exit(0)
 
+    if args['silver_file'] is None:
+        infinite_batch = InfiniteBatch(train_batch)
+    else:
+        silver_doc = CoNLL.conll2doc(input_file=args['silver_file'])
+        silver_batch = DataLoader(silver_doc, args['batch_size'], args, pretrain, vocab=vocab, evaluation=False)
+        infinite_batch = InfiniteBatch(train_batch, silver_batch, weights=[1.0, args['silver_weight']])
+
     if args['wandb']:
         import wandb
         wandb_name = args['wandb_name'] if args['wandb_name'] else "%s_depparse" % args['shorthand']
@@ -336,15 +378,21 @@ def train(args):
         args["checkpoint_save_name"] = checkpoint_file
 
     if args.get("checkpoint") and os.path.exists(args["checkpoint_save_name"]):
-        trainer = Trainer(args=args, pretrain=pretrain, vocab=vocab, model_file=args["checkpoint_save_name"], device=args['device'], ignore_model_config=True)
+        trainer = Trainer.load(filename=args["checkpoint_save_name"], pretrain=pretrain, args=args, device=args['device'])
         if len(trainer.dev_score_history) > 0:
             logger.info("Continuing from checkpoint %s  Model was previously trained for %d steps, with a best dev score of %.4f", args["checkpoint_save_name"], trainer.global_step, max(trainer.dev_score_history))
     elif args["continue_from"]:
         if not os.path.exists(args["continue_from"]):
             raise FileNotFoundError("--continue_from specified, but the file %s does not exist" % args["continue_from"])
-        trainer = Trainer(args=args, pretrain=pretrain, vocab=vocab, model_file=args["continue_from"], device=args['device'], ignore_model_config=True, reset_history=True)
+        trainer = Trainer.load(filename=args["continue_from"], pretrain=pretrain, args=args, device=args['device'], reset_history=True)
     else:
-        trainer = Trainer(args=args, vocab=vocab, pretrain=pretrain, device=args['device'])
+        if args['model_type'] == 'graph':
+            model_type = GraphTrainer
+        elif args['model_type'] == 'transition':
+            model_type = TransitionTrainer
+        else:
+            raise ValueError("Unknown model type %s" % args['model_type'])
+        trainer = model_type(args=args, vocab=vocab, pretrain=pretrain, device=args['device'])
 
     max_steps = args['max_steps']
     current_lr = args['lr']
@@ -356,96 +404,105 @@ def train(args):
     train_loss = 0
     if args['log_norms']:
         trainer.model.log_norms()
-    while True:
-        do_break = False
-        for i, batch in enumerate(train_batch):
-            start_time = time.time()
-            trainer.global_step += 1
-            loss = trainer.update(batch, eval=False) # update step
-            train_loss += loss
+    do_break = False
 
-            # will checkpoint if we switch optimizers or score a new best score
-            force_checkpoint = False
-            if trainer.global_step % args['log_step'] == 0:
-                duration = time.time() - start_time
-                logger.info(format_str.format(trainer.global_step, max_steps, loss, duration, current_lr))
+    epoch_stats = trainer.model.empty_stats()
+    total_stats = trainer.model.empty_stats()
+    while not do_break:
+        batch = infinite_batch.next_batch()
 
-            if trainer.global_step % args['eval_interval'] == 0:
-                # eval on dev
-                logger.info("Evaluating on dev set...")
+        start_time = time.time()
+        trainer.global_step += 1
+        loss, batch_stats = trainer.update(batch, eval=False) # update step
+        if batch_stats is not None:
+            epoch_stats = epoch_stats + batch_stats
+            total_stats = total_stats + batch_stats
+        train_loss += loss
+
+        # will checkpoint if we switch optimizers or score a new best score
+        force_checkpoint = False
+        if trainer.global_step % args['log_step'] == 0:
+            duration = time.time() - start_time
+            logger.info(format_str.format(trainer.global_step, max_steps, loss, duration, current_lr))
+
+        if trainer.global_step % args['eval_interval'] == 0:
+            # eval on dev
+            logger.info("Evaluating on dev set...")
+            dev_preds = predict_dataset(trainer, dev_batch)
+
+            dev_batch.doc.set([HEAD, DEPREL], [y for x in dev_preds for y in x])
+
+            system_pred_file = "{:C}\n\n".format(dev_batch.doc)
+            system_pred_file = io.StringIO(system_pred_file)
+            _, _, dev_score = scorer.score(system_pred_file, args['eval_file'])
+
+            train_loss = train_loss / args['eval_interval'] # avg loss per batch
+            logger.info("step {}: train_loss = {:.6f}, dev_score = {:.4f}".format(trainer.global_step, train_loss, dev_score))
+            if epoch_stats is not None:
+                logger.info("Additional stats:\n%s", epoch_stats)
+                epoch_stats = trainer.model.empty_stats()
+
+            if len(infinite_batch.batches) > 1:
+                logger.debug("  training batch usage: %s", infinite_batch.counts)
+
+            if args['wandb']:
+                wandb.log({'train_loss': train_loss, 'dev_score': dev_score})
+
+            train_loss = 0
+
+            # save best model
+            trainer.dev_score_history += [dev_score]
+            if dev_score >= max(trainer.dev_score_history):
+                trainer.last_best_step = trainer.global_step
+                trainer.save(model_file)
+                logger.info("new best model saved.")
+                force_checkpoint = True
+
+            for scheduler_name, scheduler in trainer.scheduler.items():
+                logger.info('scheduler %s learning rate: %s', scheduler_name, scheduler.get_last_lr())
+            if args['log_norms']:
+                trainer.model.log_norms()
+
+        if not is_second_stage and args.get('second_optim', None) is not None:
+            if trainer.global_step - trainer.last_best_step >= args['max_steps_before_stop'] or (args['second_optim_start_step'] is not None and trainer.global_step >= args['second_optim_start_step']):
+                logger.info("Switching to second optimizer: {}".format(args.get('second_optim', None)))
+                global_step = trainer.global_step
+                args["second_stage"] = True
+                # if the loader gets a model file, it uses secondary optimizer
+                # (because of the second_stage = True argument)
+                trainer = Trainer.load(filename=model_file, args=args, pretrain=pretrain, device=args['device'])
+                logger.info('Reloading best model to continue from current local optimum')
+
                 dev_preds = predict_dataset(trainer, dev_batch)
-
                 dev_batch.doc.set([HEAD, DEPREL], [y for x in dev_preds for y in x])
-
                 system_pred_file = "{:C}\n\n".format(dev_batch.doc)
                 system_pred_file = io.StringIO(system_pred_file)
                 _, _, dev_score = scorer.score(system_pred_file, args['eval_file'])
+                logger.info("Reloaded model with dev score %.4f", dev_score)
 
-                train_loss = train_loss / args['eval_interval'] # avg loss per batch
-                logger.info("step {}: train_loss = {:.6f}, dev_score = {:.4f}".format(trainer.global_step, train_loss, dev_score))
-
-                if args['wandb']:
-                    wandb.log({'train_loss': train_loss, 'dev_score': dev_score})
-
-                train_loss = 0
-
-                # save best model
-                trainer.dev_score_history += [dev_score]
-                if dev_score >= max(trainer.dev_score_history):
-                    trainer.last_best_step = trainer.global_step
-                    trainer.save(model_file)
-                    logger.info("new best model saved.")
-                    force_checkpoint = True
-
-                for scheduler_name, scheduler in trainer.scheduler.items():
-                    logger.info('scheduler %s learning rate: %s', scheduler_name, scheduler.get_last_lr())
-                if args['log_norms']:
-                    trainer.model.log_norms()
-
-            if not is_second_stage and args.get('second_optim', None) is not None:
-                if trainer.global_step - trainer.last_best_step >= args['max_steps_before_stop'] or (args['second_optim_start_step'] is not None and trainer.global_step >= args['second_optim_start_step']):
-                    logger.info("Switching to second optimizer: {}".format(args.get('second_optim', None)))
-                    global_step = trainer.global_step
-                    args["second_stage"] = True
-                    # if the loader gets a model file, it uses secondary optimizer
-                    # (because of the second_stage = True argument)
-                    trainer = Trainer(args=args, vocab=trainer.vocab, pretrain=pretrain,
-                                      model_file=model_file, device=args['device'])
-                    logger.info('Reloading best model to continue from current local optimum')
-
-                    dev_preds = predict_dataset(trainer, dev_batch)
-                    dev_batch.doc.set([HEAD, DEPREL], [y for x in dev_preds for y in x])
-                    system_pred_file = "{:C}\n\n".format(dev_batch.doc)
-                    system_pred_file = io.StringIO(system_pred_file)
-                    _, _, dev_score = scorer.score(system_pred_file, args['eval_file'])
-                    logger.info("Reloaded model with dev score %.4f", dev_score)
-
-                    is_second_stage = True
-                    trainer.global_step = global_step
-                    trainer.last_best_step = global_step
-                    if args['second_batch_size'] is not None:
-                        train_batch.set_batch_size(args['second_batch_size'])
-                    force_checkpoint = True
-            else:
-                if trainer.global_step - trainer.last_best_step >= args['max_steps_before_stop']:
-                    do_break = True
-                    break
-
-            if trainer.global_step % args['eval_interval'] == 0 or force_checkpoint:
-                # if we need to save checkpoint, do so
-                # (save after switching the optimizer, if applicable, so that
-                # the new optimizer is the optimizer used if a restart happens)
-                if checkpoint_file is not None:
-                    trainer.save(checkpoint_file, save_optimizer=True)
-                    logger.info("new model checkpoint saved.")
-
-            if trainer.global_step >= args['max_steps']:
+                is_second_stage = True
+                trainer.global_step = global_step
+                trainer.last_best_step = global_step
+                if args['second_batch_size'] is not None:
+                    infinite_batch.set_batch_size(args['second_batch_size'])
+                    infinite_batch.reshuffle()
+                force_checkpoint = True
+        else:
+            if trainer.global_step - trainer.last_best_step >= args['max_steps_before_stop']:
                 do_break = True
                 break
 
-        if do_break: break
+        if trainer.global_step % args['eval_interval'] == 0 or force_checkpoint:
+            # if we need to save checkpoint, do so
+            # (save after switching the optimizer, if applicable, so that
+            # the new optimizer is the optimizer used if a restart happens)
+            if checkpoint_file is not None:
+                trainer.save(checkpoint_file, save_optimizer=True)
+                logger.info("new model checkpoint saved.")
 
-        train_batch.reshuffle()
+        if trainer.global_step >= args['max_steps']:
+            do_break = True
+            break
 
     logger.info("Training ended with {} steps.".format(trainer.global_step))
 
@@ -474,7 +531,9 @@ def evaluate(args):
 
     # load model
     logger.info("Loading model from: {}".format(model_file))
-    trainer = Trainer(pretrain=pretrain, model_file=model_file, device=args['device'], args=load_args)
+    # we make and use a blank FoundationCache in case the model is an ensemble,
+    # in which case we don't need N different copies of the same charlm/bert
+    trainer = Trainer.load(pretrain=pretrain, filename=model_file, device=args['device'], args=load_args, foundation_cache=FoundationCache())
     if args['log_norms']:
         trainer.model.log_norms()
     return trainer, evaluate_trainer(args, trainer, pretrain)

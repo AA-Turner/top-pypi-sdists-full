@@ -18,7 +18,7 @@ jobs:
     steps:
     - uses: actions/checkout@v6
 
-    - uses: astral-sh/setup-uv@v7
+    - uses: astral-sh/setup-uv@v8.1.0
       with:
         activate-environment: true
         version: "latest"
@@ -52,10 +52,10 @@ jobs:
         pytest -r sa --mpl --mpl-results-path=pytest_results
 
     - name: Upload pytest test results
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       if: failure()
       with:
-        name: pytest_results-${{ matrix.python-version }}-${{ matrix.runs-on }}
+        name: pytest_results-${{ github.job }}-${{ matrix.python-version }}-${{ matrix.os }}
         retention-days: 3
         path: pytest_results
 
@@ -70,7 +70,7 @@ jobs:
     steps:
     - uses: actions/checkout@v6
 
-    - uses: astral-sh/setup-uv@v7
+    - uses: astral-sh/setup-uv@v8.1.0
       with:
         activate-environment: true
         version: "latest"
@@ -110,10 +110,10 @@ jobs:
         pytest -r sa --mpl --mpl-results-path=pytest_results
 
     - name: Upload pytest test results
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       if: failure()
       with:
-        name: pytest_results-${{ matrix.python-version }}-${{ matrix.runs-on }}
+        name: pytest_results-${{ github.job }}-${{ matrix.python-version }}-${{ matrix.os }}
         retention-days: 3
         path: pytest_results
 
@@ -128,7 +128,7 @@ jobs:
     steps:
     - uses: actions/checkout@v6
 
-    - uses: astral-sh/setup-uv@v7
+    - uses: astral-sh/setup-uv@v8.1.0
       with:
         activate-environment: true
         version: "latest"
@@ -164,10 +164,10 @@ jobs:
         pytest -r sa --mpl --mpl-results-path=pytest_results
 
     - name: Upload pytest test results
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       if: failure()
       with:
-        name: pytest_results-${{ matrix.python-version }}-${{ matrix.runs-on }}
+        name: pytest_results-${{ github.job }}-${{ matrix.python-version }}-${{ matrix.os }}
         retention-days: 3
         path: pytest_results
 
@@ -182,7 +182,7 @@ jobs:
     steps:
     - uses: actions/checkout@v6
 
-    - uses: astral-sh/setup-uv@v7
+    - uses: astral-sh/setup-uv@v8.1.0
       with:
         activate-environment: true
         version: "latest"
@@ -218,9 +218,9 @@ jobs:
         pytest -r sa --mpl --mpl-results-path=pytest_results
 
     - name: Upload pytest test results
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       if: failure()
       with:
-        name: pytest_results-${{ matrix.python-version }}-${{ matrix.runs-on }}
+        name: pytest_results-${{ github.job }}-${{ matrix.python-version }}-${{ matrix.os }}
         retention-days: 3
         path: pytest_results

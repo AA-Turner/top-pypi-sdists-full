@@ -5,6 +5,7 @@ from __future__ import annotations
 import httpx
 
 from ..._types import Body, Query, Headers, NotGiven, not_given
+from ..._utils import path_template
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -66,7 +67,7 @@ class EventsResource(SyncAPIResource):
         if not fine_tuning_job_id:
             raise ValueError(f"Expected a non-empty value for `fine_tuning_job_id` but received {fine_tuning_job_id!r}")
         return self._get_api_list(
-            f"/v4/fine-tuning-jobs/{fine_tuning_job_id}/events",
+            path_template("/v4/fine-tuning-jobs/{fine_tuning_job_id}/events", fine_tuning_job_id=fine_tuning_job_id),
             page=SyncTopLevelArray[FineTuningJobEvent],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -121,7 +122,7 @@ class AsyncEventsResource(AsyncAPIResource):
         if not fine_tuning_job_id:
             raise ValueError(f"Expected a non-empty value for `fine_tuning_job_id` but received {fine_tuning_job_id!r}")
         return self._get_api_list(
-            f"/v4/fine-tuning-jobs/{fine_tuning_job_id}/events",
+            path_template("/v4/fine-tuning-jobs/{fine_tuning_job_id}/events", fine_tuning_job_id=fine_tuning_job_id),
             page=AsyncTopLevelArray[FineTuningJobEvent],
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout

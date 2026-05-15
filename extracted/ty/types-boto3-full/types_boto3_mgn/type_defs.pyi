@@ -1968,6 +1968,7 @@ class NetworkMigrationCodeGenerationSegmentTypeDef(TypedDict):
     logicalID: NotRequired[str]
     mapperSegmentID: NotRequired[str]
     artifacts: NotRequired[list[NetworkMigrationCodeGenerationArtifactTypeDef]]
+    referencedSegments: NotRequired[list[str]]
     createdAt: NotRequired[datetime]
 
 class ListNetworkMigrationMapperSegmentsResponseTypeDef(TypedDict):

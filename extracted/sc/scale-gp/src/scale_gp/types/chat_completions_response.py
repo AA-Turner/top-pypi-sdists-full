@@ -11,25 +11,25 @@ __all__ = [
     "ChatCompletion",
     "ChatCompletionMessage",
     "ChatCompletionMessageUserMessage",
-    "ChatCompletionMessageUserMessageContentUserMessageContentPart",
-    "ChatCompletionMessageUserMessageContentUserMessageContentPartTextUserMessageContentParts",
-    "ChatCompletionMessageUserMessageContentUserMessageContentPartImageURLUserMessageContentParts",
-    "ChatCompletionMessageUserMessageContentUserMessageContentPartImageURLUserMessageContentPartsImageURL",
-    "ChatCompletionMessageUserMessageContentUserMessageContentPartImageDataUserMessageContentParts",
-    "ChatCompletionMessageUserMessageContentUserMessageContentPartImageDataUserMessageContentPartsImageData",
+    "ChatCompletionMessageUserMessageContentUnionMember1",
+    "ChatCompletionMessageUserMessageContentUnionMember1TextUserMessageContentParts",
+    "ChatCompletionMessageUserMessageContentUnionMember1ImageURLUserMessageContentParts",
+    "ChatCompletionMessageUserMessageContentUnionMember1ImageURLUserMessageContentPartsImageURL",
+    "ChatCompletionMessageUserMessageContentUnionMember1ImageDataUserMessageContentParts",
+    "ChatCompletionMessageUserMessageContentUnionMember1ImageDataUserMessageContentPartsImageData",
     "ChatCompletionMessageAssistantMessage",
     "ChatCompletionMessageSystemMessage",
     "TokenUsage",
 ]
 
 
-class ChatCompletionMessageUserMessageContentUserMessageContentPartTextUserMessageContentParts(BaseModel):
+class ChatCompletionMessageUserMessageContentUnionMember1TextUserMessageContentParts(BaseModel):
     text: str
 
     type: Optional[Literal["text"]] = None
 
 
-class ChatCompletionMessageUserMessageContentUserMessageContentPartImageURLUserMessageContentPartsImageURL(BaseModel):
+class ChatCompletionMessageUserMessageContentUnionMember1ImageURLUserMessageContentPartsImageURL(BaseModel):
     """Specifies the image URL and level of detail. Only supported by OpenAI models"""
 
     url: str
@@ -39,14 +39,14 @@ class ChatCompletionMessageUserMessageContentUserMessageContentPartImageURLUserM
     """Only used for OpenAI. Corresponds to OpenAI's image detail parameter."""
 
 
-class ChatCompletionMessageUserMessageContentUserMessageContentPartImageURLUserMessageContentParts(BaseModel):
-    image_url: ChatCompletionMessageUserMessageContentUserMessageContentPartImageURLUserMessageContentPartsImageURL
+class ChatCompletionMessageUserMessageContentUnionMember1ImageURLUserMessageContentParts(BaseModel):
+    image_url: ChatCompletionMessageUserMessageContentUnionMember1ImageURLUserMessageContentPartsImageURL
     """Specifies the image URL and level of detail. Only supported by OpenAI models"""
 
     type: Optional[Literal["image_url"]] = None
 
 
-class ChatCompletionMessageUserMessageContentUserMessageContentPartImageDataUserMessageContentPartsImageData(BaseModel):
+class ChatCompletionMessageUserMessageContentUnionMember1ImageDataUserMessageContentPartsImageData(BaseModel):
     """Specifies inline image data"""
 
     data: str
@@ -66,25 +66,25 @@ class ChatCompletionMessageUserMessageContentUserMessageContentPartImageDataUser
     """The type of the image data. Only base64 is supported."""
 
 
-class ChatCompletionMessageUserMessageContentUserMessageContentPartImageDataUserMessageContentParts(BaseModel):
-    image_data: ChatCompletionMessageUserMessageContentUserMessageContentPartImageDataUserMessageContentPartsImageData
+class ChatCompletionMessageUserMessageContentUnionMember1ImageDataUserMessageContentParts(BaseModel):
+    image_data: ChatCompletionMessageUserMessageContentUnionMember1ImageDataUserMessageContentPartsImageData
     """Specifies inline image data"""
 
     type: Optional[Literal["image_data"]] = None
 
 
-ChatCompletionMessageUserMessageContentUserMessageContentPart: TypeAlias = Annotated[
+ChatCompletionMessageUserMessageContentUnionMember1: TypeAlias = Annotated[
     Union[
-        ChatCompletionMessageUserMessageContentUserMessageContentPartTextUserMessageContentParts,
-        ChatCompletionMessageUserMessageContentUserMessageContentPartImageURLUserMessageContentParts,
-        ChatCompletionMessageUserMessageContentUserMessageContentPartImageDataUserMessageContentParts,
+        ChatCompletionMessageUserMessageContentUnionMember1TextUserMessageContentParts,
+        ChatCompletionMessageUserMessageContentUnionMember1ImageURLUserMessageContentParts,
+        ChatCompletionMessageUserMessageContentUnionMember1ImageDataUserMessageContentParts,
     ],
     PropertyInfo(discriminator="type"),
 ]
 
 
 class ChatCompletionMessageUserMessage(BaseModel):
-    content: Union[str, List[ChatCompletionMessageUserMessageContentUserMessageContentPart]]
+    content: Union[str, List[ChatCompletionMessageUserMessageContentUnionMember1]]
     """Input from the user.
 
     Can either be text or a list of content parts. Not all models support image

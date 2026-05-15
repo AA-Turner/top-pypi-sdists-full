@@ -24,3 +24,8 @@ class ParticleModifier:
             positions: tableau (n, 2) des positions
             velocities: tableau (n, 2) des vélocités
         """
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "ParticleModifier",
+]

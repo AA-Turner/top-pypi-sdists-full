@@ -24,6 +24,7 @@ class TextTooLongError(ValueError):
 
 
 def update_max_length(model_name, tokenizer):
+    # see https://github.com/huggingface/transformers/issues/14561
     if model_name in ('hf-internal-testing/tiny-bert',
                       'google/muril-base-cased',
                       'google/muril-large-cased',
@@ -31,8 +32,11 @@ def update_max_length(model_name, tokenizer):
                       'camembert/camembert-large',
                       'hfl/chinese-electra-180g-large-discriminator',
                       'hfl/chinese-macbert-large',
+                      'rmihaylov/bert-base-bg',
+                      'rmihaylov/bert-base-theseus-bg',
                       'NYTK/electra-small-discriminator-hungarian'):
         tokenizer.model_max_length = 512
+
 
 def load_tokenizer(model_name, tokenizer_kwargs=None, local_files_only=False):
     if model_name:
@@ -47,11 +51,28 @@ def load_tokenizer(model_name, tokenizer_kwargs=None, local_files_only=False):
         if tokenizer_kwargs:
             bert_args.update(tokenizer_kwargs)
         bert_args['local_files_only'] = local_files_only
-        bert_tokenizer = AutoTokenizer.from_pretrained(model_name, **bert_args)
+        try:
+            bert_tokenizer = AutoTokenizer.from_pretrained(model_name, **bert_args)
+        except ValueError as e:
+            # some models on the hub are a BPE / PreTrainedTokenizerFast
+            # but are marked as CamembertTokenizer
+            # see https://github.com/huggingface/transformers/issues/44488
+            if model_name in ("cjvt/sloberta-sleng",
+                              "cjvt/sleng-bert",
+                              "EMBEDDIA/sloberta"):
+                from transformers import TokenizersBackend
+                bert_tokenizer = TokenizersBackend.from_pretrained(model_name)
+            else:
+                raise
         update_max_length(model_name, bert_tokenizer)
         if model_name == 'princeton-nlp/Sheared-LLaMA-1.3B':
             bert_tokenizer.pad_token = bert_tokenizer.eos_token
             logger.debug("Tokenizer does not have a pad_token - setting to %s (%s)", bert_tokenizer.pad_token, bert_tokenizer.eos_token)
+        if model_name in ('rmihaylov/bert-base-bg', 'rmihaylov/bert-base-theseus-bg'):
+            if max(bert_tokenizer.added_tokens_decoder.keys()) > bert_tokenizer.vocab_size:
+                logger.debug("Tokenizer for %s has a bug in its pad/unk tokens, in that they are outside the embedding range of the tokenizer.  tokenizer.vocab_size %s, tokenizer.added_tokens_decoder %s - fixing the pad_token and unk_token by setting them to match mask_token (%s)", model_name, bert_tokenizer.vocab_size, bert_tokenizer.added_tokens_decoder, bert_tokenizer.mask_token)
+                bert_tokenizer.pad_token = bert_tokenizer.mask_token
+                bert_tokenizer.unk_token = bert_tokenizer.mask_token
         return bert_tokenizer
     return None
 

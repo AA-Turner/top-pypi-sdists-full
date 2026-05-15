@@ -43,7 +43,11 @@ from pipecat.frames.frames import (
 from pipecat.services.tts_service import TTSService
 
 from kugelaudio import KugelAudio
-from kugelaudio.client import REGION_URLS, _parse_api_key
+from kugelaudio.client import _parse_api_key, _resolve_region_url
+from kugelaudio.exceptions import (
+    ConnectionError as KugelAudioConnectionError,
+    ValidationError,
+)
 from kugelaudio.streaming import MultiContextSession
 
 from .models import (
@@ -56,6 +60,18 @@ from .models import (
 )
 
 logger = logging.getLogger("kugelaudio.pipecat")
+
+
+# Pipecat 1.x introduced TTSSettings + AIService.start().validate_complete(),
+# which logs ERROR for any TTSSettings field still set to the NOT_GIVEN
+# sentinel. Subclasses are expected to pass an initialized TTSSettings via
+# super().__init__(settings=...). On Pipecat 0.x this module/class doesn't
+# exist; we fall back to the old kwarg-only path. See
+# pipecat/services/settings.py:TTSSettings.validate_complete.
+try:  # noqa: SIM105 — explicit branch is clearer than contextlib.suppress
+    from pipecat.services.settings import TTSSettings as _PipecatTTSSettings
+except ImportError:  # Pipecat < 1.0
+    _PipecatTTSSettings = None  # type: ignore[assignment]
 
 
 @lru_cache(maxsize=None)
@@ -153,9 +169,9 @@ class KugelAudioTTSService(TTSService):
 
         Args:
             api_key: KugelAudio API key. If not provided, reads from
-                KUGELAUDIO_API_KEY environment variable. Region-prefixed keys
-                (e.g. ``"us-ka_..."`` or ``"global-ka_..."``) are supported —
-                the prefix selects the region and is stripped before auth.
+                KUGELAUDIO_API_KEY environment variable. Prefix with
+                ``"eu-"`` to select the direct EU endpoint; the prefix is
+                stripped before auth.
             model: TTS model to use. "kugel-1-turbo" (fast) or
                 "kugel-1" (premium).
             voice_id: Voice ID to use for synthesis.
@@ -166,14 +182,30 @@ class KugelAudioTTSService(TTSService):
             language: ISO 639-1 language code (e.g., 'en', 'de'). Setting this
                 skips server-side auto-detection and saves ~60-150ms per request.
             normalize: Apply text normalization. Defaults to True.
-            region: Region for the API endpoint — ``"eu"`` (default), ``"us"``,
-                or ``"global"``. Overrides any prefix detected from the API key.
-                Ignored when *base_url* is set.
+            region: API endpoint region. Use ``"eu"`` for the direct EU endpoint.
+                Overrides any prefix detected from the API key. Ignored when
+                *base_url* is set.
             base_url: API base URL. Overrides region selection entirely. Defaults
-                to the URL for the resolved region (EU if unspecified).
+                to the default geo-routed API endpoint if no region is specified.
             **kwargs: Additional arguments passed to Pipecat TTSService.
         """
-        super().__init__(sample_rate=sample_rate, **kwargs)
+        # On Pipecat 1.x the parent expects an initialized TTSSettings; if we
+        # leave model / voice / language as NOT_GIVEN, AIService.start() logs
+        # an ERROR per field. Build it from our typed wrapper params here so
+        # the user doesn't have to construct one themselves. On Pipecat 0.x
+        # _PipecatTTSSettings is None and we fall back to the legacy path.
+        super_kwargs: dict[str, Any] = dict(kwargs)
+        if _PipecatTTSSettings is not None and "settings" not in super_kwargs:
+            # Drop a stray ``voice=`` kwarg if the caller passed both ways —
+            # we already cover voice via the dedicated ``voice_id`` param,
+            # and Pipecat 1.x routes voice through TTSSettings, not kwargs.
+            super_kwargs.pop("voice", None)
+            super_kwargs["settings"] = _PipecatTTSSettings(
+                model=str(model) if model else None,
+                voice=str(voice_id) if voice_id is not None else None,
+                language=language,
+            )
+        super().__init__(sample_rate=sample_rate, **super_kwargs)
 
         kugelaudio_api_key = api_key or os.environ.get("KUGELAUDIO_API_KEY")
         if not kugelaudio_api_key:
@@ -192,13 +224,11 @@ class KugelAudioTTSService(TTSService):
         if base_url:
             resolved_url = base_url.rstrip("/")
         else:
-            effective_region = region or detected_region or "eu"
-            if effective_region not in REGION_URLS:
-                raise ValueError(
-                    f"Invalid region '{effective_region}'. "
-                    f"Must be one of: {', '.join(REGION_URLS)}"
-                )
-            resolved_url = REGION_URLS[effective_region]
+            effective_region = region or detected_region
+            try:
+                resolved_url = _resolve_region_url(effective_region)
+            except ValidationError as exc:
+                raise ValueError(str(exc)) from exc
 
         self._opts = _TTSOptions(
             model=model,
@@ -236,6 +266,15 @@ class KugelAudioTTSService(TTSService):
         if self._multi_session_needs_reset:
             await self._close_multi_session()
             self._multi_session_needs_reset = False
+        # An idle WS may have been silently dropped by an upstream proxy / NAT
+        # between turns of a voice conversation. Detect that here so we don't
+        # ride a corpse forever; without this check, every subsequent run_tts
+        # raises ConnectionClosedError("no close frame received or sent").
+        if self._multi_session is not None and not self._multi_session.is_alive:
+            logger.info(
+                "KugelAudio multi-context session WS is dead; reconnecting"
+            )
+            await self._close_multi_session()
         if self._multi_session is None:
             session = self._create_multi_session()
             await session.connect()
@@ -358,42 +397,61 @@ class KugelAudioTTSService(TTSService):
         effective_context_id = context_id or f"kugelaudio-{uuid.uuid4()}"
         error_frame: Optional[ErrorFrame] = None
 
-        try:
-            await self.start_ttfb_metrics()
-            await self.start_tts_usage_metrics(text)
+        await self.start_ttfb_metrics()
+        await self.start_tts_usage_metrics(text)
+        yield _tts_started_frame(context_id)
 
-            yield _tts_started_frame(context_id)
-
+        # Try once, then retry once on a connection drop. The retry path
+        # exists because a NAT/proxy can quietly drop the WS during the
+        # user's think-time between turns, and we'd rather give the
+        # conversation one transparent reconnect than a hard error frame.
+        for attempt in (1, 2):
             t0 = time.perf_counter()
             first_chunk = True
-
-            async with self._multi_session_lock:
-                session = await self._get_multi_session()
-                async for item in session.send(
-                    effective_context_id,
-                    text,
-                    flush=True,
-                    chunk_complete_idle_timeout=0.0,
-                ):
-                    if first_chunk:
-                        ttfa_ms = (time.perf_counter() - t0) * 1000
-                        logger.info(f"KugelAudio TTFA: {ttfa_ms:.0f}ms")
-                        first_chunk = False
-                    await self.stop_ttfb_metrics()
-                    yield _tts_audio_frame(
-                        audio=item.audio,
-                        sample_rate=self._opts.sample_rate,
-                        num_channels=1,
-                        context_id=context_id,
+            yielded_audio = False
+            try:
+                async with self._multi_session_lock:
+                    session = await self._get_multi_session()
+                    async for item in session.send(
+                        effective_context_id,
+                        text,
+                        flush=True,
+                        chunk_complete_idle_timeout=0.0,
+                    ):
+                        if first_chunk:
+                            ttfa_ms = (time.perf_counter() - t0) * 1000
+                            logger.info(f"KugelAudio TTFA: {ttfa_ms:.0f}ms")
+                            first_chunk = False
+                        await self.stop_ttfb_metrics()
+                        yielded_audio = True
+                        yield _tts_audio_frame(
+                            audio=item.audio,
+                            sample_rate=self._opts.sample_rate,
+                            num_channels=1,
+                            context_id=context_id,
+                        )
+                error_frame = None
+                break
+            except KugelAudioConnectionError as e:
+                # WS is dead. If nothing was streamed yet on this attempt and
+                # we have a retry budget, drop the cached session and try once
+                # more with a fresh connection. After that, give up loudly.
+                if attempt == 1 and not yielded_audio:
+                    logger.warning(
+                        "KugelAudio WS dropped; reconnecting and retrying once"
                     )
+                    self._multi_session_needs_reset = True
+                    continue
+                logger.error(f"TTS error: {e}")
+                error_frame = ErrorFrame(error=f"KugelAudio error: {e}")
+                break
+            except Exception as e:
+                logger.error(f"TTS error: {e}")
+                error_frame = ErrorFrame(error=f"KugelAudio error: {e}")
+                break
 
-        except Exception as e:
-            logger.error(f"TTS error: {e}")
-            error_frame = ErrorFrame(error=f"KugelAudio error: {e}")
-        finally:
-            await self.stop_ttfb_metrics()
-            logger.debug(f"Finished TTS [{text}]")
-
+        await self.stop_ttfb_metrics()
+        logger.debug(f"Finished TTS [{text}]")
         if error_frame is not None:
             yield error_frame
         yield _tts_stopped_frame(context_id)

@@ -452,8 +452,8 @@ async fn router_request(
             .map(|id| format!("'{}'", id))
             .unwrap_or_else(|| "NOT_SET".to_string());
         debug!(
-            "Router request (method: {}, path: {}, instance_id: {}, ksm_config: {:?}, client_version: {})",
-            http_method, url_path, instance_id_debug, ksm_config, client_version
+            "Router request (method: {}, path: {}, instance_id: {}, client_version: {})",
+            http_method, url_path, instance_id_debug, client_version
         );
     }
 

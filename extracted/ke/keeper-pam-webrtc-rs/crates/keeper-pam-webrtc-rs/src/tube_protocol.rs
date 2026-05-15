@@ -7,7 +7,8 @@
  *   ControlMessage enum code followed by message‑specific data.
  * ------------------------------------------------------------------------------------------- */
 use crate::buffer_pool::BufferPool;
-use crate::likely; // Import branch prediction macros
+use crate::error::ChannelError;
+use crate::{likely, unlikely}; // Import branch prediction macros
 use bitflags::bitflags;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use log::warn;
@@ -51,6 +52,13 @@ const LEN_LEN: usize = 4;
 
 /// Terminator taken from Python constant `TERMINATOR`; adjust if necessary.
 const TERMINATOR: &[u8] = b";";
+
+/// Hard cap on frame payload length (16 MiB).
+///
+/// The wire length field is u32, so without this guard a single malformed
+/// header could request a ~4 GiB buffer and stall the parser indefinitely
+/// once the running buffer can never satisfy the size check.
+pub(crate) const MAX_FRAME_LEN: usize = 16 * 1024 * 1024;
 
 // SIMD optimizations for frame parsing on x86_64
 #[cfg(target_arch = "x86_64")]
@@ -433,15 +441,19 @@ fn unlikely_parse_failure(msg: &str) {
 }
 
 /// Try to parse the first complete frame from `buf` with SIMD optimizations.
-/// If successful, remove it from the buffer and return. Otherwise, return `None` (need more data).
+///
+/// Returns:
+/// - `Ok(Some(frame))` — a complete frame was parsed and removed from `buf`
+/// - `Ok(None)`        — not enough bytes yet; caller should wait for more data
+/// - `Err(_)`          — malformed frame (oversized payload); caller must close the channel
 #[inline] // Hot path optimization
-pub(crate) fn try_parse_frame(buf: &mut BytesMut) -> Option<Frame> {
+pub(crate) fn try_parse_frame(buf: &mut BytesMut) -> Result<Option<Frame>, ChannelError> {
     // **BRANCH PREDICTION**: Early size check is the hot path (likely to succeed)
     if likely!(buf.len() >= CONN_NO_LEN + TS_LEN + LEN_LEN) {
         // Continue with fast path parsing
     } else {
         // **COLD PATH**: Incomplete data (uncommon)
-        return None;
+        return Ok(None);
     }
 
     // Prefetch the beginning of the buffer for better cache performance
@@ -453,6 +465,17 @@ pub(crate) fn try_parse_frame(buf: &mut BytesMut) -> Option<Frame> {
     let ts = cursor.get_u64();
     let len = cursor.get_u32() as usize;
 
+    // Reject oversized frames before any allocation or buffer-size check.
+    // A malicious peer can set the u32 length to ~4 GiB; without this guard
+    // the parser would block indefinitely waiting for a buffer that can never
+    // satisfy the size requirement, stalling the channel permanently.
+    if unlikely!(len > MAX_FRAME_LEN) {
+        return Err(ChannelError::Internal(format!(
+            "Oversized frame rejected (len={}, max={}): closing channel",
+            len, MAX_FRAME_LEN
+        )));
+    }
+
     // **PERFORMANCE HINT**: Connection 1 is the main traffic flow (2-connection pattern)
     if likely!(conn_no == 1) {
         // **ULTRA HOT PATH**: Additional optimizations for Connection 1 could go here
@@ -462,7 +485,7 @@ pub(crate) fn try_parse_frame(buf: &mut BytesMut) -> Option<Frame> {
     // Calculate total frame size including terminator
     let total_size = CONN_NO_LEN + TS_LEN + LEN_LEN + len + TERMINATOR.len();
     if buf.len() < total_size {
-        return None;
+        return Ok(None);
     }
 
     // **SAFE TERMINATOR VERIFICATION**
@@ -491,7 +514,7 @@ pub(crate) fn try_parse_frame(buf: &mut BytesMut) -> Option<Frame> {
         );
         // Consume the entire buffer to prevent reprocessing the bad data
         buf.advance(buf.len());
-        return None;
+        return Ok(None);
     }
 
     // Skip the header portion
@@ -505,11 +528,11 @@ pub(crate) fn try_parse_frame(buf: &mut BytesMut) -> Option<Frame> {
     buf.advance(TERMINATOR.len());
 
     // Create a frame with extracted values and payload
-    Some(Frame {
+    Ok(Some(Frame {
         connection_no: conn_no,
         timestamp_ms: ts,
         payload,
-    })
+    }))
 }
 
 pub(crate) fn now_ms() -> u64 {
@@ -538,7 +561,9 @@ mod tests {
         // Create a new buffer from the encoded data for decoding
         let mut decode_buf = encode_buf.clone();
 
-        let decoded = try_parse_frame(&mut decode_buf).expect("parser should return a frame");
+        let decoded = try_parse_frame(&mut decode_buf)
+            .expect("no parse error")
+            .expect("parser should return a frame");
 
         assert_eq!(decoded.connection_no, 42);
         assert_eq!(decoded.payload, Bytes::from_static(b"hello world"));
@@ -593,7 +618,9 @@ mod tests {
         );
 
         // Now parse it back
-        let decoded = try_parse_frame(&mut buf).expect("parser should return a frame");
+        let decoded = try_parse_frame(&mut buf)
+            .expect("no parse error")
+            .expect("parser should return a frame");
 
         // Verify fields match
         assert_eq!(decoded.connection_no, 42);
@@ -612,8 +639,9 @@ mod tests {
         let original_buf = buf.clone();
 
         // Parse it back
-        let decoded =
-            try_parse_frame(&mut buf).expect("Should parse frame with semicolons in payload");
+        let decoded = try_parse_frame(&mut buf)
+            .expect("no parse error")
+            .expect("Should parse frame with semicolons in payload");
 
         // Verify the frame was parsed correctly
         assert_eq!(decoded.connection_no, 123);
@@ -646,8 +674,9 @@ mod tests {
         // Encode and parse
         let mut buf = BytesMut::with_capacity(1024);
         frame.encode_into(&mut buf);
-        let decoded =
-            try_parse_frame(&mut buf).expect("Should parse binary data with terminator bytes");
+        let decoded = try_parse_frame(&mut buf)
+            .expect("no parse error")
+            .expect("Should parse binary data with terminator bytes");
 
         // Verify correct parsing
         assert_eq!(decoded.connection_no, 456);
@@ -663,7 +692,9 @@ mod tests {
         // Encode and parse
         let mut buf = BytesMut::with_capacity(1024);
         frame.encode_into(&mut buf);
-        let decoded = try_parse_frame(&mut buf).expect("Should parse Guacamole-like payload");
+        let decoded = try_parse_frame(&mut buf)
+            .expect("no parse error")
+            .expect("Should parse Guacamole-like payload");
 
         // Verify correct parsing
         assert_eq!(decoded.connection_no, 789);
@@ -729,7 +760,9 @@ mod tests {
 
         // Parse the frame back
         let mut decode_buf = BytesMut::from(&encoded[..]);
-        let decoded = try_parse_frame(&mut decode_buf).expect("Should parse frame");
+        let decoded = try_parse_frame(&mut decode_buf)
+            .expect("no parse error")
+            .expect("Should parse frame");
 
         // Extract the data after the control message type (skip first 2 bytes)
         let data = &decoded.payload[2..];

@@ -14,47 +14,43 @@ import System.Runtime.Serialization
 import System.Text.RegularExpressions
 
 
-class RegexMatchTimeoutException(System.TimeoutException, System.Runtime.Serialization.ISerializable):
+class GeneratedRegexAttribute(System.Attribute):
     """This class has no documentation."""
-
-    @property
-    def input(self) -> str:
-        ...
 
     @property
     def pattern(self) -> str:
         ...
 
     @property
-    def match_timeout(self) -> datetime.timedelta:
-        ...
-
-    @overload
-    def __init__(self, regex_input: str, regex_pattern: str, match_timeout: datetime.timedelta) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-
-class ValueMatch:
-    """This class has no documentation."""
-
-    @property
-    def index(self) -> int:
+    def options(self) -> System.Text.RegularExpressions.RegexOptions:
         ...
 
     @property
-    def length(self) -> int:
+    def match_timeout_milliseconds(self) -> int:
+        ...
+
+    @property
+    def culture_name(self) -> str:
+        ...
+
+    @overload
+    def __init__(self, pattern: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions) -> None:
+        ...
+
+    @overload
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, culture_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int, culture_name: str) -> None:
         ...
 
 
@@ -323,6 +319,18 @@ class RegexCompilationInfo(System.Object):
         ...
 
 
+class ValueMatch:
+    """This class has no documentation."""
+
+    @property
+    def index(self) -> int:
+        ...
+
+    @property
+    def length(self) -> int:
+        ...
+
+
 class Regex(System.Object, System.Runtime.Serialization.ISerializable):
     """This class has no documentation."""
 
@@ -352,12 +360,6 @@ class Regex(System.Object, System.Runtime.Serialization.ISerializable):
         def move_next(self) -> bool:
             ...
 
-    INFINITE_MATCH_TIMEOUT: datetime.timedelta = ...
-
-    @property
-    def match_timeout(self) -> datetime.timedelta:
-        ...
-
     @property
     def caps(self) -> System.Collections.IDictionary:
         ...
@@ -383,6 +385,12 @@ class Regex(System.Object, System.Runtime.Serialization.ISerializable):
         ...
 
     cache_size: int
+
+    INFINITE_MATCH_TIMEOUT: datetime.timedelta = ...
+
+    @property
+    def match_timeout(self) -> datetime.timedelta:
+        ...
 
     @overload
     def __init__(self) -> None:
@@ -717,46 +725,6 @@ class Regex(System.Object, System.Runtime.Serialization.ISerializable):
         warnings.warn("Obsoletions.RegexExtensibilityImplMessage", DeprecationWarning)
 
 
-class GeneratedRegexAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def pattern(self) -> str:
-        ...
-
-    @property
-    def options(self) -> System.Text.RegularExpressions.RegexOptions:
-        ...
-
-    @property
-    def match_timeout_milliseconds(self) -> int:
-        ...
-
-    @property
-    def culture_name(self) -> str:
-        ...
-
-    @overload
-    def __init__(self, pattern: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions) -> None:
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, culture_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int, culture_name: str) -> None:
-        ...
-
-
 class RegexRunner(System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -826,6 +794,38 @@ class RegexRunner(System.Object, metaclass=abc.ABCMeta):
         ...
 
     def uncapture(self) -> None:
+        ...
+
+
+class RegexMatchTimeoutException(System.TimeoutException, System.Runtime.Serialization.ISerializable):
+    """This class has no documentation."""
+
+    @property
+    def input(self) -> str:
+        ...
+
+    @property
+    def pattern(self) -> str:
+        ...
+
+    @property
+    def match_timeout(self) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __init__(self, regex_input: str, regex_pattern: str, match_timeout: datetime.timedelta) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
         ...
 
 

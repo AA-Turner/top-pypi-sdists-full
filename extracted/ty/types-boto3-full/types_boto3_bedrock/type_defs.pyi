@@ -24,6 +24,7 @@ from typing import IO, Any, Union
 from botocore.response import StreamingBody
 
 from .literals import (
+    AdvancedPromptOptimizationJobStatusType,
     AgreementStatusType,
     ApplicationTypeType,
     AttributeTypeType,
@@ -96,6 +97,9 @@ else:
 __all__ = (
     "AccountEnforcedGuardrailInferenceInputConfigurationTypeDef",
     "AccountEnforcedGuardrailOutputConfigurationTypeDef",
+    "AdvancedPromptOptimizationInputConfigTypeDef",
+    "AdvancedPromptOptimizationJobSummaryTypeDef",
+    "AdvancedPromptOptimizationOutputConfigTypeDef",
     "AgreementAvailabilityTypeDef",
     "AutomatedEvaluationConfigOutputTypeDef",
     "AutomatedEvaluationConfigTypeDef",
@@ -199,6 +203,10 @@ __all__ = (
     "AutomatedReasoningPolicyUpdateVariableMutationTypeDef",
     "AutomatedReasoningPolicyVariableReportTypeDef",
     "AutomatedReasoningPolicyWorkflowTypeContentTypeDef",
+    "BatchDeleteAdvancedPromptOptimizationJobErrorTypeDef",
+    "BatchDeleteAdvancedPromptOptimizationJobItemTypeDef",
+    "BatchDeleteAdvancedPromptOptimizationJobRequestTypeDef",
+    "BatchDeleteAdvancedPromptOptimizationJobResponseTypeDef",
     "BatchDeleteEvaluationJobErrorTypeDef",
     "BatchDeleteEvaluationJobItemTypeDef",
     "BatchDeleteEvaluationJobRequestTypeDef",
@@ -209,6 +217,8 @@ __all__ = (
     "ByteContentDocTypeDef",
     "CancelAutomatedReasoningPolicyBuildWorkflowRequestTypeDef",
     "CloudWatchConfigTypeDef",
+    "CreateAdvancedPromptOptimizationJobRequestTypeDef",
+    "CreateAdvancedPromptOptimizationJobResponseTypeDef",
     "CreateAutomatedReasoningPolicyRequestTypeDef",
     "CreateAutomatedReasoningPolicyResponseTypeDef",
     "CreateAutomatedReasoningPolicyTestCaseRequestTypeDef",
@@ -313,6 +323,8 @@ __all__ = (
     "FoundationModelSummaryTypeDef",
     "GenerationConfigurationOutputTypeDef",
     "GenerationConfigurationTypeDef",
+    "GetAdvancedPromptOptimizationJobRequestTypeDef",
+    "GetAdvancedPromptOptimizationJobResponseTypeDef",
     "GetAutomatedReasoningPolicyAnnotationsRequestTypeDef",
     "GetAutomatedReasoningPolicyAnnotationsResponseTypeDef",
     "GetAutomatedReasoningPolicyBuildWorkflowRequestTypeDef",
@@ -403,6 +415,9 @@ __all__ = (
     "ImplicitFilterConfigurationOutputTypeDef",
     "ImplicitFilterConfigurationTypeDef",
     "ImportedModelSummaryTypeDef",
+    "InferenceConfigurationOutputTypeDef",
+    "InferenceConfigurationTypeDef",
+    "InferenceConfigurationUnionTypeDef",
     "InferenceProfileModelSourceTypeDef",
     "InferenceProfileModelTypeDef",
     "InferenceProfileSummaryTypeDef",
@@ -421,6 +436,9 @@ __all__ = (
     "KnowledgeBaseVectorSearchConfigurationTypeDef",
     "LambdaGraderConfigTypeDef",
     "LegalTermTypeDef",
+    "ListAdvancedPromptOptimizationJobsRequestPaginateTypeDef",
+    "ListAdvancedPromptOptimizationJobsRequestTypeDef",
+    "ListAdvancedPromptOptimizationJobsResponseTypeDef",
     "ListAutomatedReasoningPoliciesRequestPaginateTypeDef",
     "ListAutomatedReasoningPoliciesRequestTypeDef",
     "ListAutomatedReasoningPoliciesResponseTypeDef",
@@ -487,6 +505,9 @@ __all__ = (
     "MetadataAttributeSchemaTypeDef",
     "MetadataConfigurationForRerankingOutputTypeDef",
     "MetadataConfigurationForRerankingTypeDef",
+    "ModelConfigurationOutputTypeDef",
+    "ModelConfigurationTypeDef",
+    "ModelConfigurationUnionTypeDef",
     "ModelCopyJobSummaryTypeDef",
     "ModelCustomizationJobSummaryTypeDef",
     "ModelDataSourceTypeDef",
@@ -549,6 +570,7 @@ __all__ = (
     "StartAutomatedReasoningPolicyTestWorkflowRequestTypeDef",
     "StartAutomatedReasoningPolicyTestWorkflowResponseTypeDef",
     "StatusDetailsTypeDef",
+    "StopAdvancedPromptOptimizationJobRequestTypeDef",
     "StopEvaluationJobRequestTypeDef",
     "StopModelCustomizationJobRequestTypeDef",
     "StopModelInvocationJobRequestTypeDef",
@@ -604,6 +626,19 @@ class SelectiveContentGuardingTypeDef(TypedDict):
 class ModelEnforcementOutputTypeDef(TypedDict):
     includedModels: list[str]
     excludedModels: list[str]
+
+class AdvancedPromptOptimizationInputConfigTypeDef(TypedDict):
+    s3Uri: str
+
+class AdvancedPromptOptimizationJobSummaryTypeDef(TypedDict):
+    jobArn: str
+    jobName: str
+    jobStatus: AdvancedPromptOptimizationJobStatusType
+    creationTime: datetime
+    lastModifiedTime: NotRequired[datetime]
+
+class AdvancedPromptOptimizationOutputConfigTypeDef(TypedDict):
+    s3Uri: str
 
 class AgreementAvailabilityTypeDef(TypedDict):
     status: AgreementStatusType
@@ -798,6 +833,25 @@ class AutomatedReasoningPolicyUpdateFromScenarioFeedbackAnnotationTypeDef(TypedD
     ruleIds: NotRequired[Sequence[str]]
     feedback: NotRequired[str]
 
+class BatchDeleteAdvancedPromptOptimizationJobErrorTypeDef(TypedDict):
+    jobIdentifier: str
+    code: str
+    message: NotRequired[str]
+
+class BatchDeleteAdvancedPromptOptimizationJobItemTypeDef(TypedDict):
+    jobIdentifier: str
+    jobStatus: AdvancedPromptOptimizationJobStatusType
+
+class BatchDeleteAdvancedPromptOptimizationJobRequestTypeDef(TypedDict):
+    jobIdentifiers: Sequence[str]
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
+
 class BatchDeleteEvaluationJobErrorTypeDef(TypedDict):
     jobIdentifier: str
     code: str
@@ -809,13 +863,6 @@ class BatchDeleteEvaluationJobItemTypeDef(TypedDict):
 
 class BatchDeleteEvaluationJobRequestTypeDef(TypedDict):
     jobIdentifiers: Sequence[str]
-
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
 
 class BedrockEvaluatorModelTypeDef(TypedDict):
     modelIdentifier: str
@@ -1017,6 +1064,9 @@ class FoundationModelLifecycleTypeDef(TypedDict):
     endOfLifeTime: NotRequired[datetime]
     legacyTime: NotRequired[datetime]
     publicExtendedAccessTime: NotRequired[datetime]
+
+class GetAdvancedPromptOptimizationJobRequestTypeDef(TypedDict):
+    jobIdentifier: str
 
 class GetAutomatedReasoningPolicyAnnotationsRequestTypeDef(TypedDict):
     policyArn: str
@@ -1310,6 +1360,18 @@ class ImportedModelSummaryTypeDef(TypedDict):
     instructSupported: NotRequired[bool]
     modelArchitecture: NotRequired[str]
 
+class InferenceConfigurationOutputTypeDef(TypedDict):
+    maxTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+    stopSequences: NotRequired[list[str]]
+
+class InferenceConfigurationTypeDef(TypedDict):
+    maxTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+    stopSequences: NotRequired[Sequence[str]]
+
 class InvocationLogSourceTypeDef(TypedDict):
     s3Uri: NotRequired[str]
 
@@ -1332,6 +1394,12 @@ class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
+
+class ListAdvancedPromptOptimizationJobsRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    sortBy: NotRequired[Literal["CreationTime"]]
+    sortOrder: NotRequired[SortOrderType]
 
 class ListAutomatedReasoningPoliciesRequestTypeDef(TypedDict):
     policyArn: NotRequired[str]
@@ -1499,6 +1567,9 @@ class ValidationDetailsTypeDef(TypedDict):
     status: NotRequired[JobStatusDetailsType]
     creationTime: NotRequired[datetime]
     lastModifiedTime: NotRequired[datetime]
+
+class StopAdvancedPromptOptimizationJobRequestTypeDef(TypedDict):
+    jobIdentifier: str
 
 class StopEvaluationJobRequestTypeDef(TypedDict):
     jobIdentifier: str
@@ -1677,9 +1748,13 @@ AutomatedReasoningPolicyUpdateFromScenarioFeedbackAnnotationUnionTypeDef = Union
     AutomatedReasoningPolicyUpdateFromScenarioFeedbackAnnotationOutputTypeDef,
 ]
 
-class BatchDeleteEvaluationJobResponseTypeDef(TypedDict):
-    errors: list[BatchDeleteEvaluationJobErrorTypeDef]
-    evaluationJobs: list[BatchDeleteEvaluationJobItemTypeDef]
+class BatchDeleteAdvancedPromptOptimizationJobResponseTypeDef(TypedDict):
+    errors: list[BatchDeleteAdvancedPromptOptimizationJobErrorTypeDef]
+    advancedPromptOptimizationJobs: list[BatchDeleteAdvancedPromptOptimizationJobItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateAdvancedPromptOptimizationJobResponseTypeDef(TypedDict):
+    jobArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateAutomatedReasoningPolicyResponseTypeDef(TypedDict):
@@ -1829,6 +1904,11 @@ class GetUseCaseForModelAccessResponseTypeDef(TypedDict):
     formData: bytes
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ListAdvancedPromptOptimizationJobsResponseTypeDef(TypedDict):
+    jobSummaries: list[AdvancedPromptOptimizationJobSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class ListAutomatedReasoningPoliciesResponseTypeDef(TypedDict):
     automatedReasoningPolicySummaries: list[AutomatedReasoningPolicySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1893,6 +1973,11 @@ class UpdateGuardrailResponseTypeDef(TypedDict):
     guardrailArn: str
     version: str
     updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class BatchDeleteEvaluationJobResponseTypeDef(TypedDict):
+    errors: list[BatchDeleteEvaluationJobErrorTypeDef]
+    evaluationJobs: list[BatchDeleteEvaluationJobItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EvaluatorModelConfigOutputTypeDef(TypedDict):
@@ -2366,11 +2451,25 @@ class ListImportedModelsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class ModelConfigurationOutputTypeDef(TypedDict):
+    modelId: str
+    inferenceConfig: NotRequired[InferenceConfigurationOutputTypeDef]
+    additionalModelRequestFields: NotRequired[dict[str, dict[str, Any]]]
+
+InferenceConfigurationUnionTypeDef = Union[
+    InferenceConfigurationTypeDef, InferenceConfigurationOutputTypeDef
+]
+
 class KbInferenceConfigOutputTypeDef(TypedDict):
     textInferenceConfig: NotRequired[TextInferenceConfigOutputTypeDef]
 
 class KbInferenceConfigTypeDef(TypedDict):
     textInferenceConfig: NotRequired[TextInferenceConfigTypeDef]
+
+class ListAdvancedPromptOptimizationJobsRequestPaginateTypeDef(TypedDict):
+    sortBy: NotRequired[Literal["CreationTime"]]
+    sortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListAutomatedReasoningPoliciesRequestPaginateTypeDef(TypedDict):
     policyArn: NotRequired[str]
@@ -2797,6 +2896,25 @@ class GetGuardrailResponseTypeDef(TypedDict):
     kmsKeyArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetAdvancedPromptOptimizationJobResponseTypeDef(TypedDict):
+    jobArn: str
+    jobName: str
+    jobDescription: str
+    jobStatus: AdvancedPromptOptimizationJobStatusType
+    inputConfig: AdvancedPromptOptimizationInputConfigTypeDef
+    outputConfig: AdvancedPromptOptimizationOutputConfigTypeDef
+    encryptionKeyArn: str
+    creationTime: datetime
+    lastModifiedTime: datetime
+    failureMessage: str
+    modelConfigurations: list[ModelConfigurationOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ModelConfigurationTypeDef(TypedDict):
+    modelId: str
+    inferenceConfig: NotRequired[InferenceConfigurationUnionTypeDef]
+    additionalModelRequestFields: NotRequired[Mapping[str, Mapping[str, Any]]]
+
 class ExternalSourcesGenerationConfigurationOutputTypeDef(TypedDict):
     promptTemplate: NotRequired[PromptTemplateTypeDef]
     guardrailConfiguration: NotRequired[GuardrailConfigurationTypeDef]
@@ -3086,6 +3204,8 @@ class CustomizationConfigTypeDef(TypedDict):
     distillationConfig: NotRequired[DistillationConfigTypeDef]
     rftConfig: NotRequired[RFTConfigTypeDef]
 
+ModelConfigurationUnionTypeDef = Union[ModelConfigurationTypeDef, ModelConfigurationOutputTypeDef]
+
 class ExternalSourcesRetrieveAndGenerateConfigurationOutputTypeDef(TypedDict):
     modelArn: str
     sources: list[ExternalSourceOutputTypeDef]
@@ -3219,6 +3339,16 @@ class RegisterMarketplaceModelEndpointResponseTypeDef(TypedDict):
 class UpdateMarketplaceModelEndpointResponseTypeDef(TypedDict):
     marketplaceModelEndpoint: MarketplaceModelEndpointTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateAdvancedPromptOptimizationJobRequestTypeDef(TypedDict):
+    jobName: str
+    inputConfig: AdvancedPromptOptimizationInputConfigTypeDef
+    outputConfig: AdvancedPromptOptimizationOutputConfigTypeDef
+    modelConfigurations: Sequence[ModelConfigurationUnionTypeDef]
+    jobDescription: NotRequired[str]
+    clientToken: NotRequired[str]
+    encryptionKeyArn: NotRequired[str]
+    tags: NotRequired[Sequence[TagTypeDef]]
 
 class AutomatedEvaluationCustomMetricConfigOutputTypeDef(TypedDict):
     customMetrics: list[AutomatedEvaluationCustomMetricSourceOutputTypeDef]

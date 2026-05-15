@@ -21,8 +21,20 @@ from connector.oai.base_clients import (
 from connector.oai.capability import Request, get_token_auth
 from connector.oai.errors import ConnectorError
 from connector.utils.httpx_auth import BearerAuth
+from connector.utils.rate_limit_context import (
+    RATE_LIMIT_CONTEXT,
+    RATE_LIMIT_RESULT_CONTEXT,
+    RateLimitExecutionContext,
+)
+from connector.utils.rate_limit_utils import _resolve_rate_limiting_mode
 from connector.utils.rate_limiting import RateLimitConfig, RateLimiter, RateLimitStrategy
-from connector_sdk_types.generated import ConnectorErrorCode
+from connector_sdk_types.generated import (
+    ConnectorErrorCode,
+    RateLimitMode,
+    RateLimitStateSnapshot,
+    StandardCapabilityName,
+)
+from connector_sdk_types.oai.modules.rate_limiting_types import RateLimitPolicySource
 
 
 @pytest.fixture(autouse=True)
@@ -209,7 +221,7 @@ class TestRateLimitedClient:
             patch.object(client.rate_limiter, "config", rate_limit_config),
             patch.object(client.rate_limiter, "current_delay", 5.0),
         ):
-            config, delay = client.get_state()
+            config, delay = client.get_current_rate_limits()
 
             assert config is rate_limit_config
             assert delay == 5.0
@@ -317,7 +329,9 @@ class TestBaseIntegrationClient:
             client = self.ConcreteTestClient(sample_request, rate_limit_config)
 
             with patch.object(
-                client._http_client, "get_state", return_value=(rate_limit_config, 5.0)
+                client._http_client,
+                "get_current_rate_limits",
+                return_value=(rate_limit_config, 5.0),
             ):
                 config, delay = client.get_current_rate_limits()
 
@@ -619,8 +633,8 @@ class TestRateLimitedHTTPXAsyncTransport:
         assert call_args.kwargs.get("document") == "query { test }"
         assert call_args.kwargs.get("variable_values") == {}
 
-    async def test_connect_wraps_async_client(self, rate_limit_config):
-        """Test that connect wraps AsyncClient with RateLimitedClient."""
+    async def test_connect_sets_client_reference(self, rate_limit_config):
+        """Test that connect copies base_transport.client without wrapping it."""
         from connector.httpx_rewrite import AsyncClient
 
         class MockTransport:
@@ -639,12 +653,13 @@ class TestRateLimitedHTTPXAsyncTransport:
         await transport.connect()
 
         assert base_transport.connect_called
-        assert isinstance(base_transport.client, RateLimitedClient)
-        assert base_transport.client.base_client is real_client
-        assert transport.client is base_transport.client
+        # Client must NOT be wrapped — rate limiting is enforced in execute(), not here
+        assert base_transport.client is real_client
+        assert not isinstance(base_transport.client, RateLimitedClient)
+        assert transport.client is real_client
 
     async def test_connect_with_non_async_client(self, mock_base_transport, rate_limit_config):
-        """Test that connect does not wrap non-AsyncClient instances."""
+        """Test that connect sets client reference for any client type."""
         mock_client = MagicMock()
         mock_base_transport.client = mock_client
         mock_base_transport.connect = AsyncMock()
@@ -653,12 +668,10 @@ class TestRateLimitedHTTPXAsyncTransport:
         await transport.connect()
 
         mock_base_transport.connect.assert_called_once()
-        assert mock_base_transport.client is mock_client
-        assert not isinstance(mock_base_transport.client, RateLimitedClient)
         assert transport.client is mock_client
 
     async def test_connect_without_client(self, mock_base_transport, rate_limit_config):
-        """Test that connect handles case when base transport has no client."""
+        """Test that connect handles case when base transport client is None."""
         mock_base_transport.connect = AsyncMock()
         mock_base_transport.client = None
 
@@ -669,11 +682,7 @@ class TestRateLimitedHTTPXAsyncTransport:
         assert transport.client is None
 
     async def test_connect_without_client_attribute(self, rate_limit_config):
-        """Test that connect handles case when base transport doesn't have client attribute.
-
-        This tests the branch on line 195 where hasattr(self.base_transport, "client") returns False.
-        We use a mock that raises AttributeError when accessing the client attribute to test this branch.
-        """
+        """Test that connect silently skips client copy when the attribute does not exist."""
 
         class MockTransportWithoutClient:
             def __init__(self):
@@ -690,63 +699,12 @@ class TestRateLimitedHTTPXAsyncTransport:
                 return super().__getattribute__(name)
 
         mock_base_transport = MockTransportWithoutClient()
-
         transport = RateLimitedHTTPXAsyncTransport(mock_base_transport, rate_limit_config)
 
         assert not hasattr(transport.base_transport, "client")
-
-        with pytest.raises(AttributeError):
-            await transport.connect()
-
-    async def test_connect_isinstance_async_client_true(self, rate_limit_config):
-        """Test that connect wraps AsyncClient when isinstance check is True, covering line 197 positive branch."""
-        from connector.httpx_rewrite import AsyncClient
-
-        class MockTransport:
-            def __init__(self):
-                self.client = None
-                self.connect_called = False
-
-            async def connect(self):
-                self.connect_called = True
-
-        real_client = AsyncClient(base_url="https://example.com")
-        base_transport = MockTransport()
-        base_transport.client = real_client
-
-        transport = RateLimitedHTTPXAsyncTransport(base_transport, rate_limit_config)
+        # hasattr protects us — connect should not raise
         await transport.connect()
-
-        assert base_transport.connect_called
-        assert isinstance(base_transport.client, RateLimitedClient)
-        assert base_transport.client.base_client is real_client
-        assert transport.client is base_transport.client
-
-    async def test_connect_isinstance_async_client_false(self, rate_limit_config):
-        """Test that connect does not wrap when isinstance check is False, covering line 197 negative branch."""
-        from connector.httpx_rewrite import AsyncClient
-
-        class MockTransport:
-            def __init__(self):
-                self.client = None
-                self.connect_called = False
-
-            async def connect(self):
-                self.connect_called = True
-
-        mock_client = MagicMock()
-        mock_client.some_attr = "value"
-        base_transport = MockTransport()
-        base_transport.client = mock_client
-
-        transport = RateLimitedHTTPXAsyncTransport(base_transport, rate_limit_config)
-        await transport.connect()
-
-        assert base_transport.connect_called
-        assert base_transport.client is mock_client
-        assert not isinstance(base_transport.client, RateLimitedClient)
-        assert not isinstance(base_transport.client, AsyncClient)
-        assert transport.client is mock_client
+        assert mock_base_transport.connect_called
 
     async def test_execute_with_all_parameters(self, mock_base_transport, rate_limit_config):
         """Test execute method with all GraphQL parameters."""
@@ -856,8 +814,8 @@ class TestRateLimitedHTTPXAsyncTransport:
         assert transport.some_attr == "value"
         assert transport.delegated_method() == "delegated_value"
 
-        config, delay = transport.get_state()
-        assert config is rate_limit_config
+        config, delay = transport.get_current_rate_limits()
+        assert config is rate_limit_config  # RateLimitedHTTPXAsyncTransport stores config directly
         assert isinstance(delay, float)
 
 
@@ -888,7 +846,12 @@ class TestBaseGraphQLSession:
 
         assert client is not None
         assert isinstance(client.transport, RateLimitedHTTPXAsyncTransport)
-        assert client.transport.rate_limiter.config is rate_limit_config
+        # mode is resolved (None → ENFORCE) via model_copy, so use field equality not identity
+        assert client.transport.rate_limiter.config.app_id == rate_limit_config.app_id
+        assert (
+            client.transport.rate_limiter.config.requests_per_window
+            == rate_limit_config.requests_per_window
+        )
 
         client_no_rate_limit = self.ConcreteTestGraphQLSession.build_client(sample_request)
         assert client_no_rate_limit is not None
@@ -913,7 +876,10 @@ class TestBaseGraphQLSession:
         session_with_rate_limit.client = client_with_rate_limit
 
         config, delay = session_with_rate_limit.get_current_rate_limits()
-        assert config is rate_limit_config
+        # mode is resolved (None → ENFORCE) via model_copy, so use field equality not identity
+        assert config is not None
+        assert config.app_id == rate_limit_config.app_id
+        assert config.requests_per_window == rate_limit_config.requests_per_window
         assert isinstance(delay, float)
 
         client_no_rate_limit = self.ConcreteTestGraphQLSession.build_client(sample_request)
@@ -944,3 +910,208 @@ class TestBaseGraphQLSession:
             with pytest.raises(ValueError, match="Test error"):
                 async with session:
                     raise test_exception
+
+
+# _resolve_rate_limiting_mode
+
+
+def _make_config(mode: RateLimitMode | None = None) -> RateLimitConfig:
+    return RateLimitConfig(
+        app_id="test",
+        requests_per_window=10,
+        window_seconds=60,
+        mode=mode,
+    )
+
+
+def _make_ctx(
+    capability_level: str = "read",
+    caller_override_mode: RateLimitMode | None = None,
+    capability_override_mode: RateLimitMode | None = None,
+) -> RateLimitExecutionContext:
+    return RateLimitExecutionContext(
+        capability_name=StandardCapabilityName.LIST_ACCOUNTS,
+        capability_level=capability_level,  # type: ignore[arg-type]
+        caller_override_mode=caller_override_mode,
+        capability_override_mode=capability_override_mode,
+    )
+
+
+class TestResolveEffectiveMode:
+    def test_capability_override_takes_highest_priority(self) -> None:
+        ctx = _make_ctx(
+            capability_override_mode=RateLimitMode.BYPASS,
+            caller_override_mode=RateLimitMode.RETRY_ONLY,
+        )
+        config = _make_config(mode=RateLimitMode.ENFORCE)
+        mode, source = _resolve_rate_limiting_mode(ctx, config)
+        assert mode == RateLimitMode.BYPASS
+        assert source == RateLimitPolicySource.CAPABILITY
+
+    def test_connector_config_mode_second_priority(self) -> None:
+        ctx = _make_ctx(caller_override_mode=RateLimitMode.RETRY_ONLY)
+        config = _make_config(mode=RateLimitMode.BYPASS)
+        mode, source = _resolve_rate_limiting_mode(ctx, config)
+        assert mode == RateLimitMode.BYPASS
+        assert source == RateLimitPolicySource.CONNECTOR
+
+    def test_caller_override_third_priority(self) -> None:
+        ctx = _make_ctx(caller_override_mode=RateLimitMode.BYPASS)
+        config = _make_config(mode=None)  # no connector-level override
+        mode, source = _resolve_rate_limiting_mode(ctx, config)
+        assert mode == RateLimitMode.BYPASS
+        assert source == RateLimitPolicySource.CALLER
+
+    def test_sdk_default_read_capability_returns_enforce(self) -> None:
+        ctx = _make_ctx(capability_level="read")
+        config = _make_config(mode=None)
+        mode, source = _resolve_rate_limiting_mode(ctx, config)
+        assert mode == RateLimitMode.ENFORCE
+        assert source == RateLimitPolicySource.SDK
+
+    def test_sdk_default_write_capability_returns_retry_only(self) -> None:
+        ctx = _make_ctx(capability_level="write")
+        config = _make_config(mode=None)
+        mode, source = _resolve_rate_limiting_mode(ctx, config)
+        assert mode == RateLimitMode.RETRY_ONLY
+        assert source == RateLimitPolicySource.SDK
+
+    def test_no_context_defaults_to_enforce(self) -> None:
+        config = _make_config(mode=None)
+        mode, source = _resolve_rate_limiting_mode(None, config)
+        assert mode == RateLimitMode.ENFORCE
+        assert source == RateLimitPolicySource.SDK
+
+    def test_all_overrides_none_read_ctx_returns_enforce(self) -> None:
+        ctx = _make_ctx(
+            capability_level="read", caller_override_mode=None, capability_override_mode=None
+        )
+        config = _make_config(mode=None)
+        mode, source = _resolve_rate_limiting_mode(ctx, config)
+        assert mode == RateLimitMode.ENFORCE
+
+    def test_capability_override_wins_over_connector_mode(self) -> None:
+        ctx = _make_ctx(capability_override_mode=RateLimitMode.RETRY_ONLY)
+        config = _make_config(mode=RateLimitMode.ENFORCE)
+        mode, source = _resolve_rate_limiting_mode(ctx, config)
+        assert mode == RateLimitMode.RETRY_ONLY
+        assert source == RateLimitPolicySource.CAPABILITY
+
+
+# BaseIntegrationClient: BYPASS mode, state snapshot, seed from state
+
+
+class TestBaseIntegrationClientRateLimitBehavior:
+    """Tests for rate-limiting-related BaseIntegrationClient behaviour.
+
+    The suppress_rate_limit_state_passthrough autouse fixture from the SDK plugin
+    patches get_current_state → None. We override it here so state-snapshot tests
+    can observe the real return value.
+    """
+
+    @pytest.fixture(autouse=True)
+    def suppress_rate_limit_state_passthrough(self):
+        """Override the plugin autouse fixture, these tests need the real get_current_state."""
+        yield  # no patch
+
+    class ConcreteClient(BaseIntegrationClient):
+        @classmethod
+        def prepare_client_args(cls, args: Request) -> dict[str, Any]:
+            from connector.oai.capability import get_token_auth
+            from connector.utils.httpx_auth import BearerAuth
+
+            return {
+                "auth": BearerAuth(
+                    token=get_token_auth(args).token, token_prefix="", auth_header="X-Api-Key"
+                ),
+                "base_url": "https://example.com",
+            }
+
+    @pytest.fixture
+    def sample_request(self):
+        return ListAccountsRequest(
+            auth=AuthCredential(token=TokenCredential(token="test-token")),
+            request=ListAccounts(),
+            settings={},
+        )
+
+    def test_bypass_mode_leaves_raw_client(self, sample_request) -> None:
+        config = _make_config(mode=RateLimitMode.BYPASS)
+        ctx = _make_ctx(capability_level="read")
+        token = RATE_LIMIT_CONTEXT.set(ctx)
+        try:
+            with patch.object(self.ConcreteClient, "build_client") as mock_build:
+                mock_client = AsyncMock(spec=httpx.AsyncClient)
+                mock_build.return_value = mock_client
+                client = self.ConcreteClient(sample_request, config)
+                # BYPASS → no RateLimitedClient wrapper
+                assert not isinstance(client._http_client, RateLimitedClient)
+        finally:
+            RATE_LIMIT_CONTEXT.reset(token)
+
+    def test_non_bypass_mode_wraps_client(self, sample_request) -> None:
+        config = _make_config(mode=None)
+        ctx = _make_ctx(capability_level="read")
+        token = RATE_LIMIT_CONTEXT.set(ctx)
+        try:
+            with patch.object(self.ConcreteClient, "build_client") as mock_build:
+                mock_client = AsyncMock(spec=httpx.AsyncClient)
+                mock_build.return_value = mock_client
+                client = self.ConcreteClient(sample_request, config)
+                assert isinstance(client._http_client, RateLimitedClient)
+        finally:
+            RATE_LIMIT_CONTEXT.reset(token)
+
+    def test_seed_from_state_applied_on_init(self, sample_request) -> None:
+        config = _make_config(mode=RateLimitMode.ENFORCE)
+        state = RateLimitStateSnapshot(limit=99, window_seconds=30, current_delay=7)
+        ctx = RateLimitExecutionContext(
+            capability_name=StandardCapabilityName.LIST_ACCOUNTS,
+            capability_level="read",
+            caller_override_mode=None,
+            last_known_state={config.effective_config_id: state},
+        )
+        token = RATE_LIMIT_CONTEXT.set(ctx)
+        try:
+            with patch.object(self.ConcreteClient, "build_client") as mock_build:
+                mock_client = AsyncMock(spec=httpx.AsyncClient)
+                mock_build.return_value = mock_client
+                client = self.ConcreteClient(sample_request, config)
+                assert isinstance(client._http_client, RateLimitedClient)
+                assert client._http_client.rate_limiter.config.requests_per_window == 99
+                assert client._http_client.rate_limiter.config.window_seconds == 30
+                assert client._http_client.rate_limiter.current_delay == 7.0
+        finally:
+            RATE_LIMIT_CONTEXT.reset(token)
+
+    async def test_aexit_writes_state_to_result_context(self, sample_request) -> None:
+        config = _make_config(mode=RateLimitMode.ENFORCE)
+        ctx = _make_ctx(capability_level="read")
+        rate_limit_token = RATE_LIMIT_CONTEXT.set(ctx)
+        result_token = RATE_LIMIT_RESULT_CONTEXT.set(None)
+        try:
+            with patch.object(self.ConcreteClient, "build_client") as mock_build:
+                mock_client = AsyncMock(spec=httpx.AsyncClient)
+                mock_build.return_value = mock_client
+                client = self.ConcreteClient(sample_request, config)
+                assert isinstance(client._http_client, RateLimitedClient)
+                await client.__aexit__()
+                state_map = RATE_LIMIT_RESULT_CONTEXT.get()
+                assert state_map is not None
+                assert config.effective_config_id in state_map
+                assert state_map[config.effective_config_id].limit == config.requests_per_window
+        finally:
+            RATE_LIMIT_CONTEXT.reset(rate_limit_token)
+            RATE_LIMIT_RESULT_CONTEXT.reset(result_token)
+
+    async def test_aexit_does_not_write_state_when_not_rate_limited(self, sample_request) -> None:
+        result_token = RATE_LIMIT_RESULT_CONTEXT.set(None)
+        try:
+            with patch.object(self.ConcreteClient, "build_client") as mock_build:
+                mock_client = AsyncMock(spec=httpx.AsyncClient)
+                mock_build.return_value = mock_client
+                client = self.ConcreteClient(sample_request)  # no rate limit config
+                await client.__aexit__()
+                assert RATE_LIMIT_RESULT_CONTEXT.get() is None
+        finally:
+            RATE_LIMIT_RESULT_CONTEXT.reset(result_token)

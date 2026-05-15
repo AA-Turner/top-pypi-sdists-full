@@ -12,4 +12,4 @@ class KnowledgeBaseRetrieveParams(TypedDict, total=False):
     include_artifacts_status: bool
     """Optional query parameter to include a count of artifacts by status"""
 
-    view: List[Literal["Connections", "ArtifactCount"]]
+    view: List[Literal["Connections", "ArtifactCount", "IndexConfiguration"]]

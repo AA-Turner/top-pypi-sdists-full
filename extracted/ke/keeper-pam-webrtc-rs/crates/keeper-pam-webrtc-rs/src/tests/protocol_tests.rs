@@ -71,7 +71,9 @@ fn test_frame_parsing() {
         let mut bytes = bytes::BytesMut::from(&encoded[..]);
 
         // Test parsing
-        let parsed_frame = try_parse_frame(&mut bytes).expect("Should parse valid frame");
+        let parsed_frame = try_parse_frame(&mut bytes)
+            .expect("no parse error")
+            .expect("Should parse valid frame");
 
         // Verify parsed frame matches original
         assert_eq!(parsed_frame.connection_no, data_frame.connection_no);
@@ -105,7 +107,9 @@ fn test_protocol_ping_pong() {
         let mut bytes = bytes::BytesMut::from(&encoded[..]);
 
         // Use the proper frame parsing function
-        let decoded_frame = try_parse_frame(&mut bytes).expect("Should parse a valid frame");
+        let decoded_frame = try_parse_frame(&mut bytes)
+            .expect("no parse error")
+            .expect("Should parse a valid frame");
 
         // Verify the decoded frame matches the original
         assert_eq!(decoded_frame.connection_no, ping_frame.connection_no);
@@ -128,7 +132,9 @@ fn test_protocol_ping_pong() {
         // Test basic frame parsing for pong
         let pong_encoded = pong_frame.encode_with_pool(&pool);
         let mut pong_bytes = bytes::BytesMut::from(&pong_encoded[..]);
-        let parsed_pong = try_parse_frame(&mut pong_bytes).expect("Should parse pong frame");
+        let parsed_pong = try_parse_frame(&mut pong_bytes)
+            .expect("no parse error")
+            .expect("Should parse pong frame");
 
         assert_eq!(parsed_pong.connection_no, 0);
         assert_eq!(parsed_pong.payload, pong_frame.payload);

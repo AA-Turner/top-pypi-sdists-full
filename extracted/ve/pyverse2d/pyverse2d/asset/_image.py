@@ -75,3 +75,9 @@ class Image(Asset):
     def scale_factor(self) -> float:
         """Renvoie le facteur de redimensionnement"""
         return self._scale_factor
+    
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Image",
+]

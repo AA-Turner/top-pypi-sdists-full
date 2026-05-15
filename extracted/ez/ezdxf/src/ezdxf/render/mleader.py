@@ -642,22 +642,33 @@ class RenderEngine:
         if len(vertices) < 2:  # at least 2 vertices required
             return
 
-        arrow_direction: Vec3 = get_arrow_direction(vertices)
+        last_line_segment: Vec3 = vertices[1] - vertices[0]
+        length: float = last_line_segment.magnitude
+        arrow_direction: Vec3 = X_AXIS
+
+        if length > 0.0:
+            arrow_direction = last_line_segment.normalize()
+
         raw_color: int = line.color
-        index: int = line.index
-        block_name: str = self.create_arrow_block(self.arrow_block_name(index))
         arrow_size: float = self.context.arrow_head_size
-        self.add_arrow(
-            name=block_name,
-            location=vertices[0],
-            direction=arrow_direction,
-            scale=arrow_size,
-            color=raw_color,
-        )
-        arrow_offset: Vec3 = arrow_direction * arrow_length(
-            block_name, arrow_size
-        )
-        vertices[0] += arrow_offset
+
+        # AutoCAD does not render the arrow-head, if the last distance is less
+        # than 2 times the size of the arrow-head.
+        if length * arrow_size > 0 and length > arrow_size * 2.0:
+            index: int = line.index
+            block_name: str = self.create_arrow_block(self.arrow_block_name(index))
+            self.add_arrow(
+                name=block_name,
+                location=vertices[0],
+                direction=arrow_direction,
+                scale=arrow_size,
+                color=raw_color,
+            )
+            arrow_offset: Vec3 = arrow_direction * arrow_length(
+                block_name, arrow_size
+            )
+            vertices[0] += arrow_offset
+
         if leader_type == 1:  # add straight lines
             for s, e in zip(vertices, vertices[1:]):
                 self.add_dxf_line(s, e, raw_color)

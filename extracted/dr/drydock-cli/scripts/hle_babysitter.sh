@@ -73,8 +73,12 @@ if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
 fi
 
 # Stress harness owns the inference slot during its runs.
-if pgrep -fa "stress_.*\.py\b|stress_2000" >/dev/null 2>&1; then
-    log "skip — stress run in progress"
+# Use the PID file instead of pgrep — pgrep matches claude processes whose
+# --append-system-prompt text happens to contain "stress_2000", causing
+# false-positive skips every time autonomous_review runs.
+STRESS_PID_FILE=/tmp/stress_pid.txt
+if [ -f "$STRESS_PID_FILE" ] && kill -0 "$(cat "$STRESS_PID_FILE")" 2>/dev/null; then
+    log "skip — stress run in progress (pid $(cat "$STRESS_PID_FILE"))"
     exit 0
 fi
 
@@ -154,6 +158,8 @@ if [ -n "$GRAPHRAG_DB_OVERRIDE" ]; then
     DRYDOCK_GRAPHRAG_DB="$GRAPHRAG_DB_OVERRIDE" \
     DRYDOCK_WRAP_UP_WARN_AT=8 \
     DRYDOCK_STOP_NOW_WARN_AT=12 \
+    DRYDOCK_STOP_NOW_TIME_SEC=240 \
+    DRYDOCK_THINKING_BUDGET_TOKENS=4000 \
     PYTHONUNBUFFERED=1 \
     nohup "$PY" -u "$DRYDOCK/scripts/hle_eval.py" \
         --source hle --limit "$LIMIT" --shuffle --seed "$SEED" --category "$CATEGORY" \
@@ -161,6 +167,8 @@ if [ -n "$GRAPHRAG_DB_OVERRIDE" ]; then
 else
     DRYDOCK_WRAP_UP_WARN_AT=8 \
     DRYDOCK_STOP_NOW_WARN_AT=12 \
+    DRYDOCK_STOP_NOW_TIME_SEC=240 \
+    DRYDOCK_THINKING_BUDGET_TOKENS=4000 \
     PYTHONUNBUFFERED=1 \
     nohup "$PY" -u "$DRYDOCK/scripts/hle_eval.py" \
         --source hle --limit "$LIMIT" --shuffle --seed "$SEED" --category "$CATEGORY" \

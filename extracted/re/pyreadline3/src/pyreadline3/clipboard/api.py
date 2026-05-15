@@ -7,7 +7,7 @@
 #  the file COPYING, distributed as part of this software.
 # *****************************************************************************
 
-from pyreadline3.py3k_compat import is_ironpython
+from ..py3k_compat import is_ironpython
 
 if is_ironpython:
     try:

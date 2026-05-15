@@ -9,8 +9,8 @@ archspec command line interface
 import argparse
 import typing
 
-import archspec
-import archspec.cpu
+from . import __version__ as archspec_version
+from .cpu import host, why_not
 
 
 def _make_parser() -> argparse.ArgumentParser:
@@ -24,7 +24,7 @@ def _make_parser() -> argparse.ArgumentParser:
         "-V",
         help="Show the version and exit.",
         action="version",
-        version=f"archspec, version {archspec.__version__}",
+        version=f"archspec, version {archspec_version}",
     )
     parser.add_argument("--help", "-h", help="Show the help and exit.", action="help")
 
@@ -39,15 +39,25 @@ def _make_parser() -> argparse.ArgumentParser:
         help="archspec command line interface for CPU",
         description="archspec command line interface for CPU",
     )
+    cpu_command.add_argument(
+        "--why-not",
+        metavar="TARGET",
+        default=None,
+        dest="why_not",
+        help="Explain why TARGET was not selected as the host microarchitecture.",
+    )
     cpu_command.set_defaults(run=cpu)
 
     return parser
 
 
-def cpu() -> int:
+def cpu(args) -> int:
     """Run the `archspec cpu` subcommand."""
+    if args.why_not is not None:
+        print(why_not(args.why_not))
+        return 0
     try:
-        print(archspec.cpu.host())
+        print(host())
     except FileNotFoundError as exc:
         print(exc)
         return 1
@@ -67,4 +77,4 @@ def main(argv: typing.Optional[typing.List[str]] = None) -> int:
         parser.print_help()
         return 0
 
-    return args.run()
+    return args.run(args)

@@ -1,6 +1,8 @@
 import json
 import re
-from collections.abc import Callable, Mapping, Sequence
+import time
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from functools import cached_property
 from inspect import isawaitable
 from typing import Any, ClassVar, Generic, Literal, TypeVar, cast
@@ -14,6 +16,8 @@ from connector_sdk_types.generated import (
     OAuth1Credential,
     OAuthClientCredential,
     OAuthCredential,
+    RateLimitMode,
+    RateLimitResponseInfo,
     ServiceAccountCredential,
     StandardCapabilityName,
     TokenCredential,
@@ -26,6 +30,7 @@ from connector_sdk_types.oai.modules.credentials_module_types import (
     EmptySettings,
     OAuthConfig,
 )
+from connector_sdk_types.oai.utils import get_capability_level_from_name
 from pydantic import BaseModel, ValidationError
 
 from connector.oai.capability import (
@@ -34,6 +39,12 @@ from connector.oai.capability import (
     capability_requires_authentication,
 )
 from connector.observability.instrument import Instrument
+from connector.utils.rate_limit_context import (
+    RATE_LIMIT_CONTEXT,
+    RATE_LIMIT_RESULT_CONTEXT,
+    RateLimitCtx,
+    RateLimitExecutionContext,
+)
 from connector.utils.validation_utils import get_missing_field_titles
 
 from .errors import (
@@ -46,7 +57,8 @@ from .errors import (
 
 REQUEST = TypeVar("REQUEST", bound=Request)
 SETTINGS = TypeVar("SETTINGS", bound=BaseModel)
-
+DEFAULT_DEADLINE_SECONDS = 1800  # 30 minutes
+DEADLINE_BUFFER_SECONDS = 10  # 10 seconds
 
 CredentialAttrName = Literal[
     "oauth",
@@ -108,6 +120,7 @@ class CapabilityExecutor(Generic[REQUEST, SETTINGS]):
         exception_handle: Callable[[Exception], ErrorResponse],
         request_validate_json: Callable[[Any], REQUEST],
         instrument: Instrument,
+        capability_rate_limit_mode: RateLimitMode | None = None,
     ) -> None:
         self._app_id = app_id
         self._name = capability_name
@@ -121,6 +134,7 @@ class CapabilityExecutor(Generic[REQUEST, SETTINGS]):
         self._exception_handle = exception_handle
         self._request_validate_json = request_validate_json
         self._instrument = instrument
+        self._capability_rate_limit_mode = capability_rate_limit_mode
 
     def _normalize_allowed_credential_id_combinations(
         self,
@@ -246,6 +260,39 @@ class CapabilityExecutor(Generic[REQUEST, SETTINGS]):
 
         return self._settings_model != EmptySettings
 
+    def _setup_rate_limit_context(self, request: REQUEST) -> RateLimitExecutionContext:
+        request_rate_limit = request.rate_limit
+        timeout_seconds = request_rate_limit.max_execution_time if request_rate_limit else None
+        caller_override_mode = (
+            request_rate_limit.caller_override_mode if request_rate_limit else None
+        )
+
+        if timeout_seconds is None:
+            timeout_seconds = DEFAULT_DEADLINE_SECONDS
+
+        # The buffer is substracted from the deadline to account for network jitter and delays
+        deadline = time.time() + timeout_seconds - DEADLINE_BUFFER_SECONDS
+
+        return RateLimitExecutionContext(
+            capability_name=self._name,
+            capability_level=get_capability_level_from_name(self._name),
+            caller_override_mode=caller_override_mode,
+            capability_override_mode=self._capability_rate_limit_mode,
+            last_known_state=request_rate_limit.last_known_state if request_rate_limit else None,
+            deadline=deadline,
+        )
+
+    @contextmanager
+    def _rate_limit_context(self, request: REQUEST) -> Iterator[RateLimitCtx]:
+        ctx = self._setup_rate_limit_context(request)
+        rate_limit_token = RATE_LIMIT_CONTEXT.set(ctx)
+        result_token = RATE_LIMIT_RESULT_CONTEXT.set(None)
+        try:
+            yield RateLimitCtx(ctx)
+        finally:
+            RATE_LIMIT_CONTEXT.reset(rate_limit_token)
+            RATE_LIMIT_RESULT_CONTEXT.reset(result_token)
+
     # TODO: Capture observability stats on errors.
     async def execute(self, serialized_request: str) -> str:
         """
@@ -264,29 +311,36 @@ class CapabilityExecutor(Generic[REQUEST, SETTINGS]):
             if self._requires_settings_validation:
                 self._validate_settings(request.settings)
 
-        try:
-            with self._instrument.execute.latency_ms.timer():
-                response = await self._execute(request)
-        except Exception as exc:
-            self._instrument.errors.tags(
-                stage="execution",
-                error_code=pascalcase_to_snakecase(exc.__class__.__name__),
-            ).incr()
-            handled_exception_response = self._exception_handle(exc)
-            raise CapabilityExecutionError(error_response=handled_exception_response) from exc
+        with self._rate_limit_context(request) as rate_limit_ctx:
+            try:
+                with self._instrument.execute.latency_ms.timer():
+                    response = await self._execute(request)
+            except Exception as exc:
+                self._instrument.errors.tags(
+                    stage="execution",
+                    error_code=pascalcase_to_snakecase(exc.__class__.__name__),
+                ).incr()
+                handled_exception_response = self._exception_handle(exc)
+                raise CapabilityExecutionError(error_response=handled_exception_response) from exc
 
-        if not isinstance(response, BaseModel):
-            self._instrument.errors.tags(
-                stage="response_validation",
-                error_code="invalid",
-            ).incr()
-            raise CapabilityResponseError(self._app_id)
+            if not isinstance(response, BaseModel):
+                self._instrument.errors.tags(
+                    stage="response_validation",
+                    error_code="invalid",
+                ).incr()
+                raise CapabilityResponseError(self._app_id)
 
-        with self._instrument.response.serialization.timer():
-            serialized_response = response.model_dump_json()
+            # Attach rate limit state if the client wrote one and the response type supports it
+            if rate_limit_ctx.result_state is not None and hasattr(response, "rate_limit"):
+                response.rate_limit = RateLimitResponseInfo(
+                    current_state=rate_limit_ctx.result_state
+                )
 
-        self._instrument.response.bytes.distribution(len(serialized_response.encode()))
-        return serialized_response
+            with self._instrument.response.serialization.timer():
+                serialized_response = response.model_dump_json()
+
+            self._instrument.response.bytes.distribution(len(serialized_response.encode()))
+            return serialized_response
 
     async def _execute(self, request: REQUEST) -> Response:
         """A light-weight wrapper for capability execution."""

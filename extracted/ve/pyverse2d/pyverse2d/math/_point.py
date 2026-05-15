@@ -1,13 +1,12 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect
 from ..abc import MathObject
 
 from ._vector import Vector
 
 from numbers import Real
-from typing import Iterator
+from typing import Iterator, ClassVar
 from math import sqrt
 
 # ======================================== OBJECT ========================================
@@ -16,24 +15,33 @@ class Point(MathObject):
 
     Args:
         x: coordonnée horizontale, ou Point/tuple à coercer
-        y: coordonnée verticale
+        y: coordonnée verticale *(optionnel si x est un Point ou tuple)*
     """
     __slots__ = ("_x", "_y")
-    PRECISION = 8
+
+    PRECISION: ClassVar[int] = 8
 
     def __init__(self, x, y=None):
+        # Transtypage
         if y is None:
             try:
                 x, y = x
             except (TypeError, ValueError):
                 raise TypeError("Expected Point or iterable of length 2")
+            
+        # Attributs publiques
         self._x: float = round(float(x), self.PRECISION)
         self._y: float = round(float(y), self.PRECISION)
 
     # ======================================== FACTORY INTERNE ========================================
     @classmethod
     def _make(cls, x: float, y: float) -> Point:
-        """Création rapide sans validation (usage interne uniquement)"""
+        """Création rapide sans validation
+
+        Args:
+            x: position horizontale
+            y: position verticale
+        """
         obj = object.__new__(cls)
         obj._x = x
         obj._y = y
@@ -151,11 +159,10 @@ class Point(MathObject):
         return self._x == 0 and self._y == 0
 
     def is_aligned(self, *points: Point) -> bool:
-        """
-        Vérifie l'alignement avec un ensemble de points
+        """Vérifie l'alignement avec un ensemble de points
 
         Args:
-            points(Point): points à vérifier
+            points: points à vérifier
         """
         if len(points) < 1:
             return True
@@ -180,51 +187,46 @@ class Point(MathObject):
         return (self._x, self._y, 0, 1)
 
     def vector_to(self, point: Point) -> Vector:
-        """
-        Renvoie le vecteur self -> point
+        """Renvoie le vecteur self -> point
 
         Args:
-            point(Point): point cible
+            point: point cible
         """
         x, y = point
         self._vector_to(x, y)
 
     def distance_to(self, point: Point) -> float:
-        """
-        Renvoie la distance euclidienne jusqu'à un autre point
+        """Renvoie la distance euclidienne jusqu'à un autre point
 
         Args:
-            point(Point): point cible
+            point: point cible
         """
         x, y = point
         return self._distance_to(x, y)
 
     def translate(self, vector: Vector) -> Point:
-        """
-        Renvoie la translation du point par un vecteur donné
+        """Renvoie la translation du point par un vecteur donné
 
         Args:
-            vector(Vector): vecteur de translation
+            vector: vecteur de translation
         """
         x, y = vector
         return self._translate(x, y)
 
     def midpoint(self, point: Point) -> Point:
-        """
-        Renvoie le point du milieu du segment à un autre point
+        """Renvoie le point du milieu du segment à un autre point
 
         Args:
-            point(Point): second point du segment
+            point: second point du segment
         """
         x, y = point
         return self._midpoint(x, y)
 
     def barycenter(self, *points: Point) -> Point:
-        """
-        Renvoie le barycentre à plusieurs autres points
+        """Renvoie le barycentre à plusieurs autres points
 
         Args:
-            points(Point): autres points
+            points: autres points
         """
         xs, ys = zip(*points)
         n = len(xs) + 1
@@ -251,3 +253,8 @@ class Point(MathObject):
     def _midpoint(self, x: float, y: float) -> Point:
         """Point du milieu à un autre point"""
         return Point._make((self._x + x) * 0.5, (self._y + y) * 0.5)
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Point",
+]

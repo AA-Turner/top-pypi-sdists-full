@@ -5,6 +5,7 @@ from .._internal import expect, clamped, profile_section
 from .._rendering import Camera, Viewport
 from ..abc import Manager, MouseCursor
 from ..asset import Image
+from ..typing import SystemCursor, Button
 
 from ._context import ContextManager
 
@@ -12,7 +13,7 @@ import pyglet
 import pyglet.window.mouse as _mouse
 from pyglet.window import Window as PygletWindow
 
-from typing import TypeAlias, ClassVar, Type
+from typing import ClassVar, Type
 from numbers import Real
 
 # ======================================== CURSORS ========================================
@@ -104,14 +105,10 @@ class MouseManager(Manager):
 
     _ID: ClassVar[str] = "mouse"
 
-    # Alias
-    Button: TypeAlias = int
-    SystemCursor: TypeAlias = str | None
-
     # Boutons
-    B_LEFT = _mouse.LEFT
-    B_MIDDLE = _mouse.MIDDLE
-    B_RIGHT = _mouse.RIGHT
+    B_LEFT: ClassVar[int] = _mouse.LEFT
+    B_MIDDLE: ClassVar[int] = _mouse.MIDDLE
+    B_RIGHT: ClassVar[int] = _mouse.RIGHT
 
     # Curseurs de souris
     MouseCursor: Type[MouseCursor] = MouseCursor

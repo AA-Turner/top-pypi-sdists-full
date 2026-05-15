@@ -69,3 +69,8 @@ class Shape(ABC):
     def _invalidate_geometry(self) -> None:
         """Invalide la géométrie locale et tous les caches dépendants"""
         self._vertices = None
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Shape",
+]

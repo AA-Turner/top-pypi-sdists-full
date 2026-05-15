@@ -10,6 +10,7 @@ from .annotation_config_param import AnnotationConfigParam
 from .multiturn_annotation_config_param import MultiturnAnnotationConfigParam
 from .translation_annotation_config_param import TranslationAnnotationConfigParam
 from .summarization_annotation_config_param import SummarizationAnnotationConfigParam
+from .shared_params.auto_evaluation_parameters import AutoEvaluationParameters
 
 __all__ = [
     "EvaluationCreateParams",
@@ -20,6 +21,9 @@ __all__ = [
     "EvaluationBuilderRequestAnnotationConfigAnnotationConfigRequestBaseLlmPrompt",
     "EvaluationBuilderRequestAnnotationConfigAnnotationConfigRequestBaseLlmPromptVariable",
     "EvaluationBuilderRequestAnnotationConfigAnnotationConfigGenerationRequest",
+    "EvaluationBuilderRequestInlineEvaluationConfig",
+    "EvaluationBuilderRequestInlineEvaluationConfigAutoEvalEvaluationConfigRequest",
+    "EvaluationBuilderRequestInlineEvaluationConfigManualEvaluationConfigRequest",
     "EvaluationBuilderRequestMetricConfig",
     "EvaluationBuilderRequestMetricConfigComponent",
     "DefaultEvaluationRequest",
@@ -59,6 +63,12 @@ class EvaluationBuilderRequest(TypedDict, total=False):
     """The ID of the associated evaluation config."""
 
     evaluation_dataset_version: int
+
+    inline_evaluation_config: EvaluationBuilderRequestInlineEvaluationConfig
+    """Inline evaluation config data to create atomically with the evaluation.
+
+    Provide this OR evaluation_config_id, not both.
+    """
 
     metric_config: EvaluationBuilderRequestMetricConfig
     """Specifies the config for the metrics to be computed."""
@@ -115,6 +125,69 @@ EvaluationBuilderRequestAnnotationConfig: TypeAlias = Union[
     MultiturnAnnotationConfigParam,
     SummarizationAnnotationConfigParam,
     TranslationAnnotationConfigParam,
+]
+
+
+class EvaluationBuilderRequestInlineEvaluationConfigAutoEvalEvaluationConfigRequest(TypedDict, total=False):
+    account_id: Required[str]
+    """The ID of the account that owns the given entity."""
+
+    question_set_id: Required[str]
+
+    auto_evaluation_model: Literal[
+        "llama-3-1-70b-instruct",
+        "gpt-4-turbo-2024-04-09",
+        "llama-3-70b-instruct-bedrock",
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "gpt-4.1-nano",
+        "gpt-5-nano",
+        "gpt-5-mini",
+        "gpt-5",
+        "gpt-5.1",
+        "gpt-5.2",
+        "o1",
+        "o3",
+        "o3-mini",
+        "o4-mini",
+    ]
+    """The name of the model to be used for auto-evaluation"""
+
+    auto_evaluation_parameters: AutoEvaluationParameters
+    """Execution parameters for auto-evaluation"""
+
+    evaluation_type: Literal["llm_auto", "llm_benchmark"]
+    """Evaluation type"""
+
+    studio_project_id: str
+
+
+class EvaluationBuilderRequestInlineEvaluationConfigManualEvaluationConfigRequest(TypedDict, total=False):
+    account_id: Required[str]
+    """The ID of the account that owns the given entity."""
+
+    question_set_id: Required[str]
+
+    auto_evaluation_model: None
+    """The name of the model to be used for auto-evaluation.
+
+    Not applicable for manual evaluations.
+    """
+
+    auto_evaluation_parameters: AutoEvaluationParameters
+    """Execution parameters for auto-evaluation"""
+
+    evaluation_type: Literal["studio", "human"]
+    """Evaluation type"""
+
+    studio_project_id: str
+
+
+EvaluationBuilderRequestInlineEvaluationConfig: TypeAlias = Union[
+    EvaluationBuilderRequestInlineEvaluationConfigAutoEvalEvaluationConfigRequest,
+    EvaluationBuilderRequestInlineEvaluationConfigManualEvaluationConfigRequest,
 ]
 
 

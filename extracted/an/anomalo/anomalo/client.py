@@ -481,15 +481,13 @@ class Client:
         quality_check_run_id: int,
         entity: str,
         metric_name: str,
-    ) -> bytes:
-        response = self._api_call(
+    ):
+        return self._api_call(
             "download_entity_time_series_csv",
-            empty_response=True,
             quality_check_run_id=quality_check_run_id,
             entity=entity,
             metric_name=metric_name,
         )
-        return response.content
 
     def create_check(self, table_id, check_type, **params):
         return self._api_call(

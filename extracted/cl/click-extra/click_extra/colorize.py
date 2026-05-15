@@ -34,16 +34,21 @@ from functools import lru_cache
 from gettext import gettext as _
 
 import click
+import click.formatting
 import cloup
+from click._compat import term_len
+from cloup._util import identity
 
 from . import ParameterSource, theme as _theme
 from .parameters import ExtraOption
-from .theme import HelpExtraTheme
+from .theme import HelpExtraTheme, ThemeChoice
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
     from typing import ClassVar
+
+    from cloup.styling import IStyle
 
 
 _CUBE_VALUES = (0, 95, 135, 175, 215, 255)
@@ -139,16 +144,22 @@ class ColorOption(ExtraOption):
         <https://news.ycombinator.com/item?id=36101712>`_?
     """
 
-    @staticmethod
-    def disable_colors(
+    def set_color(
+        self,
         ctx: click.Context,
         param: click.Parameter,
         value: bool,
     ) -> None:
-        """Callback disabling all coloring utilities.
+        """Reconcile ``--color``/``--no-color``/``--ansi``/``--no-ansi`` with environment variables.
 
-        Re-inspect the environment for existence of colorization flags to re-interpret
-        the provided value.
+        The reconciliation pass re-inspects the environment for any of the
+        recognised colorization flags (``NO_COLOR``, ``FORCE_COLOR``,
+        ``CLICOLOR``, …): when the user hasn't explicitly passed
+        ``--color`` / ``--no-color`` on the command line, the env vars take
+        precedence. The final reconciled value lands on ``ctx.color`` (the
+        Click-standard attribute that ``echo()`` reads). Renamed from
+        ``disable_colors`` because the callback handles enable as well as
+        disable: the previous name only described half the behavior.
         """
         # Collect all colorize flags in environment variables we recognize.
         colorize_from_env = set()
@@ -194,7 +205,7 @@ class ColorOption(ExtraOption):
         if not param_decls:
             param_decls = ("--color/--no-color", "--ansi/--no-ansi")
 
-        kwargs.setdefault("callback", self.disable_colors)
+        kwargs.setdefault("callback", self.set_color)
 
         super().__init__(
             param_decls=param_decls,
@@ -326,7 +337,7 @@ class ExtraHelpColorsMixin:  # (Command)??
                 if isinstance(param, click.Option) and not param.hidden:
                     options.update(param.opts)
                     options.update(param.secondary_opts)
-                    if isinstance(param.type, click.Choice):
+                    if isinstance(param.type, (click.Choice, ThemeChoice)):
                         ExtraHelpColorsMixin._collect_choice_keywords(
                             param,
                             parent_ctx,
@@ -371,7 +382,7 @@ class ExtraHelpColorsMixin:  # (Command)??
         ERROR, ...") without producing false-positive highlights for common
         English words like "error" and "info".
         """
-        assert isinstance(param.type, click.Choice)
+        assert isinstance(param.type, (click.Choice, ThemeChoice))
         if isinstance(param, click.Option) and param.metavar:
             # Custom metavar hides the normalized choice list. Collect
             # original-case values. This is the first step of Click's own
@@ -420,7 +431,7 @@ class ExtraHelpColorsMixin:  # (Command)??
             # Only Choice and DateTime types produce their own structured
             # metavar (with delimiters like brackets and pipes). All other
             # types fall back to a plain uppercased name (e.g. TEXT, INTEGER).
-            if isinstance(param.type, click.Choice):
+            if isinstance(param.type, (click.Choice, ThemeChoice)):
                 ExtraHelpColorsMixin._collect_choice_keywords(param, ctx, kw)
             elif isinstance(param.type, click.DateTime):
                 # Highlight each datetime format string as a choice.
@@ -523,6 +534,69 @@ class HelpExtraFormatter(cloup.HelpFormatter):
         kwargs["theme"] = theme
         super().__init__(*args, **kwargs)
 
+    def write_usage(
+        self,
+        prog: str,
+        args: str = "",
+        prefix: str | None = None,
+    ) -> None:
+        """ANSI-aware override of :meth:`cloup.HelpFormatter.write_usage`.
+
+        Click's :func:`click.formatting.wrap_text` measures line length with
+        raw :func:`len`, counting every byte of the ANSI escape sequences
+        embedded in ``initial_indent`` (the styled ``Usage:`` heading +
+        invoked-command name). With 24-bit RGB themes (e.g. Solarized Dark,
+        Dracula, Nord, Monokai), each styled token carries 17+ extra
+        bytes of escape, which inflates the measured line beyond the width
+        budget and causes premature wraps mid-token: ``[OPTIONS\\n  ]``.
+
+        Cloup styles ``prefix`` and ``prog`` then delegates to click's
+        :meth:`HelpFormatter.write_usage`, inheriting the bug. This
+        override re-applies the same styling, then bypasses ``wrap_text``
+        whenever the visible content fits on a single line: the common case
+        for short usage strings where wrapping is unnecessary. Lines that
+        genuinely overflow the visible width fall back to click's
+        implementation: the wrap point may still be sub-optimal but the
+        output stays syntactically valid.
+
+        .. seealso::
+            Upstream fix proposed at
+            https://github.com/pallets/click/pull/3420, which makes
+            :class:`click.formatting.TextWrapper` ANSI-aware by counting
+            visible width instead of raw bytes. Once that lands in a Click
+            release, this override can be removed.
+
+        .. todo:: Drop this override once the minimum supported Click pins
+            to the release that includes ``pallets/click#3420``. The
+            ``term_len``-based visible-width check below becomes redundant
+            once Click's own wrapper counts visible width.
+        """
+        if prefix is None:
+            prefix = "Usage:"
+        styled_prefix = self.theme.heading(prefix) + " "
+        styled_prog = self.theme.invoked_command(prog)
+
+        usage_prefix = f"{styled_prefix:>{self.current_indent}}{styled_prog} "
+        text_width = self.width - self.current_indent
+        visible_width = term_len(usage_prefix) + term_len(args)
+
+        if visible_width <= text_width:
+            # Fits on one visible line: skip click's wrap_text, which would
+            # count the ANSI escape bytes toward line length and split
+            # mid-token for 24-bit RGB themes.
+            self.write(f"{usage_prefix}{args}\n")
+            return
+
+        # Visibly too wide for one line. Fall back to click's parent
+        # implementation for multi-line wrapping. Bypass cloup's wrapper to
+        # avoid double-styling ``prefix`` and ``prog``.
+        click.formatting.HelpFormatter.write_usage(
+            self,
+            styled_prog,
+            args,
+            styled_prefix,
+        )
+
     keywords: HelpKeywords = HelpKeywords()
     excluded_keywords: HelpKeywords | None = None
 
@@ -551,6 +625,22 @@ class HelpExtraFormatter(cloup.HelpFormatter):
         re.IGNORECASE,
     )
 
+    def _bracket_or(self, slot_name: str) -> IStyle:
+        """Return ``theme.<slot_name>`` or fall back to ``theme.bracket``.
+
+        When a theme leaves an inner bracket-field slot (``envvar``,
+        ``default``, ``required``, ``range_label``) at
+        :func:`identity <cloup._util.identity>`, value tokens inside the
+        bracket block default to the ``bracket`` styling rather than
+        rendering plain. This lets a theme set only ``bracket`` and get a
+        uniformly dim bracket field for free; richer themes layer specific
+        styles on top by setting the inner slots.
+        """
+        slot: IStyle = getattr(self.theme, slot_name)
+        if slot is identity:
+            return self.theme.bracket
+        return slot
+
     def _style_bracket_fields(self, match: re.Match) -> str:
         """Style a trailing ``[env var: ...; default: ...; ...]`` block.
 
@@ -558,6 +648,13 @@ class HelpExtraFormatter(cloup.HelpFormatter):
         matching each field by its label prefix. Applied post-wrapping because
         Click's text wrapper splits lines after ``get_help_record()`` returns,
         which would break pre-styled ANSI codes.
+
+        Inner-slot fallback: when a theme leaves ``envvar`` / ``default`` /
+        ``required`` / ``range_label`` at :func:`identity <cloup._util.identity>`,
+        the value token inherits the ``bracket`` styling via
+        :py:meth:`_bracket_or`. The bracket slot acts as the structural
+        default for the whole field; the other four slots override
+        piecemeal.
         """
         prefix = match.group(1)
         content = match.group(2)
@@ -573,19 +670,21 @@ class HelpExtraFormatter(cloup.HelpFormatter):
             # Environment variable field.
             elif m := self._envvar_re.match(part):
                 styled.append(
-                    self.theme.bracket(m.group(1)) + self.theme.envvar(m.group(2))
+                    self.theme.bracket(m.group(1))
+                    + self._bracket_or("envvar")(m.group(2))
                 )
             # Default value field.
             elif m := self._default_re.match(part):
                 styled.append(
-                    self.theme.bracket(m.group(1)) + self.theme.default(m.group(2))
+                    self.theme.bracket(m.group(1))
+                    + self._bracket_or("default")(m.group(2))
                 )
             # Required label.
             elif part == "required":
-                styled.append(self.theme.required(part))
+                styled.append(self._bracket_or("required")(part))
             # Range expression.
             elif self._range_re.fullmatch(part):
-                styled.append(self.theme.range_label(part))
+                styled.append(self._bracket_or("range_label")(part))
             # Fallback: style as generic bracket content.
             else:
                 styled.append(self.theme.bracket(part))

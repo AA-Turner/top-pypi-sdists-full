@@ -554,13 +554,13 @@ class Session:
         """Sync wrapper for commit_async()."""
         return run_async(self.commit_async(keep_recent_count=keep_recent_count))
 
-    @tracer("session.commit")
+    @tracer("session.commit.phase1")
     async def commit_async(self, keep_recent_count: int = 0) -> Dict[str, Any]:
         """Async commit session: archive immediately, extract memories in background.
 
-        Phase 1 (Archive prep, PathLock-protected): Split messages into
+        Phase 1 (Archive prep, path-lock protected): Split messages into
         archive/retain parts, write the retained tail back to messages.jsonl,
-        then persist the archive. Uses a distributed filesystem lock (PathLock)
+        then persist the archive. Uses a distributed filesystem lock
         so this works across workers and processes.
         Phase 2 (Memory extraction): Always runs in background via
         asyncio.create_task().
@@ -585,7 +585,7 @@ class Session:
             f"keep_recent_count={keep_recent_count}"
         )
 
-        # ===== Phase 1: Snapshot + clear (PathLock-protected) =====
+        # ===== Phase 1: Snapshot + clear (path-lock protected) =====
         # Fast pre-check: skip lock entirely if no messages (common case avoids
         # unnecessary filesystem lock acquisition).
         if not self._messages:
@@ -612,7 +612,7 @@ class Session:
 
         # Use filesystem-based distributed lock so this works across workers/processes.
         session_path = self._viking_fs._uri_to_path(self._session_uri, ctx=self.ctx)
-        async with LockContext(get_lock_manager(), [session_path], lock_mode="point"):
+        async with LockContext(get_lock_manager(), [session_path], lock_mode="exact"):
             # Authoritative check under lock: handles the race where two concurrent
             # callers both passed the pre-check but only the first should archive.
             if not self._messages:
@@ -705,8 +705,8 @@ class Session:
         task = tracker.create(
             "session_commit",
             resource_id=self.session_id,
-            owner_account_id=self.ctx.account_id,
-            owner_user_id=self.ctx.user.user_id,
+            account_id=self.ctx.account_id,
+            user_id=self.ctx.user.user_id,
         )
 
         asyncio.create_task(
@@ -729,6 +729,7 @@ class Session:
             "trace_id": trace_id,
         }
 
+    @tracer("session.commit.phase2", ignore_result=True, ignore_args=True)
     async def _run_memory_extraction(
         self,
         task_id: str,
@@ -773,10 +774,12 @@ class Session:
                     task_id,
                     f"Previous archive archive_{archive_index - 1:03d} failed; "
                     "cannot continue session commit",
+                    account_id=self.ctx.account_id,
+                    user_id=self.ctx.user.user_id,
                 )
                 return
 
-            tracker.start(task_id)
+            tracker.start(task_id, account_id=self.ctx.account_id, user_id=self.ctx.user.user_id)
             request_wait_tracker.register_request(telemetry.telemetry_id)
             register_telemetry(telemetry)
             try:
@@ -800,109 +803,110 @@ class Session:
                         exclude_archive_uri=archive_uri
                     )
 
-                    # Generate summary and write L0/L1 to archive
-                    summary = await self._generate_archive_summary_async(
-                        messages,
-                        latest_archive_overview=latest_archive_overview,
-                    )
-                    if self._viking_fs and summary:
-                        abstract = self._extract_abstract_from_summary(summary)
-                        await self._viking_fs.write_file(
-                            uri=f"{archive_uri}/.abstract.md",
-                            content=abstract,
-                            ctx=self.ctx,
+                    async def _run_archive_summary() -> None:
+                        summary = await self._generate_archive_summary_async(
+                            messages,
+                            latest_archive_overview=latest_archive_overview,
                         )
-                        await self._viking_fs.write_file(
-                            uri=f"{archive_uri}/.overview.md",
-                            content=summary,
-                            ctx=self.ctx,
-                        )
-                        await self._viking_fs.write_file(
-                            uri=f"{archive_uri}/.meta.json",
-                            content=json.dumps(
-                                {
-                                    "overview_tokens": -(-len(summary) // 4),
-                                    "abstract_tokens": -(-len(abstract) // 4),
-                                }
-                            ),
-                            ctx=self.ctx,
+                        if self._viking_fs and summary:
+                            abstract = self._extract_abstract_from_summary(summary)
+                            await self._viking_fs.write_file(
+                                uri=f"{archive_uri}/.abstract.md",
+                                content=abstract,
+                                ctx=self.ctx,
+                            )
+                            await self._viking_fs.write_file(
+                                uri=f"{archive_uri}/.overview.md",
+                                content=summary,
+                                ctx=self.ctx,
+                            )
+                            await self._viking_fs.write_file(
+                                uri=f"{archive_uri}/.meta.json",
+                                content=json.dumps(
+                                    {
+                                        "overview_tokens": -(-len(summary) // 4),
+                                        "abstract_tokens": -(-len(abstract) // 4),
+                                    }
+                                ),
+                                ctx=self.ctx,
+                            )
+
+                    # Summary generation, user memory and agent memory all run concurrently.
+                    ov_config = get_openviking_config()
+                    if self._session_compressor and ov_config.memory.extraction_enabled:
+                        logger.info(
+                            f"Starting memory extraction from {len(messages)} archived messages"
                         )
 
-                    # Memory extraction — user memory and agent memory run concurrently.
-                    if self._session_compressor:
-                        ov_config = get_openviking_config()
-                        if not ov_config.memory.extraction_enabled:
+                        has_agent_memory = hasattr(
+                            self._session_compressor, "extract_agent_memories"
+                        )
+
+                        async def _noop_agent():
+                            return []
+
+                        _results = await asyncio.gather(
+                            _run_archive_summary(),
+                            self._session_compressor.extract_long_term_memories(
+                                messages=messages,
+                                user=self.user,
+                                session_id=self.session_id,
+                                ctx=self.ctx,
+                                latest_archive_overview=latest_archive_overview,
+                                archive_uri=archive_uri,
+                            ),
+                            self._session_compressor.extract_agent_memories(
+                                messages=messages,
+                                ctx=self.ctx,
+                            )
+                            if has_agent_memory
+                            else _noop_agent(),
+                            return_exceptions=True,
+                        )
+                        summary_result, extracted_result, agent_result = _results
+
+                        if isinstance(summary_result, Exception):
+                            logger.error(
+                                f"Archive summary generation failed: {summary_result}",
+                                exc_info=summary_result,
+                            )
+                        if isinstance(extracted_result, Exception):
+                            logger.error(
+                                f"User memory extraction failed: {extracted_result}",
+                                exc_info=extracted_result,
+                            )
+                            extracted = []
+                        else:
+                            extracted = extracted_result
+
+                        if isinstance(agent_result, Exception):
+                            logger.error(
+                                f"Agent memory extraction failed: {agent_result}",
+                                exc_info=agent_result,
+                            )
+                            agent_extracted = []
+                        else:
+                            agent_extracted = agent_result
+
+                        logger.info(f"Extracted {len(extracted)} memories")
+                        for ctx_item in extracted:
+                            cat = getattr(ctx_item, "category", "") or "unknown"
+                            memories_extracted[cat] = memories_extracted.get(cat, 0) + 1
+                        self._stats.memories_extracted += len(extracted)
+                        get_current_telemetry().set("memory.extracted", len(extracted))
+
+                        if agent_extracted:
+                            logger.info(f"Extracted {len(agent_extracted)} agent memories")
+                            for ctx_item in agent_extracted:
+                                cat = getattr(ctx_item, "category", "") or "unknown"
+                                memories_extracted[cat] = memories_extracted.get(cat, 0) + 1
+                            self._stats.memories_extracted += len(agent_extracted)
+                    else:
+                        if self._session_compressor:
                             logger.info(
                                 "Memory extraction is disabled by config (memory.extraction_enabled=false)"
                             )
-                        else:
-                            logger.info(
-                                f"Starting memory extraction from {len(messages)} archived messages"
-                            )
-
-                            has_agent_memory = hasattr(
-                                self._session_compressor, "extract_agent_memories"
-                            )
-
-                            user_task = asyncio.ensure_future(
-                                self._session_compressor.extract_long_term_memories(
-                                    messages=messages,
-                                    user=self.user,
-                                    session_id=self.session_id,
-                                    ctx=self.ctx,
-                                    latest_archive_overview=latest_archive_overview,
-                                    archive_uri=archive_uri,
-                                )
-                            )
-
-                            async def _noop_agent():
-                                return []
-
-                            agent_task = asyncio.ensure_future(
-                                self._session_compressor.extract_agent_memories(
-                                    messages=messages,
-                                    ctx=self.ctx,
-                                )
-                                if has_agent_memory
-                                else _noop_agent()
-                            )
-
-                            _results = await asyncio.gather(
-                                user_task, agent_task, return_exceptions=True
-                            )
-                            extracted_result, agent_result = _results
-
-                            if isinstance(extracted_result, Exception):
-                                logger.error(
-                                    f"User memory extraction failed: {extracted_result}",
-                                    exc_info=extracted_result,
-                                )
-                                extracted = []
-                            else:
-                                extracted = extracted_result
-
-                            if isinstance(agent_result, Exception):
-                                logger.error(
-                                    f"Agent memory extraction failed: {agent_result}",
-                                    exc_info=agent_result,
-                                )
-                                agent_extracted = []
-                            else:
-                                agent_extracted = agent_result
-
-                            logger.info(f"Extracted {len(extracted)} memories")
-                            for ctx_item in extracted:
-                                cat = getattr(ctx_item, "category", "") or "unknown"
-                                memories_extracted[cat] = memories_extracted.get(cat, 0) + 1
-                            self._stats.memories_extracted += len(extracted)
-                            get_current_telemetry().set("memory.extracted", len(extracted))
-
-                            if agent_extracted:
-                                logger.info(f"Extracted {len(agent_extracted)} agent memories")
-                                for ctx_item in agent_extracted:
-                                    cat = getattr(ctx_item, "category", "") or "unknown"
-                                    memories_extracted[cat] = memories_extracted.get(cat, 0) + 1
-                                self._stats.memories_extracted += len(agent_extracted)
+                        await _run_archive_summary()
 
                     # Write relations (using snapshot, not self._usage_records)
                     if self._viking_fs:
@@ -979,8 +983,29 @@ class Session:
                         },
                     },
                 },
+                account_id=self.ctx.account_id,
+                user_id=self.ctx.user.user_id,
             )
             logger.info(f"Session {self.session_id} memory extraction completed")
+        except asyncio.CancelledError as e:
+            if redo_enabled and redo_task_id:
+                redo_log.mark_done(redo_task_id)
+            try:
+                await self._write_failed_marker(
+                    archive_uri,
+                    stage="memory_extraction",
+                    error=f"cancelled: {e}",
+                )
+            except Exception:
+                logger.debug("Failed to write cancelled marker for session %s", self.session_id)
+            tracker.fail(
+                task_id,
+                f"cancelled: {e}",
+                account_id=self.ctx.account_id,
+                user_id=self.ctx.user.user_id,
+            )
+            logger.warning("Memory extraction cancelled for session %s", self.session_id)
+            raise
         except Exception as e:
             if redo_enabled and redo_task_id:
                 redo_log.mark_done(redo_task_id)
@@ -989,7 +1014,9 @@ class Session:
                 stage="memory_extraction",
                 error=str(e),
             )
-            tracker.fail(task_id, str(e))
+            tracker.fail(
+                task_id, str(e), account_id=self.ctx.account_id, user_id=self.ctx.user.user_id
+            )
             logger.exception(f"Memory extraction failed for session {self.session_id}")
 
     async def _write_done_file(

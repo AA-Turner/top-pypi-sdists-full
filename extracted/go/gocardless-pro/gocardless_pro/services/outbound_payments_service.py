@@ -10,7 +10,7 @@ from .. import errors
 
 class OutboundPaymentsService(base_service.BaseService):
     """Service class that provides access to the outbound_payments
-    endpoints of the GoCardless Pro API.
+    endpoints of the GoCardless API.
     """
 
     RESOURCE_CLASS = resources.OutboundPayment
@@ -60,7 +60,7 @@ class OutboundPaymentsService(base_service.BaseService):
         path = '/outbound_payments/withdrawal'
         
         if params is not None:
-            params = {'data': params}
+            params = {self._envelope_key(): params}
         response = self._perform_request('POST', path, params, headers,
                                          retry_failures=False)
         return self._resource_for(response)
@@ -88,7 +88,7 @@ class OutboundPaymentsService(base_service.BaseService):
           })
         
         if params is not None:
-            params = {'data': params}
+            params = {self._envelope_key(): params}
         response = self._perform_request('POST', path, params, headers,
                                          retry_failures=False)
         return self._resource_for(response)
@@ -113,7 +113,7 @@ class OutboundPaymentsService(base_service.BaseService):
           })
         
         if params is not None:
-            params = {'data': params}
+            params = {self._envelope_key(): params}
         response = self._perform_request('POST', path, params, headers,
                                          retry_failures=False)
         return self._resource_for(response)
@@ -192,5 +192,23 @@ class OutboundPaymentsService(base_service.BaseService):
 
         response = self._perform_request('PUT', path, params, headers,
                                          retry_failures=True)
+        return self._resource_for(response)
+  
+
+    def stats(self,params=None, headers=None):
+        """Outbound payment statistics.
+
+        Retrieve aggregate statistics on outbound payments.
+
+        Args:
+              params (dict, optional): Query string parameters.
+
+        Returns:
+              OutboundPayment
+        """
+        path = '/outbound_payments/stats'
+        
+        response = self._perform_request('GET', path, params, headers,
+                                         retry_failures=False)
         return self._resource_for(response)
   

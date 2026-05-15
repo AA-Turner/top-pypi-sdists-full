@@ -8,7 +8,7 @@ from typing_extensions import Literal, overload
 import httpx
 
 from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from ..._utils import required_args, maybe_transform, async_maybe_transform
+from ..._utils import path_template, required_args, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -202,7 +202,7 @@ class UploadsResource(SyncAPIResource):
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
         return self._post(
-            f"/v4/knowledge-bases/{knowledge_base_id}/uploads",
+            path_template("/v4/knowledge-bases/{knowledge_base_id}/uploads", knowledge_base_id=knowledge_base_id),
             body=maybe_transform(
                 {
                     "data_source_config": data_source_config,
@@ -251,7 +251,11 @@ class UploadsResource(SyncAPIResource):
         if not upload_id:
             raise ValueError(f"Expected a non-empty value for `upload_id` but received {upload_id!r}")
         return self._get(
-            f"/v4/knowledge-bases/{knowledge_base_id}/uploads/{upload_id}",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/uploads/{upload_id}",
+                knowledge_base_id=knowledge_base_id,
+                upload_id=upload_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -314,7 +318,7 @@ class UploadsResource(SyncAPIResource):
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
         return self._get_api_list(
-            f"/v4/knowledge-bases/{knowledge_base_id}/uploads",
+            path_template("/v4/knowledge-bases/{knowledge_base_id}/uploads", knowledge_base_id=knowledge_base_id),
             page=SyncPageResponse[Item],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -362,7 +366,11 @@ class UploadsResource(SyncAPIResource):
         if not upload_id:
             raise ValueError(f"Expected a non-empty value for `upload_id` but received {upload_id!r}")
         return self._post(
-            f"/v4/knowledge-bases/{knowledge_base_id}/uploads/{upload_id}/cancel",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/uploads/{upload_id}/cancel",
+                knowledge_base_id=knowledge_base_id,
+                upload_id=upload_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -543,7 +551,7 @@ class AsyncUploadsResource(AsyncAPIResource):
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
         return await self._post(
-            f"/v4/knowledge-bases/{knowledge_base_id}/uploads",
+            path_template("/v4/knowledge-bases/{knowledge_base_id}/uploads", knowledge_base_id=knowledge_base_id),
             body=await async_maybe_transform(
                 {
                     "data_source_config": data_source_config,
@@ -592,7 +600,11 @@ class AsyncUploadsResource(AsyncAPIResource):
         if not upload_id:
             raise ValueError(f"Expected a non-empty value for `upload_id` but received {upload_id!r}")
         return await self._get(
-            f"/v4/knowledge-bases/{knowledge_base_id}/uploads/{upload_id}",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/uploads/{upload_id}",
+                knowledge_base_id=knowledge_base_id,
+                upload_id=upload_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -655,7 +667,7 @@ class AsyncUploadsResource(AsyncAPIResource):
         if not knowledge_base_id:
             raise ValueError(f"Expected a non-empty value for `knowledge_base_id` but received {knowledge_base_id!r}")
         return self._get_api_list(
-            f"/v4/knowledge-bases/{knowledge_base_id}/uploads",
+            path_template("/v4/knowledge-bases/{knowledge_base_id}/uploads", knowledge_base_id=knowledge_base_id),
             page=AsyncPageResponse[Item],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -703,7 +715,11 @@ class AsyncUploadsResource(AsyncAPIResource):
         if not upload_id:
             raise ValueError(f"Expected a non-empty value for `upload_id` but received {upload_id!r}")
         return await self._post(
-            f"/v4/knowledge-bases/{knowledge_base_id}/uploads/{upload_id}/cancel",
+            path_template(
+                "/v4/knowledge-bases/{knowledge_base_id}/uploads/{upload_id}/cancel",
+                knowledge_base_id=knowledge_base_id,
+                upload_id=upload_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

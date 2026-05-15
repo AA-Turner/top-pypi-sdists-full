@@ -37,6 +37,7 @@ REFRESHABLE_CODES: frozenset[ConnectorErrorCode] = frozenset(
 THROTTLE_AND_RETRY_CODES: frozenset[ConnectorErrorCode] = frozenset(
     {
         ConnectorErrorCode.RATE_LIMIT,
+        ConnectorErrorCode.BUDGET_EXHAUSTED,
     }
 )
 """Errors that require throttled retry (respect Retry-After / back-off)."""

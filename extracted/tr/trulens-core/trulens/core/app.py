@@ -375,7 +375,7 @@ class App(
         apps.
     - [TruVirtual][trulens.apps.virtual.TruVirtual] for recording
         information about invocations of apps without access to those apps.
-    - [TruCustomApp][trulens.apps.custom.TruCustomApp] (To be deprecated in favor of TruApp) for custom
+    - `TruCustomApp` (To be deprecated in favor of TruApp) for custom
         apps. These need to be decorated to have appropriate data recorded.
     - [TruApp][trulens.apps.app.TruApp] for custom
         apps allowing maximized flexibility. These need to be decorated to have appropriate data recorded.
@@ -579,33 +579,13 @@ class App(
 
         self._evaluator = evaluator_utils.Evaluator(self)
 
-        if connector and _can_import("trulens.connectors.snowflake"):
-            from trulens.connectors.snowflake import SnowflakeConnector
-            from trulens.connectors.snowflake.dao.enums import ObjectType
-
-            if isinstance(connector, SnowflakeConnector):
-                self.snowflake_object_type = (
-                    ObjectType.EXTERNAL_AGENT.value
-                    if "object_type" not in kwargs
-                    or kwargs["object_type"] is None
-                    else kwargs["object_type"]
-                )
-
-                (
-                    self.snowflake_app_dao,
-                    self.snowflake_run_dao,
-                    self.snowflake_object_name,
-                    self.snowflake_object_version,
-                ) = connector.initialize_snowflake_dao_fields(
-                    object_type=self.snowflake_object_type,
-                    app_name=kwargs["app_name"],
-                    app_version=kwargs["app_version"],
-                )
-
-                self.run_dao = self.snowflake_run_dao
-                self._object_name = self.snowflake_object_name
-                self._object_type = self.snowflake_object_type
-                self._object_version = self.snowflake_object_version
+        if connector is not None:
+            connector.augment_app(
+                self,
+                app_name=kwargs.get("app_name"),
+                app_version=kwargs.get("app_version"),
+                object_type=kwargs.get("object_type"),
+            )
 
         if self.run_dao is None and connector is not None:
             from trulens.core.dao.default_run import DefaultRunDao
@@ -1874,7 +1854,7 @@ you use the `%s` wrapper to make sure `%s` does get instrumented. `%s` method
             run_config (RunConfig):  Run config
 
         Returns:
-            Run: Run instance
+            Run: Run instance.
         """
 
         self._check_run_dao()

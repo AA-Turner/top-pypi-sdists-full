@@ -117,3 +117,8 @@ class Attractor(ParticleModifier, Positionable):
 
         velocities[idx, 0] += nx * force * dt
         velocities[idx, 1] += ny * force * dt
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Attractor",
+]

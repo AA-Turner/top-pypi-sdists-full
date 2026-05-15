@@ -49,6 +49,7 @@ from .paginator import (
     ListLineageNodeHistoryPaginator,
     ListMetadataGenerationRunsPaginator,
     ListNotebookRunsPaginator,
+    ListNotebooksPaginator,
     ListNotificationsPaginator,
     ListPolicyGrantsPaginator,
     ListProjectMembershipsPaginator,
@@ -124,6 +125,8 @@ from .type_defs import (
     CreateGroupProfileOutputTypeDef,
     CreateListingChangeSetInputTypeDef,
     CreateListingChangeSetOutputTypeDef,
+    CreateNotebookInputTypeDef,
+    CreateNotebookOutputTypeDef,
     CreateProjectInputTypeDef,
     CreateProjectMembershipInputTypeDef,
     CreateProjectOutputTypeDef,
@@ -161,6 +164,7 @@ from .type_defs import (
     DeleteGlossaryInputTypeDef,
     DeleteGlossaryTermInputTypeDef,
     DeleteListingInputTypeDef,
+    DeleteNotebookInputTypeDef,
     DeleteProjectInputTypeDef,
     DeleteProjectMembershipInputTypeDef,
     DeleteProjectProfileInputTypeDef,
@@ -227,6 +231,10 @@ from .type_defs import (
     GetListingOutputTypeDef,
     GetMetadataGenerationRunInputTypeDef,
     GetMetadataGenerationRunOutputTypeDef,
+    GetNotebookExportInputTypeDef,
+    GetNotebookExportOutputTypeDef,
+    GetNotebookInputTypeDef,
+    GetNotebookOutputTypeDef,
     GetNotebookRunInputTypeDef,
     GetNotebookRunOutputTypeDef,
     GetProjectInputTypeDef,
@@ -291,6 +299,8 @@ from .type_defs import (
     ListMetadataGenerationRunsOutputTypeDef,
     ListNotebookRunsInputTypeDef,
     ListNotebookRunsOutputTypeDef,
+    ListNotebooksInputTypeDef,
+    ListNotebooksOutputTypeDef,
     ListNotificationsInputTypeDef,
     ListNotificationsOutputTypeDef,
     ListPolicyGrantsInputTypeDef,
@@ -346,6 +356,10 @@ from .type_defs import (
     StartDataSourceRunOutputTypeDef,
     StartMetadataGenerationRunInputTypeDef,
     StartMetadataGenerationRunOutputTypeDef,
+    StartNotebookExportInputTypeDef,
+    StartNotebookExportOutputTypeDef,
+    StartNotebookImportInputTypeDef,
+    StartNotebookImportOutputTypeDef,
     StartNotebookRunInputTypeDef,
     StartNotebookRunOutputTypeDef,
     StopNotebookRunInputTypeDef,
@@ -378,6 +392,8 @@ from .type_defs import (
     UpdateGlossaryTermOutputTypeDef,
     UpdateGroupProfileInputTypeDef,
     UpdateGroupProfileOutputTypeDef,
+    UpdateNotebookInputTypeDef,
+    UpdateNotebookOutputTypeDef,
     UpdateProjectInputTypeDef,
     UpdateProjectOutputTypeDef,
     UpdateProjectProfileInputTypeDef,
@@ -751,6 +767,18 @@ class DataZoneClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#create_listing_change_set)
         """
 
+    def create_notebook(
+        self, **kwargs: Unpack[CreateNotebookInputTypeDef]
+    ) -> CreateNotebookOutputTypeDef:
+        """
+        Creates a <a
+        href="https://docs.aws.amazon.com/sagemaker-unified-studio/latest/userguide/notebooks.html">notebook</a>
+        in Amazon SageMaker Unified Studio.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/create_notebook.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#create_notebook)
+        """
+
     def create_project(
         self, **kwargs: Unpack[CreateProjectInputTypeDef]
     ) -> CreateProjectOutputTypeDef:
@@ -1006,6 +1034,16 @@ class DataZoneClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/delete_listing.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#delete_listing)
+        """
+
+    def delete_notebook(self, **kwargs: Unpack[DeleteNotebookInputTypeDef]) -> dict[str, Any]:
+        """
+        Deletes a <a
+        href="https://docs.aws.amazon.com/sagemaker-unified-studio/latest/userguide/notebooks.html">notebook</a>
+        in Amazon SageMaker Unified Studio.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/delete_notebook.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#delete_notebook)
         """
 
     def delete_project(self, **kwargs: Unpack[DeleteProjectInputTypeDef]) -> dict[str, Any]:
@@ -1362,11 +1400,33 @@ class DataZoneClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#get_metadata_generation_run)
         """
 
+    def get_notebook(self, **kwargs: Unpack[GetNotebookInputTypeDef]) -> GetNotebookOutputTypeDef:
+        """
+        Gets the details of a <a
+        href="https://docs.aws.amazon.com/sagemaker-unified-studio/latest/userguide/notebooks.html">notebook</a>
+        in Amazon SageMaker Unified Studio.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_notebook.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#get_notebook)
+        """
+
+    def get_notebook_export(
+        self, **kwargs: Unpack[GetNotebookExportInputTypeDef]
+    ) -> GetNotebookExportOutputTypeDef:
+        """
+        Gets the details of a notebook export in Amazon SageMaker Unified Studio.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_notebook_export.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#get_notebook_export)
+        """
+
     def get_notebook_run(
         self, **kwargs: Unpack[GetNotebookRunInputTypeDef]
     ) -> GetNotebookRunOutputTypeDef:
         """
-        Gets the details of a notebook run in an Amazon DataZone domain.
+        Gets the details of a <a
+        href="https://docs.aws.amazon.com/sagemaker-unified-studio/latest/userguide/notebooks.html">notebook
+        run</a> in Amazon SageMaker Unified Studio.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_notebook_run.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#get_notebook_run)
@@ -1668,10 +1728,24 @@ class DataZoneClient(BaseClient):
         self, **kwargs: Unpack[ListNotebookRunsInputTypeDef]
     ) -> ListNotebookRunsOutputTypeDef:
         """
-        Lists notebook runs in an Amazon DataZone domain.
+        Lists <a
+        href="https://docs.aws.amazon.com/sagemaker-unified-studio/latest/userguide/notebooks.html">notebook
+        runs</a> in Amazon SageMaker Unified Studio.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/list_notebook_runs.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#list_notebook_runs)
+        """
+
+    def list_notebooks(
+        self, **kwargs: Unpack[ListNotebooksInputTypeDef]
+    ) -> ListNotebooksOutputTypeDef:
+        """
+        Lists <a
+        href="https://docs.aws.amazon.com/sagemaker-unified-studio/latest/userguide/notebooks.html">notebooks</a>
+        in Amazon SageMaker Unified Studio.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/list_notebooks.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#list_notebooks)
         """
 
     def list_notifications(
@@ -1958,11 +2032,31 @@ class DataZoneClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#start_metadata_generation_run)
         """
 
+    def start_notebook_export(
+        self, **kwargs: Unpack[StartNotebookExportInputTypeDef]
+    ) -> StartNotebookExportOutputTypeDef:
+        """
+        Starts a notebook export in Amazon SageMaker Unified Studio.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/start_notebook_export.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#start_notebook_export)
+        """
+
+    def start_notebook_import(
+        self, **kwargs: Unpack[StartNotebookImportInputTypeDef]
+    ) -> StartNotebookImportOutputTypeDef:
+        """
+        Starts a notebook import in Amazon SageMaker Unified Studio.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/start_notebook_import.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#start_notebook_import)
+        """
+
     def start_notebook_run(
         self, **kwargs: Unpack[StartNotebookRunInputTypeDef]
     ) -> StartNotebookRunOutputTypeDef:
         """
-        Starts a notebook run in an Amazon DataZone domain.
+        Starts a notebook run in Amazon SageMaker Unified Studio.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/start_notebook_run.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#start_notebook_run)
@@ -1972,7 +2066,9 @@ class DataZoneClient(BaseClient):
         self, **kwargs: Unpack[StopNotebookRunInputTypeDef]
     ) -> StopNotebookRunOutputTypeDef:
         """
-        Stops a running notebook run in an Amazon DataZone domain.
+        Stops a running <a
+        href="https://docs.aws.amazon.com/sagemaker-unified-studio/latest/userguide/notebooks.html">notebook
+        run</a> in Amazon SageMaker Unified Studio.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/stop_notebook_run.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#stop_notebook_run)
@@ -2122,6 +2218,18 @@ class DataZoneClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/update_group_profile.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#update_group_profile)
+        """
+
+    def update_notebook(
+        self, **kwargs: Unpack[UpdateNotebookInputTypeDef]
+    ) -> UpdateNotebookOutputTypeDef:
+        """
+        Updates a <a
+        href="https://docs.aws.amazon.com/sagemaker-unified-studio/latest/userguide/notebooks.html">notebook</a>
+        in Amazon SageMaker Unified Studio.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/update_notebook.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#update_notebook)
         """
 
     def update_project(
@@ -2438,6 +2546,17 @@ class DataZoneClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_notebook_runs"]
     ) -> ListNotebookRunsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_notebooks"]
+    ) -> ListNotebooksPaginator:
         """
         Create a paginator for an operation.
 

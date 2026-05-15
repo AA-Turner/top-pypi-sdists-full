@@ -47,6 +47,11 @@ if TYPE_CHECKING:
     from ezdxf.fonts import fonts
 
 X_MIDDLE = 4  # special case for overall alignment "MIDDLE"
+MIN_CAP_HEIGHT = 1e-9
+
+
+def valid_text_height(text_height, default=2.5):
+    return text_height if text_height > MIN_CAP_HEIGHT else default
 
 
 class TextLine:
@@ -1219,8 +1224,8 @@ class MTextToken:
         self.data = data
 
 
-RE_FLOAT = re.compile(r"[+-]?\d+(:?\.\d*)?(:?[eE][+-]?\d+)?")
-RE_FLOAT_X = re.compile(r"[+-]?\d+(:?\.\d*)?(:?[eE][+-]?\d+)?([x]?)")
+RE_FLOAT = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?")
+RE_FLOAT_X = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?([x]?)")
 
 CHAR_TO_ALIGN = {
     "l": MTextParagraphAlignment.LEFT,
@@ -1548,6 +1553,10 @@ class MTextParser:
             start, end = match.span()
             result = tail[start:end]
             self.scanner.consume(end)
+
+        if result.startswith("."):
+            return "0" + result
+
         return result
 
     def extract_int_expression(self) -> str:

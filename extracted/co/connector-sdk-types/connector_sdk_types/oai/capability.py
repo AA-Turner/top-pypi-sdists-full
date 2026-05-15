@@ -2,6 +2,8 @@ import typing as t
 
 from pydantic import BaseModel
 
+from connector_sdk_types.generated.models.rate_limit_request_info import RateLimitRequestInfo
+
 BaseModelType = t.TypeVar("BaseModelType", bound=BaseModel)
 
 
@@ -38,6 +40,11 @@ class Request(t.Protocol):
     User-configured settings for the integration.
     """
 
+    rate_limit: RateLimitRequestInfo | None
+    """
+    Rate limit metadata supplied by the caller. Used to seed state across paginated calls.
+    """
+
 
 class AuthRequest(t.Protocol):
     """
@@ -61,4 +68,9 @@ class AuthRequest(t.Protocol):
     settings: t.Any
     """
     User-configured settings for the integration.
+    """
+
+    rate_limit: RateLimitRequestInfo | None
+    """
+    Rate limit metadata supplied by the caller. Used to seed state across paginated calls.
     """

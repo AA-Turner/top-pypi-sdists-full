@@ -156,7 +156,7 @@ class TestApplications:
     @parametrize
     def test_method_upload_files(self, client: SGPClient) -> None:
         application = client.applications.upload_files(
-            files=[b"raw file contents"],
+            files=["string"],
         )
         assert_matches_type(ApplicationUploadFilesResponse, application, path=["response"])
 
@@ -164,7 +164,7 @@ class TestApplications:
     @parametrize
     def test_method_upload_files_with_all_params(self, client: SGPClient) -> None:
         application = client.applications.upload_files(
-            files=[b"raw file contents"],
+            files=["string"],
             account_id="account_id",
         )
         assert_matches_type(ApplicationUploadFilesResponse, application, path=["response"])
@@ -173,7 +173,7 @@ class TestApplications:
     @parametrize
     def test_raw_response_upload_files(self, client: SGPClient) -> None:
         response = client.applications.with_raw_response.upload_files(
-            files=[b"raw file contents"],
+            files=["string"],
         )
 
         assert response.is_closed is True
@@ -185,7 +185,7 @@ class TestApplications:
     @parametrize
     def test_streaming_response_upload_files(self, client: SGPClient) -> None:
         with client.applications.with_streaming_response.upload_files(
-            files=[b"raw file contents"],
+            files=["string"],
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -454,7 +454,7 @@ class TestAsyncApplications:
     @parametrize
     async def test_method_upload_files(self, async_client: AsyncSGPClient) -> None:
         application = await async_client.applications.upload_files(
-            files=[b"raw file contents"],
+            files=["string"],
         )
         assert_matches_type(ApplicationUploadFilesResponse, application, path=["response"])
 
@@ -462,7 +462,7 @@ class TestAsyncApplications:
     @parametrize
     async def test_method_upload_files_with_all_params(self, async_client: AsyncSGPClient) -> None:
         application = await async_client.applications.upload_files(
-            files=[b"raw file contents"],
+            files=["string"],
             account_id="account_id",
         )
         assert_matches_type(ApplicationUploadFilesResponse, application, path=["response"])
@@ -471,7 +471,7 @@ class TestAsyncApplications:
     @parametrize
     async def test_raw_response_upload_files(self, async_client: AsyncSGPClient) -> None:
         response = await async_client.applications.with_raw_response.upload_files(
-            files=[b"raw file contents"],
+            files=["string"],
         )
 
         assert response.is_closed is True
@@ -483,7 +483,7 @@ class TestAsyncApplications:
     @parametrize
     async def test_streaming_response_upload_files(self, async_client: AsyncSGPClient) -> None:
         async with async_client.applications.with_streaming_response.upload_files(
-            files=[b"raw file contents"],
+            files=["string"],
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"

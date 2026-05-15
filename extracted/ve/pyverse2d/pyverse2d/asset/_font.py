@@ -223,3 +223,9 @@ class Glyph:
     width: int
     height: int
     tex_coords: tuple[int, int]
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Font",
+    "Glyph",
+]

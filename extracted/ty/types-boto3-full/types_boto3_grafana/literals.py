@@ -26,6 +26,7 @@ __all__ = (
     "AccountAccessTypeType",
     "AuthenticationProviderTypesType",
     "DataSourceTypeType",
+    "IPAddressTypeType",
     "LicenseTypeType",
     "ListPermissionsPaginatorName",
     "ListVersionsPaginatorName",
@@ -60,6 +61,7 @@ DataSourceTypeType = Literal[
     "TWINMAKER",
     "XRAY",
 ]
+IPAddressTypeType = Literal["DualStack", "IPv4"]
 LicenseTypeType = Literal["ENTERPRISE", "ENTERPRISE_FREE_TRIAL"]
 ListPermissionsPaginatorName = Literal["list_permissions"]
 ListVersionsPaginatorName = Literal["list_versions"]

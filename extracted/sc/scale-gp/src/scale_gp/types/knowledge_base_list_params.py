@@ -27,4 +27,4 @@ class KnowledgeBaseListParams(TypedDict, total=False):
     Starts at page 1
     """
 
-    view: List[Literal["Connections", "ArtifactCount"]]
+    view: List[Literal["Connections", "ArtifactCount", "IndexConfiguration"]]

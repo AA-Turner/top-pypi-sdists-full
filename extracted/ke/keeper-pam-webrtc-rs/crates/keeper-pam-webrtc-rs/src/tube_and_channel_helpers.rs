@@ -73,6 +73,7 @@ pub(crate) async fn setup_channel_for_data_channel(
         rx_from_dc: rx,
         tx_from_dc: tx_from_dc.clone(),
         channel_id: label.clone(),
+        conversation_id: label.clone(),
         tube_id,
         timeouts,
         protocol_settings,

@@ -42,6 +42,7 @@ from .paginator import (
     ListMessagesPaginator,
     ListMessageTemplatesPaginator,
     ListMessageTemplateVersionsPaginator,
+    ListModelsPaginator,
     ListQuickResponsesPaginator,
     ListSpansPaginator,
     QueryAssistantPaginator,
@@ -162,6 +163,8 @@ from .type_defs import (
     ListMessageTemplatesResponseTypeDef,
     ListMessageTemplateVersionsRequestTypeDef,
     ListMessageTemplateVersionsResponseTypeDef,
+    ListModelsRequestTypeDef,
+    ListModelsResponseTypeDef,
     ListQuickResponsesRequestTypeDef,
     ListQuickResponsesResponseTypeDef,
     ListSpansRequestTypeDef,
@@ -903,6 +906,15 @@ class QConnectClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_qconnect/client/#list_messages)
         """
 
+    def list_models(self, **kwargs: Unpack[ListModelsRequestTypeDef]) -> ListModelsResponseTypeDef:
+        """
+        Lists the models available to an Amazon Q in Connect assistant in the
+        assistant's Amazon Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qconnect/client/list_models.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_qconnect/client/#list_models)
+        """
+
     def list_quick_responses(
         self, **kwargs: Unpack[ListQuickResponsesRequestTypeDef]
     ) -> ListQuickResponsesResponseTypeDef:
@@ -1362,6 +1374,17 @@ class QConnectClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_messages"]
     ) -> ListMessagesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qconnect/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_qconnect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_models"]
+    ) -> ListModelsPaginator:
         """
         Create a paginator for an operation.
 

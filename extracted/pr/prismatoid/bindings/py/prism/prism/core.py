@@ -26,6 +26,7 @@ class BackendId(IntEnum):
     SENSE_READER = 0xED4760890B55C2F2
     SYSTEM_ACCESS = 0x8380F2A37B2C3EB6
     WINDOW_EYES = 0x9120D89908785C13
+    SPIEL = 0x478B44F14AD3D89C
 
 
 class PrismError(Exception):
@@ -241,7 +242,7 @@ class Backend:
             channels,
             rate,
         ) -> None:
-            pcm_data = ffi.unpack(samples_ptr, count * channels)
+            pcm_data = ffi.unpack(samples_ptr, count)
             on_audio_data(pcm_data, channels, rate)
 
         self._active_callback = audio_callback_shim

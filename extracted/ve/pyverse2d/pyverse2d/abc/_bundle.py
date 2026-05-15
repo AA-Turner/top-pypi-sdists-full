@@ -1,15 +1,13 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..typing import DictKeys, DictValues
+from ..typing import DictKeys, DictValues, CacheKey
 
 from abc import ABC, abstractmethod
-from typing import Any, TypeAlias, Self
+from typing import Any, Self
 import os
 import random
 
-# ======================================== ALIASES ========================================
-CacheKey: TypeAlias = tuple | str
 
 # ======================================== ABSTRACT CLASS ========================================
 class Bundle(ABC):
@@ -111,3 +109,8 @@ class Bundle(ABC):
         """Renvoie une entrée aléatoire du bundle"""
         key = random.choice(self._keys_list)
         return self.get(key)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Bundle",
+]

@@ -27,6 +27,7 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListAdvancedPromptOptimizationJobsPaginator,
     ListAutomatedReasoningPoliciesPaginator,
     ListAutomatedReasoningPolicyBuildWorkflowsPaginator,
     ListAutomatedReasoningPolicyTestCasesPaginator,
@@ -47,9 +48,13 @@ from .paginator import (
     ListProvisionedModelThroughputsPaginator,
 )
 from .type_defs import (
+    BatchDeleteAdvancedPromptOptimizationJobRequestTypeDef,
+    BatchDeleteAdvancedPromptOptimizationJobResponseTypeDef,
     BatchDeleteEvaluationJobRequestTypeDef,
     BatchDeleteEvaluationJobResponseTypeDef,
     CancelAutomatedReasoningPolicyBuildWorkflowRequestTypeDef,
+    CreateAdvancedPromptOptimizationJobRequestTypeDef,
+    CreateAdvancedPromptOptimizationJobResponseTypeDef,
     CreateAutomatedReasoningPolicyRequestTypeDef,
     CreateAutomatedReasoningPolicyResponseTypeDef,
     CreateAutomatedReasoningPolicyTestCaseRequestTypeDef,
@@ -101,6 +106,8 @@ from .type_defs import (
     DeregisterMarketplaceModelEndpointRequestTypeDef,
     ExportAutomatedReasoningPolicyVersionRequestTypeDef,
     ExportAutomatedReasoningPolicyVersionResponseTypeDef,
+    GetAdvancedPromptOptimizationJobRequestTypeDef,
+    GetAdvancedPromptOptimizationJobResponseTypeDef,
     GetAutomatedReasoningPolicyAnnotationsRequestTypeDef,
     GetAutomatedReasoningPolicyAnnotationsResponseTypeDef,
     GetAutomatedReasoningPolicyBuildWorkflowRequestTypeDef,
@@ -149,6 +156,8 @@ from .type_defs import (
     GetResourcePolicyRequestTypeDef,
     GetResourcePolicyResponseTypeDef,
     GetUseCaseForModelAccessResponseTypeDef,
+    ListAdvancedPromptOptimizationJobsRequestTypeDef,
+    ListAdvancedPromptOptimizationJobsResponseTypeDef,
     ListAutomatedReasoningPoliciesRequestTypeDef,
     ListAutomatedReasoningPoliciesResponseTypeDef,
     ListAutomatedReasoningPolicyBuildWorkflowsRequestTypeDef,
@@ -203,6 +212,7 @@ from .type_defs import (
     StartAutomatedReasoningPolicyBuildWorkflowResponseTypeDef,
     StartAutomatedReasoningPolicyTestWorkflowRequestTypeDef,
     StartAutomatedReasoningPolicyTestWorkflowResponseTypeDef,
+    StopAdvancedPromptOptimizationJobRequestTypeDef,
     StopEvaluationJobRequestTypeDef,
     StopModelCustomizationJobRequestTypeDef,
     StopModelInvocationJobRequestTypeDef,
@@ -281,6 +291,16 @@ class BedrockClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#generate_presigned_url)
         """
 
+    def batch_delete_advanced_prompt_optimization_job(
+        self, **kwargs: Unpack[BatchDeleteAdvancedPromptOptimizationJobRequestTypeDef]
+    ) -> BatchDeleteAdvancedPromptOptimizationJobResponseTypeDef:
+        """
+        Batch delete the specified advanced prompt optimization jobs.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/batch_delete_advanced_prompt_optimization_job.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#batch_delete_advanced_prompt_optimization_job)
+        """
+
     def batch_delete_evaluation_job(
         self, **kwargs: Unpack[BatchDeleteEvaluationJobRequestTypeDef]
     ) -> BatchDeleteEvaluationJobResponseTypeDef:
@@ -299,6 +319,16 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/cancel_automated_reasoning_policy_build_workflow.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#cancel_automated_reasoning_policy_build_workflow)
+        """
+
+    def create_advanced_prompt_optimization_job(
+        self, **kwargs: Unpack[CreateAdvancedPromptOptimizationJobRequestTypeDef]
+    ) -> CreateAdvancedPromptOptimizationJobResponseTypeDef:
+        """
+        Creates an asynchronous batch job for advanced prompt optimization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/create_advanced_prompt_optimization_job.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#create_advanced_prompt_optimization_job)
         """
 
     def create_automated_reasoning_policy(
@@ -643,6 +673,16 @@ class BedrockClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#export_automated_reasoning_policy_version)
         """
 
+    def get_advanced_prompt_optimization_job(
+        self, **kwargs: Unpack[GetAdvancedPromptOptimizationJobRequestTypeDef]
+    ) -> GetAdvancedPromptOptimizationJobResponseTypeDef:
+        """
+        Retrieves the details and status of an advanced prompt optimization job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_advanced_prompt_optimization_job.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#get_advanced_prompt_optimization_job)
+        """
+
     def get_automated_reasoning_policy(
         self, **kwargs: Unpack[GetAutomatedReasoningPolicyRequestTypeDef]
     ) -> GetAutomatedReasoningPolicyResponseTypeDef:
@@ -898,6 +938,16 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_use_case_for_model_access.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#get_use_case_for_model_access)
+        """
+
+    def list_advanced_prompt_optimization_jobs(
+        self, **kwargs: Unpack[ListAdvancedPromptOptimizationJobsRequestTypeDef]
+    ) -> ListAdvancedPromptOptimizationJobsResponseTypeDef:
+        """
+        Lists all advanced prompt optimization jobs for the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/list_advanced_prompt_optimization_jobs.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#list_advanced_prompt_optimization_jobs)
         """
 
     def list_automated_reasoning_policies(
@@ -1186,6 +1236,16 @@ class BedrockClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#start_automated_reasoning_policy_test_workflow)
         """
 
+    def stop_advanced_prompt_optimization_job(
+        self, **kwargs: Unpack[StopAdvancedPromptOptimizationJobRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Stops an in-progress advanced prompt optimization job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/stop_advanced_prompt_optimization_job.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#stop_advanced_prompt_optimization_job)
+        """
+
     def stop_evaluation_job(
         self, **kwargs: Unpack[StopEvaluationJobRequestTypeDef]
     ) -> dict[str, Any]:
@@ -1302,6 +1362,17 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/update_provisioned_model_throughput.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#update_provisioned_model_throughput)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_advanced_prompt_optimization_jobs"]
+    ) -> ListAdvancedPromptOptimizationJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

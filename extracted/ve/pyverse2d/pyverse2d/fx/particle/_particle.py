@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from ..._internal import positive, under, expect_callable
 from ...asset import Color
-from ...math.easing import linear, EasingFunc
+from ...math.easing import linear
+from ...typing import EasingFunc
 
 from dataclasses import dataclass
 from typing import Tuple
@@ -54,3 +55,8 @@ class Particle:
             under(self.size[0], self.size[1])
             positive(self.size_end)
             expect_callable(self.easing)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Particle",
+]

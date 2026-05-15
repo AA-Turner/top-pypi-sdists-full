@@ -22,7 +22,7 @@ class Surface(Widget):
         scale: facteur de redimensionnement
         rotation: angle de rotation
         color: couleur de remplissage
-        opacité: opacité [0; 1]
+        opacité: opacité *[0, 1]*
         clipping: rendu des widgets enfants strictement dans le AABB de la hitbox
     """
     __slots__ = (
@@ -41,12 +41,18 @@ class Surface(Widget):
             opacity: Real = 1.0,
             clipping: bool = False,
         ):
-        # Forme
-        self._shape: Shape = expect(shape, Shape)
-        self._shape_renderer: PygletShapeRenderer = None
+        # Transtypage et vérifications
+        color = Color(color)
 
-        # Affichage
-        self._color: Color = Color(color)
+        if __debug__:
+            expect(shape, Shape)
+
+        # Attributs publiques
+        self._shape: Shape = shape
+        self._color: Color = color
+
+        # Attributs internes
+        self._shape_renderer: PygletShapeRenderer = None
 
         # Initialisation du widget
         super().__init__(position, anchor, scale, rotation, opacity, clipping=clipping)
@@ -76,7 +82,8 @@ class Surface(Widget):
     
     @color.setter
     def color(self, value: Color) -> None:
-        self._color = Color(value)
+        value = Color(value)
+        self._color = value
     
     @property
     def hitbox(self) -> Shape:
@@ -112,11 +119,20 @@ class Surface(Widget):
 
     # ======================================== LIFE CYCLE ========================================
     def _update(self, dt: float) -> None:
-        """Actualisation"""
+        """Actualisation
+        
+        Args:
+            dt: delta-time
+        """
         ...
     
     def _draw(self, pipeline: Pipeline, context: RenderContext) -> None:
-        """Affichage"""
+        """Affichage
+        
+        Args:
+            pipeline: ``Pipeline``de rendu courant
+            context: contexte de rendu courant
+        """
         # Construction du renderer
         if self._shape_renderer is None:
             self._shape_renderer = PygletShapeRenderer(
@@ -139,10 +155,12 @@ class Surface(Widget):
             )
  
     def _destroy(self) -> None:
-        """
-        Libère les ressources pyglet et se détache de son parent.
-        À appeler explicitement quand le widget n'est plus utilisé.
-        """
+        """Libère les ressources pyglet et se détache de son parent"""
         if self._shape_renderer is not None:
             self._shape_renderer.delete()
             self._shape_renderer = None
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Surface",
+]

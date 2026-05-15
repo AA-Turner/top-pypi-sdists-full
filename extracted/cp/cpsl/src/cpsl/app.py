@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import fields as dc_fields
 from typing import Any, Callable, Type, TypeVar, Union, TYPE_CHECKING
 
@@ -73,6 +74,47 @@ _ACCESS_ATTR = "_cpsl_access"
 _SHELL_HOME_VALUES = {"default", "hidden", "chat"}
 _CHAT_MODE_VALUES = {"multi", "single"}
 _CHAT_SCOPE_VALUES = {"owner"}
+_RESERVED_PAGE_ROUTES = {
+    "api",
+    "chat",
+    "connections",
+    "docs",
+    "home",
+    "integrations",
+    "logs",
+    "org",
+    "team",
+    "workflow",
+}
+
+
+class PageRef:
+    """Reference to a hosted page.
+
+    ``App.add_page`` returns this directly. ``App.page`` returns a callable
+    PageRef so it can still be used as a decorator while also being passed to
+    ``cpsl.Suggestion(page=...)`` or ``cpsl.ui.ActionCard(page=...)``.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        route: str,
+        decorator: Callable[[Callable], Callable] | None = None,
+    ) -> None:
+        self.name = name
+        self.route = route
+        self.path = f"/{route}"
+        self.href = f"#/{route}"
+        self._decorator = decorator
+
+    def __call__(self, fn: Callable) -> Callable:
+        if self._decorator is None:
+            raise TypeError("this PageRef cannot be used as a decorator")
+        return self._decorator(fn)
+
+    def __str__(self) -> str:
+        return self.route
 
 
 def _collect_channel_secrets(channels: list[ChannelLike]) -> list[str]:
@@ -95,6 +137,42 @@ def _serialize_filesystems(filesystems: dict[str, FileSystem] | None) -> dict[st
             fs_obj._bind_mount_path(mount_path)
             fs_map[mount_path] = fs_obj.to_dict()
     return fs_map
+
+
+def _normalize_page_route(name: str, route: str | None = None) -> str:
+    raw = route if route is not None else name
+    raw = raw.strip()
+    raw = raw.removeprefix("#/")
+    raw = raw.removeprefix("/")
+    raw = raw.split("?", 1)[0].split("#", 1)[0]
+    parts = []
+    for part in raw.split("/"):
+        slug = re.sub(r"[^a-z0-9]+", "-", part.strip().lower()).strip("-")
+        if slug:
+            parts.append(slug)
+    normalized = "/".join(parts)
+    if not normalized:
+        raise ValueError("page route must not be empty")
+    if normalized in _RESERVED_PAGE_ROUTES:
+        if route is not None:
+            raise ValueError(f"page route {normalized!r} is reserved")
+        normalized = f"{normalized}-page"
+    return normalized
+
+
+def _page_target_value(value: Any) -> str:
+    raw = getattr(value, "route", None) or getattr(value, "name", value)
+    if not isinstance(raw, str) or not raw.strip():
+        raise ValueError("page target must be a non-empty string or PageRef")
+    return _normalize_page_route(raw)
+
+
+def _ensure_unique_page_route(pages: list[dict[str, Any]], route: str, name: str) -> None:
+    for page in pages:
+        if page.get("route") == route:
+            raise ValueError(
+                f"page route {route!r} for {name!r} conflicts with page {page.get('name')!r}"
+            )
 
 
 def _count_widget_type(node: dict[str, Any], widget_type: str) -> int:
@@ -605,19 +683,26 @@ class App:
         packages: list[str] | None = None,
         order: int | None = None,
         access: AccessLevel = ACCESS_PUBLIC,
-    ) -> None:
+        route: str | None = None,
+    ) -> PageRef:
         """Declare a React/TSX page that appears in the subdomain sidebar.
 
         ``access`` controls who can view the page:
         ``"public"`` (default) — anyone, ``"authenticated"`` — logged-in users only.
+        ``route`` optionally pins the page URL fragment. It defaults to a
+        slugified version of ``name``.
         """
         if order is None:
             order = self._page_order
         self._page_order = max(self._page_order, order) + 1
+        page_route = _normalize_page_route(name, route)
+        _ensure_unique_page_route(self._pages, page_route, name)
+        ref = PageRef(name, page_route)
         self._pages.append(
             {
                 "name": name,
                 "icon": icon,
+                "route": page_route,
                 "type": PAGE_TYPE_REACT,
                 "component": component,
                 "packages": packages or [],
@@ -625,6 +710,7 @@ class App:
                 "access": access,
             }
         )
+        return ref
 
     def page(
         self,
@@ -633,15 +719,20 @@ class App:
         icon: str = "file",
         order: int | None = None,
         access: AccessLevel = ACCESS_PUBLIC,
-    ) -> Callable[[Callable], Callable]:
+        route: str | None = None,
+    ) -> PageRef:
         """Decorator for Python DSL pages. The function must return a ui.Page widget tree.
 
         ``access`` controls who can view the page:
         ``"public"`` (default) — anyone, ``"authenticated"`` — logged-in users only.
+        ``route`` optionally pins the page URL fragment. It defaults to a
+        slugified version of ``name``.
         """
         if order is None:
             order = self._page_order
         self._page_order = max(self._page_order, order) + 1
+        page_route = _normalize_page_route(name, route)
+        _ensure_unique_page_route(self._pages, page_route, name)
         _order = order
         _access = access
 
@@ -657,6 +748,7 @@ class App:
                 {
                     "name": name,
                     "icon": icon,
+                    "route": page_route,
                     "type": PAGE_TYPE_DSL,
                     "widget_tree": tree_dict,
                     "order": _order,
@@ -665,7 +757,7 @@ class App:
             )
             return fn
 
-        return decorator
+        return PageRef(name, page_route, decorator)
 
     def add_onboarding(
         self,
@@ -784,6 +876,8 @@ class App:
         home: str = "default",
         show_sidebar: bool = True,
         show_pages: bool = True,
+        show_chats: bool = True,
+        default_page: Any | None = None,
     ) -> None:
         """Configure the hosted app's outer navigation shell.
 
@@ -804,6 +898,10 @@ class App:
             # No generic Home item; users land on the first custom page.
             app.shell(home="hidden")
 
+            # Route the root view to a specific page.
+            dashboard = app.add_page("Dashboard", component="pages/dashboard.tsx")
+            app.shell(default_page=dashboard)
+
         Args:
             home: Controls what the root route shows.
                 ``"chat"`` replaces the default Home page with the
@@ -821,6 +919,12 @@ class App:
             show_pages: Whether custom ``@app.page`` entries should appear in
                 the sidebar. Pages remain addressable by URL; this only hides
                 them from navigation.
+            show_chats: Whether Capsule's default Chats/New Chat sidebar
+                navigation should appear. Chat routes and embedded chat
+                widgets remain available.
+            default_page: Page route/name or ``PageRef`` to open at the root
+                route. If omitted and ``home="hidden"``, Capsule falls back to
+                the first available non-chat page.
         """
         if home not in _SHELL_HOME_VALUES:
             raise ValueError("shell home must be 'default', 'hidden', or 'chat'")
@@ -828,7 +932,10 @@ class App:
             "home": home,
             "show_sidebar": bool(show_sidebar),
             "show_pages": bool(show_pages),
+            "show_chats": bool(show_chats),
         }
+        if default_page is not None:
+            self._shell_config["default_page"] = _page_target_value(default_page)
 
     # -- data sources --------------------------------------------------------
 

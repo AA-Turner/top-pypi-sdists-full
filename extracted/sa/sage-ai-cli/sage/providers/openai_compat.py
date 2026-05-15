@@ -17,6 +17,7 @@ import httpx
 
 from ..config import SageConfig
 from .base import Message, ModelInfo, ProviderBase
+from .openrouter_catalog import fetch_free_models as _fetch_openrouter_free
 from .retry import CircuitBreaker, RetryConfig, get_rate_limiter, get_retry_after
 
 
@@ -102,16 +103,44 @@ GROQ_MODELS = [
     ),
 ]
 
-OPENROUTER_MODELS = [
+# OpenRouter free models — the ACTUAL list comes from the live API
+# (cached 24h) via openrouter_catalog.fetch_free_models. The hardcoded
+# entries below are SKELETON ONLY — they used to be curated descriptions,
+# but the free list churns weekly (models get promoted to paid). Trusting
+# the live API prevents the "model exists in catalog but returns 404"
+# class of bug that wasted hours of build time.
+#
+# The provider's list_models() unions this list with the live fetch.
+# Empty/short hardcoded list = trust the API.
+OPENROUTER_MODELS: list = [
+    # No hardcoded entries — list_models() pulls from openrouter_catalog
+    # (live API + 24h cache + minimal hardcoded fallback). This way
+    # sage always reflects what OpenRouter actually serves for free.
+]
+
+# Kept for backwards compat with any code that imports the old name:
+_OPENROUTER_MODELS_LEGACY = [
+    # ── Coder-specialized (best for sage) ─────────────────────────
     ModelInfo(
-        id="meta-llama/llama-3.3-70b-instruct:free",
+        id="qwen/qwen-2.5-coder-32b-instruct:free",
         provider="openrouter",
-        name="Llama 3.3 70B (Free)",
+        name="Qwen 2.5 Coder 32B (Free)",
         local=False,
-        description="Best free Llama model via OpenRouter",
-        pros="Free, high quality code generation",
-        cons="Rate limited, needs free OpenRouter key",
+        description="32B model fine-tuned for code generation — best free choice for sage",
+        pros="Coder-tuned, big context (33K), great at structured output",
+        cons="Rate limited (~20 req/min on free tier)",
     ),
+    ModelInfo(
+        id="deepseek/deepseek-coder-v2:free",
+        provider="openrouter",
+        name="DeepSeek Coder V2 (Free)",
+        local=False,
+        description="DeepSeek's coding specialist",
+        pros="Strong code quality, multi-language",
+        cons="Rate limited",
+    ),
+
+    # ── Big general models (slower but highest quality) ──────────
     ModelInfo(
         id="deepseek/deepseek-r1:free",
         provider="openrouter",
@@ -119,15 +148,15 @@ OPENROUTER_MODELS = [
         local=False,
         description="Top-tier reasoning model, free tier",
         pros="Excellent debugging, step-by-step thinking",
-        cons="Slower, verbose output, rate limited",
+        cons="Slow, verbose <think> blocks (sage's sanitizer strips them)",
     ),
     ModelInfo(
         id="deepseek/deepseek-chat-v3-0324:free",
         provider="openrouter",
         name="DeepSeek V3 (Free)",
         local=False,
-        description="DeepSeek's fastest chat model",
-        pros="Fast, good code, free tier",
+        description="DeepSeek's fastest chat model — strong general code",
+        pros="Fast, good code, large context",
         cons="Rate limited",
     ),
     ModelInfo(
@@ -135,17 +164,46 @@ OPENROUTER_MODELS = [
         provider="openrouter",
         name="Qwen 3 235B (Free)",
         local=False,
-        description="Huge model with MoE architecture",
+        description="Huge MoE — best quality available free",
         pros="Massive capacity, great reasoning",
-        cons="May be slow, rate limited",
+        cons="Slow, rate limited",
+    ),
+    ModelInfo(
+        id="meta-llama/llama-3.3-70b-instruct:free",
+        provider="openrouter",
+        name="Llama 3.3 70B (Free)",
+        local=False,
+        description="Best free Llama model — great all-rounder",
+        pros="Strong code, instructions, large context",
+        cons="Rate limited",
+    ),
+    ModelInfo(
+        id="nousresearch/hermes-3-llama-3.1-405b:free",
+        provider="openrouter",
+        name="Hermes 3 405B (Free)",
+        local=False,
+        description="405B fine-tune of Llama 3.1",
+        pros="Highest parameter count free, great long-form output",
+        cons="Slow",
+    ),
+
+    # ── Medium general (balanced) ─────────────────────────────────
+    ModelInfo(
+        id="google/gemini-2.0-flash-exp:free",
+        provider="openrouter",
+        name="Gemini 2.0 Flash Exp (Free)",
+        local=False,
+        description="Google's fast experimental model",
+        pros="Very fast, large context, good code",
+        cons="Experimental — quality varies, rate limited",
     ),
     ModelInfo(
         id="google/gemma-3-27b-it:free",
         provider="openrouter",
         name="Gemma 3 27B (Free)",
         local=False,
-        description="Google's latest Gemma model",
-        pros="Good balance of speed/quality",
+        description="Google's latest Gemma — balanced",
+        pros="Good speed/quality balance",
         cons="Rate limited",
     ),
     ModelInfo(
@@ -155,7 +213,63 @@ OPENROUTER_MODELS = [
         local=False,
         description="Efficient Mistral model",
         pros="Fast, good code generation",
-        cons="Rate limited, smaller context",
+        cons="Smaller context",
+    ),
+    ModelInfo(
+        id="qwen/qwen-2.5-72b-instruct:free",
+        provider="openrouter",
+        name="Qwen 2.5 72B (Free)",
+        local=False,
+        description="Qwen's 72B general model",
+        pros="Strong instruction-following + code",
+        cons="Rate limited",
+    ),
+    ModelInfo(
+        id="qwen/qwq-32b:free",
+        provider="openrouter",
+        name="QwQ 32B (Free)",
+        local=False,
+        description="Qwen reasoning model",
+        pros="Good for step-by-step problems",
+        cons="Verbose, slower than non-reasoning",
+    ),
+
+    # ── Small/fast (good for high-iteration loops) ───────────────
+    ModelInfo(
+        id="meta-llama/llama-3.2-3b-instruct:free",
+        provider="openrouter",
+        name="Llama 3.2 3B (Free)",
+        local=False,
+        description="Small fast Llama — good for boilerplate",
+        pros="Very fast, large quota",
+        cons="Lower quality on complex code",
+    ),
+    ModelInfo(
+        id="meta-llama/llama-3.2-1b-instruct:free",
+        provider="openrouter",
+        name="Llama 3.2 1B (Free)",
+        local=False,
+        description="Smallest Llama — extremely fast",
+        pros="Fastest free option",
+        cons="Limited reasoning, good for tests/boilerplate only",
+    ),
+    ModelInfo(
+        id="microsoft/phi-3-mini-128k-instruct:free",
+        provider="openrouter",
+        name="Phi 3 Mini 128K (Free)",
+        local=False,
+        description="Microsoft's small efficient model with 128K context",
+        pros="Huge context for small model, fast",
+        cons="Lower quality vs bigger free models",
+    ),
+    ModelInfo(
+        id="microsoft/phi-3-medium-128k-instruct:free",
+        provider="openrouter",
+        name="Phi 3 Medium 128K (Free)",
+        local=False,
+        description="Microsoft's medium-sized 128K-context model",
+        pros="Good balance of speed/quality",
+        cons="Rate limited",
     ),
     ModelInfo(
         id="microsoft/phi-4-reasoning-plus:free",
@@ -163,8 +277,55 @@ OPENROUTER_MODELS = [
         name="Phi 4 Reasoning+ (Free)",
         local=False,
         description="Microsoft's reasoning model",
-        pros="Good for math/logic, efficient",
-        cons="Smaller model, may miss nuance",
+        pros="Strong on math/logic, efficient",
+        cons="Smaller model overall",
+    ),
+    ModelInfo(
+        id="mistralai/mistral-7b-instruct:free",
+        provider="openrouter",
+        name="Mistral 7B Instruct (Free)",
+        local=False,
+        description="Classic small efficient Mistral",
+        pros="Fast, reliable, good for high-volume",
+        cons="Lower quality than newer models",
+    ),
+    ModelInfo(
+        id="huggingfaceh4/zephyr-7b-beta:free",
+        provider="openrouter",
+        name="Zephyr 7B Beta (Free)",
+        local=False,
+        description="Tuned Mistral 7B — chat-friendly",
+        pros="Fast, good general use",
+        cons="Older model, smaller context",
+    ),
+
+    # ── Specialty / vision (in case sage adds image features) ────
+    ModelInfo(
+        id="meta-llama/llama-3.2-11b-vision-instruct:free",
+        provider="openrouter",
+        name="Llama 3.2 11B Vision (Free)",
+        local=False,
+        description="Vision-capable Llama — for design/screenshot analysis",
+        pros="Can read images alongside text",
+        cons="Rate limited",
+    ),
+    ModelInfo(
+        id="liquid/lfm-7b:free",
+        provider="openrouter",
+        name="Liquid 7B (Free)",
+        local=False,
+        description="Liquid AI's efficient 7B model",
+        pros="Novel architecture, fast",
+        cons="Less battle-tested",
+    ),
+    ModelInfo(
+        id="liquid/lfm-3b:free",
+        provider="openrouter",
+        name="Liquid 3B (Free)",
+        local=False,
+        description="Smaller Liquid model",
+        pros="Very fast",
+        cons="Limited capacity",
     ),
 ]
 
@@ -443,6 +604,30 @@ class OpenAICompatProvider(ProviderBase):
     def list_models(self) -> list[ModelInfo]:
         if not self.is_available():
             return []
+        # OpenRouter: union the live API catalog (cached 24h) with the
+        # curated hardcoded list. The hardcoded list serves as a static
+        # fallback and provides our hand-written descriptions for the
+        # most-used coder models. Live entries fill in everything else.
+        if self._spec.name == "openrouter":
+            try:
+                live_dicts = _fetch_openrouter_free(self._api_key)
+            except Exception:  # noqa: BLE001 — must never crash provider startup
+                live_dicts = []
+            seen_ids: set[str] = {m.id for m in self._spec.models}
+            extras: list[ModelInfo] = []
+            for d in live_dicts:
+                if d.get("id") not in seen_ids:
+                    extras.append(ModelInfo(
+                        id=d["id"],
+                        provider="openrouter",
+                        name=d.get("name", d["id"]),
+                        local=False,
+                        description=d.get("description", ""),
+                        pros=d.get("pros", ""),
+                        cons=d.get("cons", "Rate limited (free tier)"),
+                    ))
+                    seen_ids.add(d["id"])
+            return list(self._spec.models) + extras
         return list(self._spec.models)
 
     def _headers(self) -> dict[str, str]:

@@ -8,135 +8,31 @@ and handling rate limit headers.
 
 import asyncio
 import logging
+import math
 import time
-from abc import ABC, abstractmethod
 from collections.abc import Callable
-from dataclasses import dataclass
-from enum import Enum
 from typing import Any, Generic, TypeVar
 
 import httpx
+from connector_sdk_types.generated import RateLimitStateSnapshot, RateLimitStateSnapshotSource
+from connector_sdk_types.oai.modules.rate_limiting_types import (
+    FIXED_DECAY_FLOOR,
+    LIMIT_CEILING,
+    REQUESTS_PER_WINDOW_CEILING,
+    STATIC_RATE_LIMIT_DICTIONARY,
+    RateLimitConfig,
+    RateLimitMode,
+    RateLimitStrategy,
+)
+from gql.transport.exceptions import TransportQueryError, TransportServerError
 
-from connector.oai.errors import RateLimitError
+from connector.oai.errors import BudgetExhaustedError, RateLimitError, UpstreamError
+from connector.utils.rate_limit_context import RATE_LIMIT_CONTEXT
 
 RequestType = TypeVar("RequestType")  # Input request type
 ResponseType = TypeVar("ResponseType")  # Response type
 
 logger = logging.getLogger(__name__)
-
-REQUESTS_PER_WINDOW_CEILING = 0.2
-LIMIT_CEILING = 0.2
-MAXIMUM_RETRIES = 5
-
-STATIC_RATE_LIMIT_DICTIONARY = [
-    "rate limit exceeded",
-    "too many requests",
-    "quota exceeded",
-    "exceeded your rate limit",
-    "request limit reached",
-]
-
-
-class RateLimitStrategy(Enum):
-    """
-    Strategy setting for handling rate limits.
-
-    FIXED - Fixed rate limiting based on predefined limits
-    ADAPTIVE - Adaptive rate limiting based on response headers/etc.
-    """
-
-    FIXED = "fixed"
-    ADAPTIVE = "adaptive"
-
-
-@dataclass
-class RateLimitExtractorResponse:
-    """Response from a rate limit extractor."""
-
-    # Remaining requests in the current time window
-    remaining: int
-
-    # Total requests allowed in the current time window
-    limit: int
-
-    # Reset time in seconds (from the API if available)
-    reset: int | None = None
-
-    # Time window in seconds config (from the API if available)
-    window_seconds: int | None = None
-
-    # Observed requests (from the API if available)
-    observed: str | None = None
-
-    # Requests per window directly config (from the API if available)
-    requests_per_window: int | None = None
-
-
-@dataclass
-class RateLimitConfig:
-    """Configuration for rate limiting."""
-
-    # App ID
-    app_id: str
-
-    # Maximum number of requests per time window
-    requests_per_window: int
-
-    # Time window in seconds
-    window_seconds: int
-
-    # Maximum retries
-    maximum_retries: int = MAXIMUM_RETRIES
-
-    # Strategy for rate limiting
-    strategy: RateLimitStrategy = RateLimitStrategy.FIXED
-
-    # Maximum batch size for requests
-    max_batch_size: int | None = None
-
-    # Function to extract rate limit info from response
-    rate_limit_extractor: Callable[[Any], RateLimitExtractorResponse] | None = None
-
-    # Function to check if an error is a rate limit error, overrides default is_rate_limit_error
-    rate_limit_error_check: Callable[[Exception], bool] | None = None
-
-    # Initial delay between batches in seconds
-    initial_delay: float = 0.0
-
-    # Maximum delay between batches in seconds
-    max_delay: float = 60.0
-
-    # Backoff factor for exponential backoff
-    backoff_factor: float = 1.5
-
-    # Concurrency
-    max_concurrent: int = 1
-
-    @classmethod
-    def default(cls, app_id: str) -> "RateLimitConfig":
-        """Get the default rate limit config."""
-        return cls(
-            app_id=app_id,
-            requests_per_window=30,
-            window_seconds=60,
-            strategy=RateLimitStrategy.FIXED,
-            max_batch_size=15,
-            max_concurrent=1,
-        )
-
-    def overwrite(self, **kwargs: Any) -> None:
-        """Overwrite the default values with the provided kwargs."""
-        for key, value in kwargs.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-
-
-class RateLimitExtractor(ABC):
-    """Abstract base class for extracting rate limit information from response."""
-
-    @abstractmethod
-    def extract(self, response: Any) -> RateLimitExtractorResponse:
-        pass
 
 
 class RateLimiter(Generic[RequestType, ResponseType]):
@@ -152,14 +48,40 @@ class RateLimiter(Generic[RequestType, ResponseType]):
         self.request_times: list[float] = []
         self.current_delay = config.initial_delay
         self.semaphore = asyncio.Semaphore(config.max_concurrent)
+        self.snapshot_source = RateLimitStateSnapshotSource.SDK_COUNTER
+        self.last_reset: float | None = None
 
         # Set default max_batch_size if not provided
         if self.config.max_batch_size is None:
             self.config.max_batch_size = self.config.requests_per_window
 
     @staticmethod
+    def is_transient_error(e: Exception) -> bool:
+        """Check if the error is a transient error."""
+        # GQL transport errors
+        if isinstance(e, TransportServerError) and e.code in (408, 502, 503, 504):
+            return True
+
+        # HTTP status/transport errors
+        return (
+            isinstance(e, httpx.HTTPStatusError)
+            and e.response.status_code in (408, 502, 503, 504)
+            or isinstance(e, httpx.ConnectTimeout | httpx.ReadTimeout | httpx.RemoteProtocolError)
+        )
+
+    @staticmethod
     def is_rate_limit_error(e: Exception) -> bool:
         """Check if the error is a rate limit error."""
+        # GQL Transport error
+        if isinstance(e, TransportServerError) and e.code == httpx.codes.TOO_MANY_REQUESTS:
+            return True
+
+        # Keyword check for GQL (see below for httpx)
+        if isinstance(e, TransportQueryError) and e.errors:
+            errors_text = str(e.errors).lower()
+            if any(kw in errors_text for kw in STATIC_RATE_LIMIT_DICTIONARY):
+                return True
+
         # Simple check for basic HTTP 429 errors
         is_rate_limit_error = (
             isinstance(e, httpx.HTTPStatusError)
@@ -193,8 +115,15 @@ class RateLimiter(Generic[RequestType, ResponseType]):
         self._update_request_times()
         return len(self.request_times) < self.config.requests_per_window
 
+    @property
+    def _effective_mode(self) -> RateLimitMode:
+        return self.config.mode or RateLimitMode.ENFORCE
+
     def _wait_time_needed(self) -> float:
         """Calculate the time to wait before making the next request."""
+        if self._effective_mode == RateLimitMode.RETRY_ONLY:
+            return 0.0
+
         if self._can_make_request():
             return 0.0
 
@@ -215,6 +144,9 @@ class RateLimiter(Generic[RequestType, ResponseType]):
         ):
             rate_limit_info = self.config.rate_limit_extractor(response)
 
+            # Set the proper snapshot source
+            self.snapshot_source = RateLimitStateSnapshotSource.API_HEADERS
+
             # Update the configuration based on the rate limit information
             if rate_limit_info.requests_per_window is not None:
                 self.config.requests_per_window = rate_limit_info.requests_per_window
@@ -224,6 +156,7 @@ class RateLimiter(Generic[RequestType, ResponseType]):
 
             # If reset time is available, check it
             if rate_limit_info.reset is not None:
+                self.last_reset = float(rate_limit_info.reset)
                 current_time = time.time()
                 time_until_reset = rate_limit_info.reset - current_time
 
@@ -256,9 +189,12 @@ class RateLimiter(Generic[RequestType, ResponseType]):
 
     def _handle_rate_limit_exceeded(self) -> None:
         """Handle the case when rate limit is exceeded."""
-        if self.config.strategy == RateLimitStrategy.FIXED:
-            # If on FIXED strategy, we set the current delay to the configured window seconds
-            # Since we cannot adapt to the API's rate limits and this is a static way to handle it
+        if (
+            self._effective_mode == RateLimitMode.ENFORCE
+            and self.config.strategy == RateLimitStrategy.FIXED
+        ):
+            # For ENFORCE+FIXED: jump to window_seconds so we respect the full window before retry.
+            # RETRY_ONLY skips this to avoid blocking callers; it uses pure exponential backoff.
             self.debug_log(
                 f"Rate limit exceeded; setting delay to {self.config.window_seconds} seconds"
             )
@@ -270,7 +206,92 @@ class RateLimiter(Generic[RequestType, ResponseType]):
 
     def debug_log(self, message: str):
         """Log the current rate limit status."""
-        logger.debug(f"[RateLimiter/{self.config.app_id}] {message}")
+        logger.debug(f"[RateLimiter/{self.config.effective_config_id}] {message}")
+
+    def _get_deadline(self) -> float | None:
+        """Return the caller-supplied execution deadline (Unix timestamp), if any."""
+        ctx = RATE_LIMIT_CONTEXT.get()
+        return ctx.deadline if ctx is not None else None
+
+    def _check_deadline(self, sleep_seconds: float) -> None:
+        """
+        Raise BudgetExhaustedError if sleeping sleep_seconds would exceed the deadline.
+
+        Note:
+        This is a possible entrypoint for partial responses support, if not implemented via caching.
+        """
+        deadline = self._get_deadline()
+        if deadline is not None and time.time() + sleep_seconds >= deadline:
+            raise BudgetExhaustedError(
+                retry_after_seconds=math.ceil(sleep_seconds),
+                message=(f"Rate limit sleep of {sleep_seconds:.0f}s would exceed caller deadline"),
+            )
+
+    def _check_deadline_expired(self) -> None:
+        """Raise BudgetExhaustedError if the execution deadline has already passed."""
+        deadline = self._get_deadline()
+        if deadline is not None and time.time() >= deadline:
+            raise BudgetExhaustedError(
+                retry_after_seconds=0,
+                message="Execution deadline exceeded",
+            )
+
+    def seed_from_state(self, state: RateLimitStateSnapshot) -> None:
+        """Seed this rate limiter from a snapshot returned by a previous execution.
+
+        Preserves ADAPTIVE rate limiting state across page calls and connector restarts.
+        Only non-None fields are applied so partial snapshots are safe to pass.
+        """
+        if state.limit is not None:
+            self.config.requests_per_window = state.limit
+        if state.window_seconds is not None:
+            self.config.window_seconds = state.window_seconds
+        if state.current_delay is not None:
+            if state.reset is not None and state.reset <= time.time():
+                self.current_delay = self.config.initial_delay
+            else:
+                self.current_delay = float(state.current_delay)
+        if state.reset is not None:
+            self.last_reset = float(state.reset)
+        if state.remaining is not None and state.limit is not None:
+            used = state.limit - state.remaining
+            if used > 0:
+                if state.reset is not None:
+                    if state.reset > time.time():
+                        # Window still active: anchor entries at window start so they expire at reset
+                        entry_time = state.reset - self.config.window_seconds
+                        self.request_times = [entry_time] * used
+                else:
+                    # No reset info: conservative fallback, treat used slots as fresh
+                    self.request_times = [time.time()] * used
+        self.debug_log(
+            f"Seeded from state: requests_per_window={self.config.requests_per_window}, "
+            f"window_seconds={self.config.window_seconds}, current_delay={self.current_delay}, "
+            f"remaining={state.remaining}"
+        )
+
+    def get_current_state(self) -> RateLimitStateSnapshot:
+        """Return a snapshot of current rate limit state for passthrough to the caller."""
+        self._update_request_times()
+        remaining = max(0, self.config.requests_per_window - len(self.request_times))
+
+        if self.config.strategy == RateLimitStrategy.ADAPTIVE:
+            reset = int(self.last_reset) if self.last_reset is not None else None
+        else:
+            reset = (
+                int(min(self.request_times) + self.config.window_seconds)
+                if self.request_times
+                else None
+            )
+
+        return RateLimitStateSnapshot(
+            remaining=remaining,
+            limit=self.config.requests_per_window,
+            window_seconds=self.config.window_seconds,
+            current_delay=round(self.current_delay),
+            reset=reset,
+            source=self.snapshot_source,
+        )
 
     async def execute_requests(
         self,
@@ -324,11 +345,14 @@ class RateLimiter(Generic[RequestType, ResponseType]):
     ) -> ResponseType:
         """Execute a single request with rate limiting and retry logic."""
         retry_count = 0
+        transient_retry_count = 0
 
         while retry_count <= self.config.maximum_retries:
+            self._check_deadline_expired()
             wait_time = self._wait_time_needed()
             if wait_time > 0:
                 self.debug_log(f"Waiting {wait_time} seconds before making request")
+                self._check_deadline(wait_time)
                 await asyncio.sleep(wait_time)
 
             try:
@@ -346,23 +370,69 @@ class RateLimiter(Generic[RequestType, ResponseType]):
                 # Update rate limits
                 self._update_rate_limits(response)
 
+                # For FIXED strategy:
+                # Decay current_delay once window pressure has cleared.
+                # ADAPTIVE gets this via _update_rate_limits; FIXED has no external signals.
+                if (
+                    self.config.strategy == RateLimitStrategy.FIXED
+                    and self.current_delay > self.config.initial_delay
+                    and self._can_make_request()
+                ):
+                    decayed = max(
+                        self.current_delay / self.config.backoff_factor,
+                        self.config.initial_delay,
+                    )
+                    self.current_delay = (
+                        self.config.initial_delay if decayed < FIXED_DECAY_FLOOR else decayed
+                    )
+
                 return response
             except Exception as e:
                 # Handle rate limit errors
                 error_check = self.config.rate_limit_error_check or RateLimiter.is_rate_limit_error
                 is_rate_limit_error = error_check(e)
 
-                if is_rate_limit_error:
-                    self._handle_rate_limit_exceeded()
-                    self.debug_log(f"Rate limit exceeded; current delay: {self.current_delay}")
+                # Check for transient issues
+                # Like the end system being unavailable or network issues
+                transient_check = (
+                    self.config.transient_error_check or RateLimiter.is_transient_error
+                )
+                is_transient = transient_check(e)
 
-                    retry_count += 1
-                    if retry_count > self.config.maximum_retries:
-                        raise RateLimitError(
-                            message=f"Maximum retries ({self.config.maximum_retries}) reached",
-                        ) from e
+                if is_rate_limit_error or is_transient:
+                    self._handle_rate_limit_exceeded()
+
+                    if is_transient:
+                        self.debug_log(f"Transient error; current delay: {self.current_delay}")
+                    else:
+                        self.debug_log(f"Rate limit exceeded; current delay: {self.current_delay}")
+
+                    # Attempt to extract rate limit information if there is a response
+                    if isinstance(e, httpx.HTTPStatusError) and (
+                        error_response := getattr(e, "response", None)
+                    ):
+                        self._update_rate_limits(error_response)
+
+                    if is_transient:
+                        # Transient errors get their own counter
+                        transient_retry_count += 1
+                        if transient_retry_count > self.config.maximum_retries:
+                            raise UpstreamError(
+                                retry_after_seconds=math.ceil(self.current_delay)
+                                or self.config.window_seconds,
+                                message="Unable to process requests due to transient issues, retries exhausted",
+                            ) from e
+                    else:
+                        retry_count += 1
+                        if retry_count > self.config.maximum_retries:
+                            raise RateLimitError(
+                                retry_after_seconds=math.ceil(self.current_delay)
+                                or self.config.window_seconds,
+                                message=f"Maximum retries ({self.config.maximum_retries}) reached",
+                            ) from e
 
                     # Retry the request after a delay
+                    self._check_deadline(self.current_delay)
                     await asyncio.sleep(self.current_delay)
                 else:
                     # Re-raise other exceptions
@@ -391,7 +461,9 @@ class RateLimiter(Generic[RequestType, ResponseType]):
         )
 
         # Process requests in batches
-        self.debug_log(f"Executing {len(requests)} requests in {batch_size} batches")
+        self.debug_log(
+            f"Executing {len(requests)} requests in {len(requests) // batch_size} batches with batch size {batch_size}"
+        )
 
         for i in range(0, len(requests), batch_size):
             batch = requests[i : i + batch_size]
@@ -406,8 +478,13 @@ class RateLimiter(Generic[RequestType, ResponseType]):
 
             responses.extend(batch_responses)
 
-            # Wait between batches
-            if i + batch_size < len(requests) and self.current_delay > 0:
+            # Wait between batches — skipped in RETRY_ONLY to avoid blocking callers
+            if (
+                i + batch_size < len(requests)
+                and self.current_delay > 0
+                and self._effective_mode == RateLimitMode.ENFORCE
+            ):
+                self._check_deadline(self.current_delay)
                 await asyncio.sleep(self.current_delay)
 
         return responses

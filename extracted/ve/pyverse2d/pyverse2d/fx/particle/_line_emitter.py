@@ -38,7 +38,7 @@ class LineEmitter(ParticleEmitter):
     ):
         # Initialisation de l'émetteur
         super().__init__(p1, particle=particle, max_particles=max_particles, rate=rate, active=active)
-        
+
         # Transtypage
         p1 = Point(p1)
         p2 = Point(p2)
@@ -57,7 +57,6 @@ class LineEmitter(ParticleEmitter):
         La position peut être un objet ``Point`` ou n'importe quel tuple ``(x, y)``.
         """
         return self._p1
-
 
     @p1.setter
     def p1(self, value: Point) -> None:
@@ -91,3 +90,8 @@ class LineEmitter(ParticleEmitter):
             velocities = np.stack([speeds * np.cos(angles), speeds * np.sin(angles)], axis=1).astype(np.float32)
 
         return positions, velocities
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "LineEmitter",
+]

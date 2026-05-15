@@ -38,6 +38,7 @@ __all__ = (
     "ContentStatusType",
     "ConversationStatusReasonType",
     "ConversationStatusType",
+    "CrossRegionStatusType",
     "ExternalSourceType",
     "FilterFieldType",
     "FilterOperatorType",
@@ -68,6 +69,7 @@ __all__ = (
     "ListMessageTemplateVersionsPaginatorName",
     "ListMessageTemplatesPaginatorName",
     "ListMessagesPaginatorName",
+    "ListModelsPaginatorName",
     "ListQuickResponsesPaginatorName",
     "ListSpansPaginatorName",
     "MessageFilterTypeType",
@@ -75,6 +77,7 @@ __all__ = (
     "MessageTemplateFilterOperatorType",
     "MessageTemplateQueryOperatorType",
     "MessageTypeType",
+    "ModelLifecycleType",
     "OrderType",
     "OriginType",
     "PaginatorName",
@@ -173,6 +176,7 @@ ContentStatusType = Literal[
 ]
 ConversationStatusReasonType = Literal["FAILED", "REJECTED", "SUCCESS"]
 ConversationStatusType = Literal["CLOSED", "PROCESSING", "READY"]
+CrossRegionStatusType = Literal["GLOBAL", "NONE", "REGIONAL"]
 ExternalSourceType = Literal["AMAZON_CONNECT"]
 FilterFieldType = Literal["NAME"]
 FilterOperatorType = Literal["EQUALS"]
@@ -248,6 +252,7 @@ ListKnowledgeBasesPaginatorName = Literal["list_knowledge_bases"]
 ListMessageTemplateVersionsPaginatorName = Literal["list_message_template_versions"]
 ListMessageTemplatesPaginatorName = Literal["list_message_templates"]
 ListMessagesPaginatorName = Literal["list_messages"]
+ListModelsPaginatorName = Literal["list_models"]
 ListQuickResponsesPaginatorName = Literal["list_quick_responses"]
 ListSpansPaginatorName = Literal["list_spans"]
 MessageFilterTypeType = Literal["ALL", "TEXT_ONLY"]
@@ -255,6 +260,7 @@ MessageTemplateAttributeTypeType = Literal["AGENT", "CUSTOM", "CUSTOMER_PROFILE"
 MessageTemplateFilterOperatorType = Literal["EQUALS", "PREFIX"]
 MessageTemplateQueryOperatorType = Literal["CONTAINS", "CONTAINS_AND_PREFIX"]
 MessageTypeType = Literal["TEXT", "TOOL_USE_RESULT"]
+ModelLifecycleType = Literal["ACTIVE", "LEGACY"]
 OrderType = Literal["ASC", "DESC"]
 OriginType = Literal["CUSTOMER", "SYSTEM"]
 ParsingStrategyType = Literal["BEDROCK_FOUNDATION_MODEL"]
@@ -795,6 +801,7 @@ PaginatorName = Literal[
     "list_message_template_versions",
     "list_message_templates",
     "list_messages",
+    "list_models",
     "list_quick_responses",
     "list_spans",
     "query_assistant",

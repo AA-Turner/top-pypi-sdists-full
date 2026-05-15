@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: encord
-Version: 0.1.195
+Version: 0.1.196
 Summary: Encord Python SDK Client
 Keywords: encord
 Author: Cord Technologies Limited
@@ -15,15 +15,24 @@ Requires-Dist: cryptography>=43.0.0
 Requires-Dist: tqdm>=4.32.1,<5.0.0
 Requires-Dist: pydantic>=1.10.14
 Requires-Dist: orjson>=2
+Requires-Dist: numpy>=1
+Requires-Dist: scale-sensor-fusion-io>=0.4.8
+Requires-Dist: typing-extensions>=4.0.0
 Requires-Dist: pycocotools>=2.0.7,<3.0.0 ; extra == 'coco'
 Requires-Dist: shapely>=2.0.4,<3.0.0 ; extra == 'coco'
 Requires-Dist: opencv-python>=4.11.0.86,<5.0.0.0 ; extra == 'coco'
 Requires-Dist: numpy>=1.24,<2.0.0 ; python_full_version < '3.12' and extra == 'coco'
 Requires-Dist: numpy>=1.26,<2.0.0 ; python_full_version >= '3.12' and extra == 'coco'
-Requires-Python: >=3.9
+Requires-Dist: mcap>=0.4.0 ; extra == 'mcap'
+Requires-Dist: mcap-protobuf-support>=0.5.0 ; extra == 'mcap'
+Requires-Dist: mcap-ros2-support>=0.5.0 ; extra == 'mcap'
+Requires-Dist: pillow>=10.0.0 ; extra == 'mcap'
+Requires-Dist: protobuf>=4.0.0 ; extra == 'mcap'
+Requires-Python: >=3.9, <3.13
 Project-URL: documentation, https://python.docs.encord.com/
 Project-URL: repository, https://github.com/encord-team/encord-client-python
 Provides-Extra: coco
+Provides-Extra: mcap
 Description-Content-Type: text/markdown
 
 <h1 align="center">

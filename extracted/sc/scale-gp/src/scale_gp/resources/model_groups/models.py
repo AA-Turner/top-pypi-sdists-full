@@ -5,6 +5,7 @@ from __future__ import annotations
 import httpx
 
 from ..._types import Body, Query, Headers, NotGiven, not_given
+from ..._utils import path_template
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -20,6 +21,8 @@ __all__ = ["ModelsResource", "AsyncModelsResource"]
 
 
 class ModelsResource(SyncAPIResource):
+    """Model API."""
+
     @cached_property
     def with_raw_response(self) -> ModelsResourceWithRawResponse:
         """
@@ -68,7 +71,11 @@ class ModelsResource(SyncAPIResource):
         if not model_instance_id:
             raise ValueError(f"Expected a non-empty value for `model_instance_id` but received {model_instance_id!r}")
         return self._post(
-            f"/v4/model-groups/{model_group_id}/models/{model_instance_id}",
+            path_template(
+                "/v4/model-groups/{model_group_id}/models/{model_instance_id}",
+                model_group_id=model_group_id,
+                model_instance_id=model_instance_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -77,6 +84,8 @@ class ModelsResource(SyncAPIResource):
 
 
 class AsyncModelsResource(AsyncAPIResource):
+    """Model API."""
+
     @cached_property
     def with_raw_response(self) -> AsyncModelsResourceWithRawResponse:
         """
@@ -125,7 +134,11 @@ class AsyncModelsResource(AsyncAPIResource):
         if not model_instance_id:
             raise ValueError(f"Expected a non-empty value for `model_instance_id` but received {model_instance_id!r}")
         return await self._post(
-            f"/v4/model-groups/{model_group_id}/models/{model_instance_id}",
+            path_template(
+                "/v4/model-groups/{model_group_id}/models/{model_instance_id}",
+                model_group_id=model_group_id,
+                model_instance_id=model_instance_id,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

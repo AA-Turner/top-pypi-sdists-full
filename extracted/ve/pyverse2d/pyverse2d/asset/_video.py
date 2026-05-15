@@ -43,3 +43,8 @@ class Video(Asset):
         Le volume doit être un ``Real`` positif.
         """
         return self._volume
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Video",
+]

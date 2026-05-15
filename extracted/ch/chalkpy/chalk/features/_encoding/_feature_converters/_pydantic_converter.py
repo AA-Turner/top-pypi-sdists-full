@@ -138,7 +138,7 @@ def _build_dict_to_model(model_class: type) -> "Callable[[Any], Any]":
                 return d
             if d is None:
                 return _pydantic_construct(model_class, **{f: sub[f](None) if f in sub else None for f in field_names})
-            converted = {f: sub[f](d[f]) if f in sub else d[f] for f in field_names}
+            converted = {f: sub[f](d.get(f)) if f in sub else d.get(f) for f in field_names}
             return _pydantic_construct(model_class, **converted)
 
         return _reconstruct_nested

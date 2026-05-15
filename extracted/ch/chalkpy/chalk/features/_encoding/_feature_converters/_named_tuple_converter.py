@@ -79,7 +79,7 @@ def _build_nt_to_dict(nt_class: type) -> Callable[[Any], Any]:
         if v is ...:
             return v
         if isinstance(v, dict):
-            return {f: sub[f](v[f]) if f in sub else v[f] for f in field_names}
+            return {f: sub[f](v.get(f)) if f in sub else v.get(f) for f in field_names}
         # NamedTuple or any object with attribute access
         return {f: sub[f](getattr(v, f)) if f in sub else getattr(v, f) for f in field_names}
 
@@ -112,7 +112,7 @@ def _build_dict_to_nt(nt_class: type) -> Callable[[Any], Any]:
         if isinstance(d, nt_class):
             return d
         if isinstance(d, dict):
-            return nt_class(**{f: sub[f](d[f]) if f in sub else d[f] for f in field_names})
+            return nt_class(**{f: sub[f](d.get(f)) if f in sub else d.get(f) for f in field_names})
         # list/tuple (JSON array form)
         return nt_class(**{f: sub[f](v) if f in sub else v for f, v in zip(field_names, d)})
 

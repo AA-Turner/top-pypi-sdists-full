@@ -162,13 +162,24 @@ def test_phase_set_default_skipped_when_unchanged(tmp_path, monkeypatch):
 
 def test_phase_set_default_updates_when_picker_disagrees(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    from sage.config import load_config
+    from sage.config import load_config, save_config, SageConfig
     from sage.core import bootstrap
+
+    # Pin a known starting default. Without this, if the SageConfig default
+    # ever happens to match the picker's return value, the picker
+    # short-circuits to "skipped" instead of "ok" — making this test flaky
+    # under test-order-dependent state pollution.
+    save_config(SageConfig(default_model="llama_cpp:starting-default"))
 
     monkeypatch.setattr("sage.core.auto_model.auto_pick_default_model",
                         lambda current: "ollama:qwen3-coder-next")
+    # Sanity-check the patch actually applied (catches cleanup bugs from
+    # earlier tests in the same session).
+    from sage.core.auto_model import auto_pick_default_model
+    assert auto_pick_default_model("anything") == "ollama:qwen3-coder-next"
+
     status, detail = bootstrap.phase_set_default_model(bootstrap.BootstrapOptions())
-    assert status == "ok"
+    assert status == "ok", f"phase returned {status!r} ({detail})"
     cfg = load_config()
     assert cfg.default_model == "ollama:qwen3-coder-next"
 

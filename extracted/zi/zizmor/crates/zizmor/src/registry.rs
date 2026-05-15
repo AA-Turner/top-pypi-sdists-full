@@ -78,6 +78,8 @@ impl AuditRegistry {
         register_audit!(audit::misfeature::Misfeature);
         register_audit!(audit::secrets_outside_env::SecretsOutsideEnvironment);
         register_audit!(audit::superfluous_actions::SuperfluousActions);
+        register_audit!(audit::github_app::GitHubApp);
+        register_audit!(audit::unpinned_tools::UnpinnedTools);
 
         Ok(registry)
     }
@@ -115,6 +117,7 @@ pub(crate) struct FindingRegistry<'a> {
     minimum_severity: Option<Severity>,
     minimum_confidence: Option<Confidence>,
     persona: Persona,
+    no_ignores: bool,
     suppressed: Vec<Finding<'a>>,
     ignored: Vec<Finding<'a>>,
     findings: Vec<Finding<'a>>,
@@ -127,12 +130,14 @@ impl<'a> FindingRegistry<'a> {
         minimum_severity: Option<Severity>,
         minimum_confidence: Option<Confidence>,
         persona: Persona,
+        no_ignores: bool,
     ) -> Self {
         Self {
             input_registry,
             minimum_severity,
             minimum_confidence,
             persona,
+            no_ignores,
             suppressed: Default::default(),
             ignored: Default::default(),
             findings: Default::default(),
@@ -145,20 +150,32 @@ impl<'a> FindingRegistry<'a> {
     pub(crate) fn extend(&mut self, results: Vec<Finding<'a>>) {
         // TODO: is it faster to iterate like this, or do `find_by_max`
         // and then `extend`?
-        for finding in results {
+        for mut finding in results {
+            finding.determinations.severity = self
+                .input_registry
+                .get_config(finding.input_group())
+                .severity_remap(&finding)
+                .unwrap_or(finding.determinations.severity);
+
+            // A finding is ignored either if it's marked as ignored (i.e. via an ignore comment),
+            // or the config for its input group ignores it, but only the user hasn't
+            // overridden all ignores with `--no-ignores`.
+            let ignored = (finding.ignored
+                || self
+                    .input_registry
+                    .get_config(finding.input_group())
+                    .ignores(&finding))
+                && !self.no_ignores;
+
             if self.persona > finding.determinations.persona {
                 self.suppressed.push(finding);
-            } else if finding.ignored
+            } else if ignored
                 || self
                     .minimum_severity
                     .is_some_and(|min| min > finding.determinations.severity)
                 || self
                     .minimum_confidence
                     .is_some_and(|min| min > finding.determinations.confidence)
-                || self
-                    .input_registry
-                    .get_config(finding.input_group())
-                    .ignores(&finding)
             {
                 self.ignored.push(finding);
             } else {

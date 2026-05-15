@@ -22,13 +22,45 @@ DEFAULT_PAD_PERCENTAGE = 5.0
 FONT_SIZE_SCALE_EXP = 1.3
 FONT_SIZE_SCALE_LUMI = 1.1
 FONT_SIZE_SCALE_SUPP = 1.3
-FONT_HEIGHT_CORRECTION_FACTOR = 10
-FONT_WIDTH_CORRECTION_FACTOR = 3
+# Height/width correction factors are calibrated so that at the legacy default
+# DPI of 100 the resulting pixel gap equals the value the old (dimensionally
+# wrong) formula produced. With the dimensionally correct (points/72) math now
+# in use, the factors carry the 100/72 calibration constant.
+_LEGACY_DPI_CALIBRATION = 100 / 72
+FONT_HEIGHT_CORRECTION_FACTOR = 10 * _LEGACY_DPI_CALIBRATION
+FONT_WIDTH_CORRECTION_FACTOR = 3 * _LEGACY_DPI_CALIBRATION
 BOTTOM_MARGIN_OFFSET = -0.1
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
+
+
+def _safe_get_renderer(fig):
+    """Return a renderer for *fig*, tolerating canvases without ``get_renderer``.
+
+    On bare ``Figure()`` instances (e.g. ones produced by
+    ``matplotlib.testing.decorators.check_figures_equal`` before save), the
+    canvas is ``FigureCanvasBase`` which lacks ``get_renderer`` on mpl >= 3.11.
+    ``Figure._get_renderer`` is the cross-canvas fallback used by mpl itself.
+    """
+    canvas = fig.canvas
+    if hasattr(canvas, "get_renderer"):
+        return canvas.get_renderer()
+    return fig._get_renderer()
+
+
+def _descent_from_layout(layout):
+    """Extract a scalar descent (in display units) from a ``Text._get_layout`` result.
+
+    mpl < 3.12 returned ``(bbox, lines, descent)`` with ``descent`` a scalar.
+    mpl >= 3.12 returned ``(bbox, lines, (xy_corner, (w, h)))`` where the
+    lower-left corner's y is at ``-descent`` relative to the baseline.
+    """
+    descent_or_corner = layout[2]
+    if isinstance(descent_or_corner, tuple) and isinstance(descent_or_corner[0], tuple):
+        return -descent_or_corner[0][1]
+    return float(descent_or_corner)
 
 
 class ExpLabel(mtext.Text):
@@ -208,10 +240,10 @@ def _fontsize_to_points(fontsize: str | float) -> float:
 def _fontsize_axis(ax: Axes, fontsize: str | float) -> float:
     """Convert fontsize to axis fraction units."""
     fontsize_points = _fontsize_to_points(fontsize)
-    return (
-        fontsize_points
-        / (ax.get_position().height * ax.figure.get_size_inches()[1])  # type: ignore[union-attr]
-        / ax.figure.dpi
+    # Convert points to inches (1pt = 1/72 inch), then divide by axis height
+    # in inches to express the font size as an axis-fraction.
+    return (fontsize_points / 72) / (
+        ax.get_position().height * ax.figure.get_size_inches()[1]  # type: ignore[union-attr]
     )
 
 
@@ -483,13 +515,18 @@ def append_text(
 
     ax_width = ax.get_position().width * ax.figure.get_size_inches()[0]  # type: ignore[union-attr]
     ax_height = ax.get_position().height * ax.figure.get_size_inches()[1]  # type: ignore[union-attr]
-    bbox, _, descent = txt_obj._get_layout(ax.figure.canvas.get_renderer())  # type: ignore[attr-defined,union-attr]
+    _layout = txt_obj._get_layout(_safe_get_renderer(ax.figure))  # type: ignore[attr-defined,union-attr]
+    bbox = _layout[0]
+    descent = _descent_from_layout(_layout)
     width, height = bbox.width, bbox.height
     dpi = ax.figure.dpi
     text_height = height / ax_height / dpi
-    text_height_corr = fontsize / FONT_HEIGHT_CORRECTION_FACTOR / ax_height / dpi
+    # `fontsize` is in points; convert to inches (/72) before dividing by axis
+    # extents in inches to get an axis-fraction. Using /dpi here would treat
+    # points as pixels and is what caused the gap to look wrong at non-default DPIs.
+    text_height_corr = (fontsize / 72) / FONT_HEIGHT_CORRECTION_FACTOR / ax_height
     text_width = width / ax_width / dpi
-    text_width_corr = fontsize / FONT_WIDTH_CORRECTION_FACTOR / ax_width / dpi
+    text_width_corr = (fontsize / 72) / FONT_WIDTH_CORRECTION_FACTOR / ax_width
     yoffset = descent / ax_height / dpi
 
     # Account for horizontal alignment of the reference text
@@ -675,7 +712,13 @@ def exp_text(
         _fontsize = base_fontsize
         _fontsize_lumi = base_fontsize / FONT_SIZE_SCALE_LUMI
         _fontsize_supp = base_fontsize / FONT_SIZE_SCALE_SUPP
-    _inside_pad = max(5, _fontsize_axis(ax, _fontsize_exp) * 100)
+    # `_fontsize_axis` returns a true physical axis-fraction (fontsize_in / ax_height_in).
+    # The legacy pad calibration was tuned against the old (dimensionally wrong)
+    # formula that, at the default DPI of 100, effectively returned that fraction
+    # scaled by 100/72. Multiplying by 72 here (rather than 100, to convert
+    # fraction -> percent) reproduces the legacy nominal value while staying
+    # DPI-invariant.
+    _inside_pad = max(5, _fontsize_axis(ax, _fontsize_exp) * 72)
     _italic_exp, _italic_suff, _italic_lumi, _italic_supp = fontstyle
     _weight_exp, _weight_suff, _weight_lumi, _weight_supp = fontweight
 
@@ -684,11 +727,10 @@ def exp_text(
         _fmt = ax.get_yaxis().get_major_formatter()
         if hasattr(_fmt, "get_useOffset") and _fmt.get_useOffset():  # type: ignore[attr-defined]
             # Requires figure.draw call, fetch only when needed
-            ax.figure.draw(ax.figure.canvas.get_renderer())  # type: ignore[attr-defined,union-attr]
+            _renderer = _safe_get_renderer(ax.figure)
+            ax.figure.draw(_renderer)  # type: ignore[union-attr]
             _sci_box = _pixel_to_axis(
-                ax.get_yaxis().offsetText.get_window_extent(
-                    ax.figure.canvas.get_renderer()  # type: ignore[attr-defined,union-attr]
-                )  # type: ignore[attr-defined]
+                ax.get_yaxis().offsetText.get_window_extent(_renderer)  # type: ignore[attr-defined]
             )
             # Use abs() to handle cases where extent coordinates may be reversed
             _sci_offset = max(0, abs(_sci_box.width) * 1.1)
@@ -1068,7 +1110,7 @@ def save_variations(
         for ax in fig.get_axes():
             exp_labels = [t for t in ax.get_children() if isinstance(t, ExpText)]
             suffixes = [t for t in ax.get_children() if isinstance(t, ExpText)]
-            for exp_label, suffix_text in zip(exp_labels, suffixes):
+            for exp_label, suffix_text in zip(exp_labels, suffixes, strict=True):
                 if exp is not None:
                     exp_label.set_text(exp)
                 suffix_text.set_text(text)

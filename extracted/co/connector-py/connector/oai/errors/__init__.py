@@ -35,6 +35,7 @@ from .client import (
 )
 from .internal import InternalError, InvalidResponseError, UnsupportedOperationError
 from .transient import (
+    BudgetExhaustedError,
     ConnectionClosedError,
     ConnectionRejectedError,
     NetworkError,
@@ -65,6 +66,7 @@ __all__ = [
     # Transient (UPSTREAM+INFRASTRUCTURE / TRANSIENT)
     "TransientError",
     "RateLimitError",
+    "BudgetExhaustedError",
     "UpstreamError",
     "NetworkError",
     "ConnectionRejectedError",

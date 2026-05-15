@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyreadline3
-Version: 3.5.4
+Version: 3.5.6
 Summary: A python implementation of GNU readline.
 Author-email: Bassem Girgis <brgirgis@gmail.com>, Jorgen Stenarson <jorgen.stenarson@kroywen.se>, Gary Bishop <unknwon@unknown.com>, Jack Trainor <unknwon@unknown.com>
 Maintainer-email: Bassem Girgis <brgirgis@gmail.com>
@@ -29,6 +29,7 @@ Requires-Dist: flake8; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: twine; extra == "dev"
+Dynamic: license-file
 
 # pyreadline3
 

@@ -75,7 +75,7 @@ class EmbeddingConfigEmbeddingConfigBase(TypedDict, total=False):
 EmbeddingConfig: TypeAlias = Union[EmbeddingConfigEmbeddingConfigModelsAPI, EmbeddingConfigEmbeddingConfigBase]
 
 
-class KBIndexConfigurationTyped(TypedDict, total=False):
+class KBIndexConfiguration(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
     """
     Configuration for metadata schema in the knowledge base, including field definitions and index settings
     """
@@ -90,6 +90,3 @@ class KBIndexConfigurationTyped(TypedDict, total=False):
 
     max_index_size: int
     """Maximum size (in bytes) for the index. If not provided, uses the default."""
-
-
-KBIndexConfiguration: TypeAlias = Union[KBIndexConfigurationTyped, Dict[str, object]]

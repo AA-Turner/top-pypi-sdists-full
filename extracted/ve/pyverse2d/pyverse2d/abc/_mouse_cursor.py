@@ -15,3 +15,8 @@ class MouseCursor(ABC):
 
     @abstractmethod
     def to_pyglet(self, window: Window) -> MouseCursor: ...
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "MouseCursor",
+]

@@ -39,8 +39,9 @@ class ApiService(BaseService):
         """
         Call the API with HTTP GET. Return a Response with JSON deserialized as Dict[str, Any].
 
-        :param url: A relative URL path excluding host and scheme (e.g., /api/v2-alpha/some-endpoint) :param
-        additional_headers: A dict of key/values to add to the request as HTTP headers :return: The raw HTTP Response
+        :param url: A relative URL path excluding host and scheme (e.g., /api/v2-alpha/some-endpoint)
+        :param additional_headers: A dict of key/values to add to the request as HTTP headers
+        :return: The raw HTTP Response
         :rtype: Response[Dict[str, Any]]
         """
         httpx_response = self._get(url, additional_headers)
@@ -57,10 +58,11 @@ class ApiService(BaseService):
 
         Automatically retries errors as configured in RetryStrategy.
 
-        :param url: A relative URL path excluding host and scheme (e.g., /api/v2-alpha/some-endpoint) :param
-        target_type: A class type of DeserializableModel to deserialize from the response JSON :param
-        additional_headers: A dict of key/values to add to the request as HTTP headers :return: The deserialized
-        modeled response :rtype: D
+        :param url: A relative URL path excluding host and scheme (e.g., /api/v2-alpha/some-endpoint)
+        :param target_type: A class type of DeserializableModel to deserialize from the response JSON
+        :param additional_headers: A dict of key/values to add to the request as HTTP headers
+        :return: The deserialized modeled response
+        :rtype: D
         """
         response = self.get_response(url, additional_headers)
         optional_parsed = response.parsed
@@ -93,9 +95,11 @@ class ApiService(BaseService):
         """
         Call the API with HTTP POST. Return a Response with JSON deserialized as Dict[str, Any].
 
-        :param url: A relative URL path excluding host and scheme (e.g., /api/v2-alpha/some-endpoint) :param body: Body
-        of the POST request, which will be serialized to JSON :param additional_headers: A dict of key/values to add to
-        the request as HTTP headers :return: The raw HTTP Response :rtype: Response[Dict[str, Any]]
+        :param url: A relative URL path excluding host and scheme (e.g., /api/v2-alpha/some-endpoint)
+        :param body: Body of the POST request, which will be serialized to JSON
+        :param additional_headers: A dict of key/values to add to the request as HTTP headers
+        :return: The raw HTTP Response
+        :rtype: Response[Dict[str, Any]]
         """
         httpx_response = self._post(url, json=body, additional_headers=additional_headers)
         response = build_json_response(response=httpx_response)
@@ -115,15 +119,19 @@ class ApiService(BaseService):
 
         Automatically retries errors as configured in RetryStrategy.
 
-        :param url: A relative URL path excluding host and scheme (e.g., /api/v2-alpha/some-endpoint) :param
-        target_type: A class type of DeserializableModel to deserialize from the response JSON :param body: Body of the
-        POST request as a class implementing SerializableModel. Will be serialized to JSON :param additional_headers: A
-        dict of key/values to add to the request as HTTP headers :return: The deserialized modeled response :rtype: D
+        :param url: A relative URL path excluding host and scheme (e.g., /api/v2-alpha/some-endpoint)
+        :param target_type: A class type of DeserializableModel to deserialize from the response JSON
+        :param body: Body of the POST request as a class implementing SerializableModel. Will be serialized to JSON
+        :param additional_headers: A dict of key/values to add to the request as HTTP headers
+        :return: The deserialized modeled response
+        :rtype: D
         """
         serialized_body = body.serialize() if body else None
         response = self.post_response(url, serialized_body, additional_headers)
         optional_parsed = response.parsed
-        return target_type.deserialize(optional_parsed) if optional_parsed else None
+        if optional_parsed is None:
+            return None
+        return target_type.deserialize(optional_parsed)
 
     def _patch(
         self,
@@ -149,9 +157,11 @@ class ApiService(BaseService):
         """
         Call the API with HTTP PATCH. Returns a Response with JSON deserialized as Dict[str, Any].
 
-        :param url: A relative URL path excluding host and scheme (e.g., /api/v2-alpha/some-endpoint) :param body: Body
-        of the PATCH request, which will be serialized to JSON :param additional_headers: A dict of key/values to add
-        to the request as HTTP headers :return: The raw HTTP Response :rtype: Response[Dict[str, Any]]
+        :param url: A relative URL path excluding host and scheme (e.g., /api/v2-alpha/some-endpoint)
+        :param body: Body of the PATCH request, which will be serialized to JSON
+        :param additional_headers: A dict of key/values to add to the request as HTTP headers
+        :return: The raw HTTP Response
+        :rtype: Response[Dict[str, Any]]
         """
         httpx_response = self._patch(url, json=body, additional_headers=additional_headers)
         response = build_json_response(response=httpx_response)
@@ -171,15 +181,19 @@ class ApiService(BaseService):
 
         Automatically retries errors as configured in RetryStrategy.
 
-        :param url: A relative URL path excluding host and scheme (e.g., /api/v2-alpha/some-endpoint) :param
-        target_type: A class type of DeserializableModel to deserialize from the response JSON :param body: Body of the
-        PATCH request as a class implementing SerializableModel. Will be serialized to JSON :param additional_headers:
-        A dict of key/values to add to the request as HTTP headers :return: The deserialized modeled response :rtype: D
+        :param url: A relative URL path excluding host and scheme (e.g., /api/v2-alpha/some-endpoint)
+        :param target_type: A class type of DeserializableModel to deserialize from the response JSON
+        :param body: Body of the PATCH request as a class implementing SerializableModel. Will be serialized to JSON
+        :param additional_headers: A dict of key/values to add to the request as HTTP headers
+        :return: The deserialized modeled response
+        :rtype: D
         """
         serialized_body = body.serialize() if body else None
         response = self.patch_response(url, serialized_body, additional_headers)
         optional_parsed = response.parsed
-        return target_type.deserialize(optional_parsed) if optional_parsed else None
+        if optional_parsed is None:
+            return None
+        return target_type.deserialize(optional_parsed)
 
     def _delete(
         self,
@@ -189,8 +203,8 @@ class ApiService(BaseService):
         """
         Return a raw HTTPX response. Does not assume JSON. Does not automatically retry errors.
 
-        :param url: A relative URL path excluding host and scheme (e.g., /api/v2-alpha/some-endpoint) :param
-        additional_headers: A dict of key/values to add to the request as HTTP headers
+        :param url: A relative URL path excluding host and scheme (e.g., /api/v2-alpha/some-endpoint)
+        :param additional_headers: A dict of key/values to add to the request as HTTP headers
         """
         args = _get_kwargs(self.client, url, additional_headers=additional_headers)
         return self.client.httpx_client.delete(**args)
@@ -219,14 +233,17 @@ class ApiService(BaseService):
 
         Automatically retries errors as configured in RetryStrategy.
 
-        :param url: A relative URL path excluding host and scheme (e.g., /api/v2-alpha/some-endpoint) :param
-        target_type: A class type of DeserializableModel to deserialize from the response JSON :param
-        additional_headers: A dict of key/values to add to the request as HTTP headers :return: The deserialized
-        modeled response :rtype: D
+        :param url: A relative URL path excluding host and scheme (e.g., /api/v2-alpha/some-endpoint)
+        :param target_type: A class type of DeserializableModel to deserialize from the response JSON
+        :param additional_headers: A dict of key/values to add to the request as HTTP headers
+        :return: The deserialized modeled response
+        :rtype: D
         """
         response = self.delete_response(url, additional_headers)
         optional_parsed = response.parsed
-        return target_type.deserialize(optional_parsed) if optional_parsed else None
+        if optional_parsed is None:
+            return None
+        return target_type.deserialize(optional_parsed)
 
 
 def _get_kwargs(client: Client, url: str, additional_headers: Optional[Dict[str, Any]]) -> Dict[str, Any]:

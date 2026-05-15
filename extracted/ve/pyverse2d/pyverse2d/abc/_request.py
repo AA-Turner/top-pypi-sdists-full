@@ -7,3 +7,8 @@ from abc import ABC
 class Request(ABC):
     """Classe abstraites des requête contenant un jeu d'informations ponctuel"""
     __slots__ = tuple()
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Request",
+]

@@ -17,6 +17,25 @@ class ForeignKeyAttribute(System.Attribute):
         ...
 
 
+class TableAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @property
+    def schema(self) -> str:
+        ...
+
+    @schema.setter
+    def schema(self, value: str) -> None:
+        ...
+
+    def __init__(self, name: str) -> None:
+        ...
+
+
 class DatabaseGeneratedOption(IntEnum):
     """This class has no documentation."""
 
@@ -38,38 +57,8 @@ class DatabaseGeneratedAttribute(System.Attribute):
         ...
 
 
-class TableAttribute(System.Attribute):
+class ComplexTypeAttribute(System.Attribute):
     """This class has no documentation."""
-
-    @property
-    def name(self) -> str:
-        ...
-
-    @property
-    def schema(self) -> str:
-        ...
-
-    @schema.setter
-    def schema(self, value: str) -> None:
-        ...
-
-    def __init__(self, name: str) -> None:
-        ...
-
-
-class NotMappedAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class InversePropertyAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def property(self) -> str:
-        ...
-
-    def __init__(self, property: str) -> None:
-        ...
 
 
 class ColumnAttribute(System.Attribute):
@@ -104,7 +93,18 @@ class ColumnAttribute(System.Attribute):
         ...
 
 
-class ComplexTypeAttribute(System.Attribute):
+class InversePropertyAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def property(self) -> str:
+        ...
+
+    def __init__(self, property: str) -> None:
+        ...
+
+
+class NotMappedAttribute(System.Attribute):
     """This class has no documentation."""
 
 

@@ -120,6 +120,22 @@ class Extremum(System.Object):
         ...
 
 
+class Maximization(QuantConnect.Optimizer.Objectives.Extremum):
+    """Defines standard maximization strategy, i.e. right operand is greater than left"""
+
+    def __init__(self) -> None:
+        """Creates an instance of Maximization"""
+        ...
+
+
+class Minimization(QuantConnect.Optimizer.Objectives.Extremum):
+    """Defines standard minimization strategy, i.e. right operand is less than left"""
+
+    def __init__(self) -> None:
+        """Creates an instance of Minimization"""
+        ...
+
+
 class Target(QuantConnect.Optimizer.Objectives.Objective):
     """The optimization statistical target"""
 
@@ -178,14 +194,6 @@ class Target(QuantConnect.Optimizer.Objectives.Objective):
         ...
 
 
-class Maximization(QuantConnect.Optimizer.Objectives.Extremum):
-    """Defines standard maximization strategy, i.e. right operand is greater than left"""
-
-    def __init__(self) -> None:
-        """Creates an instance of Maximization"""
-        ...
-
-
 class ExtremumJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnect.Optimizer.Objectives.Extremum, str]):
     """Class for converting string values to Maximization or Minimization strategy objects"""
 
@@ -219,14 +227,6 @@ class ExtremumJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConne
         
         :param value: 
         """
-        ...
-
-
-class Minimization(QuantConnect.Optimizer.Objectives.Extremum):
-    """Defines standard minimization strategy, i.e. right operand is less than left"""
-
-    def __init__(self) -> None:
-        """Creates an instance of Minimization"""
         ...
 
 

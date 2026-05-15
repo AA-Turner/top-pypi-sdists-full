@@ -3,6 +3,7 @@
 
 #include "qpdf_pagelist.h"
 #include "pikepdf.h"
+#include "qpdf_lock.h"
 
 #include <qpdf/QPDFPageDocumentHelper.hh>
 #include <qpdf/QPDFPageLabelDocumentHelper.hh>
@@ -11,26 +12,27 @@
 static QPDFPageObjectHelper as_page_helper(py::handle obj)
 {
     try {
-        return obj.cast<QPDFPageObjectHelper>();
+        return py::cast<QPDFPageObjectHelper>(obj);
     } catch (const py::cast_error &) {
-        throw py::type_error(
+        throw py::type_error((
             std::string(
                 "only pikepdf pages can be assigned to a page list; tried to assign ") +
-            std::string(py::repr(py::type::of(obj))));
+            py::cast<std::string>(py::str(py::inst_name(obj))))
+                .c_str());
     }
 }
 
-py::size_t uindex_from_index(PageList &pl, py::ssize_t index)
+size_t uindex_from_index(PageList &pl, py::ssize_t index)
 {
     if (index < 0)
         index += pl.count();
     if (index < 0) // Still
         throw py::index_error("Accessing nonexistent PDF page number");
-    py::size_t uindex = index;
+    size_t uindex = index;
     return uindex;
 }
 
-QPDFPageObjectHelper PageList::get_page(py::size_t index)
+QPDFPageObjectHelper PageList::get_page(size_t index)
 {
     auto pages = this->doc.getAllPages();
     if (index < pages.size())
@@ -40,12 +42,10 @@ QPDFPageObjectHelper PageList::get_page(py::size_t index)
 
 std::vector<QPDFPageObjectHelper> PageList::get_page_objs_impl(py::slice slice)
 {
-    py::size_t start, stop, step, slicelength;
-    if (!slice.compute(this->count(), &start, &stop, &step, &slicelength))
-        throw py::error_already_set(); // LCOV_EXCL_LINE
+    auto [start, stop, step, slicelength] = slice.compute(this->count());
     std::vector<QPDFPageObjectHelper> result;
     result.reserve(slicelength);
-    for (py::size_t i = 0; i < slicelength; ++i) {
+    for (size_t i = 0; i < slicelength; ++i) {
         auto oh = this->get_page(start);
         result.push_back(oh);
         start += step;
@@ -63,12 +63,12 @@ py::list PageList::get_pages(py::slice slice)
     return result;
 }
 
-void PageList::set_page(py::size_t index, py::object obj)
+void PageList::set_page(size_t index, py::object obj)
 {
     set_page(index, as_page_helper(obj));
 }
 
-void PageList::set_page(py::size_t index, QPDFPageObjectHelper page)
+void PageList::set_page(size_t index, QPDFPageObjectHelper page)
 {
     this->insert_page(index, page);
     if (index != this->count()) {
@@ -78,11 +78,9 @@ void PageList::set_page(py::size_t index, QPDFPageObjectHelper page)
 
 void PageList::set_pages_from_iterable(py::slice slice, py::iterable other)
 {
-    py::size_t start, stop, step, slicelength;
-    if (!slice.compute(this->count(), &start, &stop, &step, &slicelength))
-        throw py::error_already_set(); // LCOV_EXCL_LINE
+    auto [start, stop, step, slicelength] = slice.compute(this->count());
     std::vector<QPDFPageObjectHelper> results;
-    py::iterator it = other.attr("__iter__")();
+    py::iterator it = py::iter(other);
 
     // Unpack list into iterable, check that each object is a page but
     // don't save the handles yet
@@ -93,12 +91,14 @@ void PageList::set_pages_from_iterable(py::slice slice, py::iterable other)
     if (step != 1) {
         // For an extended slice we must be replace an equal number of pages
         if (results.size() != slicelength) {
-            throw py::value_error(std::string("attempt to assign sequence of length ") +
-                                  std::to_string(results.size()) +
-                                  std::string(" to extended slice of size ") +
-                                  std::to_string(slicelength));
+            throw py::value_error(
+                (std::string("attempt to assign sequence of length ") +
+                    std::to_string(results.size()) +
+                    std::string(" to extended slice of size ") +
+                    std::to_string(slicelength))
+                    .c_str());
         }
-        for (py::size_t i = 0; i < slicelength; ++i) {
+        for (size_t i = 0; i < slicelength; ++i) {
             this->set_page(start + (i * step), results.at(i));
         }
     } else {
@@ -108,18 +108,18 @@ void PageList::set_pages_from_iterable(py::slice slice, py::iterable other)
         // and then delete all pages we no longer need
 
         // Insert first to ensure we don't delete any pages we will need
-        for (py::size_t i = 0; i < results.size(); ++i) {
+        for (size_t i = 0; i < results.size(); ++i) {
             this->insert_page(start + i, results.at(i));
         }
 
-        py::size_t del_start = start + results.size();
-        for (py::size_t i = 0; i < slicelength; ++i) {
+        size_t del_start = start + results.size();
+        for (size_t i = 0; i < slicelength; ++i) {
             this->delete_page(del_start);
         }
     }
 }
 
-void PageList::delete_page(py::size_t index)
+void PageList::delete_page(size_t index)
 {
     auto page = this->get_page(index);
     this->doc.removePage(page);
@@ -136,12 +136,12 @@ void PageList::delete_pages_from_iterable(py::slice slice)
     }
 }
 
-py::size_t PageList::count()
+size_t PageList::count()
 {
     return this->doc.getAllPages().size();
 }
 
-void PageList::insert_page(py::size_t index, QPDFPageObjectHelper page)
+void PageList::insert_page(size_t index, QPDFPageObjectHelper page)
 {
     if (index != this->count()) {
         auto refpage = this->get_page(index);
@@ -176,35 +176,56 @@ QPDFPageObjectHelper PageListIterator::next()
 
 void init_pagelist(py::module_ &m)
 {
-    py::class_<PageListIterator, py::smart_holder>(m, "_PageListIterator")
+    py::class_<PageListIterator>(
+        m, "_PageListIterator", py::type_slots(pikepdf_gc_slots))
         .def("__iter__", [](PageListIterator &it) { return it; })
         .def("__next__", &PageListIterator::next);
 
-    py::class_<PageList, py::smart_holder>(m, "PageList")
+    py::class_<PageList>(m, "PageList", py::type_slots(pikepdf_gc_slots))
         .def(
             "__getitem__",
             [](PageList &pl, py::ssize_t index) {
+                QpdfLockGuard lock(pl.qpdf.get());
                 auto uindex = uindex_from_index(pl, index);
                 return pl.get_page(uindex);
             },
-            py::return_value_policy::reference_internal)
-        .def("__getitem__", &PageList::get_pages)
+            py::rv_policy::reference_internal)
+        .def("__getitem__",
+            [](PageList &pl, py::slice slice) {
+                QpdfLockGuard lock(pl.qpdf.get());
+                return pl.get_pages(slice);
+            })
         .def("__setitem__",
             [](PageList &pl, py::ssize_t index, py::object page) {
+                QpdfLockGuard lock(pl.qpdf.get());
                 auto uindex = uindex_from_index(pl, index);
                 pl.set_page(uindex, page);
             })
-        .def("__setitem__", &PageList::set_pages_from_iterable)
+        .def("__setitem__",
+            [](PageList &pl, py::slice slice, py::iterable other) {
+                QpdfLockGuard lock(pl.qpdf.get());
+                pl.set_pages_from_iterable(slice, other);
+            })
         .def("__delitem__",
             [](PageList &pl, py::ssize_t index) {
+                QpdfLockGuard lock(pl.qpdf.get());
                 auto uindex = uindex_from_index(pl, index);
                 pl.delete_page(uindex);
             })
-        .def("__delitem__", &PageList::delete_pages_from_iterable)
-        .def("__len__", &PageList::count)
+        .def("__delitem__",
+            [](PageList &pl, py::slice slice) {
+                QpdfLockGuard lock(pl.qpdf.get());
+                pl.delete_pages_from_iterable(slice);
+            })
+        .def("__len__",
+            [](PageList &pl) {
+                QpdfLockGuard lock(pl.qpdf.get());
+                return pl.count();
+            })
         .def(
             "p",
             [](PageList &pl, py::ssize_t pnum) {
+                QpdfLockGuard lock(pl.qpdf.get());
                 if (pnum <= 0) // Indexing past end is checked in .get_page
                     throw py::index_error(
                         "page access out of range in 1-based indexing");
@@ -213,11 +234,15 @@ void init_pagelist(py::module_ &m)
             py::arg("pnum"))
         .def(
             "__iter__",
-            [](PageList &pl) { return PageListIterator{pl, 0}; },
+            [](PageList &pl) {
+                QpdfLockGuard lock(pl.qpdf.get());
+                return PageListIterator{pl, 0};
+            },
             py::keep_alive<0, 1>())
         .def(
             "insert",
             [](PageList &pl, py::ssize_t index, QPDFPageObjectHelper &page) {
+                QpdfLockGuard lock(pl.qpdf.get());
                 auto uindex = uindex_from_index(pl, index);
                 pl.insert_page(uindex, page);
             },
@@ -232,14 +257,21 @@ void init_pagelist(py::module_ &m)
             py::arg("obj"))
         .def("reverse",
             [](PageList &pl) {
-                py::slice ordinary_indices(0, pl.count(), 1);
-                py::slice reversed{{}, {}, -1};
+                QpdfLockGuard lock(pl.qpdf.get());
+                size_t n = pl.count();
+                py::slice ordinary_indices((Py_ssize_t)0, (Py_ssize_t)n, (Py_ssize_t)1);
+                py::object none_obj = py::none();
+                py::slice reversed(none_obj, none_obj, py::int_(-1));
                 py::list reversed_pages = pl.get_pages(reversed);
-                pl.set_pages_from_iterable(ordinary_indices, reversed_pages);
+                pl.set_pages_from_iterable(
+                    ordinary_indices, py::borrow<py::iterable>(reversed_pages));
             })
         .def(
             "append",
-            [](PageList &pl, QPDFPageObjectHelper &page) { pl.append_page(page); },
+            [](PageList &pl, QPDFPageObjectHelper &page) {
+                QpdfLockGuard lock(pl.qpdf.get());
+                pl.append_page(page);
+            },
             py::arg("page"))
         .def(
             "append",
@@ -250,6 +282,7 @@ void init_pagelist(py::module_ &m)
         .def(
             "extend",
             [](PageList &pl, PageList &other) {
+                DualQpdfLockGuard lock(pl.qpdf.get(), other.qpdf.get());
                 auto other_pages = other.doc.getAllPages();
                 for (auto &page : other_pages) {
                     pl.append_page(page);
@@ -259,7 +292,8 @@ void init_pagelist(py::module_ &m)
         .def(
             "extend",
             [](PageList &pl, py::iterable iterable) {
-                py::iterator it = iterable.attr("__iter__")();
+                QpdfLockGuard lock(pl.qpdf.get());
+                py::iterator it = py::iter(iterable);
                 while (it != py::iterator::sentinel()) {
                     pl.append_page(as_page_helper(*it));
                     ++it;
@@ -268,6 +302,7 @@ void init_pagelist(py::module_ &m)
             py::arg("iterable"))
         .def("remove",
             [](PageList &pl, QPDFPageObjectHelper &page) {
+                QpdfLockGuard lock(pl.qpdf.get());
                 try {
                     pl.doc.removePage(page);
                 } catch (const QPDFExc &) {
@@ -277,6 +312,7 @@ void init_pagelist(py::module_ &m)
         .def(
             "remove",
             [](PageList &pl, py::ssize_t pnum) {
+                QpdfLockGuard lock(pl.qpdf.get());
                 if (pnum <= 0) // Indexing past end is checked in .get_page
                     throw py::index_error(
                         "page access out of range in 1-based indexing");
@@ -286,22 +322,27 @@ void init_pagelist(py::module_ &m)
             py::arg("p"))
         .def("index",
             [](PageList &pl, const QPDFObjectHandle &h) {
+                QpdfLockGuard lock(pl.qpdf.get());
                 return page_index(*pl.qpdf, h);
             })
         .def("index",
             [](PageList &pl, const QPDFPageObjectHelper &poh) {
+                QpdfLockGuard lock(pl.qpdf.get());
                 return page_index(*pl.qpdf, poh.getObjectHandle());
             })
         .def("__repr__",
             [](PageList &pl) {
+                QpdfLockGuard lock(pl.qpdf.get());
                 return std::string("<pikepdf._core.PageList len=") +
                        std::to_string(pl.count()) + std::string(">");
             })
         .def("from_objgen",
             [](PageList &pl, int obj, int gen) {
+                QpdfLockGuard lock(pl.qpdf.get());
                 return from_objgen(*pl.qpdf, QPDFObjGen(obj, gen));
             })
         .def("from_objgen", [](PageList &pl, std::pair<int, int> objgen) {
+            QpdfLockGuard lock(pl.qpdf.get());
             return from_objgen(*pl.qpdf, QPDFObjGen(objgen.first, objgen.second));
         });
 }

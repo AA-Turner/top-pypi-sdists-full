@@ -47,6 +47,7 @@ class ApplicationAgentGraphNode(BaseModel):
             "KB_ADD_CHUNK",
             "KB_MANAGEMENT",
             "GUARDRAIL",
+            "OUTPUT_GUARDRAIL",
             "TRACER",
             "AGENT_TRACER",
             "AGENT_WORKFLOW",
